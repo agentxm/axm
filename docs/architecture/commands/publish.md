@@ -19,7 +19,7 @@ Publish:
 
 - selects explicitly requested authored extensions;
 - expands a pack selection only when the caller explicitly requests dependency
-  inclusion;
+  inclusion, and only for dependencies authored by the same workspace;
 - validates the complete selection before starting immutable uploads;
 - applies the registry's fixed archive and distribution requirements; and
 - reports the outcome of each selected extension without overstating remote
@@ -57,7 +57,8 @@ gate.
 
 Publish does not repair installed state, reconcile projections, change an
 extension's local authority, treat local lint configuration as registry policy,
-or infer publication intent from unpublished authored changes.
+infer publication intent from unpublished authored changes, or reconstruct a
+release from mutable installed external content.
 
 A configured workspace owner supplies an authoring default; it does not prove
 the caller is authenticated or authorized to publish under that handle.
@@ -67,8 +68,10 @@ immutable remote effect succeeds, a later local or remote failure cannot make
 that effect unoccur.
 
 Pack dependency inclusion is opt-in on both the root and pack-specific publish
-surfaces. Registry dependency validation is unconditional: leaving a dependency
-out of the local upload set never relaxes the pack's publication requirements.
+surfaces and can add only workspace-authored dependencies. Registry dependencies
+remain references rather than upload candidates. Registry dependency validation
+is unconditional: leaving a dependency out of the local upload set never
+relaxes the pack's publication requirements.
 
 Preview and apply report three separate layers: local selection decisions, the
 Registry-admitted publication set, and execution outcomes. Preview is

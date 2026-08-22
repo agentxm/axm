@@ -2,7 +2,19 @@
 type: Explanation
 title: Offerings and value in software architecture
 description: How offerings connect audiences, needs, jobs to be done, and value propositions to goal-oriented behavior and architecture without forcing them into one product hierarchy.
-tags: [offerings, value, audiences, needs, jobs-to-be-done, value-propositions, use-cases, capabilities, features, architecture-views]
+tags:
+  [
+    offerings,
+    value,
+    audiences,
+    needs,
+    jobs-to-be-done,
+    value-propositions,
+    use-cases,
+    capabilities,
+    features,
+    architecture-views,
+  ]
 status: draft
 sources:
   - id: strategyzer-value-proposition
@@ -64,19 +76,19 @@ An offering is therefore not automatically:
 - a business capability; or
 - a delivery initiative.
 
-Use a specific local term such as *product*, *service*, or *platform* in the
+Use a specific local term such as _product_, _service_, or _platform_ in the
 title when it is the accepted name. Use `Offering` as the common concept type
 that lets the corpus represent those cases consistently.
 
 ## Five complementary concepts
 
-| Concept | Question it answers | Important boundary |
-| --- | --- | --- |
-| Offering | What coherent value is intentionally made available? | It is not necessarily a commercial product or software boundary. |
-| Audience | For whom is the offering, need, claim, or interaction consequential? | It is a durable group, not a named person or a research persona. |
-| Need | What problem, constraint, opportunity, or desired outcome exists independently of a solution? | It does not prescribe a feature or implementation. |
-| Job to Be Done | What progress is an audience seeking in particular circumstances? | It is a demand-side lens, not a system capability or use-case flow. |
-| Value Proposition | Why should an audience expect an offering to address a need or job? | It is a scoped, evidence-bearing promise, not proof that an outcome occurred. |
+| Concept           | Question it answers                                                                           | Important boundary                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Offering          | What coherent value is intentionally made available?                                          | It is not necessarily a commercial product or software boundary.              |
+| Audience          | For whom is the offering, need, claim, or interaction consequential?                          | It is a durable group, not a named person or a research persona.              |
+| Need              | What problem, constraint, opportunity, or desired outcome exists independently of a solution? | It does not prescribe a feature or implementation.                            |
+| Job to Be Done    | What progress is an audience seeking in particular circumstances?                             | It is a demand-side lens, not a system capability or use-case flow.           |
+| Value Proposition | Why should an audience expect an offering to address a need or job?                           | It is a scoped, evidence-bearing promise, not proof that an outcome occurred. |
 
 ### Audience
 
@@ -96,9 +108,9 @@ canonical architecture concepts.
 ### Need
 
 A **need** is a problem, constraint, opportunity, or desired outcome that
-matters to an audience without assuming a particular response. *Preserve a
-scarce capacity commitment while plans are finalized* is a need; *add a hold
-button* is a proposed feature.
+matters to an audience without assuming a particular response. _Preserve a
+scarce capacity commitment while plans are finalized_ is a need; _add a hold
+button_ is a proposed feature.
 
 Needs can remain useful when the implementation, channel, or offering changes.
 They should be supported by accepted authority or evidence when they make
@@ -153,17 +165,17 @@ them.
 
 ## Keep neighboring architecture views distinct
 
-| View | Question | Relationship to demand and value |
-| --- | --- | --- |
-| Outcome or goal | What result is desired? | A need or job can name desired progress; an outcome is not the offering or its capability. |
-| Use case | How does a subject behave so an external actor can achieve a goal? | A use case connects demand to a chosen subject; it is behavior, not a value claim. |
-| Capability | What must an identified bearer be able to do? | Capabilities provide abilities that help offerings address needs and jobs. |
-| Feature | What recognizable behavior is available to an actor? | Features make part of an offering concrete but do not define its complete value. |
-| Surface | Where does an actor encounter behavior? | Surfaces expose features and use cases through applications, APIs, devices, protocols, or consoles. |
-| DDD subdomain or bounded context | What problem knowledge matters, and where does a model apply? | Domain concepts govern meaning, rules, and state used to provide value. |
-| C4 element | What software structure realizes behavior? | Systems, containers, and components may realize several offerings, capabilities, and use cases. |
-| Wardley map | What depends on what, for whose need, and at what stage of evolution? | A map can position audiences, needs, offerings, capabilities, or realizations as strategic hypotheses. |
-| Delivery work | What change is proposed, prioritized, or being delivered? | Initiatives, releases, stories, and feature requests have a delivery lifecycle outside accepted architecture meaning. |
+| View                             | Question                                                              | Relationship to demand and value                                                                                      |
+| -------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Outcome or goal                  | What result is desired?                                               | A need or job can name desired progress; an outcome is not the offering or its capability.                            |
+| Use case                         | How does a subject behave so an external actor can achieve a goal?    | A use case connects demand to a chosen subject; it is behavior, not a value claim.                                    |
+| Capability                       | What must an identified bearer be able to do?                         | Capabilities provide abilities that help offerings address needs and jobs.                                            |
+| Feature                          | What recognizable behavior is available to an actor?                  | Features make part of an offering concrete but do not define its complete value.                                      |
+| Surface                          | Where does an actor encounter behavior?                               | Surfaces expose features and use cases through applications, APIs, devices, protocols, or consoles.                   |
+| DDD subdomain or bounded context | What problem knowledge matters, and where does a model apply?         | Domain concepts govern meaning, rules, and state used to provide value.                                               |
+| C4 element                       | What software structure realizes behavior?                            | Systems, containers, and components may realize several offerings, capabilities, and use cases.                       |
+| Wardley map                      | What depends on what, for whose need, and at what stage of evolution? | A map can position audiences, needs, offerings, capabilities, or realizations as strategic hypotheses.                |
+| Delivery work                    | What change is proposed, prioritized, or being delivered?             | Initiatives, releases, stories, and feature requests have a delivery lifecycle outside accepted architecture meaning. |
 
 No view is the parent taxonomy for all the others. Preserve one canonical
 document for each maintained concept and connect views where the relationship
@@ -209,12 +221,12 @@ In particular:
 A reservation platform may be an **Offering** to travelers and reservation
 operators. Travelers are one **Audience** with the **Need** to rely on scarce
 capacity remaining available while they complete a decision. In circumstances
-where plans are still uncertain, their **Job to Be Done** may be *help me secure
-capacity without worrying that it will disappear during checkout*.
+where plans are still uncertain, their **Job to Be Done** may be _help me secure
+capacity without worrying that it will disappear during checkout_.
 
 The platform's traveler-facing **Value Proposition** is that an accepted hold
 creates a dependable, time-bounded opportunity to confirm. The neighboring
-behavioral view can document *Confirm a reservation* as a **Use Case** in which
+behavioral view can document _Confirm a reservation_ as a **Use Case** in which
 a traveler pursues that goal through the platform.
 
 Reservation-management capabilities, a saved-traveler-details feature,
@@ -255,12 +267,17 @@ cases](../guides/documenting-use-cases.md) for goal-oriented behavior.
 - [C4 model](c4-model.md)
 - [Wardley mapping](wardley-mapping.md)
 
-[^strategyzer-value-proposition]: Strategyzer's Value Proposition Canvas links
+[^strategyzer-value-proposition]:
+    Strategyzer's Value Proposition Canvas links
     customer jobs, pains, and gains with the offering elements intended to
     relieve pains and create gains.
-[^productboard-hierarchy]: Productboard documents a planning hierarchy in which
+
+[^productboard-hierarchy]:
+    Productboard documents a planning hierarchy in which
     product components may be organized by stable user need or product area and
     contain features and subfeatures.
-[^goal-oriented-behavior]: Goal-oriented behavior and use cases separates the
+
+[^goal-oriented-behavior]:
+    Goal-oriented behavior and use cases separates the
     demand-and-value family from subject behavior while defining their
     consequential relationships.

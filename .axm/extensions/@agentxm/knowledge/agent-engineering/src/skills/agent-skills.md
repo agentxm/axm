@@ -62,14 +62,14 @@ both explicit and implicit invocation.[^openai-build-skills]
 
 ## The contracts inside a skill
 
-| Contract | Question it answers | Typical owner |
-| --- | --- | --- |
-| Routing | When should this skill activate? | `name` and `description` |
-| Workflow | What sequence, decisions, and checks should the agent follow? | `SKILL.md` body |
-| Inputs and outputs | What must be available, and what constitutes a useful result? | Body and examples |
-| Resources | What deeper facts or templates are needed only sometimes? | `references/`, `assets/` |
-| Determinism | Which fragile or repetitive operations should code perform? | `scripts/` |
-| Environment | Which tools, permissions, runtimes, or network access are required? | Portable metadata or host configuration |
+| Contract           | Question it answers                                                 | Typical owner                           |
+| ------------------ | ------------------------------------------------------------------- | --------------------------------------- |
+| Routing            | When should this skill activate?                                    | `name` and `description`                |
+| Workflow           | What sequence, decisions, and checks should the agent follow?       | `SKILL.md` body                         |
+| Inputs and outputs | What must be available, and what constitutes a useful result?       | Body and examples                       |
+| Resources          | What deeper facts or templates are needed only sometimes?           | `references/`, `assets/`                |
+| Determinism        | Which fragile or repetitive operations should code perform?         | `scripts/`                              |
+| Environment        | Which tools, permissions, runtimes, or network access are required? | Portable metadata or host configuration |
 
 A reliable skill makes these contracts visible. A bag of tips called a skill
 may be helpful prose, but it gives the harness little basis for activation,
@@ -77,14 +77,14 @@ completion, or recovery.
 
 ## Relationship to neighboring elements
 
-| Element | Primary job | Why it is not a skill |
-| --- | --- | --- |
-| Instruction file | Establish always-on invariants and routes | It applies before the harness knows which workflow is needed |
-| Knowledge document | Supply facts, context, or explanation | It informs cognition rather than owning a procedure |
-| Tool | Provide an action or observation primitive | It can be invoked but does not define the surrounding workflow |
-| Script | Execute deterministic logic | It cannot supply judgment across the whole task |
-| Agent definition | Configure a role, model, tools, and authority | It defines an actor rather than one reusable job |
-| Hook | Run automatically at a lifecycle event | It is event-driven rather than selected for a user goal |
+| Element            | Primary job                                   | Why it is not a skill                                          |
+| ------------------ | --------------------------------------------- | -------------------------------------------------------------- |
+| Instruction file   | Establish always-on invariants and routes     | It applies before the harness knows which workflow is needed   |
+| Knowledge document | Supply facts, context, or explanation         | It informs cognition rather than owning a procedure            |
+| Tool               | Provide an action or observation primitive    | It can be invoked but does not define the surrounding workflow |
+| Script             | Execute deterministic logic                   | It cannot supply judgment across the whole task                |
+| Agent definition   | Configure a role, model, tools, and authority | It defines an actor rather than one reusable job               |
+| Hook               | Run automatically at a lifecycle event        | It is event-driven rather than selected for a user goal        |
 
 A skill may use all of these. It should not absorb their responsibilities.
 
@@ -158,4 +158,5 @@ machine.
   patterns a skill depends on
 
 [^agent-skills-spec]: Agent Skills specification
+
 [^openai-build-skills]: OpenAI — Build skills

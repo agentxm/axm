@@ -4,7 +4,18 @@
   "decision": "Exercise one complete, synthetic authoring-smoke lifecycle without supporting a release or approval decision.",
   "target_binding": {
     "skill_name": "normalize-release-notes",
-    "required_result_fields": ["target.source_revision", "target.package_content_identity", "suite.suite_content_identity", "runner.selection_source", "protocol_version", "runner.content_identity", "adapters.host.content_identity", "adapters.host.capabilities", "adapters.grader.content_identity", "adapters.grader.capabilities"]
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
   },
   "scope": {
     "intended_use": "Provider-free fixture coverage of routing, execution, evidence creation, and bounded conclusions.",
@@ -14,12 +25,31 @@
   },
   "unit": "One isolated synthetic attempt at one declared case.",
   "environment": {
-    "required_result_fields": ["environment.host", "environment.model", "environment.configuration_identity", "environment.active_catalog", "environment.routing_mode", "environment.sandbox", "authority.policy", "authority.network", "started_at", "ended_at"],
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
     "routing_boundary": "Expose only the synthetic catalog before selection.",
     "execution_boundary": "Activate only the synthetic target and declared fixture adapter."
   },
   "evidence": {
-    "required_per_trial": ["case_id", "stage", "raw_output_or_durable_locator", "observed_selection_or_abstention", "assertion_results", "side_effects", "outcome"],
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
     "outcomes": ["pass", "fail", "unknown", "harness-error"],
     "storage": "Write routine fixture evidence only to .work/evals."
   },
@@ -43,7 +73,11 @@
   "analysis": {
     "minimum_pass_rate": 1,
     "critical_assertions": [
-      { "gate": "Both synthetic stages retain attributable evidence", "case_id": "execute", "assertion": "The execution response is preserved as raw evidence." }
+      {
+        "gate": "Both synthetic stages retain attributable evidence",
+        "case_id": "execute",
+        "assertion": "The execution response is preserved as raw evidence."
+      }
     ],
     "report_by": ["case", "trial", "stage", "failure_class"],
     "routing_metrics": ["trigger_rate"],
@@ -62,7 +96,12 @@
     "resume": "Require matching identities."
   },
   "provenance": {
-    "required_result_fields": ["provenance.case_author", "provenance.runner", "provenance.reviewer", "provenance.grader_identity"],
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
     "independence": "Same-agent fixture evidence remains authoring smoke."
   },
   "freshness": {

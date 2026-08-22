@@ -2,7 +2,20 @@
 type: Explanation
 title: Domain-driven design
 description: How domain models, language, strategic boundaries, and tactical modeling patterns work together to address complex software domains without prescribing one system structure.
-tags: [domain-driven-design, domain-modeling, ubiquitous-language, subdomains, bounded-contexts, context-map, entities, value-objects, aggregates, domain-events, repositories]
+tags:
+  [
+    domain-driven-design,
+    domain-modeling,
+    ubiquitous-language,
+    subdomains,
+    bounded-contexts,
+    context-map,
+    entities,
+    value-objects,
+    aggregates,
+    domain-events,
+    repositories,
+  ]
 status: draft
 sources:
   - id: evans-ddd-reference
@@ -111,11 +124,11 @@ team boundaries.
 
 Distinguish modeling investment by strategic role:[^ddd-crew-bounded-context-canvas]
 
-| Role | Meaning | Typical implication |
-| --- | --- | --- |
-| **Core domain** | The specialized domain capability on which the strategy or distinctive value depends | Invest in deeper models and sustained collaboration |
-| **Supporting subdomain** | Necessary domain-specific work that enables the core but does not itself differentiate the system | Model only to the depth justified by its consequences |
-| **Generic subdomain** | A necessary problem already solved in broadly applicable ways | Prefer an established solution when differentiation is not valuable |
+| Role                     | Meaning                                                                                           | Typical implication                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Core domain**          | The specialized domain capability on which the strategy or distinctive value depends              | Invest in deeper models and sustained collaboration                 |
+| **Supporting subdomain** | Necessary domain-specific work that enables the core but does not itself differentiate the system | Model only to the depth justified by its consequences               |
+| **Generic subdomain**    | A necessary problem already solved in broadly applicable ways                                     | Prefer an established solution when differentiation is not valuable |
 
 These classifications are contextual strategic judgments, not permanent
 properties of a concept or technology. Evans's core-domain and
@@ -173,17 +186,17 @@ A **context map** identifies the models in play and gives their points of
 contact explicit direction and meaning. It is a relationship view, not simply
 a diagram of boxes and untyped lines.[^evans-ddd-reference]
 
-| Relationship | What it makes explicit |
-| --- | --- |
-| **Partnership** | Two contexts coordinate their evolution because each depends on the other's success |
-| **Shared kernel** | Contexts deliberately share a small model or implementation surface and accept the coordination cost |
-| **Customer–supplier** | An upstream context plans with the needs of a downstream customer in view |
-| **Conformist** | A downstream context adopts an upstream model when influence or translation is not worthwhile |
-| **Anti-corruption layer** | A downstream translation boundary protects its model from an unsuitable upstream model |
-| **Open host service** | An upstream context offers a stable integration protocol for multiple consumers |
-| **Published language** | Interchange uses a documented shared representation understood beyond one implementation |
-| **Separate ways** | Contexts avoid integration because the value does not justify the coupling |
-| **Big ball of mud** | A poorly bounded model is acknowledged and contained rather than allowed to blur other contexts |
+| Relationship              | What it makes explicit                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Partnership**           | Two contexts coordinate their evolution because each depends on the other's success                  |
+| **Shared kernel**         | Contexts deliberately share a small model or implementation surface and accept the coordination cost |
+| **Customer–supplier**     | An upstream context plans with the needs of a downstream customer in view                            |
+| **Conformist**            | A downstream context adopts an upstream model when influence or translation is not worthwhile        |
+| **Anti-corruption layer** | A downstream translation boundary protects its model from an unsuitable upstream model               |
+| **Open host service**     | An upstream context offers a stable integration protocol for multiple consumers                      |
+| **Published language**    | Interchange uses a documented shared representation understood beyond one implementation             |
+| **Separate ways**         | Contexts avoid integration because the value does not justify the coupling                           |
+| **Big ball of mud**       | A poorly bounded model is acknowledged and contained rather than allowed to blur other contexts      |
 
 These relationships are choices with consequences. For example, a shared
 kernel reduces translation but increases coordinated change, while an
@@ -195,16 +208,16 @@ and maintenance.
 Tactical patterns shape one model inside a bounded context. They are tools for
 expressing domain meaning, not a checklist every context must implement.
 
-| Concept | Modeling question | Essential distinction |
-| --- | --- | --- |
-| **Entity** | Must this thing remain identifiable through changes to its attributes? | Identity and continuity matter more than a snapshot of values |
-| **Value object** | Is this concept defined entirely by its descriptive value? | Equality follows the modeled value; identity is irrelevant |
-| **Domain event** | Which completed occurrence in the domain must the model represent? | It states domain meaning, not a transport, queue message, or event-sourcing requirement |
-| **Domain service** | Does an important domain operation fit no entity or value object naturally? | It expresses domain behavior without becoming a generic application coordinator |
-| **Module** | Which model elements form a cohesive conceptual group? | The boundary communicates domain structure rather than only filesystem organization |
-| **Aggregate** | Which objects and rules require one consistency boundary? | One root controls changes within the boundary and protects aggregate invariants |
-| **Repository** | How should a model retrieve and persist selected objects without exposing storage mechanics? | It presents collection-like domain access rather than a generic data-access API |
-| **Factory** | How can a complex model object or aggregate be created validly without exposing assembly details? | Creation logic establishes a valid whole without displacing its later behavior |
+| Concept            | Modeling question                                                                                 | Essential distinction                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Entity**         | Must this thing remain identifiable through changes to its attributes?                            | Identity and continuity matter more than a snapshot of values                           |
+| **Value object**   | Is this concept defined entirely by its descriptive value?                                        | Equality follows the modeled value; identity is irrelevant                              |
+| **Domain event**   | Which completed occurrence in the domain must the model represent?                                | It states domain meaning, not a transport, queue message, or event-sourcing requirement |
+| **Domain service** | Does an important domain operation fit no entity or value object naturally?                       | It expresses domain behavior without becoming a generic application coordinator         |
+| **Module**         | Which model elements form a cohesive conceptual group?                                            | The boundary communicates domain structure rather than only filesystem organization     |
+| **Aggregate**      | Which objects and rules require one consistency boundary?                                         | One root controls changes within the boundary and protects aggregate invariants         |
+| **Repository**     | How should a model retrieve and persist selected objects without exposing storage mechanics?      | It presents collection-like domain access rather than a generic data-access API         |
+| **Factory**        | How can a complex model object or aggregate be created validly without exposing assembly details? | Creation logic establishes a valid whole without displacing its later behavior          |
 
 ### Entities and value objects
 
@@ -349,19 +362,28 @@ maps](../guides/documenting-context-maps.md) when authoring one artifact.
 - **Static model** — treating the first model as a specification to preserve
   rather than a hypothesis refined through implementation and domain learning.
 
-[^evans-ddd-reference]: Evans defines the core DDD concepts and presents them
+[^evans-ddd-reference]:
+    Evans defines the core DDD concepts and presents them
     as a connected pattern language spanning model use, tactical building
     blocks, context mapping, and strategic distillation.
-[^ddd-crew-bounded-context-canvas]: The DDD Crew's Bounded Context Canvas uses
+
+[^ddd-crew-bounded-context-canvas]:
+    The DDD Crew's Bounded Context Canvas uses
     core, supporting, and generic classifications to discuss the strategic role
     of a context and the investment its model warrants.
-[^context-mapper-subdomains]: Context Mapper models domains and subdomains in
+
+[^context-mapper-subdomains]:
+    Context Mapper models domains and subdomains in
     the problem space and relates them to bounded contexts with an explicit
     implementation relationship.
-[^context-mapper-bounded-contexts]: Context Mapper models bounded contexts as
+
+[^context-mapper-bounded-contexts]:
+    Context Mapper models bounded contexts as
     separate roots that can implement one or more subdomains rather than as
     children whose directory position establishes identity.
-[^context-mapper-architecture-validation]: Context Mapper demonstrates
+
+[^context-mapper-architecture-validation]:
+    Context Mapper demonstrates
     validating a declared bounded-context model against code structure with
     architecture tests, keeping the model explicit without making prose the
     authority for exact implementation mechanics.

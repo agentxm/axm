@@ -32,11 +32,11 @@ For a skill, that contract includes:
 
 ## Version classification
 
-| Change | Version intent |
-| --- | --- |
-| Correction with no public-contract or authority change | Patch |
-| Backward-compatible capability inside the approved authority envelope | Minor |
-| Incompatible routing, input, output, requirement, or behavior change | Major |
+| Change                                                                | Version intent |
+| --------------------------------------------------------------------- | -------------- |
+| Correction with no public-contract or authority change                | Patch          |
+| Backward-compatible capability inside the approved authority envelope | Minor          |
+| Incompatible routing, input, output, requirement, or behavior change  | Major          |
 
 Version compatibility and governance risk are separate. Expanded authority,
 new network destinations, credential or data classes, executable dependencies,
@@ -74,5 +74,7 @@ on Agent Skill security identifies persistent trust after one approval as a
 structural weakness.[^secure-agent-skills]
 
 [^semver]: Semantic Versioning 2.0.0
+
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
+
 [^secure-agent-skills]: Towards Secure Agent Skills — Architecture, Threat Taxonomy, and Security Analysis

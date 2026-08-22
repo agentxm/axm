@@ -34,7 +34,7 @@ only for a consequential question.
    `view_type`: `system-landscape`, `system-context`, `container`, `component`,
    `code`, `dynamic`, or `deployment`.
 2. Create the canonical file at the corresponding views path using the `C4
-   View` type and fields from the [application profile](../architecture-documentation/software-architecture-application-profile.md#c4-view).
+View` type and fields from the [application profile](../architecture-documentation/software-architecture-application-profile.md#c4-view).
 3. Select only the people and canonical C4 elements needed to answer the
    question. Preserve each element's name, type, and responsibility.
 4. Make interactions directional and label their meaning. Include

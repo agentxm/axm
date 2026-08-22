@@ -4,7 +4,15 @@
   "title": "Agent Skill evaluator grader request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "case_id", "blind_configuration_id", "expected_output", "assertions", "response", "budgets"],
+  "required": [
+    "schema_version",
+    "case_id",
+    "blind_configuration_id",
+    "expected_output",
+    "assertions",
+    "response",
+    "budgets"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "case_id": { "type": ["string", "number"] },

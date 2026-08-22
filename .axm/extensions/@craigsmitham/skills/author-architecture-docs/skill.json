@@ -36,8 +36,6 @@
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": [
-    "@craigsmitham/packs/software-architecture"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/software-architecture"],
   "standalone": false
 }

@@ -32,9 +32,7 @@
   "license": "CC-BY-SA-4.0",
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "standalone": true,
-  "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/software-engineering"],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",

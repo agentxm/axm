@@ -2,7 +2,20 @@
 type: Explanation
 title: Wardley mapping
 description: How Wardley Mapping combines user needs, dependency, and evolution to make strategic assumptions challengeable, and how maps can inform—but not replace—architecture decisions.
-tags: [wardley-mapping, situational-awareness, value-chain, user-needs, dependency, evolution, movement, inertia, doctrine, gameplay, strategic-architecture]
+tags:
+  [
+    wardley-mapping,
+    situational-awareness,
+    value-chain,
+    user-needs,
+    dependency,
+    evolution,
+    movement,
+    inertia,
+    doctrine,
+    gameplay,
+    strategic-architecture,
+  ]
 status: draft
 sources:
   - id: wardley-strategy-cycle
@@ -65,12 +78,12 @@ less visible
 
 The map has four essential parts:
 
-| Part | Meaning |
-| --- | --- |
-| **Anchor** | A user or stakeholder and the need that defines the map's point of view. |
-| **Components** | The activities, practices, data, knowledge, or other capabilities needed to satisfy that need. |
-| **Dependency** | A higher component needs a lower component for the mapped outcome. |
-| **Evolution** | Each component is positioned from genesis to commodity according to how ubiquitous and well understood it is. |
+| Part           | Meaning                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Anchor**     | A user or stakeholder and the need that defines the map's point of view.                                      |
+| **Components** | The activities, practices, data, knowledge, or other capabilities needed to satisfy that need.                |
+| **Dependency** | A higher component needs a lower component for the mapped outcome.                                            |
+| **Evolution**  | Each component is positioned from genesis to commodity according to how ubiquitous and well understood it is. |
 
 The vertical position expresses visibility to the chosen user, not
 organizational rank, architectural layering, implementation order, or general
@@ -82,12 +95,12 @@ a different—but equally legitimate—map.[^wardley-mapping-introduction]
 
 The horizontal axis describes how the nature of a component changes:
 
-| Stage | Characteristic situation |
-| --- | --- |
-| **Genesis** | Novel, rare, uncertain, and poorly understood; exploration dominates. |
-| **Custom-built** | Bespoke for a particular context, uncommon, and still changing as understanding grows. |
-| **Product or rental** | Repeatable, increasingly defined, offered through a developing market, and differentiated by features or service. |
-| **Commodity or utility** | Widespread, standardized, well understood, and increasingly competed through scale and operational efficiency. |
+| Stage                    | Characteristic situation                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| **Genesis**              | Novel, rare, uncertain, and poorly understood; exploration dominates.                                             |
+| **Custom-built**         | Bespoke for a particular context, uncommon, and still changing as understanding grows.                            |
+| **Product or rental**    | Repeatable, increasingly defined, offered through a developing market, and differentiated by features or service. |
+| **Commodity or utility** | Widespread, standardized, well understood, and increasingly competed through scale and operational efficiency.    |
 
 Evolution is not age, delivery progress, adoption of one product, or a maturity
 score. Wardley's model distinguishes **evolution**—a component changing in
@@ -111,13 +124,13 @@ measurements made precise by drawing coordinates.
 Wardley's strategy cycle separates kinds of reasoning that are often collapsed
 into one plan:[^wardley-strategy-cycle]
 
-| Factor | Question |
-| --- | --- |
-| **Purpose** | What game are we playing, for whom, and why? |
-| **Landscape** | What is the current position and dependency structure? The map represents this factor. |
-| **Climate** | Which external patterns and forces act on the landscape regardless of our preference? |
-| **Doctrine** | Which generally useful ways of operating should improve our ability to act? |
-| **Leadership** | Which context-specific choices or plays will we make here? |
+| Factor         | Question                                                                               |
+| -------------- | -------------------------------------------------------------------------------------- |
+| **Purpose**    | What game are we playing, for whom, and why?                                           |
+| **Landscape**  | What is the current position and dependency structure? The map represents this factor. |
+| **Climate**    | Which external patterns and forces act on the landscape regardless of our preference?  |
+| **Doctrine**   | Which generally useful ways of operating should improve our ability to act?            |
+| **Leadership** | Which context-specific choices or plays will we make here?                             |
 
 Climate, doctrine, and gameplay are not additional map axes. Climate describes
 patterns to test against the landscape; doctrine describes practices intended
@@ -197,22 +210,35 @@ authority boundaries, the [C4 model](c4-model.md) for software structure, and
 accepted product quality requirements and architectural constraints that
 strategic choices must satisfy.
 
-[^wardley-map-grammar]: Wardley's introductory mapping chapter constructs a
+[^wardley-map-grammar]:
+    Wardley's introductory mapping chapter constructs a
     value chain from user needs and dependencies, then maps its components
     against genesis, custom-built, product, and commodity evolution.
-[^wardley-strategy-cycle]: Wardley's opening chapter describes an iterative
+
+[^wardley-strategy-cycle]:
+    Wardley's opening chapter describes an iterative
     strategy cycle of purpose, landscape, climate, doctrine, and leadership.
-[^wardley-mapping-introduction]: Learn Wardley Mapping, an independent
+
+[^wardley-mapping-introduction]:
+    Learn Wardley Mapping, an independent
     community reference, distinguishes Wardley Mapping from a Wardley map and
     defines the map as a user-anchored dependency chain positioned by
     evolution.
-[^wardley-evolution]: Wardley's evolution discussion distinguishes evolution
+
+[^wardley-evolution]:
+    Wardley's evolution discussion distinguishes evolution
     from diffusion and time, explains placement through ubiquity and certainty,
     and describes current maps as estimates open to bias and challenge.
-[^wardley-doctrine]: Wardley's doctrine chapter distinguishes broadly useful
+
+[^wardley-doctrine]:
+    Wardley's doctrine chapter distinguishes broadly useful
     operating principles from climate and context-specific gameplay.
-[^wardley-inertia]: Wardley's treatment of inertia relates resistance to forms
+
+[^wardley-inertia]:
+    Wardley's treatment of inertia relates resistance to forms
     of lost capital, established practice, uncertainty, and transition.
-[^wardley-limitations]: Buerkli's practitioner analysis highlights dependence
+
+[^wardley-limitations]:
+    Buerkli's practitioner analysis highlights dependence
     on mapper knowledge, selected scope and resolution, and the inability to
     map novel components that have not been perceived.

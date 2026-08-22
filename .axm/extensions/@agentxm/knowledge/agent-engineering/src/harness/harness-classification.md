@@ -2,7 +2,17 @@
 type: Reference
 title: Harness classification
 description: Independent implementation axes and applied profiles for classifying harnesses without absorbing agent behavior or product labels.
-tags: [harness, taxonomy, classification, adaptation-locus, ownership, execution, persistence, enforcement]
+tags:
+  [
+    harness,
+    taxonomy,
+    classification,
+    adaptation-locus,
+    ownership,
+    execution,
+    persistence,
+    enforcement,
+  ]
 status: stable
 sources:
   - id: harness-properties
@@ -27,14 +37,14 @@ horizon, and coordination topology as properties of the agent design.
 
 ## Classification axes
 
-| Axis | Question | Representative values |
-| --- | --- | --- |
-| Adaptation locus | Where is agent-specific support implemented? | agent host, working environment, shared platform, evaluation system |
-| Ownership and scope | Who owns the harness adaptation, and where does it apply? | user, repository, package, workspace, team, organization |
-| Execution location | Where do model calls, tools, and effects run? | local, remote, browser, container, VM, managed service |
-| Persistence mechanism | Which identities and state can survive an invocation? | ephemeral process, session store, checkpointed task, durable workflow, long-lived service |
-| Enforcement reach | Which controls can the harness enforce? | model invocation, tool allowlist, filesystem, network, credentials, approvals, budgets |
-| Evaluation role | Is this the operating target or the system administering measurement? | production harness, evaluation target, evaluation harness |
+| Axis                  | Question                                                              | Representative values                                                                     |
+| --------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Adaptation locus      | Where is agent-specific support implemented?                          | agent host, working environment, shared platform, evaluation system                       |
+| Ownership and scope   | Who owns the harness adaptation, and where does it apply?             | user, repository, package, workspace, team, organization                                  |
+| Execution location    | Where do model calls, tools, and effects run?                         | local, remote, browser, container, VM, managed service                                    |
+| Persistence mechanism | Which identities and state can survive an invocation?                 | ephemeral process, session store, checkpointed task, durable workflow, long-lived service |
+| Enforcement reach     | Which controls can the harness enforce?                               | model invocation, tool allowlist, filesystem, network, credentials, approvals, budgets    |
+| Evaluation role       | Is this the operating target or the system administering measurement? | production harness, evaluation target, evaluation harness                                 |
 
 Control flow, planning, memory policy, tool-selection policy, coordination, and
 verification behavior are important scaffold properties, but their behavioral
@@ -49,13 +59,13 @@ tool, state, observability, verification, and permission machinery.[^harness-pro
 **Coding harness** and **repository harness** are both useful terms, but they
 answer different questions:
 
-| Profile | Primary classification |
-| --- | --- |
-| Coding-agent harness | Agent-host adaptation implemented for software-engineering work |
-| Repository harness | Environment-side adaptation owned and scoped by a repository |
-| Organization coding harness | Shared platform and controls owned across an organization |
-| Coding evaluation harness | Evaluation-side system administering software-engineering cases and trials |
-| Repository coding system | Composition of agent behavior, a coding harness, repository adaptation, execution environment, and policy |
+| Profile                     | Primary classification                                                                                    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Coding-agent harness        | Agent-host adaptation implemented for software-engineering work                                           |
+| Repository harness          | Environment-side adaptation owned and scoped by a repository                                              |
+| Organization coding harness | Shared platform and controls owned across an organization                                                 |
+| Coding evaluation harness   | Evaluation-side system administering software-engineering cases and trials                                |
+| Repository coding system    | Composition of agent behavior, a coding harness, repository adaptation, execution environment, and policy |
 
 A profile is a recognizable combination of implementation axes plus an
 application context, not a new foundational discipline. State the associated
@@ -72,5 +82,7 @@ plane, a multi-agent platform, or simply an application suite; the name alone
 should not determine bundle boundaries.
 
 [^harness-properties]: What Makes a Harness a Harness? Evaluating Agentic Scaffold Properties
+
 [^scaffold-taxonomy]: Inside the Scaffold — A Taxonomy of Agentic Coding System Architectures
+
 [^ai-harness-runtime]: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents

@@ -22,7 +22,7 @@ generated:
 # Documentation workflow guide
 
 Use this when you need to **remediate or grow existing documentation** with
-portable craft. For *why* iteration and inside-out structure work, read
+portable craft. For _why_ iteration and inside-out structure work, read
 [Documentation workflow](../explainers/documentation-workflow.md). For writing one new document
 from a named need, use [Documentation craft guide](documentation-craft.md).
 
@@ -40,11 +40,11 @@ waiting for a full restructure or inventing empty form folders.
 2. **Name the need it should serve** — learning, goals, information, or
    understanding. Use the compass in
    [Documentation craft](../explainers/documentation-craft.md) if the form is unclear
-   (*action or cognition? acquisition or application?*).
+   (_action or cognition? acquisition or application?_).
 3. **Assess against that need** — Does form match job? Wrong voice? Tutorial
    disguised as how-to? Explanation or reference bulk interrupting action?
    Missing facts? Stale steps? What user need is actually represented?
-4. **Decide one next action** that improves the page *now*. Examples:
+4. **Decide one next action** that improves the page _now_. Examples:
    - Split mixed jobs; keep one primary and link the rest
    - Move digression out; leave a short link
    - Fix form (title, framing, steps vs inventory vs discussion)

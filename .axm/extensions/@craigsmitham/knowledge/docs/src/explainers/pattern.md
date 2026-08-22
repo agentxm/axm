@@ -37,8 +37,8 @@ difficult and the consequences of resolving them this way, so a reader can
 reproduce the solution's essential structure without copying one
 implementation.
 
-The name makes experience discussable. *Circuit Breaker*, *Strangler Fig*, or
-*One Thing per Page* can stand for a larger body of judgment once a community
+The name makes experience discussable. _Circuit Breaker_, _Strangler Fig_, or
+_One Thing per Page_ can stand for a larger body of judgment once a community
 shares the meaning. The entry preserves that meaning: not only what experienced
 practitioners tend to do, but when, why, with what tradeoffs, and on what
 evidence.
@@ -53,13 +53,13 @@ To write one, use [Pattern guide](../guides/pattern.md).
 
 ## Relationship to reader-need forms
 
-| Part of a pattern | Diátaxis job |
-| --- | --- |
-| Name, intent, context, problem, applicability | Reference — recognize and compare the entry while working |
-| Forces, rationale, consequences | Explanation — understand why the solution fits and what it costs |
-| Solution core | A generative prescription — state the invariant, not a full procedure |
-| Implementation steps | How-to guide — link rather than absorbing environment-specific instructions |
-| Worked introduction for a newcomer | Tutorial — teach separately when first-use learning is a real need |
+| Part of a pattern                             | Diátaxis job                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| Name, intent, context, problem, applicability | Reference — recognize and compare the entry while working                   |
+| Forces, rationale, consequences               | Explanation — understand why the solution fits and what it costs            |
+| Solution core                                 | A generative prescription — state the invariant, not a full procedure       |
+| Implementation steps                          | How-to guide — link rather than absorbing environment-specific instructions |
+| Worked introduction for a newcomer            | Tutorial — teach separately when first-use learning is a real need          |
 
 No single reader-need guide covers the pattern form's distinctive work: mining recurrence,
 separating an invariant from its instances, recording evidence, and relating
@@ -68,13 +68,13 @@ guide.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Select and adapt an established response to a recurring problem |
-| **Success** | The reader recognizes fit, understands the tradeoffs, and can produce a locally appropriate realization |
-| **Voice** | Conditional and generative: *in this context, when these forces recur, arrange the solution this way* |
-| **Typical prompt** | *We keep encountering X — what established approach fits, and what will it cost?* |
-| **Title cue** | A short, memorable name for the solution rather than the tool or one project |
+|                    |                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| **Reader need**    | Select and adapt an established response to a recurring problem                                         |
+| **Success**        | The reader recognizes fit, understands the tradeoffs, and can produce a locally appropriate realization |
+| **Voice**          | Conditional and generative: _in this context, when these forces recur, arrange the solution this way_   |
+| **Typical prompt** | _We keep encountering X — what established approach fits, and what will it cost?_                       |
+| **Title cue**      | A short, memorable name for the solution rather than the tool or one project                            |
 
 ## What makes it a pattern
 
@@ -94,7 +94,7 @@ A sound pattern has all of these properties:
 - **Connected** — it identifies alternatives, complements, predecessors, and
   consequences rather than pretending to work alone.
 
-The shortest useful definition — *a solution to a problem in a context* — is a
+The shortest useful definition — _a solution to a problem in a context_ — is a
 starting point, not a sufficient entry. Without forces, evidence, and
 consequences it is easy to package ordinary advice as something more proven
 and transferable than it is.
@@ -104,17 +104,17 @@ and transferable than it is.
 Pattern traditions use different forms. Their stable semantic core matters
 more than reproducing one template exactly.
 
-| Element | Question it answers |
-| --- | --- |
-| **Name and intent** | What reusable idea does this name stand for? |
-| **Context** | In what circumstances does the problem arise? |
-| **Problem** | What recurring tension needs resolution? |
-| **Forces** | Which goals, constraints, and pressures conflict? |
-| **Solution** | What essential arrangement resolves those forces? |
-| **Consequences / resulting context** | What improves, worsens, or becomes necessary next? |
-| **Applicability** | When should or should not the reader use it? |
-| **Evidence / known uses** | Where has it recurred, and why should the reader trust the claim? |
-| **Related patterns** | Which alternatives, complements, predecessors, follow-ons, or variants matter? |
+| Element                              | Question it answers                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------ |
+| **Name and intent**                  | What reusable idea does this name stand for?                                   |
+| **Context**                          | In what circumstances does the problem arise?                                  |
+| **Problem**                          | What recurring tension needs resolution?                                       |
+| **Forces**                           | Which goals, constraints, and pressures conflict?                              |
+| **Solution**                         | What essential arrangement resolves those forces?                              |
+| **Consequences / resulting context** | What improves, worsens, or becomes necessary next?                             |
+| **Applicability**                    | When should or should not the reader use it?                                   |
+| **Evidence / known uses**            | Where has it recurred, and why should the reader trust the claim?              |
+| **Related patterns**                 | Which alternatives, complements, predecessors, follow-ons, or variants matter? |
 
 The first five form the minimum conceptual spine. Evidence is what separates
 an established pattern from a promising candidate. Consequences,
@@ -129,17 +129,17 @@ rationale, evidence, and examples.
 
 ## Pattern vs neighboring artifacts
 
-| Artifact | Difference from a pattern |
-| --- | --- |
-| **Principle** | [Action-directing articulation of a recognized good](principle.md); guides judgment without binding one recurring problem to a constructive solution |
-| **Practice** | [Socially sustained structure of meaningful participation](practice.md) within which patterns may be discovered and enacted; it is not itself a recurring problem-solution claim |
-| **Standard** | [Recognized basis for judgment or coordination](standard.md); may constrain or assess realizations but does not supply the pattern's recurring problem-solution relation |
-| **How-to guide** | Steps toward one concrete outcome in a particular situation; realizes a pattern when appropriate |
-| **Template** | A form to fill in; fixes document or artifact structure without necessarily resolving contextual forces |
-| **Example / reference architecture** | One realization; may provide evidence but is not itself the invariant |
-| **Component / library** | Reusable implementation rather than reusable design knowledge |
-| **Decision record** | Preserves one decision in one context; several records may provide evidence for a pattern |
-| **New idea** | A proposed solution without demonstrated recurrence; honestly call it a candidate or proto-pattern |
+| Artifact                             | Difference from a pattern                                                                                                                                                        |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Principle**                        | [Action-directing articulation of a recognized good](principle.md); guides judgment without binding one recurring problem to a constructive solution                             |
+| **Practice**                         | [Socially sustained structure of meaningful participation](practice.md) within which patterns may be discovered and enacted; it is not itself a recurring problem-solution claim |
+| **Standard**                         | [Recognized basis for judgment or coordination](standard.md); may constrain or assess realizations but does not supply the pattern's recurring problem-solution relation         |
+| **How-to guide**                     | Steps toward one concrete outcome in a particular situation; realizes a pattern when appropriate                                                                                 |
+| **Template**                         | A form to fill in; fixes document or artifact structure without necessarily resolving contextual forces                                                                          |
+| **Example / reference architecture** | One realization; may provide evidence but is not itself the invariant                                                                                                            |
+| **Component / library**              | Reusable implementation rather than reusable design knowledge                                                                                                                    |
+| **Decision record**                  | Preserves one decision in one context; several records may provide evidence for a pattern                                                                                        |
+| **New idea**                         | A proposed solution without demonstrated recurrence; honestly call it a candidate or proto-pattern                                                                               |
 
 A **best practice** commonly sounds universal. A pattern is more honest: the
 advice is conditional, alternatives remain possible, and the liabilities are
@@ -161,14 +161,14 @@ arrangement. Both still require sound judgment by a practitioner.
 
 Both can influence action. Their unit and promise differ:
 
-| | Pattern | How-to guide |
-| --- | --- | --- |
-| Unit | Recurring problem/solution relation | One real-world goal |
-| Reader decision | Whether and how to adapt the solution | Which actions complete the task |
-| Specificity | Stable invariant with local variation | Concrete directions in the reader's situation |
-| Sequence | Usually none; may describe structure or dynamics | Ordered enough to execute |
-| Rationale | Forces and tradeoffs are central | Only what supports successful action now |
-| Evidence | Known uses support the pattern claim | Verification shows this procedure works |
+|                 | Pattern                                          | How-to guide                                  |
+| --------------- | ------------------------------------------------ | --------------------------------------------- |
+| Unit            | Recurring problem/solution relation              | One real-world goal                           |
+| Reader decision | Whether and how to adapt the solution            | Which actions complete the task               |
+| Specificity     | Stable invariant with local variation            | Concrete directions in the reader's situation |
+| Sequence        | Usually none; may describe structure or dynamics | Ordered enough to execute                     |
+| Rationale       | Forces and tradeoffs are central                 | Only what supports successful action now      |
+| Evidence        | Known uses support the pattern claim             | Verification shows this procedure works       |
 
 If a draft becomes a sequence of commands for one platform, move that material
 to a how-to and link it as an implementation. If the advice cannot identify a
@@ -214,14 +214,14 @@ copies descended from one source.
 
 Distinguish lifecycle honestly:
 
-| State | Meaning |
-| --- | --- |
+| State                         | Meaning                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
 | **Candidate / proto-pattern** | The relation is plausible and worth testing, but recurrence or effectiveness is not yet well supported |
-| **Established** | Independent known uses and review support the context, forces, and solution claim |
-| **Deprecated** | Evidence, changed conditions, or a better replacement makes new use inadvisable |
+| **Established**               | Independent known uses and review support the context, forces, and solution claim                      |
+| **Deprecated**                | Evidence, changed conditions, or a better replacement makes new use inadvisable                        |
 
 Those are concepts, not a required metadata vocabulary. A host may use
-*proposed*, *available*, *deployed*, *best practice*, or other labels. What
+_proposed_, _available_, _deployed_, _best practice_, or other labels. What
 matters is that readers can see the confidence level and that deprecated
 entries direct them to a replacement instead of silently disappearing.
 
@@ -244,7 +244,7 @@ apparently independent uses truly are independent.
 - “When not to use” permits a quick, confident rejection.
 - Evidence supports the claimed maturity, and uncertainty is visible.
 - Related-pattern links state the relationship rather than offering an
-  undifferentiated *See also* list.
+  undifferentiated _See also_ list.
 - The entry is skimmable as a catalog item and coherent when read deeply.
 
 ## Failure modes (common)

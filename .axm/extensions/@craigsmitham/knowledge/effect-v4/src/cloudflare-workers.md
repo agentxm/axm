@@ -2,7 +2,21 @@
 type: Guide
 title: Cloudflare Workers
 description: Integrating Effect with Workers independently of any web framework; use for bindings as Layers, request-scoped runtimes, `waitUntil`, isolate reuse, and Hyperdrive or SQL bindings.
-tags: [effect, effect-v4, cloudflare-workers, bindings, waituntil, isolate, hyperdrive, d1, durable-objects, runtime, otlp, scope]
+tags:
+  [
+    effect,
+    effect-v4,
+    cloudflare-workers,
+    bindings,
+    waituntil,
+    isolate,
+    hyperdrive,
+    d1,
+    durable-objects,
+    runtime,
+    otlp,
+    scope,
+  ]
 status: stable
 sources:
   - id: src-sql-d1
@@ -169,7 +183,7 @@ drive a deployment decision.
   (platform claim),[^cf-docs-waituntil-import] but workerd schedules a promise's
   continuations back into the request context that created them and drops them
   once that context has ended. A memoized isolate-level build awaited by several
-  concurrent invocations must therefore be pinned by *each* invocation's own
+  concurrent invocations must therefore be pinned by _each_ invocation's own
   `ctx`, not only by whichever one started
   it.[^applied-alchemy-worker-bridge]
 - Model the execution context as a service and make the invariant
@@ -179,14 +193,14 @@ drive a deployment decision.
 - Give telemetry a request-scoped lifetime and close that scope exactly once
   from post-response work. `OtlpExporter.make` already registers a
   `Scope.addFinalizer` that performs a final export, bounded by `shutdownTimeout`
-  (default 3s) — scope close *is* the flush, and a `Flusher.flush` issued after
+  (default 3s) — scope close _is_ the flush, and a `Flusher.flush` issued after
   disposal is a silent no-op because closing deregisters the exporter from the
   flush registry.[^src-otlp-exporter] [^src-otlp-tracer] [^test-otlp-exporter]
 - Build exporters into the request scope, never the isolate scope. A Worker's
   module scope is never finalized, so batching fibers and flush finalizers
   attached there never run.[^applied-alchemy-telemetry]
 - Yield one macrotask before closing. HTTP middleware ends the request's root
-  span in a dispatcher task scheduled *after* the handler effect resolves; close
+  span in a dispatcher task scheduled _after_ the handler effect resolves; close
   immediately and that span never reaches the exporter's buffer. The same
   build → run → yield → close ordering holds on platforms with no `waitUntil` at
   all.[^applied-alchemy-worker-bridge] [^applied-alchemy-do-bridge] [^applied-alchemy-lambda]
@@ -252,23 +266,43 @@ drive a deployment decision.
   verified against current Cloudflare behavior.
 
 [^src-sql-d1]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.110` — the official layer takes the `D1Database` binding object directly.
+
 [^src-sql-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.110`.
+
 [^src-effect-trypromise]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `tryPromise`'s callback receives an `AbortSignal`.
+
 [^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.110`.
+
 [^src-otlp-exporter]: `packages/effect/src/unstable/observability/OtlpExporter.ts` at `effect@4.0.0-rc.110` — `make` registers a `Scope.addFinalizer` (line 238) that forks a final `runExport` and awaits it under `Effect.timeoutOption(shutdownTimeout)`; `layerFlusher.register` (line 142) adds a finalizer deleting the exporter from the flush registry; `runExport` splices `buffer` before the HTTP call, so an interrupted in-flight batch is unrecoverable.
+
 [^src-otlp-tracer]: `packages/effect/src/unstable/observability/OtlpTracer.ts` at `effect@4.0.0-rc.110` — `shutdownTimeout: options.shutdownTimeout ?? Duration.seconds(3)` (line 89).
+
 [^src-otlp-layers]: `packages/effect/src/unstable/observability/Otlp.ts` at `effect@4.0.0-rc.110` — `layer` (line 52), `layerJson` (146), and `layerProtobuf` (172) each return `Layer.Layer<never, never, …>`.
+
 [^src-layer-variance]: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.110` — `interface Layer<in ROut, out E = never, out RIn = never>` (line 54); `ROut` is contravariant, so a `never` annotation is a legal widening that erases the services actually provided.
+
 [^src-scope-close]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `scopeCloseUnsafe` returns immediately when `state._tag === "Closed"`, and finalizers run LIFO.
+
 [^test-otlp-exporter]: `packages/effect/test/unstable/observability/OtlpExporter.test.ts` at `effect@4.0.0-rc.110` — "deregisters an exporter when its scope closes" (line 418): `Scope.close` produces exactly one export attempt, and a subsequent `flusher.flush` leaves the count unchanged.
+
 [^cf-docs-waituntil]: Cloudflare Workers ExecutionContext documentation.
-[^cf-docs-waituntil-import]: Cloudflare Workers changelog, 2025-08-08 — `waitUntil` is importable from `cloudflare:workers` and behaves as `ctx.waitUntil`. Supported, but it does not tell you *which* invocation is extended.
+
+[^cf-docs-waituntil-import]: Cloudflare Workers changelog, 2025-08-08 — `waitUntil` is importable from `cloudflare:workers` and behaves as `ctx.waitUntil`. Supported, but it does not tell you _which_ invocation is extended.
+
 [^cf-docs-nodejs]: Cloudflare Workers Node.js compatibility documentation.
+
 [^cf-docs-hyperdrive]: Cloudflare Hyperdrive documentation.
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/sync-cf/src/cf-worker/worker.ts` (effect 4.0.0-beta.99).
+
 [^applied-alchemy-worker-bridge]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/WorkerBridge.ts` (effect 4.0.0-rc.110) — the in-flight isolate build is pinned with the calling event's `ctx.waitUntil` (lines 91, 358), telemetry is built into the per-event scope (line 118), and the scope is closed under `ctx.waitUntil` after a `setTimeout(0)` (lines 134-143). The source comment names workerd's `handle_cross_request_promise_resolution` as the failure mode (line 351).
+
 [^applied-alchemy-do-bridge]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/DurableObjectBridge.ts` (effect 4.0.0-rc.110) — same ordering at lines 149 and 166-173, with `state.waitUntil` as the pin.
+
 [^applied-alchemy-lambda]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/AWS/Lambda/Function.ts` (effect 4.0.0-rc.110) — identical macrotask-then-close ordering at lines 883-900 on a platform with no `waitUntil`, which is what shows the ordering is about exporter buffers, not about Cloudflare.
+
 [^applied-alchemy-telemetry]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Telemetry.ts` (effect 4.0.0-rc.110) — the per-event exporter layer sets `exportInterval: "1 hour"` (lines 384-395) with the race written out in the comment, and `buildEventTelemetry` (line 686) builds into the request scope rather than the never-finalized isolate scope.
+
 [^applied-alchemy-worker-ctx]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/Worker.ts` (effect 4.0.0-rc.110) — `fromExecutionContext` wraps `ctx.waitUntil` as an Effect combinator (lines 129-141); the init-phase stand-in's `raw` getter throws (line 179).
+
 [^applied-alchemy-eject]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Http.ts` (effect 4.0.0-rc.110) — `isScopeEjected` (line 32) reads the `effect/http/HttpEffect/scopeEjected` marker the HTTP layer sets when scope ownership transfers to a streaming consumer.

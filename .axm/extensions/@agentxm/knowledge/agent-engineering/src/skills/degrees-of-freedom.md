@@ -18,11 +18,11 @@ Instruction strictness should follow the work's variability and fragility, not
 the author's desire for control. Anthropic describes matching degrees of
 freedom to the task rather than making every workflow equally prescriptive.[^anthropic-best-practices]
 
-| Freedom | Appropriate when | Typical form |
-| --- | --- | --- |
-| High | Several approaches are valid and context determines the choice | Goals, heuristics, decision criteria |
-| Medium | A preferred pattern exists but inputs or environment vary | Ordered workflow, bounded options, parameterized helper |
-| Low | Mechanics are fragile, exact, security-sensitive, or repeatedly wrong | Deterministic script, strict template, narrow parameters |
+| Freedom | Appropriate when                                                      | Typical form                                             |
+| ------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| High    | Several approaches are valid and context determines the choice        | Goals, heuristics, decision criteria                     |
+| Medium  | A preferred pattern exists but inputs or environment vary             | Ordered workflow, bounded options, parameterized helper  |
+| Low     | Mechanics are fragile, exact, security-sensitive, or repeatedly wrong | Deterministic script, strict template, narrow parameters |
 
 Assign freedom per surface, not once for the whole skill. Discovery and
 analysis may require broad judgment while execution mechanics, presentation

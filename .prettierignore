@@ -8,16 +8,4 @@ pnpm-lock.yaml
 # validity (destroying the fixture). Keep contents stable byte-for-byte.
 packages/core/src/unstable/lint/__fixtures__/
 
-# Registry-managed extensions are integrity-checked snapshots. Keep their
-# published bytes stable instead of reformatting local installs.
-.axm/extensions/@craigsmitham/
-.axm/extensions/@agentxm/knowledge/agent-engineering/
-.axm/extensions/@agentxm/packs/agent-engineering/
-.axm/extensions/@agentxm/skills/agent-skill-evaluator/
-.axm/extensions/@agentxm/skills/audit-agent-instructions/
-.axm/extensions/@agentxm/skills/audit-agent-skill/
-.axm/extensions/@agentxm/skills/author-agent-instructions/
-.axm/extensions/@agentxm/skills/author-agent-skill/
-.axm/extensions/@agentxm/skills/evaluate-agent-skill/
-
 .nx/self-healing

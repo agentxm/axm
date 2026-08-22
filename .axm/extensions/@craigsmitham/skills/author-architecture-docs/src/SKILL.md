@@ -17,38 +17,38 @@ artifact is the multi-view corpus itself; setup and ongoing maintenance belong
 to their dedicated skills. The bundle root is
 `.axm/extensions/@craigsmitham/knowledge/software-architecture/src/`.
 
-| Need | Concept path from the bundle root |
-| --- | --- |
-| Establish what architecture owns | `overview.md` |
-| Apply or explain the architecture-doc pattern | `architecture-documentation/just-enough-architecture-docs.md` |
-| State or review responsibilities, exclusions, authority, boundaries, state ownership, or dependency direction | `guides/reviewing-responsibilities-with-scenarios.md` |
-| Define or express an invariant | `foundations/invariants-and-enforcement.md`, then `guides/expressing-invariants.md` when authoring it |
-| Select stakeholder concerns or documentation views | `architecture-documentation/just-enough-architecture-docs.md` |
-| Author one Product Quality Requirement | `guides/documenting-product-quality-requirements.md` |
-| Author one Offering | `guides/documenting-offerings.md` |
-| Author one Audience | `guides/documenting-audiences.md` |
-| Author one Need | `guides/documenting-needs.md` |
-| Author one Job to Be Done | `guides/documenting-jobs-to-be-done.md` |
-| Author one Value Proposition | `guides/documenting-value-propositions.md` |
-| Author one Use Case | `guides/documenting-use-cases.md` |
-| Author one Capability | `guides/documenting-capabilities.md` |
-| Author one Feature | `guides/documenting-features.md` |
-| Author one Surface | `guides/documenting-surfaces.md` |
-| Author one Subdomain | `guides/documenting-subdomains.md` |
-| Author one Bounded Context | `guides/documenting-bounded-contexts.md` |
-| Author one Context Map | `guides/documenting-context-maps.md` |
-| Author one C4 Software System | `guides/documenting-c4-software-systems.md` |
-| Author one C4 Container | `guides/documenting-c4-containers.md` |
-| Author one C4 Component | `guides/documenting-c4-components.md` |
-| Author one C4 View | `guides/documenting-c4-views.md` |
-| Clarify offerings, audiences, needs, value propositions, or use cases | `foundations/offerings-and-value.md` |
-| Clarify jobs, circumstances, forces of progress, or job maps | `foundations/jobs-to-be-done.md` |
-| Clarify product quality, ISO/IEC 25010 classification, architecture significance, measures, or evidence | `foundations/product-quality.md` |
-| Clarify capabilities, features, applications, or actor-facing surfaces | `foundations/capabilities.md` |
-| Clarify DDD concepts and their relationships | `foundations/domain-driven-design.md` |
-| Clarify C4 abstractions, diagrams, dynamics, deployment, or shared modules | `foundations/c4-model.md` |
-| Connect strategy, evolution, sourcing, or inertia to architecture | `foundations/wardley-mapping.md` |
-| Organize a multi-view architecture docs corpus | `guides/organizing-an-architecture-docs-corpus.md` |
+| Need                                                                                                          | Concept path from the bundle root                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Establish what architecture owns                                                                              | `overview.md`                                                                                         |
+| Apply or explain the architecture-doc pattern                                                                 | `architecture-documentation/just-enough-architecture-docs.md`                                         |
+| State or review responsibilities, exclusions, authority, boundaries, state ownership, or dependency direction | `guides/reviewing-responsibilities-with-scenarios.md`                                                 |
+| Define or express an invariant                                                                                | `foundations/invariants-and-enforcement.md`, then `guides/expressing-invariants.md` when authoring it |
+| Select stakeholder concerns or documentation views                                                            | `architecture-documentation/just-enough-architecture-docs.md`                                         |
+| Author one Product Quality Requirement                                                                        | `guides/documenting-product-quality-requirements.md`                                                  |
+| Author one Offering                                                                                           | `guides/documenting-offerings.md`                                                                     |
+| Author one Audience                                                                                           | `guides/documenting-audiences.md`                                                                     |
+| Author one Need                                                                                               | `guides/documenting-needs.md`                                                                         |
+| Author one Job to Be Done                                                                                     | `guides/documenting-jobs-to-be-done.md`                                                               |
+| Author one Value Proposition                                                                                  | `guides/documenting-value-propositions.md`                                                            |
+| Author one Use Case                                                                                           | `guides/documenting-use-cases.md`                                                                     |
+| Author one Capability                                                                                         | `guides/documenting-capabilities.md`                                                                  |
+| Author one Feature                                                                                            | `guides/documenting-features.md`                                                                      |
+| Author one Surface                                                                                            | `guides/documenting-surfaces.md`                                                                      |
+| Author one Subdomain                                                                                          | `guides/documenting-subdomains.md`                                                                    |
+| Author one Bounded Context                                                                                    | `guides/documenting-bounded-contexts.md`                                                              |
+| Author one Context Map                                                                                        | `guides/documenting-context-maps.md`                                                                  |
+| Author one C4 Software System                                                                                 | `guides/documenting-c4-software-systems.md`                                                           |
+| Author one C4 Container                                                                                       | `guides/documenting-c4-containers.md`                                                                 |
+| Author one C4 Component                                                                                       | `guides/documenting-c4-components.md`                                                                 |
+| Author one C4 View                                                                                            | `guides/documenting-c4-views.md`                                                                      |
+| Clarify offerings, audiences, needs, value propositions, or use cases                                         | `foundations/offerings-and-value.md`                                                                  |
+| Clarify jobs, circumstances, forces of progress, or job maps                                                  | `foundations/jobs-to-be-done.md`                                                                      |
+| Clarify product quality, ISO/IEC 25010 classification, architecture significance, measures, or evidence       | `foundations/product-quality.md`                                                                      |
+| Clarify capabilities, features, applications, or actor-facing surfaces                                        | `foundations/capabilities.md`                                                                         |
+| Clarify DDD concepts and their relationships                                                                  | `foundations/domain-driven-design.md`                                                                 |
+| Clarify C4 abstractions, diagrams, dynamics, deployment, or shared modules                                    | `foundations/c4-model.md`                                                                             |
+| Connect strategy, evolution, sourcing, or inertia to architecture                                             | `foundations/wardley-mapping.md`                                                                      |
+| Organize a multi-view architecture docs corpus                                                                | `guides/organizing-an-architecture-docs-corpus.md`                                                    |
 
 ## Workflow
 
@@ -108,24 +108,24 @@ to their dedicated skills. The bundle root is
    let the newest artifact silently win. Stop when resolution requires a new
    product or architecture decision.
 10. **Organize for progressive disclosure.** Keep `index.md` navigational and
-   give every concept a stable named file from first admission. The first use
-   case, for example, creates `use-cases/index.md` and
-   `use-cases/<named-use-case>.md`, never `use-cases.md`. Omit empty
-   collections. A same-named directory may elaborate one cohesive concept but
-   must not conceal several peer entities. Keep C4 components beneath their
-   owning container; model shared code as modules unless it has a runtime
-   boundary.
+    give every concept a stable named file from first admission. The first use
+    case, for example, creates `use-cases/index.md` and
+    `use-cases/<named-use-case>.md`, never `use-cases.md`. Omit empty
+    collections. A same-named directory may elaborate one cohesive concept but
+    must not conceal several peer entities. Keep C4 components beneath their
+    owning container; model shared code as modules unless it has a runtime
+    boundary.
 11. **Make and verify the authorized change.** For authoring, edit the bounded
-   documentation and required navigation while preserving unrelated work. For
-   review-only requests, return findings without edits. Reapply the admission
-   test, verify claims and links against their authorities, give time-sensitive
-   strategic hypotheses a review boundary, run available docs checks, and
-   inspect the diff for copied mechanics or collateral changes.
+    documentation and required navigation while preserving unrelated work. For
+    review-only requests, return findings without edits. Reapply the admission
+    test, verify claims and links against their authorities, give time-sensitive
+    strategic hypotheses a review boundary, run available docs checks, and
+    inspect the diff for copied mechanics or collateral changes.
 12. **Handoff.** State the subject and accepted meaning preserved, evidence
-   checked, files changed or reviewed, and any unresolved decision, evidence
-   gap, or reconciliation owner. For each recommended addition, reduction, or
-   reorganization outside scope, state the evidence, risk addressed,
-   maintenance cost, smallest safe change, and authority needed.
+    checked, files changed or reviewed, and any unresolved decision, evidence
+    gap, or reconciliation owner. For each recommended addition, reduction, or
+    reorganization outside scope, state the evidence, risk addressed,
+    maintenance cost, smallest safe change, and authority needed.
 
 Do not change source code, configuration, runtime systems, proposals, or
 external records unless the caller separately requests that work. A finished

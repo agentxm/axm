@@ -35,5 +35,5 @@ Follow the host's current concision and progressive-disclosure guidance, then
 test the packaged extension and each claimed discovery tier.[^gemini-best-practices]
 
 [^gemini-using-skills]: Gemini CLI — Using Agent Skills
-[^gemini-best-practices]: Gemini CLI — Skills best practices
 
+[^gemini-best-practices]: Gemini CLI — Skills best practices

@@ -21,8 +21,6 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": [
-    "@agentxm/packs/agent-engineering"
-  ],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": false
 }

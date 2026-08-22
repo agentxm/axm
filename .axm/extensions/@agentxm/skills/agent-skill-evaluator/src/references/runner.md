@@ -62,23 +62,23 @@ require structured `tool-calls` evidence from the host adapter.
 
 Useful options:
 
-| Option | Purpose |
-| --- | --- |
-| `--grader-adapter PATH` | Use a separately identified grader adapter |
+| Option                                      | Purpose                                                                                                          |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--grader-adapter PATH`                     | Use a separately identified grader adapter                                                                       |
 | `--selection-source explicit\|pack-default` | Record whether the caller bound this runner directly or selected the active pack default; defaults to `explicit` |
-| `--trials N` | Repeat each selected case |
-| `--retries N` | Permit bounded infrastructure attempts without replacing the original attempt |
-| `--support-path PATH` | Materialize one explicit repository dependency; repeat as needed |
-| `--allow-env NAME` | Pass one parent environment variable to the adapter; repeat as needed |
-| `--routing-mode MODE` | Require an exact routing observation mode |
-| `--network-mode MODE` | Require the adapter's exact denied, allowlist, or unobserved network mode |
-| `--baseline-mode without-skill` | Execute a paired execution baseline without activating the target |
-| `--baseline-mode package` | Execute `--baseline-package` as the paired baseline |
-| `--timeout-ms N` | Enforce wall-clock time per adapter invocation |
-| `--max-output-bytes N` | Bound adapter process and result output |
-| `--max-invocations N` | Reject a plan or stop execution beyond the invocation budget |
-| `--token-budget N` | Require host and grader adapters to report aggregate token usage |
-| `--cost-budget-usd N` | Require host and grader adapters to report aggregate cost |
+| `--trials N`                                | Repeat each selected case                                                                                        |
+| `--retries N`                               | Permit bounded infrastructure attempts without replacing the original attempt                                    |
+| `--support-path PATH`                       | Materialize one explicit repository dependency; repeat as needed                                                 |
+| `--allow-env NAME`                          | Pass one parent environment variable to the adapter; repeat as needed                                            |
+| `--routing-mode MODE`                       | Require an exact routing observation mode                                                                        |
+| `--network-mode MODE`                       | Require the adapter's exact denied, allowlist, or unobserved network mode                                        |
+| `--baseline-mode without-skill`             | Execute a paired execution baseline without activating the target                                                |
+| `--baseline-mode package`                   | Execute `--baseline-package` as the paired baseline                                                              |
+| `--timeout-ms N`                            | Enforce wall-clock time per adapter invocation                                                                   |
+| `--max-output-bytes N`                      | Bound adapter process and result output                                                                          |
+| `--max-invocations N`                       | Reject a plan or stop execution beyond the invocation budget                                                     |
+| `--token-budget N`                          | Require host and grader adapters to report aggregate token usage                                                 |
+| `--cost-budget-usd N`                       | Require host and grader adapters to report aggregate cost                                                        |
 
 Version 0.2 accepts `authoring-smoke` and `regression`. It rejects `release`
 at preflight because the protocol does not yet establish the necessary cohort,
@@ -86,12 +86,12 @@ calibration, retention, and independence controls.
 
 CLI exit codes are stable within protocol 1.0:
 
-| Code | Meaning |
-| --- | --- |
-| `0` | Validation passed, inspection succeeded, or a completed run concluded `Supported` |
-| `1` | A completed run concluded below `Supported`, including an evidence-level `Inconclusive` result |
-| `2` | Invalid input, validation failure, identity conflict, or reserved preflight disposition |
-| `3` | Runner failure or canceled execution |
+| Code | Meaning                                                                                        |
+| ---- | ---------------------------------------------------------------------------------------------- |
+| `0`  | Validation passed, inspection succeeded, or a completed run concluded `Supported`              |
+| `1`  | A completed run concluded below `Supported`, including an evidence-level `Inconclusive` result |
+| `2`  | Invalid input, validation failure, identity conflict, or reserved preflight disposition        |
+| `3`  | Runner failure or canceled execution                                                           |
 
 ## Resume and inspect
 

@@ -2,7 +2,17 @@
 type: Guide
 title: Organizing an architecture docs corpus
 description: How to grow a concise, navigable architecture docs corpus while giving every admitted concept a stable named identity from its first appearance.
-tags: [architecture-documentation, architecture-docs, organization, stable-identity, navigation, progressive-disclosure, human-comprehension, product-quality]
+tags:
+  [
+    architecture-documentation,
+    architecture-docs,
+    organization,
+    stable-identity,
+    navigation,
+    progressive-disclosure,
+    human-comprehension,
+    product-quality,
+  ]
 status: draft
 sources:
   - id: just-enough-architecture-docs
@@ -134,26 +144,26 @@ They simply have not earned a maintained route in this corpus.
 The following paths are a placement menu, not a template. A path appears only
 when it contains admitted content.
 
-| Path | Owns |
-| --- | --- |
-| `index.md` | Navigation from the documented system to each maintained view |
-| `overview.md` | System boundary, purpose, responsibilities, exclusions, lifecycle and stewardship route, and major relationships |
-| `strategy/` | Strategic position, evolution, inertia, and accepted architecture consequences |
-| `value/` | Offerings, audiences, needs, jobs, and value propositions |
-| `use-cases/` | Goal-oriented behavior of named subjects for contextual actors |
-| `capabilities/` | Stable abilities of a declared organization, system, or subsystem |
-| `features/` | Independently recognizable behavior meaningful across one or more use cases, surfaces, or realizations |
-| `surfaces/` | Actor-facing encounter points for system behavior |
+| Path                                            | Owns                                                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `index.md`                                      | Navigation from the documented system to each maintained view                                                    |
+| `overview.md`                                   | System boundary, purpose, responsibilities, exclusions, lifecycle and stewardship route, and major relationships |
+| `strategy/`                                     | Strategic position, evolution, inertia, and accepted architecture consequences                                   |
+| `value/`                                        | Offerings, audiences, needs, jobs, and value propositions                                                        |
+| `use-cases/`                                    | Goal-oriented behavior of named subjects for contextual actors                                                   |
+| `capabilities/`                                 | Stable abilities of a declared organization, system, or subsystem                                                |
+| `features/`                                     | Independently recognizable behavior meaningful across one or more use cases, surfaces, or realizations           |
+| `surfaces/`                                     | Actor-facing encounter points for system behavior                                                                |
 | `quality/<characteristic>/<subcharacteristic>/` | Named, architecture-significant Product Quality Requirements under one primary ISO/IEC 25010:2023 classification |
-| `domains/generic/` | Necessary problem knowledge normally obtained rather than differentiated |
-| `domains/core/` | Differentiating problem knowledge on which distinctive value depends |
-| `domains/supporting/` | Necessary domain-specific knowledge that enables the core |
-| `domains/contexts/` | Bounded models, languages, authorities, exclusions, and relationships |
-| `domains/context-maps/` | Directional relationships and obligations among bounded contexts |
-| `structure/systems/` | Canonical C4 software-system elements |
-| `structure/containers/` | Canonical C4 applications and data stores |
-| `structure/containers/<container>/components/` | Significant components owned by exactly one container |
-| `structure/views/` | Selected C4 structural, dynamic, deployment, and code views |
+| `domains/generic/`                              | Necessary problem knowledge normally obtained rather than differentiated                                         |
+| `domains/core/`                                 | Differentiating problem knowledge on which distinctive value depends                                             |
+| `domains/supporting/`                           | Necessary domain-specific knowledge that enables the core                                                        |
+| `domains/contexts/`                             | Bounded models, languages, authorities, exclusions, and relationships                                            |
+| `domains/context-maps/`                         | Directional relationships and obligations among bounded contexts                                                 |
+| `structure/systems/`                            | Canonical C4 software-system elements                                                                            |
+| `structure/containers/`                         | Canonical C4 applications and data stores                                                                        |
+| `structure/containers/<container>/components/`  | Significant components owned by exactly one container                                                            |
+| `structure/views/`                              | Selected C4 structural, dynamic, deployment, and code views                                                      |
 
 Within `value/`, keep its five demand-and-value concept collections as
 siblings. Keep `use-cases/` separate as the behavioral bridge to capabilities,
@@ -264,8 +274,11 @@ overview, then choose the architecture question relevant to your change.
 - [Software architecture docs application profile for OKF v0.2](../architecture-documentation/software-architecture-application-profile.md)
 - [Architecture guides](index.md)
 
-[^just-enough-architecture-docs]: Just Enough Architecture Docs defines which
+[^just-enough-architecture-docs]:
+    Just Enough Architecture Docs defines which
     durable claims warrant a maintained place in the corpus.
-[^software-architecture-docs-profile]: The application profile makes the
+
+[^software-architecture-docs-profile]:
+    The application profile makes the
     governed concept types, paths, metadata, and containment rules normative
     for adopting OKF corpora.

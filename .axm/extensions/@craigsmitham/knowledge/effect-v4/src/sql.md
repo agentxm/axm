@@ -2,7 +2,20 @@
 type: Guide
 title: SQL
 description: Accessing relational databases with effect/unstable/sql; use for client wiring, statement construction, SqlError reason handling, SqlSchema boundaries, transaction ownership, and query text in traces.
-tags: [effect, effect-v4, sql, sqlclient, sqlerror, transactions, sqlschema, postgres, sqlite, d1, tracing]
+tags:
+  [
+    effect,
+    effect-v4,
+    sql,
+    sqlclient,
+    sqlerror,
+    transactions,
+    sqlschema,
+    postgres,
+    sqlite,
+    d1,
+    tracing,
+  ]
 status: stable
 sources:
   - id: src-sql-error
@@ -134,24 +147,24 @@ Browse the module surface at the
   `Statement`, `SqlError`, `SqlSchema`. `SqlResolver` belongs to batching,
   `Migrator` to deployment, `SqlModel` to `Model.Class`, and `SqlConnection`
   and `SqlStream` to driver authors.[^src-sql-stream]
-- `SqlClient` is the spine: it *is* the statement constructor, plus `reserve`,
+- `SqlClient` is the spine: it _is_ the statement constructor, plus `reserve`,
   `withTransaction`, `transactionService`, and the reactive
   helpers.[^src-sql-client]
 
 ## Wire one client behind two tags
 
 ```ts
-import { Effect } from "effect"
-import { PgClient } from "@effect/sql-pg"
-import { SqlClient } from "effect/unstable/sql"
+import { Effect } from "effect";
+import { PgClient } from "@effect/sql-pg";
+import { SqlClient } from "effect/unstable/sql";
 
 // Layer<PgClient | SqlClient, SqlError>: one client, published twice.
-const SqlLive = PgClient.layer({ database: "app", maxConnections: 10 })
+const SqlLive = PgClient.layer({ database: "app", maxConnections: 10 });
 
-const countUsers = Effect.gen(function*() {
-  const sql = yield* SqlClient.SqlClient
-  return yield* sql<{ n: number }>`SELECT count(*) AS n FROM users`
-})
+const countUsers = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  return yield* sql<{ n: number }>`SELECT count(*) AS n FROM users`;
+});
 ```
 
 - Depend on `SqlClient.SqlClient`, not the dialect tag, so a service stays
@@ -165,7 +178,7 @@ const countUsers = Effect.gen(function*() {
 
 ## Build statements
 
-- A `Statement<A>` *is* an `Effect<ReadonlyArray<A>, SqlError>`. Yield it;
+- A `Statement<A>` _is_ an `Effect<ReadonlyArray<A>, SqlError>`. Yield it;
   there is no `.execute`. `.compile()` returns `[sql, params]` without
   executing — use it to inspect or guard a statement, not to run it by
   hand.[^src-statement] [^applied-effect-local-executor]
@@ -199,23 +212,23 @@ delegates to the reason, and classification is per dialect and code-driven —
 the PostgreSQL column below is the whole theory behind the retryable
 column.[^src-sql-error] [^src-pg-client] [^pg-errcodes]
 
-| Reason | `isRetryable` | PostgreSQL trigger |
-|---|---|---|
-| `ConnectionError` | yes | class `08*` |
-| `AuthenticationError` | no | class `28*` |
-| `AuthorizationError` | no | `42501` |
-| `SqlSyntaxError` | no | class `42*` |
-| `UniqueViolation` | no | `23505`, carrying `constraint` |
-| `ConstraintError` | no | class `23*` |
-| `DeadlockError` | yes | `40P01` deadlock detected |
-| `SerializationError` | yes | `40001` serialization failure |
-| `LockTimeoutError` | yes | `55P03` lock not available |
-| `StatementTimeoutError` | yes | `57014` query canceled |
-| `UnknownError` | no | anything unmatched |
+| Reason                  | `isRetryable` | PostgreSQL trigger             |
+| ----------------------- | ------------- | ------------------------------ |
+| `ConnectionError`       | yes           | class `08*`                    |
+| `AuthenticationError`   | no            | class `28*`                    |
+| `AuthorizationError`    | no            | `42501`                        |
+| `SqlSyntaxError`        | no            | class `42*`                    |
+| `UniqueViolation`       | no            | `23505`, carrying `constraint` |
+| `ConstraintError`       | no            | class `23*`                    |
+| `DeadlockError`         | yes           | `40P01` deadlock detected      |
+| `SerializationError`    | yes           | `40001` serialization failure  |
+| `LockTimeoutError`      | yes           | `55P03` lock not available     |
+| `StatementTimeoutError` | yes           | `57014` query canceled         |
+| `UnknownError`          | no            | anything unmatched             |
 
 - Specific codes are tested before their class (`42501` before `42*`, `23505`
   before `23*`), and anything a driver cannot place becomes `UnknownError`,
-  which is *not* retryable. The flag is deliberately conservative, but it
+  which is _not_ retryable. The flag is deliberately conservative, but it
   establishes technical eligibility rather than permission to retry. Combine
   it with idempotency, transaction scope, a bounded schedule, and a total
   timeout.[^src-sql-error] [^src-pg-client]
@@ -229,60 +242,46 @@ column.[^src-sql-error] [^src-pg-client] [^pg-errcodes]
   handles the residue.[^applied-effect-local-executor] [^applied-alchemy-lock]
 
 ```ts
-import { Effect } from "effect"
+import { Effect } from "effect";
 
 // Data-access participant: preserve SqlError for the owning boundary.
-const insertUserRow = (email: string) =>
-  sql`INSERT INTO users ${sql.insert({ email })}`
+const insertUserRow = (email: string) => sql`INSERT INTO users ${sql.insert({ email })}`;
 
 // Feature boundary: own domain, availability, and residual-failure policy once.
 const createUser = (email: string) =>
   insertUserRow(email).pipe(
-    Effect.catchReason(
-      "SqlError",
-      "UniqueViolation",
-      (reason, error) =>
-        reason.constraint === "users_email_key"
-          ? Effect.fail(new EmailTaken({ email }))
-          : Effect.fail(error),
+    Effect.catchReason("SqlError", "UniqueViolation", (reason, error) =>
+      reason.constraint === "users_email_key"
+        ? Effect.fail(new EmailTaken({ email }))
+        : Effect.fail(error),
     ),
     Effect.catchReasons("SqlError", {
       ConnectionError: (_, error) =>
-        Effect.fail(
-          new StorageUnavailable({ operation: "create-user", cause: error }),
-        ),
+        Effect.fail(new StorageUnavailable({ operation: "create-user", cause: error })),
       DeadlockError: (_, error) =>
-        Effect.fail(
-          new StorageUnavailable({ operation: "create-user", cause: error }),
-        ),
+        Effect.fail(new StorageUnavailable({ operation: "create-user", cause: error })),
       SerializationError: (_, error) =>
-        Effect.fail(
-          new StorageUnavailable({ operation: "create-user", cause: error }),
-        ),
+        Effect.fail(new StorageUnavailable({ operation: "create-user", cause: error })),
       LockTimeoutError: (_, error) =>
-        Effect.fail(
-          new StorageUnavailable({ operation: "create-user", cause: error }),
-        ),
+        Effect.fail(new StorageUnavailable({ operation: "create-user", cause: error })),
       StatementTimeoutError: (_, error) =>
-        Effect.fail(
-          new StorageUnavailable({ operation: "create-user", cause: error }),
-        ),
+        Effect.fail(new StorageUnavailable({ operation: "create-user", cause: error })),
     }),
     // This feature declares the residual reasons unexpected; another feature
     // may instead translate them into a typed operational failure.
     Effect.catchTag("SqlError", Effect.die),
-  )
+  );
 ```
 
 - Choose the operator from the meaning of the transformation:
 
-  | Intent | Operation |
-  |---|---|
-  | Handle one nested SQL reason | `Effect.catchReason` |
-  | Handle a reason partition | `Effect.catchReasons` |
-  | Translate `SqlError` inside a mixed error union | `Effect.catchTag("SqlError", …)` |
-  | Translate every member of a homogeneous error channel identically | `Effect.mapError` |
-  | Make the complete remaining error channel defective after composition | `Effect.orDie` |
+  | Intent                                                                | Operation                        |
+  | --------------------------------------------------------------------- | -------------------------------- |
+  | Handle one nested SQL reason                                          | `Effect.catchReason`             |
+  | Handle a reason partition                                             | `Effect.catchReasons`            |
+  | Translate `SqlError` inside a mixed error union                       | `Effect.catchTag("SqlError", …)` |
+  | Translate every member of a homogeneous error channel identically     | `Effect.mapError`                |
+  | Make the complete remaining error channel defective after composition | `Effect.orDie`                   |
 
 - Enumerate the reasons you translate rather than catching `SqlError` whole.
   An exhaustive `catchReasons` turns a renamed or added reason into a build
@@ -335,14 +334,14 @@ const createUser = (email: string) =>
 The boundary belongs to the handler or use case that knows the atomicity
 requirement. Data-access functions are participants: they return Effects that
 join whatever transaction is in context, because `withTransaction` adds
-`SqlError` to `E` and *nothing* to `R` — they cannot ask for a transaction and
+`SqlError` to `E` and _nothing_ to `R` — they cannot ask for a transaction and
 cannot declare that they need one.[^src-sql-client] Open a nested
 `withTransaction` only as an explicit scoped-rollback tool, never as a
 default.[^applied-effect-local-store]
 
 - Propagation is per client instance: the transaction connection lives under a
   tag minted per client (`.../TransactionConnection/<clientId>`), so a
-  participant built from a *second* client silently runs outside the caller's
+  participant built from a _second_ client silently runs outside the caller's
   transaction, with no type error and no runtime warning.[^src-sql-client] That
   is the concrete reason to publish one client under both tags.
 - A statement that is only correct inside a transaction — `SELECT … FOR UPDATE`,
@@ -357,23 +356,23 @@ default.[^applied-effect-local-store]
   explicitly, marking this as a gap rather than a
   design.[^src-sql-client] [^applied-opencode-session]
 - Two Cloudflare carve-outs: `@effect/sql-d1` sets its transaction acquirer to
-  `Effect.die("transactions are not supported in D1")`, so *any*
+  `Effect.die("transactions are not supported in D1")`, so _any_
   `withTransaction` is a defect — use `D1Client.batch`, since Cloudflare
   documents batched statements as SQL
   transactions.[^src-d1-client] [^cf-d1-api] [^sqlite-transaction] Durable
-  Object SQLite allows a top-level transaction but fails *nested* ones with a
+  Object SQLite allows a top-level transaction but fails _nested_ ones with a
   typed `SqlError`.[^src-sqlite-do]
 
 ## Keep query text out of your traces
 
 - Every statement runs in a `sql.execute` client span carrying
   `db.operation.name` and `db.query.text`; the dialect layer adds
-  `db.system.name` and `db.namespace`. These are OpenTelemetry *stable*
+  `db.system.name` and `db.namespace`. These are OpenTelemetry _stable_
   database attributes, implemented by
   name.[^src-statement] [^src-pg-client] [^otel-db-spans]
 - OTel says non-parameterized query text SHOULD NOT be collected without
   sanitization, and that parameterized text needs none. Effect sets
-  `db.query.text` to the *compiled* SQL and passes parameters separately, so
+  `db.query.text` to the _compiled_ SQL and passes parameters separately, so
   ordinary interpolation is safe by construction.[^src-statement] [^otel-db-spans]
 - `sql.unsafe` and `sql.literal` inline their values into that same compiled
   string, which then ships to your tracing backend in clear text. Treat any
@@ -398,14 +397,14 @@ conflict.[^src-migrator]
 
 ## What this guide does not cover
 
-| Concern | Owner | The one SQL-specific fact to carry across |
-|---|---|---|
-| Resolvers, batching, dedup | [Request batching and cache](request-batching-and-cache.md) | Resolver batching keys on the active transaction connection, so requests inside different transactions never batch together.[^src-sql-resolver] |
-| Schema design, encode/decode policy, `Model.Class`, `SqlModel` | [Schema boundaries](schema-boundaries.md) | The database is an untrusted boundary; a decode failure is a different domain failure than a `SqlError`. |
-| Streaming and pagination | [Streams](streams.md) | `Statement.stream` exists, but seven of twelve dialect packages implement `executeStream` as `Stream.die("executeStream not implemented")` — check your driver before designing around it.[^src-d1-client] |
-| Connection lifetime, `sql.reserve`, finalizer ordering | [Resource safety](resource-safety.md) | Nesting yields savepoints, not new transactions; commit and rollback failures are `orDie`'d.[^src-sql-client] |
-| D1, Durable Object SQLite, Worker request lifetime | [Cloudflare Workers](cloudflare-workers.md) | D1 has no migrator and dies on any transaction; DO SQLite rejects nested ones.[^src-d1-client] [^src-sqlite-do] |
-| Error-channel design, `catchReason` as a combinator | [Error modeling](error-modeling.md) | `SqlError` is the canonical reason-carrying error; the idiom transfers to `PlatformError`, `AiError`, and `SocketError`.[^src-effect-catch-reason] |
+| Concern                                                        | Owner                                                       | The one SQL-specific fact to carry across                                                                                                                                                                  |
+| -------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resolvers, batching, dedup                                     | [Request batching and cache](request-batching-and-cache.md) | Resolver batching keys on the active transaction connection, so requests inside different transactions never batch together.[^src-sql-resolver]                                                            |
+| Schema design, encode/decode policy, `Model.Class`, `SqlModel` | [Schema boundaries](schema-boundaries.md)                   | The database is an untrusted boundary; a decode failure is a different domain failure than a `SqlError`.                                                                                                   |
+| Streaming and pagination                                       | [Streams](streams.md)                                       | `Statement.stream` exists, but seven of twelve dialect packages implement `executeStream` as `Stream.die("executeStream not implemented")` — check your driver before designing around it.[^src-d1-client] |
+| Connection lifetime, `sql.reserve`, finalizer ordering         | [Resource safety](resource-safety.md)                       | Nesting yields savepoints, not new transactions; commit and rollback failures are `orDie`'d.[^src-sql-client]                                                                                              |
+| D1, Durable Object SQLite, Worker request lifetime             | [Cloudflare Workers](cloudflare-workers.md)                 | D1 has no migrator and dies on any transaction; DO SQLite rejects nested ones.[^src-d1-client] [^src-sqlite-do]                                                                                            |
+| Error-channel design, `catchReason` as a combinator            | [Error modeling](error-modeling.md)                         | `SqlError` is the canonical reason-carrying error; the idiom transfers to `PlatformError`, `AiError`, and `SocketError`.[^src-effect-catch-reason]                                                         |
 
 ## If you are writing a driver
 
@@ -442,30 +441,57 @@ everything above this section is the consumer's contract.
 - Decode failures from `SqlSchema` are handled separately from driver failures.
 
 [^src-sql-error]: `packages/effect/src/unstable/sql/SqlError.ts` at `effect@4.0.0-rc.110` — `SqlError` is a `Schema.TaggedError` with tag `"SqlError"` and a single `reason` field; `SqlErrorReason` is an eleven-member union; `ReasonFields` is `{ cause, message?, operation? }` and `UniqueViolation` adds `constraint: Schema.String`; each reason defines `get isRetryable()`, `true` for `ConnectionError`, `DeadlockError`, `SerializationError`, `LockTimeoutError`, `StatementTimeoutError` and `false` for the rest, including `UnknownError`; `SqlError.isRetryable` delegates to the reason. Also exports `isSqlError`, `isSqlErrorReason`, `classifySqliteError`, `ResultLengthMismatch`.
+
 [^src-sql-client]: `packages/effect/src/unstable/sql/SqlClient.ts` at `effect@4.0.0-rc.110` — `SqlClient extends Constructor` with `reserve`, `withTransaction: <R, E, A>(self: Effect<A, E, R>) => Effect<A, E | SqlError, R>`, `transactionService`, `reactive`, `reactiveMailbox`; `makeWithTransaction` opens the `sql.transaction` span, emits `db.transaction.commit`/`savepoint`/`rollback` events, `Effect.orDie`s commit and rollback, adds a one-permit `Semaphore` to the transaction context so nested blocks serialize, and on nested success sets `effect = Effect.void` (no `RELEASE SAVEPOINT`); `TransactionConnection(clientId)` mints the tag `effect/sql/SqlClient/TransactionConnection/<clientId>` from a per-process counter; `SafeIntegers` is a `Context.Reference` defaulting to `false`.
+
 [^src-statement]: `packages/effect/src/unstable/sql/Statement.ts` at `effect@4.0.0-rc.110` — `Statement<A> extends Fragment, Effect<ReadonlyArray<A>, SqlError>` with `raw`, `values`, `unprepared`, `stream`, `withoutTransform`, `compile()`; `Constructor` exposes the template call, identifier call, `unsafe`, `literal`, `in`, `insert`, `update`, `updateValues` (documented unsupported on SQLite), `and`, `or`, `csv`, `join`, `onDialect`; execution opens `Effect.useSpan("sql.execute", { kind: "client" })` and sets `db.operation.name` and `db.query.text` from the compiled SQL, with parameters passed separately to the connection. Driver-facing exports: `makeCompiler`, `makeCompilerSqlite`, `defaultTransforms`.
+
 [^src-sql-schema]: `packages/effect/src/unstable/sql/SqlSchema.ts` at `effect@4.0.0-rc.110` — `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void_` re-exported as `void`; each takes `{ Request, Result, execute }`, adds `Schema.SchemaError` to the error channel, and `findOne`/`findNonEmpty` additionally fail with `Cause.NoSuchElementError`.
+
 [^src-sql-resolver]: `packages/effect/src/unstable/sql/SqlResolver.ts` at `effect@4.0.0-rc.110` — every resolver constructor passes `key: transactionKey`, which reads the active `TransactionConnection` out of the request's context and keys by reference.
+
 [^src-sql-stream]: `packages/effect/src/unstable/sql/SqlStream.ts` at `effect@4.0.0-rc.110` — 81 lines, sole export `asyncPauseResume`, documented as the interop layer used by SQL integrations to implement `Statement.stream` and `Connection.executeStream`.
+
 [^src-migrator]: `packages/effect/src/unstable/sql/Migrator.ts` at `effect@4.0.0-rc.110` — `fromGlob`/`fromRecord` loaders, migrations run inside a transaction, and the concurrency lock is an insert whose failure is inspected with `isConstraintConflict` (`reason._tag === "ConstraintError" || "UniqueViolation"`) and mapped to `MigrationError({ kind: "Locked" })`. Dialect bindings exist for clickhouse, libsql, mssql, mysql2, pg, pglite, sqlite-bun, sqlite-do, sqlite-node, and sqlite-react-native — ten of twelve; d1 and sqlite-wasm ship none.
+
 [^src-sql-connection]: `packages/effect/src/unstable/sql/SqlConnection.ts` at `effect@4.0.0-rc.110` — `Connection` interface and `Acquirer = Effect<Connection, SqlError, Scope>`.
+
 [^src-pg-client]: `packages/sql/pg/src/PgClient.ts` at `effect@4.0.0-rc.110` — `classifyError` branches on SQLSTATE in order (`08*`, `28*`, `42501`, `42*`, `23505`, `23*`, `40P01`, `40001`, `55P03`, `57014`) and falls through to `UnknownError`; span attributes include `db.system.name` and `db.namespace`; `layerFrom`/`layerConfig`/`layer` all return `Layer<PgClient | SqlClient, …>` from a single `make`.
+
 [^src-d1-client]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.110` — `const transactionAcquirer = Effect.die("transactions are not supported in D1")`; `batch` is documented as executing statements "as a single atomic D1 batch"; `updateValues: never`; `executeStream` returns `Stream.die("executeStream not implemented")`, as it does in libsql, mssql, sqlite-bun, sqlite-node, sqlite-react-native, and sqlite-wasm.
+
 [^src-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.110` — the storage-backed `withTransaction` fails with "Nested transactions are not supported by Cloudflare Durable Object SQLite storage" when a transaction connection is already in context.
+
 [^src-eventlog]: `packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts` at `effect@4.0.0-rc.110` — a first-party rc.110 consumer that absorbs an insert race with `Effect.catchIf(isConstraintConflict, () => Effect.void)`, where the predicate reads `error.reason._tag`.
+
 [^src-eventlog-encrypted]: `packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts` at `effect@4.0.0-rc.110` — the same insert expressed as `sql.insert(batch.entries)` with `ON CONFLICT DO NOTHING`, so no violation is raised.
+
 [^src-effect-catch-reason]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `catchReason(errorTag, reasonTag, f, orElse?)`, `catchReasons(errorTag, cases, orElse?)`, and `unwrapReason(errorTag)`; `retry` accepts `{ while, schedule, times, until }`. The reason machinery is generic over any tagged error carrying a `reason` union, not SQL-specific.
+
 [^docs-effect-tsgo]: Effect language service README at `Effect-TS/tsgo@83b8e2a` — `catchTagToCatchReason` recommends reason-specific combinators when a handler re-fails unmatched reasons; `redundantMapError` and `redundantOrDie` recommend hoisting repeated trailing transformations from individual `Effect.gen` yields.
+
 [^docs-sql-basics]: `ai-docs/src/40_sql/10_basics.ts` and `ai-docs/src/40_sql/index.md` at `effect@4.0.0-rc.110` — the only official SQL walkthrough: `Model.Class`, `SqliteMigrator.layer`, `SqlModel.makeRepository`, one `SqlSchema.findAll`, and a repository boundary that maps `NoSuchElementError` to a domain error while dying on `SchemaError` and `SqlError`.
+
 [^test-pg-classification]: `packages/sql/pg/test/SqlErrorClassification.test.ts` at `effect@4.0.0-rc.110` — 23505 yields a trimmed constraint name; missing, non-string, and blank constraints all yield `"unknown"`; 23503 stays a `ConstraintError`.
+
 [^otel-db-spans]: OpenTelemetry semantic conventions `docs/db/database-spans.md` at tag `v1.44.0` — `db.operation.name` and `db.query.text` are Stable; note [15] states non-parameterized query text SHOULD NOT be collected by default without sanitization, and note [16] states parameterized query text SHOULD NOT be sanitized. No `db.transaction.*` event is defined.
+
 [^pg-errcodes]: PostgreSQL 17 documentation, Appendix A — 23505 `unique_violation`, 40001 `serialization_failure`, 40P01 `deadlock_detected`, 55P03 `lock_not_available`, 42501 `insufficient_privilege`, 57014 `query_canceled`; class 08 connection exception, class 28 invalid authorization specification.
+
 [^pg-serialization]: PostgreSQL 17 documentation, 13.5 Serialization Failure Handling — applications must retry serialization failures, may retry deadlocks with care, and must retry the complete transaction including logic that decides which SQL and values to use.
+
 [^cf-d1-api]: Cloudflare D1 Worker API documentation — "Batched statements are SQL transactions. If a statement in the sequence fails, then an error is returned for that specific statement, and it aborts or rolls back the entire sequence." Read 2026-08-17; Cloudflare does not version these docs.
+
 [^sqlite-transaction]: SQLite documentation, `lang_transaction.html` — transactions started with `BEGIN` do not nest; `SAVEPOINT`/`RELEASE` are the nesting mechanism, and `ROLLBACK TO` unwinds to a savepoint. Read 2026-08-17; SQLite does not version this page.
+
 [^applied-alchemy-d1]: Observed in alchemy-effect@1596e503 `packages/alchemy/src/SQL/D1.ts` (effect 4.0.0-rc.110) — `Layer.effect(Sql.SqlClient, …).pipe(Layer.provideMerge(Layer.effect(D1Client.D1Client, …)))`, with an in-source comment stating the motive: "so both tags share one per-execution client (and one prepared-statement cache)". The same shape appears in that package's `SQL/Postgres.ts` and `SQL/MySQL.ts`.
+
 [^applied-alchemy-routes]: Observed in alchemy-effect@1596e503 `packages/alchemy/test/SQL/fixtures/routes.ts` (effect 4.0.0-rc.110) — a fixture, but a released library's cross-dialect conformance surface: `sql.unsafe` DDL, `sql(table)` identifiers, single- and multi-row `sql.insert`, `sql.update(row, ["id"])`, `sql.in`, `sql.or` over a nested `sql.and`, prefix-form `sql.csv`, and `sql.literal`.
+
 [^applied-alchemy-lock]: Observed in alchemy-effect@1596e503 `packages/alchemy/src/Auth/Lock.ts` (effect 4.0.0-rc.110) — `Effect.catchReason("PlatformError", "AlreadyExists", …)` converting one reason into a domain failure, then retrying on that domain tag. Not SQL, but the same rc.110 idiom on a reason-carrying error.
+
 [^applied-effect-local-executor]: Observed in effect-local@faa52d9 `packages/local-sql/src/QueryExecutor.ts` (effect 4.0.0-beta.103) — `Effect.catchReasons("SqlError", { ConnectionError, LockTimeoutError, StatementTimeoutError, DeadlockError, SerializationError })` mapping all five to one `StorageUnavailable`, followed by `Effect.catchTag("SqlError", …)` for statement faults; an adjacent comment states the rationale, that holding the list to the reason union makes a renamed reason a build failure instead of a silent reclassification. The same file uses `.compile()` to inspect statement text before execution.
+
 [^applied-effect-local-store]: Observed in effect-local@faa52d9 `packages/local-sql/src/ServerStore.ts` and `SchemaEvolution.ts` (effect 4.0.0-beta.103) — `SqlSchema.findOne` adapters built once at construction; `lockSpace`, a no-op `UPDATE … RETURNING` used as a row lock and only correct inside the caller's transaction; a deliberately nested `sql.withTransaction` whose failure is converted to a `Result` after rollback; and a hand-written schema-evolution engine in place of `Migrator`.
+
 [^applied-opencode-session]: Observed in opencode@65c3597 `packages/effect-drizzle-sqlite/src/effect-sqlite/session.ts` (effect 4.0.0-beta.83) — an independent reimplementation of the same savepoint protocol that additionally issues `release savepoint effect_sql_<id>` on nested success. Note on version: no production `withTransaction` usage exists in the corpus at rc.110, so this section's "how people write it today" support is beta-era. The mechanism claim is unaffected — `makeWithTransaction` is byte-identical in shape across beta.83, beta.103, and rc.110, and this reimplementation matches it line for line except for the release.

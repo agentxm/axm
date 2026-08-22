@@ -46,8 +46,8 @@ into a hierarchy or glossary entry, overlap, authority, and contextual
 differences disappear.
 
 Readers then have to reconcile several plausible answers to questions such as
-*Which concept owns this claim?*, *Can these concepts overlap?*, and *Which
-artifact should I create?*
+_Which concept owns this claim?_, _Can these concepts overlap?_, and _Which
+artifact should I create?_
 
 ## Forces
 
@@ -91,9 +91,9 @@ mentions. It is canonical for the relationship among them.
 
 Use only the columns the reader needs:
 
-| Concept | Question answered | Owns | Does not own |
-| --- | --- | --- | --- |
-| First concept | What does this concept help decide? | Its distinctive responsibility | A neighboring responsibility |
+| Concept        | Question answered                       | Owns                           | Does not own                       |
+| -------------- | --------------------------------------- | ------------------------------ | ---------------------------------- |
+| First concept  | What does this concept help decide?     | Its distinctive responsibility | A neighboring responsibility       |
 | Second concept | What different question does it answer? | Its distinctive responsibility | The first concept's responsibility |
 
 Follow the matrix with prose when concepts can overlap, change roles by

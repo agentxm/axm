@@ -17,7 +17,7 @@
 ## Package contents
 
 | Artifact | Responsibility | Dependencies or side effects |
-| --- | --- | --- |
+| -------- | -------------- | ---------------------------- |
 
 ## Evidence
 

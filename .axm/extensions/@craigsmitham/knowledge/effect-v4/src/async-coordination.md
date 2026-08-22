@@ -2,7 +2,21 @@
 type: Guide
 title: Async coordination
 description: Choosing among Deferred, Latch, Queue, PubSub, Ref, SynchronizedRef, SubscriptionRef, Semaphore, and the Tx* transactional family; use for homegrown locks, shared mutable state, event emitters, polling flags, or admission control.
-tags: [effect, effect-v4, deferred, latch, queue, pubsub, ref, subscription-ref, semaphore, transactions, backpressure, coordination]
+tags:
+  [
+    effect,
+    effect-v4,
+    deferred,
+    latch,
+    queue,
+    pubsub,
+    ref,
+    subscription-ref,
+    semaphore,
+    transactions,
+    backpressure,
+    coordination,
+  ]
 status: stable
 sources:
   - id: src-queue
@@ -110,14 +124,14 @@ buffered, and then fails takers with `Cause.Done`; `Queue.shutdown` discards
 buffered values and resumes pending operations immediately.[^src-queue]
 
 ```ts
-import { Cause, Effect, Queue } from "effect"
+import { Cause, Effect, Queue } from "effect";
 
 const produce = (jobs: Queue.Enqueue<Job, Cause.Done>) =>
-  Effect.gen(function*() {
-    for (const job of pending) yield* Queue.offer(jobs, job)
+  Effect.gen(function* () {
+    for (const job of pending) yield* Queue.offer(jobs, job);
     // Completion, not destruction: consumers drain the queue, then observe Done.
-    yield* Queue.end(jobs)
-  })
+    yield* Queue.end(jobs);
+  });
 ```
 
 The ordered shutdown sequence — stop admitting, signal, drain, interrupt — is
@@ -145,11 +159,19 @@ owned by [Structured concurrency](structured-concurrency.md).
   inside an owning scope.
 
 [^src-queue]: `packages/effect/src/Queue.ts` at `effect@4.0.0-rc.110` — `Queue<A, E>` hands each value to one consumer in offer order; bounded queues suspend, drop, or slide; `Enqueue`/`Dequeue` interfaces; `end` fails with `Cause.Done` after draining, `shutdown` discards immediately.
+
 [^src-pubsub]: `packages/effect/src/PubSub.ts` at `effect@4.0.0-rc.110` — bounded/dropping/sliding/unbounded constructors with replay; `subscribe` returns an effect requiring `Scope`.
+
 [^src-semaphore]: `Semaphore` (top-level module, since 4.0.0): `packages/effect/src/Semaphore.ts`; `PartitionedSemaphore` (since 4.0.0): `packages/effect/src/PartitionedSemaphore.ts`, both at `effect@4.0.0-rc.110`.
+
 [^src-latch]: `packages/effect/src/Latch.ts` at `effect@4.0.0-rc.110` (since 4.0.0) — `await`/`whenOpen` suspend while closed; `open`, `release`, `close`.
+
 [^src-subscriptionref]: `packages/effect/src/SubscriptionRef.ts` at `effect@4.0.0-rc.110` — serialized updates; `changes` publishes the current value and every committed update as a `Stream`.
+
 [^src-txqueue]: `packages/effect/src/TxQueue.ts` at `effect@4.0.0-rc.110` (Tx* family since 4.0.0) — transactional operations retry and commit together inside `Effect.tx` (`packages/effect/src/Effect.ts`); siblings include `TxRef.ts`, `TxPubSub.ts`, `TxSemaphore.ts`.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/EphemeralHub.ts` (effect 4.0.0-beta.103).
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/DiscordGateway/Messaging.ts` (effect 4.0.0-beta.105).
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/common/src/leader-thread/LeaderSyncProcessor.ts` (effect 4.0.0-beta.99).

@@ -2,6 +2,7 @@
 name: author-agent-skill
 description: Creates or revises portable Agent Skills and their versioned evaluation source from defined requirements, workflow evidence, or accepted findings. Use when asked to create, extract, implement, fix, update, adapt, restructure, or remediate an Agent Skill, SKILL.md package, or its evaluation contracts, cases, fixtures, graders, or harness inputs. Compose with the AXM skill before changing managed packages. Not for executing behavioral suites, independently auditing a skill, verifying remediation closure, or approving it for use.
 ---
+
 # Author an Agent Skill
 
 Create or revise one portable Agent Skill without confusing authoring evidence

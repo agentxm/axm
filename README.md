@@ -177,8 +177,16 @@ axm publish                          # 4. Publish new authored versions; verify 
 ```
 
 Authorship is derived from the intrinsic
-`workspace:@owner/<plural-type>/<name>` settings source. Explicit selectors can
-publish configured non-workspace packages without changing their source.
+`workspace:@owner/<plural-type>/<name>` settings source. Bare, filtered, and
+explicit selections publish only workspace-authored packages. Adopt a retained
+canonical package when this workspace should own it, or fork an installed
+package to publish it under a new identity.
+
+AXM builds a deterministic archive from each selected authored package. For an
+existing immutable version, `--on-existing verify` rebuilds that archive and
+requires its SHA-512 digest to match the Registry release before reporting a
+successful no-op. Installed external files are mutable observed materialization,
+not release inputs or continuously integrity-checked snapshots.
 
 `axm lint` checks the same rules the registry enforces — see
 [Lint](#lint) for details.

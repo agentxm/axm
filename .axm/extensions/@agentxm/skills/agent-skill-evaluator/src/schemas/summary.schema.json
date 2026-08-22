@@ -3,7 +3,20 @@
   "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/summary-1.0.0.json",
   "title": "Agent Skill evaluation summary",
   "type": "object",
-  "required": ["schema_version", "run_id", "counts", "estimand", "case_rates", "coverage", "routing_case_rates", "critical_failure", "critical_failures", "conclusion", "claim_scope", "limitations"],
+  "required": [
+    "schema_version",
+    "run_id",
+    "counts",
+    "estimand",
+    "case_rates",
+    "coverage",
+    "routing_case_rates",
+    "critical_failure",
+    "critical_failures",
+    "conclusion",
+    "claim_scope",
+    "limitations"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "run_id": { "type": "string" },

@@ -48,13 +48,13 @@ To write one, use [Principle guide](../guides/principle.md).
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Understand and use a durable direction for judgment |
-| **Success** | The reader can explain the good served, recognize relevant situations, deliberate among tensions, and reach a defensible local judgment |
-| **Voice** | Normative but reason-giving: *prefer, preserve, avoid, separate, depend on* — followed by why and within what scope |
-| **Typical prompt** | *What should guide this kind of decision, and how do I apply it without turning it into a slogan?* |
-| **Title cue** | A stable name or maxim for the direction, not one implementation or outcome |
+|                    |                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reader need**    | Understand and use a durable direction for judgment                                                                                     |
+| **Success**        | The reader can explain the good served, recognize relevant situations, deliberate among tensions, and reach a defensible local judgment |
+| **Voice**          | Normative but reason-giving: _prefer, preserve, avoid, separate, depend on_ — followed by why and within what scope                     |
+| **Typical prompt** | _What should guide this kind of decision, and how do I apply it without turning it into a slogan?_                                      |
+| **Title cue**      | A stable name or maxim for the direction, not one implementation or outcome                                                             |
 
 ## From good to action
 
@@ -91,11 +91,11 @@ implicated.[^frame-christian-life][^frame-perspectivalism][^poythress-biblical-p
 
 Used as documentation lenses rather than a mandatory theological framework:
 
-| Lens | A principle document must answer |
-| --- | --- |
-| **Normative** | What direction is claimed, what good warrants it, and how much force does it carry? |
-| **Situational** | Which facts, purposes, constraints, consequences, and competing goods affect its application? |
-| **Practitioner** | What perception, competence, motive, restraint, or disposition does sound use require? |
+| Lens             | A principle document must answer                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| **Normative**    | What direction is claimed, what good warrants it, and how much force does it carry?           |
+| **Situational**  | Which facts, purposes, constraints, consequences, and competing goods affect its application? |
+| **Practitioner** | What perception, competence, motive, restraint, or disposition does sound use require?        |
 
 These are perspectives on one act of judgment, not three ceremonial sections.
 A principle without situations and practitioners is a slogan. A principle
@@ -106,19 +106,19 @@ without a stable normative claim is merely a collection of cases.
 No page template is universal, but a sound principle normally makes this
 semantic core discoverable:
 
-| Element | Question it answers |
-| --- | --- |
-| **Name and formulation** | What durable direction does this name stand for? |
-| **Good sought or protected** | What worthwhile quality, relationship, or order makes the direction matter? |
-| **Warrant and provenance** | Why trust this claim, and where did its wording and authority come from? |
-| **Normative strength** | Is it an aspiration, default, professional principle, organizational commitment, or binding rule? |
-| **Scope and field** | Which decisions, actors, systems, and conditions bring it into play? |
-| **Practical implications** | Toward what choices does it ordinarily direct judgment? |
-| **Tensions and limits** | Which other goods, principles, or conditions qualify its application? |
-| **Practitioner demands** | What judgment, knowledge, motive, or disposition does faithful use require? |
-| **Cases** | How does it illuminate contrasting situations without becoming a case-specific rule? |
-| **Misreadings** | How is the maxim commonly narrowed, absolutized, or detached from its good? |
-| **Relationships** | Which principles, patterns, practices, rules, and decisions interpret or enact it? |
+| Element                      | Question it answers                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Name and formulation**     | What durable direction does this name stand for?                                                  |
+| **Good sought or protected** | What worthwhile quality, relationship, or order makes the direction matter?                       |
+| **Warrant and provenance**   | Why trust this claim, and where did its wording and authority come from?                          |
+| **Normative strength**       | Is it an aspiration, default, professional principle, organizational commitment, or binding rule? |
+| **Scope and field**          | Which decisions, actors, systems, and conditions bring it into play?                              |
+| **Practical implications**   | Toward what choices does it ordinarily direct judgment?                                           |
+| **Tensions and limits**      | Which other goods, principles, or conditions qualify its application?                             |
+| **Practitioner demands**     | What judgment, knowledge, motive, or disposition does faithful use require?                       |
+| **Cases**                    | How does it illuminate contrasting situations without becoming a case-specific rule?              |
+| **Misreadings**              | How is the maxim commonly narrowed, absolutized, or detached from its good?                       |
+| **Relationships**            | Which principles, patterns, practices, rules, and decisions interpret or enact it?                |
 
 The formulation and good form the minimum conceptual spine. Scope, tensions,
 and cases make application responsible. Provenance prevents a popular slogan
@@ -130,13 +130,13 @@ words can still produce poor judgment.[^odonovan-virtue]
 Do not imply more authority than the source supplies. State both **who or what
 authorizes the claim** and **what kind of claim it is**.
 
-| Form | Distinctive force |
-| --- | --- |
-| **Good or value** | Identifies what is worthy of pursuit or protection; does not by itself specify action |
-| **Principle** | Gives a general direction for judgment in service of a good |
-| **Heuristic** | Supplies a useful default or shortcut under uncertainty; expects exceptions |
-| **Rule or policy** | Requires or prohibits specified conduct within an authority and scope |
-| **Standard** | [Establishes a recognized basis for judgment or coordination](standard.md), often through criteria, requirements, and a conformance process |
+| Form               | Distinctive force                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Good or value**  | Identifies what is worthy of pursuit or protection; does not by itself specify action                                                       |
+| **Principle**      | Gives a general direction for judgment in service of a good                                                                                 |
+| **Heuristic**      | Supplies a useful default or shortcut under uncertainty; expects exceptions                                                                 |
+| **Rule or policy** | Requires or prohibits specified conduct within an authority and scope                                                                       |
+| **Standard**       | [Establishes a recognized basis for judgment or coordination](standard.md), often through criteria, requirements, and a conformance process |
 
 A familiar maxim can operate differently in different hosts. One team may use
 it as a conversational heuristic; another may encode a narrow implication as a
@@ -148,14 +148,14 @@ name to smuggle in enforcement.
 Both are named, reusable, and capable of guiding action. Their primary claims
 differ:
 
-| | Principle | Pattern |
-| --- | --- | --- |
-| Unit | General direction for judgment | Recurring problem and adaptable solution |
-| Starts from | A good, order, duty, or enduring practical insight | A context in which conflicting forces repeatedly produce a problem |
-| Supplies | Orientation and reasons | A constructive arrangement |
-| Application | Requires a particular judgment | Requires a fit judgment and local realization |
-| Evidence | Supports the warrant, provenance, scope, and effects of the direction | Supports recurrence and the solution's force resolution |
-| Failure when overextended | Becomes an absolute slogan or disguised rule | Becomes a universal best practice or copied implementation |
+|                           | Principle                                                             | Pattern                                                            |
+| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Unit                      | General direction for judgment                                        | Recurring problem and adaptable solution                           |
+| Starts from               | A good, order, duty, or enduring practical insight                    | A context in which conflicting forces repeatedly produce a problem |
+| Supplies                  | Orientation and reasons                                               | A constructive arrangement                                         |
+| Application               | Requires a particular judgment                                        | Requires a fit judgment and local realization                      |
+| Evidence                  | Supports the warrant, provenance, scope, and effects of the direction | Supports recurrence and the solution's force resolution            |
+| Failure when overextended | Becomes an absolute slogan or disguised rule                          | Becomes a universal best practice or copied implementation         |
 
 A principle can guide selection among several patterns. A pattern can embody
 several principles while compromising among them. Neither relationship makes
@@ -163,17 +163,17 @@ the two forms interchangeable.
 
 ## Neighboring artifacts
 
-| Artifact | Difference from a principle |
-| --- | --- |
-| **Value statement** | Names what matters but may not direct a class of decisions |
-| **Rule or policy** | Makes a determinate demand under an authority; may operationalize one implication of a principle |
-| **Standard** | Supplies a recognized basis for assessing or coordinating a defined field; may embody several principles without replacing their goods and rationale |
-| **Pattern** | Supplies an established arrangement for a recurring contextual problem |
-| **Practice** | [Socially sustained structure of meaningful participation](practice.md); may embody, interpret, ignore, or contradict a principle, but is not reducible to its explicit principles |
-| **How-to guide** | Directs actions toward one concrete outcome in a real situation |
-| **Decision record** | Preserves one judgment and its context; several records may reveal how a principle is interpreted |
-| **Aphorism or maxim** | Is a concise linguistic form; without warrant, scope, and judgment it may be only a slogan |
-| **Collection** | Groups related principles; a named acronym may be a collection rather than one indivisible principle |
+| Artifact              | Difference from a principle                                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Value statement**   | Names what matters but may not direct a class of decisions                                                                                                                         |
+| **Rule or policy**    | Makes a determinate demand under an authority; may operationalize one implication of a principle                                                                                   |
+| **Standard**          | Supplies a recognized basis for assessing or coordinating a defined field; may embody several principles without replacing their goods and rationale                               |
+| **Pattern**           | Supplies an established arrangement for a recurring contextual problem                                                                                                             |
+| **Practice**          | [Socially sustained structure of meaningful participation](practice.md); may embody, interpret, ignore, or contradict a principle, but is not reducible to its explicit principles |
+| **How-to guide**      | Directs actions toward one concrete outcome in a real situation                                                                                                                    |
+| **Decision record**   | Preserves one judgment and its context; several records may reveal how a principle is interpreted                                                                                  |
+| **Aphorism or maxim** | Is a concise linguistic form; without warrant, scope, and judgment it may be only a slogan                                                                                         |
+| **Collection**        | Groups related principles; a named acronym may be a collection rather than one indivisible principle                                                                               |
 
 ## Principles and particular judgment
 
@@ -236,11 +236,18 @@ without treating either as an exception invented after the fact.
 - [Explanation explainer](explanation.md) · [Explanation guide](../guides/explanation.md)
 - [Reference explainer](reference.md) · [Reference guide](../guides/reference.md)
 
-[^frame-christian-life]: John Frame — *The Doctrine of the Christian Life* (excerpt)
-[^frame-perspectivalism]: John Frame — *A Primer on Perspectivalism*
-[^poythress-biblical-problems]: Vern Poythress — *Approaching Biblical Problems*
-[^poythress-redeeming-reason]: Vern Poythress — *Redeeming Reason*
-[^odonovan-created-order]: Oliver O'Donovan — *Created Order / Theology*
-[^odonovan-love]: Oliver O'Donovan — *The Sovereignty of Love*
-[^odonovan-virtue]: Oliver O'Donovan — *The Place of Virtue Theory in Christian Ethics*
-[^odonovan-judgment]: Oliver O'Donovan — *Government as Judgment*
+[^frame-christian-life]: John Frame — _The Doctrine of the Christian Life_ (excerpt)
+
+[^frame-perspectivalism]: John Frame — _A Primer on Perspectivalism_
+
+[^poythress-biblical-problems]: Vern Poythress — _Approaching Biblical Problems_
+
+[^poythress-redeeming-reason]: Vern Poythress — _Redeeming Reason_
+
+[^odonovan-created-order]: Oliver O'Donovan — _Created Order / Theology_
+
+[^odonovan-love]: Oliver O'Donovan — _The Sovereignty of Love_
+
+[^odonovan-virtue]: Oliver O'Donovan — _The Place of Virtue Theory in Christian Ethics_
+
+[^odonovan-judgment]: Oliver O'Donovan — _Government as Judgment_

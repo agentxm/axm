@@ -44,12 +44,12 @@ the work.
 ## Steps
 
 1. **Name one goal from the user’s problem-field** — frame a human project or
-   result (*how to calibrate the radar array*, *how to rotate the API token*),
-   not operations the machinery exposes (*press Deploy to deploy*). Tools are
+   result (_how to calibrate the radar array_, _how to rotate the API token_),
+   not operations the machinery exposes (_press Deploy to deploy_). Tools are
    means; the job defines what the guide covers — even when it cuts across
    subsystems.
 
-2. **Title for exactly what the guide shows** — prefer *How to …* that encodes
+2. **Title for exactly what the guide shows** — prefer _How to …_ that encodes
    the outcome. Search engines and humans both need this cue.
 
 3. **Assume competence; state preconditions only as needed** — the reader
@@ -57,8 +57,8 @@ the work.
    tools, and prior skill briefly. Link a tutorial when basics may be missing;
    never re-teach them as the body (recipe ≠ cooking lesson).
 
-4. **Write an executable approach (a contract)** — *if you face this
-   situation, take these steps.* Steps are **actions**: physical acts **and**
+4. **Write an executable approach (a contract)** — _if you face this
+   situation, take these steps._ Steps are **actions**: physical acts **and**
    thinking or judgment. Solving a problem is not only button presses.
 
 5. **Order for a logical sequence** — put first what later steps require, or
@@ -71,12 +71,12 @@ the work.
    steady. Aim for the guide that anticipates the next tool they need.
 
 7. **Address real-world complexity** — adapt, do not script one demo. Use
-   *if this, then that*, forks, overlaps, and alternate routes. How-tos are
+   _if this, then that_, forks, overlaps, and alternate routes. How-tos are
    **not only linear procedures**; judgment is often required.
 
 8. **Omit the unnecessary** — practical usability beats completeness.
    Start and end in a meaningful place and let the reader join the guide to
-   *their* work. Leave options, history, and digression out of the path.
+   _their_ work. Leave options, history, and digression out of the path.
 
 9. **Surface blockers and recovery** — prepare for the unexpected: name the
    failure signals that stop the goal under production-like conditions, and
@@ -84,7 +84,7 @@ the work.
    it.
 
 10. **Link out for depth** — reference for full flags/fields/inventories;
-    explanation for *why*. Digression mid-task dilutes action; link instead.
+    explanation for _why_. Digression mid-task dilutes action; link instead.
 
 11. **Verify on the real system** — walk the path against current behavior;
     fix drift before publish. Retire or rewrite when the path no longer works.
@@ -100,8 +100,8 @@ as drafting checks rather than restating them here.
 
 ## Preconditions
 
-- A bounded, testable goal (not an open-ended skill sphere such as *how to
-  build a web application*)
+- A bounded, testable goal (not an open-ended skill sphere such as _how to
+  build a web application_)
 - Clarity on role and assumed skill
 - Access to the current system so steps can be verified
 

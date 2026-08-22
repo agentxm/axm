@@ -108,15 +108,15 @@ Use this pattern when:
 
 ## Pattern boundaries
 
-The word *playbook* is contested. Some organizations use it interchangeably
-with *runbook*; business usage may mean a broad collection of preferred
+The word _playbook_ is contested. Some organizations use it interchangeably
+with _runbook_; business usage may mean a broad collection of preferred
 practices. This pattern uses the narrower distinction because it changes the
 document's design: a playbook owns selection among plays, while a runbook owns
 one response after selection.
 
 An **Ansible playbook** is executable YAML for automation tasks. Near
-infrastructure code, qualify the term as *response playbook* or *Ansible
-playbook* rather than relying on context.
+infrastructure code, qualify the term as _response playbook_ or _Ansible
+playbook_ rather than relying on context.
 
 ## Evidence and known uses
 

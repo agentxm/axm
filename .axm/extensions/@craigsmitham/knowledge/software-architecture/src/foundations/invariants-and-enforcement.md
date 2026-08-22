@@ -2,7 +2,17 @@
 type: Explanation
 title: Invariants, preservation, and enforcement
 description: What makes a property invariant, how state and observation boundaries qualify its preservation, and how invariants relate to requirements, correctness, and enforcement.
-tags: [invariants, safety-properties, preservation, consistency, design-by-contract, domain-modeling, architecture-tests, verification]
+tags:
+  [
+    invariants,
+    safety-properties,
+    preservation,
+    consistency,
+    design-by-contract,
+    domain-modeling,
+    architecture-tests,
+    verification,
+  ]
 status: draft
 sources:
   - id: lamport-high-level
@@ -38,7 +48,7 @@ generated:
 
 An **invariant** is a property that must remain true throughout a defined set
 of states or across every permitted transition. It expresses something the
-system may change *without ceasing to preserve*.
+system may change _without ceasing to preserve_.
 
 The property, not necessarily any individual value, is invariant. A loop may
 change its counter on every iteration while preserving `0 <= counter <= limit`.
@@ -107,16 +117,16 @@ to state only the domain truth it protects.[^lamport-proving-safety]
 
 “Invariant” should not become a synonym for every mandatory statement.
 
-| Statement | Question it answers |
-| --- | --- |
-| Invariant | What must hold at every relevant state? |
-| Precondition | What must be true before this operation may begin? |
-| Postcondition | What must this operation make true when it completes? |
-| Transition constraint | Which changes from one state to another are permitted? |
-| Safety property | What bad occurrence or behavior must never happen? |
-| Liveness or progress property | What good occurrence must eventually happen? |
-| Target state or outcome | What condition are we trying to reach? |
-| Performance requirement or threshold | What measurable level must be achieved? |
+| Statement                            | Question it answers                                    |
+| ------------------------------------ | ------------------------------------------------------ |
+| Invariant                            | What must hold at every relevant state?                |
+| Precondition                         | What must be true before this operation may begin?     |
+| Postcondition                        | What must this operation make true when it completes?  |
+| Transition constraint                | Which changes from one state to another are permitted? |
+| Safety property                      | What bad occurrence or behavior must never happen?     |
+| Liveness or progress property        | What good occurrence must eventually happen?           |
+| Target state or outcome              | What condition are we trying to reach?                 |
+| Performance requirement or threshold | What measurable level must be achieved?                |
 
 An invariant is a state-oriented safety property: it says that no reachable
 state violates its predicate.[^lamport-high-level] Safety is broader because a
@@ -153,7 +163,7 @@ The same core idea appears at several levels:
   dependency direction, deployment property, or other structural truth across
   normal implementation change.
 
-These labels identify scope, not different meanings of *invariant*. In every
+These labels identify scope, not different meanings of _invariant_. In every
 case the author still owes a predicate, a boundary, and a preservation claim.
 
 ## Invariants expose boundaries and authority
@@ -200,21 +210,36 @@ nor its observation boundary makes failure decidable even in principle.
 For a task-oriented comparison of enforcement and evidence mechanisms, see
 [Expressing invariants](../guides/expressing-invariants.md#7-choose-evidence-or-enforcement).
 
-[^dafny-loop-invariants]: Dafny checks that a loop invariant holds on entry and is preserved by
+[^dafny-loop-invariants]:
+    Dafny checks that a loop invariant holds on entry and is preserved by
     an arbitrary execution of the loop body.
-[^meyer-contract]: Meyer describes class invariants as constraints on observable object
+
+[^meyer-contract]:
+    Meyer describes class invariants as constraints on observable object
     states and distinguishes those states from intermediate implementation
     states.
-[^lamport-proving-safety]: Lamport presents initialization and transition-preservation
+
+[^lamport-proving-safety]:
+    Lamport presents initialization and transition-preservation
     obligations and explains why proofs may require stronger invariants.
-[^lamport-high-level]: Lamport defines an invariance property as a state
+
+[^lamport-high-level]:
+    Lamport defines an invariance property as a state
     predicate that is true in every state of every possible behavior.
-[^lamport-safety-liveness]: Lamport distinguishes safety, which rules out bad finite
+
+[^lamport-safety-liveness]:
+    Lamport distinguishes safety, which rules out bad finite
     behaviors, from liveness, which requires eventual progress.
-[^ocl]: OCL provides invariant constraints in a classifier context alongside
+
+[^ocl]:
+    OCL provides invariant constraints in a classifier context alongside
     operation preconditions and postconditions.
-[^postgresql-constraints]: PostgreSQL documents declarative constraints and the limits of
+
+[^postgresql-constraints]:
+    PostgreSQL documents declarative constraints and the limits of
     what particular constraint mechanisms continuously guarantee.
-[^evans-ddd-reference]: Evans assigns aggregate-wide invariants to an aggregate root or
+
+[^evans-ddd-reference]:
+    Evans assigns aggregate-wide invariants to an aggregate root or
     designated mechanism and aligns aggregate boundaries with synchronous
     consistency, transactions, and distribution.

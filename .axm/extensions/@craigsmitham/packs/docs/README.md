@@ -16,11 +16,11 @@ implementation details.
 Members are **not standalone** (`standalone: false`): install this pack rather
 than treating the leaves as complete units on their own.
 
-| Extension | Role |
-| --- | --- |
-| `@craigsmitham/knowledge/docs` | Explainers for understanding, guides for action, principles for judgment, and patterns for recurring problems |
-| `@craigsmitham/skills/author-docs` | Create, organize, review, and remediate docs by loading only the relevant craft concepts |
-| `@craigsmitham/skills/audit-docs` | Assess a bounded documentation corpus and return evidence-backed findings without silently remediating it |
+| Extension                          | Role                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `@craigsmitham/knowledge/docs`     | Explainers for understanding, guides for action, principles for judgment, and patterns for recurring problems |
+| `@craigsmitham/skills/author-docs` | Create, organize, review, and remediate docs by loading only the relevant craft concepts                      |
+| `@craigsmitham/skills/audit-docs`  | Assess a bounded documentation corpus and return evidence-backed findings without silently remediating it     |
 
 ## Install
 

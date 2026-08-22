@@ -2,7 +2,18 @@
 type: Explainer
 title: Documentation organization and discovery
 description: Why documentation organization should follow reader entry points and semantic relationships, when to prefer form-first or subject-first grouping, and how paths, titles, metadata, and indexes work together.
-tags: [docs, organization, discovery, information-architecture, navigation, naming, filenames, folders, colocation]
+tags:
+  [
+    docs,
+    organization,
+    discovery,
+    information-architecture,
+    navigation,
+    naming,
+    filenames,
+    folders,
+    colocation,
+  ]
 status: stable
 sources:
   - id: documentation-craft
@@ -99,14 +110,14 @@ and for maintainers to keep it coherent.
 
 Useful signals include:
 
-| Signal | Favors form-first | Favors subject-first |
-| --- | --- | --- |
-| Reader enters by asking | “Show me how to…” or “Help me understand…” | “Show me everything about this subject” |
-| Documents compared together | Same-form examples across subjects | Different forms about one subject |
-| Shared authority | Documentation-form owner | Domain or system owner |
-| Change coupling | Form guidance evolves together | Subject documents evolve together |
-| More stable vocabulary | Guidance forms | Domain boundaries |
-| Cost of separation | Inconsistent form craft | Fragmented subject understanding |
+| Signal                      | Favors form-first                          | Favors subject-first                    |
+| --------------------------- | ------------------------------------------ | --------------------------------------- |
+| Reader enters by asking     | “Show me how to…” or “Help me understand…” | “Show me everything about this subject” |
+| Documents compared together | Same-form examples across subjects         | Different forms about one subject       |
+| Shared authority            | Documentation-form owner                   | Domain or system owner                  |
+| Change coupling             | Form guidance evolves together             | Subject documents evolve together       |
+| More stable vocabulary      | Guidance forms                             | Domain boundaries                       |
+| Cost of separation          | Inconsistent form craft                    | Fragmented subject understanding        |
 
 No numerical score decides the answer. The table makes the competing
 relationships discussable and exposes when a proposed folder scheme serves
@@ -141,11 +152,11 @@ its folder, metadata, or neighboring entries disappear.
 
 The three naming surfaces have related but different jobs:
 
-| Surface | Job | Example |
-| --- | --- | --- |
-| Directory | Name the meaningful collection boundary | `explainers/` or `payments/` |
-| Filename | Supply a stable, distinctive concept or task identifier | `documenting-principles.md` |
-| Title | State the reader-facing subject or action naturally | “Documenting principles” |
+| Surface   | Job                                                     | Example                      |
+| --------- | ------------------------------------------------------- | ---------------------------- |
+| Directory | Name the meaningful collection boundary                 | `explainers/` or `payments/` |
+| Filename  | Supply a stable, distinctive concept or task identifier | `documenting-principles.md`  |
+| Title     | State the reader-facing subject or action naturally     | “Documenting principles”     |
 
 For explainers, use a subject-oriented noun phrase that exposes the important
 distinction: `principles-as-normative-guidance.md`, not merely `principle.md` or
@@ -198,9 +209,12 @@ indefinitely.
 - [Documentation workflow](documentation-workflow.md) · [Documentation workflow guide](../guides/documentation-workflow.md)
 - [Documentation quality](documentation-quality.md)
 
-[^documentation-craft]: Documentation craft distinguishes the reader job of a
+[^documentation-craft]:
+    Documentation craft distinguishes the reader job of a
     document from the form of reusable guidance and requires each job to remain
     recognizable without prescribing host layout.
-[^documentation-workflow]: Documentation workflow favors small, complete
+
+[^documentation-workflow]:
+    Documentation workflow favors small, complete
     improvements and lets organization emerge from real material rather than
     empty top-down form shells.

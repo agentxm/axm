@@ -43,4 +43,5 @@ Anthropic warns that agent, task, grader, scaffold, and environment failures can
 otherwise be confused.[^anthropic-evals]
 
 [^openai-harness-engineering]: OpenAI — Harness engineering
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

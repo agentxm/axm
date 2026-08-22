@@ -42,5 +42,7 @@ outcome does not excuse a prohibited action. Report both independently where
 both are contractual.
 
 [^openai-agent-evals]: OpenAI — Evaluate agent workflows
+
 [^google-agent-evals]: Google Cloud — Evaluate Gen AI agents
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

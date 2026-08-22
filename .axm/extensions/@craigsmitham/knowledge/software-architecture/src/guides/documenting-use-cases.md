@@ -2,7 +2,8 @@
 type: Guide
 title: Documenting use cases
 description: How to create one architecture Use Case with a subject, contextual actors, goal scope, main success scenario, material extensions, cross-view links, and precise evidence kept elsewhere.
-tags: [architecture-documentation, use-cases, actors, goals, scenarios, extensions, evidence, authoring]
+tags:
+  [architecture-documentation, use-cases, actors, goals, scenarios, extensions, evidence, authoring]
 status: draft
 sources:
   - resource: ../foundations/goal-oriented-behavior.md

@@ -6,6 +6,11 @@ once and writes it into its applicable configured agents' native MCP configs, so
 not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
 friends in parallel.
 
+AXM manages the connection definition and its lifecycle, including command or
+URL, arguments, environment-variable references, headers, installation,
+projection, packaging, and publication. It does not implement or debug the MCP
+server software behind that connection.
+
 MCP server packages live in
 `./.axm/extensions/<@owner>/mcps/<name>/mcp.json`. Unlike skills and
 subagents, an MCP server has no `src/` body — the whole definition lives in the

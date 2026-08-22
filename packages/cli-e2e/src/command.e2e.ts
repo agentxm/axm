@@ -82,18 +82,22 @@ describe("axm (root command)", () => {
       expect(output).not.toContain("axm publish --help");
     });
 
-    it("resolves command-shaped paths to command help", async () => {
+    it("prints the dedicated publish topic", async () => {
       const result = await runCli(["help", "publish"]);
       const output = getOutput(result);
+      const normalizedOutput = output.replace(/\s+/gu, " ");
 
       expect(result.exitCode).toBe(0);
-      expect(output).toContain("Publish project-workspace extensions to a registry");
-      expect(output).toContain("axm publish [flags] [<extension...>]");
-      expect(output).toContain("--authored");
+      expect(output).toContain("# Publishing");
+      expect(normalizedOutput).toContain("only extensions authored by the project workspace");
+      expect(normalizedOutput).toContain(
+        "fails as `not_authored` before AXM constructs an archive",
+      );
+      expect(output).toContain("--on-existing");
     });
 
     it("emits command help as a formatter-owned machine document", async () => {
-      const result = await runCli(["help", "publish", "--json"]);
+      const result = await runCli(["publish", "--help", "--json"]);
       const document: unknown = JSON.parse(result.stdout);
 
       expect(result.exitCode).toBe(0);
@@ -102,6 +106,9 @@ describe("axm (root command)", () => {
         description: "Publish project-workspace extensions to a registry",
         usage: "axm publish [flags] [<extension...>]",
       });
+      expect(JSON.stringify(document)).not.toContain("--authored");
+      expect(JSON.stringify(document)).not.toContain('"name":"all"');
+      expect(JSON.stringify(document)).not.toMatch(/--include-dependency(?:[ =]|$)/u);
       expect(result.stderr).toBe("");
     });
   });

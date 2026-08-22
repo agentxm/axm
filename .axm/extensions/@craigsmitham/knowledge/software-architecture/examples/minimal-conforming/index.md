@@ -1,6 +1,7 @@
 ---
 okf_version: "0.2"
 ---
+
 # Reservation platform architecture
 
 This documentation set adopts the

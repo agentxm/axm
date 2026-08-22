@@ -71,11 +71,11 @@ from retained files or auto-discover an executable.
 
 Choose the evidence tier before running:
 
-| Tier | Purpose | Claim ceiling |
-| --- | --- | --- |
-| Authoring smoke | Catch obvious structural or workflow defects during revision | Same-agent development evidence only |
-| Regression | Protect previously accepted behavior in a controlled environment | Bounded reliability for tested cases and configuration |
-| Release | Inform release or promotion for a declared cohort | The contract's tested scope, never universal approval |
+| Tier            | Purpose                                                          | Claim ceiling                                          |
+| --------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Authoring smoke | Catch obvious structural or workflow defects during revision     | Same-agent development evidence only                   |
+| Regression      | Protect previously accepted behavior in a controlled environment | Bounded reliability for tested cases and configuration |
+| Release         | Inform release or promotion for a declared cohort                | The contract's tested scope, never universal approval  |
 
 Do not upgrade a smoke result by changing its label after the run.
 
@@ -271,6 +271,9 @@ meaningful claim.
 - Generated and promoted evidence follow an explicit lifecycle.
 
 [^anthropic-agent-evals]: Anthropic — Demystifying evals for AI agents
+
 [^anthropic-skill-best-practices]: Anthropic — Skill authoring best practices
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator
+
 [^openai-evaluation-best-practices]: OpenAI — Evaluation best practices

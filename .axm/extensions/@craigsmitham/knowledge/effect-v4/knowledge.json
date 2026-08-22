@@ -49,8 +49,6 @@
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": [
-    "@craigsmitham/packs/effect-v4"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/effect-v4"],
   "standalone": false
 }

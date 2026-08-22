@@ -24,8 +24,8 @@ Run `axm packs publish <name>` to release a new version. Install with `axm packs
 Pack publication keeps the requested selection narrow by default. Use
 `--include-dependencies` with either `axm publish` or `axm packs publish` to add
 workspace-authored dependencies of selected packs. A dependency that is not
-workspace-authored is never added implicitly; pair `--include-dependencies`
-with a repeatable `--include-dependency <extension>` to select one deliberately.
+workspace-authored remains a Registry reference and is never an upload
+candidate.
 
 Included dependencies publish before packs that reference them. Included
 versions that are already published are integrity-verified and skipped; a

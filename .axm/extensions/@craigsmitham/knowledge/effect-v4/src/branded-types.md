@@ -89,36 +89,32 @@ schema. Apply validation before branding, and derive the TypeScript type from
 the schema:
 
 ```ts
-import { Schema } from "effect"
+import { Schema } from "effect";
 
-export const UserId = Schema.String
-  .check(Schema.isUUID(7))
-  .pipe(Schema.brand("my-app/UserId"))
+export const UserId = Schema.String.check(Schema.isUUID(7)).pipe(Schema.brand("my-app/UserId"));
 
-export type UserId = typeof UserId.Type
+export type UserId = typeof UserId.Type;
 ```
 
 Prefer a `Brand.Constructor` when code must construct or validate the value
 independently of decoding:
 
 ```ts
-import { Brand, Schema } from "effect"
+import { Brand, Schema } from "effect";
 
-export type Port = Brand.Branded<number, "my-app/Port">
+export type Port = Brand.Branded<number, "my-app/Port">;
 
 export const Port = Brand.check<Port>(
   Schema.isInt(),
-  Schema.isBetween({ minimum: 1, maximum: 65_535 })
-)
+  Schema.isBetween({ minimum: 1, maximum: 65_535 }),
+);
 ```
 
 If both APIs need the same invariant, define the constructor once and project
 it into a schema with `Schema.fromBrand`:
 
 ```ts
-export const PortSchema = Schema.Number.pipe(
-  Schema.fromBrand("my-app/Port", Port)
-)
+export const PortSchema = Schema.Number.pipe(Schema.fromBrand("my-app/Port", Port));
 ```
 
 Do not duplicate the same validation separately in a constructor and a schema.
@@ -136,12 +132,10 @@ weak for a library or large application.
 Make the branded type the internal API and keep raw primitives at the edges:
 
 ```ts
-const loadUser = (id: UserId) => repository.findById(id)
+const loadUser = (id: UserId) => repository.findById(id);
 
 const handle = (rawId: unknown) =>
-  Schema.decodeUnknownEffect(UserId)(rawId).pipe(
-    Effect.flatMap(loadUser)
-  )
+  Schema.decodeUnknownEffect(UserId)(rawId).pipe(Effect.flatMap(loadUser));
 ```
 
 Decode unknown external data with the schema. For typed raw values, choose the

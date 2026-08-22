@@ -20,16 +20,16 @@ routes to deeper evidence.
 
 ## Selection qualities
 
-| Quality | Question |
-| --- | --- |
-| Relevant | Does this information change an upcoming decision? |
-| Sufficient | Can the agent act without missing a material constraint? |
-| Scoped | Does it apply to this user, component, environment, role, and task? |
-| Current | Is its observation or verification time adequate for the consequence? |
-| Attributable | Can the agent identify its source and transformation history? |
-| Authoritative | Is this source entitled to define the claim it makes? |
-| Trustworthy | Could this content be adversarial, accidental, generated, or unverified? |
-| Economical | Is its decision value proportionate to attention, latency, and retrieval cost? |
+| Quality       | Question                                                                       |
+| ------------- | ------------------------------------------------------------------------------ |
+| Relevant      | Does this information change an upcoming decision?                             |
+| Sufficient    | Can the agent act without missing a material constraint?                       |
+| Scoped        | Does it apply to this user, component, environment, role, and task?            |
+| Current       | Is its observation or verification time adequate for the consequence?          |
+| Attributable  | Can the agent identify its source and transformation history?                  |
+| Authoritative | Is this source entitled to define the claim it makes?                          |
+| Trustworthy   | Could this content be adversarial, accidental, generated, or unverified?       |
+| Economical    | Is its decision value proportionate to attention, latency, and retrieval cost? |
 
 Anthropic describes context as a finite attention resource with diminishing
 returns, favoring compact high-signal information over exhaustive loading.[^anthropic-context]

@@ -49,4 +49,5 @@ agents can still fail through poor decomposition, interaction, synthesis, or
 shared-state management.
 
 [^multi-agent-survey]: Large Language Model based Multi-Agents — A Survey of Progress and Challenges
+
 [^owasp-agentic]: OWASP Top 10 for Agentic Applications for 2026

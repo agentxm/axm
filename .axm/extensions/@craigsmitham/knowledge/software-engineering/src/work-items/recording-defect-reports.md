@@ -2,7 +2,21 @@
 type: Guide
 title: Recording defect reports
 description: How to capture a suspected discrepancy safely, preserve its source and expectation, provide proportional static or dynamic evidence, and maintain classification, resolution, relationships, and verification without inventing diagnosis or priority.
-tags: [defect-report, bug-report, anomaly, expected-behavior, actual-behavior, reproduction, static-analysis, environment, provenance, severity, verification, issue-template]
+tags:
+  [
+    defect-report,
+    bug-report,
+    anomaly,
+    expected-behavior,
+    actual-behavior,
+    reproduction,
+    static-analysis,
+    environment,
+    provenance,
+    severity,
+    verification,
+    issue-template,
+  ]
 status: draft
 sources:
   - id: defect-explainer
@@ -431,11 +445,19 @@ behavioral conditions above.
   revisiting the report remain recoverable.
 
 [^agent-bug-reports]: Khatib et al., “What Makes a Good Bug Report for an AI Agent?”, arXiv preprint, 2026.
+
 [^azure-bug]: Microsoft Azure Boards, “Define, capture, triage, and manage bugs.”
+
 [^bettenburg-good-reports]: Bettenburg et al., “What Makes a Good Bug Report?”, 2008.
+
 [^breu-information-needs]: Breu et al., “Information Needs in Bug Reports,” 2010.
+
 [^github-private-vulnerability]: GitHub Docs, “Privately reporting a security vulnerability.”
+
 [^iso-29148]: ISO/IEC/IEEE 29148:2018, requirements-engineering processes and requirements information items.
+
 [^istqb-foundation]: ISTQB Certified Tester Foundation Level Syllabus v4.0.1, defect-management workflow and typical defect-report contents.
+
 [^mozilla-bug-writing]: Mozilla, “Bug Writing Guidelines.”
+
 [^soltani-report-elements]: Soltani, Hermans, and Bäck, “The significance of bug report elements,” 2020.

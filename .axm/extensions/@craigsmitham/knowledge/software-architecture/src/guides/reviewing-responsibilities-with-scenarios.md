@@ -2,7 +2,8 @@
 type: Guide
 title: Reviewing responsibilities with scenarios
 description: How to exercise representative use-case scenarios against architectural elements to find misaligned responsibilities, change spread, coupling, authority violations, and misplaced data variation.
-tags: [architecture-documentation, responsibilities, scenarios, crc, coupling, changeability, review]
+tags:
+  [architecture-documentation, responsibilities, scenarios, crc, coupling, changeability, review]
 status: draft
 sources:
   - resource: ../foundations/goal-oriented-behavior.md
@@ -99,6 +100,7 @@ boundaries. This is a semantic architecture review, not profile validation.
 - [Documenting use cases](documenting-use-cases.md)
 - [Documenting C4 views](documenting-c4-views.md)
 
-[^parnas-decomposition]: Parnas compares decomposition by processing step with
+[^parnas-decomposition]:
+    Parnas compares decomposition by processing step with
     decomposition around information-hiding modules and evaluates their effects
     on change and comprehensibility.

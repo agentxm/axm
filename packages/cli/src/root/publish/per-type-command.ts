@@ -40,14 +40,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
       Argument.atLeast(0),
     ),
-    authored: Flag.boolean("authored").pipe(
-      Flag.withDescription("Publish extensions authored in this workspace"),
-      Flag.withDefault(false),
-    ),
-    all: Flag.boolean("all").pipe(
-      Flag.withDescription(`Publish all managed ${plural} packages`),
-      Flag.withDefault(false),
-    ),
     owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
     exclude: Flag.string("exclude").pipe(
       Flag.withDescription("Exclude a matching name, glob, or FQN"),
@@ -89,10 +81,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
         Flag.withDefault(false),
       ),
-      includeDependency: Flag.string("include-dependency").pipe(
-        Flag.withDescription("Explicitly include a non-workspace pack dependency"),
-        Flag.atLeast(0),
-      ),
     } as const;
     return Command.make("publish", config, (parsed) =>
       Effect.gen(function* () {
@@ -104,8 +92,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         );
         yield* handleRootPublish({
           selectors,
-          authored: parsed.authored,
-          all: parsed.all,
           owners: [...parsed.owner],
           types: selectors.length === 0 ? [type] : [],
           excludes,
@@ -118,7 +104,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           scope: "project",
           visibility: parsed.visibility,
           includeDependencies: parsed.includeDependencies,
-          includeDependency: [...parsed.includeDependency],
           recoveryCommand: [plural, "publish"],
           recoverySelectors: [...parsed.extensions],
           recoveryExcludes: [...parsed.exclude],
@@ -142,8 +127,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       );
       yield* handleRootPublish({
         selectors,
-        authored: parsed.authored,
-        all: parsed.all,
         owners: [...parsed.owner],
         types: selectors.length === 0 ? [type] : [],
         excludes,
@@ -156,7 +139,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         scope: "project",
         visibility: parsed.visibility,
         includeDependencies: false,
-        includeDependency: [],
         recoveryCommand: [plural, "publish"],
         recoverySelectors: [...parsed.extensions],
         recoveryExcludes: [...parsed.exclude],

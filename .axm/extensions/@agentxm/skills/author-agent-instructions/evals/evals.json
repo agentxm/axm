@@ -48,7 +48,10 @@
       "prompt": "Create a scoped AGENTS.md system for this repository and keep CLAUDE.md as its managed projection.",
       "expected_selection": "author-agent-instructions",
       "catalog_neighbors": ["audit-agent-instructions", "author-agent-skill"],
-      "assertions": ["The target is selected for explicit repository-instruction authoring.", "Selection occurs before implementation fixtures or expected output are visible."]
+      "assertions": [
+        "The target is selected for explicit repository-instruction authoring.",
+        "Selection occurs before implementation fixtures or expected output are visible."
+      ]
     },
     {
       "id": 5,
@@ -56,7 +59,10 @@
       "prompt": "Trim our persistent coding-agent context, move the long procedure behind a route, and fix the generated alias.",
       "expected_selection": "author-agent-instructions",
       "catalog_neighbors": ["audit-agent-instructions", "author-agent-skill"],
-      "assertions": ["The paraphrased revision request selects the target.", "The request is recognized without requiring AGENTS.md in the wording."]
+      "assertions": [
+        "The paraphrased revision request selects the target.",
+        "The request is recognized without requiring AGENTS.md in the wording."
+      ]
     },
     {
       "id": 6,
@@ -64,7 +70,10 @@
       "prompt": "Audit the current AGENTS.md and CLAUDE.md hierarchy without changing anything.",
       "expected_selection": "audit-agent-instructions",
       "catalog_neighbors": ["audit-agent-instructions", "author-agent-skill"],
-      "assertions": ["The target abstains because the request is assessment-only.", "The instruction-audit neighbor remains eligible."]
+      "assertions": [
+        "The target abstains because the request is assessment-only.",
+        "The instruction-audit neighbor remains eligible."
+      ]
     },
     {
       "id": 7,
@@ -72,7 +81,10 @@
       "prompt": "Create an Agent Skill that standardizes release notes.",
       "expected_selection": ["axm", "author-agent-skill"],
       "catalog_neighbors": ["axm", "author-agent-skill", "audit-agent-instructions"],
-      "assertions": ["The target abstains because the requested artifact is an Agent Skill.", "AXM and the neighboring skill-authoring workflow remain eligible in execution order."]
+      "assertions": [
+        "The target abstains because the requested artifact is an Agent Skill.",
+        "AXM and the neighboring skill-authoring workflow remain eligible in execution order."
+      ]
     },
     {
       "id": 8,
@@ -80,7 +92,10 @@
       "prompt": "Can you improve these agent instructions?",
       "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": ["audit-agent-instructions", "author-agent-skill"],
-      "assertions": ["The ambiguous request does not assume repository persistent instructions rather than another prompt surface.", "The response clarifies the artifact and mutation intent."]
+      "assertions": [
+        "The ambiguous request does not assume repository persistent instructions rather than another prompt surface.",
+        "The response clarifies the artifact and mutation intent."
+      ]
     },
     {
       "id": 9,
@@ -88,7 +103,10 @@
       "prompt": "$author-agent-instructions update the canonical instruction source and reconcile its projections.",
       "expected_selection": "author-agent-instructions",
       "catalog_neighbors": ["audit-agent-instructions", "author-agent-skill"],
-      "assertions": ["Explicit invocation selects the target.", "The result is treated as a control rather than implicit-routing evidence."]
+      "assertions": [
+        "Explicit invocation selects the target.",
+        "The result is treated as a control rather than implicit-routing evidence."
+      ]
     }
   ]
 }

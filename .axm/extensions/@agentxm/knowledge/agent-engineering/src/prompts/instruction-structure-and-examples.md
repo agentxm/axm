@@ -29,8 +29,8 @@ model distinguish task, instructions, examples, variable data, and output.
 
 ## Choose the right specificity
 
-| Too little | Useful middle | Too much |
-| --- | --- | --- |
+| Too little                                 | Useful middle                                                | Too much                                    |
+| ------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------- |
 | Vague aspiration or assumed shared context | Concrete goal, constraints, criteria, and bounded heuristics | Brittle pseudo-code for every possible case |
 
 Anthropic recommends clear, direct prompts at an altitude between vague
@@ -82,6 +82,9 @@ together, and test alternate order when a material failure may be positional.
 Do not elevate data merely by placing it near higher-authority instructions.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^google-prompting]: Google — Prompt design strategies
+
 [^openai-guidance]: OpenAI — Model guidance
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator

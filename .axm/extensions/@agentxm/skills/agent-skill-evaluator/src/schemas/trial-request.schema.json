@@ -3,12 +3,31 @@
   "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/trial-request-1.0.0.json",
   "title": "Agent Skill evaluator trial request",
   "type": "object",
-  "required": ["schema_version", "case_id", "stage", "configuration", "trial_number", "attempt_number", "comparison_position", "prompt", "target", "catalog", "fixtures", "dependencies", "artifact_paths", "environment", "authority", "budgets"],
+  "required": [
+    "schema_version",
+    "case_id",
+    "stage",
+    "configuration",
+    "trial_number",
+    "attempt_number",
+    "comparison_position",
+    "prompt",
+    "target",
+    "catalog",
+    "fixtures",
+    "dependencies",
+    "artifact_paths",
+    "environment",
+    "authority",
+    "budgets"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "case_id": { "type": ["string", "number"] },
     "stage": { "enum": ["routing", "execution"] },
-    "routing_mode": { "enum": ["native-routing", "host-simulated-routing", "catalog-classification-proxy"] },
+    "routing_mode": {
+      "enum": ["native-routing", "host-simulated-routing", "catalog-classification-proxy"]
+    },
     "configuration": {
       "type": "object",
       "required": ["id", "role", "active_skill"],

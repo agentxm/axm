@@ -2,7 +2,23 @@
 type: Explanation
 title: Operational incident records
 description: How operational impact, service state, response state, and understanding evolve independently; how one incident identity coordinates several response surfaces; and why impact end, restoration, recovery, closure, and follow-up remain distinct.
-tags: [incident, incident-record, outage, service-degradation, incident-management, operations, reliability, mitigation, restoration, recovery, closure, incident-command, communication, work-item]
+tags:
+  [
+    incident,
+    incident-record,
+    outage,
+    service-degradation,
+    incident-management,
+    operations,
+    reliability,
+    mitigation,
+    restoration,
+    recovery,
+    closure,
+    incident-command,
+    communication,
+    work-item,
+  ]
 status: draft
 sources:
   - id: atlassian-incident-response
@@ -48,20 +64,20 @@ ISO/IEC/IEEE 23612 defines a generic incident-management process and
 supporting documentation across development and operations.[^iso-23612]
 Qualifying this concept as an **operational** incident keeps its service-impact
 and coordinated-response purpose distinct from the broader meanings of
-*incident* used in testing, security, support, and project work.
+_incident_ used in testing, security, support, and project work.
 
 ## One incident, several moving states
 
 Incident tools often expose one status field, but an incident changes along
 several dimensions that do not advance together:
 
-| Dimension | What it asks | Examples of evidence, not universal labels |
-| --- | --- | --- |
-| Impact | What harm or imminent threat exists now? | Threatened, expanding, reduced, ended |
-| Service | What level of service is actually available? | Unavailable, degraded, mitigated, within objectives, fully recovered |
-| Response | What coordinated work is active? | Declared, mobilizing, active, monitoring, handed off, closed |
-| Understanding | What does the evidence support? | Observation, hypothesis, supported finding, confirmed cause |
-| Follow-up | What work continues after emergency response? | Review required, recovery owned, defect linked, risk accepted |
+| Dimension     | What it asks                                  | Examples of evidence, not universal labels                           |
+| ------------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| Impact        | What harm or imminent threat exists now?      | Threatened, expanding, reduced, ended                                |
+| Service       | What level of service is actually available?  | Unavailable, degraded, mitigated, within objectives, fully recovered |
+| Response      | What coordinated work is active?              | Declared, mobilizing, active, monitoring, handed off, closed         |
+| Understanding | What does the evidence support?               | Observation, hypothesis, supported finding, confirmed cause          |
+| Follow-up     | What work continues after emergency response? | Review required, recovery owned, defect linked, risk accepted        |
 
 A workaround can end visible impact while the service remains degraded. A
 service can operate within its objectives while cleanup or data recovery
@@ -73,13 +89,13 @@ of asking one `resolved` label to carry them all.
 
 These moments answer different questions:
 
-| Moment | Meaning |
-| --- | --- |
-| Mitigation or containment | An action limits harm, blast radius, or further change |
-| Impact end | Current or imminent stakeholder harm has ended under the local definition |
-| Restoration | The service again meets the stated operating or service objectives |
-| Recovery | Required functions, data, dependencies, and operating conditions have been re-established to the accepted state |
-| Closure | The authorized owner ends coordinated response after the local exit conditions are satisfied |
+| Moment                    | Meaning                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Mitigation or containment | An action limits harm, blast radius, or further change                                                          |
+| Impact end                | Current or imminent stakeholder harm has ended under the local definition                                       |
+| Restoration               | The service again meets the stated operating or service objectives                                              |
+| Recovery                  | Required functions, data, dependencies, and operating conditions have been re-established to the accepted state |
+| Closure                   | The authorized owner ends coordinated response after the local exit conditions are satisfied                    |
 
 Host processes legitimately draw the boundary differently. Atlassian ends
 emergency response when current or imminent business impact ends, with cleanup
@@ -156,13 +172,13 @@ incident process explicitly authorizes an exception.
 
 An effective response commonly uses several purpose-specific surfaces:
 
-| Surface | Primary job |
-| --- | --- |
-| Incident record or state document | Authoritative current state, ownership, objectives, decisions, and chronology |
-| Command channel or bridge | Fast responder coordination |
-| Dashboards, logs, traces, and working notes | Technical evidence and investigation |
-| Internal and external status communication | Audience-appropriate impact and response updates |
-| Review and corrective-work records | Learning, recovery, and independently governed follow-up |
+| Surface                                     | Primary job                                                                   |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| Incident record or state document           | Authoritative current state, ownership, objectives, decisions, and chronology |
+| Command channel or bridge                   | Fast responder coordination                                                   |
+| Dashboards, logs, traces, and working notes | Technical evidence and investigation                                          |
+| Internal and external status communication  | Audience-appropriate impact and response updates                              |
+| Review and corrective-work records          | Learning, recovery, and independently governed follow-up                      |
 
 Google and Atlassian both use combinations of live documents, chat, tracking,
 technical evidence, and stakeholder communication rather than forcing every
@@ -174,15 +190,15 @@ to reconstruct the current situation message by message.
 
 ## Neighboring concepts and response regimes
 
-| Concept | What it represents | Main question |
-| --- | --- | --- |
-| Event, alert, or report | An observable signal or supplied occurrence | What happened or crossed a threshold? |
-| Operational incident | A disruptive or threatening occurrence under coordinated response | What impact must be limited or ended? |
-| Incident record | The living state and chronology of that response | What is true now, who controls what, and what happens next? |
-| Problem | An underlying or recurring cause to investigate | Why do incidents occur or threaten to recur? |
-| [Defect report](failures-defects-and-defect-reports.md) | Evidence and lifecycle of a suspected or confirmed flaw | Which expectation may a work product violate? |
-| Change or corrective work | An independently governed alteration | What accepted change should be delivered and verified? |
-| Post-incident review | Reflection and learning after response | What contributed, what was learned, and what should change? |
+| Concept                                                 | What it represents                                                | Main question                                               |
+| ------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| Event, alert, or report                                 | An observable signal or supplied occurrence                       | What happened or crossed a threshold?                       |
+| Operational incident                                    | A disruptive or threatening occurrence under coordinated response | What impact must be limited or ended?                       |
+| Incident record                                         | The living state and chronology of that response                  | What is true now, who controls what, and what happens next? |
+| Problem                                                 | An underlying or recurring cause to investigate                   | Why do incidents occur or threaten to recur?                |
+| [Defect report](failures-defects-and-defect-reports.md) | Evidence and lifecycle of a suspected or confirmed flaw           | Which expectation may a work product violate?               |
+| Change or corrective work                               | An independently governed alteration                              | What accepted change should be delivered and verified?      |
+| Post-incident review                                    | Reflection and learning after response                            | What contributed, what was learned, and what should change? |
 
 Some occurrences also activate a security, privacy, safety, legal, disaster,
 or business-continuity process. NIST, for example, treats cybersecurity
@@ -229,9 +245,15 @@ For the recording procedure and progressive tracker-ready template, see
 [Recording operational incidents](recording-operational-incidents.md).
 
 [^atlassian-incident-response]: Atlassian, “How we respond to an incident.”
+
 [^google-incident-document]: Google SRE, “Example Incident State Document.”
+
 [^google-sre-incidents]: Google SRE, “Managing Incidents.”
+
 [^iso-23612]: ISO/IEC/IEEE 23612:2026, generic incident-management process and supporting documentation scope.
+
 [^iso-25011]: ISO/IEC TS 25011:2017, IT service-quality models and acceptance uses.
+
 [^microsoft-incident-management]: Microsoft Azure Well-Architected Framework, “Develop an Incident Management Practice to Recover from Disruptions.”
+
 [^nist-800-61r3]: NIST SP 800-61 Rev. 3, cybersecurity incident-response recommendations and considerations.

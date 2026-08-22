@@ -2,7 +2,18 @@
 type: Explanation
 title: Agent instruction files
 description: Why agent instruction files such as AGENTS.md and CLAUDE.md form a scoped context system, and how scope, applicability, composition, and precedence differ.
-tags: [agent-instructions, instruction-files, agents.md, claude.md, persistent-context, always-on-context, scope, routing, precedence]
+tags:
+  [
+    agent-instructions,
+    instruction-files,
+    agents.md,
+    claude.md,
+    persistent-context,
+    always-on-context,
+    scope,
+    routing,
+    precedence,
+  ]
 status: stable
 generated: { by: "claude/opus-5", at: 2026-08-17T00:00:00Z }
 stale_after: 2027-02-15
@@ -41,11 +52,11 @@ agent-focused counterpart to a human README.[^agents-md]
 
 ## Four useful jobs
 
-| Job | Example shape |
-| --- | --- |
-| Invariant | Never edit generated output; change its canonical source |
-| Working command | After changing this package, run its named validation target |
-| Discovery route | Before changing migrations, read the migration guide |
+| Job              | Example shape                                                    |
+| ---------------- | ---------------------------------------------------------------- |
+| Invariant        | Never edit generated output; change its canonical source         |
+| Working command  | After changing this package, run its named validation target     |
+| Discovery route  | Before changing migrations, read the migration guide             |
 | Environment fact | Integration tests require a local service started by this script |
 
 Background essays, exhaustive alternatives, long workflows, and task backlogs
@@ -71,12 +82,12 @@ one broad and one project scope.
 
 Four ideas must remain distinct:
 
-| Idea | Question |
-| --- | --- |
-| Scope | Where is this guidance intended to apply? |
+| Idea          | Question                                                     |
+| ------------- | ------------------------------------------------------------ |
+| Scope         | Where is this guidance intended to apply?                    |
 | Applicability | Under what work does the source enter the effective context? |
-| Composition | Are applicable sources selected, combined, or ordered? |
-| Precedence | What happens when applicable instructions conflict? |
+| Composition   | Are applicable sources selected, combined, or ordered?       |
+| Precedence    | What happens when applicable instructions conflict?          |
 
 A narrower source is not inherently stronger merely because it is closer to
 the work. Specificity establishes an authoring intention; the consuming
@@ -118,28 +129,28 @@ instruction surface may route to those owners.
 
 ## Trim content, protect discovery
 
-| Content | Typical action |
-| --- | --- |
-| Universal invariant | Keep concise |
-| High-leverage trigger and route | Protect or sharpen |
-| Full procedure | Move to a skill or guide; retain the trigger |
-| Explanation or reference | Move to knowledge; retain a route if needed |
-| Parent duplication | Remove |
-| Mechanically enforceable convention | Promote to a check or schema |
-| Stale or aspirational statement | Correct, qualify, or retire |
+| Content                             | Typical action                               |
+| ----------------------------------- | -------------------------------------------- |
+| Universal invariant                 | Keep concise                                 |
+| High-leverage trigger and route     | Protect or sharpen                           |
+| Full procedure                      | Move to a skill or guide; retain the trigger |
+| Explanation or reference            | Move to knowledge; retain a route if needed  |
+| Parent duplication                  | Remove                                       |
+| Mechanically enforceable convention | Promote to a check or schema                 |
+| Stale or aspirational statement     | Correct, qualify, or retire                  |
 
 ## Audit finding classes
 
-| Class | Signal | Typical response |
-| --- | --- | --- |
-| Duplicate body | Restates a guide or parent | Cut the copy and keep the route |
-| Procedure in always-on context | Long reusable how-to | Move it and leave a trigger |
-| Weak trigger | Topic label does not establish when to act | Rewrite as a receivable condition |
-| Missing route | Agents repeatedly rediscover an existing owner | Add the smallest useful route |
-| Stale | Dead path, command, or superseded policy | Correct or retire |
-| Wrong layer | Local detail appears at broad scope | Move to the nearest truthful owner |
-| Unjustified file | Adds no distinct scoped guidance | Remove after confirming no hidden role |
-| Index over-cut risk | A trim strands useful depth | Reject the cut or regroup routes |
+| Class                          | Signal                                         | Typical response                       |
+| ------------------------------ | ---------------------------------------------- | -------------------------------------- |
+| Duplicate body                 | Restates a guide or parent                     | Cut the copy and keep the route        |
+| Procedure in always-on context | Long reusable how-to                           | Move it and leave a trigger            |
+| Weak trigger                   | Topic label does not establish when to act     | Rewrite as a receivable condition      |
+| Missing route                  | Agents repeatedly rediscover an existing owner | Add the smallest useful route          |
+| Stale                          | Dead path, command, or superseded policy       | Correct or retire                      |
+| Wrong layer                    | Local detail appears at broad scope            | Move to the nearest truthful owner     |
+| Unjustified file               | Adds no distinct scoped guidance               | Remove after confirming no hidden role |
+| Index over-cut risk            | A trim strands useful depth                    | Reject the cut or regroup routes       |
 
 ## Evaluate the effective surface
 
@@ -160,5 +171,7 @@ To create or revise an agent instruction surface, use
 [How to author agent instruction files](authoring-agent-instruction-files.md).
 
 [^agents-md]: AGENTS.md
+
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^context-files-evaluation]: Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding Agents?

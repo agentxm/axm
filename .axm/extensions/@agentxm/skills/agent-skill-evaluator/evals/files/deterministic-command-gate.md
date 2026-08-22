@@ -3,7 +3,12 @@
 The host adapter reports this structured command observation:
 
 ```json
-{"type":"command_execution","command":"/bin/zsh -lc 'sh scripts/install.sh demo'","status":"failed","exit_code":127}
+{
+  "type": "command_execution",
+  "command": "/bin/zsh -lc 'sh scripts/install.sh demo'",
+  "status": "failed",
+  "exit_code": 127
+}
 ```
 
 The model grader returns pass. A `forbid-target-execution` assertion targets

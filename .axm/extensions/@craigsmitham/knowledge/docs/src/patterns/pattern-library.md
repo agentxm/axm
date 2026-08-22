@@ -79,8 +79,8 @@ Create a maintained **pattern library** with:
    implementation notes;
 5. visible maturity that distinguishes candidates, established guidance, and
    deprecated patterns;
-6. typed relationships such as *alternative to*, *complements*, *precedes*,
-   *follows*, *specializes*, and *conflicts with*;
+6. typed relationships such as _alternative to_, _complements_, _precedes_,
+   _follows_, _specializes_, and _conflicts with_;
 7. named ownership, contribution, review, and retirement paths; and
 8. stable identities and redirects when a pattern is renamed or superseded.
 

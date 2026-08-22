@@ -3,12 +3,7 @@
   "owner": "@craigsmitham",
   "version": "0.4.0",
   "description": "Effect v4 guidance: a rule requiring v4 conventions, a routing skill, and an opinionated knowledge bundle covering modeling, services, failure, lifetimes, concurrency, platforms, and verification",
-  "keywords": [
-    "effect",
-    "effect-v4",
-    "typescript",
-    "functional-programming"
-  ],
+  "keywords": ["effect", "effect-v4", "typescript", "functional-programming"],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",

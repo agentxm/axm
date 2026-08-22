@@ -15,7 +15,9 @@
       "id": "execution-review",
       "stage": "execution",
       "prompt": "Review the supplied release notes.",
-      "assertions": ["The response reports structural findings without modifying or publishing the release."]
+      "assertions": [
+        "The response reports structural findings without modifying or publishing the release."
+      ]
     }
   ]
 }

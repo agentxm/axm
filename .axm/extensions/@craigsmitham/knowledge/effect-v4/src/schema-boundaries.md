@@ -85,14 +85,14 @@ boundary.
 ## Choose the domain carrier
 
 ```ts
-import { Schema } from "effect"
+import { Schema } from "effect";
 
 // Structural data: a Struct plus its derived type.
 export const UserSchema = Schema.Struct({
   id: UserIdSchema,
   displayName: Schema.String,
-})
-export type User = typeof UserSchema.Type
+});
+export type User = typeof UserSchema.Type;
 
 // Domain model constructed only from valid data: a class carrier.
 export class Account extends Schema.Class<Account>("app/Account")({
@@ -134,8 +134,13 @@ export class Account extends Schema.Class<Account>("app/Account")({
 - Error translation preserves useful schema paths at the protocol boundary.
 
 [^docs-schema-basics]: `ai-docs/src/01_effect/02_schema/10_schema-basics.ts` at `effect@4.0.0-rc.110` — decode unknown at edges, encode back through the same schema, `Schema.Class` "for domain models that should only be constructed from valid data".
+
 [^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — instance `.make`/`.makeOption`/`.makeEffect`; module-level `Schema.make(ast)`; `decodeUnknownEffect` carries `DecodingServices` and fails with `SchemaError` wrapping a structured issue.
+
 [^src-schema-ast]: `packages/effect/src/SchemaAST.ts` at `effect@4.0.0-rc.110` — `ParseOptions.onExcessProperty`.
+
 [^schema-md]: `packages/effect/SCHEMA.md` at `effect@4.0.0-rc.110` — "Classes and Opaque Types", "Class API", "Constructors in Composed Schemas".
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-browser/src/internal/wireCodec.ts` (effect 4.0.0-beta.103).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/ripgrep.ts` and `packages/core/src/config.ts` (effect 4.0.0-beta.83).

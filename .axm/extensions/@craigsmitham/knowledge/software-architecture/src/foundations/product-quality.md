@@ -2,7 +2,16 @@
 type: Explanation
 title: Product quality in software architecture
 description: How ISO/IEC 25010 product quality characteristics classify accepted, assessable requirements whose consequences matter to architecture without creating a quality catalog or duplicating stronger authorities.
-tags: [product-quality, quality-requirements, iso-25010, square, architecture-significant-requirements, quality-scenarios, software-architecture]
+tags:
+  [
+    product-quality,
+    quality-requirements,
+    iso-25010,
+    square,
+    architecture-significant-requirements,
+    quality-scenarios,
+    software-architecture,
+  ]
 status: draft
 sources:
   - id: iso-25010
@@ -34,20 +43,20 @@ system or constituent whose satisfaction materially constrains architecture.
 
 ## Keep the concepts concrete
 
-| Concept | Role |
-| --- | --- |
-| Stakeholder quality need, risk, or obligation | Explains why an outcome matters; it may not yet be accepted or assessable. |
-| Characteristic and subcharacteristic | Classify the requirement using shared ISO/IEC 25010 vocabulary. |
-| Product Quality Requirement | States the accepted quality outcome for a named target under relevant conditions. |
-| Architectural response | Explains the consequential responsibilities, boundaries, state, dependencies, invariants, deployment choices, or tradeoffs. |
-| Measure and evidence | Establish how satisfaction is assessed through an owning requirement, test, benchmark, objective, evaluation, or telemetry source. |
+| Concept                                       | Role                                                                                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Stakeholder quality need, risk, or obligation | Explains why an outcome matters; it may not yet be accepted or assessable.                                                         |
+| Characteristic and subcharacteristic          | Classify the requirement using shared ISO/IEC 25010 vocabulary.                                                                    |
+| Product Quality Requirement                   | States the accepted quality outcome for a named target under relevant conditions.                                                  |
+| Architectural response                        | Explains the consequential responsibilities, boundaries, state, dependencies, invariants, deployment choices, or tradeoffs.        |
+| Measure and evidence                          | Establish how satisfaction is assessed through an owning requirement, test, benchmark, objective, evaluation, or telemetry source. |
 
 The useful progression is therefore:
 
 > quality need, risk, or obligation → Product Quality Requirement →
 > architectural response → evidence
 
-The general architecture-description word *concern* may still describe
+The general architecture-description word _concern_ may still describe
 something a stakeholder cares about. It is not a separate product-quality
 concept, document type, or maturity stage. A vague concern becomes durable
 architecture knowledge only after accepted meaning passes the admission test.
@@ -127,7 +136,7 @@ Quality Attribute Workshop elicits and prioritizes scenarios around a stimulus,
 environment, affected artifact, response, and response measure.[^sei-qaw] Use
 that structure as a reasoning aid, not as mandatory six-field bureaucracy.
 
-For example, *reliability* alone supplies no decision guidance. “After a worker
+For example, _reliability_ alone supplies no decision guidance. “After a worker
 stops during an accepted import, a replacement resumes from the last durable
 checkpoint without accepting a record twice” identifies a target, event,
 response, and architectural implications for state ownership and recovery.
@@ -138,14 +147,14 @@ Architecture prose should own the durable required outcome and architectural
 consequences only when it is the appropriate authority. Other sources retain
 their strengths:
 
-| Authority | What it should own |
-| --- | --- |
-| Requirement or policy system | Contractual, regulatory, or otherwise externally governed requirement text |
-| Tests and executable examples | Exact exercised scenarios and regression evidence |
-| Service-objective configuration | Current numerical objectives and alert thresholds |
-| Code, schemas, and configuration | Current implementation, contracts, and wiring |
-| Telemetry and evaluation results | Observed or measured quality at a point in time |
-| Architecture documentation | Durable architectural interpretation, constraints, and tradeoffs not reliably inferable elsewhere |
+| Authority                        | What it should own                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Requirement or policy system     | Contractual, regulatory, or otherwise externally governed requirement text                        |
+| Tests and executable examples    | Exact exercised scenarios and regression evidence                                                 |
+| Service-objective configuration  | Current numerical objectives and alert thresholds                                                 |
+| Code, schemas, and configuration | Current implementation, contracts, and wiring                                                     |
+| Telemetry and evaluation results | Observed or measured quality at a point in time                                                   |
+| Architecture documentation       | Durable architectural interpretation, constraints, and tradeoffs not reliably inferable elsewhere |
 
 When another source already owns the requirement, do not create a shadow
 Product Quality Requirement. Link the authority from the affected architecture
@@ -162,12 +171,17 @@ change the system safely.
 For the authoring procedure, see [Documenting product quality
 requirements](../guides/documenting-product-quality-requirements.md).
 
-[^iso-25010]: ISO/IEC 25010:2023 defines a product quality model with nine
+[^iso-25010]:
+    ISO/IEC 25010:2023 defines a product quality model with nine
     characteristics and their subcharacteristics as a reference for specifying,
     measuring, and evaluating ICT and software product quality.
-[^iso-25030]: ISO/IEC 25030:2019 defines a framework for eliciting stakeholder
+
+[^iso-25030]:
+    ISO/IEC 25030:2019 defines a framework for eliciting stakeholder
     quality needs and defining, analyzing, using, and governing quality
     requirements categorized by applicable quality models.
-[^sei-qaw]: The SEI describes the Quality Attribute Workshop as a method for
+
+[^sei-qaw]:
+    The SEI describes the Quality Attribute Workshop as a method for
     identifying, refining, and prioritizing stakeholder scenarios that reveal
     architecture-driving quality attributes.

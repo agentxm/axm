@@ -2,7 +2,24 @@
 type: Standard
 title: Software architecture docs application profile for OKF v0.2
 description: The application profile for representing demand and value, goal-oriented behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in a set of OKF v0.2 software architecture docs.
-tags: [architecture, okf, application-profile, offerings, audiences, jobs-to-be-done, value-propositions, use-cases, product-quality, quality-requirements, capabilities, features, surfaces, domain-driven-design, c4-model]
+tags:
+  [
+    architecture,
+    okf,
+    application-profile,
+    offerings,
+    audiences,
+    jobs-to-be-done,
+    value-propositions,
+    use-cases,
+    product-quality,
+    quality-requirements,
+    capabilities,
+    features,
+    surfaces,
+    domain-driven-design,
+    c4-model,
+  ]
 status: draft
 sources:
   - id: okf-v0.2
@@ -56,14 +73,14 @@ generated:
 
 ## Profile identity
 
-| Property | Value |
-| --- | --- |
-| Profile identity | `software-architecture-docs` |
-| Profile version | `0.7.0` |
-| Base specification | OKF v0.2 |
-| Status | Draft |
-| Applies to | Primary concepts under `value/`, `use-cases/`, `quality/`, `capabilities/`, `features/`, `surfaces/`, `domains/`, and `structure/` |
-| Audience | Architecture authors, maintainers, reviewers, and profile validators |
+| Property           | Value                                                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Profile identity   | `software-architecture-docs`                                                                                                       |
+| Profile version    | `0.7.0`                                                                                                                            |
+| Base specification | OKF v0.2                                                                                                                           |
+| Status             | Draft                                                                                                                              |
+| Applies to         | Primary concepts under `value/`, `use-cases/`, `quality/`, `capabilities/`, `features/`, `surfaces/`, `domains/`, and `structure/` |
+| Audience           | Architecture authors, maintainers, reviewers, and profile validators                                                               |
 
 ## Purpose and scope
 
@@ -161,13 +178,13 @@ requirements in this profile.
 
 Every concept governed by this profile MUST include:
 
-| Field | Requirement | Meaning |
-| --- | --- | --- |
-| `type` | Required | Exact concept type defined by this profile |
-| `title` | Required | Stable canonical display name |
-| `description` | Required | One sentence distinguishing the concept from its neighbors |
-| `status` | Required | `draft`, `stable`, or `deprecated` |
-| `tags` | Recommended | Search terms, aliases, and relevant domain or architecture vocabulary |
+| Field         | Requirement | Meaning                                                               |
+| ------------- | ----------- | --------------------------------------------------------------------- |
+| `type`        | Required    | Exact concept type defined by this profile                            |
+| `title`       | Required    | Stable canonical display name                                         |
+| `description` | Required    | One sentence distinguishing the concept from its neighbors            |
+| `status`      | Required    | `draft`, `stable`, or `deprecated`                                    |
+| `tags`        | Recommended | Search terms, aliases, and relevant domain or architecture vocabulary |
 
 The standard OKF fields `sources`, `generated`, `verified`, `stale_after`, and
 `resource` MAY be used when truthful and applicable. A concept MUST NOT repeat
@@ -938,21 +955,21 @@ relationships rather than a universal hierarchy. When a relationship below is
 consequential and both concepts are maintained, authors SHOULD state its
 meaning in prose around an ordinary Markdown link:
 
-| Relationship | Meaning |
-| --- | --- |
-| audience or external participant **plays actor role in** use case | The participant acts from outside the subject boundary in this behavioral context. Primary or supporting role is contextual to the use case. |
-| use case **has subject** offering or C4 software system | The named subject owns the behavior offered to its actors. |
-| use case **refines** or **uses subgoal** use case | A summary or user goal depends on a narrower goal. This relationship forms a graph, not physical containment. |
-| feature **enables** use case | Independently recognizable behavior contributes to achieving the actor goal. |
-| use case **exercises** capability | The subject requires or invokes the bearer's ability while pursuing the goal. |
-| use case **is enacted through** surface | Actors encounter the behavior at the named interaction point. |
-| use case **uses authority from** bounded context | The context owns relevant language, rules, policy, or state. |
-| need, use case, risk, policy, or obligation **justifies** Product Quality Requirement | The originating authority explains why the accepted quality outcome matters. A risk, policy, or obligation need not be a profiled concept. |
-| Product Quality Requirement **qualifies** target concept | The requirement constrains the stated system, constituent, capability, feature, use case, or other maintained subject under named conditions. |
-| architecture concept **responds to** Product Quality Requirement | The concept owns a responsibility, boundary, state model, invariant, dependency, deployment choice, or tradeoff shaped by the requirement. |
-| C4 element **realizes** use case, feature, capability, or surface | The structural element implements or operates part of the related view. |
-| C4 Dynamic View **illustrates scenario of** use case | The view selects one main or extension scenario and shows ordered collaboration among canonical elements. |
-| test, measure, objective, evaluation, telemetry, contract, or executable example **provides evidence for** concept | The linked authority owns exact criteria, cases, observations, or current facts that the architecture concept should not copy. |
+| Relationship                                                                                                       | Meaning                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| audience or external participant **plays actor role in** use case                                                  | The participant acts from outside the subject boundary in this behavioral context. Primary or supporting role is contextual to the use case.  |
+| use case **has subject** offering or C4 software system                                                            | The named subject owns the behavior offered to its actors.                                                                                    |
+| use case **refines** or **uses subgoal** use case                                                                  | A summary or user goal depends on a narrower goal. This relationship forms a graph, not physical containment.                                 |
+| feature **enables** use case                                                                                       | Independently recognizable behavior contributes to achieving the actor goal.                                                                  |
+| use case **exercises** capability                                                                                  | The subject requires or invokes the bearer's ability while pursuing the goal.                                                                 |
+| use case **is enacted through** surface                                                                            | Actors encounter the behavior at the named interaction point.                                                                                 |
+| use case **uses authority from** bounded context                                                                   | The context owns relevant language, rules, policy, or state.                                                                                  |
+| need, use case, risk, policy, or obligation **justifies** Product Quality Requirement                              | The originating authority explains why the accepted quality outcome matters. A risk, policy, or obligation need not be a profiled concept.    |
+| Product Quality Requirement **qualifies** target concept                                                           | The requirement constrains the stated system, constituent, capability, feature, use case, or other maintained subject under named conditions. |
+| architecture concept **responds to** Product Quality Requirement                                                   | The concept owns a responsibility, boundary, state model, invariant, dependency, deployment choice, or tradeoff shaped by the requirement.    |
+| C4 element **realizes** use case, feature, capability, or surface                                                  | The structural element implements or operates part of the related view.                                                                       |
+| C4 Dynamic View **illustrates scenario of** use case                                                               | The view selects one main or extension scenario and shows ordered collaboration among canonical elements.                                     |
+| test, measure, objective, evaluation, telemetry, contract, or executable example **provides evidence for** concept | The linked authority owns exact criteria, cases, observations, or current facts that the architecture concept should not copy.                |
 
 The phrases above define author-facing meaning, not relationship identifiers.
 Profile version 0.7.0 does not define relationship frontmatter, permitted
@@ -1130,46 +1147,73 @@ The [minimal conforming architecture corpus](minimal-conforming-architecture-cor
 provides a complete synthetic example and a dated manual conformance report
 covering the applicable base and profile rules.
 
-[^okf-v0.2]: OKF v0.2 defines concept IDs from bundle-relative paths,
+[^okf-v0.2]:
+    OKF v0.2 defines concept IDs from bundle-relative paths,
     reserves `index.md` and `log.md`, leaves `type` vocabularies and directory
     organization to producers, and uses ordinary Markdown links.
-[^okf-profile-proposal]: The opt-in OKF profile proposal remains open, so this
+
+[^okf-profile-proposal]:
+    The opt-in OKF profile proposal remains open, so this
     profile uses the application-profile layering model provisionally without
     changing base OKF conformance.
-[^dcmi-application-profile]: DCMI defines an application profile as a
+
+[^dcmi-application-profile]:
+    DCMI defines an application profile as a
     specification that selects metadata terms and adds constraints for
     application-specific requirements.
-[^just-enough-architecture-docs]: Just Enough Architecture Docs defines the
+
+[^just-enough-architecture-docs]:
+    Just Enough Architecture Docs defines the
     admission, authority, concern-view, and maintenance principles on which
     this profile builds.
-[^capabilities]: Capabilities in software architecture distinguishes stable
+
+[^capabilities]:
+    Capabilities in software architecture distinguishes stable
     abilities from recognizable features, actor-facing surfaces, domain
     meaning, structural realization, and delivery work.
-[^goal-oriented-behavior]: Goal-oriented behavior and use cases distinguishes
+
+[^goal-oriented-behavior]:
+    Goal-oriented behavior and use cases distinguishes
     contextual actors, goals, scenarios, extensions, and delivery artifacts
     while connecting use cases to the architecture views they exercise.
-[^product-quality]: Product quality in software architecture distinguishes
+
+[^product-quality]:
+    Product quality in software architecture distinguishes
     stakeholder quality needs, ISO/IEC 25010 classifications, accepted Product
     Quality Requirements, architectural responses, and assessment evidence.
-[^iso-25010]: ISO/IEC 25010:2023 defines nine product quality characteristics
+
+[^iso-25010]:
+    ISO/IEC 25010:2023 defines nine product quality characteristics
     and their subcharacteristics as a reference for specifying, measuring, and
     evaluating ICT and software product quality.
-[^iso-25030]: ISO/IEC 25030:2019 defines a framework for eliciting stakeholder
+
+[^iso-25030]:
+    ISO/IEC 25030:2019 defines a framework for eliciting stakeholder
     quality needs and defining, analyzing, using, and governing quality
     requirements categorized by applicable quality models.
-[^offerings-and-value]: Offerings and value in software architecture
+
+[^offerings-and-value]:
+    Offerings and value in software architecture
     distinguishes demand and offered value from goal-oriented behavior,
     capabilities, features, domain meaning, structural realization, and
     delivery work.
-[^jobs-to-be-done]: Jobs to Be Done defines circumstances, sought progress,
+
+[^jobs-to-be-done]:
+    Jobs to Be Done defines circumstances, sought progress,
     forces, evidence expectations, job mapping, and the boundaries from
     solution-side architecture concepts applied by this profile.
-[^domain-driven-design]: Domain-driven design distinguishes classified
+
+[^domain-driven-design]:
+    Domain-driven design distinguishes classified
     subdomains from bounded contexts, permits many-to-many mappings between
     them, and assigns inter-context views to context maps.
-[^c4-model]: The C4 model explanation defines the abstraction hierarchy, view
+
+[^c4-model]:
+    The C4 model explanation defines the abstraction hierarchy, view
     types, containment rules, notation expectations, and selective-use
     guidance applied by this profile.
-[^architecture-docs-organization]: Organizing an architecture docs corpus
+
+[^architecture-docs-organization]:
+    Organizing an architecture docs corpus
     defines the subject-first collections and progressive-disclosure rules
     whose governed subset this profile makes independently checkable.

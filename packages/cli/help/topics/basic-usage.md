@@ -26,6 +26,23 @@ Use `axm help` to see a list of topics on how to use AXM for your specific use c
 
 You will need to have an AgentXM.ai account to publish extensions to the registry or install private extensions.
 
+### Management boundary
+
+AXM owns extension packages and lifecycle: canonical and workspace state,
+projection into configured agents, composition, installation, distribution,
+activation, versioning, and removal. Creating or editing an extension can also
+require a semantic authoring workflow; use AXM to resolve the canonical package,
+then edit that source rather than a generated agent projection.
+
+For MCP, AXM owns connection configuration and packaging: commands, URLs,
+arguments, environment-variable references, headers, installation, and
+projection. Implementing or debugging the MCP server software itself is an
+ordinary software-development task, not an AXM management operation.
+
+Read the one relevant `axm help <topic>` or `axm <command> --help` entry after
+identifying the extension type and operation. Live help owns current command
+syntax, output fields, and recovery steps.
+
 ## How AXM works
 
 _Extensions_ are agent extensions managed by AXM: skills, MCP servers, subagents, rules, hooks, knowledge bundles, and extension packs.
@@ -51,13 +68,21 @@ agent artifacts.
 ### Publishing extensions
 
 Use `axm publish` to publish all extensions authored in the selected workspace,
-or pass explicit selectors. AXM preflights the full selection before uploading
-anything. Bare and filter-only bulk selections verify byte-identical published
-versions and skip them as successful no-ops; an integrity mismatch blocks every
-upload. Explicit names, FQNs, globs, and multiple selectors remain strict unless
-`--on-existing verify` is supplied. Use `--on-existing error` to make a bulk
-selection strict, and `--backfill` only for an unpublished version below the
-highest published SemVer. `axm version` only changes workspace-sourced manifests.
+or pass explicit selectors for authored extensions. Bare, filtered, and
+explicit selections never publish installed Registry, Git, or local-source
+packages. Use `axm adopt <extension>` when this workspace should own retained
+canonical content, or `axm fork <source> <extension>` for a separately authored
+identity.
+
+AXM preflights the full selection before uploading anything. Bare and
+filter-only selections rebuild each authored archive, verify its SHA-512 digest
+against an existing immutable version, and skip a match as a successful no-op;
+a mismatch blocks every upload. Explicit names, FQNs, globs, and multiple
+selectors remain strict unless `--on-existing verify` is supplied. Use
+`--on-existing error` to make a bulk selection strict, and `--backfill` only for
+an unpublished version below the highest published SemVer. `axm version` only
+changes workspace-sourced manifests. Run `axm help publish` for the full
+selection and integrity boundary.
 
 Use `axm list` for the fast, local inventory across all extension types.
 `axm list --outdated` and `axm list --deprecated` perform remote checks against
@@ -123,6 +148,7 @@ structured reason and a safe recovery action.
 - `axm help subagents` — working with subagents
 - `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
+- `axm help publish` — authored selection and immutable archive verification
 - `axm view <extension> [version|versions]` — inspect published extension metadata
 - `axm help exit-codes` — process exit codes and their meaning
 - `axm <command> --help` — flags and examples for any command

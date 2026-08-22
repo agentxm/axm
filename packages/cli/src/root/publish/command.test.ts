@@ -14,7 +14,11 @@ import {
   isEffectCliExit,
   renderConfirmationRecoveryCommand,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { extensionTypes, formatFqn } from "@agentxm/client-core/unstable/extensions";
+import {
+  extensionTypes,
+  extensionTypeToPlural,
+  formatFqn,
+} from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
 import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
 import {
@@ -189,8 +193,6 @@ const args = (
   overrides?: Partial<RootPublishHandlerArgs>,
 ): RootPublishHandlerArgs => ({
   selectors: [],
-  authored: false,
-  all: false,
   owners: [],
   types: [],
   excludes: [],
@@ -203,7 +205,6 @@ const args = (
   scope: "project",
   visibility: Option.none(),
   includeDependencies: false,
-  includeDependency: [],
   ...overrides,
 });
 
@@ -366,7 +367,6 @@ describe("root publish", () => {
           const bulkError = getAppError(
             yield* handleRootPublish(
               args(registryUrl, {
-                authored: true,
                 preview: false,
               }),
             ).pipe(Effect.flip),
@@ -2045,45 +2045,62 @@ describe("root publish", () => {
   });
 
   describe("result versions", () => {
-    const writeRegistrySourcedSkill = () => {
+    const writeExternallySourcedExtensions = () => {
       fs.writeFileSync(
         path.join(tempDir, ".axm", "settings.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
           skills: { review: "@acme/skills/review@^1" },
+          mcpServers: { review: "@acme/mcps/review@^1" },
+          subagents: { review: "@acme/subagents/review@^1" },
+          rules: { review: "@acme/rules/review@^1" },
+          hooks: { review: "@acme/hooks/review@^1" },
+          knowledge: { review: "@acme/knowledge/review@^1" },
+          packs: { review: "@acme/packs/review@^1" },
         }),
       );
     };
 
-    it.effect("emits one failed machine result and omits an unresolved version", () => {
-      writeRegistrySourcedSkill();
-      const { provide, rendererState } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+    it.effect(
+      "rejects every explicitly selected Registry extension before archive construction",
+      () => {
+        writeExternallySourcedExtensions();
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
-      return provide(
-        Effect.gen(function* () {
-          const exit = yield* handleRootPublish(
-            args(registryUrl, { preview: false, selectors: ["@acme/skills/review"] }),
-          ).pipe(Effect.exit);
+        return provide(
+          Effect.gen(function* () {
+            const selectors = extensionTypes.map(
+              (type) => `@acme/${extensionTypeToPlural[type]}/review`,
+            );
+            for (const [index, selector] of selectors.entries()) {
+              const exit = yield* handleRootPublish(
+                args(registryUrl, { preview: false, selectors: [selector] }),
+              ).pipe(Effect.exit);
 
-          const data = at(rendererState.results, 0).data;
-          const result = expectPublishResult(data, { mode: "apply", count: 1 });
-          const results = property(result, "results");
-          if (!Array.isArray(results)) throw new Error("Expected publish results");
-          const item = expectRecord(at(results, 0));
-          expect(property(item, "action")).toBe("error");
-          expect(Object.keys(item)).not.toContain("version");
-          expect(JSON.stringify(data)).not.toContain("0.0.0");
-          expect(rendererState.results).toHaveLength(1);
-          expect(rendererState.results[0]?.ok).toBe(false);
-          expect(Exit.isFailure(exit)).toBe(true);
-          if (Exit.isFailure(exit)) {
-            expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
-          }
-        }),
-      );
-    });
+              const data = at(rendererState.results, index).data;
+              const result = expectPublishResult(data, { mode: "apply", count: 1 });
+              const results = property(result, "results");
+              if (!Array.isArray(results)) throw new Error("Expected publish results");
+              const item = expectRecord(at(results, 0));
+              expect(property(item, "action")).toBe("error");
+              expect(property(item, "reason")).toBe("not_authored");
+              expect(property(item, "message")).toContain(`axm adopt ${selector}`);
+              expect(property(item, "message")).toContain(`axm fork ${selector}`);
+              expect(Object.keys(item)).not.toContain("version");
+              expect(JSON.stringify(data)).not.toContain("0.0.0");
+              expect(rendererState.results[index]?.ok).toBe(false);
+              expect(Exit.isFailure(exit)).toBe(true);
+              if (Exit.isFailure(exit)) {
+                expect(isEffectCliExit(Cause.squash(exit.cause))).toBe(true);
+              }
+            }
+            expect(rendererState.results).toHaveLength(selectors.length);
+          }),
+        );
+      },
+    );
   });
 
   describe("command telemetry", () => {

@@ -2,7 +2,19 @@
 type: Guide
 title: Services and layers
 description: Designing service boundaries and Layer graphs and running the result; use when dependencies are threaded through parameters, hidden in globals, hard to replace in tests, or when a runner is handed an unexhausted error channel.
-tags: [effect, effect-v4, services, layers, context, dependency-injection, composition-root, runtime, run-main, error-channel]
+tags:
+  [
+    effect,
+    effect-v4,
+    services,
+    layers,
+    context,
+    dependency-injection,
+    composition-root,
+    runtime,
+    run-main,
+    error-channel,
+  ]
 status: stable
 sources:
   - id: docs-service
@@ -115,7 +127,7 @@ service.
 ## Define a capability and implementation
 
 ```ts
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer } from "effect";
 
 class Users extends Context.Service<
   Users,
@@ -124,11 +136,11 @@ class Users extends Context.Service<
 
 const UsersLive = Layer.effect(
   Users,
-  Effect.gen(function*() {
-    const repository = yield* UserRepository
-    return Users.of({ find: repository.find })
+  Effect.gen(function* () {
+    const repository = yield* UserRepository;
+    return Users.of({ find: repository.find });
   }),
-)
+);
 ```
 
 - Give every service a unique stable identifier: the string key is the
@@ -179,7 +191,7 @@ What release must guarantee under failure and interruption is owned by
 - For a process entrypoint, run the program with the platform `runMain`
   (`NodeRuntime.runMain`, `BunRuntime.runMain`), which installs signal
   handlers and interrupts running fibers for graceful shutdown.[^docs-run-main]
-- When the application *is* the layer graph — servers, workers, daemons — use
+- When the application _is_ the layer graph — servers, workers, daemons — use
   `Layer.launch` to build it, hold it open, and release it on
   interruption.[^docs-run-main]
 - When a non-Effect host drives execution, build a `ManagedRuntime` from the
@@ -194,7 +206,7 @@ synthesized `Error("All fibers interrupted without error")`. The thrown value is
 `unknown` and carries no discriminator, so the catcher cannot tell a business
 failure from a bug from a shutdown.[^src-internal-effect] [^src-cause]
 
-- Reach `never` by *handling*, not by asserting. Upstream's HTTP server is the
+- Reach `never` by _handling_, not by asserting. Upstream's HTTP server is the
   model: `HttpEffect.toHandled` is typed `Effect<void, never, …>`, and
   `causeResponse` walks the cause reasons and treats `Fail`, `Die`, and
   `Interrupt` separately — a client abort becomes 499, a server abort 503 —
@@ -203,7 +215,7 @@ failure from a bug from a shutdown.[^src-internal-effect] [^src-cause]
 - The sanctioned exception is a process main. `Runtime.makeRunMain` accepts any
   `E` and is designed to report it, so hand `NodeRuntime.runMain` /
   `BunRuntime.runMain` the real error type. The rule applies to boundaries whose
-  signature *promises* `E = never`, not to mains.[^src-runtime]
+  signature _promises_ `E = never`, not to mains.[^src-runtime]
 - Never reach `never` with a cast. `as Effect.Effect<void>` type-checks
   identically to a real exhaustion and guarantees nothing: the failures still
   occur and still squash. Two production runners do this — livestore casts
@@ -242,18 +254,33 @@ serialized `Exit` — is owned by [Wrapping](wrapping.md).
 - Production and test implementations substitute through the same service key.
 
 [^src-context]: `Context.Service`, `Context.Reference`, and key identity: `packages/effect/src/Context.ts` at `effect@4.0.0-rc.110`.
+
 [^src-layer]: Scoped construction, memoization, and `Layer.fresh`: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.110`; `Layer.effect` erases `Scope` from the construction effect's requirements and runs it in the layer scope.
+
 [^docs-service]: `ai-docs/src/01_effect/03_services/01_service.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-layer-composition]: `ai-docs/src/01_effect/03_services/20_layer-composition.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-run-main]: `ai-docs/src/01_effect/06_running/10_run-main.ts` at `effect@4.0.0-rc.110`; `Layer.launch` at `packages/effect/src/Layer.ts`.
+
 [^applied-effect-http-recorder]: Observed in effect-http-recorder@89e1b85 `src/cassette/store.ts` (effect 4.0.0-beta.83).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/opencode/src/effect/app-runtime.ts` (effect 4.0.0-beta.83).
+
 [^src-internal-effect]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `runPromiseWith` resolves the exit and, on `Failure`, `throw causeSquash(exit.cause)` (:5475-5488); `causeSquash` (:299-308) partitions the cause and returns `Fail[0].error`, else `Die[0].defect`, else `new Error("All fibers interrupted without error")`, else `new Error("Empty cause")`. Its return type is `unknown`.
+
 [^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.110` — `squash` (:736) is `effect.causeSquash`; its own docstring points at `prettyErrors` as the "non-lossy conversion".
+
 [^src-runtime]: `packages/effect/src/Runtime.ts` at `effect@4.0.0-rc.110` — `makeRunMain` (:181) is generic in `<E, A>` and returns a function accepting `Effect<A, E>`; error reporting is on by default and suppressed only with `disableErrorReporting`.
+
 [^src-http-effect]: `packages/effect/src/unstable/http/HttpEffect.ts` at `effect@4.0.0-rc.110` — `toHandled` (:36) returns `Effect<void, never, Exclude<R | RH | HttpServerRequest, Scope>>` (:43) after `Effect.matchCauseEffect` (:68) routes every cause through `causeResponse`; the web handler forks the already-exhausted app with `Effect.runForkWith(reqContext)(httpApp)` (:261).
+
 [^src-http-server-error]: `packages/effect/src/unstable/http/HttpServerError.ts` at `effect@4.0.0-rc.110` — `causeResponse` (:283) switches over `reason._tag` for `Fail`, `Die` (with a special case for a `HttpServerResponse` thrown as a defect), and `Interrupt`, and maps a pure interrupt to `clientAbortError` (499) or `serverAbortError` (503) depending on the `ClientAbort` annotation (:320, :359-360).
+
 [^applied-opencode-bridge]: Observed in opencode@65c3597 `packages/opencode/src/effect/bridge.ts` (effect 4.0.0-beta.83) — `promise: <A, E, R>(effect) => … Effect.runPromise(wrap(effect))` (:65) squashes arbitrary `E` for every caller, while the sibling `run` (:68-76) uses `Effect.runPromiseExit` and resumes with `Effect.failCause(exit.cause)`.
+
 [^applied-livestore-cast]: Observed in livestore@31e8d71 `packages/@livestore/common-cf/src/do-rpc/server.ts` (effect 4.0.0-beta.99) — the Durable Object stream pipeline ends `Effect.tapCauseLogPretty, (_) => _ as Effect.Effect<void>, Effect.runPromise` (:353-357). The cast is the only thing making the runner type-check. Cited as a counterexample.
+
 [^applied-alchemy-test-cast]: Observed in alchemy-effect@1596e50 `packages/alchemy-test/src/cli.ts` (effect 4.0.0-rc.110) — `BunRuntime.runMain(effect as Effect.Effect<void>, { … })` (:255). `runMain` accepts any `E`, so the cast buys nothing and erases the failure type the teardown would otherwise see. Cited as a counterexample.

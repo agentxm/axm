@@ -106,5 +106,7 @@ decision cases in
 [Task distributions and case suites](task-distributions-and-case-suites.md).
 
 [^openai-build-skills]: OpenAI — Build skills
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator
+
 [^anthropic-skill-creator-run-loop]: Anthropic — Skill Creator description optimization loop

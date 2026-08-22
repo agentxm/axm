@@ -22,11 +22,11 @@ name + description -> SKILL.md body -> conditional references or resources
 
 Each stage makes a different decision:
 
-| Stage | Decision |
-| --- | --- |
-| Metadata | Is this skill relevant enough to activate? |
-| Instructions | Which workflow, branch, and resource applies? |
-| Resource | What detailed fact, template, or deterministic operation is needed now? |
+| Stage        | Decision                                                                |
+| ------------ | ----------------------------------------------------------------------- |
+| Metadata     | Is this skill relevant enough to activate?                              |
+| Instructions | Which workflow, branch, and resource applies?                           |
+| Resource     | What detailed fact, template, or deterministic operation is needed now? |
 
 ## Design consequences
 

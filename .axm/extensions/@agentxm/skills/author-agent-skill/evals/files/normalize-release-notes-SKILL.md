@@ -2,6 +2,7 @@
 name: normalize-release-notes
 description: Helps with releases.
 ---
+
 # Normalize release notes
 
 Read supplied Markdown release notes, normalize their headings to `Added`,

@@ -23,18 +23,18 @@ different model, context, tool set, or runtime.
 
 ## Artifact contract
 
-| Part | Question |
-| --- | --- |
-| Purpose | Which user or system outcome should this interaction support? |
-| Task distribution | Which representative inputs and exclusions bound the claim? |
-| Success criteria | Which observable properties make the response acceptable? |
-| Fixed content | Which instructions and examples remain stable across calls? |
-| Variable contract | Which values may be inserted, from where, with what trust and type? |
-| Response contract | Which content, shape, order, uncertainty, and handoff are required? |
-| Authority | Which decisions or actions may the model take or only propose? |
-| Evaluation | Which cases, graders, repetitions, and baseline support the revision? |
+| Part                   | Question                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| Purpose                | Which user or system outcome should this interaction support?                |
+| Task distribution      | Which representative inputs and exclusions bound the claim?                  |
+| Success criteria       | Which observable properties make the response acceptable?                    |
+| Fixed content          | Which instructions and examples remain stable across calls?                  |
+| Variable contract      | Which values may be inserted, from where, with what trust and type?          |
+| Response contract      | Which content, shape, order, uncertainty, and handoff are required?          |
+| Authority              | Which decisions or actions may the model take or only propose?               |
+| Evaluation             | Which cases, graders, repetitions, and baseline support the revision?        |
 | Compatibility identity | Which model, host, parameters, tools, and context configuration were tested? |
-| Lifecycle | Who owns revision, rollout, rollback, deprecation, and revalidation? |
+| Lifecycle              | Who owns revision, rollout, rollback, deprecation, and revalidation?         |
 
 Prompt templates make fixed and variable content independently visible and
 testable. Anthropic identifies consistency, edge-case testing, scalability, and
@@ -47,4 +47,5 @@ is an evidence claim over named models, hosts, prompt roles, tools, parameters,
 and input distributions.
 
 [^anthropic-tools]: Anthropic — Console prompting tools
+
 [^aws-prompt-management]: AWS — Prompt management

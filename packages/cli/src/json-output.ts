@@ -563,7 +563,7 @@ const PublishSelectionDecisionSchema = Schema.Struct({
 });
 
 const PublishSelectionSchema = Schema.Struct({
-  mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
+  mode: Schema.Literals(["authored", "explicit"] as const),
   scope: Schema.Literals(["project", "user"] as const),
   owners: Schema.Array(HandleSchema),
   types: Schema.Array(ExtensionTypeSchema),

@@ -4,7 +4,15 @@
   "title": "Agent Skill evaluator grade",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "outcome", "failure_class", "assertions", "detail", "suite_findings", "usage"],
+  "required": [
+    "schema_version",
+    "outcome",
+    "failure_class",
+    "assertions",
+    "detail",
+    "suite_findings",
+    "usage"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "outcome": { "enum": ["pass", "fail", "unknown", "harness-error"] },

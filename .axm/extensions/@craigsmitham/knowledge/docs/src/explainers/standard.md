@@ -2,7 +2,8 @@
 type: Explainer
 title: Standard
 description: What a standard is — a recognized, reusable basis for judging, specifying, or coordinating what is acceptable, fitting, or excellent within a defined field.
-tags: [docs, standard, standardization, criteria, conformance, quality, judgment, authority, explainer]
+tags:
+  [docs, standard, standardization, criteria, conformance, quality, judgment, authority, explainer]
 status: stable
 sources:
   - id: iso-definitions
@@ -37,7 +38,7 @@ It establishes stable expectations, criteria, characteristics, or requirements
 so people can compare, communicate, interoperate, evaluate, and act without
 renegotiating the basis each time.
 
-Here *standard* names a normative function before it names a document. A
+Here _standard_ names a normative function before it names a document. A
 practice may carry standards partly in examples and trained judgment; a formal
 **standards document** articulates selected provisions for common and repeated
 use. Neither sense makes a standard another Diátaxis reader need or another
@@ -45,12 +46,12 @@ reusable-guidance form in this bundle.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Central question** | By what recognized basis should this object, performance, or claim be understood and judged? |
-| **Unit** | A reusable basis of expectation, comparison, or coordination within a defined field |
-| **Purpose** | Make meaning, acceptable variation, assessment, and coordinated action sufficiently stable and public |
-| **Authority requires** | A warranted standard, a competent issuing or adopting body, and action within the standard's scope |
+|                             |                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Central question**        | By what recognized basis should this object, performance, or claim be understood and judged?                 |
+| **Unit**                    | A reusable basis of expectation, comparison, or coordination within a defined field                          |
+| **Purpose**                 | Make meaning, acceptable variation, assessment, and coordinated action sufficiently stable and public        |
+| **Authority requires**      | A warranted standard, a competent issuing or adopting body, and action within the standard's scope           |
 | **Conformance establishes** | Satisfaction of specified requirements—not necessarily excellence, usability, wisdom, or fitness beyond them |
 
 ## Why standards exist
@@ -74,12 +75,12 @@ before treating standardization itself as the good.
 
 ## Measure and document
 
-The word *standard* commonly moves between two related senses:
+The word _standard_ commonly moves between two related senses:
 
-| Sense | What it is | Typical expression |
-| --- | --- | --- |
-| **Standard as norm or measure** | A recognized basis for judging adequacy, fittingness, correctness, or excellence | An exemplary performance, professional expectation, accepted threshold, or settled test of quality |
-| **Documentary standard** | An approved artifact that states provisions for common and repeated use | Definitions, classifications, requirements, characteristics, protocols, test methods, or guidelines |
+| Sense                           | What it is                                                                       | Typical expression                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Standard as norm or measure** | A recognized basis for judging adequacy, fittingness, correctness, or excellence | An exemplary performance, professional expectation, accepted threshold, or settled test of quality  |
+| **Documentary standard**        | An approved artifact that states provisions for common and repeated use          | Definitions, classifications, requirements, characteristics, protocols, test methods, or guidelines |
 
 ISO's formal definition emphasizes a document established by consensus,
 approved by a recognized body, and intended for common and repeated use to
@@ -152,14 +153,14 @@ answerable to the same or weightier goods.
 
 Standards acquire different kinds of standing:
 
-| Source or adoption | Characteristic force |
-| --- | --- |
-| **Exemplar or inherited practice** | Recognized through trained judgment and tradition; may remain partly tacit |
-| **De facto convention** | Coordinates because a field widely uses it, without formal approval |
-| **Consensus standard** | Approved through a recognized process that represents materially affected interests |
-| **Organizational standard** | Adopted as the common basis within a defined authority and membership |
-| **Contractual standard** | Binding because parties incorporated it into an agreement |
-| **Regulatory adoption** | Legally required because a competent authority incorporated or referenced it |
+| Source or adoption                 | Characteristic force                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| **Exemplar or inherited practice** | Recognized through trained judgment and tradition; may remain partly tacit          |
+| **De facto convention**            | Coordinates because a field widely uses it, without formal approval                 |
+| **Consensus standard**             | Approved through a recognized process that represents materially affected interests |
+| **Organizational standard**        | Adopted as the common basis within a defined authority and membership               |
+| **Contractual standard**           | Binding because parties incorporated it into an agreement                           |
+| **Regulatory adoption**            | Legally required because a competent authority incorporated or referenced it        |
 
 The body that develops a standard need not be the body that adopts, assesses,
 certifies, or enforces it. Keeping these authorities distinct prevents a
@@ -175,16 +176,16 @@ remains open to evidence, appeal, revision, and eventual withdrawal.
 
 Standards can address different objects and use different normative means:
 
-| Kind | Primary contribution |
-| --- | --- |
-| **Terminology or classification** | Establishes common meanings, categories, symbols, or identifiers |
+| Kind                              | Primary contribution                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| **Terminology or classification** | Establishes common meanings, categories, symbols, or identifiers                    |
 | **Interface or interoperability** | Defines boundaries and exchanges that let independent implementations work together |
-| **Performance** | States required outcomes while leaving implementation choices comparatively open |
-| **Design or prescriptive** | Specifies materials, structure, process, or implementation choices |
-| **Process or management** | Establishes expectations for how recurring work is governed or performed |
-| **Competence or professional** | States capabilities or conduct expected of participants in a role |
-| **Measurement or test method** | Defines how a property is observed, sampled, calculated, or reported |
-| **Quality or safety** | Establishes characteristics or thresholds for fitness, reliability, or protection |
+| **Performance**                   | States required outcomes while leaving implementation choices comparatively open    |
+| **Design or prescriptive**        | Specifies materials, structure, process, or implementation choices                  |
+| **Process or management**         | Establishes expectations for how recurring work is governed or performed            |
+| **Competence or professional**    | States capabilities or conduct expected of participants in a role                   |
+| **Measurement or test method**    | Defines how a property is observed, sampled, calculated, or reported                |
+| **Quality or safety**             | Establishes characteristics or thresholds for fitness, reliability, or protection   |
 
 One standards document may combine several kinds. Prefer performance
 requirements when they preserve worthwhile freedom and innovation; prescribe
@@ -195,13 +196,13 @@ auditability, or another named purpose.
 
 Calling something a standard does not reveal the level or shape of expectation:
 
-| Shape | Judgment supported |
-| --- | --- |
-| **Minimum threshold** | Below this point the subject is unacceptable or nonconforming |
-| **Target** | This level should ordinarily be achieved, though treatment of deviation must be stated |
-| **Exemplar** | This realization discloses excellence and trains judgment without becoming a complete checklist |
-| **Scale or levels** | Performance can be located among defined degrees rather than reduced to pass/fail |
-| **Baseline** | This reference state enables comparison, planning, or detection of change |
+| Shape                 | Judgment supported                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| **Minimum threshold** | Below this point the subject is unacceptable or nonconforming                                   |
+| **Target**            | This level should ordinarily be achieved, though treatment of deviation must be stated          |
+| **Exemplar**          | This realization discloses excellence and trains judgment without becoming a complete checklist |
+| **Scale or levels**   | Performance can be located among defined degrees rather than reduced to pass/fail               |
+| **Baseline**          | This reference state enables comparison, planning, or detection of change                       |
 
 “High standards” commonly refers to an ambitious threshold or exemplar.
 Formal standards may instead secure a minimum, common interface, or stable
@@ -212,16 +213,16 @@ description. **Standardized** therefore does not mean **excellent**, and
 
 A standard becomes assessable by connecting its normative claim to evidence:
 
-| Element | Question |
-| --- | --- |
-| **Subject or class** | What kind of object, process, person, or claim may be assessed? |
-| **Scope and conditions** | Where, when, and under which version does the standard apply? |
-| **Requirement or expectation** | What must, should, or may be true? |
-| **Criterion** | Which property or condition bears on that expectation? |
-| **Evidence** | What observation, record, testimony, demonstration, or result supports judgment? |
-| **Measurement or test method** | How is evidence produced and uncertainty handled? |
-| **Decision rule** | How does evidence support a conformance level, finding, or other conclusion? |
-| **Assessor** | Who is competent and authorized to make or verify the judgment? |
+| Element                        | Question                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| **Subject or class**           | What kind of object, process, person, or claim may be assessed?                  |
+| **Scope and conditions**       | Where, when, and under which version does the standard apply?                    |
+| **Requirement or expectation** | What must, should, or may be true?                                               |
+| **Criterion**                  | Which property or condition bears on that expectation?                           |
+| **Evidence**                   | What observation, record, testimony, demonstration, or result supports judgment? |
+| **Measurement or test method** | How is evidence produced and uncertainty handled?                                |
+| **Decision rule**              | How does evidence support a conformance level, finding, or other conclusion?     |
+| **Assessor**                   | Who is competent and authorized to make or verify the judgment?                  |
 
 Not every valuable standard can be reduced to numerical metrics or automated
 tests. Testability is especially important when a technical specification
@@ -305,19 +306,19 @@ and should be governed accordingly or the standard's claim is underspecified.
 
 ## Neighboring concepts
 
-| Concept | Difference from a standard |
-| --- | --- |
-| **Good or value** | Names what is worthy of pursuit or protection; a standard establishes a reusable basis of expectation in relation to it |
-| **Principle** | [Directs judgment toward a recognized good](principle.md); a standard supplies a common basis for assessing or coordinating a defined field |
-| **Criterion** | One property or condition used in applying a standard, not ordinarily the whole basis of judgment |
-| **Metric or measure** | Quantifies or observes a property; its relevance and interpretation depend on the standard and purpose |
-| **Benchmark or baseline** | Supplies a comparison point; it may be descriptive and carry no requirement |
-| **Rule** | Requires or prohibits conduct within an authority and scope; a standard may contain rules but may instead define terminology, interfaces, guidance, or exemplars |
-| **Specification** | States detailed characteristics or requirements for a subject; it becomes a standard when it has the relevant recognized standing and repeated field of use |
-| **Policy** | Adopts expectations and assigns organizational consequences, possibly by incorporating a standard |
-| **Regulation** | Imposes legally binding requirements through public authority, whether written directly or by reference to a standard |
-| **Practice** | [Sustains meaningful participation](practice.md); standards articulate and stabilize only part of its normative and tacit order |
-| **Pattern** | Offers an adaptable solution to a recurring contextual problem; it need not define conformance or a common basis for assessment |
+| Concept                   | Difference from a standard                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Good or value**         | Names what is worthy of pursuit or protection; a standard establishes a reusable basis of expectation in relation to it                                          |
+| **Principle**             | [Directs judgment toward a recognized good](principle.md); a standard supplies a common basis for assessing or coordinating a defined field                      |
+| **Criterion**             | One property or condition used in applying a standard, not ordinarily the whole basis of judgment                                                                |
+| **Metric or measure**     | Quantifies or observes a property; its relevance and interpretation depend on the standard and purpose                                                           |
+| **Benchmark or baseline** | Supplies a comparison point; it may be descriptive and carry no requirement                                                                                      |
+| **Rule**                  | Requires or prohibits conduct within an authority and scope; a standard may contain rules but may instead define terminology, interfaces, guidance, or exemplars |
+| **Specification**         | States detailed characteristics or requirements for a subject; it becomes a standard when it has the relevant recognized standing and repeated field of use      |
+| **Policy**                | Adopts expectations and assigns organizational consequences, possibly by incorporating a standard                                                                |
+| **Regulation**            | Imposes legally binding requirements through public authority, whether written directly or by reference to a standard                                            |
+| **Practice**              | [Sustains meaningful participation](practice.md); standards articulate and stabilize only part of its normative and tacit order                                  |
+| **Pattern**               | Offers an adaptable solution to a recurring contextual problem; it need not define conformance or a common basis for assessment                                  |
 
 ## Failure modes
 

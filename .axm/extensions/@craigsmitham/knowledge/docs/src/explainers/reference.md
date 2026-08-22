@@ -37,7 +37,7 @@ operate it. It is **information-oriented**: propositional knowledge the user
 consults while **at work** — truth and certainty under the hands, not a lesson
 and not a discussion.
 
-One hardly *reads* reference; one **consults** it. It should be **austere**,
+One hardly _reads_ reference; one **consults** it. It should be **austere**,
 orderly, and wholly authoritative — a map of the product territory so the
 user need not rediscover the ground by trial.
 
@@ -52,10 +52,10 @@ To write it, use [Reference guide](../guides/reference.md).
 In Diátaxis, reference sits with **cognition** (what the user knows) and
 **work** (application of skill):
 
-| Axis | Reference’s side | Contrast |
-| --- | --- | --- |
-| Action vs cognition | Cognition / propositional knowledge | Tutorials and how-tos direct **action** |
-| Study vs work | Work (lookup while applying skill) | Explanation also states theory, but for **study** — reflection away from the task |
+| Axis                | Reference’s side                    | Contrast                                                                          |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| Action vs cognition | Cognition / propositional knowledge | Tutorials and how-tos direct **action**                                           |
+| Study vs work       | Work (lookup while applying skill)  | Explanation also states theory, but for **study** — reflection away from the task |
 
 So reference and explanation both carry theoretical knowledge, yet they
 answer different needs: apply vs acquire. Reference and how-to both serve
@@ -69,13 +69,13 @@ codes.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Information / lookup |
-| **Success** | The reader finds the fact or interface detail quickly and trusts it matches the system as shipped |
-| **Voice** | Neutral, objective, factual — austere and consistent; not a lesson and not a sales pitch |
-| **Typical prompt** | *What is…?* · *What does this accept / return / mean?* · *What are the flags for…?* |
-| **Title cue** | Names the surface (*Widget API*, `deploy` command, *Error codes*) — description, not *How to* or *About* essay |
+|                    |                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Reader need**    | Information / lookup                                                                                           |
+| **Success**        | The reader finds the fact or interface detail quickly and trusts it matches the system as shipped              |
+| **Voice**          | Neutral, objective, factual — austere and consistent; not a lesson and not a sales pitch                       |
+| **Typical prompt** | _What is…?_ · _What does this accept / return / mean?_ · _What are the flags for…?_                            |
+| **Title cue**      | Names the surface (_Widget API_, `deploy` command, _Error codes_) — description, not _How to_ or _About_ essay |
 
 ## What belongs
 
@@ -88,7 +88,7 @@ codes.
 - Specifications of inputs, outputs, options, limits, errors, terms
 - **Examples** that illustrate the thing itself (usage snippet), without
   expanding into a how-to or explanation essay
-- Warnings where misuse is dangerous (*You must… You must not…*)
+- Warnings where misuse is dangerous (_You must… You must not…_)
 - Auto-generated material when it stays faithfully accurate to the code —
   generation is a means to fidelity, not a substitute for the rest of the
   docs set
@@ -99,7 +99,7 @@ codes.
 - Goal-oriented **“how do I ship X”** procedures (how-to) — describe
   operation of the machine; link tasks out
 - Discursive **why**, history, or design philosophy (explanation) — even when
-  examples tempt *what if* expansion
+  examples tempt _what if_ expansion
 - Soft, incomplete coverage that forces guesswork at lookup time
 - Marketing claims or opinion mixed into the factual layer
 - Story-shaped pages that hide the parameter the reader needed
@@ -125,12 +125,12 @@ Rules of thumb when form is ambiguous:
 
 Useful shapes (paraphrased from Diátaxis):
 
-- State facts about the machinery and its behaviour (*Django’s default
-  logging configuration inherits Python’s defaults…*)
+- State facts about the machinery and its behaviour (_Django’s default
+  logging configuration inherits Python’s defaults…_)
 - List commands, options, operations, features, flags, limitations, errors
-  (*Sub-commands are: a, b, c…*)
-- Provide warnings where appropriate (*You must use a. You must not apply b
-  unless c. Never d.*)
+  (_Sub-commands are: a, b, c…_)
+- Provide warnings where appropriate (_You must use a. You must not apply b
+  unless c. Never d._)
 
 Prefer scannable structure over prose: tables, fixed field order, and short
 examples that copy cleanly.
@@ -140,16 +140,16 @@ examples that copy cleanly.
 Both live in the theory half of the map. The difference is **work vs
 study**:
 
-| | Reference | Explanation |
-| --- | --- | --- |
-| User mode | Work — apply skill | Study — acquire understanding |
-| Purpose | Describe the machinery for lookup | Illuminate a topic for reflection |
-| Form | Dry, austere description | Discursive discussion |
-| Structure | Follows the product | Circles a bounded topic |
-| Opinion | Out of place | Allowed and often needed |
-| Prompt | *What is…?* while hands-on | *Can you tell me about…?* away from the console |
+|           | Reference                         | Explanation                                     |
+| --------- | --------------------------------- | ----------------------------------------------- |
+| User mode | Work — apply skill                | Study — acquire understanding                   |
+| Purpose   | Describe the machinery for lookup | Illuminate a topic for reflection               |
+| Form      | Dry, austere description          | Discursive discussion                           |
+| Structure | Follows the product               | Circles a bounded topic                         |
+| Opinion   | Out of place                      | Allowed and often needed                        |
+| Prompt    | _What is…?_ while hands-on        | _Can you tell me about…?_ away from the console |
 
-Expansive examples in reference that grow into *why* and *what if* are a
+Expansive examples in reference that grow into _why_ and _what if_ are a
 common bleed: they interrupt lookup and starve explanation of its own
 home.
 

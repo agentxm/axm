@@ -52,6 +52,14 @@ tree, and content identity. Local-source rows pin the relative locator and
 content identity. Workspace-authored, bundled, inline, projected, and
 command-history state does not belong in the lockfile.
 
+Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
+verifies downloaded archive bytes before extraction. Extracted canonical files
+are observed materialization: local formatting or edits are drift, not a new
+archive-integrity fact, and AXM does not continuously rehash them against the
+release. Publish independently rebuilds only workspace-authored packages and
+compares that archive digest when verifying an existing immutable version;
+installed external trees are never publication inputs.
+
 Sync may resolve a desired external extension once when no accepted row exists.
 After acceptance, reinstall and sync use that exact identity; only update may
 advance it. If the source can no longer reproduce the locked identity, AXM

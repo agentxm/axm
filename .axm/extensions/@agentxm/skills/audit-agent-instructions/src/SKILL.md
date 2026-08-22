@@ -2,6 +2,7 @@
 name: audit-agent-instructions
 description: Audits repository agent instruction systems such as AGENTS.md, CLAUDE.md, and scoped local instruction files against context-engineering guidance and active harness behavior. Use when asked to audit, review, assess, check conformity, inspect scope or precedence, verify remediation, or audit and fix agent instructions. Not for silently changing instructions during an assessment-only audit or reviewing general documentation and product design.
 ---
+
 # Audit Agent Instructions
 
 Assess an exact effective instruction system against an explicit guidance

@@ -2,17 +2,27 @@
   "contract_version": "2.0.0",
   "owner": "@example",
   "decision": "Protect local status-summary rendering behavior.",
-  "target_binding": {"skill_name": "render-status-summary", "required_result_fields": ["target.package_content_identity", "suite.suite_content_identity"]},
-  "scope": {"stages": ["routing", "execution"], "intended_use": "Render a supplied local status record."},
+  "target_binding": {
+    "skill_name": "render-status-summary",
+    "required_result_fields": ["target.package_content_identity", "suite.suite_content_identity"]
+  },
+  "scope": {
+    "stages": ["routing", "execution"],
+    "intended_use": "Render a supplied local status record."
+  },
   "unit": "One isolated case attempt.",
-  "environment": {"required_result_fields": ["environment.host", "environment.model"]},
-  "evidence": {"outcomes": ["pass", "fail", "unknown", "harness-error"]},
-  "grading": {"critical_gates": ["Required status fields remain observable."]},
-  "trials": {"regression_minimum_per_case": 3},
-  "comparison": {"baseline": "Previous accepted exact revision when available."},
-  "analysis": {"threshold": "Every selected assertion passes."},
-  "estimand": {"type": "fixed-suite", "sampling_unit": "One case and trial.", "uncertainty": "Report descriptive per-case rates."},
-  "lifecycle": {"terminal_states": ["complete", "failed", "canceled"]},
-  "provenance": {"required_result_fields": ["provenance.runner", "provenance.reviewer"]},
-  "freshness": {"refresh_triggers": ["Skill, suite, host, model, catalog, or authority changes."]}
+  "environment": { "required_result_fields": ["environment.host", "environment.model"] },
+  "evidence": { "outcomes": ["pass", "fail", "unknown", "harness-error"] },
+  "grading": { "critical_gates": ["Required status fields remain observable."] },
+  "trials": { "regression_minimum_per_case": 3 },
+  "comparison": { "baseline": "Previous accepted exact revision when available." },
+  "analysis": { "threshold": "Every selected assertion passes." },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case and trial.",
+    "uncertainty": "Report descriptive per-case rates."
+  },
+  "lifecycle": { "terminal_states": ["complete", "failed", "canceled"] },
+  "provenance": { "required_result_fields": ["provenance.runner", "provenance.reviewer"] },
+  "freshness": { "refresh_triggers": ["Skill, suite, host, model, catalog, or authority changes."] }
 }

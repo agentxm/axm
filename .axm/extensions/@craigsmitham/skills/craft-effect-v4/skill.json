@@ -13,9 +13,7 @@
     "software-architecture",
     "technical-design"
   ],
-  "recommendedPacks": [
-    "@craigsmitham/packs/effect-v4"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/effect-v4"],
   "standalone": false,
   "repository": {
     "type": "git",

@@ -7,15 +7,8 @@
   "title": "Use Effect v4",
   "priority": 90,
   "description": "Directs agents working with Effect to use current Effect v4 APIs and conventions instead of carrying forward Effect v3 guidance",
-  "keywords": [
-    "effect",
-    "effect-v4",
-    "typescript",
-    "version-migration"
-  ],
-  "recommendedPacks": [
-    "@craigsmitham/packs/effect-v4"
-  ],
+  "keywords": ["effect", "effect-v4", "typescript", "version-migration"],
+  "recommendedPacks": ["@craigsmitham/packs/effect-v4"],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",

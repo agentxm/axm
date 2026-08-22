@@ -6,7 +6,12 @@
   "required": ["schema_version", "side_effects", "observations", "usage"],
   "properties": {
     "schema_version": { "const": "1.0.0" },
-    "selected": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 }] },
+    "selected": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      ]
+    },
     "reason": { "type": "string" },
     "final_response": { "type": "string" },
     "side_effects": { "type": "array" },
@@ -21,8 +26,5 @@
       }
     }
   },
-  "oneOf": [
-    { "required": ["selected", "reason"] },
-    { "required": ["final_response"] }
-  ]
+  "oneOf": [{ "required": ["selected", "reason"] }, { "required": ["final_response"] }]
 }

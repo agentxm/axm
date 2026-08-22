@@ -59,5 +59,7 @@ so prompt evaluation must preserve the rendered prompt and response rather
 than only aggregate scores.[^prompt-report]
 
 [^anthropic-tests]: Anthropic — Define success criteria and build evaluations
+
 [^openai-guidance]: OpenAI — Model guidance
+
 [^prompt-report]: The Prompt Report — A Systematic Survey of Prompting Techniques

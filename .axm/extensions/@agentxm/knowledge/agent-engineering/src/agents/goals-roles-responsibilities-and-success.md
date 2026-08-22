@@ -19,15 +19,15 @@ stale_after: 2027-02-14
 
 Start with a **goal contract**, not a persona. A useful contract states:
 
-| Part | Required question |
-| --- | --- |
-| Outcome | What externally meaningful result is sought? |
-| Role | Which responsibilities belong to this actor? |
-| Boundaries | What must it not decide, represent, or change? |
-| Evidence | What observations can establish progress and completion? |
-| Constraints | Which quality, cost, time, safety, and policy limits apply? |
-| Stop conditions | When is success, exhaustion, invalidity, or cancellation reached? |
-| Escalation | Which uncertainty, conflict, or consequence requires another actor? |
+| Part            | Required question                                                   |
+| --------------- | ------------------------------------------------------------------- |
+| Outcome         | What externally meaningful result is sought?                        |
+| Role            | Which responsibilities belong to this actor?                        |
+| Boundaries      | What must it not decide, represent, or change?                      |
+| Evidence        | What observations can establish progress and completion?            |
+| Constraints     | Which quality, cost, time, safety, and policy limits apply?         |
+| Stop conditions | When is success, exhaustion, invalidity, or cancellation reached?   |
+| Escalation      | Which uncertainty, conflict, or consequence requires another actor? |
 
 Classical agent-oriented engineering emphasized roles, permissions,
 responsibilities, activities, protocols, safety properties, and liveness
@@ -48,4 +48,5 @@ OpenAI similarly frames an agent around a model, tools, and instructions, with
 clear routines and guardrails for the work it is authorized to perform.[^openai-guide]
 
 [^gaia]: The Gaia methodology for agent-oriented analysis and design
+
 [^openai-guide]: OpenAI — A practical guide to building agents

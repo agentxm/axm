@@ -2,6 +2,7 @@
 name: author-agent-instructions
 description: Creates or revises repository agent instruction systems such as AGENTS.md, CLAUDE.md, and scoped local instruction files. Use when asked to create, write, update, fix, trim, restructure, reindex, localize, or remediate persistent agent instructions. Not for independently auditing an instruction system, editing generated projections instead of their canonical source, or writing product documentation.
 ---
+
 # Author Agent Instructions
 
 Create or revise the effective repository instruction system, not merely one

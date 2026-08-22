@@ -7,12 +7,12 @@ work-item authoring through a focused skill backed by shared knowledge.
 
 ## Included extensions
 
-| Extension | Role |
-| --- | --- |
-| `@craigsmitham/knowledge/software-engineering` | YAGNI, Tidy First, and paired explainers and guides for software work items |
-| `@craigsmitham/skills/author-software-work-items` | Create and revise feature requests, defect reports, incident records, and their tracker briefs |
-| `@craigsmitham/rules/yagni` | Questions speculative capability, structure, process, and scope throughout the SDLC |
-| `@craigsmitham/rules/tidy-first` | Questions whether a small behavior-preserving preparation should precede an authorized behavior change |
+| Extension                                         | Role                                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@craigsmitham/knowledge/software-engineering`    | YAGNI, Tidy First, and paired explainers and guides for software work items                            |
+| `@craigsmitham/skills/author-software-work-items` | Create and revise feature requests, defect reports, incident records, and their tracker briefs         |
+| `@craigsmitham/rules/yagni`                       | Questions speculative capability, structure, process, and scope throughout the SDLC                    |
+| `@craigsmitham/rules/tidy-first`                  | Questions whether a small behavior-preserving preparation should precede an authorized behavior change |
 
 The skills and rules are not standalone: each loads or links to the bundled
 knowledge package. The knowledge package remains useful on its own.
@@ -37,14 +37,14 @@ axm install @craigsmitham/packs/software-engineering
 
 Use these cases when validating the effective instruction surface:
 
-| Case | Expected decision |
-| --- | --- |
-| One provider is requested and no second variation is active | Do not build an unused provider framework |
-| Current structure materially obstructs an authorized behavior change | Consider the smallest behavior-preserving preparation, then make the behavior change separately |
-| Urgent restoration makes preparatory work too costly | Change behavior directly; tidy after, later, or never |
-| A public compatibility boundary will soon become costly to reverse | Treat compatibility as a current constraint while deferring unrelated extension points |
-| The task is read-only research, diagnosis, or review | Neither rule authorizes a structural or behavioral change |
-| An untriaged feature request is presented as an implementation task | Preserve intake evidence and do not invent acceptance, design, priority, or delivery authorization |
+| Case                                                                 | Expected decision                                                                                  |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| One provider is requested and no second variation is active          | Do not build an unused provider framework                                                          |
+| Current structure materially obstructs an authorized behavior change | Consider the smallest behavior-preserving preparation, then make the behavior change separately    |
+| Urgent restoration makes preparatory work too costly                 | Change behavior directly; tidy after, later, or never                                              |
+| A public compatibility boundary will soon become costly to reverse   | Treat compatibility as a current constraint while deferring unrelated extension points             |
+| The task is read-only research, diagnosis, or review                 | Neither rule authorizes a structural or behavioral change                                          |
+| An untriaged feature request is presented as an implementation task  | Preserve intake evidence and do not invent acceptance, design, priority, or delivery authorization |
 
 ## License
 

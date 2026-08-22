@@ -39,11 +39,11 @@ proposal -> automated evidence -> responsible human decision -> bounded exposure
 
 ## Three authorities
 
-| Authority | Owns | Must not own |
-| --- | --- | --- |
-| Package source | Purpose, contracts, requested capabilities, dependencies, version | Its own approval or runtime entitlement |
-| Governance system | Admission state, risk tier, reviewers, exceptions, evaluated identity, evidence expiry | Rewriting the package invisibly |
-| Harness or host | Effective tools, data, identity, sandbox, approvals, logging | Redefining what the skill claims to do |
+| Authority         | Owns                                                                                   | Must not own                            |
+| ----------------- | -------------------------------------------------------------------------------------- | --------------------------------------- |
+| Package source    | Purpose, contracts, requested capabilities, dependencies, version                      | Its own approval or runtime entitlement |
+| Governance system | Admission state, risk tier, reviewers, exceptions, evaluated identity, evidence expiry | Rewriting the package invisibly         |
+| Harness or host   | Effective tools, data, identity, sandbox, approvals, logging                           | Redefining what the skill claims to do  |
 
 Keep these authorities distinct. A package cannot become approved by editing
 its own metadata, and a registry entry cannot prove runtime enforcement.
@@ -64,6 +64,7 @@ catalog pattern in which metadata remains near source and responsible teams
 maintain it while central processors apply common policies.[^backstage-catalog]
 
 [^skill-centric-harness]: Skills are new features — Building Skill-Centric Harness
-[^anthropic-enterprise]: Anthropic — Skills for enterprise
-[^backstage-catalog]: Backstage Software Catalog
 
+[^anthropic-enterprise]: Anthropic — Skills for enterprise
+
+[^backstage-catalog]: Backstage Software Catalog

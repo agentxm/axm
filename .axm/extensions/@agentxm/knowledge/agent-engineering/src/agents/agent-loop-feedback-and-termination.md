@@ -58,4 +58,5 @@ Do not treat repeated self-reflection as progress. Require new evidence,
 meaningful state change, or escalation; otherwise terminate the loop.
 
 [^anthropic-trust]: Anthropic — Building and evaluating trustworthy agents
+
 [^openai-guide]: OpenAI — A practical guide to building agents

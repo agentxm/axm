@@ -2,7 +2,17 @@
 type: Guide
 title: Expressing invariants
 description: How to distinguish an invariant from neighboring requirements, state its scope and observation boundary precisely, and connect it to preservation obligations and evidence.
-tags: [invariants, requirements, specification, acceptance-criteria, domain-rules, consistency, verification, documentation]
+tags:
+  [
+    invariants,
+    requirements,
+    specification,
+    acceptance-criteria,
+    domain-rules,
+    consistency,
+    verification,
+    documentation,
+  ]
 status: draft
 sources:
   - id: nasa-requirements
@@ -48,18 +58,18 @@ of which permitted operation led there?**
 
 If not, choose the narrower statement:
 
-| If the condition… | Express it as… |
-| --- | --- |
-| must hold before one operation | a precondition |
-| must hold after one operation | a postcondition |
-| describes an allowed change | a transition constraint |
-| must eventually become true | a liveness, progress, or convergence requirement |
-| is the future condition being pursued | a target state or outcome |
-| defines an acceptable measurable level | a threshold, performance requirement, or SLO |
-| decides whether one scenario is accepted | an acceptance criterion |
+| If the condition…                        | Express it as…                                   |
+| ---------------------------------------- | ------------------------------------------------ |
+| must hold before one operation           | a precondition                                   |
+| must hold after one operation            | a postcondition                                  |
+| describes an allowed change              | a transition constraint                          |
+| must eventually become true              | a liveness, progress, or convergence requirement |
+| is the future condition being pursued    | a target state or outcome                        |
+| defines an acceptable measurable level   | a threshold, performance requirement, or SLO     |
+| decides whether one scenario is accepted | an acceptance criterion                          |
 
 An invariant can also be a requirement, acceptance criterion, or design
-constraint. These terms classify different things: *invariant* describes the
+constraint. These terms classify different things: _invariant_ describes the
 condition's preservation semantics, while the others describe its role in a
 development or governance process.
 
@@ -109,8 +119,8 @@ Use this basic form:
 > For every **[subject]** within **[scope]**, at every **[relevant state or
 > observation point]**, **[predicate]** must hold.
 
-Prefer domain terms and explicit quantifiers such as *every*, *exactly one*,
-*at most one*, or *no*. Define tolerances and exceptional states. Keep rationale,
+Prefer domain terms and explicit quantifiers such as _every_, _exactly one_,
+_at most one_, or _no_. Define tolerances and exceptional states. Keep rationale,
 mechanism, and multiple independent predicates out of the normative sentence.
 NASA's requirements guidance similarly recommends a clear subject and
 predicate, one thought per statement, explicit tolerances, rationale, and a
@@ -155,16 +165,16 @@ allowed adapter-to-policy import.
 
 Select the mechanism that matches the claim's scope and consequence:
 
-| Mechanism | What it can contribute |
-| --- | --- |
-| Type or constructor | Prevent or reject invalid local representations |
-| Database or schema constraint | Reject invalid stored states within its declared semantics |
-| Encapsulated domain operation | Preserve a rule at an authority boundary |
-| Static architecture or policy check | Detect mechanically decidable structural violations |
-| Property, contract, or scenario test | Search for counterexamples over exercised cases |
-| Model checker or proof | Establish the modeled property within stated assumptions |
-| Monitoring or audit | Detect violations in observed operation after they occur |
-| Human review | Judge contextual properties that resist sound automation |
+| Mechanism                            | What it can contribute                                     |
+| ------------------------------------ | ---------------------------------------------------------- |
+| Type or constructor                  | Prevent or reject invalid local representations            |
+| Database or schema constraint        | Reject invalid stored states within its declared semantics |
+| Encapsulated domain operation        | Preserve a rule at an authority boundary                   |
+| Static architecture or policy check  | Detect mechanically decidable structural violations        |
+| Property, contract, or scenario test | Search for counterexamples over exercised cases            |
+| Model checker or proof               | Establish the modeled property within stated assumptions   |
+| Monitoring or audit                  | Detect violations in observed operation after they occur   |
+| Human review                         | Judge contextual properties that resist sound automation   |
 
 Use [Enforcement and
 evidence](../foundations/invariants-and-enforcement.md#enforcement-and-evidence)
@@ -193,20 +203,20 @@ after the underlying authority has changed.
 
 Use only the fields the host repository needs, but cover these questions:
 
-| Field | Question |
-| --- | --- |
-| Name or ID | How will related artifacts refer to it? |
-| Statement | What predicate must remain true? |
-| Scope | Which subjects and system boundary does it quantify over? |
-| Observation boundary | At which states must it hold? |
-| Rationale | What truth or risk does it protect? |
-| Authority | Who or what makes it normative? |
-| Establishment | How do initial and migrated states satisfy it? |
-| Preservation | Which operations and owners must maintain it? |
-| Examples | What satisfying and violating cases clarify it? |
+| Field                   | Question                                                     |
+| ----------------------- | ------------------------------------------------------------ |
+| Name or ID              | How will related artifacts refer to it?                      |
+| Statement               | What predicate must remain true?                             |
+| Scope                   | Which subjects and system boundary does it quantify over?    |
+| Observation boundary    | At which states must it hold?                                |
+| Rationale               | What truth or risk does it protect?                          |
+| Authority               | Who or what makes it normative?                              |
+| Establishment           | How do initial and migrated states satisfy it?               |
+| Preservation            | Which operations and owners must maintain it?                |
+| Examples                | What satisfying and violating cases clarify it?              |
 | Evidence or enforcement | How is conformance proved, prevented, detected, or reviewed? |
-| Exceptions | Which explicit cases are outside the claim? |
-| Lifecycle | Who reviews it, and what changes trigger review? |
+| Exceptions              | Which explicit cases are outside the claim?                  |
+| Lifecycle               | Who reviews it, and what changes trigger review?             |
 
 ## Final check
 
@@ -223,6 +233,7 @@ Before accepting the invariant, verify:
 - the statement is traceable to its authority and maintained near the system
   boundary it governs.
 
-[^nasa-requirements]: NASA's checklist asks for atomic, unambiguous requirements with a
+[^nasa-requirements]:
+    NASA's checklist asks for atomic, unambiguous requirements with a
     clear subject and predicate, rationale, traceability, tolerances where
     applicable, and a feasible verification method.

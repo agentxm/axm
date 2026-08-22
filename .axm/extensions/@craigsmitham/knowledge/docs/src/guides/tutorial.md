@@ -26,8 +26,8 @@ and more confidence than when they started.
 ## Steps
 
 1. **Show where the lesson is going** — one outcome, not a curriculum, framed
-   as a shared journey (*In this tutorial we will create…*), not a
-   presumptuous *you will learn…*.
+   as a shared journey (_In this tutorial we will create…_), not a
+   presumptuous _you will learn…_.
 2. **Choose a minimal path** — the smallest sequence that reaches that outcome
    reliably; cut optional branches.
 3. **Set the scene briefly** — only what is needed to start (tools, sample
@@ -58,7 +58,7 @@ The diagnostic taxonomy of failure modes is owned by the
 [Tutorial explainer](../explainers/tutorial.md#failure-modes-common); review
 drafts against it. Two production-time pitfalls to catch while writing:
 
-- **Promissory framing** — opening with *you will learn…* instead of showing
+- **Promissory framing** — opening with _you will learn…_ instead of showing
   where we are going and what we will do.
 - **Silent output** — steps that never narrate expected results, stranding
   the learner at the first surprise.

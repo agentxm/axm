@@ -2,7 +2,19 @@
 type: Explanation
 title: Capabilities in software architecture
 description: How capabilities describe stable abilities independently of the offerings, jobs, features, domain models, interaction surfaces, and software structures that motivate or realize them.
-tags: [capabilities, business-capabilities, system-capabilities, offerings, features, jobs-to-be-done, bounded-contexts, c4, surfaces, architecture-views]
+tags:
+  [
+    capabilities,
+    business-capabilities,
+    system-capabilities,
+    offerings,
+    features,
+    jobs-to-be-done,
+    bounded-contexts,
+    c4,
+    surfaces,
+    architecture-views,
+  ]
 status: draft
 sources:
   - id: aws-caf
@@ -60,12 +72,12 @@ Business-architecture sources commonly describe capabilities as what an
 organization must be able to do, independently of the processes, people, or
 technology that realize them.[^aws-caf][^sap-business-capability] Software
 architecture can apply the same distinction to a system of interest. For
-example, *capacity allocation* may be a capability of a reservation platform
+example, _capacity allocation_ may be a capability of a reservation platform
 even though several organizational capabilities, product features, domain
 models, and runtime elements participate in providing it.
 
-An ability is not the same as its result. *Detect potentially fraudulent
-payments* is a capability; *reduce fraudulent loss* is an intended outcome.
+An ability is not the same as its result. _Detect potentially fraudulent
+payments_ is a capability; _reduce fraudulent loss_ is an intended outcome.
 Nor is an ability the same as its assignment: a system may be responsible for
 providing a capability, but the responsibility is the obligation and the
 capability is the ability.
@@ -83,18 +95,18 @@ synonyms. This table is a capability-centered projection of their boundaries;
 [Offerings and value in software architecture](offerings-and-value.md) owns the
 broader demand-and-value comparison.
 
-| Concept | Question it answers | Relationship to capability |
-| --- | --- | --- |
-| Goal or outcome | What result is desired? | A capability is an ability that can produce or support results, not the result itself. |
-| Offering | What coherent value is intentionally made available? | An offering can depend on several organizational and system capabilities; it is not itself an ability. |
-| Job to be done | What progress is an actor seeking in particular circumstances? | A job explains demand; a capability describes an ability of a possible provider. |
-| Use case | How does a subject behave so an external actor can achieve a goal? | A use case exercises capabilities; it is not itself an ability of the provider. |
-| Feature | What independently recognizable behavior is available across one or more use cases or surfaces? | Features contribute to capabilities, but a capability may also depend on operational behavior no actor recognizes as a feature. |
-| Surface | Where does an actor encounter behavior? | A surface exposes behavior through an application, API, command line, protocol, device, or console. |
-| DDD subdomain | What area of problem-space knowledge matters? | A subdomain organizes domain knowledge and strategic differentiation rather than abilities. |
-| Bounded context | Within what boundary does a model and language apply consistently? | A context governs domain meaning, rules, or state used while providing capabilities. |
-| C4 element | What software structure realizes the system? | Software systems, containers, components, and code can realize capabilities; capability is not another C4 level. |
-| Process or service | How is an ability exercised or offered? | Processes and services can realize or deliver capabilities and can change while the capability remains stable. |
+| Concept            | Question it answers                                                                             | Relationship to capability                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Goal or outcome    | What result is desired?                                                                         | A capability is an ability that can produce or support results, not the result itself.                                          |
+| Offering           | What coherent value is intentionally made available?                                            | An offering can depend on several organizational and system capabilities; it is not itself an ability.                          |
+| Job to be done     | What progress is an actor seeking in particular circumstances?                                  | A job explains demand; a capability describes an ability of a possible provider.                                                |
+| Use case           | How does a subject behave so an external actor can achieve a goal?                              | A use case exercises capabilities; it is not itself an ability of the provider.                                                 |
+| Feature            | What independently recognizable behavior is available across one or more use cases or surfaces? | Features contribute to capabilities, but a capability may also depend on operational behavior no actor recognizes as a feature. |
+| Surface            | Where does an actor encounter behavior?                                                         | A surface exposes behavior through an application, API, command line, protocol, device, or console.                             |
+| DDD subdomain      | What area of problem-space knowledge matters?                                                   | A subdomain organizes domain knowledge and strategic differentiation rather than abilities.                                     |
+| Bounded context    | Within what boundary does a model and language apply consistently?                              | A context governs domain meaning, rules, or state used while providing capabilities.                                            |
+| C4 element         | What software structure realizes the system?                                                    | Software systems, containers, components, and code can realize capabilities; capability is not another C4 level.                |
+| Process or service | How is an ability exercised or offered?                                                         | Processes and services can realize or deliver capabilities and can change while the capability remains stable.                  |
 
 Jobs to Be Done centers the progress an actor seeks in particular
 circumstances, including functional, social, and emotional forces.[^jobs-to-be-done]
@@ -122,18 +134,18 @@ therefore generally many-to-many.
 Typed relationships preserve the distinctions while showing how the views
 work together:
 
-| Relationship | Meaning |
-| --- | --- |
-| offering **depends on** capability | The coherent value requires the identified bearer to possess the ability. |
-| system **provides** capability | The system is responsible for making the ability available. |
-| capability **enables progress on** job | The ability helps an actor make the progress described by the job. |
-| use case **exercises** capability | The subject requires or invokes the bearer's ability while pursuing an actor goal. |
-| feature **enables** use case | Independently recognizable behavior contributes to one or more actor goals. |
-| feature **contributes to** capability | Recognizable behavior helps provide the ability. |
-| feature **is available through** surface | Actors can encounter the behavior at that interaction point. |
+| Relationship                                                         | Meaning                                                                                                         |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| offering **depends on** capability                                   | The coherent value requires the identified bearer to possess the ability.                                       |
+| system **provides** capability                                       | The system is responsible for making the ability available.                                                     |
+| capability **enables progress on** job                               | The ability helps an actor make the progress described by the job.                                              |
+| use case **exercises** capability                                    | The subject requires or invokes the bearer's ability while pursuing an actor goal.                              |
+| feature **enables** use case                                         | Independently recognizable behavior contributes to one or more actor goals.                                     |
+| feature **contributes to** capability                                | Recognizable behavior helps provide the ability.                                                                |
+| feature **is available through** surface                             | Actors can encounter the behavior at that interaction point.                                                    |
 | capability or feature **uses domain authority from** bounded context | The context owns relevant language, rules, or state without necessarily owning the whole capability or feature. |
-| capability, feature, or surface **is realized by** C4 element | Structural elements implement or operate that view. |
-| capability **is constrained by** concern | A functional, quality, trust, or operational concern limits acceptable realization. |
+| capability, feature, or surface **is realized by** C4 element        | Structural elements implement or operate that view.                                                             |
+| capability **is constrained by** concern                             | A functional, quality, trust, or operational concern limits acceptable realization.                             |
 
 An application illustrates why the distinctions matter. It can be a surface in
 an actor-interaction view and a C4 container in a structural view. It may expose
@@ -144,9 +156,9 @@ as the application's universal identity would discard useful information.
 ## Decompose without turning abilities into implementation
 
 Capabilities can decompose recursively when every child remains an ability of
-the declared bearer or a clearly narrower bearer. For example, *reservation
-management* might depend on *capacity allocation* and *reservation lifecycle
-management*. A child named after the current team, application, workflow, or
+the declared bearer or a clearly narrower bearer. For example, _reservation
+management_ might depend on _capacity allocation_ and _reservation lifecycle
+management_. A child named after the current team, application, workflow, or
 vendor has crossed into another view.
 
 Keep scope consistent within a decomposition. An enterprise capability, a
@@ -184,8 +196,8 @@ Some delivery frameworks use **Capability** as a planning level. SAFe, for
 example, defines it as large solution functionality that commonly spans
 multiple release trains and decomposes into features.[^safe-features-capabilities]
 That is a legitimate framework-specific term, but it is not the meaning
-adopted by these architecture docs. Qualify it as a *SAFe Capability* or
-*capability work item* when both vocabularies are present.
+adopted by these architecture docs. Qualify it as a _SAFe Capability_ or
+_capability work item_ when both vocabularies are present.
 
 Other common reductions are equally misleading:
 
@@ -200,11 +212,11 @@ Other common reductions are equally misleading:
 
 ## Example: a reservation platform
 
-A traveler may have the job *help me secure scarce capacity without worrying
-that it will disappear during checkout*. The reservation platform offering
-depends on the capability *reservation management*. A *traveler reservation*
-use case exercises that capability through a checkout surface, while a *saved
-traveler details* feature provides recognizable behavior across reservation
+A traveler may have the job _help me secure scarce capacity without worrying
+that it will disappear during checkout_. The reservation platform offering
+depends on the capability _reservation management_. A _traveler reservation_
+use case exercises that capability through a checkout surface, while a _saved
+traveler details_ feature provides recognizable behavior across reservation
 and modification use cases.
 Reservation and inventory bounded contexts govern the rules and state, while
 several C4 containers and components realize them. Recovery and consistency
@@ -244,13 +256,22 @@ Use the focused guides for [capabilities](../guides/documenting-capabilities.md)
 - [Organizing an architecture docs corpus](../guides/organizing-an-architecture-docs-corpus.md)
 
 [^aws-caf]: AWS Cloud Adoption Framework — Platform perspective
+
 [^sap-business-capability]: SAP Enterprise Architecture Methodology — Business Capability
-[^jobs-to-be-done]: Jobs to Be Done distinguishes demand-side progress from
+
+[^jobs-to-be-done]:
+    Jobs to Be Done distinguishes demand-side progress from
     needs, offerings, use cases, capabilities, and solution structure.
-[^goal-oriented-behavior]: Goal-oriented behavior and use cases distinguishes
+
+[^goal-oriented-behavior]:
+    Goal-oriented behavior and use cases distinguishes
     actor goals and scenarios from provider abilities and independently
     recognizable features.
+
 [^ddd-reference]: Domain-Driven Design Reference
+
 [^c4-abstractions]: C4 model — Abstractions
+
 [^c4-software-system]: C4 model — Software system
+
 [^safe-features-capabilities]: Scaled Agile Framework — Features and Capabilities

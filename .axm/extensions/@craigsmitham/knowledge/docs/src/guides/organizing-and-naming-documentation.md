@@ -2,7 +2,18 @@
 type: Guide
 title: Organizing and naming documentation
 description: How to choose a form-first or subject-first organization, colocate the documents that belong together, create descriptive paths and titles, and preserve discovery during change.
-tags: [docs, organization, information-architecture, navigation, naming, filenames, folders, migration, discovery]
+tags:
+  [
+    docs,
+    organization,
+    information-architecture,
+    navigation,
+    naming,
+    filenames,
+    folders,
+    migration,
+    discovery,
+  ]
 status: stable
 sources:
   - id: organization
@@ -76,12 +87,12 @@ tidy taxonomy from fragmenting the subject.
 
 Use the strongest evidence at this scope:[^organization]
 
-| Choose | When |
-| --- | --- |
-| Form-first folders | Readers browse by help needed; same-form comparison and common authoring practice matter most |
-| Subject-first folders | Readers browse by domain; cross-form documents share authority and change together |
-| Side-by-side files | One subject has a small, cohesive set and another folder would add a decision without clarifying a boundary |
-| A subject subfolder | The subject has enough internal structure to warrant its own index or browsing decision |
+| Choose                | When                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Form-first folders    | Readers browse by help needed; same-form comparison and common authoring practice matter most               |
+| Subject-first folders | Readers browse by domain; cross-form documents share authority and change together                          |
+| Side-by-side files    | One subject has a small, cohesive set and another folder would add a decision without clarifying a boundary |
+| A subject subfolder   | The subject has enough internal structure to warrant its own index or browsing decision                     |
 
 A hybrid is coherent when different scopes have explicit rules—for example, a
 subject-first root with one bounded form-first collection. Do not alternate
@@ -109,12 +120,12 @@ empty shelves for expected future content.
 Derive each filename from the document's specific subject or action, not only
 its form.
 
-| Document job | Filename shape | Example |
-| --- | --- | --- |
-| Explain a concept | Distinctive subject-oriented noun phrase | `patterns-as-reusable-guidance.md` |
-| Guide an action | Verb or outcome phrase | `documenting-patterns.md` |
-| State reference facts | Named interface, object, or fact set | `payment-status-fields.md` |
-| Record a named pattern | Stable pattern name | `runbook.md` |
+| Document job           | Filename shape                           | Example                            |
+| ---------------------- | ---------------------------------------- | ---------------------------------- |
+| Explain a concept      | Distinctive subject-oriented noun phrase | `patterns-as-reusable-guidance.md` |
+| Guide an action        | Verb or outcome phrase                   | `documenting-patterns.md`          |
+| State reference facts  | Named interface, object, or fact set     | `payment-status-fields.md`         |
+| Record a named pattern | Stable pattern name                      | `runbook.md`                       |
 
 Avoid generic leaf names such as `overview.md`, `guide.md`, or `concept.md`
 unless their enclosing scope is guaranteed to remain present in every URL,
@@ -206,9 +217,12 @@ match their targets.
 - [Documentation quality](../explainers/documentation-quality.md)
 - [Concept boundaries](../patterns/concept-boundaries.md)
 
-[^organization]: Documentation organization and discovery defines form-first
+[^organization]:
+    Documentation organization and discovery defines form-first
     and subject-first grouping and treats semantic adjacency as the deciding
     relationship.
-[^documentation-craft-guide]: Documentation craft guide begins with the reader
+
+[^documentation-craft-guide]:
+    Documentation craft guide begins with the reader
     need and applies host paths, metadata, and validators after the document's
     job is clear.

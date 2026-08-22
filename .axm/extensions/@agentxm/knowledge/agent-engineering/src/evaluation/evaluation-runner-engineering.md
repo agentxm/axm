@@ -107,11 +107,11 @@ has changed the evaluation rather than completed it.
 
 Routing evidence needs an observation-mode identity:
 
-| Mode | Evidence |
-| --- | --- |
-| Native routing | Actual host discovery and activation behavior |
-| Host simulation | A host-owned approximation that does not observe production activation |
-| Catalog-classification proxy | A model classification over names and descriptions |
+| Mode                         | Evidence                                                               |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| Native routing               | Actual host discovery and activation behavior                          |
+| Host simulation              | A host-owned approximation that does not observe production activation |
+| Catalog-classification proxy | A model classification over names and descriptions                     |
 
 All three can support engineering work, but only native observation supports
 an unqualified native-routing claim. Preserve the mode in every routing trial
@@ -253,9 +253,15 @@ changes. Synthetic conformance evidence proves runner mechanics only; it is not
 behavioral evidence about an evaluated target.
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
+
 [^inspect-running]: Inspect — Running evaluations
+
 [^inspect-logs]: Inspect — Evaluation logs
+
 [^inspect-errors]: Inspect — Errors and limits
+
 [^inspect-sandboxing]: Inspect — Sandboxing
+
 [^nist-statistics]: NIST — Expanding the AI evaluation toolbox with statistical models
+
 [^otel-genai]: OpenTelemetry — Generative AI semantic conventions

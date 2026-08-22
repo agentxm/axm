@@ -50,4 +50,5 @@ premature commitment, missed dependencies, failure to revise, oscillation, and
 unsafe action are more informative than whether a plan sounds plausible.
 
 [^agent-survey]: A Survey on Large Language Model based Autonomous Agents
+
 [^anthropic-agents]: Anthropic — Building effective agents

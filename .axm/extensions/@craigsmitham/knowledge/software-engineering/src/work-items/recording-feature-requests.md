@@ -2,7 +2,17 @@
 type: Guide
 title: Recording feature requests
 description: How to preserve a source request, frame an evaluable need and desired outcome, add proportional evidence and context, and retain the resulting decision without prescribing an unapproved solution.
-tags: [feature-request-template, customer-request, enhancement-request, product-feedback, source-provenance, desired-outcome, request-triage, delivery-traceability]
+tags:
+  [
+    feature-request-template,
+    customer-request,
+    enhancement-request,
+    product-feedback,
+    source-provenance,
+    desired-outcome,
+    request-triage,
+    delivery-traceability,
+  ]
 status: draft
 sources:
   - id: feature-explainer
@@ -305,6 +315,9 @@ What observable change would indicate that the need was addressed?
   original request into a different lifecycle stage.
 
 [^github-issue-manager]: GitHub Docs, “Issue manager customization example.”
+
 [^jira-ideas]: Atlassian, “Jira Product Discovery ideas overview.”
+
 [^linear-customer-requests]: Linear Docs, “Customer Requests.”
+
 [^linear-design]: Linear Method, “Manage design projects.”

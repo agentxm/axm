@@ -2,7 +2,18 @@
 type: Explanation
 title: Feature requests, requirements, and delivery work
 description: How source requests, normalized feature requests, accepted requirements, and delivery work differ in evidence, authority, maturity, and tracker representation.
-tags: [feature-request, customer-request, stakeholder-need, requirement, product-discovery, delivery-work, traceability, request-intake, work-item]
+tags:
+  [
+    feature-request,
+    customer-request,
+    stakeholder-need,
+    requirement,
+    product-discovery,
+    delivery-work,
+    traceability,
+    request-intake,
+    work-item,
+  ]
 status: draft
 sources:
   - id: iso-29148
@@ -49,9 +60,9 @@ or requirements decision without already being that decision.
 
 Two records are commonly called a feature request:
 
-| Record | What it preserves | Typical relationship |
-| --- | --- | --- |
-| **Source request occurrence** | One attributable expression of feedback, demand, or desired change in its original context | May be linked with other occurrences to one issue, idea, or opportunity |
+| Record                         | What it preserves                                                                                     | Typical relationship                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Source request occurrence**  | One attributable expression of feedback, demand, or desired change in its original context            | May be linked with other occurrences to one issue, idea, or opportunity                     |
 | **Normalized feature request** | A durable, product-oriented statement of an affected context, current limitation, and desired outcome | May synthesize several occurrences and later support several requirements or delivery items |
 
 Some hosts represent these as separate objects. Linear, for example, links
@@ -69,15 +80,15 @@ said. Preserve the source occurrence or an authoritative link to it.
 
 These concepts answer different questions:
 
-| Concept | Main claim | Authority or maturity |
-| --- | --- | --- |
-| Source request occurrence | Someone expressed this feedback or desired change in this context | Attributed input |
-| Normalized feature request | This new or changed outcome is worth evaluating | Intake awaiting a decision |
-| Need, problem, or opportunity | This stakeholder condition or outcome may warrant a response | Analyzed understanding, with uncertainty still possible |
-| Requirement | The accepted solution is obligated to provide this capability, quality, or constraint | Approved basis for design, validation, or agreement |
-| Feature or capability | The product provides or may provide a recognizable ability | Granularity and approval state depend on the host |
-| Delivery item | The organization uses this artifact to plan or track accepted work | Host-specific planning and execution authority |
-| Task | Perform this action | Execution rather than the need or outcome |
+| Concept                       | Main claim                                                                            | Authority or maturity                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Source request occurrence     | Someone expressed this feedback or desired change in this context                     | Attributed input                                        |
+| Normalized feature request    | This new or changed outcome is worth evaluating                                       | Intake awaiting a decision                              |
+| Need, problem, or opportunity | This stakeholder condition or outcome may warrant a response                          | Analyzed understanding, with uncertainty still possible |
+| Requirement                   | The accepted solution is obligated to provide this capability, quality, or constraint | Approved basis for design, validation, or agreement     |
+| Feature or capability         | The product provides or may provide a recognizable ability                            | Granularity and approval state depend on the host       |
+| Delivery item                 | The organization uses this artifact to plan or track accepted work                    | Host-specific planning and execution authority          |
+| Task                          | Perform this action                                                                   | Execution rather than the need or outcome               |
 
 Initial stakeholder concerns are not automatically well-formed requirements.
 Requirements engineering transforms needs through analysis, agreement, and
@@ -123,13 +134,13 @@ are continuous rather than perfectly linear.[^jira-delivery]
 
 Useful rigor is proportional to the artifact's lifecycle state:
 
-| State | Appropriate quality expectations |
-| --- | --- |
-| Source request occurrence | Attributable, faithfully preserved, understandable in context, and explicit about uncertainty |
-| Normalized need or feature request | Traceable to sources, appropriately abstract, coherent enough to evaluate, and explicit about evidence, assumptions, conflicts, and proposed solutions |
-| Individual accepted requirement | Necessary, appropriate, unambiguous, complete, singular, feasible, verifiable, correct relative to its source need, and conforming to the applicable requirement style |
-| Accepted requirement set | Complete and consistent as a set, feasible within constraints, comprehensible, and able to be validated against stakeholder needs |
-| Delivery item | Traceable to its authority, sufficiently refined for its planning horizon, and clear about verification conditions without confusing them with testing strategy |
+| State                              | Appropriate quality expectations                                                                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source request occurrence          | Attributable, faithfully preserved, understandable in context, and explicit about uncertainty                                                                          |
+| Normalized need or feature request | Traceable to sources, appropriately abstract, coherent enough to evaluate, and explicit about evidence, assumptions, conflicts, and proposed solutions                 |
+| Individual accepted requirement    | Necessary, appropriate, unambiguous, complete, singular, feasible, verifiable, correct relative to its source need, and conforming to the applicable requirement style |
+| Accepted requirement set           | Complete and consistent as a set, feasible within constraints, comprehensible, and able to be validated against stakeholder needs                                      |
+| Delivery item                      | Traceable to its authority, sufficiently refined for its planning horizon, and clear about verification conditions without confusing them with testing strategy        |
 
 The requirement characteristics are useful after a need has been transformed
 into an obligation; applying every characteristic as an intake gate would
@@ -142,13 +153,13 @@ class.[^incose-requirements]
 
 Current hosts use related terms at different levels:
 
-| Host vocabulary | What it establishes |
-| --- | --- |
-| GitHub `Feature` | A default issue type alongside Bug and Task; it does not encode a universal maturity level |
+| Host vocabulary               | What it establishes                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| GitHub `Feature`              | A default issue type alongside Bug and Task; it does not encode a universal maturity level         |
 | Jira Product Discovery `Idea` | A problem, opportunity, solution, or feature request that may link to one or more delivery tickets |
-| Linear `Customer Request` | Source feedback linked to an issue or project |
-| Azure `Feature` | A portfolio item that groups requirement-level work items in the default hierarchy |
-| Scrum Product Backlog Item | An item in the emergent, ordered Product Backlog; its form and detail evolve through refinement |
+| Linear `Customer Request`     | Source feedback linked to an issue or project                                                      |
+| Azure `Feature`               | A portfolio item that groups requirement-level work items in the default hierarchy                 |
+| Scrum Product Backlog Item    | An item in the emergent, ordered Product Backlog; its form and detail evolve through refinement    |
 
 GitHub and Azure use `Feature` at different levels of their respective models.
 [^github-issue-types][^azure-work-items] Scrum attaches the Product Backlog's
@@ -190,10 +201,17 @@ For the recording procedure and tracker-ready template, see
 [Recording feature requests](recording-feature-requests.md).
 
 [^azure-work-items]: Microsoft Azure Boards, “About work items and work item types.”
+
 [^github-issue-types]: GitHub Docs, “Managing issue types in an organization.”
+
 [^incose-requirements]: INCOSE, “Guide to Writing Requirements summary sheet.”
+
 [^iso-29148]: ISO/IEC/IEEE 29148:2018, requirements-engineering processes and requirement characteristics.
+
 [^jira-delivery]: Atlassian, “Jira Product Discovery delivery overview.”
+
 [^jira-ideas]: Atlassian, “Jira Product Discovery ideas overview.”
+
 [^linear-customer-requests]: Linear Docs, “Customer Requests.”
+
 [^scrum-guide]: Schwaber and Sutherland, “The Scrum Guide,” November 2020.

@@ -2,7 +2,16 @@
 type: Explanation
 title: Human control and collaboration
 description: Makes oversight, approvals, intervention, explanation, and responsibility usable throughout a run.
-tags: [human-in-the-loop, oversight, approvals, intervention, transparency, mental-models, collaboration]
+tags:
+  [
+    human-in-the-loop,
+    oversight,
+    approvals,
+    intervention,
+    transparency,
+    mental-models,
+    collaboration,
+  ]
 status: stable
 sources:
   - id: hai-guidelines
@@ -28,12 +37,12 @@ the deployed system rather than an anthropomorphic impression.[^pair-mental-mode
 
 ## Design across the run
 
-| Moment | Human need |
-| --- | --- |
-| Before | Understand capability, limits, authority, uncertainty, and expected involvement |
-| During | See progress and material decisions; approve, redirect, pause, or stop |
-| At handoff | Receive outcome, evidence, unresolved uncertainty, effects, and next obligations |
-| After | Correct state or memory, contest an outcome, review impact, and improve or withdraw the system |
+| Moment     | Human need                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| Before     | Understand capability, limits, authority, uncertainty, and expected involvement                |
+| During     | See progress and material decisions; approve, redirect, pause, or stop                         |
+| At handoff | Receive outcome, evidence, unresolved uncertainty, effects, and next obligations               |
+| After      | Correct state or memory, contest an outcome, review impact, and improve or withdraw the system |
 
 Approval is meaningful only when the reviewer has enough context, time,
 authority, and a real alternative to approval. Do not ask a person to approve a
@@ -51,5 +60,7 @@ human control, transparency, privacy, and secure interaction as distinct
 requirements.[^anthropic-trust]
 
 [^hai-guidelines]: Microsoft — Guidelines for human-AI interaction
+
 [^pair-mental-models]: Google PAIR — Mental models
+
 [^anthropic-trust]: Anthropic — Building and evaluating trustworthy agents

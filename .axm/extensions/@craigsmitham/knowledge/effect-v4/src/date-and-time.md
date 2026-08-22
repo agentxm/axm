@@ -2,7 +2,8 @@
 type: Guide
 title: Date and time
 description: Choosing the instant carrier, the boundary transform, and where "now" comes from; use when Date leaks through the domain, timestamps decode inconsistently per driver, or tests cannot control time.
-tags: [effect, effect-v4, datetime, duration, clock, testclock, timestamps, serialization, determinism]
+tags:
+  [effect, effect-v4, datetime, duration, clock, testclock, timestamps, serialization, determinism]
 status: stable
 sources:
   - id: docs-datetime
@@ -136,22 +137,22 @@ design, test harness setup, or retry policy.
 ## Pick the boundary transform by what the edge hands you
 
 ```ts
-import { DateTime, Effect, Schema } from "effect"
+import { DateTime, Effect, Schema } from "effect";
 
 // Driver edge: the transform must match what the driver actually produces.
-const FromPgTimestamp = Schema.DateTimeUtcFromDate    // pg/mysql hand back Date
-const FromSqliteInteger = Schema.DateTimeUtcFromMillis // integer epoch column
-const FromIsoText = Schema.DateTimeUtcFromString       // text column or public wire
+const FromPgTimestamp = Schema.DateTimeUtcFromDate; // pg/mysql hand back Date
+const FromSqliteInteger = Schema.DateTimeUtcFromMillis; // integer epoch column
+const FromIsoText = Schema.DateTimeUtcFromString; // text column or public wire
 
 // Both ends already hold DateTime values: the identity schema.
-const Passthrough = Schema.DateTimeUtc
+const Passthrough = Schema.DateTimeUtc;
 
 // Now edge: one read, threaded through everything the decision produces.
-const admit = Effect.gen(function*() {
-  const at = yield* DateTime.now
-  yield* publishAdmitted({ occurredAt: at })
-  return { admittedAt: at }
-})
+const admit = Effect.gen(function* () {
+  const at = yield* DateTime.now;
+  yield* publishAdmitted({ occurredAt: at });
+  return { admittedAt: at };
+});
 ```
 
 - The four names are `DateTimeUtc`, `DateTimeUtcFromDate`,
@@ -216,7 +217,7 @@ const admit = Effect.gen(function*() {
   everything the decision produces, so a persisted event and the aggregate it
   returns cannot disagree about when it happened.[^applied-opencode-input]
   [^src-cluster-cron]
-- The unit is the *decision*, not the program. A poll loop correctly hoists
+- The unit is the _decision_, not the program. A poll loop correctly hoists
   `startedAt` once and re-reads `now` on every iteration — those are two
   decisions.[^applied-alchemy-poll]
 - `DateTime.nowUnsafe` reads `Date.now` directly and bypasses the `Clock`. It is
@@ -237,7 +238,7 @@ const admit = Effect.gen(function*() {
 - Do not add an injectable `now` parameter to Effect code. It is a second seam the
   harness does not know about, so the default virtual clock stops applying and
   every caller has to remember to pass it.[^applied-alchemy-credentials]
-- The claim holds *inside* an Effect program. In a plain Promise module with no
+- The claim holds _inside_ an Effect program. In a plain Promise module with no
   fiber context there is no `Clock` to replace, and an explicit injectable seam is
   the honest answer.
 - Everything Clock-derived inherits the property — `Cache` TTL, `Schedule`,
@@ -261,26 +262,49 @@ const admit = Effect.gen(function*() {
   `now` parameter shadows the `Clock` inside an Effect program.
 
 [^docs-datetime]: `ai-docs/src/07_datetime/index.md` at `effect@4.0.0-rc.110` — "When working with dates and time, use the `DateTime` module instead of `Date` and `Date.now`", motivated by testable current time, safe parsing, and stable ISO formatting.
+
 [^docs-datetime-creating]: `ai-docs/src/07_datetime/10_creating-and-formatting.ts` at `effect@4.0.0-rc.110` — `DateTime.now` for Clock-powered time ("ensures tests can use the `TestClock` module"), `DateTime.make` returning an `Option`, and `DateTime.add({ hours: 2 })` for calendar math.
+
 [^src-datetime]: `packages/effect/src/DateTime.ts` at `effect@4.0.0-rc.110` — `Utc` (:50) over `epochMilliseconds`; `make` returns `Option` (:793) while `makeUnsafe` (:653) and `fromDateUnsafe` (:617) throw; `now` (:838), `nowAsDate` (:856), `nowUnsafe` (:882, "synchronous version of `now` that directly uses `Date.now()`"); `distance` (:1230), `isLessThan` (:1345), `toDateUtc` (:1520), `toEpochMillis` (:1617), `addDuration` (:2259), `subtractDuration` (:2281), `add` (:2308, "the time zone is taken into account when adding days, weeks, months, and years").
+
 [^src-internal-datetime]: `packages/effect/src/internal/dateTime.ts` at `effect@4.0.0-rc.110` — `now = effect.map(Clock.currentTimeMillis, makeUtc)` (:313); `nowUnsafe = () => makeUtc(Date.now())`.
+
 [^src-clock]: `packages/effect/src/Clock.ts` at `effect@4.0.0-rc.110` — `export const Clock: Context.Reference<Clock>` (:189).
+
 [^src-schema-datetime]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `DateTimeUtc` (:13695), `DateTimeUtcFromDate` (:13776), `DateTimeUtcFromString` (:13814), `DateTimeUtcFromMillis` (:13851); no `FromSelf` or `FromNumber` member exists. `Schema.Duration` (:12296) declares a `toCodecJson` link to a tagged union of `Infinity`, `NegativeInfinity`, `Nanos`, and `Millis`.
+
 [^src-schema-getter]: `packages/effect/src/SchemaGetter.ts` at `effect@4.0.0-rc.110` — `dateTimeUtcFromInput` (:1631) matches on `DateTime.make` and fails with `SchemaIssue.InvalidValue`, then `DateTime.toUtc`.
+
 [^src-model]: `packages/effect/src/unstable/schema/Model.ts` at `effect@4.0.0-rc.110` — `DateTimeInsert` (select `DateTimeUtcFromString`), `DateTimeInsertFromDate` (select `DateTimeUtcFromDate`), `DateTimeInsertFromNumber` (select `DateTimeUtcFromMillis`), each with a `json` variant.
+
 [^src-duration]: `packages/effect/src/Duration.ts` at `effect@4.0.0-rc.110` — `Input` (:172) includes `number // millis`, `bigint // nanos`, `` `${number} ${Unit}` ``, and `DurationObject`; `fromInputUnsafe` (:242) and `toMillis` (:788) are first-class exports.
+
 [^src-cache]: `packages/effect/src/Cache.ts` at `effect@4.0.0-rc.110` — `Cache.make` takes `timeToLive?: Duration.Input` (:298) and expiry is computed and tested against `ClockRef.currentTimeMillisUnsafe()` (:445, :488); the module's own examples advance `TestClock`.
+
 [^src-cluster-cron]: `packages/effect/src/unstable/cluster/ClusterCron.ts` at `effect@4.0.0-rc.110` — one `const now = yield* DateTime.now` followed by `DateTime.isLessThan(dateTime, DateTime.subtractDuration(now, skipIfOlderThan))` (:105-107).
+
 [^src-testclock]: `packages/effect/src/testing/TestClock.ts` at `effect@4.0.0-rc.110` — `layer = flow(make, Layer.effect(Clock.Clock))` (:436); `adjust` takes `Duration.Input` and `setTime` takes epoch millis.
+
 [^src-vitest-internal]: `packages/vitest/src/internal/internal.ts` at `effect@4.0.0-rc.110` — `const TestEnv = Layer.mergeAll(TestConsole.layer, TestClock.layer())` (:44), provided to every `it.effect`.
+
 [^test-datetime]: `packages/effect/test/DateTime.test.ts` at `effect@4.0.0-rc.110` — `TestClock.setTime(new Date("2023-12-31T11:00:00.000Z").getTime())` pins the instant; `DateTime.distance(now, tomorrow)` is asserted equal to `Duration.fromInputUnsafe("1 day")`.
+
 [^applied-opencode-schema]: Observed in opencode@65c3597 `packages/schema/src/schema.ts` (effect 4.0.0-beta.83) — one shared `Finite → Schema.DateTimeUtc` transform reused by `session.ts`, `session-input.ts`, `session-event.ts`, and `session-message.ts` so wire and storage cannot disagree.
+
 [^applied-opencode-input]: Observed in opencode@65c3597 `packages/core/src/session/input.ts` (effect 4.0.0-beta.83) — one `yield* DateTime.now` supplies both the published `PromptAdmitted` payload and the returned aggregate's `timeCreated`; the write path uses `DateTime.toEpochMillis` and the read path `DateTime.makeUnsafe` on the column its own writer produced.
+
 [^applied-opencode-builtins]: Observed in opencode@65c3597 `packages/core/src/system-context/builtins.ts` (effect 4.0.0-beta.83) — `DateTime.nowAsDate` formatted straight into prompt text, pinned in `packages/core/test/system-context/builtins.test.ts` by `TestClock.setTime` plus a 24-hour advance.
+
 [^applied-opencode-duration]: Observed in opencode@65c3597 `packages/opencode/src/account/schema.ts` (effect 4.0.0-beta.83) — `expiry: Schema.Duration` and `interval: Schema.Duration` inside a device-login response class.
+
 [^applied-opencode-ticket]: Observed in opencode@65c3597 `packages/core/src/pty/ticket.ts` (effect 4.0.0-beta.83) — `Cache.make({ capacity, lookup, timeToLive })` owns ticket expiry; no deadline is stored or compared.
+
 [^applied-alchemy-poll]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Planetscale/Util.ts` (effect 4.0.0-rc.110) — `startedAt` read once before `pollUntil` (:80) while `now` is re-read inside each iteration to report elapsed seconds (:85).
+
 [^applied-alchemy-lock]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Auth/Lock.ts` (effect 4.0.0-rc.110) — `Clock.currentTimeMillis` mapped to `new Date(now)` solely to call `fs.utimes` (:119-122), with an in-source note that `utimes` reads a bare number as seconds.
+
 [^applied-alchemy-credentials]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Credentials.ts` (effect 4.0.0-rc.110) — `cacheUntilExpiry(resolve, now: () => number = () => Date.now())` (:69), a hand-rolled clock parameter inside Effect code that the accompanying tests must supply manually. Cited as a counterexample.
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/common/src/schema/state/sqlite/db-schema/dsl/field-defs.ts` (effect 4.0.0-beta.99) — the `datetime` and `datetimeInteger` column primitives are fixed to `Schema.DateFromString` and `Schema.DateFromMillis`, so every table built on the DSL decodes to `Date`. Cited as a counterexample.
+
 [^applied-effect-local-rules]: Observed in effect-local@faa52d9 `RULES.md` (effect 4.0.0-beta.103) — "Express a configurable duration as `Duration.Input`, never as a bare number named with a unit suffix" (:83); "Convert a configured duration once, with `Duration.toMillis`, at the point the Layer or service is constructed … Do not thread `Duration.Input` into arithmetic" (:84); "A duration that crosses a wire protocol or is persisted stays a plain number with its unit in the name" (:85).

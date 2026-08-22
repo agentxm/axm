@@ -3,6 +3,7 @@ name: format-release-notes
 description: Prepares release notes supplied as Markdown.
 license: MIT
 ---
+
 # Prepare release notes
 
 Create a normalized local Markdown copy of caller-supplied release notes.

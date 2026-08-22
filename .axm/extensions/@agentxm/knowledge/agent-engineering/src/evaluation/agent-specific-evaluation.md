@@ -2,7 +2,8 @@
 type: Reference
 title: Agent-specific evaluation
 description: Defines the scenarios, behaviors, trajectories, and risks an agent design must supply to evaluation engineering.
-tags: [agent-evaluation, trajectories, outcomes, task-distribution, robustness, safety, human-oversight]
+tags:
+  [agent-evaluation, trajectories, outcomes, task-distribution, robustness, safety, human-oversight]
 status: stable
 sources:
   - id: eval-survey
@@ -54,5 +55,7 @@ self-reflection, memory, cost, safety, and robustness as distinct agent
 capabilities or concerns.[^eval-survey]
 
 [^eval-survey]: Survey on Evaluation of LLM-based Agents
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
+
 [^openai-evals]: OpenAI — Evaluation best practices

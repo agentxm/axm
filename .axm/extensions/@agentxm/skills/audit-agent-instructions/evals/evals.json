@@ -47,7 +47,10 @@
       "prompt": "Audit this repository's AGENTS.md and CLAUDE.md instruction system for scope and precedence problems.",
       "expected_selection": "audit-agent-instructions",
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
-      "assertions": ["The target is selected for a direct repository-instruction audit request.", "Selection occurs before any instruction fixture or expected finding is visible."]
+      "assertions": [
+        "The target is selected for a direct repository-instruction audit request.",
+        "Selection occurs before any instruction fixture or expected finding is visible."
+      ]
     },
     {
       "id": 5,
@@ -55,7 +58,10 @@
       "prompt": "Check whether our persistent coding-agent guidance is actually selected from the right directories and whether its aliases have drifted.",
       "expected_selection": "audit-agent-instructions",
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
-      "assertions": ["The paraphrased effective-context request selects the target.", "The absence of the literal word audit does not cause a miss."]
+      "assertions": [
+        "The paraphrased effective-context request selects the target.",
+        "The absence of the literal word audit does not cause a miss."
+      ]
     },
     {
       "id": 6,
@@ -63,7 +69,10 @@
       "prompt": "Audit this Agent Skill package for security, provenance, and routing conformity.",
       "expected_selection": "audit-agent-skill",
       "catalog_neighbors": ["audit-agent-skill", "author-agent-instructions"],
-      "assertions": ["The target abstains because the artifact is an Agent Skill rather than an instruction system.", "The neighboring skill audit remains eligible."]
+      "assertions": [
+        "The target abstains because the artifact is an Agent Skill rather than an instruction system.",
+        "The neighboring skill audit remains eligible."
+      ]
     },
     {
       "id": 7,
@@ -71,7 +80,10 @@
       "prompt": "Rewrite our AGENTS.md hierarchy and reconcile the managed CLAUDE.md projection.",
       "expected_selection": "author-agent-instructions",
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
-      "assertions": ["The target abstains because the request authorizes mutation rather than assessment.", "The neighboring instruction-authoring skill remains eligible."]
+      "assertions": [
+        "The target abstains because the request authorizes mutation rather than assessment.",
+        "The neighboring instruction-authoring skill remains eligible."
+      ]
     },
     {
       "id": 8,
@@ -79,7 +91,10 @@
       "prompt": "Can you review this agent setup?",
       "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": ["audit-agent-skill", "author-agent-instructions"],
-      "assertions": ["The ambiguous request does not select the target from generic agent and review vocabulary.", "The response clarifies which artifact or system is in scope."]
+      "assertions": [
+        "The ambiguous request does not select the target from generic agent and review vocabulary.",
+        "The response clarifies which artifact or system is in scope."
+      ]
     },
     {
       "id": 9,
@@ -87,7 +102,10 @@
       "prompt": "$audit-agent-instructions inspect this instruction system without modifying it.",
       "expected_selection": "audit-agent-instructions",
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
-      "assertions": ["Explicit invocation selects the target.", "The result is treated as a control rather than implicit-routing evidence."]
+      "assertions": [
+        "Explicit invocation selects the target.",
+        "The result is treated as a control rather than implicit-routing evidence."
+      ]
     },
     {
       "id": 10,

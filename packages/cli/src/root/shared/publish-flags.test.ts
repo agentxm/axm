@@ -6,9 +6,7 @@ import { resolveExistingVersionPolicy } from "./publish-flags.js";
 describe("resolveExistingVersionPolicy", () => {
   it.each([
     ["authored", false, "verify"],
-    ["all", false, "verify"],
     ["explicit", false, "error"],
-    ["filtered-explicit", false, "error"],
     ["explicit", true, "verify"],
   ] as const)(
     "resolves %s selections with dependency=%s to %s",

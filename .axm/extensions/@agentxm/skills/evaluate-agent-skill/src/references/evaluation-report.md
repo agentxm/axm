@@ -26,17 +26,17 @@
 ## Routing results
 
 | Case | Trial | Expected | Observed | Outcome | Evidence |
-| --- | --- | --- | --- | --- | --- |
+| ---- | ----- | -------- | -------- | ------- | -------- |
 
 ## Activated-execution results
 
 | Case | Trial | Outcome | Assertions | Side effects | Evidence |
-| --- | --- | --- | --- | --- | --- |
+| ---- | ----- | ------- | ---------- | ------------ | -------- |
 
 ## Failures and uncertainty
 
 | Case | Class | Target, case, harness, environment, or grader owner | Consequence | Required rerun or handoff |
-| --- | --- | --- | --- | --- |
+| ---- | ----- | --------------------------------------------------- | ----------- | ------------------------- |
 
 ## Suite findings
 
@@ -45,7 +45,7 @@ them during a controlled run. Kinds: `satisfiable-by-wrong-output`,
 `uncovered-outcome`, `unverifiable`, `non-discriminating`, `flaky`.
 
 | Finding | Kind | Evidence | Owner |
-| --- | --- | --- | --- |
+| ------- | ---- | -------- | ----- |
 
 ## Analysis
 

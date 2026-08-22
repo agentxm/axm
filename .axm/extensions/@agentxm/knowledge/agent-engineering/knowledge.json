@@ -38,8 +38,6 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "CC-BY-4.0",
-  "recommendedPacks": [
-    "@agentxm/packs/agent-engineering"
-  ],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": true
 }

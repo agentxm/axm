@@ -17,16 +17,16 @@ sources:
 
 # Evaluation boundaries
 
-| Practice | Primary question | Relationship to evaluation |
-| --- | --- | --- |
-| Test | Did one assertion hold? | A test may be a deterministic grader inside an evaluation. |
-| Verification | Does this exact artifact or change satisfy an accepted contract? | Uses bounded conformance evidence rather than estimating a behavior distribution. |
-| Benchmark | How do targets compare on a standardized suite? | A reusable evaluation whose comparability can outweigh local fit. |
-| Metric | What quantity was observed? | One instrument or output, not the complete evaluation. |
-| Red teaming | What consequential failure can an adversary discover? | Discovery activity; confirmed failures should become repeatable cases. |
-| Monitoring | What is happening in production? | Supplies field evidence and drift signals, often without controlled ground truth. |
-| A/B experiment | Which deployed variant changes real outcomes? | Controlled field comparison with user exposure and statistical obligations. |
-| Audit | Is evidence, process, trust, or conformance independently supportable? | Reviews the target or the evaluation rather than merely running its suite. |
+| Practice       | Primary question                                                       | Relationship to evaluation                                                        |
+| -------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Test           | Did one assertion hold?                                                | A test may be a deterministic grader inside an evaluation.                        |
+| Verification   | Does this exact artifact or change satisfy an accepted contract?       | Uses bounded conformance evidence rather than estimating a behavior distribution. |
+| Benchmark      | How do targets compare on a standardized suite?                        | A reusable evaluation whose comparability can outweigh local fit.                 |
+| Metric         | What quantity was observed?                                            | One instrument or output, not the complete evaluation.                            |
+| Red teaming    | What consequential failure can an adversary discover?                  | Discovery activity; confirmed failures should become repeatable cases.            |
+| Monitoring     | What is happening in production?                                       | Supplies field evidence and drift signals, often without controlled ground truth. |
+| A/B experiment | Which deployed variant changes real outcomes?                          | Controlled field comparison with user exposure and statistical obligations.       |
+| Audit          | Is evidence, process, trust, or conformance independently supportable? | Reviews the target or the evaluation rather than merely running its suite.        |
 
 OpenAI distinguishes industry benchmarks, numerical metrics, and application-
 specific evaluations.[^openai-evals] Anthropic treats automated evals,
@@ -37,4 +37,5 @@ Do not use `eval` as a synonym for every quality activity. Name the decision,
 the target, and the evidence-producing method.
 
 [^openai-evals]: OpenAI — Evaluation best practices
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

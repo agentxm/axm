@@ -22,12 +22,12 @@ defines workflows as systems whose model and tools follow predefined code
 paths, and agents as systems whose model dynamically directs the process and
 tool use.[^anthropic-agents]
 
-| Form | Primary control | Best fit |
-| --- | --- | --- |
-| Deterministic automation | Code or rules | Stable inputs, known transformations, strict predictability |
-| LLM workflow | Predefined graph with model-valued steps | Classification, extraction, generation, or judgment inside a known process |
-| Agent | Model-directed loop inside hard boundaries | Open-ended paths, changing evidence, tool choice, and recovery |
-| Agentic workflow | Workflow outside, one or more bounded agents inside | Durable business process with locally dynamic work |
+| Form                     | Primary control                                     | Best fit                                                                   |
+| ------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------- |
+| Deterministic automation | Code or rules                                       | Stable inputs, known transformations, strict predictability                |
+| LLM workflow             | Predefined graph with model-valued steps            | Classification, extraction, generation, or judgment inside a known process |
+| Agent                    | Model-directed loop inside hard boundaries          | Open-ended paths, changing evidence, tool choice, and recovery             |
+| Agentic workflow         | Workflow outside, one or more bounded agents inside | Durable business process with locally dynamic work                         |
 
 ## Agency test
 
@@ -55,4 +55,5 @@ tool, runs in a graph, or has an “agent” product label. State the model-dire
 decisions explicitly.
 
 [^anthropic-agents]: Anthropic — Building effective agents
+
 [^openai-guide]: OpenAI — A practical guide to building agents

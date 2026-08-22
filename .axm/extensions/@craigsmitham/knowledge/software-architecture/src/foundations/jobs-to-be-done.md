@@ -2,7 +2,17 @@
 type: Explanation
 title: Jobs to Be Done
 description: How Jobs to Be Done explains demand as progress sought in particular circumstances, and how jobs relate to needs, offerings, use cases, capabilities, domain meaning, and software structure.
-tags: [jobs-to-be-done, jtbd, demand, progress, circumstances, forces-of-progress, job-mapping, architecture-views]
+tags:
+  [
+    jobs-to-be-done,
+    jtbd,
+    demand,
+    progress,
+    circumstances,
+    forces-of-progress,
+    job-mapping,
+    architecture-views,
+  ]
 status: draft
 sources:
   - id: christensen-jtbd
@@ -74,12 +84,12 @@ unacceptable experience, identity, or social consequence.
 
 The forces-of-progress model provides another lens on a change of response:
 
-| Force | Question |
-| --- | --- |
-| Push of the present | What makes the current situation no longer acceptable? |
-| Pull of a new response | What promised progress makes an alternative attractive? |
-| Habit of the present | What makes the existing response easier to keep? |
-| Anxiety about change | What risk or uncertainty makes a new response difficult to adopt? |
+| Force                  | Question                                                          |
+| ---------------------- | ----------------------------------------------------------------- |
+| Push of the present    | What makes the current situation no longer acceptable?            |
+| Pull of a new response | What promised progress makes an alternative attractive?           |
+| Habit of the present   | What makes the existing response easier to keep?                  |
+| Anxiety about change   | What risk or uncertainty makes a new response difficult to adopt? |
 
 Push and pull encourage change; habit and anxiety resist it. These forces are
 research findings about a choice in context, not permanent attributes of an
@@ -94,10 +104,10 @@ implementation. For example:
 > Help a traveler secure scarce capacity while plans are uncertain, without
 > committing irreversibly too early.
 
-Templates such as *When …, I want to …, so I can …* can help expose context,
+Templates such as _When …, I want to …, so I can …_ can help expose context,
 motivation, and outcome. The template is not the theory, and its middle clause
-should not smuggle in a preferred feature or interaction. *When capacity is
-scarce, I want a hold button* specifies a response; it does not yet explain the
+should not smuggle in a preferred feature or interaction. _When capacity is
+scarce, I want a hold button_ specifies a response; it does not yet explain the
 underlying progress.
 
 A credible job is discovered from evidence about actual choices, constraints,
@@ -108,8 +118,8 @@ meaning, and revisit a job when the relevant circumstances or evidence change.
 ## Job maps are not journeys
 
 A **job map** decomposes the job independently of a particular solution. The
-customer-centered innovation map uses the broad stages *define, locate,
-prepare, confirm, execute, monitor, modify,* and *conclude* to find unmet
+customer-centered innovation map uses the broad stages _define, locate,
+prepare, confirm, execute, monitor, modify,_ and _conclude_ to find unmet
 outcomes across a job.[^customer-centered-innovation-map] The useful point is
 the solution-independent sequence, not compulsory use of eight headings.
 
@@ -128,13 +138,13 @@ offerings, audiences, needs, jobs, and value propositions. [Goal-oriented
 behavior and use cases](goal-oriented-behavior.md) owns the adjacent Actor,
 Goal, Use Case, Scenario, Feature, and User Story distinctions.[^goal-oriented-behavior]
 
-| Concept | Question | Relationship to a job |
-| --- | --- | --- |
-| Audience | For whom is a claim or interaction consequential? | The audience identifies who seeks progress; demographics or roles alone do not define the job. |
-| Need | What problem, constraint, opportunity, or desired outcome matters? | A need can exist without the circumstances-and-progress framing of a job. JTBD does not replace every useful kind of need. |
-| Use case | How does a chosen subject behave so an actor can achieve a goal? | A use case describes goal-oriented behavior; a job explains the demand that may motivate it. |
-| Capability | What must an identified bearer be able to do? | Capabilities are provider-side abilities that may enable progress on several jobs. |
-| Feature or surface | What behavior is available, and where is it encountered? | Features and surfaces are parts of a response, not the job itself. |
+| Concept            | Question                                                           | Relationship to a job                                                                                                      |
+| ------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Audience           | For whom is a claim or interaction consequential?                  | The audience identifies who seeks progress; demographics or roles alone do not define the job.                             |
+| Need               | What problem, constraint, opportunity, or desired outcome matters? | A need can exist without the circumstances-and-progress framing of a job. JTBD does not replace every useful kind of need. |
+| Use case           | How does a chosen subject behave so an actor can achieve a goal?   | A use case describes goal-oriented behavior; a job explains the demand that may motivate it.                               |
+| Capability         | What must an identified bearer be able to do?                      | Capabilities are provider-side abilities that may enable progress on several jobs.                                         |
+| Feature or surface | What behavior is available, and where is it encountered?           | Features and surfaces are parts of a response, not the job itself.                                                         |
 
 These relationships are generally many-to-many. A job can require several
 capabilities and use cases; one capability or offering can contribute to
@@ -189,14 +199,21 @@ concept.
 - [C4 model](c4-model.md)
 - [Wardley mapping](wardley-mapping.md)
 
-[^christensen-jtbd]: Christensen Institute defines a job as progress sought
+[^christensen-jtbd]:
+    Christensen Institute defines a job as progress sought
     toward a goal or aspiration in particular circumstances and emphasizes
     functional, social, and emotional dimensions.
-[^christensen-forces]: Christensen Institute's teacher research applies push,
+
+[^christensen-forces]:
+    Christensen Institute's teacher research applies push,
     pull, habit, and anxiety to explain adoption decisions and resistance.
-[^customer-centered-innovation-map]: Bettencourt and Ulwick distinguish a
+
+[^customer-centered-innovation-map]:
+    Bettencourt and Ulwick distinguish a
     solution-independent job map from the process or activities a current
     solution causes someone to perform.
-[^goal-oriented-behavior]: Goal-oriented behavior and use cases distinguishes
+
+[^goal-oriented-behavior]:
+    Goal-oriented behavior and use cases distinguishes
     demand-side progress from interaction with a chosen subject and from
     delivery-sized behavioral slices.

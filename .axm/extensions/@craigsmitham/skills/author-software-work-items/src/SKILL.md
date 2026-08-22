@@ -13,13 +13,13 @@ This skill is coupled to the software-engineering pack. From the active AXM
 scope root, use the guides under
 `.axm/extensions/@craigsmitham/knowledge/software-engineering/src/work-items/`:
 
-| Job | Read | Add when the artifact boundary is uncertain |
-| --- | --- | --- |
-| Any title or summary | `titling-and-summarizing-work-items.md` | `work-item-titles-and-summaries.md` |
-| Existing technical design or delivery context | `preserving-design-and-delivery-context.md` | — |
-| Operational incident | `recording-operational-incidents.md` | `operational-incident-records.md` |
-| Suspected software defect | `recording-defect-reports.md` | `failures-defects-and-defect-reports.md` |
-| Requested new or changed functionality | `recording-feature-requests.md` | `feature-requests-requirements-and-delivery-work.md` |
+| Job                                           | Read                                        | Add when the artifact boundary is uncertain          |
+| --------------------------------------------- | ------------------------------------------- | ---------------------------------------------------- |
+| Any title or summary                          | `titling-and-summarizing-work-items.md`     | `work-item-titles-and-summaries.md`                  |
+| Existing technical design or delivery context | `preserving-design-and-delivery-context.md` | —                                                    |
+| Operational incident                          | `recording-operational-incidents.md`        | `operational-incident-records.md`                    |
+| Suspected software defect                     | `recording-defect-reports.md`               | `failures-defects-and-defect-reports.md`             |
+| Requested new or changed functionality        | `recording-feature-requests.md`             | `feature-requests-requirements-and-delivery-work.md` |
 
 Read `index.md` when selecting among types. Do not load every guide for a known
 type.

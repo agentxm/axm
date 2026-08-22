@@ -27,7 +27,7 @@ generated:
 
 # Documentation workflow
 
-Portable **understanding** of how to *apply* documentation craft over time —
+Portable **understanding** of how to _apply_ documentation craft over time —
 especially when remediating or growing an existing body of docs — without
 imposing a top-down information-architecture project.
 
@@ -55,7 +55,7 @@ Do **not** create empty shells named for the four reader-need forms with nothing
 That freezes a folder tree without improving a single reader job.
 
 Instead, improve pages according to reader-need principles until the material
-*demands* clearer grouping. Top-level shape forms **from the inside**: many
+_demands_ clearer grouping. Top-level shape forms **from the inside**: many
 small, form-correct edits make structure obvious later — not the reverse.
 
 ## Iterate; publish the next step

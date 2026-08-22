@@ -2,7 +2,23 @@
 type: Guide
 title: Observability
 description: Designing coherent logs, traces, and metrics and wiring exporters at the edge; use for scattered `console.log`, missing correlation, manual timing, or leaked secrets in telemetry.
-tags: [effect, effect-v4, logging, tracing, metrics, spans, span-naming, console, stdio, redaction, cardinality, telemetry, otlp, opentelemetry]
+tags:
+  [
+    effect,
+    effect-v4,
+    logging,
+    tracing,
+    metrics,
+    spans,
+    span-naming,
+    console,
+    stdio,
+    redaction,
+    cardinality,
+    telemetry,
+    otlp,
+    opentelemetry,
+  ]
 status: stable
 sources:
   - id: docs-logging
@@ -127,7 +143,7 @@ Text output has three destinations; choose by audience, not convenience.
 - Raw `console.*` bypasses both references. It cannot be substituted,
   redirected, or captured in a test; reach for it only where no fiber context
   exists.
-- Both Effect channels write through the *same* `ConsoleRef` by default:
+- Both Effect channels write through the _same_ `ConsoleRef` by default:
   `defaultLogger` reads the fiber's console reference and picks `console.error`
   or `console.log` from `References.LogToStderr`. The runtime does not enforce
   the split — you preserve it so either channel can be rerouted independently
@@ -164,14 +180,14 @@ Text output has three destinations; choose by audience, not convenience.
 
   ```ts
   Effect.fnUntraced(
-    function*(job: { readonly name: string }) {
+    function* (job: { readonly name: string }) {
       /* … */
     },
     // literal name; the per-call value lands in attributes, not the name
     Effect.withSpan("Engine.runJob", (job) => ({
-      attributes: { "job.name": job.name }
-    }))
-  )
+      attributes: { "job.name": job.name },
+    })),
+  );
   ```
 
 - Upstream's HTTP client is the model: the default client span name is
@@ -238,24 +254,45 @@ Telemetry should support a concrete diagnosis or decision; omit noise that canno
   application edge.
 
 [^docs-logging]: `ai-docs/src/08_observability/10_logging.ts` at `effect@4.0.0-rc.110` — `Logger.layer`, `Logger.consoleJson`/`toFile`/`batched`, `References.MinimumLogLevel`, `Effect.annotateLogs`, `Effect.withLogSpan`.
+
 [^docs-otlp-tracing]: `ai-docs/src/08_observability/20_otlp-tracing.ts` at `effect@4.0.0-rc.110` — `Effect.withSpan`/`annotateSpans`, `Effect.fn` named operations, `OtlpTracer`/`OtlpLogger` + `OtlpSerialization.layerJson` + `FetchHttpClient.layer`, observability layer provided last; module family at `packages/effect/src/unstable/observability/`.
+
 [^src-metric]: `packages/effect/src/Metric.ts` at `effect@4.0.0-rc.110` — attribute options on metric constructors and `Metric.withAttributes`.
+
 [^src-tracer]: `packages/effect/src/Tracer.ts` at `effect@4.0.0-rc.110` — the `Ended` span status records `exit: Exit<unknown, unknown>`.
+
 [^src-formatter]: `packages/effect/src/Formatter.ts` at `effect@4.0.0-rc.110` — formatting redacts `Redacted`/`Redactable` values in log and inspection output.
+
 [^src-console]: `packages/effect/src/Console.ts` at `effect@4.0.0-rc.110` — `Console.Console` is `effect.ConsoleRef`, a `Context.Reference`; `consoleWith` reads it off the fiber, and `Console.log` writes through whatever is in scope. The module's own examples substitute a capturing console via `Effect.provideService`.
+
 [^src-console-ref]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `ConsoleRef` is declared with `defaultValue: () => globalThis.console`; `defaultLogger` then does `const console = fiber.getRef(ConsoleRef)` and selects `console.error` or `console.log` from `fiber.getRef(LogToStderr)`. Same reference, both channels.
+
 [^src-cli-command]: `packages/effect/src/unstable/cli/Command.ts` at `effect@4.0.0-rc.110` — imports `Console` and prints help, errors, and wizard output through it; the module docs demonstrate a `silentConsole` supplied with `Effect.provideService(Console.Console, …)`.
+
 [^src-stdio]: `packages/effect/src/Stdio.ts` at `effect@4.0.0-rc.110` — service contract for argv and standard I/O: stdout and stderr as `Sink`s accepting strings or bytes, stdin as a byte `Stream`, plus a test layer. Explicitly the alternative to writing to global process handles directly.
+
 [^src-effect-span]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `withSpan(name, options?, traceOptions?)` where `options` may be `SpanOptionsNoTrace | ((...args: Args) => SpanOptionsNoTrace)`; `Effect.fn` is `fn.Traced & ((name: string, options?: SpanOptionsNoTrace) => fn.Traced)`. The name is always a plain `string`; only options see the arguments. Upstream uses the options-function form in `unstable/workflow/WorkflowEngine.ts`.
+
 [^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.110` — `SpanNameGenerator` defaults to `` (request) => `http.client ${request.method}` ``; the request span sets `url.full`, `url.path`, `url.scheme`, `url.query`, `server.address`, and `server.port` as attributes.
+
 [^otel-http-spans]: OpenTelemetry semantic conventions `v1.44.0`, `docs/http/http-spans.md` — "HTTP span names SHOULD be `{method} {target}` if there is a (low-cardinality) `target` available"; "Instrumentation MUST NOT default to using URI path as a `{target}`."
+
 [^otel-db-spans]: OpenTelemetry semantic conventions `v1.44.0`, `docs/db/database-spans.md` — span names are built from `db.query.summary`, a low-cardinality `db.operation.name`, and a low-cardinality target; dynamic values, parameters, and literal query text do not belong in the name.
+
 [^applied-alchemy-console]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cli/commands/nuke.ts` (effect 4.0.0-rc.110) — `Console.log` for the user-facing "no providers match" message and `Effect.logWarning` for a per-provider scan failure in the same file, the latter with a source comment stating the reason (it must land in the stack's file logger). `packages/alchemy/src/Cli/LoggingCli.ts` routes apply progress through `Console.log` so the test runner's buffering console captures it instead of leaking to stdout.
+
 [^applied-opencode-console]: Observed in opencode@65c3597 `packages/opencode/src/cli/cmd/github.handler.ts` (effect 4.0.0-beta.83) — CLI output via raw `console.log`. Repository-wide: 216 `Effect.log*` calls, zero `Console` module uses, ~109 raw `console` calls.
+
 [^applied-browser-control-console]: Observed in browser-control@0110939 `src/` (effect 4.0.0-beta.97) — 19 raw `console` calls, zero `Console` imports, zero `Effect.log*`.
+
 [^applied-dfx-console]: Observed in dfx@23988a4 `src/` (effect 4.0.0-beta.105) — 14 `Effect.log*` calls, zero `Console` imports, zero raw `console` calls. The one repository in the reference corpus that keeps the split cleanly.
+
 [^applied-effect-local-spans]: Observed in effect-local@faa52d9 `packages/local-sql/src/ServerStore.ts` (effect 4.0.0-beta.103) — `Effect.withSpan("ServerStore.submit", { attributes: { "space.id": … } })` and siblings; `packages/local-sql/src/LocalStore.ts` names `LocalStore.mutate` with `mutation.name` and `space.id` as attributes. 47 span names, all literal.
+
 [^applied-opencode-spans]: Observed in opencode@65c3597 `packages/opencode/src/session/tools.ts` (effect 4.0.0-beta.83) — `Effect.withSpan("Tool.execute", { attributes: { "tool.name", "tool.call_id", "session.id", "message.id" } })`. 1105 literal names against 2 interpolated repository-wide.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-sql/src/internal/serverMetrics.ts` (effect 4.0.0-beta.103).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/observability/otlp.ts` (effect 4.0.0-beta.83) — edge layer built from standard `OTEL_*` environment variables.
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/DiscordGateway/Shard.ts` (effect 4.0.0-beta.105) — `Effect.annotateLogs({ package, module, shard })` around a whole scoped unit.

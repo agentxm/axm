@@ -18,6 +18,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   subagents: "How subagent extensions work and how AXM installs and manages them.",
   "subagent-schema": "JSON Schema for a subagent extension manifest.",
   packs: "How packs bundle multiple extensions for one-step install.",
+  publish: "Authored-only selection, archive construction, and immutable-version verification.",
   "pack-schema": "JSON Schema for a pack manifest.",
   "package-extensions": "How AXM links registry extensions to ecosystem packages.",
   rules: "How Rule extensions contribute managed guidance to workspace instructions.",

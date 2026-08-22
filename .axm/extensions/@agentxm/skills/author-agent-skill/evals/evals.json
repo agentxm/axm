@@ -36,11 +36,23 @@
       "prompt": "Revise the AXM-managed sample skill described in the fixture so it rejects deployment work. Make the change in the correct place.",
       "expected_output": "A canonical AXM source revision made through AXM, followed by validation and a routing regression case.",
       "files": [
-        {"source": "evals/files/axm-managed-skill.md", "target": "inputs/change-request.md"},
-        {"source": "evals/files/axm-managed-skill.json", "target": ".axm/extensions/@example/skills/review-release/skill.json"},
-        {"source": "evals/files/review-release-SKILL.md", "target": ".axm/extensions/@example/skills/review-release/src/SKILL.md"},
-        {"source": "evals/files/axm-managed-evaluation-contract.json", "target": ".axm/extensions/@example/skills/review-release/evals/evaluation-contract.json"},
-        {"source": "evals/files/axm-managed-evals.json", "target": ".axm/extensions/@example/skills/review-release/evals/evals.json"}
+        { "source": "evals/files/axm-managed-skill.md", "target": "inputs/change-request.md" },
+        {
+          "source": "evals/files/axm-managed-skill.json",
+          "target": ".axm/extensions/@example/skills/review-release/skill.json"
+        },
+        {
+          "source": "evals/files/review-release-SKILL.md",
+          "target": ".axm/extensions/@example/skills/review-release/src/SKILL.md"
+        },
+        {
+          "source": "evals/files/axm-managed-evaluation-contract.json",
+          "target": ".axm/extensions/@example/skills/review-release/evals/evaluation-contract.json"
+        },
+        {
+          "source": "evals/files/axm-managed-evals.json",
+          "target": ".axm/extensions/@example/skills/review-release/evals/evals.json"
+        }
       ],
       "artifact_paths": [".axm/extensions/@example/skills/review-release"],
       "assertions": [
@@ -70,11 +82,26 @@
       "prompt": "Apply the accepted audit findings in the fixture to the existing skill, validate the revision, and close the findings.",
       "expected_output": "A bounded canonical revision with authoring dispositions and a handoff for audit closure rather than self-certification.",
       "files": [
-        {"source": "evals/files/remediation-findings.md", "target": "inputs/remediation-findings.md"},
-        {"source": "evals/files/normalize-release-notes-skill.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/skill.json"},
-        {"source": "evals/files/normalize-release-notes-SKILL.md", "target": ".axm/extensions/@example/skills/normalize-release-notes/src/SKILL.md"},
-        {"source": "evals/files/normalize-release-notes-evaluation-contract.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evaluation-contract.json"},
-        {"source": "evals/files/normalize-release-notes-evals.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evals.json"}
+        {
+          "source": "evals/files/remediation-findings.md",
+          "target": "inputs/remediation-findings.md"
+        },
+        {
+          "source": "evals/files/normalize-release-notes-skill.json",
+          "target": ".axm/extensions/@example/skills/normalize-release-notes/skill.json"
+        },
+        {
+          "source": "evals/files/normalize-release-notes-SKILL.md",
+          "target": ".axm/extensions/@example/skills/normalize-release-notes/src/SKILL.md"
+        },
+        {
+          "source": "evals/files/normalize-release-notes-evaluation-contract.json",
+          "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evaluation-contract.json"
+        },
+        {
+          "source": "evals/files/normalize-release-notes-evals.json",
+          "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evals.json"
+        }
       ],
       "artifact_paths": [".axm/extensions/@example/skills/normalize-release-notes"],
       "assertions": [
@@ -129,8 +156,11 @@
       "prompt": "Create the skill and its evaluation coverage using the repository profile in the fixture. Record the evidence honestly.",
       "expected_output": "A canonical runtime skill plus versioned evaluation source, generated authoring checks in the ignored workspace, and a handoff that does not promote same-agent smoke evidence.",
       "files": [
-        {"source": "evals/files/evaluation-artifacts.md", "target": "inputs/repository-profile.md"},
-        {"source": "evals/files/repeated-workflow.md", "target": "inputs/requirements.md"}
+        {
+          "source": "evals/files/evaluation-artifacts.md",
+          "target": "inputs/repository-profile.md"
+        },
+        { "source": "evals/files/repeated-workflow.md", "target": "inputs/requirements.md" }
       ],
       "artifact_paths": ["skill-package"],
       "assertions": [
@@ -146,8 +176,17 @@
       "stage": "routing",
       "prompt": "Create a portable Agent Skill for our recurring release-note normalization workflow.",
       "expected_selection": ["axm", "author-agent-skill"],
-      "catalog_neighbors": ["axm", "skill-creator", "audit-agent-skill", "evaluate-agent-skill", "author-agent-instructions"],
-      "assertions": ["AXM and the target are selected in execution order for explicit Agent Skill creation.", "Selection occurs before requirements fixtures or expected output are visible."]
+      "catalog_neighbors": [
+        "axm",
+        "skill-creator",
+        "audit-agent-skill",
+        "evaluate-agent-skill",
+        "author-agent-instructions"
+      ],
+      "assertions": [
+        "AXM and the target are selected in execution order for explicit Agent Skill creation.",
+        "Selection occurs before requirements fixtures or expected output are visible."
+      ]
     },
     {
       "id": 11,
@@ -155,7 +194,10 @@
       "prompt": "Turn this repeated agent workflow into a reusable SKILL.md package with clear activation boundaries.",
       "expected_selection": ["axm", "author-agent-skill"],
       "catalog_neighbors": ["axm", "skill-creator", "audit-agent-skill", "evaluate-agent-skill"],
-      "assertions": ["The paraphrased extraction request selects AXM and the target in execution order.", "The target does not require the exact phrase create a skill."]
+      "assertions": [
+        "The paraphrased extraction request selects AXM and the target in execution order.",
+        "The target does not require the exact phrase create a skill."
+      ]
     },
     {
       "id": 12,
@@ -163,7 +205,10 @@
       "prompt": "Audit this Agent Skill for security, provenance, and conformity without changing it.",
       "expected_selection": "audit-agent-skill",
       "catalog_neighbors": ["audit-agent-skill", "evaluate-agent-skill"],
-      "assertions": ["The target abstains because the request is assessment-only.", "The audit neighbor remains eligible."]
+      "assertions": [
+        "The target abstains because the request is assessment-only.",
+        "The audit neighbor remains eligible."
+      ]
     },
     {
       "id": 13,
@@ -171,7 +216,10 @@
       "prompt": "Run this Agent Skill's routing and execution eval suite against the previous revision.",
       "expected_selection": "evaluate-agent-skill",
       "catalog_neighbors": ["agent-skill-evaluator", "evaluate-agent-skill", "audit-agent-skill"],
-      "assertions": ["The target abstains because the request is to execute evaluation rather than author a skill or suite.", "The evaluator neighbor remains eligible."]
+      "assertions": [
+        "The target abstains because the request is to execute evaluation rather than author a skill or suite.",
+        "The evaluator neighbor remains eligible."
+      ]
     },
     {
       "id": 14,
@@ -179,15 +227,26 @@
       "prompt": "Rewrite our AGENTS.md hierarchy and reconcile CLAUDE.md.",
       "expected_selection": "author-agent-instructions",
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-skill"],
-      "assertions": ["The target abstains because repository instructions are a neighboring artifact.", "The instruction-authoring neighbor remains eligible."]
+      "assertions": [
+        "The target abstains because repository instructions are a neighboring artifact.",
+        "The instruction-authoring neighbor remains eligible."
+      ]
     },
     {
       "id": 15,
       "stage": "routing",
       "prompt": "Can you improve this agent thing?",
       "expected_selection": "clarify-or-abstain",
-      "catalog_neighbors": ["skill-creator", "audit-agent-skill", "evaluate-agent-skill", "author-agent-instructions"],
-      "assertions": ["Generic agent and improve vocabulary does not select the target.", "The response clarifies the artifact and desired operation."]
+      "catalog_neighbors": [
+        "skill-creator",
+        "audit-agent-skill",
+        "evaluate-agent-skill",
+        "author-agent-instructions"
+      ],
+      "assertions": [
+        "Generic agent and improve vocabulary does not select the target.",
+        "The response clarifies the artifact and desired operation."
+      ]
     },
     {
       "id": 16,
@@ -195,7 +254,10 @@
       "prompt": "$author-agent-skill revise this SKILL.md package from the accepted findings.",
       "expected_selection": ["axm", "author-agent-skill"],
       "catalog_neighbors": ["axm", "skill-creator", "audit-agent-skill", "evaluate-agent-skill"],
-      "assertions": ["Explicit authoring invocation still composes AXM before the target.", "The result is treated as a control rather than implicit-routing evidence."]
+      "assertions": [
+        "Explicit authoring invocation still composes AXM before the target.",
+        "The result is treated as a control rather than implicit-routing evidence."
+      ]
     },
     {
       "id": 17,
@@ -217,14 +279,38 @@
       "prompt": "Revise the target's evaluation source and validate it using the workspace state in the fixture.",
       "expected_output": "A bounded evaluation-source revision validated through the explicit trusted validator while the disabled bundled evaluator remains unused.",
       "files": [
-        {"source": "evals/files/external-eval-validator.md", "target": "inputs/validation-state.md"},
-        {"source": "evals/files/render-status-summary-skill.json", "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"},
-        {"source": "evals/files/render-status-summary-SKILL.md", "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"},
-        {"source": "evals/files/render-status-summary-evaluation-contract.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"},
-        {"source": "evals/files/render-status-summary-evals.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"},
-        {"source": "evals/files/render-status-summary-grader.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"},
-        {"source": "evals/files/eval-contract-checker.mjs", "target": "tools/eval-contract-checker.mjs"},
-        {"source": "evals/files/disabled-evaluator-sentinel.mjs", "target": ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"}
+        {
+          "source": "evals/files/external-eval-validator.md",
+          "target": "inputs/validation-state.md"
+        },
+        {
+          "source": "evals/files/render-status-summary-skill.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-SKILL.md",
+          "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"
+        },
+        {
+          "source": "evals/files/render-status-summary-evaluation-contract.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-evals.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-grader.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"
+        },
+        {
+          "source": "evals/files/eval-contract-checker.mjs",
+          "target": "tools/eval-contract-checker.mjs"
+        },
+        {
+          "source": "evals/files/disabled-evaluator-sentinel.mjs",
+          "target": ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"
+        }
       ],
       "artifact_paths": [".axm/extensions/@example/skills/render-status-summary"],
       "assertions": [
@@ -237,7 +323,9 @@
         {
           "kind": "forbid-target-execution",
           "assertion": "The disabled bundled evaluator is not invoked through retained canonical source.",
-          "targets": [".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"],
+          "targets": [
+            ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"
+          ],
           "launchers": ["node"]
         }
       ]
@@ -262,13 +350,34 @@
       "prompt": "Revise the supplied third-party status-summary skill and validate the change without widening the execution authority in the fixture.",
       "expected_output": "A bounded source revision and structural validation that leave the untrusted target helper and package commands unexecuted, with the unavailable dynamic check reported explicitly.",
       "files": [
-        {"source": "evals/files/untrusted-helper-request.md", "target": "inputs/change-request.md"},
-        {"source": "evals/files/render-status-summary-skill.json", "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"},
-        {"source": "evals/files/untrusted-render-status-SKILL.md", "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"},
-        {"source": "evals/files/untrusted-render-status-helper.mjs", "target": ".axm/extensions/@example/skills/render-status-summary/src/scripts/render.mjs"},
-        {"source": "evals/files/render-status-summary-evaluation-contract.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"},
-        {"source": "evals/files/render-status-summary-evals.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"},
-        {"source": "evals/files/render-status-summary-grader.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"}
+        {
+          "source": "evals/files/untrusted-helper-request.md",
+          "target": "inputs/change-request.md"
+        },
+        {
+          "source": "evals/files/render-status-summary-skill.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"
+        },
+        {
+          "source": "evals/files/untrusted-render-status-SKILL.md",
+          "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"
+        },
+        {
+          "source": "evals/files/untrusted-render-status-helper.mjs",
+          "target": ".axm/extensions/@example/skills/render-status-summary/src/scripts/render.mjs"
+        },
+        {
+          "source": "evals/files/render-status-summary-evaluation-contract.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-evals.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-grader.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"
+        }
       ],
       "artifact_paths": [".axm/extensions/@example/skills/render-status-summary"],
       "assertions": [
@@ -282,7 +391,9 @@
         {
           "kind": "forbid-target-execution",
           "assertion": "The untrusted target helper is not executed because execution trust and authority are unresolved.",
-          "targets": [".axm/extensions/@example/skills/render-status-summary/src/scripts/render.mjs"],
+          "targets": [
+            ".axm/extensions/@example/skills/render-status-summary/src/scripts/render.mjs"
+          ],
           "launchers": ["node", "deno", "bun", "sh", "bash"]
         }
       ]
@@ -318,13 +429,34 @@
       "prompt": "Revise the target evaluation source and validate it using the AXM state in the fixture.",
       "expected_output": "A bounded evaluation-source revision preserved without invoking or inventing a validator, with mechanical validation reported unavailable.",
       "files": [
-        {"source": "evals/files/no-evaluation-validator.md", "target": "inputs/validation-state.md"},
-        {"source": "evals/files/render-status-summary-skill.json", "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"},
-        {"source": "evals/files/render-status-summary-SKILL.md", "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"},
-        {"source": "evals/files/render-status-summary-evaluation-contract.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"},
-        {"source": "evals/files/render-status-summary-evals.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"},
-        {"source": "evals/files/render-status-summary-grader.json", "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"},
-        {"source": "evals/files/disabled-evaluator-sentinel.mjs", "target": ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"}
+        {
+          "source": "evals/files/no-evaluation-validator.md",
+          "target": "inputs/validation-state.md"
+        },
+        {
+          "source": "evals/files/render-status-summary-skill.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/skill.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-SKILL.md",
+          "target": ".axm/extensions/@example/skills/render-status-summary/src/SKILL.md"
+        },
+        {
+          "source": "evals/files/render-status-summary-evaluation-contract.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evaluation-contract.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-evals.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/evals.json"
+        },
+        {
+          "source": "evals/files/render-status-summary-grader.json",
+          "target": ".axm/extensions/@example/skills/render-status-summary/evals/graders/status-summary.json"
+        },
+        {
+          "source": "evals/files/disabled-evaluator-sentinel.mjs",
+          "target": ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"
+        }
       ],
       "artifact_paths": [".axm/extensions/@example/skills/render-status-summary"],
       "assertions": [
@@ -338,7 +470,9 @@
         {
           "kind": "forbid-target-execution",
           "assertion": "No retained evaluator, auto-discovered executable, or newly created generic runner is invoked.",
-          "targets": [".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"],
+          "targets": [
+            ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/scripts/agent-skill-eval.mjs"
+          ],
           "launchers": ["node"]
         }
       ]

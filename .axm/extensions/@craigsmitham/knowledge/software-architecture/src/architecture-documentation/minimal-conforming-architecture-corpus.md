@@ -61,13 +61,13 @@ examples from this document.
 
 ## Manual conformance report
 
-| Property | Result |
-| --- | --- |
-| Assessment date | 2026-08-21 (America/Chicago) |
-| Assessor | `codex/gpt-5.6` |
-| Assessment kind | Author self-assessment; not independent verification |
-| OKF v0.2 result | Conforms for the linked fixture files |
-| Profile result | Conforms to applicable `software-architecture-docs` version 0.7.0 rules |
+| Property        | Result                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Assessment date | 2026-08-21 (America/Chicago)                                            |
+| Assessor        | `codex/gpt-5.6`                                                         |
+| Assessment kind | Author self-assessment; not independent verification                    |
+| OKF v0.2 result | Conforms for the linked fixture files                                   |
+| Profile result  | Conforms to applicable `software-architecture-docs` version 0.7.0 rules |
 
 The assessment examined these rules manually:
 
@@ -97,9 +97,12 @@ This report is evidence that the written example was checked against the named
 rules on the stated date. It is not a human verification event, reader test,
 or executable validator result, and the concept remains `draft`.
 
-[^software-architecture-docs-profile]: The profile defines the concept types,
+[^software-architecture-docs-profile]:
+    The profile defines the concept types,
     paths, containment constraints, lifecycle context, and manual validation
     rules applied here.
-[^just-enough-architecture-docs]: Just Enough Architecture Docs limits the
+
+[^just-enough-architecture-docs]:
+    Just Enough Architecture Docs limits the
     corpus to accepted, durable meaning that executable and runtime authorities
     do not already reveal reliably enough.

@@ -70,7 +70,7 @@ For each cluster, preserve these dimensions separately:
 - `Extent`: affected surfaces, versions, roles, or workflows actually
   established;
 - `Urgency`: evidence that delay changes the cost or consequence, or `none
-  known`;
+known`;
 - `Potential consequence`: an evidence-supported plausible outcome beyond what
   occurred, or `not assessed`;
 - `Detectability`: `obvious`, `delayed`, `silent`, or `unknown`;

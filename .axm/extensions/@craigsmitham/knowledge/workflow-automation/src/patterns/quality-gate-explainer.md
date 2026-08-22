@@ -30,7 +30,9 @@ Platforms implement gates through automated health and policy checks, manual
 approvals, environment protection, conditions, and transitions.[^azure-gates][^github-environments][^aws-codepipeline]
 
 [^azure-gates]: Azure Pipelines deployment gates concepts
+
 [^github-environments]: GitHub Actions deployments and environments
+
 [^aws-codepipeline]: AWS CodePipeline concepts
 
 ## Structure in the workflow model
@@ -41,11 +43,11 @@ and usually protects a target, group, or downstream task.
 
 Its states should distinguish at least:
 
-* **waiting** — evidence or an authorized decision is not yet available
-* **passed** — stated criteria were satisfied
-* **failed or denied** — criteria were not satisfied or approval was rejected
-* **timed out** — no acceptable decision arrived within the allowed interval
-* **bypassed or overridden** — progression was explicitly authorized outside
+- **waiting** — evidence or an authorized decision is not yet available
+- **passed** — stated criteria were satisfied
+- **failed or denied** — criteria were not satisfied or approval was rejected
+- **timed out** — no acceptable decision arrived within the allowed interval
+- **bypassed or overridden** — progression was explicitly authorized outside
   normal criteria
 
 Skipped, timed-out, and overridden are not synonyms for passed.
@@ -54,11 +56,11 @@ Skipped, timed-out, and overridden are not synonyms for passed.
 
 A gate is only as meaningful as its evidence. Useful evidence is:
 
-* relevant to the risk being controlled
-* attributable to the same revision, artifact, or target being advanced
-* fresh enough for the decision
-* available to the decision maker in understandable form
-* retained with the decision for later explanation
+- relevant to the risk being controlled
+- attributable to the same revision, artifact, or target being advanced
+- fresh enough for the decision
+- available to the decision maker in understandable form
+- retained with the decision for later explanation
 
 An automated gate may consume test results, policy evaluations, signatures,
 coverage thresholds, vulnerability findings, change windows, or target health.
@@ -90,29 +92,29 @@ gate's assurance impossible to interpret.
 
 ## Quality consequences
 
-| Concern | Positive effect | Cost or risk |
-| --- | --- | --- |
-| Effectiveness | Prevents progression without required evidence | Poor criteria can certify the wrong outcome |
-| Performance | Stops bad candidates before expensive downstream work | Waiting and serial gates increase lead time |
-| Efficiency | Avoids work or effects known to be unacceptable | Repeated polling and redundant approvals consume resources and attention |
-| Dependability | Makes progression criteria and exceptions explicit | Flaky evidence creates unstable decisions |
-| Experience | Gives users a clear decision point and reason | Opaque failures or approval queues turn the gate into bureaucracy |
+| Concern       | Positive effect                                       | Cost or risk                                                             |
+| ------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| Effectiveness | Prevents progression without required evidence        | Poor criteria can certify the wrong outcome                              |
+| Performance   | Stops bad candidates before expensive downstream work | Waiting and serial gates increase lead time                              |
+| Efficiency    | Avoids work or effects known to be unacceptable       | Repeated polling and redundant approvals consume resources and attention |
+| Dependability | Makes progression criteria and exceptions explicit    | Flaky evidence creates unstable decisions                                |
+| Experience    | Gives users a clear decision point and reason         | Opaque failures or approval queues turn the gate into bureaucracy        |
 
 ## Common failure forms
 
-* **Ceremonial approval** — the approver lacks timely evidence or meaningful
+- **Ceremonial approval** — the approver lacks timely evidence or meaningful
   authority.
-* **Flaky gate** — unreliable checks make progression probabilistic.
-* **Unowned wait** — no person or system is responsible for resolving the gate.
-* **Detached evidence** — checks describe a different revision, artifact, or
+- **Flaky gate** — unreliable checks make progression probabilistic.
+- **Unowned wait** — no person or system is responsible for resolving the gate.
+- **Detached evidence** — checks describe a different revision, artifact, or
   target.
-* **Binary opacity** — pass/fail is shown without criteria, inputs, or reason.
-* **Permanent emergency bypass** — exceptions become the ordinary path while
+- **Binary opacity** — pass/fail is shown without criteria, inputs, or reason.
+- **Permanent emergency bypass** — exceptions become the ordinary path while
   the nominal gate remains for appearance.
 
 ## Related
 
-* [Workflow model](../workflow-model-explainer.md)
-* [Pipeline](pipeline-explainer.md)
-* [Continuous delivery](../practices/continuous-delivery-explainer.md)
-* [Continuous deployment](../practices/continuous-deployment-explainer.md)
+- [Workflow model](../workflow-model-explainer.md)
+- [Pipeline](pipeline-explainer.md)
+- [Continuous delivery](../practices/continuous-delivery-explainer.md)
+- [Continuous deployment](../practices/continuous-deployment-explainer.md)

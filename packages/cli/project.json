@@ -78,15 +78,13 @@
         "{workspaceRoot}/README.md",
         "{projectRoot}/README.md",
         "{projectRoot}/help/topics/getting-started.md",
-        "{projectRoot}/help/topics/basic-usage.md",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/**/*"
+        "{projectRoot}/help/topics/basic-usage.md"
       ],
       "outputs": [
         "{workspaceRoot}/README.md",
         "{projectRoot}/README.md",
         "{projectRoot}/help/topics/getting-started.md",
-        "{projectRoot}/help/topics/basic-usage.md",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/**/*"
+        "{projectRoot}/help/topics/basic-usage.md"
       ],
       "executor": "nx:run-commands",
       "options": {
@@ -116,7 +114,7 @@
     },
     "generate:bundled-axm-skill": {
       "cache": true,
-      "dependsOn": ["generate:type-enumerations", { "projects": ["core"], "target": "build" }],
+      "dependsOn": [{ "projects": ["core"], "target": "build" }],
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",

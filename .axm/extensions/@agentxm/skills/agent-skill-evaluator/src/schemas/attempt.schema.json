@@ -4,7 +4,20 @@
   "title": "Agent Skill evaluation attempt",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "case_id", "configuration_id", "configuration_role", "trial_number", "attempt_number", "comparison_position", "outcome", "failure_class", "started_at", "ended_at", "duration_ms"],
+  "required": [
+    "schema_version",
+    "case_id",
+    "configuration_id",
+    "configuration_role",
+    "trial_number",
+    "attempt_number",
+    "comparison_position",
+    "outcome",
+    "failure_class",
+    "started_at",
+    "ended_at",
+    "duration_ms"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "case_id": { "type": ["string", "integer"] },

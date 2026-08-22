@@ -47,16 +47,16 @@ its source when that source matters.
    invisible.
 4. Apply each criterion contextually:
 
-   | Criterion | Ask |
-   | --- | --- |
-   | True | Is it correct, authentic, accurate, and faithful to reality and its purpose? |
-   | Honorable | Is it responsible, well-made, dignified, and worthy of respect? |
-   | Just | Is it fair, proportionate, rightly ordered, and considerate of affected parties? |
-   | Pure | Is it coherent and uncorrupted by manipulation, contamination, needless complexity, or hidden compromise? |
-   | Lovely | Is it fitting, harmonious, delightful, beautiful, or life-giving for its kind — including the experience it creates, directly or through a mediator, for those who receive or use it? |
-   | Commendable | Can it responsibly be recommended, celebrated, or offered as an example? |
-   | Excellent | How well does it fulfill the standards proper to its kind? |
-   | Praiseworthy | What specifically merits recognition, gratitude, imitation, and preservation? |
+   | Criterion    | Ask                                                                                                                                                                                   |
+   | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | True         | Is it correct, authentic, accurate, and faithful to reality and its purpose?                                                                                                          |
+   | Honorable    | Is it responsible, well-made, dignified, and worthy of respect?                                                                                                                       |
+   | Just         | Is it fair, proportionate, rightly ordered, and considerate of affected parties?                                                                                                      |
+   | Pure         | Is it coherent and uncorrupted by manipulation, contamination, needless complexity, or hidden compromise?                                                                             |
+   | Lovely       | Is it fitting, harmonious, delightful, beautiful, or life-giving for its kind — including the experience it creates, directly or through a mediator, for those who receive or use it? |
+   | Commendable  | Can it responsibly be recommended, celebrated, or offered as an example?                                                                                                              |
+   | Excellent    | How well does it fulfill the standards proper to its kind?                                                                                                                            |
+   | Praiseworthy | What specifically merits recognition, gratitude, imitation, and preservation?                                                                                                         |
 
 5. When attention or formation is material, examine what the subject makes
    salient or hides; which loves, fears, desires, or resentments it cultivates;
@@ -70,7 +70,7 @@ its source when that source matters.
 - Prefer evidence and calibrated language to a single aggregate score. If the
   user requests scoring, define an anchored scale and retain the reasoning.
 - Mark a criterion `strong`, `mixed`, `weak`, `not evidenced`, or `not
-  materially relevant` when those labels aid comparison. Never invent evidence
+materially relevant` when those labels aid comparison. Never invent evidence
   merely to fill every row.
 - Evaluate the subject, not a person's hidden motives, spiritual standing, or
   worth.
@@ -123,6 +123,7 @@ Scale the response to the request. Usually provide:
       - **a. Recommended:** *Tighten* — cut redundant clauses to half length.
       - **b.** *Keep as-is* — accept the repetition as emphasis.
    ```
+
 6. **Overall judgment** — a concise account of the whole, including confidence
    and the most important tradeoff.
 

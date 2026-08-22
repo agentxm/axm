@@ -14,23 +14,23 @@ may be added separately as guides when they are warranted.
 
 ## Foundations
 
-* [Workflow automation](workflow-automation-explainer.md) - What automated
+- [Workflow automation](workflow-automation-explainer.md) - What automated
   workflow systems coordinate, which use cases belong to the field, and how
   workflows, patterns, and practices relate.
-* [Workflow model](workflow-model-explainer.md) - A portable definition/runtime
+- [Workflow model](workflow-model-explainer.md) - A portable definition/runtime
   taxonomy for workflow automation and mappings to the object models of major
   platforms.
-* [Agents and agentic workflows](agents-and-agentic-workflows.md) - Distinguishes
+- [Agents and agentic workflows](agents-and-agentic-workflows.md) - Distinguishes
   deterministic automation, LLM workflows, agents, and agents contained within
   durable workflows by who controls execution.
 
 ## Patterns
 
-* [Patterns](patterns/) - Recurring arrangements of workflow elements and the
+- [Patterns](patterns/) - Recurring arrangements of workflow elements and the
   forces and consequences that make each arrangement useful.
 
 ## Practices
 
-* [Practices](practices/) - Established ways of working that workflow
+- [Practices](practices/) - Established ways of working that workflow
   automation enables, including continuous integration, delivery, and
   deployment.

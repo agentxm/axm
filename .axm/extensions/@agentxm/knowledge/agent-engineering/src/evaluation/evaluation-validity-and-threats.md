@@ -2,7 +2,17 @@
 type: Reference
 title: Evaluation validity and threats
 description: Addresses construct validity, deployment fidelity, leakage, bias, gaming, evaluator failures, and independent review.
-tags: [construct-validity, leakage, contamination, bias, gaming, independence, metaevaluation, discrimination]
+tags:
+  [
+    construct-validity,
+    leakage,
+    contamination,
+    bias,
+    gaming,
+    independence,
+    metaevaluation,
+    discrimination,
+  ]
 status: stable
 generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
 stale_after: 2027-02-22
@@ -17,20 +27,20 @@ sources:
 
 # Evaluation validity and threats
 
-| Threat | Control |
-| --- | --- |
-| Wrong construct | Trace every metric and grader to the decision and real success condition. |
-| Unrepresentative cases | Sample from deployment conditions and document missing populations. |
-| Uninformative task difficulty | Size cases so the measured behavior can vary; work the system already completes unaided cannot demonstrate selection, value, or a boundary. |
-| Non-discriminating measures | Compare each measure across configurations; a check that passes everywhere reports coverage rather than evidence. |
-| Leakage or contamination | Separate development and held-out cases; restrict hidden fixtures and graders. Treat any suite iterated against until it passes as a tuning set. |
-| Environment mismatch | Match production tools, authority, state, limits, and failure conditions closely enough for the claim. |
-| Correlated trials | Reset state and identify shared infrastructure or simulator dependencies. |
-| Grader bias or drift | Calibrate, version, slice, inspect disagreement, and rerun stable calibration cases. |
-| Ambiguous or broken tasks | Require fair specifications, known solutions, and transcript review. |
-| Gaming and Goodhart effects | Keep critical measures plural, inspect surprising wins, and harden graders against bypasses. |
-| Evaluator conflict | Use independent review proportional to consequence and separate author claims from approval. |
-| Saturation | Move solved capability cases into regressions and introduce harder representative work. |
+| Threat                        | Control                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Wrong construct               | Trace every metric and grader to the decision and real success condition.                                                                        |
+| Unrepresentative cases        | Sample from deployment conditions and document missing populations.                                                                              |
+| Uninformative task difficulty | Size cases so the measured behavior can vary; work the system already completes unaided cannot demonstrate selection, value, or a boundary.      |
+| Non-discriminating measures   | Compare each measure across configurations; a check that passes everywhere reports coverage rather than evidence.                                |
+| Leakage or contamination      | Separate development and held-out cases; restrict hidden fixtures and graders. Treat any suite iterated against until it passes as a tuning set. |
+| Environment mismatch          | Match production tools, authority, state, limits, and failure conditions closely enough for the claim.                                           |
+| Correlated trials             | Reset state and identify shared infrastructure or simulator dependencies.                                                                        |
+| Grader bias or drift          | Calibrate, version, slice, inspect disagreement, and rerun stable calibration cases.                                                             |
+| Ambiguous or broken tasks     | Require fair specifications, known solutions, and transcript review.                                                                             |
+| Gaming and Goodhart effects   | Keep critical measures plural, inspect surprising wins, and harden graders against bypasses.                                                     |
+| Evaluator conflict            | Use independent review proportional to consequence and separate author claims from approval.                                                     |
+| Saturation                    | Move solved capability cases into regressions and introduce harder representative work.                                                          |
 
 NIST calls for construct validation, representative data, measurement under
 deployment-like conditions, independent assessors, and evaluation of the TEVV
@@ -43,4 +53,5 @@ can qualified reviewers reproduce the disposition, and would changing an
 irrelevant surface change the result?
 
 [^nist-rmf]: NIST — AI RMF Core
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

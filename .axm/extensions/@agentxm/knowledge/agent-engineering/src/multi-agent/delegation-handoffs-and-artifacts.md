@@ -44,4 +44,5 @@ Agent engineering must still define responsibility, trust, acceptance, and
 failure behavior for the application.
 
 [^fipa-management]: FIPA Agent Management Specification
+
 [^a2a-concepts]: Agent2Agent protocol — Key concepts

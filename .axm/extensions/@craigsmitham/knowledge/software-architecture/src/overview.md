@@ -2,7 +2,8 @@
 type: Explanation
 title: Software architecture overview
 description: What software architecture owns, what it deliberately leaves to other authorities, and how it relates desired structure to current implementation.
-tags: [software-architecture, system-design, offerings, value, desired-state, boundaries, explanation]
+tags:
+  [software-architecture, system-design, offerings, value, desired-state, boundaries, explanation]
 status: draft
 sources:
   - id: iso-42010
@@ -52,6 +53,7 @@ architecture description around stakeholders, concerns, viewpoints, and
 views.[^iso-42010] A useful set of architecture docs is therefore not the largest one; it is the
 one that exposes the decisions needed by its actual readers.
 
-[^iso-42010]: ISO/IEC/IEEE 42010 defines requirements for expressing
+[^iso-42010]:
+    ISO/IEC/IEEE 42010 defines requirements for expressing
     architecture descriptions across software, systems, enterprises, and
     related entities.

@@ -68,4 +68,5 @@ Read the trials, not only their outcomes. Work the skill caused that produced no
 value is a reason to remove instructions, and it is invisible in a pass rate.
 
 [^dynamic-lifecycle]: Dynamic lifecycle management for Agent Skills
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator

@@ -7,12 +7,12 @@ without copying facts that executable or live sources own better.
 
 ## Included extensions
 
-| Extension | Role |
-| --- | --- |
-| `@craigsmitham/knowledge/software-architecture` | Human-first, risk-driven architecture meaning, product quality requirements, lifecycle, stewardship, stable concept identity, selected views, and the Just Enough Architecture Docs pattern |
-| `@craigsmitham/skills/setup-architecture-docs` | Establish the system boundary, root, local adoption, authority routes, maintenance triggers, and agent discovery without empty or inferred scaffolding |
-| `@craigsmitham/skills/author-architecture-docs` | Create or revise the explicitly requested semantic delta while routing exact current facts to their authorities |
-| `@craigsmitham/skills/maintain-architecture-docs` | Repair established docs and recommend semantic lifecycle changes until the user explicitly authorizes them |
+| Extension                                         | Role                                                                                                                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@craigsmitham/knowledge/software-architecture`   | Human-first, risk-driven architecture meaning, product quality requirements, lifecycle, stewardship, stable concept identity, selected views, and the Just Enough Architecture Docs pattern |
+| `@craigsmitham/skills/setup-architecture-docs`    | Establish the system boundary, root, local adoption, authority routes, maintenance triggers, and agent discovery without empty or inferred scaffolding                                      |
+| `@craigsmitham/skills/author-architecture-docs`   | Create or revise the explicitly requested semantic delta while routing exact current facts to their authorities                                                                             |
+| `@craigsmitham/skills/maintain-architecture-docs` | Repair established docs and recommend semantic lifecycle changes until the user explicitly authorizes them                                                                                  |
 
 The three skills are non-standalone: they load the bundled knowledge through
 its canonical AXM path and are distributed through this pack. The knowledge

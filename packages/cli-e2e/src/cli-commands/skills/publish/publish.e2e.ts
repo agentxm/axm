@@ -311,9 +311,9 @@ describe("axm skills publish", () => {
 
         // Set up workspace with all 3 registered as configured skills
         await setupWorkspace(temp.path, registryDir.path, owner, {
-          "effect-basics": `${owner}/skills/effect-basics`,
-          "effect-stream": `${owner}/skills/effect-stream`,
-          commit: `${owner}/skills/commit`,
+          "effect-basics": `workspace:${owner}/skills/effect-basics`,
+          "effect-stream": `workspace:${owner}/skills/effect-stream`,
+          commit: `workspace:${owner}/skills/commit`,
         });
 
         // Publish with glob pattern
@@ -369,8 +369,8 @@ describe("axm skills publish", () => {
         createManagedExtension(temp.path, owner, "skill-b");
 
         await setupWorkspace(temp.path, registryDir.path, owner, {
-          "skill-a": `${owner}/skills/skill-a`,
-          "skill-b": `${owner}/skills/skill-b`,
+          "skill-a": `workspace:${owner}/skills/skill-a`,
+          "skill-b": `workspace:${owner}/skills/skill-b`,
         });
 
         // Publish multiple literal names

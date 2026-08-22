@@ -77,4 +77,5 @@ authority, history dependence, feedback flooding, untrusted injection, and
 compaction loss.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^context-files-evaluation]: Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding Agents?

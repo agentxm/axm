@@ -43,4 +43,3 @@ exist, and a skill that lets the surface supply the labels produces a different
 referent on each host.
 
 [^agent-skills-spec]: Agent Skills specification
-

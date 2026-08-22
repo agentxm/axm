@@ -2,7 +2,8 @@
 type: Reference
 title: Graders, rubrics, and metrics
 description: Chooses, calibrates, and combines deterministic, model-based, and human judgment instruments, and keeps the instrument itself under observation.
-tags: [graders, rubrics, metrics, model-judge, human-review, calibration, blinding, claim-verification]
+tags:
+  [graders, rubrics, metrics, model-judge, human-review, calibration, blinding, claim-verification]
 status: stable
 generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
 stale_after: 2027-02-22
@@ -22,12 +23,12 @@ sources:
 
 Use the least subjective instrument that can observe the contract:
 
-| Instrument | Best use | Main risk |
-| --- | --- | --- |
-| Deterministic check | Schema, tests, tool arguments, external state, limits, forbidden effects | Brittleness to valid alternatives |
-| Reference-based check | Bounded facts or expected components | Incomplete or stale references |
-| Model grader | Open-ended quality, grounded rubrics, pairwise discrimination | Nondeterminism and systematic bias |
-| Human grader | Consequential, novel, preference-sensitive, or calibration work | Cost, delay, and reviewer disagreement |
+| Instrument            | Best use                                                                 | Main risk                              |
+| --------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| Deterministic check   | Schema, tests, tool arguments, external state, limits, forbidden effects | Brittleness to valid alternatives      |
+| Reference-based check | Bounded facts or expected components                                     | Incomplete or stale references         |
+| Model grader          | Open-ended quality, grounded rubrics, pairwise discrimination            | Nondeterminism and systematic bias     |
+| Human grader          | Consequential, novel, preference-sensitive, or calibration work          | Cost, delay, and reviewer disagreement |
 
 Define graders before inspecting candidate outputs. Keep critical dimensions
 separate, give partial credit only where it represents meaningful partial
@@ -78,5 +79,7 @@ the suite: a grader that repairs the suite mid-run has altered the instrument
 during the measurement.
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
+
 [^llm-judge]: Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena
+
 [^anthropic-skill-creator-grader]: Anthropic — Skill Creator grader

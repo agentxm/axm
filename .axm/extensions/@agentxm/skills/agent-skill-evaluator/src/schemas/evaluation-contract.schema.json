@@ -3,7 +3,24 @@
   "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/evaluation-contract-3.0.0.json",
   "title": "Agent Skill evaluation contract",
   "type": "object",
-  "required": ["contract_version", "owner", "decision", "target_binding", "scope", "unit", "environment", "evidence", "grading", "trials", "comparison", "analysis", "estimand", "lifecycle", "provenance", "freshness"],
+  "required": [
+    "contract_version",
+    "owner",
+    "decision",
+    "target_binding",
+    "scope",
+    "unit",
+    "environment",
+    "evidence",
+    "grading",
+    "trials",
+    "comparison",
+    "analysis",
+    "estimand",
+    "lifecycle",
+    "provenance",
+    "freshness"
+  ],
   "properties": {
     "contract_version": { "enum": ["2.0.0", "3.0.0"] },
     "owner": { "type": "string" },
@@ -13,7 +30,11 @@
       "required": ["skill_name", "required_result_fields"],
       "properties": {
         "skill_name": { "type": "string" },
-        "required_result_fields": { "type": "array", "items": { "type": "string", "pattern": "^[a-z_]+(?:\\.[a-z_]+)*$" }, "uniqueItems": true }
+        "required_result_fields": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z_]+(?:\\.[a-z_]+)*$" },
+          "uniqueItems": true
+        }
       }
     },
     "scope": { "type": "object" },
@@ -56,7 +77,11 @@
       "required": ["preflight_failure", "terminal_states", "retry", "resume"],
       "properties": {
         "preflight_failure": { "type": "string" },
-        "terminal_states": { "type": "array", "items": { "enum": ["complete", "failed", "canceled"] }, "uniqueItems": true },
+        "terminal_states": {
+          "type": "array",
+          "items": { "enum": ["complete", "failed", "canceled"] },
+          "uniqueItems": true
+        },
         "retry": { "type": "string" },
         "resume": { "type": "string" }
       }

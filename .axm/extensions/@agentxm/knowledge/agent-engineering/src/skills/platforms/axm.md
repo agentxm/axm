@@ -42,11 +42,11 @@ contracts.[^axm-skills-help]
 
 Keep these state families distinct:[^axm-workspace-state-help]
 
-| State | Authority |
-| --- | --- |
-| Desired | `.axm/settings.json` and workspace-authored pack manifests |
-| Accepted resolution | Immutable external identities in `.axm/axm-lock.yaml` |
-| Observed | Canonical packages, projections, managed regions, and ownership markers |
+| State               | Authority                                                               |
+| ------------------- | ----------------------------------------------------------------------- |
+| Desired             | `.axm/settings.json` and workspace-authored pack manifests              |
+| Accepted resolution | Immutable external identities in `.axm/axm-lock.yaml`                   |
+| Observed            | Canonical packages, projections, managed regions, and ownership markers |
 
 Use AXM commands or desired-state sources to change intent. Use `axm lint` for
 read-only facts and `axm sync --preview` before reconciliation. Never reconstruct
@@ -72,14 +72,14 @@ belong together, recommend one pack rather than parallel entries.[^axm-package-e
 Governance states and AXM operations answer different questions. A governance
 decision can require several AXM actions:
 
-| Intent | AXM control |
-| --- | --- |
-| Record migration guidance | `axm deprecate` |
-| Exclude one or all versions from fresh resolution | `axm yank` |
-| Retain an installed extension but deactivate it | Type-specific `disable` |
-| Remove an extension from one workspace | `axm uninstall` |
-| Change an authored package version | `axm version` |
-| Reconcile accepted intent and owned projections | `axm sync` |
+| Intent                                            | AXM control             |
+| ------------------------------------------------- | ----------------------- |
+| Record migration guidance                         | `axm deprecate`         |
+| Exclude one or all versions from fresh resolution | `axm yank`              |
+| Retain an installed extension but deactivate it   | Type-specific `disable` |
+| Remove an extension from one workspace            | `axm uninstall`         |
+| Change an authored package version                | `axm version`           |
+| Reconcile accepted intent and owned projections   | `axm sync`              |
 
 Deprecation is warning-only: it does not block fresh resolution or deactivate
 existing installations. Yanking changes fresh resolution without deleting the
@@ -100,7 +100,11 @@ profile was checked against AXM 0.27.15 and must be refreshed against the
 current CLI and schemas after its `stale_after` date.
 
 [^axm-skills-architecture]: AXM — Skills architecture
+
 [^axm-skills-help]: AXM CLI — Skills help
+
 [^axm-packs-help]: AXM CLI — Packs help
+
 [^axm-workspace-state-help]: AXM CLI — Workspace state help
+
 [^axm-package-extensions-help]: AXM CLI — Package extensions help

@@ -2,7 +2,17 @@
 type: Reference
 title: Continuous integration, delivery, and deployment
 description: Distinguishes continuous integration, continuous delivery, and continuous deployment by the change-flow commitment, evidence, and release decision each practice owns.
-tags: [workflow, continuous-integration, continuous-delivery, continuous-deployment, release, deployment, practices, boundaries]
+tags:
+  [
+    workflow,
+    continuous-integration,
+    continuous-delivery,
+    continuous-deployment,
+    release,
+    deployment,
+    practices,
+    boundaries,
+  ]
 status: draft
 sources:
   - id: fowler-ci
@@ -33,11 +43,11 @@ quality consequences.
 
 ## Comparison
 
-| Practice | Change-flow commitment | Evidence must establish | Routine progression stops when | Release decision |
-| --- | --- | --- | --- | --- |
-| **Continuous integration** | Contributors integrate small changes into a shared mainline frequently | The exact integrated revision passed the checks the team claims | Integration fails or the mainline cannot be trusted | Outside the practice's defining boundary |
-| **Continuous delivery** | Every accepted change remains safely and sustainably releasable through the ordinary path | One identified candidate is qualified, deployable, and recoverable for its intended target | Evidence fails or an intentional release decision says not yet | May remain a deliberate human or business decision |
-| **Continuous deployment** | Every qualifying change progresses automatically to a declared production effect | Policy authorizes the exact candidate and production verification confirms or contains its effect | Qualification or policy fails, or production controls stop progression | Encoded in policy; no separate routine approval for a qualifying change |
+| Practice                   | Change-flow commitment                                                                    | Evidence must establish                                                                           | Routine progression stops when                                         | Release decision                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Continuous integration** | Contributors integrate small changes into a shared mainline frequently                    | The exact integrated revision passed the checks the team claims                                   | Integration fails or the mainline cannot be trusted                    | Outside the practice's defining boundary                                |
+| **Continuous delivery**    | Every accepted change remains safely and sustainably releasable through the ordinary path | One identified candidate is qualified, deployable, and recoverable for its intended target        | Evidence fails or an intentional release decision says not yet         | May remain a deliberate human or business decision                      |
+| **Continuous deployment**  | Every qualifying change progresses automatically to a declared production effect          | Policy authorizes the exact candidate and production verification confirms or contains its effect | Qualification or policy fails, or production controls stop progression | Encoded in policy; no separate routine approval for a qualifying change |
 
 Continuous delivery normally builds on continuous integration: a change cannot
 remain releasable when integration is infrequent or the shared state is
@@ -90,7 +100,11 @@ those systems by making release timing the decision instead of whether the
 release process can be made to work.
 
 [^fowler-ci]: Martin Fowler — Continuous Integration
+
 [^dora-ci]: DORA — Continuous integration
+
 [^dora-cd]: DORA — Continuous delivery
+
 [^continuous-delivery-foundation]: Continuous Delivery
+
 [^delivery-vs-deployment]: Continuous Delivery vs Continuous Deployment

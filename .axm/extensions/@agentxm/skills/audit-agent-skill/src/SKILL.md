@@ -2,6 +2,7 @@
 name: audit-agent-skill
 description: Audits an Agent Skill against applicable skill-engineering guidance and produces snapshot-bound findings about design, routing, execution, portability, authority, provenance, licensing, packaging, and lifecycle integrity. Use when asked to audit, review, assess, check conformity, verify remediation, or audit and fix an Agent Skill or SKILL.md package. Not for running a behavioral evaluation suite, silently modifying a skill during an assessment-only audit, or independently approving it.
 ---
+
 # Audit an Agent Skill
 
 Assess an exact Agent Skill revision against an explicit guidance baseline and
@@ -182,7 +183,7 @@ not an independent audit or approval.
    authoring disposition without calling it audit closure.
 10. **Verify closure.** Bind the revised identity, rerun affected expectations
     and neighboring regressions, and mark each finding `Closed`, `Partially
-    closed`, `Open`, `Accepted exception`, or `Inconclusive`. Stop when the
+closed`, `Open`, `Accepted exception`, or `Inconclusive`. Stop when the
     scope conforms, remaining work needs external evidence or human authority,
     a finding is intentionally deferred, or another pass makes no progress.
 

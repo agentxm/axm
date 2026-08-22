@@ -43,4 +43,5 @@ representativeness by themselves. Keep source class and generation method
 visible for every case.
 
 [^openai-evals]: OpenAI — Evaluation best practices
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

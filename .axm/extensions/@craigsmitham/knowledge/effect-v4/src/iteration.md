@@ -2,7 +2,20 @@
 type: Guide
 title: Iteration
 description: Choosing traversal, combination, loop, and Schedule primitives and the concurrency bound each traversal deserves; use when replacing async loops, polling, retries, or manual accumulators.
-tags: [effect, effect-v4, iteration, foreach, all, whileloop, schedule, retry, repeat, traversal, concurrency-bound]
+tags:
+  [
+    effect,
+    effect-v4,
+    iteration,
+    foreach,
+    all,
+    whileloop,
+    schedule,
+    retry,
+    repeat,
+    traversal,
+    concurrency-bound,
+  ]
 status: stable
 sources:
   - id: src-effect
@@ -79,15 +92,18 @@ coordination primitives.
   values.[^docs-streams]
 
 ```ts
-import { Effect } from "effect"
+import { Effect } from "effect";
 
 const results = Effect.forEach(inputs, processOne, {
   concurrency: 8,
-})
+});
 
-const pair = Effect.all({ profile: loadProfile, settings: loadSettings }, {
-  concurrency: "unbounded",
-})
+const pair = Effect.all(
+  { profile: loadProfile, settings: loadSettings },
+  {
+    concurrency: "unbounded",
+  },
+);
 ```
 
 ## Make execution policy visible
@@ -128,11 +144,19 @@ const pair = Effect.all({ profile: loadProfile, settings: loadSettings }, {
   and cardinality.
 
 [^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `forEach` ("By default, the operations are performed sequentially", short-circuit, `discard`), `Effect.all` shape preservation and `mode: "result"`, `whileLoop`, `retry` ("Defects and interruptions are not retried"), `repeat`; no `iterate` or `loop` export. `Stream.iterate`: `packages/effect/src/Stream.ts`.
+
 [^src-types]: `packages/effect/src/Types.ts` at `effect@4.0.0-rc.110` — `Concurrency = number | "unbounded"`.
+
 [^docs-schedule]: `ai-docs/src/06_schedule/10_schedules.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-streams]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.110`.
+
 [^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.110` — forEach sequential default and bounded/unbounded concurrency behavior.
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/git.ts` (effect 4.0.0-beta.83) — `Effect.all` at `concurrency: 2` for a fixed pair, `forEach` at `concurrency: 8` for a variable file list, per-item stat failures converted to data.
+
 [^applied-opencode-polling]: Observed in opencode@2cba7e2 `packages/core/src/models-dev.ts` (effect 4.0.0-beta.83) — refresh piped through `Effect.repeat(Schedule.spaced("60 minutes"))`.
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/DiscordGateway/DiscordWS.ts` (effect 4.0.0-beta.105) — `Effect.retry({ while })` on a typed close error, reconnects under `Schedule.min([Schedule.exponential(500), Schedule.spaced(10000)])`.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-browser/src/MultiTab.ts` (effect 4.0.0-beta.103) — `Effect.forEach(..., { discard: true })` release traversal guarded by a shared Semaphore permit.

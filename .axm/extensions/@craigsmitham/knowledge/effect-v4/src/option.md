@@ -64,10 +64,10 @@ Related: [Error modeling](error-modeling.md) for the failure/absence boundary,
 ## Convert once at each edge
 
 ```ts
-import { Option } from "effect"
+import { Option } from "effect";
 
-const domainValue = Option.fromNullishOr(input.value)
-const encodedValue = Option.getOrNull(domainValue)
+const domainValue = Option.fromNullishOr(input.value);
+const encodedValue = Option.getOrNull(domainValue);
 ```
 
 - Convert inward with `Option.fromNullishOr` as soon as untrusted nullish data
@@ -107,6 +107,9 @@ const encodedValue = Option.getOrNull(domainValue)
 - Types within one public interface use a consistent optionality convention.
 
 [^src-option]: `packages/effect/src/Option.ts` at `effect@4.0.0-rc.110` — `fromNullishOr` (`@since 4.0.0`; null/undefined to `None`, other values to `Some<NonNullable<A>>`), `fromNullOr`, `fromUndefinedOr`, `getOrNull`, `getOrUndefined`, `match`, `map`, `flatMap`.
+
 [^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `OptionFromNullOr`, `OptionFromUndefinedOr`, `OptionFromNullishOr` (with `onNoneEncoding`), `OptionFromOptionalKey`; documented in `packages/effect/SCHEMA.md` "Optional Fields as Options".
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/common/src/leader-thread/eventlog.ts` (effect 4.0.0-beta.99).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/llm/src/route/client.ts` (effect 4.0.0-beta.83).

@@ -69,7 +69,12 @@
       "stage": "routing",
       "prompt": "Create fixtures, cases, and a grader for this Agent Skill's evaluation suite.",
       "expected_selection": ["axm", "author-agent-skill"],
-      "catalog_neighbors": ["axm", "evaluate-agent-skill", "author-agent-skill", "audit-agent-skill"],
+      "catalog_neighbors": [
+        "axm",
+        "evaluate-agent-skill",
+        "author-agent-skill",
+        "audit-agent-skill"
+      ],
       "assertions": [
         "Evaluation-source authoring routes to AXM and author-agent-skill.",
         "The evaluator mechanism abstains from changing cases or graders."

@@ -12,12 +12,5 @@
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT AND Apache-2.0",
   "description": "Authors, converts, maintains, and validates OKF v0.2 bundles and application profiles",
-  "keywords": [
-    "okf",
-    "knowledge",
-    "documentation",
-    "provenance",
-    "validation",
-    "markdown"
-  ]
+  "keywords": ["okf", "knowledge", "documentation", "provenance", "validation", "markdown"]
 }

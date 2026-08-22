@@ -81,6 +81,7 @@ has not accepted one.
    Do not collapse disagreement into staleness. When prose and current evidence
    differ, determine whether the implementation is wrong, the docs are
    obsolete, evidence is insufficient, or accepted intent changed.
+
 6. **Act only in maintain mode and within evidence.** Repair navigation, links,
    metadata, and relationships when the correct state is unambiguous. Revise
    existing semantic content only when accepted authority establishes the

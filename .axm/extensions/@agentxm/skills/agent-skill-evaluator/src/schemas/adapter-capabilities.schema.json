@@ -4,7 +4,21 @@
   "title": "Agent Skill evaluator adapter capabilities",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "adapter", "protocol_versions", "operations", "stages", "routing_mode", "sandbox_modes", "sandbox_status", "enforced_budgets", "evidence", "network", "credential_isolation", "lifecycle"],
+  "required": [
+    "schema_version",
+    "adapter",
+    "protocol_versions",
+    "operations",
+    "stages",
+    "routing_mode",
+    "sandbox_modes",
+    "sandbox_status",
+    "enforced_budgets",
+    "evidence",
+    "network",
+    "credential_isolation",
+    "lifecycle"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "adapter": {
@@ -19,12 +33,42 @@
     },
     "protocol_versions": { "type": "array", "contains": { "const": "1.0.0" } },
     "operations": { "type": "array", "items": { "enum": ["trial", "grade"] }, "uniqueItems": true },
-    "stages": { "type": "array", "items": { "enum": ["routing", "execution"] }, "uniqueItems": true },
-    "routing_mode": { "enum": ["native-routing", "host-simulated-routing", "catalog-classification-proxy", "unsupported"] },
+    "stages": {
+      "type": "array",
+      "items": { "enum": ["routing", "execution"] },
+      "uniqueItems": true
+    },
+    "routing_mode": {
+      "enum": [
+        "native-routing",
+        "host-simulated-routing",
+        "catalog-classification-proxy",
+        "unsupported"
+      ]
+    },
     "sandbox_modes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "sandbox_status": { "enum": ["declared", "observed", "verified", "enforced"] },
-    "enforced_budgets": { "type": "array", "items": { "enum": ["wall-clock", "output-bytes", "invocations", "tokens", "cost"] }, "uniqueItems": true },
-    "evidence": { "type": "array", "items": { "enum": ["response", "transcript", "artifacts", "filesystem", "subprocess", "network", "tool-calls", "usage"] }, "uniqueItems": true },
+    "enforced_budgets": {
+      "type": "array",
+      "items": { "enum": ["wall-clock", "output-bytes", "invocations", "tokens", "cost"] },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "response",
+          "transcript",
+          "artifacts",
+          "filesystem",
+          "subprocess",
+          "network",
+          "tool-calls",
+          "usage"
+        ]
+      },
+      "uniqueItems": true
+    },
     "network": {
       "type": "object",
       "additionalProperties": false,

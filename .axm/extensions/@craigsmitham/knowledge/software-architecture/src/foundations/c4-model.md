@@ -2,7 +2,19 @@
 type: Explanation
 title: C4 model
 description: How the C4 model uses hierarchical abstractions and selected diagrams to communicate software structure at different levels of detail, and where it needs complementary architecture views.
-tags: [c4-model, software-system, system-context, containers, components, code, offerings, architecture-diagrams, dynamic-diagram, deployment-diagram]
+tags:
+  [
+    c4-model,
+    software-system,
+    system-context,
+    containers,
+    components,
+    code,
+    offerings,
+    architecture-diagrams,
+    dynamic-diagram,
+    deployment-diagram,
+  ]
 status: draft
 sources:
   - id: c4-model
@@ -57,13 +69,13 @@ software system
 People interact with software systems but are not another containment level.
 The abstractions have specific meanings:[^c4-abstractions]
 
-| Abstraction | Meaning |
-| --- | --- |
-| **Person** | A human actor, role, or persona that uses a software system. |
-| **Software system** | The highest-level software boundary being described; it delivers value to people or other systems. |
-| **Container** | An application or data store inside a software system, such as a server application, browser application, mobile application, batch process, or database schema. |
-| **Component** | A grouping of related functionality encapsulated behind a well-defined interface inside one container. |
-| **Code** | The classes, interfaces, objects, functions, tables, or other implementation elements that realize a component. |
+| Abstraction         | Meaning                                                                                                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Person**          | A human actor, role, or persona that uses a software system.                                                                                                     |
+| **Software system** | The highest-level software boundary being described; it delivers value to people or other systems.                                                               |
+| **Container**       | An application or data store inside a software system, such as a server application, browser application, mobile application, batch process, or database schema. |
+| **Component**       | A grouping of related functionality encapsulated behind a well-defined interface inside one container.                                                           |
+| **Code**            | The classes, interfaces, objects, functions, tables, or other implementation elements that realize a component.                                                  |
 
 A C4 container is not necessarily a Docker or operating-system container. It
 is an application or data-store boundary; its mapping to infrastructure belongs
@@ -75,12 +87,12 @@ container.[^c4-component]
 
 Each core diagram holds one scope and primary abstraction level steady:
 
-| Diagram | Scope and question |
-| --- | --- |
-| **System context** | One software system: who uses it, what surrounds it, and which external systems it interacts with. |
-| **Container** | One software system: which applications and data stores it contains, what each is responsible for, and how they communicate. |
-| **Component** | One container: how its architecturally significant functionality is partitioned. |
-| **Code** | One component: which implementation elements realize it. |
+| Diagram            | Scope and question                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| **System context** | One software system: who uses it, what surrounds it, and which external systems it interacts with.                           |
+| **Container**      | One software system: which applications and data stores it contains, what each is responsible for, and how they communicate. |
+| **Component**      | One container: how its architecturally significant functionality is partitioned.                                             |
+| **Code**           | One component: which implementation elements realize it.                                                                     |
 
 These diagrams form a zoom sequence, but they are not a mandatory checklist.
 The official guidance says system-context and container diagrams are sufficient
@@ -90,11 +102,11 @@ are usually better generated on demand.[^c4-diagrams]
 
 C4 also defines three supporting diagram types:
 
-| Diagram | What it adds |
-| --- | --- |
-| **System landscape** | People and software systems across an enterprise, organization, or another broad scope. |
-| **Dynamic** | The ordered collaboration of existing C4 elements for one selected scenario of a feature, use case, or behavior. |
-| **Deployment** | Instances of software systems and containers mapped to infrastructure for a named environment. |
+| Diagram              | What it adds                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **System landscape** | People and software systems across an enterprise, organization, or another broad scope.                          |
+| **Dynamic**          | The ordered collaboration of existing C4 elements for one selected scenario of a feature, use case, or behavior. |
+| **Deployment**       | Instances of software systems and containers mapped to infrastructure for a named environment.                   |
 
 Dynamic and deployment diagrams add behavioral and operational perspectives;
 they do not add more levels to the static containment hierarchy.
@@ -172,20 +184,33 @@ systems](../guides/documenting-c4-software-systems.md),
 [components](../guides/documenting-c4-components.md), and
 [views](../guides/documenting-c4-views.md) when authoring one artifact.
 
-[^c4-model]: The official C4 overview defines the hierarchical abstractions,
+[^c4-model]:
+    The official C4 overview defines the hierarchical abstractions,
     core and supporting diagrams, and notation- and tooling-independent stance.
-[^c4-abstractions]: The official abstraction guide defines software systems,
+
+[^c4-abstractions]:
+    The official abstraction guide defines software systems,
     containers, components, code, and the role of people.
-[^c4-component]: The official component definition distinguishes components
+
+[^c4-component]:
+    The official component definition distinguishes components
     from separately deployable units and implementation packaging.
-[^c4-diagrams]: The official diagram guide distinguishes four core static
+
+[^c4-diagrams]:
+    The official diagram guide distinguishes four core static
     diagrams from three supporting diagrams and recommends using only the
     views that add value.
-[^c4-notation]: The official notation guide describes how to make diagrams
+
+[^c4-notation]:
+    The official notation guide describes how to make diagrams
     self-describing despite C4's notation independence.
-[^c4-faq]: The official FAQ states that C4 focuses on describing software
+
+[^c4-faq]:
+    The official FAQ states that C4 focuses on describing software
     structure and does not imply a delivery process or replace complementary
     domain, process, state, and data models.
-[^goal-oriented-behavior]: Goal-oriented behavior and use cases distinguishes
+
+[^goal-oriented-behavior]:
+    Goal-oriented behavior and use cases distinguishes
     the behavioral context owned by a use case from the selected collaboration
     owned by a dynamic view.

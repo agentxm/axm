@@ -42,16 +42,16 @@ loops rather than focusing only on writing code or prompts.[^openai-harness-engi
 A harness may be small or distributed, but it normally carries some combination
 of these responsibilities:
 
-| Responsibility | Question |
-| --- | --- |
-| Task-contract delivery | How is the agent-owned goal, responsibility, evidence, and stopping contract represented and enforced? |
-| Context delivery | How is selected information made available through the runtime? |
-| Action and observation interfaces | What can the agent do and inspect? |
-| Runtime and environment | Where does work execute, and how is it isolated and reproduced? |
-| State and continuity | How are task and execution state persisted, reconciled, and resumed? |
-| Feedback and verification | What mechanical evidence and failure signals are produced and retained? |
-| Authority and containment | How are permissions, approvals, budgets, isolation, and hard limits enforced? |
-| Operation and improvement | How are runs observed, evaluated, diagnosed, and improved? |
+| Responsibility                    | Question                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Task-contract delivery            | How is the agent-owned goal, responsibility, evidence, and stopping contract represented and enforced? |
+| Context delivery                  | How is selected information made available through the runtime?                                        |
+| Action and observation interfaces | What can the agent do and inspect?                                                                     |
+| Runtime and environment           | Where does work execute, and how is it isolated and reproduced?                                        |
+| State and continuity              | How are task and execution state persisted, reconciled, and resumed?                                   |
+| Feedback and verification         | What mechanical evidence and failure signals are produced and retained?                                |
+| Authority and containment         | How are permissions, approvals, budgets, isolation, and hard limits enforced?                          |
+| Operation and improvement         | How are runs observed, evaluated, diagnosed, and improved?                                             |
 
 Recent research describes a similar runtime substrate spanning task
 specification delivery, context access, tools, project memory, task state,
@@ -157,4 +157,5 @@ for the axes and recognizable applied profiles.
 - The [glossary](../glossary.md) defines the vocabulary used across the bundle.
 
 [^openai-harness-engineering]: OpenAI — Harness engineering
+
 [^ai-harness-runtime]: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents

@@ -51,4 +51,5 @@ Evaluate prompt defenses as one layer. Never report the system secure merely
 because known injection strings were refused.
 
 [^owasp-injection]: OWASP — LLM Prompt Injection Prevention Cheat Sheet
+
 [^owasp-leakage]: OWASP — System Prompt Leakage

@@ -115,13 +115,13 @@ session count, or opportunity count, apply its verification criteria, and check
 for new notes of the same class. A recurrence reopens the finding regardless of
 what shipped.
 
-| Status | Meaning |
-| --- | --- |
-| `open` | Recorded note, below threshold or not yet triaged |
-| `promoted` | Recurrence confirmed; finding and decision proposed |
-| `applied` | Accepted change landed; effectiveness window still open |
-| `closed` | Intended effect and named adverse effects checked successfully |
-| `dropped` | Removed from field-note triage with a recorded disposition |
+| Status     | Meaning                                                        |
+| ---------- | -------------------------------------------------------------- |
+| `open`     | Recorded note, below threshold or not yet triaged              |
+| `promoted` | Recurrence confirmed; finding and decision proposed            |
+| `applied`  | Accepted change landed; effectiveness window still open        |
+| `closed`   | Intended effect and named adverse effects checked successfully |
+| `dropped`  | Removed from field-note triage with a recorded disposition     |
 
 `dropped` matters more than it looks. Without it, rejected observations or
 notes moved to another workflow return every review cycle and the backlog never
@@ -133,18 +133,18 @@ converges.
 lessons-learned system was consulted so rarely that most centers stopped
 contributing for years, despite formal requirements to use it — the diagnosed
 cause was that the store was unsearchable, not that reports were
-missing.[^nasa-llis] *Counter:* keep findings small and indexed, make triage a
+missing.[^nasa-llis] _Counter:_ keep findings small and indexed, make triage a
 scheduled act, and report dispositions back to the user. Failure to receive
 feedback is itself a known barrier to reporting.[^ahrq-event-reporting]
 
 **Overload.** When everything is escalated, queues grow, lead times stretch, and
-investigation goes shallow.[^capa-riptide] *Counter:* the recurrence threshold,
+investigation goes shallow.[^capa-riptide] _Counter:_ the recurrence threshold,
 the costly-singleton review lane, explicit priority bases, and a willingness to
 mark things `dropped`.
 
 **Silence.** Reporting stops when it is costly or risky. Over a quarter of
 surveyed workers in one industry study cited reporting systems that were too
-complex or time-consuming.[^near-miss-barriers] *Counter:* one small file,
+complex or time-consuming.[^near-miss-barriers] _Counter:_ one small file,
 appended without approval or interruption, with unknown values preferred over
 capture-time investigation.
 
@@ -160,12 +160,20 @@ usability defect fixable in about a day — and worked it in explicit rounds
 against a release.[^ubuntu-papercuts] The framing makes small, individually
 ignorable problems collectively legible and gives the effort an end.
 
-[^fracas]: *Failure reporting, analysis, and corrective action system*.
-[^nasa-llis]: *NASA knowledge management database used rarely*.
-[^capa-riptide]: *Caught in a CAPA Riptide?*
-[^near-miss-barriers]: *Near-Miss Reporting — The Missing Link of Safety Culture*.
-[^ubuntu-papercuts]: *Paper cut bug* — Ubuntu One Hundred Paper Cuts.
-[^ahrq-event-reporting]: AHRQ PSNet, *Reporting Patient Safety Events*.
-[^fda-capa]: FDA, *Guide to Inspections of Quality Systems*.
-[^google-sre-postmortems]: Google SRE, *Postmortem Culture: Learning from Failure*.
-[^osha-hazard-assessment]: OSHA, *Hazard Identification and Assessment*.
+[^fracas]: _Failure reporting, analysis, and corrective action system_.
+
+[^nasa-llis]: _NASA knowledge management database used rarely_.
+
+[^capa-riptide]: _Caught in a CAPA Riptide?_
+
+[^near-miss-barriers]: _Near-Miss Reporting — The Missing Link of Safety Culture_.
+
+[^ubuntu-papercuts]: _Paper cut bug_ — Ubuntu One Hundred Paper Cuts.
+
+[^ahrq-event-reporting]: AHRQ PSNet, _Reporting Patient Safety Events_.
+
+[^fda-capa]: FDA, _Guide to Inspections of Quality Systems_.
+
+[^google-sre-postmortems]: Google SRE, _Postmortem Culture: Learning from Failure_.
+
+[^osha-hazard-assessment]: OSHA, _Hazard Identification and Assessment_.

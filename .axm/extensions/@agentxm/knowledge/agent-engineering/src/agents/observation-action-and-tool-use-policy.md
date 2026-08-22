@@ -48,4 +48,5 @@ Namespace collisions, huge outputs, hidden defaults, and tools that conflate
 read and write behavior increase both error and security risk.
 
 [^anthropic-tools]: Anthropic — Writing effective tools for agents
+
 [^mcp-spec]: Model Context Protocol specification

@@ -2,7 +2,24 @@
 type: Guide
 title: Recording operational incidents
 description: How to create and maintain a safe live incident record with impact evidence, command roles, current objectives, actions, communication, chronology, handoffs, exit criteria, closure validation, and independently owned follow-up.
-tags: [incident-report, incident-record, outage, service-degradation, severity, timeline, incident-response, incident-command, communication, handoff, mitigation, restoration, recovery, closure, issue-template]
+tags:
+  [
+    incident-report,
+    incident-record,
+    outage,
+    service-degradation,
+    severity,
+    timeline,
+    incident-response,
+    incident-command,
+    communication,
+    handoff,
+    mitigation,
+    restoration,
+    recovery,
+    closure,
+    issue-template,
+  ]
 status: draft
 sources:
   - id: incident-records
@@ -328,18 +345,18 @@ Add when roles or workstreams are delegated.
 
 ### Roles
 
-| Role or workstream | Current owner | Authority or responsibility | Since |
-| --- | --- | --- | --- |
-| Incident command | | | |
-| Technical or operations | | | |
-| Communications | | | |
-| Scribe, planning, or liaison | | | |
+| Role or workstream           | Current owner | Authority or responsibility | Since |
+| ---------------------------- | ------------- | --------------------------- | ----- |
+| Incident command             |               |                             |       |
+| Technical or operations      |               |                             |       |
+| Communications               |               |                             |       |
+| Scribe, planning, or liaison |               |                             |       |
 
 ### Actions
 
 | Action | Owner | Expected signal | State or result | Reversal or fallback |
-| --- | --- | --- | --- | --- |
-| | | | | |
+| ------ | ----- | --------------- | --------------- | -------------------- |
+|        |       |                 |                 |                      |
 
 ### Decisions and hypotheses
 
@@ -426,8 +443,13 @@ access-controlled evidence links.
   owned.
 
 [^atlassian-incident-response]: Atlassian, “How we respond to an incident.”
+
 [^google-incident-document]: Google SRE, “Example Incident State Document.”
+
 [^google-sre-incidents]: Google SRE, “Managing Incidents.”
+
 [^microsoft-incident-management]: Microsoft Azure Well-Architected Framework, “Develop an Incident Management Practice to Recover from Disruptions.”
+
 [^nist-800-61r3]: NIST SP 800-61 Rev. 3, cybersecurity incident-response recommendations and considerations.
+
 [^pagerduty-roles]: PagerDuty Incident Response, “Different Roles.”

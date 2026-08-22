@@ -17,17 +17,17 @@ into a competing taxonomy.
 
 Start here when the appropriate form or quality bar is unclear.
 
-* [Documentation craft](explainers/documentation-craft.md) - What effective documentation craft is — matching form to reader need, keeping each job recognizable, and respecting host conventions over portable layout rules.
-* [Documentation quality](explainers/documentation-quality.md) - What functional quality and deep quality mean in documentation craft — and how form-aware craft primarily serves deep quality while exposing functional gaps.
-* [Documentation audits](explainers/documentation-audits.md) - What a documentation audit is — a bounded, evidence-backed assessment of a documentation corpus that distinguishes diagnosis from review, linting, verification, and remediation.
-* [Documentation workflow](explainers/documentation-workflow.md) - Why documentation craft improves best through small iterative remediation — guide not plan, inside-out structure, and complete-not-finished organic growth.
-* [Documentation organization and discovery](explainers/documentation-organization-and-discovery.md) - Why documentation organization should follow reader entry points and semantic relationships, when to prefer form-first or subject-first grouping, and how paths, titles, metadata, and indexes work together.
+- [Documentation craft](explainers/documentation-craft.md) - What effective documentation craft is — matching form to reader need, keeping each job recognizable, and respecting host conventions over portable layout rules.
+- [Documentation quality](explainers/documentation-quality.md) - What functional quality and deep quality mean in documentation craft — and how form-aware craft primarily serves deep quality while exposing functional gaps.
+- [Documentation audits](explainers/documentation-audits.md) - What a documentation audit is — a bounded, evidence-backed assessment of a documentation corpus that distinguishes diagnosis from review, linting, verification, and remediation.
+- [Documentation workflow](explainers/documentation-workflow.md) - Why documentation craft improves best through small iterative remediation — guide not plan, inside-out structure, and complete-not-finished organic growth.
+- [Documentation organization and discovery](explainers/documentation-organization-and-discovery.md) - Why documentation organization should follow reader entry points and semantic relationships, when to prefer form-first or subject-first grouping, and how paths, titles, metadata, and indexes work together.
 
 ## Browse by form
 
-* [Explainers](explainers/) - Concepts that establish what something is, why it matters, where its boundaries lie, and how it relates to neighboring ideas.
-* [Guides](guides/) - Actionable processes for creating, revising, and maintaining documentation.
-* [Patterns](patterns/) - Evidence-backed, adaptable solutions to recurring documentation problems.
+- [Explainers](explainers/) - Concepts that establish what something is, why it matters, where its boundaries lie, and how it relates to neighboring ideas.
+- [Guides](guides/) - Actionable processes for creating, revising, and maintaining documentation.
+- [Patterns](patterns/) - Evidence-backed, adaptable solutions to recurring documentation problems.
 
 This bundle does not prescribe repository layout, metadata schemas, or host
 tooling. Local rules remain authoritative for those implementation details.

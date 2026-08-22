@@ -63,13 +63,8 @@ disagree with this guide.
 ## Define the contract
 
 ```ts
-import { Schema } from "effect"
-import {
-  HttpApi,
-  HttpApiEndpoint,
-  HttpApiGroup,
-  HttpApiSchema,
-} from "effect/unstable/httpapi"
+import { Schema } from "effect";
+import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi";
 
 class NotFound extends Schema.TaggedError<NotFound>()(
   "NotFound",
@@ -81,15 +76,15 @@ const getUser = HttpApiEndpoint.get("getUser", "/:id", {
   params: { id: Schema.String },
   success: User,
   error: NotFound,
-})
+});
 
 const deleteUser = HttpApiEndpoint.delete("deleteUser", "/:id", {
   params: { id: Schema.String },
   success: HttpApiSchema.NoContent,
-})
+});
 
-const Users = HttpApiGroup.make("Users").add(getUser, deleteUser).prefix("/users")
-const Api = HttpApi.make("Api").add(Users).prefix("/v1")
+const Users = HttpApiGroup.make("Users").add(getUser, deleteUser).prefix("/users");
+const Api = HttpApi.make("Api").add(Users).prefix("/v1");
 ```
 
 - Put path params, query, headers, payload, success, and expected errors in
@@ -103,7 +98,7 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
   status/content-type alternatives; keep their selection
   unambiguous.[^docs-http-endpoints]
 - Model typed response headers with `HttpApiSchema.WithHeaders(schema,
-  headerFields)` for declared responses, or pipe a schema through
+headerFields)` for declared responses, or pipe a schema through
   `encodeToWithHeaders({ body, headers }, { decode, encode })` when the wire
   shape differs; do not fall back to raw handlers merely because a response
   owns headers.[^src-httpapi-schema]
@@ -172,8 +167,13 @@ const Api = HttpApi.make("Api").add(Users).prefix("/v1")
   version.
 
 [^src-httpapi-endpoint]: `packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts` at `effect@4.0.0-rc.110`; no `addError`/`addSuccess` exists anywhere under `unstable/httpapi`.
+
 [^src-httpapi-schema]: `packages/effect/src/unstable/httpapi/HttpApiSchema.ts` at `effect@4.0.0-rc.110` — `NoContent` (204), success default 200, `WithHeaders`/`encodeToWithHeaders`, `StreamSse`, `StreamUint8Array`.
+
 [^src-httpapi-middleware]: `packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts` at `effect@4.0.0-rc.110`; applied in opencode@2cba7e2 `packages/server/src/middleware/schema-error.ts`.
+
 [^docs-http-endpoints]: `ai-docs/src/51_http-server/fixtures/api/Users.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-http-server]: `ai-docs/src/51_http-server/10_basics.ts` at `effect@4.0.0-rc.110`; `HttpRouter.toWebHandler` at `packages/effect/src/unstable/http/HttpRouter.ts`.
+
 [^docs-http-testing]: `ai-docs/src/51_http-server/20_testing.ts` and `packages/effect/src/unstable/httpapi/HttpApiTest.ts` at `effect@4.0.0-rc.110`.

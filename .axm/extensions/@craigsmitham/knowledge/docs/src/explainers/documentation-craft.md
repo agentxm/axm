@@ -72,7 +72,7 @@ discovery](documentation-organization-and-discovery.md).
 
 Documentation must serve the [**practitioner in a practice**](practice.md) — someone who both
 **acquires** and **applies** skill, and who needs both **action** (knowing
-*how*) and **cognition** (knowing *that*). Those two dimensions define four
+_how_) and **cognition** (knowing _that_). Those two dimensions define four
 quarters, and Diátaxis holds that the map they produce is complete: those four
 categories cover all the territory defined by the two axes. Diátaxis calls
 them documentation types; this bundle calls them **reader-need forms** to keep
@@ -85,12 +85,12 @@ Diátaxis leaves alone: what artifacts get named, how a corpus is published and
 reviewed, or how documentation is kept current. Adding concepts on those
 questions extends the bundle without contradicting the map.
 
-| Need | Form | User mode | Documentation informs |
-| --- | --- | --- | --- |
-| Learning | Tutorial | Study + action | Skill acquisition through doing |
-| Goals | How-to | Work + action | Task completion in the real world |
-| Information | Reference | Work + cognition | Facts for lookup while working |
-| Understanding | Explanation | Study + cognition | Context and reflection |
+| Need          | Form        | User mode         | Documentation informs             |
+| ------------- | ----------- | ----------------- | --------------------------------- |
+| Learning      | Tutorial    | Study + action    | Skill acquisition through doing   |
+| Goals         | How-to      | Work + action     | Task completion in the real world |
+| Information   | Reference   | Work + cognition  | Facts for lookup while working    |
+| Understanding | Explanation | Study + cognition | Context and reflection            |
 
 Crossing or blurring those boundaries is at the root of many documentation
 failures: wrong voice, wrong structure, and content that cannot meet either
@@ -98,36 +98,36 @@ job well.
 
 ## Choose a form by need
 
-| Need | Form | Explainer | Guide |
-| --- | --- | --- | --- |
-| Learn by doing, first success path | Tutorial | [Tutorial explainer](tutorial.md) | [Tutorial guide](../guides/tutorial.md) |
-| Achieve a concrete goal in a real system | How-to | [How-to explainer](how-to.md) | [How-to guide](../guides/how-to.md) |
-| Look up facts, interfaces, or terms | Reference | [Reference explainer](reference.md) | [Reference guide](../guides/reference.md) |
-| Understand why, context, or tradeoffs | Explanation | [Explanation explainer](explanation.md) | [Explanation guide](../guides/explanation.md) |
+| Need                                     | Form        | Explainer                               | Guide                                         |
+| ---------------------------------------- | ----------- | --------------------------------------- | --------------------------------------------- |
+| Learn by doing, first success path       | Tutorial    | [Tutorial explainer](tutorial.md)       | [Tutorial guide](../guides/tutorial.md)       |
+| Achieve a concrete goal in a real system | How-to      | [How-to explainer](how-to.md)           | [How-to guide](../guides/how-to.md)           |
+| Look up facts, interfaces, or terms      | Reference   | [Reference explainer](reference.md)     | [Reference guide](../guides/reference.md)     |
+| Understand why, context, or tradeoffs    | Explanation | [Explanation explainer](explanation.md) | [Explanation guide](../guides/explanation.md) |
 
 If a draft tries to do two of these at once, prefer splitting or making one
 job primary and linking the rest.
 
 Quick compass (content + user mode → reader-need form):
 
-| If the content… | …and serves the user’s… | …then it belongs to… |
-| --- | --- | --- |
-| informs action | acquisition of skill | tutorial |
-| informs action | application of skill | how-to guide |
-| informs cognition | application of skill | reference |
-| informs cognition | acquisition of skill | explanation |
+| If the content…   | …and serves the user’s… | …then it belongs to… |
+| ----------------- | ----------------------- | -------------------- |
+| informs action    | acquisition of skill    | tutorial             |
+| informs action    | application of skill    | how-to guide         |
+| informs cognition | application of skill    | reference            |
+| informs cognition | acquisition of skill    | explanation          |
 
 ## Form follows job
 
 Diátaxis pairs each need with a characteristic form (paraphrased):
 
-| | Tutorial | How-to | Reference | Explanation |
-| --- | --- | --- | --- | --- |
-| Does | introduce, educate, lead | guide | state, describe, inform | explain, clarify, discuss |
-| Answers | *Can you teach me to…?* | *How do I…?* | *What is…?* | *Why…?* / *About…* |
-| Oriented to | learning | goals | information | understanding |
-| Form | a lesson | a series of steps | dry description | discursive discussion |
-| Everyday analogy | teaching a child to cook | a recipe | label on a food packet | culinary social history |
+|                  | Tutorial                 | How-to            | Reference               | Explanation               |
+| ---------------- | ------------------------ | ----------------- | ----------------------- | ------------------------- |
+| Does             | introduce, educate, lead | guide             | state, describe, inform | explain, clarify, discuss |
+| Answers          | _Can you teach me to…?_  | _How do I…?_      | _What is…?_             | _Why…?_ / _About…_        |
+| Oriented to      | learning                 | goals             | information             | understanding             |
+| Form             | a lesson                 | a series of steps | dry description         | discursive discussion     |
+| Everyday analogy | teaching a child to cook | a recipe          | label on a food packet  | culinary social history   |
 
 Secondary writeups treat these as **information patterns** authors can keep
 distinct so readers get the voice and structure they need.
@@ -172,12 +172,12 @@ is in [Documentation quality](documentation-quality.md).
 
 Each form has affinity with its neighbours; blur is common:
 
-| Shared quality | Neighbours that bleed |
-| --- | --- |
-| Guide action | tutorial ↔ how-to |
-| Serve application of skill | reference ↔ how-to |
-| Propositional knowledge | reference ↔ explanation |
-| Serve acquisition of skill | tutorial ↔ explanation |
+| Shared quality             | Neighbours that bleed   |
+| -------------------------- | ----------------------- |
+| Guide action               | tutorial ↔ how-to       |
+| Serve application of skill | reference ↔ how-to      |
+| Propositional knowledge    | reference ↔ explanation |
+| Serve acquisition of skill | tutorial ↔ explanation  |
 
 Worst case: tutorials and how-tos fully collapse, so neither study nor work
 is served. Keep the compass and the hard-boundary sections on
@@ -188,12 +188,12 @@ each explainer when form starts to slip.
 The four Diátaxis forms classify the **reader job of the documentation being
 created**. This bundle distinguishes four forms of **reusable guidance**:
 
-| Guidance form | Reader asks | Characteristic content |
-| --- | --- | --- |
-| Explainer | *What is this, why does it matter, and where are its boundaries?* | Concepts, context, relationships, and distinctions |
-| Guide | *How do I create, revise, or maintain it?* | Goal-oriented authoring or remediation process |
-| Principle | *What durable direction should guide this class of decisions, and why?* | Recognized good, normative direction, warrant, scope, tensions, judgment cases, and enactments |
-| Pattern | *This recurring problem is present — what established solution fits, and what will it cost?* | Context, forces, generative solution, consequences, evidence, and relationships |
+| Guidance form | Reader asks                                                                                  | Characteristic content                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Explainer     | _What is this, why does it matter, and where are its boundaries?_                            | Concepts, context, relationships, and distinctions                                             |
+| Guide         | _How do I create, revise, or maintain it?_                                                   | Goal-oriented authoring or remediation process                                                 |
+| Principle     | _What durable direction should guide this class of decisions, and why?_                      | Recognized good, normative direction, warrant, scope, tensions, judgment cases, and enactments |
+| Pattern       | _This recurring problem is present — what established solution fits, and what will it cost?_ | Context, forces, generative solution, consequences, evidence, and relationships                |
 
 An explainer and guide often form a useful pair: understanding stays separate
 from action while each links directly to the other. Not every subject needs

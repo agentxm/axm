@@ -30,4 +30,3 @@ verify both the canonical package and the projected discovery location; a local
 symlink is not proof that consumers receive the same bytes.
 
 [^vscode-agent-skills]: Visual Studio Code — Agent Skills
-

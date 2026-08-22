@@ -6,4 +6,3 @@ spans, and wrote `release-notes.md`. Errors recur when prose is paraphrased or a
 unknown heading is silently dropped. The desired workflow is local and
 read-only except for the explicitly named output file. Deployment and publishing
 remain separate jobs.
-

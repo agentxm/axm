@@ -1,6 +1,7 @@
 ---
 okf_version: "0.2"
 ---
+
 # Software architecture
 
 Portable, human-first guidance for the durable value, behavior, quality, and

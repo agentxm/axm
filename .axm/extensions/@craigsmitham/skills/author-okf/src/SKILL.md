@@ -43,13 +43,13 @@ Design discovery outside-in so each surface gives a human or agent only enough i
 choose the next useful surface. Then verify inside-out that every narrower surface fulfills the
 promise made above it.
 
-| Surface | Reader decision | Authoring contract |
-|---|---|---|
-| Publisher or catalog metadata, when present | Is this bundle relevant? | One sentence naming the domain and distinctive scope; for an AXM package this is `knowledge.json.description`. |
-| Root `index.md` | Where should I begin? | Bundle title, a short scope-and-use introduction, then the major reader-facing routes. |
-| Nested `index.md` | Which part of this area matters? | State the grouping principle and enumerate the immediate concepts or narrower sections. |
-| Concept preview or search result | Is this the exact concept? | Distinctive `title` and `description`, stable `type`, and query vocabulary in `tags`. |
-| Concept body | What knowledge applies? | The detail promised by its metadata, organized for reading and retrieval. |
+| Surface                                     | Reader decision                  | Authoring contract                                                                                             |
+| ------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Publisher or catalog metadata, when present | Is this bundle relevant?         | One sentence naming the domain and distinctive scope; for an AXM package this is `knowledge.json.description`. |
+| Root `index.md`                             | Where should I begin?            | Bundle title, a short scope-and-use introduction, then the major reader-facing routes.                         |
+| Nested `index.md`                           | Which part of this area matters? | State the grouping principle and enumerate the immediate concepts or narrower sections.                        |
+| Concept preview or search result            | Is this the exact concept?       | Distinctive `title` and `description`, stable `type`, and query vocabulary in `tags`.                          |
+| Concept body                                | What knowledge applies?          | The detail promised by its metadata, organized for reading and retrieval.                                      |
 
 Browsing and search are parallel routes. Indexes support browsing; concept metadata must stand on
 its own when search bypasses every index.
@@ -160,19 +160,19 @@ defining, applying, or validating a profile.
 
 `type` is the only always-required key. A concept carrying just `type` is fully conformant.
 
-| Field | Req | Form | Notes |
-|---|---|---|---|
-| `type` | **yes** | string | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline). |
-| `title` | rec | string | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename. |
-| `description` | rec | string | One sentence distinguishing this concept from its neighbors. Reuse it in index entries and search snippets. |
-| `resource` | rec | URI/path | Canonical URI of the underlying asset. Omit for abstract concepts. |
-| `tags` | rec | list | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title. |
-| `sources` | opt | list | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |
-| `usage_window` | opt | `{from, to}` | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`. |
-| `generated` | opt | `{by, at}` | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime. |
-| `verified` | opt | list of `{by, at}` | Verification events. A bare mapping is a one-element list. |
-| `status` | opt | enum | `draft` \| `stable` \| `deprecated`. Absent means `stable`. |
-| `stale_after` | opt | `YYYY-MM-DD` | Absolute date, not a TTL. Stale when `today >= stale_after`. |
+| Field          | Req     | Form               | Notes                                                                                                       |
+| -------------- | ------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `type`         | **yes** | string             | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline).                         |
+| `title`        | rec     | string             | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename.          |
+| `description`  | rec     | string             | One sentence distinguishing this concept from its neighbors. Reuse it in index entries and search snippets. |
+| `resource`     | rec     | URI/path           | Canonical URI of the underlying asset. Omit for abstract concepts.                                          |
+| `tags`         | rec     | list               | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title.                         |
+| `sources`      | opt     | list               | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional.  |
+| `usage_window` | opt     | `{from, to}`       | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`.                                   |
+| `generated`    | opt     | `{by, at}`         | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime.                |
+| `verified`     | opt     | list of `{by, at}` | Verification events. A bare mapping is a one-element list.                                                  |
+| `status`       | opt     | enum               | `draft` \| `stable` \| `deprecated`. Absent means `stable`.                                                 |
+| `stale_after`  | opt     | `YYYY-MM-DD`       | Absolute date, not a TTL. Stale when `today >= stale_after`.                                                |
 
 Producers may add any other keys; consumers must preserve them. Use that freedom sparingly — a
 custom key no consumer reads is dead weight.
@@ -239,8 +239,8 @@ Short statement of scope, intended use, and important boundaries.
 
 ## Reader-facing group
 
-* [Exact concept title](relative-url) - exact concept description
-* [Section title](subdir/) - what belongs in this section and distinguishes it
+- [Exact concept title](relative-url) - exact concept description
+- [Section title](subdir/) - what belongs in this section and distinguishes it
 ```
 
 **`log.md`** — optional at any level, newest first. `##` headings **must** be ISO `YYYY-MM-DD`. The
@@ -250,8 +250,9 @@ leading bold word is convention, not requirement.
 # Directory Update Log
 
 ## 2026-05-22
-* **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
-* **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
+
+- **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
+- **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
 ```
 
 ## Attested Computation
@@ -262,12 +263,12 @@ the blessed thing ran rather than agent-improvised SQL. Start from
 subtleties this summary omits.
 
 Essentials: `runtime` is **required** for this type (`bigquery`, `postgres`, `dbt`, `python`,
-`Looker`, …) and defines what `parameters` mean. Supply the computation *either* inline as one fenced
-block under `# Computation` *or* via a `computation:` path — never both. `executor.resource` names
+`Looker`, …) and defines what `parameters` mean. Supply the computation _either_ inline as one fenced
+block under `# Computation` _or_ via a `computation:` path — never both. `executor.resource` names
 run instructions and `executor.receipt` lists the fields a run must return; `attester.resource`
 names deterministic, no-LLM verification code.
 
-One rule matters above the rest: **an agent may only supply parameter *values*. It must never
+One rule matters above the rest: **an agent may only supply parameter _values_. It must never
 author or edit the computation.** That parameter-only surface is what makes attestation a mechanical
 comparison instead of a judgement call. If a computation looks wrong, say so — do not rewrite it.
 

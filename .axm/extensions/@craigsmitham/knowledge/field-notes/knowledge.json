@@ -22,9 +22,7 @@
   ],
   "license": "CC-BY-SA-4.0",
   "homepage": "https://github.com/craigsmitham/agent-extensions",
-  "recommendedPacks": [
-    "@craigsmitham/packs/field-notes"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/field-notes"],
   "standalone": false,
   "repository": {
     "type": "git",

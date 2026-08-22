@@ -2,7 +2,16 @@
 type: Guide
 title: Documenting product quality requirements
 description: How to create one named, architecture-significant Product Quality Requirement with an ISO/IEC 25010 classification, explicit target and conditions, architectural consequences, and an authoritative assessment route.
-tags: [architecture-documentation, product-quality, quality-requirements, iso-25010, square, evidence, authoring]
+tags:
+  [
+    architecture-documentation,
+    product-quality,
+    quality-requirements,
+    iso-25010,
+    square,
+    evidence,
+    authoring,
+  ]
 status: draft
 sources:
   - resource: ../foundations/product-quality.md

@@ -14,12 +14,12 @@
 ## Package inventory
 
 | Surface | Present | Capability or purpose | Evidence or trust notes |
-| --- | --- | --- | --- |
+| ------- | ------- | --------------------- | ----------------------- |
 
 ## Conformity matrix
 
 | Expectation or guide location | Applicability | Evidence | Result |
-| --- | --- | --- | --- |
+| ----------------------------- | ------------- | -------- | ------ |
 
 ## Findings
 
@@ -34,8 +34,8 @@ Use these severity labels:
 - `Low` — a bounded defect has limited consequence and does not invalidate the
   central result.
 
-| ID | Applicability | Severity | Expectation or guide location | Evidence | Consequence | Responsible surface | Required action or condition |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| ID  | Applicability | Severity | Expectation or guide location | Evidence | Consequence | Responsible surface | Required action or condition |
+| --- | ------------- | -------- | ----------------------------- | -------- | ----------- | ------------------- | ---------------------------- |
 
 ## Behavioral evidence
 
@@ -47,7 +47,7 @@ Use these severity labels:
 ## Evaluation artifact lifecycle
 
 | Artifact | Class | Authority and storage | Identity or locator | Claim ceiling and retention |
-| --- | --- | --- | --- | --- |
+| -------- | ----- | --------------------- | ------------------- | --------------------------- |
 
 - Runtime payload boundary:
 - Versioned evaluation-source boundary:
@@ -72,7 +72,7 @@ Use these severity labels:
 ## Remediation and closure
 
 | Finding | Authoring disposition | Revised evidence | Closure status |
-| --- | --- | --- | --- |
+| ------- | --------------------- | ---------------- | -------------- |
 
 - Pre-change identity:
 - Post-change identity:

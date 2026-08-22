@@ -2,7 +2,21 @@
 type: Explanation
 title: Failures, defects, and defect reports
 description: How observations and anomalies become classified defect reports; how failures, defects, incidents, corrections, verification, and closure differ; and why tracker labels do not prove diagnosis.
-tags: [anomaly, defect, bug, failure, error, defect-report, static-testing, dynamic-testing, traceability, resolution, verification, work-item]
+tags:
+  [
+    anomaly,
+    defect,
+    bug,
+    failure,
+    error,
+    defect-report,
+    static-testing,
+    dynamic-testing,
+    traceability,
+    resolution,
+    verification,
+    work-item,
+  ]
 status: draft
 sources:
   - id: istqb-foundation
@@ -45,15 +59,15 @@ priority, or show that a resolution has been verified.
 
 Several concepts that trackers often collapse answer different questions:
 
-| Concept | What it establishes | What it does not establish |
-| --- | --- | --- |
-| Observation or occurrence | Something was seen, measured, reported, or found in a particular context | That the observation is correct, repeatable, or caused by the product |
-| Anomaly | The observation differs from an expectation or warrants investigation | That the underlying cause is a defect |
-| Failure | Executed behavior did not meet an applicable expectation | Which work product contains the defect |
-| Defect | A flaw exists in code, requirements, configuration, tests, documentation, or another work product | Which correction should be chosen or when it will be delivered |
-| Defect report | Evidence, classification, investigation, decisions, relationships, and status are managed in one traceable record | That every claim in the record is confirmed |
-| Correction or fix | A change was made to remove or compensate for a cause | That the original discrepancy and relevant regressions were verified |
-| Verification evidence | The chosen resolution satisfies its stated conditions | That every related risk or occurrence has disappeared |
+| Concept                   | What it establishes                                                                                               | What it does not establish                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Observation or occurrence | Something was seen, measured, reported, or found in a particular context                                          | That the observation is correct, repeatable, or caused by the product |
+| Anomaly                   | The observation differs from an expectation or warrants investigation                                             | That the underlying cause is a defect                                 |
+| Failure                   | Executed behavior did not meet an applicable expectation                                                          | Which work product contains the defect                                |
+| Defect                    | A flaw exists in code, requirements, configuration, tests, documentation, or another work product                 | Which correction should be chosen or when it will be delivered        |
+| Defect report             | Evidence, classification, investigation, decisions, relationships, and status are managed in one traceable record | That every claim in the record is confirmed                           |
+| Correction or fix         | A change was made to remove or compensate for a cause                                                             | That the original discrepancy and relevant regressions were verified  |
+| Verification evidence     | The chosen resolution satisfies its stated conditions                                                             | That every related risk or occurrence has disappeared                 |
 
 ISTQB therefore treats initial reports as reported anomalies: investigation
 may classify them as real defects, false-positive results, change requests, or
@@ -70,11 +84,11 @@ observation, while a static review can find a defect before anything executes.
 
 A defect report can begin from different evidence:
 
-| Evidence path | Typical observation | Useful context |
-| --- | --- | --- |
-| Dynamic test or production execution | Wrong result, crash, timeout, resource leak, degraded quality, or another failure | Starting state, actions or events, environment, test data, timing, frequency, and actual result |
-| Static analysis, inspection, or review | A work product violates a rule, requirement, invariant, or accepted convention | Artifact and revision, location, applicable rule or expectation, observed content, and analysis or review evidence |
-| Monitoring, support, or operational incident | One or more reported occurrences suggest a recurring discrepancy | Source, timestamps, correlation evidence, affected scope, and links to the occurrence or incident record |
+| Evidence path                                | Typical observation                                                               | Useful context                                                                                                     |
+| -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Dynamic test or production execution         | Wrong result, crash, timeout, resource leak, degraded quality, or another failure | Starting state, actions or events, environment, test data, timing, frequency, and actual result                    |
+| Static analysis, inspection, or review       | A work product violates a rule, requirement, invariant, or accepted convention    | Artifact and revision, location, applicable rule or expectation, observed content, and analysis or review evidence |
+| Monitoring, support, or operational incident | One or more reported occurrences suggest a recurring discrepancy                  | Source, timestamps, correlation evidence, affected scope, and links to the occurrence or incident record           |
 
 The report should preserve the evidence path without forcing every case into
 runtime reproduction steps. ISO/IEC/IEEE 29119 defines common testing concepts
@@ -158,16 +172,16 @@ and which result justified closure.
 
 Tools expose workflow containers rather than universal semantic definitions:
 
-| Host vocabulary | What it establishes |
-| --- | --- |
-| GitHub `Bug` | A default issue type alongside Feature and Task |
-| Azure `Bug` | A configurable work item with process-specific fields, states, and closure reasons |
+| Host vocabulary                      | What it establishes                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| GitHub `Bug`                         | A default issue type alongside Feature and Task                                             |
+| Azure `Bug`                          | A configurable work item with process-specific fields, states, and closure reasons          |
 | ISO/IEC/IEEE 29119 `incident report` | Test documentation for an anomalous occurrence, also commonly called a defect or bug report |
 
 GitHub's label does not prove root cause, while Azure distinguishes resolution,
 verification, closure reasons, duplicates, and reactivation in its default
 processes.[^github-issue-types][^azure-bug] Portable guidance can therefore
-teach *defect report* as the semantic artifact while allowing the host to
+teach _defect report_ as the semantic artifact while allowing the host to
 supply its issue type, fields, and workflow.
 
 The host also owns whether a recurrence reopens an existing report or creates
@@ -180,14 +194,14 @@ one workflow rule everywhere.
 
 These fields express different decisions:
 
-| Field | Meaning |
-| --- | --- |
-| Severity | Degree of impact on stakeholders, requirements, or the product |
-| Priority | Relative scheduling or attention decision made by the applicable authority |
-| Status | Where the report currently sits in the host workflow |
-| Classification | What the available evidence says the anomaly represents |
-| Resolution | Which disposition was chosen and why |
-| Verification result | What evidence shows whether that disposition satisfied its conditions |
+| Field               | Meaning                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| Severity            | Degree of impact on stakeholders, requirements, or the product             |
+| Priority            | Relative scheduling or attention decision made by the applicable authority |
+| Status              | Where the report currently sits in the host workflow                       |
+| Classification      | What the available evidence says the anomaly represents                    |
+| Resolution          | Which disposition was chosen and why                                       |
+| Verification result | What evidence shows whether that disposition satisfied its conditions      |
 
 A severe defect can have an improbable trigger; a small defect can be
 strategically urgent. A merged correction is not yet a verified result, and a
@@ -220,8 +234,13 @@ For the recording procedure and tracker-ready template, see
 [Recording defect reports](recording-defect-reports.md).
 
 [^azure-bug]: Microsoft Azure Boards, “Define, capture, triage, and manage bugs.”
+
 [^github-issue-types]: GitHub Docs, “Managing issue types in an organization.”
+
 [^iso-29119-1]: ISO/IEC/IEEE 29119-1:2022, software-testing general concepts.
+
 [^iso-29119-3]: ISO/IEC/IEEE 29119-3:2021, software-test documentation templates.
+
 [^iso-29148]: ISO/IEC/IEEE 29148:2018, requirements-engineering processes and requirements information items.
+
 [^istqb-foundation]: ISTQB Certified Tester Foundation Level Syllabus v4.0.1, sections on testing and debugging, defect management, and defect-report contents.

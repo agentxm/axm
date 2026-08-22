@@ -2,7 +2,17 @@
 type: Pattern
 title: Just Enough Architecture Docs
 description: A candidate human-first, risk-driven pattern for preserving accepted architecture meaning that authoritative repository and runtime sources cannot reveal reliably, without maintaining a parallel prose specification.
-tags: [architecture-documentation, architecture-docs, human-comprehension, risk-driven, semantic-delta, lifecycle, stewardship, progressive-disclosure]
+tags:
+  [
+    architecture-documentation,
+    architecture-docs,
+    human-comprehension,
+    risk-driven,
+    semantic-delta,
+    lifecycle,
+    stewardship,
+    progressive-disclosure,
+  ]
 status: draft
 sources:
   - id: fairbanks-risk-driven
@@ -146,13 +156,13 @@ accepted product quality requirements, and architectural consequences.
 
 Let the other authorities retain their strengths:
 
-| Authority | What it should own |
-| --- | --- |
-| Tests and executable examples | Exact supported scenarios and regression evidence |
-| Types, schemas, and interface definitions | Exact machine-consumed contracts |
-| Code and configuration | Current implementation and wiring |
-| Runtime and observability systems | Current deployed and observed state |
-| Work tracking and proposals | Delivery state and unaccepted future choices |
+| Authority                                 | What it should own                                |
+| ----------------------------------------- | ------------------------------------------------- |
+| Tests and executable examples             | Exact supported scenarios and regression evidence |
+| Types, schemas, and interface definitions | Exact machine-consumed contracts                  |
+| Code and configuration                    | Current implementation and wiring                 |
+| Runtime and observability systems         | Current deployed and observed state               |
+| Work tracking and proposals               | Delivery state and unaccepted future choices      |
 
 Link to those sources when they support a durable claim. Do not transcribe them
 into prose merely to make a document look complete.
@@ -231,8 +241,8 @@ assessment evidence.[^product-quality]
 Within `domains/`, classify subdomain knowledge under `generic/`, `core/`, or
 `supporting/`. Keep bounded-context documents in the sibling `contexts/`
 collection and their relationship views in `context-maps/`. Connect a
-subdomain and bounded context with reciprocal, typed links such as *is modeled
-by* and *models all or part of*; neither directory ancestry nor a shared name
+subdomain and bounded context with reciprocal, typed links such as _is modeled
+by_ and _models all or part of_; neither directory ancestry nor a shared name
 establishes a one-to-one relationship. This keeps strategic classification
 first class while allowing one context to model several subdomains and one
 subdomain to be modeled by several contexts.
@@ -383,7 +393,7 @@ specification set; use those required artifacts when the context demands them.
   or quality characteristic regardless of architectural significance.
 - **Catch-all concepts:** several peer entities begin in one plural document
   and later require a disruptive split into stable identities.
-- **Generic quality labels:** words such as *secure* or *scalable* appear
+- **Generic quality labels:** words such as _secure_ or _scalable_ appear
   without stakeholders, conditions, responses, measures, or consequences.
 - **Forced symmetry:** every subject gets identical headings and empty views.
 - **Folder ontology:** directory ancestry is mistaken for the many-to-many
@@ -425,11 +435,16 @@ here as a candidate pending independent known uses.
 - [C4 model](../foundations/c4-model.md)
 - [Wardley mapping](../foundations/wardley-mapping.md)
 
-[^fairbanks-risk-driven]: Fairbanks advocates matching architecture effort to
+[^fairbanks-risk-driven]:
+    Fairbanks advocates matching architecture effort to
     risk rather than applying the same documentation burden to every project.
-[^iso-42010]: ISO/IEC/IEEE 42010 defines requirements for architecture
+
+[^iso-42010]:
+    ISO/IEC/IEEE 42010 defines requirements for architecture
     descriptions and relates stakeholder concerns to viewpoints and views.
-[^product-quality]: Product quality in software architecture applies the
+
+[^product-quality]:
+    Product quality in software architecture applies the
     ISO/IEC 25010 product quality model selectively to accepted,
     architecture-significant requirements and routes precise measures and
     evidence to their owning authorities.

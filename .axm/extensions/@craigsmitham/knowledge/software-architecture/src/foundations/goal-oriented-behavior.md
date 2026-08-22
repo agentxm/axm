@@ -2,7 +2,18 @@
 type: Explanation
 title: Goal-oriented behavior and use cases
 description: How use cases connect actor goals and subject behavior to capabilities, interaction surfaces, domain authority, software responsibilities, dynamic views, and executable evidence.
-tags: [use-cases, actors, goals, scenarios, extensions, features, capabilities, dynamic-views, architecture-views]
+tags:
+  [
+    use-cases,
+    actors,
+    goals,
+    scenarios,
+    extensions,
+    features,
+    capabilities,
+    dynamic-views,
+    architecture-views,
+  ]
 status: draft
 sources:
   - id: use-case-foundation
@@ -106,11 +117,11 @@ strict tree.[^unifying-use-cases]
 
 Use neutral labels in architecture documentation:
 
-| Goal scope | Meaning | Guidance |
-| --- | --- | --- |
-| `summary` | A broader outcome spanning several user goals or interactions | Keep it as an overview or parent context; expand important user goals separately. |
-| `user-goal` | A goal a primary actor expects to complete in one coherent interaction | Use this as the normal architecture use-case scope. |
-| `subfunction` | A reusable or unusually complex subgoal supporting other use cases | Maintain it only when independent architectural meaning justifies the extra concept. |
+| Goal scope    | Meaning                                                                | Guidance                                                                             |
+| ------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `summary`     | A broader outcome spanning several user goals or interactions          | Keep it as an overview or parent context; expand important user goals separately.    |
+| `user-goal`   | A goal a primary actor expects to complete in one coherent interaction | Use this as the normal architecture use-case scope.                                  |
+| `subfunction` | A reusable or unusually complex subgoal supporting other use cases     | Maintain it only when independent architectural meaning justifies the extra concept. |
 
 An individual action or delivery-sized fragment is too small to become an
 architecture use case. Keep it as a scenario step, requirement, user story, or
@@ -118,18 +129,18 @@ test owned by the corresponding authority.
 
 ## Keep adjacent concepts distinct
 
-| Concept | Question it answers | Boundary from Use Case |
-| --- | --- | --- |
-| Audience | For which durable group are value, need, or interaction claims consequential? | An audience may play an actor role; Actor is contextual to one subject and goal. |
-| Need | What problem, constraint, opportunity, or desired outcome matters independently of a solution? | A use case assumes a chosen subject and describes its behavior. |
-| Job to Be Done | What progress is sought in particular circumstances? | A job explains demand; a use case explains interaction with a subject. |
-| Actor | Who or what participates from outside the subject boundary? | Actor is a role inside the use-case context, not a global classification. |
-| Goal | What result does the primary actor seek from this interaction? | Goal is required use-case meaning, not a separate profile concept. |
-| Scenario | What one complete path occurs through the use case? | Main success and extension scenarios are selected paths through the use case. |
-| Feature | What independently recognizable behavior is available across one or more use cases or surfaces? | Omit a feature that merely restates one use case. |
-| User story or epic | What delivery conversation or slice should be tracked? | Delivery artifacts can slice a use case but do not replace its durable behavioral context. |
-| Story map | How are delivery slices arranged by process and priority? | It is a collaborative planning view, not an architecture concept type. |
-| C4 Dynamic View | How do selected software elements collaborate for one scenario? | It illustrates a scenario but does not own the use case or canonical elements. |
+| Concept            | Question it answers                                                                             | Boundary from Use Case                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Audience           | For which durable group are value, need, or interaction claims consequential?                   | An audience may play an actor role; Actor is contextual to one subject and goal.           |
+| Need               | What problem, constraint, opportunity, or desired outcome matters independently of a solution?  | A use case assumes a chosen subject and describes its behavior.                            |
+| Job to Be Done     | What progress is sought in particular circumstances?                                            | A job explains demand; a use case explains interaction with a subject.                     |
+| Actor              | Who or what participates from outside the subject boundary?                                     | Actor is a role inside the use-case context, not a global classification.                  |
+| Goal               | What result does the primary actor seek from this interaction?                                  | Goal is required use-case meaning, not a separate profile concept.                         |
+| Scenario           | What one complete path occurs through the use case?                                             | Main success and extension scenarios are selected paths through the use case.              |
+| Feature            | What independently recognizable behavior is available across one or more use cases or surfaces? | Omit a feature that merely restates one use case.                                          |
+| User story or epic | What delivery conversation or slice should be tracked?                                          | Delivery artifacts can slice a use case but do not replace its durable behavioral context. |
+| Story map          | How are delivery slices arranged by process and priority?                                       | It is a collaborative planning view, not an architecture concept type.                     |
+| C4 Dynamic View    | How do selected software elements collaborate for one scenario?                                 | It illustrates a scenario but does not own the use case or canonical elements.             |
 
 Cockburn explicitly distinguishes use cases, user stories, and story maps by
 their purpose and recommends using them as complementary tools rather than
@@ -180,13 +191,18 @@ illustrate a selected scenario.
 - [C4 model](c4-model.md)
 - [Reviewing responsibilities with scenarios](../guides/reviewing-responsibilities-with-scenarios.md)
 
-[^use-case-foundation]: Use Case Foundation defines a use case through its
+[^use-case-foundation]:
+    Use Case Foundation defines a use case through its
     basic scenario, extensions, actors, and paths to value while allowing the
     writing precision to vary.
-[^unifying-use-cases]: Unifying User Stories, Use Cases, Story Maps separates
+
+[^unifying-use-cases]:
+    Unifying User Stories, Use Cases, Story Maps separates
     stable goal-oriented behavioral context from delivery conversations and
     sequencing, and presents strategic goals, user goals, and subfunctions as
     a graph.
-[^cockburn-books]: Alistair Cockburn's current book catalog identifies the
+
+[^cockburn-books]:
+    Alistair Cockburn's current book catalog identifies the
     sources used here for responsibility-oriented design and fine-grained
     incremental development.

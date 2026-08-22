@@ -37,9 +37,7 @@
   ],
   "license": "CC-BY-SA-4.0",
   "homepage": "https://github.com/craigsmitham/agent-extensions",
-  "recommendedPacks": [
-    "@craigsmitham/packs/docs"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/docs"],
   "standalone": false,
   "repository": {
     "type": "git",

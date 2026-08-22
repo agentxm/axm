@@ -14,16 +14,16 @@ stale_after: 2027-02-14
 lifetimes. Treating it as one store produces stale authority and accidental
 retention.
 
-| Form | Primary job | Typical owner | Lifecycle signal |
-| --- | --- | --- | --- |
-| Persistent guidance | Shape decisions across a known scope | Instruction or policy surface | Scope or policy changes |
-| Task context | State current goal, constraints, and acceptance | Request, issue, case, or plan | Task completes or changes |
-| Retrieved knowledge | Supply relevant detail on demand | Canonical knowledge or documentation | Source revision or expiry |
-| Observed environment | Describe current external state | Tool, file, API, UI, log, metric | Observation becomes stale |
-| Feedback | Report consequence, failure, or verification | Check, review, test, or monitor | Next action consumes it |
-| Working state | Preserve decisions, progress, and open loops | Plan, ledger, checkpoint | Work advances or hands off |
-| Compressed history | Carry selected prior interaction forward | Compaction or summary artifact | Recompact or supersede |
-| Personal preference | Shape interaction across tasks | User-controlled preference store | User revises or revokes |
+| Form                 | Primary job                                     | Typical owner                        | Lifecycle signal           |
+| -------------------- | ----------------------------------------------- | ------------------------------------ | -------------------------- |
+| Persistent guidance  | Shape decisions across a known scope            | Instruction or policy surface        | Scope or policy changes    |
+| Task context         | State current goal, constraints, and acceptance | Request, issue, case, or plan        | Task completes or changes  |
+| Retrieved knowledge  | Supply relevant detail on demand                | Canonical knowledge or documentation | Source revision or expiry  |
+| Observed environment | Describe current external state                 | Tool, file, API, UI, log, metric     | Observation becomes stale  |
+| Feedback             | Report consequence, failure, or verification    | Check, review, test, or monitor      | Next action consumes it    |
+| Working state        | Preserve decisions, progress, and open loops    | Plan, ledger, checkpoint             | Work advances or hands off |
+| Compressed history   | Carry selected prior interaction forward        | Compaction or summary artifact       | Recompact or supersede     |
+| Personal preference  | Shape interaction across tasks                  | User-controlled preference store     | User revises or revokes    |
 
 ## Ownership rules
 

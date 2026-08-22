@@ -80,13 +80,13 @@ with this guide.
 ## Configure one client per upstream service
 
 ```ts
-import { Context, Effect, flow, Layer, Schedule, Schema } from "effect"
+import { Context, Effect, flow, Layer, Schedule, Schema } from "effect";
 import {
   FetchHttpClient,
   HttpClient,
   HttpClientRequest,
   HttpClientResponse,
-} from "effect/unstable/http"
+} from "effect/unstable/http";
 
 class Todo extends Schema.Class<Todo>("Todo")({
   id: Schema.Int,
@@ -103,18 +103,20 @@ class Todos extends Context.Service<
 >()("app/Todos") {
   static readonly layer = Layer.effect(
     Todos,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = (yield* HttpClient.HttpClient).pipe(
-        HttpClient.mapRequest(flow(
-          HttpClientRequest.prependUrl("https://api.example.com"),
-          HttpClientRequest.acceptJson,
-        )),
+        HttpClient.mapRequest(
+          flow(
+            HttpClientRequest.prependUrl("https://api.example.com"),
+            HttpClientRequest.acceptJson,
+          ),
+        ),
         HttpClient.filterStatusOk,
         HttpClient.retryTransient({
           schedule: Schedule.exponential(100),
           times: 3,
         }),
-      )
+      );
       return Todos.of({
         getTodo: (id) =>
           client.get(`/todos/${id}`).pipe(
@@ -122,9 +124,9 @@ class Todos extends Context.Service<
             Effect.mapError((cause) => new TodoApiError({ cause })),
             Effect.withSpan("Todos.getTodo", { attributes: { id } }),
           ),
-      })
+      });
     }),
-  ).pipe(Layer.provide(FetchHttpClient.layer))
+  ).pipe(Layer.provide(FetchHttpClient.layer));
 }
 ```
 
@@ -191,10 +193,17 @@ class Todos extends Context.Service<
 - API names have been verified against the installed `unstable/http` version.
 
 [^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.110` — `HttpClient` service key, `mapRequest`, `filterStatusOk`, `retryTransient` (transient = timeout, `TransportError`, status 408/429/500/502/503/504), `make`.
+
 [^src-fetch-http-client]: `packages/effect/src/unstable/http/FetchHttpClient.ts` at `effect@4.0.0-rc.110`; `@effect/platform-bun` `BunHttpClient.ts` re-exports this module.
+
 [^src-node-http-client]: `packages/platform/node/src/NodeHttpClient.ts` at `effect@4.0.0-rc.110` — `layerUndici`/`layerDispatcher`, `layerNodeHttp`/`layerAgent`.
+
 [^src-http-client-error]: `packages/effect/src/unstable/http/HttpClientError.ts` at `effect@4.0.0-rc.110` — `HttpClientError` with `reason: HttpClientErrorReason` (`TransportError`, `EncodeError`, `InvalidUrlError`, `StatusCodeError`, `DecodeError`, `EmptyBodyError`).
+
 [^docs-http-client-basics]: `ai-docs/src/50_http-client/10_basics.ts` at `effect@4.0.0-rc.110`.
+
 [^src-http-client-request]: `packages/effect/src/unstable/http/HttpClientRequest.ts` at `effect@4.0.0-rc.110` — `bodyJson`, `bodyJsonUnsafe`, `schemaBodyJson`, `basicAuth`, `bearerToken`.
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/effect/app-node-platform.ts` (effect 4.0.0-beta.83).
+
 [^applied-effect-http-recorder]: Observed in effect-http-recorder@89e1b85 `src/http/recorder.ts` (effect 4.0.0-beta.83) — `Layer.effect(HttpClient.HttpClient, ...)` wrapping the upstream client for record/replay.

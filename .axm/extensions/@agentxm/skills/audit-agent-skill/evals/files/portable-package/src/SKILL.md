@@ -4,6 +4,7 @@ description: Formats and normalizes one supplied local Markdown file into a call
 license: MIT
 compatibility: Requires Node.js 20 or later.
 ---
+
 # Format local Markdown
 
 Format exactly one caller-supplied Markdown file with the bundled deterministic

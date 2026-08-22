@@ -42,6 +42,7 @@ the adoption boundary, authority model, or admission test needs explanation.
    established from repository authority. If several system boundaries or
    instruction files remain plausible, stop for that choice rather than
    creating competing roots or host-specific instructions.
+
 4. **Preserve existing documentation.** Adopt the established root and useful
    local organization when they are coherent. Do not rewrite substantive docs,
    move proposals into accepted architecture, or rename established concepts

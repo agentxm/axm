@@ -38,16 +38,16 @@ and lifecycle.
 
 ## What the discipline owns
 
-| Responsibility | Agent-engineering question |
-| --- | --- |
-| Agency choice | Does this task need model-directed control? |
-| Goal contract | What outcome, boundaries, evidence, and stopping rules apply? |
-| Control policy | How are observations turned into actions, recovery, or escalation? |
-| Capability policy | When and why may a tool, memory, or delegate be used? |
-| Coordination | Which actor owns each responsibility and result? |
-| Human control | Where can people understand, direct, approve, interrupt, or stop? |
-| Trust and reliability | Which failures, attacks, and misleading signals must be resisted? |
-| Lifecycle | How is behavior observed, changed, re-evaluated, and retired? |
+| Responsibility        | Agent-engineering question                                         |
+| --------------------- | ------------------------------------------------------------------ |
+| Agency choice         | Does this task need model-directed control?                        |
+| Goal contract         | What outcome, boundaries, evidence, and stopping rules apply?      |
+| Control policy        | How are observations turned into actions, recovery, or escalation? |
+| Capability policy     | When and why may a tool, memory, or delegate be used?              |
+| Coordination          | Which actor owns each responsibility and result?                   |
+| Human control         | Where can people understand, direct, approve, interrupt, or stop?  |
+| Trust and reliability | Which failures, attacks, and misleading signals must be resisted?  |
+| Lifecycle             | How is behavior observed, changed, re-evaluated, and retired?      |
 
 ## What it does not absorb
 
@@ -63,5 +63,7 @@ guidance from Anthropic and OpenAI both favors workflows or single-agent loops
 before adding open-ended autonomy or multiple agents.[^anthropic-agents][^openai-guide]
 
 [^agent-survey]: A Survey on Large Language Model based Autonomous Agents
+
 [^anthropic-agents]: Anthropic — Building effective agents
+
 [^openai-guide]: OpenAI — A practical guide to building agents

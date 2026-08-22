@@ -53,13 +53,13 @@ which evidence was deliberately retained for a named decision.
 
 Assign each artifact one lifecycle class before deciding where it belongs:
 
-| Class | Examples | Normal authority | Normal storage |
-| --- | --- | --- | --- |
-| Evaluation source | Contract, cases, fixtures, graders, rubrics, harness code, schemas | Reviewed versioned source | Repository |
-| Run evidence | Transcripts, traces, outputs, external state, timing, tool calls, grades | Generated observation | Ignored workspace or CI artifact |
-| Aggregate analysis | Per-case statistics, slices, comparisons, cost and latency summaries | Reproducible derivation from trials | Run workspace or CI artifact |
-| Promoted decision evidence | Release, admission, rollback, or published-benchmark manifest | Deliberate attributable record | Durable repository path or evidence archive |
-| Governance decision | Approval, exception, rollout, rollback, or retirement decision | Named decision authority | Governance system |
+| Class                      | Examples                                                                 | Normal authority                    | Normal storage                              |
+| -------------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------- |
+| Evaluation source          | Contract, cases, fixtures, graders, rubrics, harness code, schemas       | Reviewed versioned source           | Repository                                  |
+| Run evidence               | Transcripts, traces, outputs, external state, timing, tool calls, grades | Generated observation               | Ignored workspace or CI artifact            |
+| Aggregate analysis         | Per-case statistics, slices, comparisons, cost and latency summaries     | Reproducible derivation from trials | Run workspace or CI artifact                |
+| Promoted decision evidence | Release, admission, rollback, or published-benchmark manifest            | Deliberate attributable record      | Durable repository path or evidence archive |
+| Governance decision        | Approval, exception, rollout, rollback, or retirement decision           | Named decision authority            | Governance system                           |
 
 Tracking a generated file does not promote it. Promotion requires an explicit
 decision, complete identity, reviewable evidence, and a retention choice.
@@ -261,7 +261,11 @@ stronger one. Re-run under the required conditions.
   guide.
 
 [^anthropic-agent-evals]: Anthropic — Demystifying evals for AI agents
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator
+
 [^openai-skill-creator]: OpenAI — Skill Creator
+
 [^agent-skills-spec]: Agent Skills specification
+
 [^github-workflow-artifacts]: GitHub — Workflow artifacts

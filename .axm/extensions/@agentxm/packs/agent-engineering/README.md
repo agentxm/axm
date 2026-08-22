@@ -21,15 +21,15 @@ axm install @agentxm/packs/agent-engineering
 
 ## Contents
 
-| Extension | Purpose |
-| --- | --- |
-| `@agentxm/knowledge/agent-engineering` | The knowledge bundle |
-| `@agentxm/skills/author-agent-instructions` | Create or revise AGENTS.md, CLAUDE.md, and scoped instruction files |
-| `@agentxm/skills/audit-agent-instructions` | Audit an instruction system against the knowledge |
-| `@agentxm/skills/author-agent-skill` | Create or revise a portable Agent Skill |
-| `@agentxm/skills/agent-skill-evaluator` | Default provider-neutral Agent Skill evaluation runner; independently installable and replaceable |
-| `@agentxm/skills/evaluate-agent-skill` | Run attributable routing and activated-execution evaluations for an exact Agent Skill revision |
-| `@agentxm/skills/audit-agent-skill` | Audit an Agent Skill against the knowledge |
+| Extension                                   | Purpose                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `@agentxm/knowledge/agent-engineering`      | The knowledge bundle                                                                              |
+| `@agentxm/skills/author-agent-instructions` | Create or revise AGENTS.md, CLAUDE.md, and scoped instruction files                               |
+| `@agentxm/skills/audit-agent-instructions`  | Audit an instruction system against the knowledge                                                 |
+| `@agentxm/skills/author-agent-skill`        | Create or revise a portable Agent Skill                                                           |
+| `@agentxm/skills/agent-skill-evaluator`     | Default provider-neutral Agent Skill evaluation runner; independently installable and replaceable |
+| `@agentxm/skills/evaluate-agent-skill`      | Run attributable routing and activated-execution evaluations for an exact Agent Skill revision    |
+| `@agentxm/skills/audit-agent-skill`         | Audit an Agent Skill against the knowledge                                                        |
 
 After installation, browse the workspace Knowledge Base or search for concepts
 such as agency choice, control loops, tool-use policy, memory policy, handoffs,

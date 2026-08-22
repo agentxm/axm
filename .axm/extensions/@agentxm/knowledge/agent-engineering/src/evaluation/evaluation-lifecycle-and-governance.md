@@ -20,6 +20,25 @@ sources:
 
 # Evaluation lifecycle and governance
 
+## Artifact lifecycle
+
+Evaluation artifacts have different authorities and retention needs:
+
+| Artifact class | Typical authority | Normal storage |
+| --- | --- | --- |
+| Contract, cases, fixtures, graders, and harness source | Versioned evaluation source | Repository |
+| Trial outputs, traces, state, timing, and grades | Generated observation | Ignored workspace or CI artifact |
+| Aggregate benchmark or analysis | Reproducible derivation | Run workspace or CI artifact |
+| Release or admission evidence manifest | Deliberately promoted decision evidence | Durable repository path or evidence archive |
+| Approval, exception, rollout, or retirement | Governance decision | Governance system |
+
+Source control is an authority choice, not an evidence grade. Committing a run
+does not make it independent, reproducible, or suitable for release. Conversely,
+an external artifact is not durable unless its identity, integrity, access, and
+expiry support the decision that cites it. Use
+[How to manage evaluation assets and evidence](managing-evaluation-assets-and-evidence.md)
+to apply this lifecycle in a repository.
+
 Treat each suite as an owned product:
 
 - version tasks, fixtures, environments, harnesses, graders, rubrics, and
@@ -45,7 +64,5 @@ platform is scheduled for shutdown in 2026, illustrating why tool instructions
 should remain profiles rather than the core method.[^openai-evals]
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
-
 [^nist-rmf]: NIST — AI RMF Core
-
 [^openai-evals]: OpenAI — Evaluation best practices

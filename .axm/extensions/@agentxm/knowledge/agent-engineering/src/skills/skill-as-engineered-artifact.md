@@ -18,16 +18,16 @@ An Agent Skill packages reusable procedural behavior behind a discoverable
 route. Its directory is only the container; its engineering substance is a set
 of contracts that can be inspected and tested.
 
-| Contract     | Question                                                             | Typical owner                        |
-| ------------ | -------------------------------------------------------------------- | ------------------------------------ |
-| Routing      | When should this skill enter the task?                               | Name, description, invocation policy |
-| Workflow     | What sequence, judgment, recovery, and checks apply?                 | `SKILL.md` body                      |
-| Input/output | What is supplied, discovered, and produced?                          | Instructions and examples            |
-| Capability   | Which tools, runtimes, references, assets, and scripts are required? | Package and host configuration       |
-| Authority    | Which reads, writes, external actions, and approvals are permitted?  | Instructions and host policy         |
-| Outcome      | What observable evidence establishes success?                        | Workflow and graders                 |
-| Trust        | Why should these bytes, dependencies, and claims be believed?        | Provenance, integrity, review        |
-| Lifecycle    | How does compatibility, change, rollback, and retirement work?       | Package and library operations       |
+| Contract | Question | Typical owner |
+| --- | --- | --- |
+| Routing | When should this skill enter the task? | Name, description, invocation policy |
+| Workflow | What sequence, judgment, recovery, and checks apply? | `SKILL.md` body |
+| Input/output | What is supplied, discovered, and produced? | Instructions and examples |
+| Capability | Which tools, runtimes, references, assets, and scripts are required? | Package and host configuration |
+| Authority | Which reads, writes, external actions, and approvals are permitted? | Instructions and host policy |
+| Outcome | What observable evidence establishes success? | Workflow and graders |
+| Trust | Why should these bytes, dependencies, and claims be believed? | Provenance, integrity, review |
+| Lifecycle | How does compatibility, change, rollback, and retirement work? | Package and library operations |
 
 The portable format requires a `SKILL.md` with `name` and `description`, and
 permits scripts, references, assets, and additional files.[^agent-skills-spec]

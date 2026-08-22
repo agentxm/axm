@@ -1,11 +1,11 @@
 ---
 type: Reference
 title: Baselines, thresholds, aggregation, and slices
-description: Makes comparisons and dispositions without allowing aggregate scores to hide critical failures.
-tags: [baselines, thresholds, aggregation, cohorts, slices, tradeoffs]
+description: Makes comparisons and dispositions without allowing aggregate scores to hide critical failures or non-discriminating measures.
+tags: [baselines, thresholds, aggregation, cohorts, slices, tradeoffs, discrimination]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
-stale_after: 2027-02-14
+generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
+stale_after: 2027-02-22
 sources:
   - id: openai-evals
     resource: https://developers.openai.com/api/docs/guides/evaluation-best-practices
@@ -13,6 +13,9 @@ sources:
   - id: nist-rmf
     resource: https://airc.nist.gov/airmf-resources/airmf/5-sec-core/
     title: NIST — AI RMF Core
+  - id: anthropic-skill-creator-analyzer
+    resource: https://github.com/anthropics/skills/blob/main/skills/skill-creator/agents/analyzer.md
+    title: Anthropic — Skill Creator benchmark analyzer
 ---
 
 # Baselines, thresholds, aggregation, and slices
@@ -42,6 +45,30 @@ measurement and documented tradeoffs to support management decisions.[^nist-rmf]
 An average improvement cannot compensate for a newly unsafe cohort unless the
 accepted policy explicitly permits that tradeoff.
 
-[^openai-evals]: OpenAI — Evaluation best practices
+## Check that each measure discriminates
 
+A measure earns its place by separating the configurations under comparison.
+Before reading any pass rate, classify each assertion, check, or rubric
+dimension by its pattern across those configurations:
+
+| Pattern across configurations | Reading | Action |
+| --- | --- | --- |
+| Passes everywhere | The baseline already satisfies it | Retire it, or keep it explicitly as a guardrail rather than as evidence of value |
+| Fails everywhere | Broken, unobservable, or beyond current capability | Repair the case or withdraw the claim it was meant to support |
+| Passes with the intervention, fails without | Attributable value | Keep as primary evidence |
+| Fails with the intervention, passes without | A regression an aggregate can absorb | Gate it independently |
+| Alternates across trials | Flaky case, unstable grader, or genuinely variable behavior | Add trials before reading a mean |
+
+A suite whose measures nearly all pass everywhere reports a high score while
+establishing very little: the aggregate then describes the task rather than the
+intervention. Anthropic's Skill Creator runs this classification as a distinct
+analysis pass over benchmark results, together with the variance and
+resource-cost patterns an aggregate hides.[^anthropic-skill-creator-analyzer]
+
+Discrimination is a property of the suite, not of the target. A measure that
+fails this check is a finding against the suite's author, and repairing it
+during a controlled run invalidates the comparison it was meant to inform.
+
+[^openai-evals]: OpenAI — Evaluation best practices
 [^nist-rmf]: NIST — AI RMF Core
+[^anthropic-skill-creator-analyzer]: Anthropic — Skill Creator benchmark analyzer

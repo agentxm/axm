@@ -16,8 +16,8 @@ sources:
 
 Portable skills depend first on the open package contract: a named directory,
 `SKILL.md`, portable frontmatter, relative resource paths, and declared runtime
-requirements.[^agent-skills-spec] Host-specific metadata should refine this core
-without making the core misleading.
+requirements.[^agent-skills-spec] Host- and extension-manager-specific metadata
+should refine this core without making the core misleading.
 
 For every claimed host, identify discovery locations, invocation controls,
 supported frontmatter, tool semantics, path behavior, limits, and distribution
@@ -31,5 +31,12 @@ mechanism. Classify the result as:
 Do not claim compatibility from syntax alone. Exercise routing, resource
 loading, scripts, permissions, and observable outcomes on each named host and
 model. Unknown behavior is unknown, not portable by default.
+
+Treat host adaptation and extension management as independent axes. A host owns
+runtime discovery and invocation; an extension manager may own canonical
+packages, projections, composition, installation, and lifecycle across several
+hosts. For an AXM-managed package, apply the
+[AXM extension-management profile](platforms/axm.md) in addition to every
+claimed host profile.
 
 [^agent-skills-spec]: Agent Skills specification

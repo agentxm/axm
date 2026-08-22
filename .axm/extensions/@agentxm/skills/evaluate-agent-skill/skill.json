@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "evaluate-agent-skill",
+  "version": "0.3.2",
+  "description": "Runs attributable routing and activated-execution evaluations for exact Agent Skill revisions without conflating evidence with audit or approval",
+  "keywords": [
+    "agent-skills",
+    "skill-evaluation",
+    "routing-evaluation",
+    "execution-evaluation",
+    "regression",
+    "behavioral-evidence"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": ".axm/extensions/@agentxm/skills/evaluate-agent-skill"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": false
+}

@@ -65,7 +65,5 @@ Prompt engineering is iterative. Google likewise presents its techniques as
 starting points to refine against observed responses, not universal recipes.[^google-prompting]
 
 [^anthropic-overview]: Anthropic — Prompt engineering overview
-
 [^prompt-report]: The Prompt Report — A Systematic Survey of Prompting Techniques
-
 [^google-prompting]: Google — Prompt design strategies

@@ -2,8 +2,7 @@
 type: Explanation
 title: Software engineering harnesses
 description: How coding harnesses specialize harness engineering for software work across local, repository-centered, remote, and coordinated systems.
-tags:
-  [coding-harness, coding-agents, software-engineering, repositories, remote-agents, domain-profile]
+tags: [coding-harness, coding-agents, software-engineering, repositories, remote-agents, domain-profile]
 status: stable
 sources:
   - id: openai-codex-sdk
@@ -80,17 +79,17 @@ boundary, nesting, and composition with agent hosts and organization policy.
 
 ## Coding-harness concerns
 
-| Concern                 | Representative design questions                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| Task specification      | Is the issue actionable, bounded, and verifiable?                                                        |
-| Repository context      | Can the agent find architecture, conventions, owners, and canonical examples without loading everything? |
-| Code navigation         | Can it search symbols, dependencies, history, and related changes efficiently?                           |
-| Development environment | Can it install, build, run, and debug the software reproducibly?                                         |
-| Change isolation        | Does each task have an appropriate branch, worktree, container, or VM?                                   |
-| Feedback                | Can the agent read tests, compiler output, logs, metrics, UI state, and review findings?                 |
-| Task continuity         | Can work survive context compression, interruption, retry, or worker replacement?                        |
-| Authority               | Which files, repositories, services, credentials, and deployment actions are permitted?                  |
-| Delivery integration    | How do changes enter review, CI, merge, rollout, and recovery workflows?                                 |
+| Concern | Representative design questions |
+| --- | --- |
+| Task specification | Is the issue actionable, bounded, and verifiable? |
+| Repository context | Can the agent find architecture, conventions, owners, and canonical examples without loading everything? |
+| Code navigation | Can it search symbols, dependencies, history, and related changes efficiently? |
+| Development environment | Can it install, build, run, and debug the software reproducibly? |
+| Change isolation | Does each task have an appropriate branch, worktree, container, or VM? |
+| Feedback | Can the agent read tests, compiler output, logs, metrics, UI state, and review findings? |
+| Task continuity | Can work survive context compression, interruption, retry, or worker replacement? |
+| Authority | Which files, repositories, services, credentials, and deployment actions are permitted? |
+| Delivery integration | How do changes enter review, CI, merge, rollout, and recovery workflows? |
 
 Remote agents make these concerns more visible because the developer's machine
 and tacit knowledge are absent. Cursor describes provisioning full remote
@@ -119,14 +118,14 @@ it safe to ship.
 
 ## Term boundaries
 
-| Term               | Meaning                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| Coding agent       | The agent that reasons and acts on software work                                            |
-| Coding harness     | The system around that agent for software-engineering tasks                                 |
-| Repository harness | Repository-owned environment adaptation for coding agents                                   |
-| Coding environment | The filesystem, tools, dependencies, services, and compute where work executes              |
-| Repository context | Information supplied or discovered from repository-local artifacts                          |
-| Coding context     | All task-relevant information, including repository, runtime, product, and feedback context |
+| Term | Meaning |
+| --- | --- |
+| Coding agent | The agent that reasons and acts on software work |
+| Coding harness | The system around that agent for software-engineering tasks |
+| Repository harness | Repository-owned environment adaptation for coding agents |
+| Coding environment | The filesystem, tools, dependencies, services, and compute where work executes |
+| Repository context | Information supplied or discovered from repository-local artifacts |
+| Coding context | All task-relevant information, including repository, runtime, product, and feedback context |
 
 A product name may refer to an agent, harness, host, or platform in ordinary speech.
 The distinction becomes important when diagnosing failures: changing the model
@@ -148,9 +147,6 @@ the axes behind these profiles and the [harness engineering glossary](../../glos
 bundle's shared terminology.
 
 [^openai-codex-sdk]: OpenAI — Codex SDK
-
 [^openai-app-server]: OpenAI — Codex App Server
-
 [^cursor-remote-agents]: Cursor — Agents can control their own computers
-
 [^scaffold-taxonomy]: Inside the Scaffold — A Taxonomy of Agentic Coding System Architectures

@@ -1,0 +1,91 @@
+{
+  "contract_version": "2.0.0",
+  "owner": "@example",
+  "decision": "Protect the supplied-input workflow, missing-input failure behavior, and publishing boundary during remediation.",
+  "target_binding": {
+    "skill_name": "format-release-notes",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.content_identity",
+      "adapters.host.content_identity"
+    ]
+  },
+  "scope": {
+    "intended_use": "Synthetic remediation regression source.",
+    "stages": ["routing", "execution"],
+    "case_source": "Accepted synthetic audit findings.",
+    "excluded_claims": ["Release approval", "Independent closure"]
+  },
+  "unit": "One isolated routing or activated-execution trial.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Catalog discovery surface only.",
+    "execution_boundary": "Synthetic local package and declared files only."
+  },
+  "evidence": {
+    "required_per_trial": ["case_id", "stage", "outcome"],
+    "outcomes": ["pass", "fail", "unknown", "harness-error"],
+    "storage": "Ignored generated evaluation workspace."
+  },
+  "grading": {
+    "instrument": "Exact routing selection and deterministic contract assertions.",
+    "unknown_policy": "Missing evidence remains unknown.",
+    "critical_gates": ["Missing input stops without writing", "Publishing remains excluded"],
+    "calibration": "Supplied-input success and missing-input failure controls."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "regression_minimum_per_case": 3,
+    "isolation": "Fresh conversation and task-local state per trial.",
+    "expansion_rule": "Repeat unstable cases before drawing a regression conclusion."
+  },
+  "comparison": {
+    "baseline": "The exact pre-remediation package identity.",
+    "absence": "No comparative claim when the pre-remediation baseline is unavailable."
+  },
+  "analysis": {
+    "minimum_pass_rate": 1,
+    "critical_case_ids": [2, 4],
+    "report_by": ["stage", "case"],
+    "routing_metrics": ["trigger_rate"],
+    "aggregation_rule": "Critical failures override averages; unknown and harness-error remain visible.",
+    "threshold": "All critical cases pass and the minimum pass rate is met."
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": ["complete", "failed", "canceled"],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material identity matches."
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Same-agent closure remains development evidence only."
+  },
+  "freshness": {
+    "expires_after_days": 90,
+    "refresh_triggers": ["Target source change", "Suite change", "Runner or adapter change"]
+  }
+}

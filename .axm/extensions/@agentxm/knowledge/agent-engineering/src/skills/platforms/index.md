@@ -1,13 +1,15 @@
-# Platform profiles
+# Host and extension-management profiles
 
-Host-specific packaging, discovery, invocation, and distribution behavior
-layered on one portable core.
+Two independent layers adapt the portable core: agent hosts own discovery and
+invocation behavior, while extension managers own canonical packages,
+projection, composition, distribution, and lifecycle.
 
 - [Portable Agent Skills core](portable-agent-skills-core.md) - The cross-host
   package and progressive-disclosure contract defined by the open
   specification.
-- [AXM skill profile](axm.md) - Canonical packaging, projections, manifests,
-  packs, validation, and integrity behavior.
+- [AXM extension-management profile](axm.md) - Canonical packages, projections,
+  manifests, packs, workspace state, validation, distribution, and lifecycle
+  across extension types.
 - [Claude skill profile](claude.md) - Authoring, evaluation, runtime, and
   enterprise review guidance.
 - [OpenAI skill profile](openai.md) - Discovery, invocation, metadata, and

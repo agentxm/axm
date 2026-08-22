@@ -29,10 +29,13 @@ A useful description contains:
 1. **Capability** — the outcome or job the skill performs.
 2. **Positive triggers** — verbs, artifacts, file types, tools, and domain terms
    likely to appear in real requests.
-3. **Negative boundary** — adjacent tasks that would otherwise over-match.
+3. **Negative boundary when needed** — a plausible adjacent task that would
+   otherwise over-match.
 
 Put all selection information in metadata; the body cannot repair a missed
-activation because it has not loaded yet.
+activation because it has not loaded yet. Do not accumulate exclusions for
+neighbors that are unlikely to collide: every extra clause consumes discovery
+attention and can make the route less legible.
 
 ## Distinct surfaces
 
@@ -43,14 +46,13 @@ activation because it has not loaded yet.
 
 ## Failure classes
 
-| Failure               | Evidence                                                      | Likely correction                                           |
-| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| Miss                  | Clear positive does not select the skill                      | Add recognizable capability or trigger language             |
-| False positive        | Adjacent negative selects the skill                           | Narrow capability or add a negative boundary                |
-| Collision             | Several skills plausibly match                                | Differentiate responsibility, artifacts, or lifecycle stage |
-| Keyword stuffing      | Description selects broadly but destination cannot fulfill it | Align metadata with actual capability                       |
-| Explicit-only success | Manual invocation works, implicit does not                    | Fix routing; do not bloat the body                          |
+| Failure | Evidence | Likely correction |
+| --- | --- | --- |
+| Miss | Clear positive does not select the skill | Add recognizable capability or trigger language |
+| False positive | Adjacent negative selects the skill | Narrow capability or add a negative boundary |
+| Collision | Several skills plausibly match | Differentiate responsibility, artifacts, or lifecycle stage |
+| Keyword stuffing | Description selects broadly but destination cannot fulfill it | Align metadata with actual capability |
+| Explicit-only success | Manual invocation works, implicit does not | Fix routing; do not bloat the body |
 
 [^openai-build-skills]: OpenAI — Build skills
-
 [^anthropic-best-practices]: Anthropic — Skill authoring best practices

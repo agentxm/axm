@@ -25,17 +25,17 @@ be accurate yet unused or too expensive.
 
 ## Dimensions
 
-| Dimension    | Question                                                          |
-| ------------ | ----------------------------------------------------------------- |
-| Availability | Did the needed source or observation exist?                       |
-| Routing      | Could the agent discover it from realistic entry points?          |
-| Selection    | Did relevant tasks load it and adjacent tasks reject it?          |
-| Destination  | Did the selected material fulfill its advertised purpose?         |
-| Authority    | Were source, trust, scope, and precedence interpreted correctly?  |
-| Freshness    | Was the information current enough for the decision?              |
-| Use          | Did it materially affect the intended reasoning or action?        |
-| Economy      | Were tokens, latency, calls, and retrieval depth proportionate?   |
-| Outcome      | Did the complete system improve without unacceptable regressions? |
+| Dimension | Question |
+| --- | --- |
+| Availability | Did the needed source or observation exist? |
+| Routing | Could the agent discover it from realistic entry points? |
+| Selection | Did relevant tasks load it and adjacent tasks reject it? |
+| Destination | Did the selected material fulfill its advertised purpose? |
+| Authority | Were source, trust, scope, and precedence interpreted correctly? |
+| Freshness | Was the information current enough for the decision? |
+| Use | Did it materially affect the intended reasoning or action? |
+| Economy | Were tokens, latency, calls, and retrieval depth proportionate? |
+| Outcome | Did the complete system improve without unacceptable regressions? |
 
 ## Evaluation workflow
 
@@ -58,5 +58,4 @@ linked. Do not call context correct merely because the final answer happened to
 pass once.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
-
 [^context-files-evaluation]: Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding Agents?

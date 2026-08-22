@@ -1,5 +1,69 @@
 # Agent engineering update log
 
+## 2026-08-22
+
+- **Replaceable evaluation runners**: Defined explicit-runner precedence over
+  an active configured default, selection-source attribution, disabled-source
+  handling, no auto-discovery or fallback, and adapter-based evidence mapping
+  for runners that do not reproduce a reference implementation's interface.
+- **Evaluation runner engineering**: Added a portable runner pattern with a
+  versioned protocol, capability-aware host and grader adapters, native-versus-
+  proxy routing identity, declared/observed/verified/enforced controls,
+  preflight without empty evidence, environment allowlists, atomic lifecycle,
+  separate trials and retry attempts, resumability, enforced budgets, and
+  deterministic summaries bounded to selected coverage.
+- **AXM-aware extension guidance**: Reframed AXM as an extension-management
+  layer independent of agent hosts, expanded its profile across extension
+  types, workspace state, pack and plugin relationships, and lifecycle
+  controls, and routed skill authoring, maintenance, and retirement through
+  that profile. Governance deprecation, registry yanking, installed-state
+  disabling, and workspace uninstall are now distinct operations.
+- **Routing measurement**: Routing evaluations now measure a trigger rate over
+  repeated attempts instead of a single verdict, require cases sized so that
+  selection can vary at all, and require decision cases held out before a
+  description is tuned against measured results. Case-realism guidance covers
+  concrete detail, register variation, and near-miss negatives. The Claude
+  profile records the observed under-selection behavior with the precision-first
+  boundary that limits how far a description should widen in response.
+- **Instrument observation**: Added measure discrimination across compared
+  configurations, a grader channel for reporting defects in the suite itself,
+  provenance-blinded judging with unblinded attribution as a separate second
+  phase, and verification of the claims an output makes about its own work.
+  Trial evidence now retains self-reported uncertainties and workarounds as
+  observations that never move an outcome. Evaluation validity gains threat rows
+  for uninformative task difficulty and non-discriminating measures.
+- **Authoring generalization**: Skill maintenance now warns against fitting a
+  revision to the small case set that motivated it, treats repeated improvisation
+  across independent trials as evidence that the skill should own the work, and
+  prefers stated reasons over escalating emphasis, with absolutes reserved for
+  genuine invariants.
+- **Agent-mediated UX**: Added round trips that leave the conversation — return
+  paths, response semantics, artifact identification, and a degradation ladder
+  ending in ordinary conversation — plus vocabulary calibration to an unknown
+  reader, teardown of agent-created resources, artifacts presented before the
+  agent's own assessment at a review gate, and honoring a promised check-in
+  cadence for background work.
+
+## 2026-08-21
+
+- **Evaluation evidence lifecycle**: Added portable guides for managing
+  evaluation source, generated runs, and promoted decision evidence and for
+  evaluating Agent Skills through independent routing and activated-execution
+  stages. Added provisional repository layouts, isolation and retention rules,
+  evidence tiers, and an explicit artifact lifecycle to evaluation governance.
+- **Agent Skill authoring architecture**: Added a focused creation guide and
+  moved candidate admission, routing, workflow contracts, package composition,
+  host adaptation, interaction design, and proportional lifecycle guidance
+  into the knowledge bundle. The coupled authoring skill now acts as a thin
+  execution router over those concepts instead of duplicating their method.
+- **Agent-mediated user experience**: Extracted portable interaction guidance
+  for user-facing agent workflows: task-state translation, surface-independent
+  interaction intents, proportional openings and progress, answerable
+  questions, authority-aware gates, evidence-led closeouts, and plain-text
+  degradation. The guide distinguishes interaction choreography from harness
+  rendering, prompt presentation contracts, human-control policy, and agent
+  experience; the glossary now records that distinction.
+
 ## 2026-08-17
 
 - **Consolidation**: Merged the `context-engineering`, `eval-engineering`,

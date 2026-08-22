@@ -21,3 +21,6 @@ responsible for, how it decides, and how it stops.
 - [Human control and collaboration](human-control-and-collaboration.md) -
   Oversight, approvals, intervention, explanation, and responsibility
   throughout a run.
+- [How to design agent-mediated user experience](agent-mediated-user-experience.md) -
+  How to make a user-facing agent workflow legible, actionable, and
+  authority-aware across openings, progress, questions, gates, and closeouts.

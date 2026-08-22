@@ -36,14 +36,14 @@ harness engineering, not merely another name for repository context.
 
 ## What a repository harness can contain
 
-| Surface                                           | Contribution                                                                     |
-| ------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Scoped instructions and discovery routes          | Establish invariants, commands, precedence, and paths to deeper knowledge        |
-| Architecture and domain documentation             | Make responsibilities, vocabulary, authority, and change boundaries discoverable |
-| Scripts, task runners, and development containers | Provide repeatable actions and environments                                      |
-| Tests, linters, schemas, and finish gates         | Convert important expectations into executable feedback                          |
-| CI, review automation, and repository hooks       | Carry verification and policy into delivery workflows                            |
-| Plans, task state, handoffs, and receipts         | Preserve decisions, progress, and evidence across sessions or workers            |
+| Surface | Contribution |
+| --- | --- |
+| Scoped instructions and discovery routes | Establish invariants, commands, precedence, and paths to deeper knowledge |
+| Architecture and domain documentation | Make responsibilities, vocabulary, authority, and change boundaries discoverable |
+| Scripts, task runners, and development containers | Provide repeatable actions and environments |
+| Tests, linters, schemas, and finish gates | Convert important expectations into executable feedback |
+| CI, review automation, and repository hooks | Carry verification and policy into delivery workflows |
+| Plans, task state, handoffs, and receipts | Preserve decisions, progress, and evidence across sessions or workers |
 
 These surfaces are not all context. Some change the environment, enforce
 policy, execute work, or produce verification evidence. That is why
@@ -93,9 +93,6 @@ See [Harness classification](../../harness/harness-classification.md) for
 the complete set of axes.
 
 [^openai-agents-md]: OpenAI — Custom instructions with AGENTS.md
-
 [^github-response-customization]: GitHub Docs — About customizing GitHub Copilot responses
-
 [^repository-harness-project]: repository-harness
-
 [^repo-harness-project]: repo-harness

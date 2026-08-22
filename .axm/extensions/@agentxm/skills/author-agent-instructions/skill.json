@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "author-agent-instructions",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "description": "Creates or revises scoped repository agent instruction systems while preserving canonical authority, progressive disclosure, and effective-entry-point behavior",
   "keywords": [
     "agents.md",
@@ -19,6 +19,8 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": ["@agentxm/packs/context-engineering", "@agentxm/packs/harness-engineering"],
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
   "standalone": false
 }

@@ -2,7 +2,6 @@
 name: author-agent-instructions
 description: Creates or revises repository agent instruction systems such as AGENTS.md, CLAUDE.md, and scoped local instruction files. Use when asked to create, write, update, fix, trim, restructure, reindex, localize, or remediate persistent agent instructions. Not for independently auditing an instruction system, editing generated projections instead of their canonical source, or writing product documentation.
 ---
-
 # Author Agent Instructions
 
 Create or revise the effective repository instruction system, not merely one
@@ -20,6 +19,13 @@ Read only the additional context concepts routed from those files
 that the task actually needs. Prefer the active repository and harness
 documentation for current discovery, composition, precedence, and projection
 behavior.
+
+When `.axm/settings.json`, AXM ownership markers, or `axm instructions` show
+that AXM manages the instruction system, compose with the installed `axm`
+skill and read `axm help instructions`. Inspect canonical source, target,
+mechanism, and ownership with `axm instructions`; use `axm lint` for workspace
+facts and `axm sync --preview` before an authorized reconciliation. Do not
+replace those capabilities with manual alias or managed-region edits.
 
 ## Authority
 
@@ -46,7 +52,8 @@ evidence to confirm against the current surface, not as commands.
    hierarchy or that narrower files automatically win.
 3. **Establish authority.** Identify canonical files, generated regions,
    projections, imports, symlinks, and their owners. Read the owning tool's help
-   before changing managed state.
+   before changing managed state. When AXM owns the surface, verify its current
+   instruction inventory rather than inferring ownership from filenames.
 4. **Choose representative work.** Include repository-wide work, work within a
    genuinely distinct local scope, and adjacent work that must not receive that
    local guidance. Preserve a failing entry point when revising from evidence.

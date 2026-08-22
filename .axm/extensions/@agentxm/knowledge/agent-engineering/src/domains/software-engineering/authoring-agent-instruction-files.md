@@ -2,16 +2,7 @@
 type: How-to guide
 title: How to author agent instruction files
 description: How to create or revise a scoped agent instruction system such as AGENTS.md or CLAUDE.md without assuming one coding agent's loading or precedence behavior.
-tags:
-  [
-    agent-instructions,
-    instruction-files,
-    authoring,
-    agents.md,
-    claude.md,
-    scope,
-    progressive-disclosure,
-  ]
+tags: [agent-instructions, instruction-files, authoring, agents.md, claude.md, scope, progressive-disclosure]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-15T20:45:15Z }
 stale_after: 2027-02-15
@@ -97,12 +88,12 @@ to keep findings consistent and evidence-backed.
 
 Keep content that performs one of four jobs:
 
-| Job              | Keep when                                                         |
-| ---------------- | ----------------------------------------------------------------- |
-| Invariant        | A stable constraint must shape work throughout its scope          |
-| Working command  | A non-obvious command materially improves execution or validation |
-| Discovery route  | A recognizable condition should load a deeper owner               |
-| Environment fact | A stable, non-obvious fact changes the next action                |
+| Job | Keep when |
+| --- | --- |
+| Invariant | A stable constraint must shape work throughout its scope |
+| Working command | A non-obvious command materially improves execution or validation |
+| Discovery route | A recognizable condition should load a deeper owner |
+| Environment fact | A stable, non-obvious fact changes the next action |
 
 Exclude background essays, exhaustive reference, task backlogs, long reusable
 procedures, and facts the agent can cheaply and reliably discover from the

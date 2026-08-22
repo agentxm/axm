@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/trial-response-1.0.0.json",
+  "title": "Agent Skill evaluator trial response",
+  "type": "object",
+  "required": ["schema_version", "side_effects", "observations", "usage"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "selected": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" }, "minItems": 1 }] },
+    "reason": { "type": "string" },
+    "final_response": { "type": "string" },
+    "side_effects": { "type": "array" },
+    "artifacts": { "type": "array" },
+    "observations": { "type": "object" },
+    "usage": {
+      "type": "object",
+      "required": ["tokens", "cost_usd"],
+      "properties": {
+        "tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "cost_usd": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  },
+  "oneOf": [
+    { "required": ["selected", "reason"] },
+    { "required": ["final_response"] }
+  ]
+}

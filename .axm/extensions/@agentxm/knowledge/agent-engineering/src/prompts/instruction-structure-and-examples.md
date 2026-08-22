@@ -2,11 +2,14 @@
 type: Explanation
 title: Instruction structure and examples
 description: How specificity, ordering, delimiters, and demonstrations steer behavior without brittle overconstraint.
-tags: [instructions, few-shot, examples, delimiters, ordering, specificity]
+tags: [instructions, few-shot, examples, delimiters, ordering, specificity, rationale, emphasis]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
-stale_after: 2027-02-14
+generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
+stale_after: 2027-02-22
 sources:
+  - id: anthropic-skill-creator
+    resource: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+    title: Anthropic — Skill Creator
   - id: anthropic-context
     resource: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
     title: Anthropic — Effective context engineering for AI agents
@@ -26,14 +29,33 @@ model distinguish task, instructions, examples, variable data, and output.
 
 ## Choose the right specificity
 
-| Too little                                 | Useful middle                                                | Too much                                    |
-| ------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------- |
+| Too little | Useful middle | Too much |
+| --- | --- | --- |
 | Vague aspiration or assumed shared context | Concrete goal, constraints, criteria, and bounded heuristics | Brittle pseudo-code for every possible case |
 
 Anthropic recommends clear, direct prompts at an altitude between vague
 guidance and hard-coded procedural logic.[^anthropic-context] State each rule
 once, keep the smallest sufficient set, and add detail in response to measured
 failures rather than imagined edge cases.[^openai-guidance]
+
+## Prefer stated reasons to escalating emphasis
+
+A capable model generalizes from a reason and cannot generalize from an
+unexplained absolute. A constraint whose purpose is stated holds in situations
+the author never enumerated; a constraint asserted only as mandatory holds
+exactly as far as its wording reaches.
+
+Escalating emphasis — capitalized absolutes, repetition, stacked warnings — is
+usually evidence that the contract is underspecified rather than that it needs
+more force. Anthropic's Skill Creator treats an all-capitals `ALWAYS` or `NEVER`
+as a signal to reframe and explain the reasoning instead.[^anthropic-skill-creator]
+When a rule is repeatedly violated, look for the missing reason, a conflicting
+instruction, or the case the wording does not reach.
+
+Reserve absolutes for genuine invariants: safety, authority boundaries,
+irreversible effects, and legal or contractual obligations. There the
+categorical form is the content, and a stated reason reinforces it rather than
+softening it.
 
 ## Use examples as evidence-bearing instructions
 
@@ -60,7 +82,6 @@ together, and test alternate order when a material failure may be positional.
 Do not elevate data merely by placing it near higher-authority instructions.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
-
 [^google-prompting]: Google — Prompt design strategies
-
 [^openai-guidance]: OpenAI — Model guidance
+[^anthropic-skill-creator]: Anthropic — Skill Creator

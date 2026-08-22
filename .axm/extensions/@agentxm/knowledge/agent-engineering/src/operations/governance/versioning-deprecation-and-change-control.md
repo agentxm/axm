@@ -32,11 +32,11 @@ For a skill, that contract includes:
 
 ## Version classification
 
-| Change                                                                | Version intent |
-| --------------------------------------------------------------------- | -------------- |
-| Correction with no public-contract or authority change                | Patch          |
-| Backward-compatible capability inside the approved authority envelope | Minor          |
-| Incompatible routing, input, output, requirement, or behavior change  | Major          |
+| Change | Version intent |
+| --- | --- |
+| Correction with no public-contract or authority change | Patch |
+| Backward-compatible capability inside the approved authority envelope | Minor |
+| Incompatible routing, input, output, requirement, or behavior change | Major |
 
 Version compatibility and governance risk are separate. Expanded authority,
 new network destinations, credential or data classes, executable dependencies,
@@ -56,17 +56,23 @@ Use lifecycle states deliberately:
 
 - `experimental` limits exposure while evidence accumulates;
 - `approved` permits named cohorts and effective policy;
-- `deprecated` warns consumers, names a successor and deadline, and blocks new
-  adoption by default;
-- `revoked` disables exposure immediately for safety or trust loss; and
+- `deprecated` warns consumers and names a successor and deadline; pair it with
+  a separate distribution control when new adoption must stop;
+- `revoked` records an immediate safety or trust decision that must be realized
+  through the available distribution and activation controls; and
 - `retired` records completed removal and retained provenance.
+
+These are governance states, not portable command semantics. Deprecation may be
+warning-only, blocking fresh resolution may be a separate registry action, and
+deactivating an installed package may require another operation. For AXM's
+mapping, read the
+[AXM extension-management profile](../../skills/platforms/axm.md). Never infer
+that one lifecycle label performed the other controls.
 
 Approval is bound to an exact artifact, not inherited forever by name. Research
 on Agent Skill security identifies persistent trust after one approval as a
 structural weakness.[^secure-agent-skills]
 
 [^semver]: Semantic Versioning 2.0.0
-
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-
 [^secure-agent-skills]: Towards Secure Agent Skills — Architecture, Threat Taxonomy, and Security Analysis

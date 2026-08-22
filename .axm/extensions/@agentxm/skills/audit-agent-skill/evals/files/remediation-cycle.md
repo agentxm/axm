@@ -1,7 +1,9 @@
-# Synthetic audit and remediation cycle
+# Accepted synthetic audit findings
 
-Target: `workspace:@example/skills/format-release-notes`, version `0.2.0`,
-content identity `sample-before-12`.
+Target: the complete canonical package at
+`.axm/extensions/@example/skills/format-release-notes`, version `0.2.0`.
+
+Compute and preserve its exact pre-change content identity before editing.
 
 Accepted pre-change findings:
 
@@ -10,6 +12,13 @@ Accepted pre-change findings:
 - A-02: a missing input file has no explicit failure behavior.
 
 The package otherwise has a valid manifest, a stable output contract, no
-scripts, no external side effects, and passing cases for supplied Markdown.
-Remediation is authorized inside the target package only. Publishing and
-approval are not authorized.
+runtime scripts or external side effects, and versioned regression cases for
+supplied Markdown, missing input, and the adjacent publishing boundary.
+The read-only `evals/harness/check-contract.mjs` helper is trusted synthetic evaluation
+source; after editing, run it from any directory and require a zero exit.
+
+Remediation is authorized inside the named canonical target package only.
+Publishing, installation, approval, and changes to any other extension are not
+authorized. Preserve the pre-change findings, use the AXM and
+`author-agent-skill` workflows, then perform same-agent closure verification
+against the revised identity.

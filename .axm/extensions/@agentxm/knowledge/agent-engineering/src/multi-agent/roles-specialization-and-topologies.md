@@ -25,14 +25,14 @@ context boundary, or independent unit of work. A different persona alone is
 not sufficient. Multi-agent surveys likewise distinguish individual-agent
 design from mutual interaction and system evolution.[^multi-agent-survey]
 
-| Topology                           | Use when                                                        | Main risk                                            |
-| ---------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
-| Manager or supervisor with workers | One actor can decompose, dispatch, and reconcile separable work | Bottleneck, bad decomposition, unverified synthesis  |
-| Handoffs among specialists         | Responsibility should transfer with the task state              | Lost accountability or context                       |
-| Sequential specialists             | Outputs have clear dependency order                             | Error propagation and latency                        |
-| Parallel workers                   | Work is independent and results can be reconciled               | Duplication, conflict, cost explosion                |
-| Peer coordination                  | No stable central authority fits                                | Deadlock, inconsistent state, diffuse responsibility |
-| Hierarchy                          | Scale or domain structure requires nested coordination          | Cascading errors and poor observability              |
+| Topology | Use when | Main risk |
+| --- | --- | --- |
+| Manager or supervisor with workers | One actor can decompose, dispatch, and reconcile separable work | Bottleneck, bad decomposition, unverified synthesis |
+| Handoffs among specialists | Responsibility should transfer with the task state | Lost accountability or context |
+| Sequential specialists | Outputs have clear dependency order | Error propagation and latency |
+| Parallel workers | Work is independent and results can be reconciled | Duplication, conflict, cost explosion |
+| Peer coordination | No stable central authority fits | Deadlock, inconsistent state, diffuse responsibility |
+| Hierarchy | Scale or domain structure requires nested coordination | Cascading errors and poor observability |
 
 Anthropic's research system uses an orchestrator-worker pattern for breadth and
 parallel search, while reporting coordination, token use, and evaluation as
@@ -44,7 +44,5 @@ agent with tools. Define which actor owns the final result, which may commit
 effects, and how conflicting outputs are reconciled.
 
 [^multi-agent-survey]: Large Language Model based Multi-Agents — A Survey of Progress and Challenges
-
 [^anthropic-multi-agent]: Anthropic — How we built our multi-agent research system
-
 [^openai-orchestration]: OpenAI Agents SDK — Agent orchestration

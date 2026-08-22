@@ -35,5 +35,4 @@ concurrent tasks when their state can interfere, and distinguish disposable
 execution surfaces from durable systems of record.[^ai-harness-runtime]
 
 [^ai-harness-runtime]: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents
-
 [^aws-harness-runtime]: Amazon Bedrock AgentCore — Agent harnesses and agent runtimes

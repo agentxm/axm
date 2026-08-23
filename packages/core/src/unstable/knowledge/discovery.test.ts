@@ -52,6 +52,10 @@ describe("reconcileKnowledgeDiscovery", () => {
         expect(first.changed).toBe(true);
         expect(second.changed).toBe(false);
         expect(instructions).toContain("region=knowledge");
+        const routing =
+          "Use `axm knowledge concepts --help` to search, read, and explore these bundles.";
+        expect(instructions.split(routing)).toHaveLength(2);
+        expect(instructions).toContain(`## Knowledge Bundles\n\n${routing}\n\n### @acme`);
         expect(instructions).toContain(
           "### @acme\n\n| Bundle | Description |\n| --- | --- |\n" +
             "| [platform](.axm/extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +

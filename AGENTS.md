@@ -248,6 +248,8 @@ Wait for the user to review changes and decide when to commit.
 
 ## Knowledge Bundles
 
+Use `axm knowledge concepts --help` to search, read, and explore these bundles.
+
 ### @agentxm
 
 | Bundle                                                                                 | Description                                                                                                                                                         |

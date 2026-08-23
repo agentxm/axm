@@ -705,6 +705,9 @@ describe("axm knowledge lifecycle", () => {
       );
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
       expect(installedInstructions).toContain("## Knowledge Bundles");
+      expect(installedInstructions).toContain(
+        "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
+      );
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
         "[platform](.axm/extensions/external/knowledge/platform/src/index.md)",

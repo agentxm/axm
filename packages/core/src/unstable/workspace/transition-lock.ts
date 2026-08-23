@@ -26,9 +26,13 @@ import * as lockfile from "proper-lockfile";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 export const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
-// Staleness must tolerate a busy event loop: a missed mtime update under load
-// must not let a live holder's lock be stolen mid-mutation.
-const LOCK_STALE_MILLIS = 10_000;
+// Staleness must tolerate a saturated event loop: a heavy apply starves the
+// mtime-update timer, and a slack smaller than the starvation lets a LIVE
+// holder's lock self-declare compromised — after which release refuses and the
+// dir is left for the next invocation to wait out. 25 s of slack covers the
+// longest observed starvation with room; a crashed holder delays a contender
+// at most this long, still inside the 60 s wait bound.
+const LOCK_STALE_MILLIS = 30_000;
 const LOCK_UPDATE_MILLIS = 5_000;
 const WAIT_INTERVAL = Duration.millis(250);
 /** How long a contending invocation serializes behind the holder. */
@@ -191,9 +195,6 @@ export const acquireWorkspaceTransitionLock = (args: {
         yield* Effect.addFinalizer(() =>
           Effect.gen(function* () {
             heldTransitions.delete(workspaceDir);
-            yield* fs
-              .remove(path.join(lockPath, "holder.json"), { force: true })
-              .pipe(Effect.ignore);
             yield* Effect.tryPromise({
               try: () => release(),
               catch: (cause) =>
@@ -203,6 +204,18 @@ export const acquireWorkspaceTransitionLock = (args: {
                   cause,
                 }),
             }).pipe(Effect.ignore);
+            // A compromised hold makes release() refuse and would leave the
+            // dir for the next invocation to wait out as stale. The dir is
+            // still ours unless another process re-acquired and re-stamped
+            // the holder file — remove it only in that owned case.
+            const residualHolder = yield* readHolder(fs, path, lockPath);
+            const ownsResidual = Option.match(residualHolder, {
+              onNone: () => true,
+              onSome: (value) => value.pid === process.pid,
+            });
+            if (ownsResidual) {
+              yield* fs.remove(lockPath, { recursive: true, force: true }).pipe(Effect.ignore);
+            }
             yield* removeEmptyScratch;
             yield* removeNewEmptyWorkspace;
           }),

@@ -103,7 +103,8 @@ describe("axm (root command)", () => {
       expect(result.exitCode).toBe(0);
       expect(document).toMatchObject({
         type: "help",
-        description: "Publish project-workspace extensions to a registry",
+        description:
+          "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
         usage: "axm publish [flags] [<extension...>]",
       });
       expect(JSON.stringify(document)).not.toContain("--authored");

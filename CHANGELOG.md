@@ -1,3 +1,18 @@
+## 0.27.17 (2026-08-23)
+
+### 🚀 Features
+
+- Let Knowledge authors and workspaces control instruction entries.
+- Make Registry archive policy inspectable and validate filtered packages.
+
+### 🩹 Fixes
+
+- Route generated Knowledge bundle instructions to concept discovery.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.16 (2026-08-23)
 
 ### 🩹 Fixes

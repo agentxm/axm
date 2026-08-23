@@ -296,7 +296,7 @@ describe("packs activation", () => {
 
       const enableData = expectDefined(enable.rendererState.results[0]).data;
       const enableResult = expectRecord(expectRecord(enableData)["result"]);
-      expect(enableResult["steps"]).toMatchObject([{ status: "applied" }]);
+      expect(enableResult["units"]).toMatchObject([{ state: "committed" }]);
       expectAppliedPlanResult(enableData, {
         planName: "Enable pack",
       });

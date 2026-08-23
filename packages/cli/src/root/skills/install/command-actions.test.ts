@@ -1,8 +1,8 @@
 /**
  * Unit tests for skill install command-actions helpers.
  *
- * Verifies compatible packages extraction and plan section building
- * for the `--preview` display.
+ * Verifies compatible packages extraction and the companion-package
+ * orientation block rendered via `renderer.info` at planning time.
  */
 
 import { describe, expect, it } from "vitest";

@@ -111,7 +111,7 @@ const targetHasContent = (
 export const writeFileAtomic = <E>(
   fs: FileSystem.FileSystem,
   options: WriteFileAtomicOptions<E>,
-): Effect.Effect<void, E> =>
+): Effect.Effect<"written" | "skipped", E> =>
   Effect.gen(function* () {
     const { content, mapError, targetPath } = options;
     const tempPath = makeTempPath(targetPath);
@@ -126,11 +126,11 @@ export const writeFileAtomic = <E>(
         const unchanged = yield* targetHasContent(fs, targetPath, content).pipe(
           Effect.mapError(fail("read-target")),
         );
-        if (unchanged) return;
+        if (unchanged) return "skipped" as const;
       }
     } else if (options.skipIfUnchanged === "ignore-read-errors") {
       const unchanged = yield* targetHasContent(fs, targetPath, content).pipe(Effect.option);
-      if (Option.isSome(unchanged) && unchanged.value) return;
+      if (Option.isSome(unchanged) && unchanged.value) return "skipped" as const;
     }
 
     yield* Effect.gen(function* () {
@@ -144,4 +144,5 @@ export const writeFileAtomic = <E>(
       }
       yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
     }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
+    return "written" as const;
   });

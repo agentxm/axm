@@ -29,7 +29,6 @@ import {
   uninstallSkill,
 } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
@@ -40,12 +39,13 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -62,9 +62,17 @@ export interface SkillsNewHandlerArgs {
 
 const normalizeOwner = (s: string) => normalizeHandle(s.startsWith("@") ? s : `@${s}`);
 
-export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
-  args: SkillsNewHandlerArgs,
-) {
+export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New skill",
+    },
+    handleSkillsNewBody(args),
+  );
+
+const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: SkillsNewHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const manager = yield* SkillManager;
   const agentRepo = yield* CodingAgentRepository;
@@ -300,13 +308,16 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     _tag: "Plan",
     name: "New skill",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "skill",
+    ),
     jobs: [{ concurrency: 1 as const, steps }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
 
   const suggestions = [
@@ -314,40 +325,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
     },
   ];
-  const artifact =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs
-          .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "success" && step.result.artifact !== undefined
-              ? [step.result.artifact]
-              : [],
-          )
-          .at(0)
-      : undefined;
-  const summary =
-    artifact === undefined
-      ? undefined
-      : artifact.targets !== undefined && artifact.targets.length > 0
-        ? `-> ${count(artifact.targets.length, "location")}   ${artifact.version ?? "0.0.1"}`
-        : `-> ${artifact.path}   ${artifact.version ?? "0.0.1"}`;
-
-  const emitted = yield* emitPlanResolutionResult(
-    "skills.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? { ...(summary === undefined ? {} : { summary }), suggestions }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created skill ${fqn}`,
-      ...(summary === undefined ? {} : { summary }),
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("skills.new", resolution, { suggestions });
 });
 
 const newConfig = {

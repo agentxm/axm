@@ -9,9 +9,10 @@ import {
   summarizeCommandOutcome,
   type SubjectType,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan, type PlanResolution } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
@@ -61,6 +62,27 @@ export const handleWorkspaceUpdate = (args: {
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceUpdateFlags;
   /** Installed names a selector resolved to; omit to update every entry. */
+  readonly names?: ReadonlyArray<string>;
+}) =>
+  withOperationLifecycle(
+    {
+      command: args.command,
+      mode: args.flags.preview ? "preview" : "apply",
+      planName: args.planName,
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        Option.getOrUndefined(args.type),
+      ),
+    },
+    handleWorkspaceUpdateBody(args),
+  );
+
+const handleWorkspaceUpdateBody = (args: {
+  readonly command: string;
+  readonly type: Option.Option<WorkspaceUpdatableType>;
+  readonly planName: string;
+  readonly planDescription: Option.Option<string>;
+  readonly flags: WorkspaceUpdateFlags;
   readonly names?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
@@ -113,14 +135,15 @@ export const handleWorkspaceUpdate = (args: {
       }),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });
-    const outputResolution: PlanResolution = resolution;
     yield* setCommandSemanticProperties(
       summarizeCommandOutcome(
-        planResolutionToSummary(outputResolution, {
+        operationResolutionSummary(resolution, {
           subjectType: workspaceUpdateSubjectType(args.type),
           sourceKind: "workspace",
         }),
       ),
     );
-    yield* emitPlanResolutionResult(args.command, outputResolution);
+    yield* emitOperationResolution(args.command, resolution, {
+      suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+    });
   });

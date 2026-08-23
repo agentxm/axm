@@ -307,10 +307,11 @@ describe("root uninstall handler", () => {
         planName: "Uninstall skill",
       });
       expect(result).toMatchObject({
-        steps: [
+        units: [
           {
+            id: "skill",
             label: "skill",
-            status: "applied",
+            state: "committed",
             message: "Uninstalled skill",
           },
         ],

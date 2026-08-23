@@ -20,7 +20,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -462,7 +462,8 @@ describe("skills install handler — error propagation", () => {
         });
         const payload = expectRecord(rendererState.results[0]?.data);
         const result = expectRecord(property(payload, "result"));
-        expect(property(result, "warningCount")).toBe(1);
+        const counts = expectRecord(property(result, "counts"));
+        expect(property(counts, "warnings")).toBe(1);
       }),
     );
   });
@@ -491,7 +492,8 @@ describe("skills install handler — error propagation", () => {
         });
         const payload = expectRecord(rendererState.results[0]?.data);
         const result = expectRecord(property(payload, "result"));
-        expect(property(result, "warningCount")).toBe(0);
+        const counts = expectRecord(property(result, "counts"));
+        expect(property(counts, "warnings")).toBe(0);
       }),
     );
   });
@@ -718,7 +720,7 @@ describe("skills install handler — error propagation", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             outcome: "failed",
-            failedCount: 1,
+            counts: expect.objectContaining({ failed: 1 }),
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).toContain("workspace-authored");
@@ -763,10 +765,16 @@ describe("skills install handler — error propagation", () => {
           execution: preapprovedPlanExecution,
         });
         expect(logs.warn).toEqual([]);
+        expect(deriveOperationOutcome(resolution)).toBe("blocked");
         expect(resolution).toMatchObject({
-          _tag: "FailedPlan",
-          reason: "hard-blocked",
-          errorCode: "conflict",
+          _tag: "OperationResolution",
+          blocking: {
+            class: "precondition-unmet",
+            subject: "test-step",
+            phase: "planning",
+            detail: "Test error step",
+            causeCode: "conflict",
+          },
         });
       }),
     );

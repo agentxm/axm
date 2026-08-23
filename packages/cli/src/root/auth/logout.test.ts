@@ -20,7 +20,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { expectAppliedPlanResult, expectNoOpPlanResult } from "../../test-helpers.js";
+import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogout } from "./logout.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -110,11 +110,14 @@ describe("auth logout handler", () => {
         yield* handleLogout();
         expect(logs.success).toEqual([]);
         expect(logs.warn).toEqual([]);
-        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        // Logout keeps the legacy single-step operation-plan document shape.
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
+        expect(result).toMatchObject({
+          outcome: "no-op",
           planName: "Log out of AXM registry",
           totalSteps: 1,
-        });
-        expect(result).toMatchObject({
           steps: [
             {
               label: "Registry credentials",
@@ -192,11 +195,13 @@ describe("auth logout handler", () => {
         yield* handleLogout();
         expect(logs.success).toEqual([]);
         expect(logs.warn).toEqual([]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
+        expect(result).toMatchObject({
+          outcome: "applied",
           planName: "Log out of AXM registry",
           warningCount: 1,
-        });
-        expect(result).toMatchObject({
           steps: [
             {
               label: "Registry credentials",

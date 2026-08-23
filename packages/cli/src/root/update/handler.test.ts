@@ -40,7 +40,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../test-helpers.js";
 import {
   computePackageContentHashSync,
@@ -549,10 +549,14 @@ describe("root update handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          outcome: "failed",
-          reason: "hard-blocked",
-          errorCode: "conflict",
-          totalSteps: 0,
+          contract: "plan-result-v2",
+          outcome: "blocked",
+          blocking: {
+            class: "precondition-unmet",
+            causeCode: "conflict",
+            reference: "not-desired",
+          },
+          counts: { total: 0 },
           targetedUpdate: {
             ownership: "absent",
             authority: "blocked",
@@ -614,8 +618,10 @@ describe("root update handler", () => {
       expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
+          contract: "plan-result-v2",
           outcome: "previewed",
-          totalSteps: 1,
+          mode: "preview",
+          counts: { total: 1 },
           targetedUpdate: {
             ownership: "pack-only",
             authority: "pack-aware",
@@ -702,8 +708,9 @@ describe("root update handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
+          contract: "plan-result-v2",
           outcome: "no-op",
-          totalSteps: 0,
+          counts: { total: 0 },
           holdbacks: [
             {
               target: "@acme/skills/reviewer",
@@ -941,10 +948,10 @@ describe("root update handler", () => {
         planName: "Update configured extensions",
         totalSteps: 1,
       });
-      expect(planResultSteps(result)).toMatchObject([
+      expect(planResultUnits(result)).toMatchObject([
         {
           label: "handbook",
-          status: "unchanged",
+          state: "unchanged",
           message: "handbook is workspace-sourced and unchanged",
         },
       ]);

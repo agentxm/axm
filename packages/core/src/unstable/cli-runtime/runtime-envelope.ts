@@ -1,5 +1,6 @@
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
+import * as Ref from "effect/Ref";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -14,6 +15,7 @@ import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
+import { OperationExitLive, getOperationExitCode } from "./operation-exit.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 import {
   readGlobalFlagProperties,
@@ -254,19 +256,35 @@ export const withCliErrorHandling = <A, R>(
 
     // Execute program with timing
     const startTime = yield* Clock.monotonicTimeNanos;
+    // command_completed is recorded exactly once, whichever termination path runs.
+    const completionRecorded = yield* Ref.make(false);
+    const semanticCause = (semanticProperties: TelemetryProperties) => {
+      const code = semanticProperties["cli.error_code"];
+      return typeof code === "string" ? code : undefined;
+    };
 
     return yield* program.pipe(
       Effect.tap(() =>
         Effect.gen(function* () {
           const semanticProperties = yield* getCommandSemanticProperties;
-          const semanticExitCode = exitCodeForSemanticProperties(semanticProperties);
+          // An operation resolution's own exit mapping wins verbatim; the
+          // semantic-property derivation serves only commands without one.
+          const operationExit = Option.getOrUndefined(yield* getOperationExitCode);
+          const semanticExitCode =
+            operationExit !== undefined
+              ? operationExit === 0
+                ? undefined
+                : operationExit
+              : exitCodeForSemanticProperties(semanticProperties);
+          const causeClass = semanticCause(semanticProperties);
+          yield* Ref.set(completionRecorded, true);
           yield* trackCliCommandCompleted({
             command,
             result: semanticExitCode === undefined ? "success" : "error",
             durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
             ...(semanticExitCode !== undefined && {
-              errorCode: "issues",
-              errorCategory: "issues",
+              errorCode: causeClass ?? "issues",
+              errorCategory: causeClass ?? "issues",
             }),
             semanticProperties,
           });
@@ -284,6 +302,7 @@ export const withCliErrorHandling = <A, R>(
           Effect.andThen(
             Effect.gen(function* () {
               const semanticProperties = yield* getCommandSemanticProperties;
+              yield* Ref.set(completionRecorded, true);
               yield* trackCliCommandCompleted({
                 command,
                 result,
@@ -302,7 +321,26 @@ export const withCliErrorHandling = <A, R>(
       Effect.catchCause((cause) => {
         const defect = Cause.squash(cause);
         if (isEffectCliExit(defect)) {
-          return Effect.failCause(cause);
+          // An operation boundary terminated with its own exit (blocked,
+          // interrupted, contention). It already emitted its document; the
+          // completion event is still owed here, once.
+          return Effect.gen(function* () {
+            if (!(yield* Ref.get(completionRecorded))) {
+              const semanticProperties = yield* getCommandSemanticProperties;
+              const causeClass = semanticCause(semanticProperties);
+              yield* Ref.set(completionRecorded, true);
+              yield* trackCliCommandCompleted({
+                command,
+                result: defect.exitCode === 130 || defect.exitCode === 143 ? "cancelled" : "error",
+                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
+                ...(causeClass === undefined
+                  ? {}
+                  : { errorCode: causeClass, errorCategory: causeClass }),
+                semanticProperties,
+              });
+            }
+            return yield* Effect.failCause(cause);
+          });
         }
         if (Cause.hasInterruptsOnly(cause)) {
           return Effect.failCause(cause);
@@ -328,7 +366,9 @@ export const withCliErrorHandling = <A, R>(
   });
 
   return enrichedProgram.pipe(
-    Effect.provide(Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive)),
+    Effect.provide(
+      Layer.mergeAll(telemetryLayer, CommandSemanticPropertiesLive, OperationExitLive),
+    ),
   );
 };
 

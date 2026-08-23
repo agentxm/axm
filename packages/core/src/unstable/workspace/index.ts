@@ -206,6 +206,7 @@ export {
 // Workspace mutation service implementation (layer)
 export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 export {
+  protectCreatedAncestors,
   protectWorkspacePath,
   runWorkspaceTransaction,
   type WorkspaceTransactionArgs,
@@ -253,7 +254,32 @@ export {
   ResolvePlanInteractionTest,
 } from "./resolve-plan-interaction.js";
 // Plan display
-export { displayPlan } from "./display-plan.js";
+export { defaultOperationPresentation, displayPlan, presentationOf } from "./display-plan.js";
+export {
+  FootprintRecorder,
+  makeFootprintRecorder,
+  readFootprint,
+  recordFootprint,
+  type FootprintObservation,
+  type FootprintRecorderService,
+} from "./footprint-recorder.js";
+export {
+  OPERATION_RECORDS_DIRNAME,
+  RecoveryRecordSchema,
+  readOpenRecoveryRecords,
+  resolveRecoveryRecords,
+  writeOperationRecoveryRecord,
+  type OpenRecoveryRecord,
+  type RecoveryRecord,
+} from "./operation-records.js";
+export {
+  TRANSITION_WAIT_BOUND_MILLIS,
+  acquireWorkspaceTransitionLock,
+  isWorkspaceTransitionHeldByThisInvocation,
+  transitionLockPath,
+  type TransitionContention,
+  type TransitionLockHolder,
+} from "./transition-lock.js";
 
 // Version currency
 export {

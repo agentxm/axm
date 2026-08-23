@@ -249,9 +249,11 @@ describe("agents add.handler", () => {
           planName: "Add coding agents",
         });
         expect(result).toMatchObject({
-          steps: [
+          units: [
             expect.objectContaining({
+              id: "Add cursor",
               label: "Add cursor",
+              state: "committed",
               artifact: expect.objectContaining({
                 path: ".axm/settings.json",
                 scope: "project",
@@ -352,7 +354,9 @@ describe("agents add.handler", () => {
         });
 
         expect(rendererState.logs).toEqual([{ _tag: "success", message: "Configured 1 agent" }]);
-        expect(rendererState.suggestions).toEqual([]);
+        // --quiet keeps next-step guidance: the filter drops progress and
+        // decoration only.
+        expect(rendererState.suggestions).toEqual([cursorSuggestion]);
       }),
     );
   });
@@ -394,7 +398,7 @@ describe("agents add.handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "error",
-          message: "Plan execution failed",
+          message: "Failed to configure 2 agents",
         });
         expect(rendererState.logs).not.toContainEqual({
           _tag: "success",
@@ -402,7 +406,7 @@ describe("agents add.handler", () => {
         });
         expect(rendererState.logs).toContainEqual(
           expect.objectContaining({
-            _tag: "info",
+            _tag: "error",
             message: expect.stringContaining("Injected review skill materialization failure"),
           }),
         );
@@ -454,15 +458,17 @@ describe("agents add.handler", () => {
         expect(result).toMatchObject({
           outcome: "failed",
           planName: "Add coding agents",
-          totalSteps: 2,
-          appliedCount: 0,
-          failedCount: 1,
-          blockedCount: 0,
-          steps: [
-            { label: "Add cursor", status: "failed" },
+          counts: expect.objectContaining({
+            total: 2,
+            committed: 0,
+            failed: 2,
+            blocked: 0,
+          }),
+          units: [
+            { label: "Add cursor", state: "failed" },
             {
               label: expect.stringContaining("review"),
-              status: "failed",
+              state: "failed",
               message: expect.stringContaining("Injected review skill materialization failure"),
             },
           ],
@@ -517,7 +523,7 @@ describe("agents add.handler", () => {
         });
 
         expect(rendererState.results[0]?.data).toMatchObject({
-          result: { outcome: "failed", reason: "override-required" },
+          result: { outcome: "blocked", blocking: { class: "override-required" } },
         });
         expect(readConfiguredAgents()).toEqual([]);
 

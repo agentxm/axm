@@ -9,9 +9,11 @@ import {
   type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { operationPresentation, type Plan } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { planResolutionToSummary, toPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
@@ -40,7 +42,6 @@ import {
   type RootInstallableType,
 } from "./resolve-root-install-intent.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../shared/applied-plan-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 
 export interface RootInstallFlags {
@@ -58,52 +59,65 @@ type RegistryExtensionRootInstallIntent = RootInstallIntent & {
   readonly type: RootInstallableType;
 };
 
+const withInstallPresentation = (type: RootInstallableType) => (plan: Plan) =>
+  Effect.succeed({
+    ...plan,
+    presentation: operationPresentation(
+      { imperative: "install", past: "Installed", gerund: "Installing" },
+      type,
+    ),
+  } satisfies Plan);
+
 const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,
   execution: PlanExecution,
 ) =>
   Effect.gen(function* () {
+    const transformPlan = withInstallPresentation(intent.type);
     switch (intent.type) {
       case "skill": {
         const actions = yield* InstallSkillCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
           actions,
-          { execution },
+          { execution, transformPlan },
         );
       }
       case "mcp-server": {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution, transformPlan });
       }
       case "rule": {
         const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution, transformPlan });
       }
       case "hook": {
         const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution, transformPlan });
       }
       case "knowledge": {
         const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
+          execution,
+          transformPlan,
+        });
       }
       case "subagent": {
         const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
           actions,
-          { execution },
+          { execution, transformPlan },
         );
       }
       case "pack": {
         const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(packArgs, actions, { execution });
+        return yield* runInstallCommandWorkflow(packArgs, actions, { execution, transformPlan });
       }
     }
   });
@@ -139,24 +153,37 @@ const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
     const attempts = [
       yield* runLocatorWorkflow(
         "skill",
-        runInstallCommandWorkflow({ source, skills: [], all: true }, skillActions, { execution }),
+        runInstallCommandWorkflow({ source, skills: [], all: true }, skillActions, {
+          execution,
+          transformPlan: withInstallPresentation("skill"),
+        }),
       ),
       yield* runLocatorWorkflow(
         "rule",
-        runInstallCommandWorkflow({ source }, ruleActions, { execution }),
+        runInstallCommandWorkflow({ source }, ruleActions, {
+          execution,
+          transformPlan: withInstallPresentation("rule"),
+        }),
       ),
       yield* runLocatorWorkflow(
         "hook",
-        runInstallCommandWorkflow({ source }, hookActions, { execution }),
+        runInstallCommandWorkflow({ source }, hookActions, {
+          execution,
+          transformPlan: withInstallPresentation("hook"),
+        }),
       ),
       yield* runLocatorWorkflow(
         "knowledge",
-        runInstallCommandWorkflow({ source }, knowledgeActions, { execution }),
+        runInstallCommandWorkflow({ source }, knowledgeActions, {
+          execution,
+          transformPlan: withInstallPresentation("knowledge"),
+        }),
       ),
       yield* runLocatorWorkflow(
         "subagent",
         runInstallCommandWorkflow({ source, subagents: [], all: true }, subagentActions, {
           execution,
+          transformPlan: withInstallPresentation("subagent"),
         }),
       ),
     ];
@@ -174,24 +201,28 @@ const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
     }
 
     for (const item of successful) {
-      const result = toPlanResolutionResult(item.resolution);
-      yield* emitAppliedPlanOutcome({
-        command: "install",
-        headline:
-          result.outcome === "no-op"
-            ? unchangedPlanHeadline(
-                item.resolution,
-                `${item.type} extensions are already up to date`,
-              )
-            : `Installed ${item.type} extensions from ${source}`,
-        resolution: item.resolution,
-        reportInstallationCoverage: item.type !== "knowledge",
+      yield* emitOperationResolution("install", item.resolution, {
         suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       });
     }
   });
 
 export const handleInstall = (args: RootInstallHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "install",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Install configured extensions",
+      presentation: operationPresentation({
+        imperative: "install",
+        past: "Installed",
+        gerund: "Installing",
+      }),
+    },
+    handleInstallBody(args),
+  );
+
+const handleInstallBody = (args: RootInstallHandlerArgs) =>
   Option.match(args.source, {
     onNone: () =>
       handleWorkspaceInstall({
@@ -222,21 +253,13 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
         const resolution = yield* runRegistryInstallIntent(intent, execution);
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
-            planResolutionToSummary(resolution, {
+            operationResolutionSummary(resolution, {
               subjectType: intent.type,
               sourceKind: "registry",
             }),
           ),
         );
-        const result = toPlanResolutionResult(resolution);
-        yield* emitAppliedPlanOutcome({
-          command: "install",
-          headline:
-            result.outcome === "no-op"
-              ? unchangedPlanHeadline(resolution, `${intent.type} is already up to date`)
-              : `Installed ${intent.type} ${source}`,
-          resolution,
-          reportInstallationCoverage: intent.type !== "knowledge",
+        yield* emitOperationResolution("install", resolution, {
           suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
         });
       }),

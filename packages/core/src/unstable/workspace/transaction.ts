@@ -9,7 +9,12 @@ import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 
+import * as Layer from "effect/Layer";
+
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { recordFootprint } from "./footprint-recorder.js";
+import { writeOperationRecoveryRecord } from "./operation-records.js";
+import { isWorkspaceTransitionHeldByThisInvocation } from "./transition-lock.js";
 
 const TRANSACTION_LOCK_FILENAME = "workspace-transition.lock";
 const LOCK_RETRY_DELAY = Duration.millis(25);
@@ -46,6 +51,8 @@ export interface WorkspaceTransactionArgs<A, E, R> {
   readonly transition: Effect.Effect<A, E, R>;
   /** Confirms the complete durable postcondition before the transaction commits. */
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
+  /** Observes the start of rollback restoration; never controls it. */
+  readonly onRestorationStarted?: Effect.Effect<void>;
 }
 
 const transactionError = (detail: string, cause: unknown): AppError =>
@@ -197,6 +204,47 @@ export const protectWorkspacePath = (target: string): Effect.Effect<void, AppErr
     ),
   );
 
+/**
+ * Protect the first ancestor a recursive directory creation is about to
+ * create, so restoration removes the created directory chain instead of
+ * leaving empty parents behind. No-op outside a transaction or when the
+ * directory already exists.
+ */
+export const protectCreatedAncestors = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  directory: string,
+): Effect.Effect<void, AppError> =>
+  CurrentWorkspaceTransaction.pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (context) =>
+          Effect.gen(function* () {
+            let firstMissing: string | undefined;
+            let current = path.resolve(directory);
+            while (true) {
+              const exists = yield* fs
+                .exists(current)
+                .pipe(
+                  Effect.mapError((error) =>
+                    transactionError(`Failed to inspect transaction ancestor ${current}`, error),
+                  ),
+                );
+              if (exists) break;
+              firstMissing = current;
+              const parent = path.dirname(current);
+              if (parent === current) break;
+              current = parent;
+            }
+            if (firstMissing !== undefined) {
+              yield* protectInContext(context, firstMissing);
+            }
+          }),
+      }),
+    ),
+  );
+
 const restoreSnapshot = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -218,9 +266,16 @@ const restoreAll = (
   path: Path.Path,
   snapshots: ReadonlyArray<Snapshot>,
 ): Effect.Effect<void, PlatformError> =>
-  Effect.forEach([...snapshots].reverse(), (snapshot) => restoreSnapshot(fs, path, snapshot), {
-    discard: true,
-  });
+  Effect.forEach(
+    [...snapshots].reverse(),
+    (snapshot) =>
+      restoreSnapshot(fs, path, snapshot).pipe(
+        Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
+      ),
+    {
+      discard: true,
+    },
+  );
 
 /**
  * Run one coupled workspace mutation under a scope-local lock.
@@ -295,7 +350,12 @@ export const runWorkspaceTransaction = <A, E, R>(
             );
         return yield* Effect.scoped(
           Effect.gen(function* () {
-            yield* acquireWorkspaceLock(workspaceDir, lockPath, removeEmptyScratch);
+            // The invocation-level transition hold already provides
+            // cross-process exclusion; acquiring here again would deadlock on
+            // our own lock.
+            if (!isWorkspaceTransitionHeldByThisInvocation(workspaceDir)) {
+              yield* acquireWorkspaceLock(workspaceDir, lockPath, removeEmptyScratch);
+            }
             const backupDir = yield* fs
               .makeTempDirectory({ prefix: "axm-workspace-rollback-" })
               .pipe(
@@ -338,18 +398,39 @@ export const runWorkspaceTransaction = <A, E, R>(
             return yield* business.pipe(
               Effect.matchCauseEffect({
                 onFailure: (cause) =>
-                  restoreAll(fs, path, context.snapshots).pipe(
-                    Effect.matchEffect({
-                      onFailure: (rollbackCause) =>
-                        Effect.fail(
-                          transactionError(
-                            `Workspace rollback failed. Rollback backup retained at: ${backupDir}`,
-                            { transition: Cause.pretty(cause), rollback: rollbackCause },
+                  (args.onRestorationStarted ?? Effect.void)
+                    .pipe(Effect.andThen(restoreAll(fs, path, context.snapshots)))
+                    .pipe(
+                      Effect.matchEffect({
+                        onFailure: (rollbackCause) =>
+                          writeOperationRecoveryRecord({
+                            workspaceDir,
+                            kind: "restoration-failure",
+                            command: "workspace-transaction",
+                            retained: [
+                              backupDir,
+                              ...context.snapshots.map((snapshot) => snapshot.target),
+                            ],
+                            resolveBy: `Restore the affected paths from the retained rollback backup at ${backupDir}, then re-run the operation.`,
+                          }).pipe(
+                            Effect.provide(
+                              Layer.mergeAll(
+                                Layer.succeed(FileSystem.FileSystem, fs),
+                                Layer.succeed(Path.Path, path),
+                              ),
+                            ),
+                            Effect.andThen(
+                              Effect.fail(
+                                transactionError(
+                                  `Workspace rollback failed. Rollback backup retained at: ${backupDir}`,
+                                  { transition: Cause.pretty(cause), rollback: rollbackCause },
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      onSuccess: () => cleanup.pipe(Effect.andThen(Effect.failCause(cause))),
-                    }),
-                  ),
+                        onSuccess: () => cleanup.pipe(Effect.andThen(Effect.failCause(cause))),
+                      }),
+                    ),
                 onSuccess: (value) => cleanup.pipe(Effect.as(value)),
               }),
               Effect.uninterruptible,

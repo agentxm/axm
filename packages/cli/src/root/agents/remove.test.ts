@@ -22,7 +22,7 @@ import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
-  planResultSteps,
+  planResultUnits,
 } from "../../test-helpers.js";
 import { handleAgentsRemove } from "./remove.js";
 
@@ -172,9 +172,9 @@ describe("agents remove.handler", () => {
           totalSteps: 2,
         });
         expect(result).toMatchObject({
-          steps: [
-            { label: "Remove managed agent artifacts", status: "ready" },
-            { label: "Remove opencode", status: "ready" },
+          units: [
+            { label: "Remove managed agent artifacts", state: "ready" },
+            { label: "Remove opencode", state: "ready" },
           ],
         });
       }),
@@ -203,10 +203,10 @@ describe("agents remove.handler", () => {
           appliedCount: 1,
         });
         expect(result).toMatchObject({
-          steps: [
+          units: [
             {
               label: "Remove managed agent artifacts",
-              status: "unchanged",
+              state: "unchanged",
               message: "Removed 0 managed artifacts",
               artifact: {
                 path: "managed agent artifacts",
@@ -218,7 +218,7 @@ describe("agents remove.handler", () => {
             },
             {
               label: "Remove opencode",
-              status: "applied",
+              state: "committed",
               message: "Removed opencode",
               artifact: {
                 path: ".axm/settings.json",
@@ -252,8 +252,14 @@ describe("agents remove.handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "error",
-          message: "Plan execution failed",
+          message: "Failed to remove 2 agents",
         });
+        expect(rendererState.logs).toContainEqual(
+          expect.objectContaining({
+            _tag: "error",
+            message: expect.stringContaining("Injected managed artifact cleanup failure"),
+          }),
+        );
         expect(rendererState.logs).not.toContainEqual({
           _tag: "success",
           message: "Removed 1 agent",
@@ -291,10 +297,10 @@ describe("agents remove.handler", () => {
           planName: "Remove coding agents",
           totalSteps: 2,
         });
-        const steps = planResultSteps(result);
-        expect(steps[0]).toMatchObject({
+        const units = planResultUnits(result);
+        expect(units[0]).toMatchObject({
           label: "Remove managed agent artifacts",
-          status: "applied",
+          state: "committed",
           artifact: {
             path: "managed agent artifacts",
             scope: "project",

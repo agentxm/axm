@@ -29,7 +29,7 @@ import {
   expectPreviewedPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../../test-helpers.js";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
 
@@ -508,9 +508,9 @@ describe("subagents-update.handler", () => {
             planName: "Update subagents",
             totalSteps: 2,
           });
-          expect(planResultSteps(result)).toEqual([
-            expect.objectContaining({ label: "researcher", status: "ready" }),
-            expect.objectContaining({ label: "Skip missing", status: "ready" }),
+          expect(planResultUnits(result)).toEqual([
+            expect.objectContaining({ label: "Skip missing", state: "ready" }),
+            expect.objectContaining({ label: "researcher", state: "ready" }),
           ]);
         }),
       );

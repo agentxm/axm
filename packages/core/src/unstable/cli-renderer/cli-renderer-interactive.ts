@@ -446,7 +446,9 @@ export const InteractiveRenderer = (options?: {
     success: (message, options?: SuccessOptions) =>
       renderLogLine(outputPolicy, "success", message).pipe(
         Effect.andThen(
-          options?.summary !== undefined && !outputPolicy.quiet
+          // `--quiet` filters progress and decoration only; a success summary
+          // is result data and survives it.
+          options?.summary !== undefined
             ? writeStderrLine(
                 formatOutput(
                   options.summary

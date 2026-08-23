@@ -2219,21 +2219,25 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
       return yield* previewOrApplyPlan(plan, {
         execution,
-        displayApplied: false,
         beforeApply: () => authorization.authorize,
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
   );
-  const executionOutputs =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs.flatMap((job) =>
-          job.steps.flatMap((step) =>
-            step.result.result === "success" && step.result.output !== undefined
-              ? [step.result.output]
-              : [],
-          ),
-        )
-      : [];
+  const planBlocking = resolution.blocking;
+  const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
+  const staleCandidate = planBlocking?.class === "stale-candidate";
+  const planFailureCode: AppErrorCode =
+    resolution.failure?.code ??
+    (planBlocking === undefined
+      ? "internal"
+      : planBlocking.class === "approval-required" || planBlocking.class === "override-required"
+        ? "usage"
+        : (planBlocking.causeCode ?? "conflict"));
+  const planFailureReason = planBlocking?.class ?? "execution-failed";
+  const applyExecuted = resolution.mode === "apply" && resolution.declined !== true && !planFailed;
+  const executionOutputs = resolution.units.flatMap((unit) =>
+    unit.output === undefined ? [] : [unit.output],
+  );
   const authorizationOutput = executionOutputs.find(
     (output) => output._tag === "PublishAuthorizationOutput",
   );
@@ -2242,41 +2246,36 @@ const runPublish = Effect.fn("Publish.run")(function* (
       output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
     ),
   );
-  const failedStepErrors =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs
-          .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error" && step.blockedBy === undefined
-              ? [step.result.error]
-              : [],
-          )
-      : [];
+  const failedStepErrors = resolution.units.flatMap((unit) =>
+    unit.state === "failed" && unit.error !== undefined ? [unit.error] : [],
+  );
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
-  if (resolution._tag === "ExecutedPlan") {
-    const byLabel = new Map(
-      resolution.jobs.flatMap((job) => job.steps).map((step) => [step.label, step]),
-    );
+  if (applyExecuted) {
+    const unitsById = new Map(resolution.units.map((unit) => [unit.id, unit] as const));
     results = baseResults.map((result) => {
       if (result.action !== "publish") return result;
       const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
       const candidate = candidates.find((item) => item.fqn === fqn);
-      const step =
-        candidate === undefined
-          ? undefined
-          : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
-      if (step === undefined) return result;
-      if (step.result.result === "error") {
-        if (step.blockedBy !== undefined) {
+      const unit = candidate === undefined ? undefined : unitsById.get(candidate.fqn);
+      if (unit === undefined) return result;
+      if (unit.state === "failed" || unit.state === "blocked") {
+        if (unit.state === "blocked" && unit.blocking?.class === "dependency-failed") {
+          const blockedBy = Object.keys(candidate?.dependencies ?? {}).filter((dependencyFqn) => {
+            const dependencyUnit = unitsById.get(dependencyFqn);
+            return (
+              dependencyUnit !== undefined &&
+              (dependencyUnit.state === "failed" || dependencyUnit.state === "blocked")
+            );
+          });
           return {
             ...result,
             action: "error",
             phase: "dependency_execution",
             reason: "blocked_by_dependency",
             status: "blocked",
-            message: step.result.message,
-            blockedBy: step.blockedBy,
+            ...(unit.message === undefined ? {} : { message: unit.message }),
+            blockedBy,
           };
         }
         const failedResult: PublishResultItem = {
@@ -2290,12 +2289,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
           action: "error",
           phase: "upload_execution",
           reason:
-            step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+            unit.error?.metadata?.response?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
               : "upload_failed",
           status: "failed",
-          message: step.result.message,
-          cause: publicPublishCause(step.result.error),
+          ...(unit.message === undefined ? {} : { message: unit.message }),
+          ...(unit.error === undefined ? {} : { cause: publicPublishCause(unit.error) }),
         };
         return failedResult;
       }
@@ -2317,9 +2316,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
         ...result,
         phase: "upload_execution",
         status: "success",
-        message: step.result.message,
+        ...(unit.message === undefined ? {} : { message: unit.message }),
         ...(publishedOutput === undefined ? {} : { visibility: publishedOutput.visibility }),
-        ...(step.result.links === undefined ? {} : { links: step.result.links }),
+        ...(unit.links === undefined ? {} : { links: unit.links }),
         ...(findings.length === 0 ? {} : { findings }),
       };
     });
@@ -2330,7 +2329,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   }
   const recoverySelection = publishRecoverySelection(results);
   const recoveryExecution =
-    resolution._tag === "ExecutedPlan" && recoverySelection.remainingItems.length > 0
+    applyExecuted && recoverySelection.remainingItems.length > 0
       ? yield* makePlanExecution(
           args,
           makeExactPublishRecovery(args, recoverySelection.remainingItems),
@@ -2347,12 +2346,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : publicationSetResult({
           candidates,
           preview: authorizedPublicationPreview,
-          ...(authorizedPublicationPreview.status === "blocked" && resolution._tag === "FailedPlan"
+          ...(authorizedPublicationPreview.status === "blocked" && planFailed
             ? {
                 blockedError:
                   resolution.failure ??
                   makeAppError({
-                    code: resolution.errorCode,
+                    code: planFailureCode,
                     detail: "The reviewed publication set was blocked before upload.",
                   }),
               }
@@ -2378,34 +2377,31 @@ const runPublish = Effect.fn("Publish.run")(function* (
               blockedDependents: recoverySelection.blockedDependents,
             },
           }),
-      ...(resolution._tag === "FailedPlan" && !args.preview
+      ...(planFailed && !args.preview
         ? {
             failure:
-              resolution.reason === "stale-candidate" || resolution.failure === undefined
+              staleCandidate || resolution.failure === undefined
                 ? publicPublishCause(
                     makeAppError({
-                      code: resolution.errorCode,
-                      detail:
-                        resolution.reason === "stale-candidate"
-                          ? "Workspace material changed after authorization; no upload was attempted."
-                          : `Publish execution did not start: ${resolution.reason}.`,
+                      code: planFailureCode,
+                      detail: staleCandidate
+                        ? "Workspace material changed after authorization; no upload was attempted."
+                        : `Publish execution did not start: ${planFailureReason}.`,
                     }),
                   )
                 : publicPublishCause(resolution.failure),
           }
         : {}),
     },
-    resolution._tag === "FailedPlan" ? { suggestions: resolution.suggestions ?? [] } : undefined,
+    planFailed ? { suggestions: resolution.suggestions ?? [] } : undefined,
   );
   const failed = results.filter((result) => result.status === "failed");
-  if (resolution._tag === "FailedPlan" && !args.preview) {
+  if (planFailed && !args.preview) {
     const failure = makeAppError({
-      code: resolution.errorCode,
-      detail:
-        resolution.reason === "stale-candidate"
-          ? "Workspace material changed after authorization; no upload was attempted."
-          : (resolution.failure?.detail ??
-            `Publish execution did not start: ${resolution.reason}.`),
+      code: planFailureCode,
+      detail: staleCandidate
+        ? "Workspace material changed after authorization; no upload was attempted."
+        : (resolution.failure?.detail ?? `Publish execution did not start: ${planFailureReason}.`),
       suggestions: resolution.suggestions ?? [],
     });
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;

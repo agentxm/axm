@@ -26,21 +26,38 @@ import {
   type KnowledgeManifest,
 } from "@agentxm/client-core/unstable/knowledge";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 
-export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (args: {
+export const handleKnowledgeNew = (args: {
+  readonly name: string;
+  readonly owner: Option.Option<string>;
+  readonly description: Option.Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "knowledge.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New knowledge",
+    },
+    handleKnowledgeNewBody(args),
+  );
+
+const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly description: Option.Option<string>;
@@ -135,6 +152,10 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   const plan: Plan = {
     _tag: "Plan",
     name: "New knowledge",
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "knowledge",
+    ),
     description: Option.some(
       Option.isSome(args.description)
         ? `Create ${fqn}: ${args.description.value}`
@@ -197,9 +218,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
-  const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;
   const suggestions = [
     ...(Option.isNone(args.description)
       ? [
@@ -215,19 +234,7 @@ export const handleKnowledgeNew = Effect.fn("KnowledgeNew.handle")(function* (ar
       description: `Replace the root index placeholder with grouped, annotated concept links`,
     },
   ];
-  const emitted = yield* emitPlanResolutionResult(
-    "knowledge.new",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created knowledge bundle ${fqn}`,
-      summary,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("knowledge.new", resolution, { suggestions });
 });
 
 const newConfig = {

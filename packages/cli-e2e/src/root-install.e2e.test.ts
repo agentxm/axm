@@ -33,22 +33,47 @@ interface PackPublishOptions {
   readonly dependencies?: Record<string, string>;
 }
 
+interface PlanResultUnit {
+  readonly id: string;
+  readonly label: string;
+  readonly state: string;
+  readonly artifact?: {
+    readonly path?: string;
+    readonly targets?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+  };
+}
+
+interface PlanResultCounts {
+  readonly total: number;
+  readonly planned: number;
+  readonly ready: number;
+  readonly committed: number;
+  readonly unchanged: number;
+  readonly failed: number;
+  readonly rolledBack: number;
+  readonly blocked: number;
+  readonly skipped: number;
+  readonly cancelled: number;
+  readonly warnings: number;
+}
+
+interface PlanResult {
+  readonly contract: string;
+  readonly outcome: string;
+  readonly mode: string;
+  readonly planName: string;
+  readonly planDescription?: string;
+  readonly candidateId?: string;
+  readonly counts: PlanResultCounts;
+  readonly units: ReadonlyArray<PlanResultUnit>;
+  readonly footprint?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
+}
+
 interface JsonCommandResult {
   readonly exitCode: number;
   readonly stdout: {
-    readonly command: string;
-    readonly result: {
-      readonly outcome: string;
-      readonly appliedCount: number;
-      readonly totalSteps: number;
-      readonly steps: ReadonlyArray<{
-        readonly label: string;
-        readonly artifact?: {
-          readonly path?: string;
-          readonly targets?: ReadonlyArray<{ readonly path: string; readonly change: string }>;
-        };
-      }>;
-    };
+    readonly ok: boolean;
+    readonly result: PlanResult;
   };
   readonly stderr: string;
 }
@@ -348,6 +373,29 @@ const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
   return files;
 };
 
+/**
+ * Facts every plan-result document guarantees regardless of command: the
+ * state buckets partition the unit set and sum to the total, and units
+ * arrive sorted by their stable id.
+ */
+const expectReconciledUnits = (result: PlanResult) => {
+  const { counts, units } = result;
+  const partitioned =
+    counts.planned +
+    counts.ready +
+    counts.committed +
+    counts.unchanged +
+    counts.failed +
+    counts.rolledBack +
+    counts.blocked +
+    counts.skipped +
+    counts.cancelled;
+  expect(partitioned).toBe(counts.total);
+  expect(units).toHaveLength(counts.total);
+  const ids = units.map((unit) => unit.id);
+  expect(ids).toEqual([...ids].sort());
+};
+
 const runJsonCommand = async (
   workspacePath: string,
   command: ReadonlyArray<string>,
@@ -358,9 +406,13 @@ const runJsonCommand = async (
   });
 
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
+  const stdout: JsonCommandResult["stdout"] = JSON.parse(result.stdout);
+  expect(stdout.ok).toBe(true);
+  expect(stdout.result.contract).toBe("plan-result-v2");
+  expectReconciledUnits(stdout.result);
   return {
     exitCode: result.exitCode,
-    stdout: JSON.parse(result.stdout),
+    stdout,
     stderr: result.stderr,
   };
 };
@@ -410,6 +462,25 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
   }
   return publish;
 };
+
+// Progress events carry a monotonic `atMs` timestamp by design; parity between
+// two invocations is over the event sequence with that free field folded out.
+const comparableStderr = (stderr: string): string =>
+  stderr
+    .split("\n")
+    .map((line) => {
+      try {
+        const event: unknown = JSON.parse(line);
+        if (typeof event === "object" && event !== null && "atMs" in event) {
+          const { atMs: _atMs, ...rest } = event;
+          return JSON.stringify(rest);
+        }
+        return line;
+      } catch {
+        return line;
+      }
+    })
+    .join("\n");
 
 const expectCleanWorkspace = async (workspacePath: string, context: string): Promise<void> => {
   const result = await runCli(["lint"], { cwd: workspacePath });
@@ -598,8 +669,20 @@ describe("axm install", () => {
         );
 
         expect(rootResult.exitCode).toBe(surfaceResult.exitCode);
+        expect(rootResult.stdout.result.candidateId).toMatch(/^[0-9a-f]{64}$/);
+        expect(surfaceResult.stdout.result.candidateId).toMatch(/^[0-9a-f]{64}$/);
+        // Candidate id and footprint compare too: identity is content-addressed
+        // relative to the workspace base, and every mutating surface runs
+        // under the operation lifecycle that records the footprint.
         expect(rootResult.stdout.result).toEqual(surfaceResult.stdout.result);
-        expect(rootResult.stderr).toBe(surfaceResult.stderr);
+        expect(comparableStderr(rootResult.stderr)).toBe(comparableStderr(surfaceResult.stderr));
+
+        const rootFootprint = (rootResult.stdout.result.footprint ?? []).map(
+          (entry) => `${entry.change} ${entry.path}`,
+        );
+        expect(rootFootprint).toContain("modified .axm/settings.json");
+        expect(rootFootprint).toContain("modified .axm/axm-lock.yaml");
+        expect(rootFootprint).toContain(`created .axm/extensions/${OWNER}/${surface}/${name}`);
 
         const settingsKey = settingsKeyForSurface(surface);
         const rootSettings = readSettings(rootWorkspace.path);
@@ -624,7 +707,7 @@ describe("axm install", () => {
   );
 
   it.each(installCases)(
-    "installs all configured $label entries for no-arg $plural install",
+    "C-01: installs all configured $label entries for no-arg $plural install",
     async (row) => {
       const surface = row.plural;
       const publishToRegistry = publisherFor(row);
@@ -649,8 +732,18 @@ describe("axm install", () => {
 
         const result = await runJsonCommand(workspace.path, [surface, "install"]);
 
+        const expectedCommitted = hasAggregateProjection(surface) ? 3 : 2;
         expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.appliedCount).toBe(hasAggregateProjection(surface) ? 3 : 2);
+        expect(result.stdout.result.counts.committed).toBe(expectedCommitted);
+        expect(result.stdout.result.counts.total).toBe(expectedCommitted);
+        for (const name of names) {
+          expect(
+            result.stdout.result.units.some(
+              (unit) => unit.state === "committed" && unit.label.includes(name),
+            ),
+            `committed unit reported for ${name}`,
+          ).toBe(true);
+        }
         expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
@@ -686,14 +779,14 @@ describe("axm install", () => {
       });
 
       const result = await runJsonCommand(workspace.path, ["install"]);
-      const labels = result.stdout.result.steps.map((step) => step.label);
+      const labels = result.stdout.result.units.map((unit) => unit.label);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(6);
+      expect(result.stdout.result.counts.committed).toBe(6);
       expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
       expect(
-        result.stdout.result.steps.some((step) =>
-          step.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
+        result.stdout.result.units.some((unit) =>
+          unit.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
         ),
       ).toBe(true);
 
@@ -762,8 +855,8 @@ describe("axm install", () => {
       const result = await runJsonCommand(workspace.path, ["install"]);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.appliedCount).toBe(3);
-      expect(result.stdout.result.totalSteps).toBe(3);
+      expect(result.stdout.result.counts.committed).toBe(3);
+      expect(result.stdout.result.counts.total).toBe(3);
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
       expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);
     } finally {

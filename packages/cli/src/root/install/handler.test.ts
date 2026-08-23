@@ -40,7 +40,7 @@ import {
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
@@ -387,9 +387,13 @@ describe("root install handler", () => {
         planName: "Install configured extensions",
         totalSteps: 2,
       });
-      expect(planResultSteps(result)).toMatchObject([
-        { label: "knowledge", status: "applied" },
-        { label: "shared projections", status: "applied" },
+      expect(planResultUnits(result)).toMatchObject([
+        { id: "knowledge", label: "knowledge", state: "committed" },
+        {
+          id: "projection:aggregate-units",
+          label: "shared projections",
+          state: "committed",
+        },
       ]);
     }),
   );

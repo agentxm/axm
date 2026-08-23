@@ -27,7 +27,7 @@ import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { SkillManager } from "@agentxm/client-core/unstable/skills";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
@@ -44,9 +44,10 @@ import {
   resolveConfiguredSubagent,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -232,7 +233,22 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   } satisfies PlannedJobStep;
 });
 
-export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
+export const handleDemote = (args: {
+  readonly fqn: string;
+  readonly source: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "demote",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Demote workspace extension",
+    },
+    handleDemoteBody(args),
+  );
+
+const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: {
   readonly fqn: string;
   readonly source: string;
   readonly yes: boolean;
@@ -245,6 +261,11 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     description: Option.some(
       "Remove workspace source protection; future updates may replace the package",
     ),
+    presentation: operationPresentation({
+      imperative: "demote",
+      past: "Demoted",
+      gerund: "Demoting",
+    }),
     jobs: [{ concurrency: 1, steps: [step] }],
     riskConditions: [
       {
@@ -265,7 +286,7 @@ export const handleDemote = Effect.fn("Demote.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult("demote", resolution);
+  yield* emitOperationResolution("demote", resolution);
 });
 
 const config = {

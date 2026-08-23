@@ -4,7 +4,6 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   buildNewExtensionStep,
   computeSourceHash,
@@ -37,20 +36,20 @@ import type {
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
-  PlanResolution,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import {
   isValidScaffoldName,
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
@@ -86,39 +85,6 @@ const hookNewArtifact = (args: {
   };
 };
 
-const hookNewArtifactOutput = (
-  resolution: PlanResolution,
-): { readonly targetPhrase: string; readonly summary: string } | undefined => {
-  if (resolution._tag !== "ExecutedPlan") return undefined;
-
-  for (const job of resolution.jobs) {
-    for (const step of job.steps) {
-      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
-
-      const artifact = step.result.artifact;
-      const targetPhrase =
-        artifact.targets !== undefined && artifact.targets.length > 0
-          ? ` with ${count(artifact.targets.length, "target")}`
-          : "";
-      const targetSummary =
-        artifact.targets !== undefined && artifact.targets.length > 0
-          ? `-> ${count(artifact.targets.length, "target")}`
-          : `-> ${artifact.path}`;
-      const details = [
-        artifact.version,
-        artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-      ].filter((part): part is string => part !== undefined && part.length > 0);
-
-      return {
-        targetPhrase,
-        summary: details.length === 0 ? targetSummary : `${targetSummary}   ${details.join(" | ")}`,
-      };
-    }
-  }
-
-  return undefined;
-};
-
 const entrypointFilename = (runtime: HookRuntime): string => {
   switch (runtime) {
     case "bash":
@@ -149,7 +115,17 @@ const toJobStepResult = (result: {
     ? { result: "error", message: result.message, error: result.error }
     : { result: "success", message: result.message };
 
-export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
+export const handleHooksNew = (args: HooksNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "hooks.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New hook",
+    },
+    handleHooksNewBody(args),
+  );
+
+const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNewHandlerArgs) {
   // 1. Resolve owner
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
@@ -307,13 +283,16 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
     _tag: "Plan",
     name: "New hook",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "hook",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
 
   const suggestions = [
@@ -321,27 +300,7 @@ export const handleHooksNew = Effect.fn("HooksNew.handle")(function* (args: Hook
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "hooks", args.name, "src", entrypoint)}\` to implement the hook`,
     },
   ];
-  const artifactOutput = hookNewArtifactOutput(resolution);
-
-  const emitted = yield* emitPlanResolutionResult(
-    "hooks.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? {
-          summary: `Created hooks package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-          suggestions,
-        }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created hooks package ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("hooks.new", resolution, { suggestions });
 });
 
 const newConfig = {

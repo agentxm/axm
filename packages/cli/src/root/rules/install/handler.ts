@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+  type Plan,
+} from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { toPlanResolutionResult } from "../../../json-output.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
@@ -13,29 +18,41 @@ export const handleInstallRule = (
   args: InstallRuleHandlerArgs,
   flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
 ) =>
+  withOperationLifecycle(
+    {
+      command: "rules.install",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Install rules",
+    },
+    handleInstallRuleBody(args, flags),
+  );
+
+const handleInstallRuleBody = (
+  args: InstallRuleHandlerArgs,
+  flags: { readonly yes: boolean; readonly force: boolean; readonly preview: boolean },
+) =>
   Effect.gen(function* () {
     const actions = yield* InstallRuleCommandWorkflowActions;
     const execution = yield* makeInstallPlanExecution(flags, ["rules", "install"], [args.source]);
     const resolution = yield* runInstallCommandWorkflow(args, actions, {
       execution,
-      displayApplied: false,
+      transformPlan: (plan) =>
+        Effect.succeed({
+          ...plan,
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "rule",
+          ),
+        } satisfies Plan),
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op" && result.totalSteps === 0) {
+    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
       yield* emitNoOpOutcome("rules.install", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No rules installed.",
       });
       return;
     }
-    yield* emitAppliedPlanOutcome({
-      command: "rules.install",
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "No rules installed.")
-          : "Installed rule " + args.source,
-      resolution,
-      reportInstallationCoverage: true,
+    yield* emitOperationResolution("rules.install", resolution, {
       suggestions: [{ description: "Inspect installed rules", cmd: "axm rules list" }],
     });
   });

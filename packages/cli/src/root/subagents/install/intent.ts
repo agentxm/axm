@@ -19,5 +19,4 @@ export type InstallSubagentCommandIntent = {
     readonly ref: SubagentExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
   }>;
-  readonly diagnosticLines?: ReadonlyArray<string>;
 };

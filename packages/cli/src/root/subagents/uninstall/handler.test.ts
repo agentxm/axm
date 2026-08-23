@@ -271,10 +271,11 @@ describe("uninstall.handler (subagents)", () => {
             planName: "Uninstall subagent",
           });
           expect(result).toMatchObject({
-            steps: [
+            units: [
               {
+                id: "my-subagent",
                 label: "my-subagent",
-                status: "applied",
+                state: "committed",
                 artifact: {
                   scope: "project",
                   agents: ["claude-code"],

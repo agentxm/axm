@@ -16,7 +16,8 @@ import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runt
 import { logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-import { toPlanResolutionResult } from "../../json-output.js";
+import { toPlanResolutionResult } from "../../operation-output.js";
+import { renderOperationOutcome } from "../../operation-render.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { makeWorkspaceUpdatePlan } from "../update/workspace-update.js";
 import { buildAtomicPackGraphStep } from "./graph-transition.js";
@@ -162,7 +163,7 @@ describe("atomic pack graph transition", () => {
           "Update configured extensions",
           Option.none(),
           [failed, healthy],
-          undefined,
+          Option.none(),
           undefined,
         );
 
@@ -170,23 +171,20 @@ describe("atomic pack graph transition", () => {
           execution: preapprovedPlanExecution,
         });
         expect(resolution).toMatchObject({
-          _tag: "ExecutedPlan",
-          jobs: [
+          _tag: "OperationResolution",
+          mode: "apply",
+          atomicity: { declared: "non-rollbackable", applied: "non-rollbackable" },
+          units: [
             {
-              executionPolicy: "best-effort",
-              steps: [
-                {
-                  label: "@test/packs/failed",
-                  result: {
-                    result: "error",
-                    message: expect.stringContaining("expected activation disabled"),
-                  },
-                },
-                {
-                  label: "@test/packs/healthy",
-                  result: { result: "success" },
-                },
-              ],
+              id: "@test/packs/failed",
+              label: "@test/packs/failed",
+              state: "failed",
+              message: expect.stringContaining("expected activation disabled"),
+            },
+            {
+              id: "@test/packs/healthy",
+              label: "@test/packs/healthy",
+              state: "committed",
             },
           ],
         });
@@ -194,19 +192,19 @@ describe("atomic pack graph transition", () => {
         expect(fs.readFileSync(healthyTarget, "utf8")).toBe("after\n");
         expect(toPlanResolutionResult(resolution)).toMatchObject({
           outcome: "partial",
-          appliedCount: 1,
-          failedCount: 1,
-          steps: [
+          counts: expect.objectContaining({ total: 2, committed: 1, failed: 1 }),
+          units: [
             {
               label: "@test/packs/failed",
-              status: "failed",
+              state: "failed",
               message: expect.stringContaining(
                 "expected activation disabled; observed activation enabled",
               ),
             },
-            { label: "@test/packs/healthy", status: "applied" },
+            { label: "@test/packs/healthy", state: "committed" },
           ],
         });
+        yield* renderOperationOutcome(resolution);
         const logs = logsByTag(rendererState);
         const humanError = logs.error.join("\n");
         expect(humanError).toContain("@test/packs/failed");

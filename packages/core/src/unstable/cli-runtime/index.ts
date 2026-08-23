@@ -61,6 +61,7 @@ export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit
 export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";
 export { withGracefulShutdown } from "./graceful-shutdown.js";
+export { recordInterruptionSignal, requestedInterruptionSignal } from "./interruption.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
 export { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 export {
@@ -85,6 +86,13 @@ export {
   type CliCommandTelemetryOptions,
   type CliCommandCompletedOptions,
 } from "./telemetry.js";
+export {
+  OperationExit,
+  OperationExitLive,
+  getOperationExitCode,
+  setOperationExitCode,
+  type OperationExitService,
+} from "./operation-exit.js";
 export {
   CommandArgv,
   type CommandArgvService,

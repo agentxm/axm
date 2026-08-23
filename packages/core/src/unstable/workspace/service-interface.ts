@@ -169,6 +169,8 @@ export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly targets?: ReadonlyArray<string>;
   readonly transition: Effect.Effect<A, E, R>;
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
+  /** Observes the start of rollback restoration; never controls it. */
+  readonly onRestorationStarted?: Effect.Effect<void>;
 }
 
 export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(

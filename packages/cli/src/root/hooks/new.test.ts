@@ -24,7 +24,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../test-helpers.js";
 import { handleHooksNew, type HooksNewHandlerArgs } from "./new.js";
 
@@ -121,7 +121,10 @@ describe("hooks-new.handler", () => {
           const claudeSettings = fs.readFileSync(claudeSettingsPath, "utf-8");
           expect(claudeSettings).toContain(".axm/extensions/@acme/hooks/tool-audit/src/hook.sh");
 
-          expect(logs.success.some((m) => m.includes("@acme/hooks/tool-audit"))).toBe(true);
+          expect(logs.success).toEqual(["Created 1 hook"]);
+          expect(rendererState.summaries.some((m) => m.includes("@acme/hooks/tool-audit"))).toBe(
+            true,
+          );
           expect(rendererState.suggestions).toEqual([
             {
               description:
@@ -140,19 +143,17 @@ describe("hooks-new.handler", () => {
         Effect.gen(function* () {
           yield* handleHooksNew(defaultArgs("machine-hook"));
 
-          expect(logs.success).toEqual([
-            "  + @acme/hooks/machine-hook",
-            "Created hooks package @acme/hooks/machine-hook with 2 targets",
-          ]);
+          expect(logs.success).toEqual([]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New hook",
           });
-          const steps = planResultSteps(result);
-          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-          expect(firstStep).toMatchObject({
+          const units = planResultUnits(result);
+          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+          expect(firstUnit).toMatchObject({
+            id: "hook:machine-hook",
             label: "@acme/hooks/machine-hook",
-            status: "applied",
+            state: "committed",
             message: "Created hook @acme/hooks/machine-hook",
             artifact: {
               path: ".axm/extensions/@acme/hooks/machine-hook",

@@ -12,7 +12,7 @@ import {
 } from "@agentxm/client-core/unstable/agent-capabilities";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -38,21 +38,25 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
 import type {
-  ExecutedPlan,
   JobStepArtifact,
   JobStepResult,
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  operationPresentation,
+  type OperationResolution,
+} from "@agentxm/client-core/unstable/plan";
+import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import {
   type McpImportAdoption,
@@ -462,32 +466,20 @@ const makePlan = (
     _tag: "Plan",
     name: "Import MCP servers",
     description: Option.some(`Adopt ${count(preflight.candidates.length, "unmanaged MCP server")}`),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      "mcp-server",
+    ),
     jobs: [{ concurrency: 1, steps: [...conflictSteps, ...importSteps] }],
   };
 };
 
-const importedCount = (resolution: ExecutedPlan, candidateCount: number): number => {
-  const importStep = resolution.jobs
-    .flatMap((job) => job.steps)
-    .find((step) => step.label.startsWith("Import "));
-  return importStep?.result.result === "success" ? candidateCount : 0;
-};
-
-const importSummary = (
-  candidates: ReadonlyArray<McpImportCandidate>,
-  baseDir: string,
-  path: Path.Path,
-): string | undefined => {
-  const rows = candidates.map((candidate) => {
-    const targets = [
-      ".axm/settings.json (updated)",
-      ...candidate.adoptions.map(
-        (adoption) => `${path.relative(baseDir, adoption.filePath)} (updated)`,
-      ),
-    ];
-    return `${candidate.name}   created   ${count(1 + candidate.adoptions.length, "file")}   ${targets.join(", ")}`;
-  });
-  return rows.length === 0 ? undefined : rows.join("\n");
+const importedCount = (
+  resolution: OperationResolution<unknown>,
+  candidateCount: number,
+): number => {
+  const importUnit = resolution.units.find((unit) => unit.label.startsWith("Import "));
+  return importUnit?.state === "committed" ? candidateCount : 0;
 };
 
 const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (args: {
@@ -702,11 +694,25 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     description: Option.some(
       `Losslessly convert ${candidate.name} into ${fqn}; native MCP config is replaced only after managed validation`,
     ),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      "mcp-server",
+    ),
     jobs: [{ concurrency: 1, steps: [step] }],
   } satisfies Plan;
 });
 
-export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
+export const handleMcpsImport = (args: McpsImportArgs, hooks: McpsImportTestHooks = {}) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.import",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Import MCP servers",
+    },
+    handleMcpsImportBody(args, hooks),
+  );
+
+const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
   args: McpsImportArgs,
   hooks: McpsImportTestHooks = {},
 ) {
@@ -749,9 +755,8 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
       preview: args.preview,
       yes: args.yes,
       recovery: makeConfirmationRecovery(["mcps", "import"], []),
-      displayApplied: false,
     });
-    yield* emitPlanResolutionResult("mcps.import", packageResolution);
+    yield* emitOperationResolution("mcps.import", packageResolution);
     return;
   }
   const plan = makePlan(preflight, ws, fs, path, hooks);
@@ -759,58 +764,25 @@ export const handleMcpsImport = Effect.fn("Mcps.import")(function* (
     preview: args.preview,
     yes: args.yes,
     recovery: makeConfirmationRecovery(["mcps", "import"], []),
-    displayApplied: false,
   });
-  const appliedCount =
-    resolution._tag === "ExecutedPlan" ? importedCount(resolution, preflight.candidates.length) : 0;
+  const appliedCount = importedCount(resolution, preflight.candidates.length);
   const suggestions = [
     { description: "Inspect MCP servers", cmd: "axm mcps list" },
     ...(appliedCount === 1
       ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),
   ];
-  const summary =
-    appliedCount > 0 ? importSummary(preflight.candidates, ws.baseDir, path) : undefined;
-  const emitted = yield* emitPlanResolutionResult("mcps.import", resolution, {
+  yield* emitOperationResolution("mcps.import", resolution, {
     suggestions,
-    ...(summary === undefined ? {} : { summary }),
     ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
       ? { message: "No unmanaged MCP servers imported." }
       : {}),
-    operationCounts: {
-      importedCount: appliedCount,
-      skippedCount: preflight.skipped.length,
-      conflictingCount: preflight.conflicts.length,
+    imports: {
+      imported: appliedCount,
+      skipped: preflight.skipped.length,
+      conflicting: preflight.conflicts.length,
     },
   });
-
-  if (emitted) return;
-  const renderer = yield* CliRenderer;
-  const verbosity = yield* Verbosity;
-  const countSummary = `${preflight.skipped.length} skipped, ${count(preflight.conflicts.length, "conflict")}`;
-  if (resolution._tag === "CancelledPlan") {
-    yield* renderer.warn(`MCP import cancelled (${countSummary})`);
-    return;
-  }
-  if (resolution._tag !== "ExecutedPlan") return;
-  const failed = resolution.jobs.some((job) =>
-    job.steps.some((step) => step.result.result === "error"),
-  );
-  if (failed) {
-    yield* renderer.error(`MCP import failed (${countSummary})`, {
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-    return;
-  }
-  yield* renderer.success(
-    appliedCount === 0
-      ? `No unmanaged MCP servers imported (${countSummary}).`
-      : `Imported ${count(appliedCount, "MCP server")} (${countSummary})`,
-    verbosity.level === "quiet"
-      ? undefined
-      : { suggestions, ...(summary === undefined ? {} : { summary }) },
-  );
 });
 
 const importConfig = {

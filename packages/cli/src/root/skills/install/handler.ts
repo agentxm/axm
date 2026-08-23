@@ -5,14 +5,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import type { PlanResolution } from "@agentxm/client-core/unstable/plan";
 import {
+  deriveOperationOutcome,
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
@@ -20,9 +20,9 @@ import {
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
@@ -40,33 +40,6 @@ export interface InstallSkillFlags {
   readonly force: boolean;
   readonly preview: boolean;
 }
-
-const appliedInstallHeadline = (resolution: PlanResolution, fallbackSource: string): string => {
-  if (resolution._tag !== "ExecutedPlan") return `Installed skill ${fallbackSource}`;
-
-  const successfulSteps = resolution.jobs
-    .flatMap((job) => job.steps)
-    .flatMap((step) => {
-      if (step.result.result !== "success") return [];
-      return [{ label: step.label, agents: step.result.artifact?.agents }];
-    });
-  const firstStep = successfulSteps.at(0);
-
-  if (successfulSteps.length === 1 && firstStep !== undefined) {
-    const agents = firstStep.agents;
-    const targetPhrase =
-      agents === undefined || agents.length === 0
-        ? ""
-        : ` for ${count(agents.length, "agent target")}`;
-    return `Installed skill ${firstStep.label}${targetPhrase}`;
-  }
-
-  if (successfulSteps.length > 1) {
-    return `Installed ${count(successfulSteps.length, "skill")}`;
-  }
-
-  return `Installed skill ${fallbackSource}`;
-};
 
 const validateWorkspaceInstallArgs = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
@@ -131,6 +104,16 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
       _tag: "Plan",
       name: "Install bundled AXM skill",
       description: Option.some("Install the embedded compatible official AXM skill"),
+      presentation: operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        "skill",
+      ),
+      failureSuggestions: [
+        {
+          description: "Preserve the authored skill and inspect executable compatibility guidance",
+          cmd: "axm help upgrade",
+        },
+      ],
       jobs: [
         {
           concurrency: 1,
@@ -165,25 +148,27 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
       ["@agentxm/skills/axm"],
       [recoverySwitch("--bundled", true)],
     );
-    const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-    yield* emitAppliedPlanOutcome({
-      command: "skills.install",
-      headline: flags.preview
-        ? "Bundled AXM skill recovery plan ready"
-        : "Installed the bundled AXM skill",
-      resolution,
-      reportInstallationCoverage: true,
+    const resolution = yield* previewOrApplyPlan(plan, { execution });
+    yield* emitOperationResolution("skills.install", resolution, {
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
-      failureSuggestions: [
-        {
-          description: "Preserve the authored skill and inspect executable compatibility guidance",
-          cmd: "axm help upgrade",
-        },
-      ],
     });
   });
 
 export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
+  withOperationLifecycle(
+    {
+      command: "skills.install",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Install skills",
+      presentation: operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        "skill",
+      ),
+    },
+    handleInstallBody(args, flags),
+  );
+
+const handleInstallBody = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
   Effect.gen(function* () {
     if (args.bundled === true) {
       yield* validateBundledInstallArgs(args);
@@ -214,28 +199,19 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
     const resolution = yield* runInstallCommandWorkflow(
       { source: args.source.value, skills: args.skills, all: args.all, force: flags.force },
       actions,
-      { execution, displayApplied: false },
+      { execution },
     );
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op" && result.totalSteps === 0) {
+    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
+      const planDescription = Option.getOrUndefined(resolution.description);
       yield* emitNoOpOutcome("skills.install", {
-        planName: result.planName,
-        ...(result.planDescription === undefined
-          ? {}
-          : { planDescription: result.planDescription }),
+        planName: resolution.name,
+        ...(planDescription === undefined ? {} : { planDescription }),
         message: "No skills installed.",
       });
       return;
     }
 
-    yield* emitAppliedPlanOutcome({
-      command: "skills.install",
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "No skills installed.")
-          : appliedInstallHeadline(resolution, args.source.value),
-      resolution,
-      reportInstallationCoverage: true,
+    yield* emitOperationResolution("skills.install", resolution, {
       suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
     });
   });

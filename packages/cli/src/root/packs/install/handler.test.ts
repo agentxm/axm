@@ -29,7 +29,7 @@ import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
 } from "@agentxm/client-core/unstable/workspace";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   computePackManifestContentIdentity,
@@ -66,7 +66,7 @@ import {
   extensionName,
 } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { toPlanResolutionResult } from "../../../operation-output.js";
 
 const decodePackageType = Schema.decodeUnknownSync(PackageTypeSchema);
 const ACME = normalizeHandle("@acme");
@@ -573,7 +573,7 @@ describe("packs install handler", () => {
           ].join("\n");
           // The shared workflow always builds install plan steps
           expect(allLogs).toContain("my-pack");
-          expect(allLogs).toContain('"totalSteps":1');
+          expect(allLogs).toContain('"total":1');
         }),
       );
     });
@@ -818,23 +818,33 @@ describe("packs install handler", () => {
           const resolution = yield* previewOrApplyPlan(plan, {
             execution: preapprovedPlanExecution,
           });
+          expect(deriveOperationOutcome(resolution)).toBe("blocked");
           expect(resolution).toMatchObject({
-            _tag: "FailedPlan",
-            reason: "hard-blocked",
-            errorCode: "conflict",
+            _tag: "OperationResolution",
+            blocking: expect.objectContaining({
+              class: "precondition-unmet",
+              phase: "planning",
+              detail: expect.stringContaining("workspace-sourced pack"),
+              causeCode: "conflict",
+            }),
             suggestions: [expect.objectContaining({ description: expect.any(String) })],
           });
           expect(resolution.riskConditions).toHaveLength(1);
           expect(toPlanResolutionResult(resolution)).toMatchObject({
-            outcome: "failed",
-            reason: "hard-blocked",
-            errorCode: "conflict",
+            outcome: "blocked",
+            mode: "apply",
+            blocking: expect.objectContaining({
+              class: "precondition-unmet",
+              causeCode: "conflict",
+            }),
             candidateId: expect.any(String),
-            totalSteps: 1,
-            readyCount: 0,
-            errorCount: 1,
-            blockedCount: 1,
-            failedCount: 0,
+            counts: expect.objectContaining({
+              total: 1,
+              ready: 0,
+              blocked: 1,
+              failed: 0,
+            }),
+            units: [expect.objectContaining({ state: "blocked" })],
           });
         }),
       );
@@ -1209,7 +1219,7 @@ describe("packs install handler", () => {
           ].join("\n");
           // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
-          expect(allLogs).toContain('"totalSteps":1');
+          expect(allLogs).toContain('"total":1');
         }),
       );
     });
@@ -1567,7 +1577,7 @@ describe("packs install handler", () => {
           // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
           expect(allLogs).toContain("existing-cmd");
-          expect(allLogs).toContain('"totalSteps":1');
+          expect(allLogs).toContain('"total":1');
         }),
       );
     });
@@ -1773,7 +1783,7 @@ describe("packs install handler", () => {
           },
         },
       });
-      const { provide } = makeLayersWithMockSources(mockService);
+      const { provide, logs } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
@@ -1782,15 +1792,13 @@ describe("packs install handler", () => {
             packToInstall: packRef,
             versionRange: Option.none(),
           });
-          expect(plan.sections).toContainEqual({
-            title: "Pack activation",
-            items: ["@acme/packs/disabled-pack: preserve disabled activation"],
-          });
+          expect(logs.info).toContain("Pack activation:");
+          expect(logs.info).toContain("  @acme/packs/disabled-pack: preserve disabled activation");
 
           const resolution = yield* previewOrApplyPlan(plan, {
             execution: preapprovedPlanExecution,
           });
-          expect(resolution).toMatchObject({ _tag: "ExecutedPlan" });
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
 
           const workspace = yield* WorkspaceMutations;
           const graph = yield* workspace.getDesiredStateGraph();
@@ -1908,10 +1916,16 @@ describe("packs install handler", () => {
             execution: preapprovedPlanExecution,
           });
           expect(logs.warn).toEqual([]);
+          expect(deriveOperationOutcome(result)).toBe("blocked");
           expect(result).toMatchObject({
-            _tag: "FailedPlan",
-            reason: "hard-blocked",
-            errorCode: "conflict",
+            _tag: "OperationResolution",
+            blocking: {
+              class: "precondition-unmet",
+              subject: "test-step",
+              phase: "planning",
+              detail: "Test error step",
+              causeCode: "conflict",
+            },
           });
         }),
       );

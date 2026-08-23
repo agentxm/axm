@@ -11,10 +11,11 @@ import { enableSkill } from "@agentxm/client-core/unstable/skills";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
@@ -25,7 +26,17 @@ export interface EnableHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
+export const handleEnable = (args: EnableHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.enable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Enable skill",
+    },
+    handleEnableBody(args),
+  );
+
+const handleEnableBody = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -80,6 +91,10 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     _tag: "Plan",
     name: "Enable skill",
     description: Option.some(`Enable ${skillName}`),
+    presentation: operationPresentation(
+      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
+      "skill",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -88,11 +103,8 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     ["skills", "enable"],
     [skillName],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "skills.enable",
-    headline: `Enabled skill ${skillName}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("skills.enable", resolution, {
     suggestions: [
       LIST_INSTALLED_SKILLS,
       { description: "Undo", cmd: `axm skills disable ${skillName}` },

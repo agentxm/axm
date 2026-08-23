@@ -330,6 +330,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         targets: [settingsPath, path.join(workspaceDir, LOCKFILE_NAME), ...(args.targets ?? [])],
         transition: args.transition,
         validate: args.validate,
+        ...(args.onRestorationStarted === undefined
+          ? {}
+          : { onRestorationStarted: args.onRestorationStarted }),
       }).pipe(Effect.provide(fsLayer));
 
     /**

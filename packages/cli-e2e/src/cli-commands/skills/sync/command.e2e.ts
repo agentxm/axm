@@ -83,10 +83,12 @@ describe("axm sync configured GitHub skills", () => {
       expect(JSON.parse(assertion.stdout)).toMatchObject({
         ok: false,
         result: {
-          outcome: "reconciliation-required",
-          reconciliationRequired: true,
-          appliedCount: 0,
-          steps: [{ status: "ready" }],
+          contract: "plan-result-v2",
+          outcome: "previewed",
+          mode: "preview",
+          divergence: true,
+          counts: { total: 1, ready: 1, committed: 0 },
+          units: [{ id: "skill:quality", state: "ready" }],
         },
       });
       expect(fs.existsSync(projection)).toBe(false);
@@ -118,13 +120,16 @@ describe("axm sync configured GitHub skills", () => {
         cwd: temp.path,
       });
       expect(converged.exitCode, `${converged.stderr}\n${converged.stdout}`).toBe(0);
-      expect(JSON.parse(converged.stdout)).toMatchObject({
+      const convergedDocument = JSON.parse(converged.stdout);
+      expect(convergedDocument).toMatchObject({
         ok: true,
         result: {
+          contract: "plan-result-v2",
           outcome: "no-op",
-          reconciliationRequired: false,
+          counts: { total: 0, committed: 0 },
         },
       });
+      expect(convergedDocument.result).not.toHaveProperty("divergence");
     } finally {
       temp.cleanup();
     }

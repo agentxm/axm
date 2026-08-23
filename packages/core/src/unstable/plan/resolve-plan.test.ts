@@ -27,6 +27,7 @@ import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interactio
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
 import { makeExecutionCandidate } from "./execution-candidate.js";
+import { deriveOperationOutcome, operationExitCode } from "./operation-resolution.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
@@ -101,7 +102,11 @@ describe("previewOrApplyPlan", () => {
         execution: previewPlanExecution,
       });
 
-      expect(result._tag).toBe("PreviewedPlan");
+      expect(result._tag).toBe("OperationResolution");
+      expect(result.mode).toBe("preview");
+      expect(deriveOperationOutcome(result)).toBe("previewed");
+      expect(operationExitCode(result)).toBe(0);
+      expect(result.units.map((unit) => unit.state)).toEqual(["ready"]);
       expect(result.releaseAge).toEqual(releaseAge);
       expect(appliedCount).toBe(0);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
@@ -144,8 +149,8 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("suppresses the pre-apply plan for a pre-confirmed quiet apply", () => {
-    const context = makeTestContext(undefined, { quiet: true });
+  it.effect("renders no planned block for an apply without confirmable risk", () => {
+    const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
       name: "Publish skill",
@@ -169,14 +174,14 @@ describe("previewOrApplyPlan", () => {
 
       expect(
         context.rendererState.logs.some(
-          (entry) => entry._tag === "info" && entry.message.includes("Would publish"),
+          (entry) => entry.message.includes("Would") || entry.message.includes("Ready to"),
         ),
       ).toBe(false);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("applies an eligible explicit mutation without prompting", () => {
+  it.effect("C-12: applies an eligible explicit mutation without prompting", () => {
     let appliedCount = 0;
     const context = makeTestContext();
     const plan: Plan = {
@@ -206,7 +211,10 @@ describe("previewOrApplyPlan", () => {
         execution: promptablePlanExecution(testRecovery),
       });
 
-      expect(result._tag).toBe("ExecutedPlan");
+      expect(deriveOperationOutcome(result)).toBe("applied");
+      expect(result.mode).toBe("apply");
+      expect(result.candidateId).toBeDefined();
+      expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
       expect(result.releaseAge).toEqual(releaseAge);
       expect(appliedCount).toBe(1);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
@@ -247,71 +255,73 @@ describe("previewOrApplyPlan", () => {
         }),
       });
 
-      expect(result).toMatchObject({
-        _tag: "FailedPlan",
-        reason: "execution-failed",
-        errorCode: "conflict",
-        failure: {
-          detail: expect.stringContaining("did not converge for claude-code"),
-        },
-      });
+      expect(deriveOperationOutcome(result)).toBe("failed");
+      expect(result.failure?.code).toBe("conflict");
+      expect(result.failure?.detail).toContain("did not converge for claude-code");
+      expect(result.units.map((unit) => unit.state)).toEqual(["rolled-back"]);
+      expect(result.units[0]?.disposition).toBe("restored");
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("displays confirmable risk before confirmation and cancels without execution", () => {
-    let appliedCount = 0;
-    let displayedBeforeConfirmation = false;
-    const context = makeTestContext(
-      () =>
-        Effect.sync(() => {
-          displayedBeforeConfirmation = context.rendererState.logs.some(
-            (entry) => entry._tag === "info" && entry.message.includes("Would install"),
-          );
-          return false;
-        }),
-      { nonInteractive: false },
-    );
-    const plan: Plan = {
-      _tag: "Plan",
-      name: "Install skill",
-      description: Option.none(),
-      releaseAge,
-      riskConditions: [
-        {
-          level: "confirmable",
-          id: "replace-unmanaged-target",
-          detail: "Replace an unmanaged target",
-        },
-      ],
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              readiness: "ready",
-              label: "code-review",
-              run: Effect.sync(() => {
-                appliedCount += 1;
-                return { result: "success" as const, message: "installed" };
-              }),
-            },
-          ],
-        },
-      ],
-    };
+  it.effect(
+    "C-16: displays confirmable risk before confirmation and cancels without execution",
+    () => {
+      let appliedCount = 0;
+      let displayedBeforeConfirmation = false;
+      const context = makeTestContext(
+        () =>
+          Effect.sync(() => {
+            displayedBeforeConfirmation = context.rendererState.logs.some(
+              (entry) => entry._tag === "info" && entry.message.includes("Ready to apply"),
+            );
+            return false;
+          }),
+        { nonInteractive: false },
+      );
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install skill",
+        description: Option.none(),
+        releaseAge,
+        riskConditions: [
+          {
+            level: "confirmable",
+            id: "replace-unmanaged-target",
+            detail: "Replace an unmanaged target",
+          },
+        ],
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "code-review",
+                run: Effect.sync(() => {
+                  appliedCount += 1;
+                  return { result: "success" as const, message: "installed" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
 
-    return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
-        execution: promptablePlanExecution(testRecovery),
-      });
+      return Effect.gen(function* () {
+        const result = yield* previewOrApplyPlan(plan, {
+          execution: promptablePlanExecution(testRecovery),
+        });
 
-      expect(result._tag).toBe("CancelledPlan");
-      expect(result.releaseAge).toEqual(releaseAge);
-      expect(displayedBeforeConfirmation).toBe(true);
-      expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(1);
-      expect(appliedCount).toBe(0);
-    }).pipe(Effect.provide(context.layer));
-  });
+        expect(result.declined).toBe(true);
+        expect(deriveOperationOutcome(result)).toBe("cancelled");
+        expect(operationExitCode(result)).toBe(0);
+        expect(result.releaseAge).toEqual(releaseAge);
+        expect(displayedBeforeConfirmation).toBe(true);
+        expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(1);
+        expect(appliedCount).toBe(0);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
 
   it.effect("rejects readiness errors before confirmation or execution", () => {
     let appliedCount = 0;
@@ -348,18 +358,19 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       });
 
-      expect(result).toMatchObject({
-        _tag: "FailedPlan",
-        reason: "hard-blocked",
-        errorCode: "conflict",
-        releaseAge,
-      });
+      expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(result.blocking?.class).toBe("precondition-unmet");
+      expect(result.blocking?.causeCode).toBe("conflict");
+      expect(result.blocking?.subject).toBe("invalid");
+      expect(operationExitCode(result)).toBe(6);
+      expect(result.releaseAge).toEqual(releaseAge);
+      expect(result.units.map((unit) => unit.state)).toEqual(["ready", "blocked"]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("does not prompt for an empty no-op plan", () => {
+  it.effect("C-13: does not prompt for an empty no-op plan", () => {
     const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
@@ -373,7 +384,9 @@ describe("previewOrApplyPlan", () => {
         execution: promptablePlanExecution(testRecovery),
       });
 
-      expect(result._tag).toBe("ExecutedPlan");
+      expect(result._tag).toBe("OperationResolution");
+      expect(deriveOperationOutcome(result)).toBe("no-op");
+      expect(operationExitCode(result)).toBe(0);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
@@ -401,45 +414,49 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("requires deterministic approval for confirmable risk in non-interactive mode", () => {
-    let appliedCount = 0;
-    const context = makeTestContext();
-    const plan: Plan = {
-      _tag: "Plan",
-      name: "Replace unmanaged target",
-      description: Option.none(),
-      riskConditions: [
-        { level: "confirmable", id: "replace-unmanaged-target", detail: "Replace target" },
-      ],
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              readiness: "ready",
-              label: "target",
-              run: Effect.sync(() => {
-                appliedCount += 1;
-                return { result: "success" as const, message: "replaced" };
-              }),
-            },
-          ],
-        },
-      ],
-    };
+  it.effect(
+    "C-19: requires deterministic approval for confirmable risk in non-interactive mode",
+    () => {
+      let appliedCount = 0;
+      const context = makeTestContext();
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Replace unmanaged target",
+        description: Option.none(),
+        riskConditions: [
+          { level: "confirmable", id: "replace-unmanaged-target", detail: "Replace target" },
+        ],
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "target",
+                run: Effect.sync(() => {
+                  appliedCount += 1;
+                  return { result: "success" as const, message: "replaced" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
 
-    return Effect.gen(function* () {
-      const result = yield* previewOrApplyPlan(plan, {
-        execution: promptablePlanExecution(testRecovery),
-      });
-      expect(result).toMatchObject({
-        _tag: "FailedPlan",
-        reason: "approval-required",
-        errorCode: "usage",
-      });
-      expect(appliedCount).toBe(0);
-    }).pipe(Effect.provide(context.layer));
-  });
+      return Effect.gen(function* () {
+        const result = yield* previewOrApplyPlan(plan, {
+          execution: promptablePlanExecution(testRecovery),
+        });
+
+        expect(deriveOperationOutcome(result)).toBe("blocked");
+        expect(result.blocking?.class).toBe("approval-required");
+        expect(result.blocking?.escape).toBeDefined();
+        expect(result.blocking?.escape?.cmd).toContain("--yes");
+        expect(operationExitCode(result)).toBe(2);
+        expect(appliedCount).toBe(0);
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
 
   it.effect("does not let --yes accept a named policy override", () => {
     let appliedCount = 0;
@@ -478,7 +495,10 @@ describe("previewOrApplyPlan", () => {
       const rejected = yield* previewOrApplyPlan(plan, {
         execution: preapprovedPlanExecution,
       });
-      expect(rejected).toMatchObject({ _tag: "FailedPlan", reason: "override-required" });
+      expect(deriveOperationOutcome(rejected)).toBe("blocked");
+      expect(rejected.blocking?.class).toBe("override-required");
+      expect(rejected.blocking?.escape?.description).toContain("--accept-warnings");
+      expect(operationExitCode(rejected)).toBe(2);
       expect(appliedCount).toBe(0);
 
       const accepted = yield* previewOrApplyPlan(plan, {
@@ -488,12 +508,13 @@ describe("previewOrApplyPlan", () => {
           recovery: testRecovery,
         }),
       });
-      expect(accepted._tag).toBe("ExecutedPlan");
+      expect(deriveOperationOutcome(accepted)).toBe("applied");
+      expect(accepted.units.map((unit) => unit.state)).toEqual(["committed"]);
       expect(appliedCount).toBe(1);
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("fails a candidate that changes after display without applying it", () =>
+  it.effect("C-02: fails a candidate that changes after display without applying it", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-candidate-" });
@@ -533,12 +554,15 @@ describe("previewOrApplyPlan", () => {
       const result = yield* previewOrApplyPlan(plan, {
         execution: promptablePlanExecution(testRecovery),
       }).pipe(Effect.provide(context.layer));
-      expect(result).toMatchObject({ _tag: "FailedPlan", reason: "stale-candidate" });
+      expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(result.blocking?.class).toBe("stale-candidate");
+      expect(result.blocking?.escape?.description).toContain("Rerun the command");
+      expect(operationExitCode(result)).toBe(6);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("revalidates material after a delayed pre-apply gate", () =>
+  it.effect("C-02: revalidates material after a delayed pre-apply gate", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-post-auth-" });
@@ -585,12 +609,14 @@ describe("previewOrApplyPlan", () => {
             ),
       }).pipe(Effect.provide(context.layer));
 
-      expect(result).toMatchObject({ _tag: "FailedPlan", reason: "stale-candidate" });
+      expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(result.blocking?.class).toBe("stale-candidate");
+      expect(operationExitCode(result)).toBe(6);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("rolls back the complete local candidate when a later step fails", () =>
+  it.effect("C-06: rolls back the complete local candidate when a later step fails", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -665,15 +691,23 @@ describe("previewOrApplyPlan", () => {
       const result = yield* previewOrApplyPlan(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
-      expect(result).toMatchObject({ _tag: "FailedPlan", reason: "execution-failed" });
-      expect(result).toMatchObject({
-        suggestions: [{ description: "Repair the failed step." }],
-        executionSteps: [
-          { label: "first", status: "rolled-back" },
-          { label: "second", status: "failed" },
-          { label: "third", status: "unapplied" },
-        ],
+
+      expect(deriveOperationOutcome(result)).toBe("failed");
+      expect(result.failure?.detail).toBe("second step failed");
+      expect(result.atomicity).toEqual({
+        declared: "candidate-atomic",
+        applied: "candidate-atomic",
       });
+      expect(result.suggestions).toEqual([{ description: "Repair the failed step." }]);
+      expect(result.units.map((unit) => [unit.id, unit.state])).toEqual([
+        ["first", "rolled-back"],
+        ["second", "failed"],
+        ["third", "blocked"],
+      ]);
+      expect(result.units[0]?.disposition).toBe("restored");
+      expect(result.units[1]?.disposition).toBe("untouched");
+      expect(result.units[2]?.blocking?.class).toBe("operation-aborted");
+      expect(result.units[2]?.blocking?.reference).toBe("second");
       expect(yield* fs.readFileString(target)).toBe("original");
     }).pipe(Effect.provide(NodeServices.layer)),
   );

@@ -28,7 +28,11 @@ const updateConfig = {
   name: updateNameFilterFlag.pipe(
     Flag.withDescription("Update only specific subagents by name or glob pattern"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Apply all updates without confirmation")),
+  yes: yesFlag.pipe(
+    Flag.withDescription(
+      "Pre-approve the update when it carries a risk that would otherwise prompt",
+    ),
+  ),
   force: ignoreVersionConstraintsFlag,
   preview: previewFlag.pipe(Flag.withDescription("Show available updates without applying them")),
 } as const;

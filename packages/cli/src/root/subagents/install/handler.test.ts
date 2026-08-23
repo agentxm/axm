@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
@@ -193,6 +194,10 @@ describe("subagents install handler — error propagation", () => {
           _tag: "Plan" as const,
           name: "Install subagent",
           description: Option.none<string>(),
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "subagent",
+          ),
           jobs: [
             {
               concurrency: 1 as const,
@@ -229,6 +234,7 @@ describe("subagents install handler — error propagation", () => {
     return {
       provide,
       logs: handlerTestContext.logs,
+      rendererState: handlerTestContext.rendererState,
     };
   };
 
@@ -309,7 +315,7 @@ describe("subagents install handler — error propagation", () => {
   });
 
   it.effect("does not append the empty-selection message when install is unchanged", () => {
-    const { provide, logs } = makeUnchangedInstallLayers();
+    const { provide, logs, rendererState } = makeUnchangedInstallLayers();
 
     return provide(
       Effect.gen(function* () {
@@ -319,7 +325,10 @@ describe("subagents install handler — error propagation", () => {
           preview: false,
         });
 
-        expect(logs.success).toEqual(["  + planner", "Already up to date — planner 1.2.3"]);
+        expect(logs.success).toEqual(["Already up to date — 1 subagent"]);
+        expect(rendererState.summaries).toEqual([
+          "planner   1.2.3   unchanged   1 file   .claude/agents/planner.md",
+        ]);
       }),
     );
   });

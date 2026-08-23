@@ -30,6 +30,7 @@ import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { knowledgeLockEntryToRef, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
@@ -187,7 +188,6 @@ export const KnowledgeManagerLive = Layer.effect(
                 version: ref.version,
                 integrity: ref.integrity,
                 messages: {
-                  integrityMismatchCode: "network",
                   integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
                 },
               }),
@@ -397,6 +397,10 @@ export const KnowledgeManagerLive = Layer.effect(
             yield* Ref.set(stageState, { phase: "staged", hadCanonical });
           }),
         );
+        yield* recordFootprint({
+          path: canonicalPath,
+          change: hadCanonical ? "modified" : "created",
+        });
         return {
           root: canonicalPath,
           sourceHash,

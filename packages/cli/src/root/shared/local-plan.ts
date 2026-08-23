@@ -13,7 +13,6 @@ import { makePlanExecution } from "./confirmation-recovery.js";
 export interface LocalPlanFlags {
   readonly preview: boolean;
   readonly yes?: boolean;
-  readonly displayApplied?: boolean;
   readonly recovery?: ConfirmationRecovery;
   readonly acceptedPolicies?: ReadonlyArray<PlanPolicyId>;
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
@@ -29,8 +28,5 @@ export const previewOrApplyLocalPlan = Effect.fn("previewOrApplyLocalPlan")(func
     flags.acceptedPolicies ?? [],
     flags.configuredAgentOperations,
   );
-  return yield* previewOrApplyPlan(plan, {
-    execution,
-    ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
-  });
+  return yield* previewOrApplyPlan(plan, { execution });
 });

@@ -14,7 +14,7 @@ import {
   recoverCanonicalDirectory,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -31,12 +31,12 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-  type PlanResolution,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -47,49 +47,31 @@ import {
   type McpServerManifest,
 } from "@agentxm/client-core/unstable/mcps";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 
-const mcpNewArtifactOutput = (
-  resolution: PlanResolution,
-): { readonly targetPhrase: string; readonly summary: string } | undefined => {
-  if (resolution._tag !== "ExecutedPlan") return undefined;
+export const handleMcpServersNew = (args: {
+  readonly name: ExtensionName;
+  readonly description: string;
+  readonly owner: Option.Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New MCP server",
+    },
+    handleMcpServersNewBody(args),
+  );
 
-  for (const job of resolution.jobs) {
-    for (const step of job.steps) {
-      if (step.result.result !== "success" || step.result.artifact === undefined) continue;
-
-      const artifact = step.result.artifact;
-      const targets = artifact.targets ?? [];
-      const agentIds = new Set(targets.flatMap((target) => target.agentIds ?? []));
-      const targetPhrase =
-        agentIds.size > 0
-          ? ` for ${count(agentIds.size, "agent")}`
-          : targets.length > 0
-            ? ` with ${count(targets.length, "target")}`
-            : "";
-
-      return {
-        targetPhrase,
-        summary: mcpNewArtifactSummary(artifact),
-      };
-    }
-  }
-
-  return undefined;
-};
-
-const mcpNewArtifactSummary = (artifact: JobStepArtifact): string => {
-  const targets = artifact.targets ?? [];
-  return targets.length === 0 ? `-> ${artifact.path}` : `-> ${count(targets.length, "target")}`;
-};
-
-export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (args: {
+const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (args: {
   readonly name: ExtensionName;
   readonly description: string;
   readonly owner: Option.Option<string>;
@@ -298,6 +280,10 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
     _tag: "Plan",
     name: "New MCP server",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "mcp-server",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
   const execution = yield* makePlanExecution(
@@ -316,31 +302,13 @@ export const handleMcpServersNew = Effect.fn("McpServersNew.handle")(function* (
       ],
     ),
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
   const suggestions = [
     {
       description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
     },
   ];
-  const artifactOutput = mcpNewArtifactOutput(resolution);
-  const emitted = yield* emitPlanResolutionResult(
-    "mcps.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? {
-          summary: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-          suggestions,
-        }
-      : undefined,
-  );
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created MCP server ${fqn}${artifactOutput?.targetPhrase ?? ""}`,
-      ...(artifactOutput === undefined ? {} : { summary: artifactOutput.summary }),
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("mcps.new", resolution, { suggestions });
 });
 
 const newConfig = {

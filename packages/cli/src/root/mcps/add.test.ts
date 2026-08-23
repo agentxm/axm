@@ -12,7 +12,7 @@ import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../test-helpers.js";
 import { handleMcpsAdd } from "./add.js";
 
@@ -122,10 +122,11 @@ describe("mcps add output", () => {
           totalSteps: 2,
           warningCount: 0,
         });
-        const steps = planResultSteps(result);
-        expect(steps[1]).toMatchObject({
+        const units = planResultUnits(result);
+        expect(units[1]).toMatchObject({
+          id: "Sync demo to configured agents",
           label: "Sync demo to configured agents",
-          status: "applied",
+          state: "committed",
           message: "Synced demo to 5 agents",
           artifact: {
             path: "agent MCP configs",

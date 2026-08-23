@@ -17,11 +17,11 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const agentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return [];
-  const steps = document["result"]["steps"];
-  if (!Array.isArray(steps)) return [];
-  return steps.flatMap((step) => {
-    if (!isRecord(step) || !isRecord(step["artifact"])) return [];
-    const outcomes = step["artifact"]["agentOutcomes"];
+  const units = document["result"]["units"];
+  if (!Array.isArray(units)) return [];
+  return units.flatMap((unit) => {
+    if (!isRecord(unit) || !isRecord(unit["artifact"])) return [];
+    const outcomes = unit["artifact"]["agentOutcomes"];
     return Array.isArray(outcomes) ? outcomes.filter(isRecord) : [];
   });
 };
@@ -91,6 +91,8 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
+      expect(humanPreview.stdout + humanPreview.stderr).toContain("Would install 1 hook");
+      expect(humanPreview.stdout + humanPreview.stderr).toContain("1 to apply");
       expect(humanPreview.stdout + humanPreview.stderr).toContain(
         "claude-code: projected (native)",
       );
@@ -104,6 +106,10 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
+      expect(JSON.parse(preview.stdout)).toMatchObject({
+        ok: true,
+        result: { contract: "plan-result-v2", outcome: "previewed", mode: "preview" },
+      });
       expect(agentOutcomes(preview.stdout)).toMatchObject([
         { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
         {
@@ -119,6 +125,15 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      expect(JSON.parse(applied.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          contract: "plan-result-v2",
+          outcome: "applied",
+          mode: "apply",
+          counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
+        },
+      });
       expect(agentOutcomes(applied.stdout)).toMatchObject([
         { name: "audit", agentId: "claude-code", outcome: "current", mechanism: "native" },
         {
@@ -189,7 +204,16 @@ describe("hook configured-agent outcomes", () => {
         ["hooks", "install", blocked, "--yes", "--json", "--non-interactive"],
         { cwd: temp.path },
       );
-      expect(blockedApply.exitCode).not.toBe(0);
+      expect(blockedApply.exitCode, blockedApply.stdout + blockedApply.stderr).toBe(6);
+      expect(JSON.parse(blockedApply.stdout)).toMatchObject({
+        ok: false,
+        result: {
+          contract: "plan-result-v2",
+          outcome: "blocked",
+          blocking: { class: "precondition-unmet", subject: "hook:enforce" },
+          counts: { committed: 0 },
+        },
+      });
       expect(agentOutcomes(blockedApply.stdout)).toContainEqual(
         expect.objectContaining({ name: "enforce", agentId: "windsurf", outcome: "blocked" }),
       );

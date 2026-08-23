@@ -49,40 +49,47 @@ describe("targeted update transaction", () => {
       ],
     }) satisfies Plan;
 
-  it.effect("rejects a stale ownership context before running the member step", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({
-      wsOptions: { projectRoot: tempDir },
-    });
+  it.effect(
+    "C-02: a stale ownership context resolves as typed stale-candidate blocking before the member step runs",
+    () => {
+      const { provide } = makeWorkspaceHandlerTestContext({
+        wsOptions: { projectRoot: tempDir },
+      });
 
-    return provide(
-      Effect.gen(function* () {
-        let childRan = false;
-        const context = yield* resolveTargetedUpdateContext({ target });
-        const wrapped = yield* wrapTargetedUpdatePlan({
-          plan: planWithStep(
-            Effect.sync(() => {
-              childRan = true;
-              return { result: "success", message: "updated reviewer" };
-            }),
-          ),
-          context,
-        });
-        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-          owner: "@acme",
-          skills: { reviewer: { source: target.fqn, enabled: false } },
-        });
-        const step = wrapped.jobs[0]?.steps[0];
-        if (step === undefined || step.readiness === "error") {
-          return yield* makeAppError({ code: "internal", detail: "Expected a runnable step" });
-        }
+      return provide(
+        Effect.gen(function* () {
+          let childRan = false;
+          const context = yield* resolveTargetedUpdateContext({ target });
+          const wrapped = yield* wrapTargetedUpdatePlan({
+            plan: planWithStep(
+              Effect.sync(() => {
+                childRan = true;
+                return { result: "success", message: "updated reviewer" };
+              }),
+            ),
+            context,
+          });
+          writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+            owner: "@acme",
+            skills: { reviewer: { source: target.fqn, enabled: false } },
+          });
+          const step = wrapped.jobs[0]?.steps[0];
+          if (step === undefined || step.readiness === "error") {
+            return yield* makeAppError({ code: "internal", detail: "Expected a runnable step" });
+          }
 
-        const error = yield* step.run.pipe(Effect.flip);
-        expect(error.code).toBe("conflict");
-        expect(error.detail).toBe(TARGETED_UPDATE_STALE_DETAIL);
-        expect(childRan).toBe(false);
-      }),
-    );
-  });
+          const result = yield* step.run;
+          expect(result.result).toBe("error");
+          if (result.result === "error") {
+            expect(result.blocking?.class).toBe("stale-candidate");
+            expect(result.message).toBe(TARGETED_UPDATE_STALE_DETAIL);
+            expect(result.error.code).toBe("conflict");
+          }
+          expect(childRan).toBe(false);
+        }),
+      );
+    },
+  );
 
   it.effect("rolls back a member step that violates the ownership postcondition", () => {
     const { provide } = makeWorkspaceHandlerTestContext({

@@ -38,7 +38,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   stringProperty,
 } from "../../../test-helpers.js";
 
@@ -389,14 +389,15 @@ describe("update.handler — error recovery", () => {
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Update skills",
           totalSteps: 2,
+          appliedCount: 1,
         });
-        expect(planResultSteps(result)).toEqual([
-          expect.objectContaining({ label: "code-review", status: "applied" }),
+        expect(planResultUnits(result)).toEqual([
           expect.objectContaining({
             label: "Skip my-skill",
-            status: "applied",
+            state: "skipped",
             message: "Skipping my-skill: disabled",
           }),
+          expect.objectContaining({ label: "code-review", state: "committed" }),
         ]);
       }),
     );
@@ -553,7 +554,8 @@ describe("update.handler — error recovery", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleUpdate(defaultArgs({ preview: true }));
-        expect(logs.message.some((message) => message.includes("Publisher identity changed"))).toBe(
+        // The warning rides its unit's planned row, not a bespoke section.
+        expect(logs.success.some((message) => message.includes("Publisher identity changed"))).toBe(
           true,
         );
       }),
@@ -776,10 +778,10 @@ describe("update.handler — error recovery", () => {
           planName: "Update skills",
         });
         expect(result).toMatchObject({
-          steps: [
+          units: [
             {
               label: "code-review",
-              status: "applied",
+              state: "committed",
               message: expect.stringContaining("@acme/skills/code-review held at 1.3.0"),
             },
           ],
@@ -1012,9 +1014,9 @@ describe("update.handler — preview flag", () => {
           planName: "Update skills",
           totalSteps: 2,
         });
-        expect(planResultSteps(result)).toEqual([
-          expect.objectContaining({ label: "code-review", status: "ready" }),
-          expect.objectContaining({ label: "Skip missing", status: "ready" }),
+        expect(planResultUnits(result)).toEqual([
+          expect.objectContaining({ label: "Skip missing", state: "ready" }),
+          expect.objectContaining({ label: "code-review", state: "ready" }),
         ]);
       }),
     );

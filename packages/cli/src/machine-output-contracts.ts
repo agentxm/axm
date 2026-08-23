@@ -75,10 +75,13 @@ const planFamily = {
   scenarios: [
     "applied",
     "previewed",
-    "reconciliation required",
     "cancelled",
     "no-op",
     "partial failure",
+    "failed",
+    "blocked",
+    "interrupted",
+    "recovery required",
   ],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
   centralizedCoverage: [

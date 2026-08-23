@@ -455,7 +455,6 @@ export const HookManagerLive = Layer.effect(
             version: ref.version,
             integrity: ref.integrity,
             messages: {
-              integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for hook:${ref.name}@${ref.version}`,
             },
           }),

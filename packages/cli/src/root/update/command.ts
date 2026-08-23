@@ -15,7 +15,11 @@ const updateConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Update in project (default) or user-level configuration"),
   ),
-  yes: yesFlag.pipe(Flag.withDescription("Skip confirmation after reviewing the update plan")),
+  yes: yesFlag.pipe(
+    Flag.withDescription(
+      "Pre-approve the update when it carries a risk that would otherwise prompt",
+    ),
+  ),
   force: refreshFlag,
   preview: previewFlag.pipe(
     Flag.withDescription("Show what would be updated without making changes"),

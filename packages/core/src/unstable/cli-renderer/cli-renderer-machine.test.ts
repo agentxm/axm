@@ -156,7 +156,7 @@ describe("MachineRenderer", () => {
       }),
     );
 
-    it.effect("step is silent", () =>
+    it.effect("step emits one typed progress event", () =>
       Effect.gen(function* () {
         yield* run(
           Effect.gen(function* () {
@@ -164,7 +164,13 @@ describe("MachineRenderer", () => {
             yield* r.step("Next step");
           }),
         );
-        expect(stderrWrites).toHaveLength(0);
+        expect(stderrWrites).toHaveLength(1);
+        expect(JSON.parse(stderrWrites[0] ?? "")).toEqual({
+          type: "progress",
+          phase: "step",
+          percent: 0,
+          message: "Next step",
+        });
       }),
     );
 

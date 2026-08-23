@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "../app-error/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 
 /**
  * Remove a directory if it exists.
@@ -37,6 +38,7 @@ export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string
         }),
       ),
     );
+    yield* recordFootprint({ path: dirPath, change: "removed" });
   });
 
 export type CanonicalExtensionDirectory = "skills" | "subagents";

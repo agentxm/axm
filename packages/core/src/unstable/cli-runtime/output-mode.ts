@@ -26,6 +26,11 @@ export const ProgressEventSchema = Schema.Struct({
   phase: Schema.String,
   percent: Schema.Number,
   message: Schema.String,
+  /** Unit identity, terminal state, waiting reason, and a monotonic timestamp for lifecycle progress. */
+  unit: Schema.optional(Schema.String),
+  state: Schema.optional(Schema.String),
+  reason: Schema.optional(Schema.String),
+  atMs: Schema.optional(Schema.Number),
 }).annotate({
   identifier: "ProgressEvent",
   title: "Progress Event",

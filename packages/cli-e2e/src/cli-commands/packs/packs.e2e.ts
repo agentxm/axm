@@ -567,7 +567,7 @@ describe("axm packs publish", () => {
 // ---------------------------------------------------------------------------
 
 describe("axm packs install", () => {
-  it("hard-blocks a Registry reinstall over a workspace-owned pack without writes", async () => {
+  it("C-19: hard-blocks a Registry reinstall over a workspace-owned pack without writes", async () => {
     const { temp, registryDir, settingsPath, lockPath, cleanup } = setupWorkspaceWithRegistry();
     const packName = "workspace-authority-pack";
     try {
@@ -606,17 +606,32 @@ describe("axm packs install", () => {
       expect(JSON.parse(blocked.stdout)).toMatchObject({
         ok: false,
         result: {
-          outcome: "failed",
-          reason: "hard-blocked",
-          errorCode: "conflict",
+          contract: "plan-result-v2",
+          outcome: "blocked",
+          mode: "apply",
           candidateId: expect.any(String),
-          totalSteps: 1,
-          readyCount: 0,
-          errorCount: 1,
-          blockedCount: 1,
-          failedCount: 0,
+          blocking: expect.objectContaining({
+            class: "precondition-unmet",
+            phase: "planning",
+            causeCode: "conflict",
+            detail: expect.stringContaining("workspace-sourced pack"),
+          }),
+          counts: expect.objectContaining({
+            total: 1,
+            ready: 0,
+            committed: 0,
+            failed: 0,
+            blocked: 1,
+          }),
+          units: [expect.objectContaining({ state: "blocked" })],
         },
       });
+
+      const blockedHuman = await runCli(["packs", "install", `@test/packs/${packName}`, "--yes"], {
+        cwd: temp.path,
+      });
+      expect(blockedHuman.exitCode, blockedHuman.stdout + blockedHuman.stderr).toBe(6);
+      expect(blockedHuman.stdout + blockedHuman.stderr).toContain("Install is blocked — ");
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lock);
       expect(fs.readFileSync(manifestPath, "utf8")).toBe(before.manifest);
@@ -662,13 +677,15 @@ describe("axm packs install", () => {
         result: {
           outcome: "applied",
           agentCoverage: { scope: "project", agents: ["claude-code"] },
-          steps: [
-            {
-              artifact: {
+          counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
+          units: [
+            expect.objectContaining({
+              state: "committed",
+              artifact: expect.objectContaining({
                 agents: ["claude-code"],
                 targets: expect.arrayContaining([expect.objectContaining({ change: "unchanged" })]),
-              },
-            },
+              }),
+            }),
           ],
         },
       });
@@ -719,7 +736,7 @@ describe("axm packs install", () => {
         ok: true,
         result: {
           agentCoverage: { scope: "project", agents: [] },
-          steps: [{ artifact: { agents: [] } }],
+          units: [expect.objectContaining({ artifact: expect.objectContaining({ agents: [] }) })],
         },
       });
 
@@ -743,7 +760,7 @@ describe("axm packs install", () => {
         result: { outcome: "applied" },
       });
       expect(nonApplicableDocument.result).not.toHaveProperty("agentCoverage");
-      expect(nonApplicableDocument.result.steps[0]?.artifact).not.toHaveProperty("agents");
+      expect(nonApplicableDocument.result.units[0]?.artifact).not.toHaveProperty("agents");
 
       const nonApplicableHuman = await runCli(
         ["packs", "install", `@test/packs/${nonApplicablePack}`, "--yes"],
@@ -842,12 +859,10 @@ describe("axm packs install", () => {
               scope: "project",
               agents: ["claude-code", "cursor"],
             },
-            steps: [
-              {
-                artifact: {
-                  agents: ["claude-code", "cursor"],
-                },
-              },
+            units: [
+              expect.objectContaining({
+                artifact: expect.objectContaining({ agents: ["claude-code", "cursor"] }),
+              }),
             ],
           },
         });
@@ -865,7 +880,11 @@ describe("axm packs install", () => {
             scope: "project",
             agents: ["claude-code", "cursor"],
           },
-          steps: [{ artifact: { agents: ["claude-code", "cursor"] } }],
+          units: [
+            expect.objectContaining({
+              artifact: expect.objectContaining({ agents: ["claude-code", "cursor"] }),
+            }),
+          ],
         },
       });
 
@@ -1015,7 +1034,11 @@ describe("axm packs install", () => {
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
       expect(JSON.parse(preview.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "previewed", readyCount: 1, errorCount: 0 },
+        result: {
+          outcome: "previewed",
+          mode: "preview",
+          counts: expect.objectContaining({ total: 1, ready: 1, failed: 0, blocked: 0 }),
+        },
       });
       expect(readLock().packs?.["recoverable-pack"]).toBeUndefined();
 
@@ -1025,7 +1048,10 @@ describe("axm packs install", () => {
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
       expect(JSON.parse(applied.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "applied", appliedCount: 1, errorCount: 0 },
+        result: {
+          outcome: "applied",
+          counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
+        },
       });
       expect(readLock().packs?.["recoverable-pack"]).toMatchObject({ type: "registry" });
       expect(readLock().skills?.["recoverable-member"]).toMatchObject({ type: "registry" });
@@ -1044,7 +1070,10 @@ describe("axm packs install", () => {
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
       expect(JSON.parse(second.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "no-op", appliedCount: 0 },
+        result: {
+          outcome: "no-op",
+          counts: expect.objectContaining({ committed: 0, failed: 0 }),
+        },
       });
       const lint = await runCli(["lint", "--json"], { cwd: temp.path });
       expect(lint.exitCode, lint.stdout + lint.stderr).toBe(0);
@@ -1536,7 +1565,13 @@ describe("axm packs uninstall", () => {
         );
         expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
         expect(JSON.parse(preview.stdout)).toMatchObject({
-          result: { outcome: "previewed", planName: "Uninstall pack", totalSteps: 1 },
+          result: {
+            outcome: "previewed",
+            mode: "preview",
+            planName: "Uninstall pack",
+            counts: expect.objectContaining({ total: 1, ready: 1 }),
+            units: [expect.objectContaining({ state: "ready" })],
+          },
         });
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
         expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lockfile);
@@ -1547,7 +1582,13 @@ describe("axm packs uninstall", () => {
           { cwd: temp.path },
         );
         expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
-        expect(JSON.parse(applied.stdout)).toMatchObject({ result: { outcome: "applied" } });
+        expect(JSON.parse(applied.stdout)).toMatchObject({
+          ok: true,
+          result: {
+            outcome: "applied",
+            counts: expect.objectContaining({ committed: 1, failed: 0 }),
+          },
+        });
         expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).packs?.["workspace-pack"]).toBe(
           undefined,
         );
@@ -1597,7 +1638,13 @@ describe("axm packs uninstall", () => {
       });
       expect(machine.exitCode, machine.stdout + machine.stderr).toBe(0);
       expect(JSON.parse(machine.stdout)).toMatchObject({
-        result: { outcome: "previewed", planName: "Uninstall packs", totalSteps: 0, steps: [] },
+        ok: true,
+        result: {
+          outcome: "previewed",
+          planName: "Uninstall packs",
+          counts: expect.objectContaining({ total: 0 }),
+          units: [],
+        },
       });
     } finally {
       temp.cleanup();

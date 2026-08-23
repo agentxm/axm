@@ -1,13 +1,20 @@
 import * as Effect from "effect/Effect";
+import { deriveOperationOutcome, operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { toPlanResolutionResult } from "../../../json-output.js";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
   UninstallRuleCommandWorkflowActions,
   type UninstallRuleHandlerArgs,
 } from "./command-actions.js";
+
+const uninstallPresentation = operationPresentation(
+  { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
+  "rule",
+);
 
 export const handleUninstallRule = (
   args: UninstallRuleHandlerArgs,
@@ -16,26 +23,45 @@ export const handleUninstallRule = (
     readonly preview: boolean;
   },
 ) =>
+  withOperationLifecycle(
+    {
+      command: "rules.uninstall",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Uninstall rule",
+      presentation: uninstallPresentation,
+    },
+    handleUninstallRuleBody(args, flags),
+  );
+
+const handleUninstallRuleBody = (
+  args: UninstallRuleHandlerArgs,
+  flags: {
+    readonly yes: boolean;
+    readonly preview: boolean;
+  },
+) =>
   Effect.gen(function* () {
     const actions = yield* UninstallRuleCommandWorkflowActions;
+    const presentedActions: typeof actions = {
+      ...actions,
+      buildUninstallPlan: (intent, workflowFlags) =>
+        actions
+          .buildUninstallPlan(intent, workflowFlags)
+          .pipe(Effect.map((plan) => ({ ...plan, presentation: uninstallPresentation }))),
+    };
     const execution = yield* makeUninstallPlanExecution(flags, ["rules", "uninstall"], [args.name]);
-    const resolution = yield* runUninstallCommandWorkflow(args, actions, {
+    const resolution = yield* runUninstallCommandWorkflow(args, presentedActions, {
       execution,
-      displayApplied: false,
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op") {
+    if (deriveOperationOutcome(resolution) === "no-op") {
       yield* emitNoOpOutcome("rules.uninstall", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No rules uninstalled.",
       });
       return;
     }
 
-    yield* emitAppliedPlanOutcome({
-      command: "rules.uninstall",
-      headline: "Uninstalled rule " + args.name,
-      resolution,
+    yield* emitOperationResolution("rules.uninstall", resolution, {
       suggestions: [{ description: "Inspect installed rules", cmd: "axm rules list" }],
     });
   });

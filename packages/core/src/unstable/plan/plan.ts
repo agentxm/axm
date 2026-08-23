@@ -19,8 +19,12 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { AppErrorCodeSchema, type AppError, type AppErrorCode } from "../app-error/index.js";
-import { ExtensionTypeSchema } from "../extensions/common.js";
+import { AppErrorCodeSchema, type AppError } from "../app-error/index.js";
+import {
+  EXTENSION_TYPE_TABLE,
+  ExtensionTypeSchema,
+  type ExtensionType,
+} from "../extensions/common.js";
 import type { DeprecationView, ReleaseAgeOperationEvidence } from "../registry/index.js";
 import type { SuggestedAction } from "../cli-runtime/suggested-action.js";
 
@@ -29,15 +33,34 @@ export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] a
 export const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
 export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;
 
-export const PlanExecutionReasonSchema = Schema.Literals([
+/**
+ * Bounded blocking reason classes. Prose never carries a blocking reason on
+ * its own; every blocked unit or operation names one of these classes.
+ */
+export const BlockingClassSchema = Schema.Literals([
   "approval-required",
   "override-required",
+  "precondition-unmet",
+  "dependency-failed",
+  "dependency-cycle",
   "stale-candidate",
-  "hard-blocked",
-  "interrupted",
-  "execution-failed",
-] as const);
-export type PlanExecutionReason = typeof PlanExecutionReasonSchema.Type;
+  "policy-excluded",
+  "resource-conflict",
+  "external-blocked",
+  "operation-aborted",
+] as const).annotate({
+  identifier: "BlockingClass",
+  title: "Blocking Class",
+  description: "Bounded reason class for work that did not proceed.",
+});
+export type BlockingClass = typeof BlockingClassSchema.Type;
+
+/** Typed blocking carried by a unit result that did not proceed. */
+export interface UnitBlocking {
+  readonly class: BlockingClass;
+  /** Machine-readable reference to the blocking unit or condition. */
+  readonly reference?: string;
+}
 
 export const PlanRiskConditionSchema = Schema.Union([
   Schema.Struct({
@@ -159,6 +182,8 @@ export type JobStepResult<Output = never> =
   | {
       readonly result: "success";
       readonly message: string;
+      /** `skipped` marks work deliberately not attempted per declared policy. */
+      readonly disposition?: "skipped";
       readonly warnings?: ReadonlyArray<string>;
       readonly links?: { readonly html: string };
       readonly artifact?: JobStepArtifact;
@@ -168,6 +193,8 @@ export type JobStepResult<Output = never> =
       readonly result: "error";
       readonly message: string;
       readonly error: AppError;
+      /** Present when the unit was prevented rather than failing on its own. */
+      readonly blocking?: UnitBlocking;
     };
 
 // -----------------------------------------------------------------------------
@@ -244,14 +271,38 @@ export interface Job<Requirements = never, Output = never> {
 }
 
 /**
- * An additional labeled section to display alongside a plan.
- *
- * @experimental This API is unstable and may change without notice.
+ * Typed render vocabulary a planner declares for its operation; replaces
+ * verb and subject inference from plan names.
  */
-export interface PlanSection {
-  readonly title: string;
-  readonly items: ReadonlyArray<string>;
+export interface OperationPresentation {
+  readonly verb: {
+    /** e.g. "update" */
+    readonly imperative: string;
+    /** e.g. "Updated" */
+    readonly past: string;
+    /** e.g. "Updating" */
+    readonly gerund: string;
+  };
+  readonly subject: {
+    readonly singular: string;
+    readonly plural: string;
+  };
 }
+
+/** Presentation for an operation on one extension type (or extensions generally). */
+export const operationPresentation = (
+  verb: OperationPresentation["verb"],
+  type?: ExtensionType,
+): OperationPresentation => ({
+  verb,
+  subject:
+    type === undefined
+      ? { singular: "extension", plural: "extensions" }
+      : {
+          singular: EXTENSION_TYPE_TABLE[type].sentenceLabel,
+          plural: EXTENSION_TYPE_TABLE[type].pluralSentenceLabel,
+        },
+});
 
 export const OperationPreconditionSchema = Schema.Struct({
   id: Schema.String,
@@ -275,8 +326,8 @@ export interface Plan<Requirements = never, Output = never> {
   readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
-  /** Optional extra sections rendered after the plan steps. */
-  readonly sections?: ReadonlyArray<PlanSection>;
+  /** Typed render vocabulary for this operation's human output. */
+  readonly presentation?: OperationPresentation;
   /** Semantic conditions evaluated by the shared execution-policy boundary. */
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   /** Recovery specific to an operation that cannot currently be applied. */
@@ -309,51 +360,3 @@ export interface ExecutedPlan<Output = never> {
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   readonly candidateId?: string;
 }
-
-export interface PreviewedPlan<Requirements = never, Output = never> {
-  readonly _tag: "PreviewedPlan";
-  readonly name: string;
-  readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
-  readonly releaseAge?: ReleaseAgeOperationEvidence;
-  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
-  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
-  readonly candidateId?: string;
-}
-
-export interface CancelledPlan<Requirements = never, Output = never> {
-  readonly _tag: "CancelledPlan";
-  readonly name: string;
-  readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
-  readonly releaseAge?: ReleaseAgeOperationEvidence;
-  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
-  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
-  readonly candidateId?: string;
-}
-
-export interface FailedPlan<Requirements = never, Output = never> {
-  readonly _tag: "FailedPlan";
-  readonly name: string;
-  readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job<Requirements, Output>>;
-  readonly releaseAge?: ReleaseAgeOperationEvidence;
-  readonly reason: PlanExecutionReason;
-  readonly errorCode: AppErrorCode;
-  readonly failure?: AppError;
-  readonly preconditions?: ReadonlyArray<OperationPrecondition>;
-  readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
-  readonly candidateId?: string;
-  readonly executionSteps?: ReadonlyArray<{
-    readonly label: string;
-    readonly status: "rolled-back" | "unapplied" | "failed";
-    readonly message: string;
-  }>;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
-}
-
-export type PlanResolution<Requirements = never, Output = never> =
-  | ExecutedPlan<Output>
-  | PreviewedPlan<Requirements, Output>
-  | CancelledPlan<Requirements, Output>
-  | FailedPlan<Requirements, Output>;

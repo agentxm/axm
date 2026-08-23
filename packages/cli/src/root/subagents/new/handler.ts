@@ -26,12 +26,13 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
-import { emitScaffoldSuccess } from "../../shared/scaffold-success.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -52,7 +53,17 @@ const STARTER_BODY = "Describe what this subagent does and when to delegate work
 const makeSubagentMd = (name: string) =>
   ["---", `name: ${name}`, "---", "", STARTER_BODY].join("\n");
 
-export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
+export const handleSubagentsNew = (args: SubagentsNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New subagent",
+    },
+    handleSubagentsNewBody(args),
+  );
+
+const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   args: SubagentsNewHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -209,13 +220,16 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     _tag: "Plan",
     name: "New subagent",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "subagent",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
 
   const suggestions = [
@@ -224,20 +238,5 @@ export const handleSubagentsNew = Effect.fn("SubagentsNew.handle")(function* (
     },
   ];
 
-  const emitted = yield* emitPlanResolutionResult(
-    "subagents.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? { summary: `-> ${scaffoldPath}   0.0.1 | 2 files`, suggestions }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created subagent ${fqn}`,
-      summary: `-> ${scaffoldPath}   0.0.1 | 2 files`,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("subagents.new", resolution, { suggestions });
 });

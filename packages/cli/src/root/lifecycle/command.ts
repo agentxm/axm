@@ -30,8 +30,10 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
 
+import { makeOperationResolution } from "@agentxm/client-core/unstable/plan";
+
 import { withRuntime } from "../../runtime.js";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { runWithStepUp } from "../step-up.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
@@ -101,39 +103,31 @@ const emitLifecycleOutput = (input: {
   readonly warnings?: ReadonlyArray<string>;
   readonly version?: string;
 }) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const emitted = yield* emitPlanResolutionResult(input.command, {
-      _tag: "ExecutedPlan",
+  emitOperationResolution(
+    input.command,
+    makeOperationResolution({
       name: input.planName,
       description: Option.none(),
-      jobs: [
+      mode: "apply",
+      atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+      units: [
         {
-          concurrency: 1,
-          steps: [
-            {
-              label: input.extension,
-              result: {
-                result: "success",
-                message: input.message,
-                ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
-                artifact: {
-                  path: input.extension,
-                  scope: "user",
-                  change: "updated",
-                  ...(input.version === undefined ? {} : { version: input.version }),
-                },
-              },
-            },
-          ],
+          id: input.extension,
+          label: input.extension,
+          state: "committed",
+          message: input.message,
+          ...(input.warnings === undefined ? {} : { warnings: input.warnings }),
+          artifact: {
+            path: input.extension,
+            scope: "user",
+            change: "updated",
+            ...(input.version === undefined ? {} : { version: input.version }),
+          },
         },
       ],
-    });
-    if (emitted) {
-      return;
-    }
-    yield* renderer.success(input.message);
-  });
+    }),
+    { message: input.message },
+  );
 
 export const handleYank = (input: {
   readonly ref: string;

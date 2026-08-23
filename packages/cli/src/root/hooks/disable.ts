@@ -10,6 +10,7 @@ import {
 import { HOOK_EXTENSION_DIR, HookManager } from "@agentxm/client-core/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
@@ -19,7 +20,8 @@ import {
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
@@ -60,7 +62,21 @@ const hookDisableArtifact = (args: {
   };
 };
 
-export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args: {
+export const handleDisableHook = (args: {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "hooks.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable hooks",
+    },
+    handleDisableHookBody(args),
+  );
+
+const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
   readonly preview: boolean;
@@ -89,6 +105,10 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
     _tag: "Plan",
     name: "Disable hooks",
     description: Option.some(`Disable hooks package ${args.name}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "hook",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -128,11 +148,8 @@ export const handleDisableHook = Effect.fn("DisableHook.handle")(function* (args
     ["hooks", "disable"],
     [args.name],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "hooks.disable",
-    headline: `Disabled hooks package ${args.name}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("hooks.disable", resolution, {
     suggestions: [
       { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
       { description: "Undo", cmd: `axm hooks enable ${args.name}` },

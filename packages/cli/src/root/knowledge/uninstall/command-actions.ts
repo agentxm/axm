@@ -79,9 +79,6 @@ const lockCanonicalRoot = (
       )
     : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, targetName);
 
-const ownershipSummary = (ownership: KnowledgeUninstallOwnership): string =>
-  `${ownership.target.name}: settings ${ownership.settingsPresent ? "present" : "absent"}; lock ${ownership.lockPresent ? "present" : "absent"}; accepted provenance ${ownership.acceptedProvenance}; canonical ${ownership.canonical}; rendered instructions ${ownership.renderedInstructions}; managed agent projections ${ownership.managedAgentProjections}`;
-
 export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const manager = yield* KnowledgeManager;
@@ -265,12 +262,6 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             {
               concurrency: 1,
               steps: ownership.map(buildStep),
-            },
-          ],
-          sections: [
-            {
-              title: "Knowledge ownership",
-              items: ownership.map(ownershipSummary),
             },
           ],
         } satisfies Plan;

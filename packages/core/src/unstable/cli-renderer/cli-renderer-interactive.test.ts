@@ -94,7 +94,7 @@ describe("InteractiveRenderer", () => {
           yield* renderer.diagnostic("diagnostic");
           yield* renderer.note("note");
           yield* renderer.box("box");
-          yield* renderer.success("Applied", { summary: "verbose summary" });
+          yield* renderer.success("Applied", { summary: "result rows" });
           yield* renderer.warn("Needs attention");
           yield* renderer.error("Failed", {
             suggestions: [{ description: "Retry", cmd: "axm retry" }],
@@ -107,6 +107,9 @@ describe("InteractiveRenderer", () => {
       const output = stderrWrites.join("");
       expect(stdoutWrites).toEqual([]);
       expect(output).toContain("Applied");
+      // A success summary is result data: --quiet filters progress and
+      // decoration only, so the summary survives it.
+      expect(output).toContain("result rows");
       expect(output).toContain("Needs attention");
       expect(output).toContain("Failed");
       expect(output).toContain("axm retry");
@@ -119,7 +122,6 @@ describe("InteractiveRenderer", () => {
         "diagnostic",
         "note",
         "box",
-        "verbose summary",
         "Done",
       ]) {
         expect(output).not.toContain(suppressed);

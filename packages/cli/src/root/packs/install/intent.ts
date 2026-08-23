@@ -17,7 +17,6 @@ export interface InstallPackCommandIntent {
   readonly unattended?: boolean;
   readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
-  readonly diagnosticLines?: ReadonlyArray<string>;
   /** Immutable dependency authority supplied by deterministic recovery workflows. */
   readonly dependencyResolver?: PackDependencyRefResolver;
   /**

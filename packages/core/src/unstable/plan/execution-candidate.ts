@@ -14,6 +14,8 @@ export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly plan: Plan<Requirements, Output>;
   readonly materialPaths: ReadonlyArray<string>;
   readonly materialFingerprint: string;
+  /** Base the material fingerprint is relative to; freshness recomputes against it. */
+  readonly baseDir: string;
 }
 
 const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<string> =>
@@ -43,20 +45,21 @@ const resolveMaterialPaths = (
 
 const fingerprintPath = (
   target: string,
+  label: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): Effect.Effect<ReadonlyArray<Uint8Array | string>, AppError> =>
   Effect.gen(function* () {
     const link = yield* fs.readLink(target).pipe(Effect.option);
-    if (Option.isSome(link)) return [target, "symlink", link.value];
+    if (Option.isSome(link)) return [label, "symlink", link.value];
 
     const info = yield* fs.stat(target).pipe(Effect.option);
-    if (Option.isNone(info)) return [target, "absent"];
-    if (info.value.type === "File") return [target, "file", yield* fs.readFile(target)];
-    if (info.value.type !== "Directory") return [target, info.value.type];
+    if (Option.isNone(info)) return [label, "absent"];
+    if (info.value.type === "File") return [label, "file", yield* fs.readFile(target)];
+    if (info.value.type !== "Directory") return [label, info.value.type];
 
     const entries = [...(yield* fs.readDirectory(target, { recursive: true }))].sort();
-    const parts: Array<Uint8Array | string> = [target, "directory"];
+    const parts: Array<Uint8Array | string> = [label, "directory"];
     for (const entry of entries) {
       const absolute = path.join(target, entry);
       const entryInfo = yield* fs.stat(absolute);
@@ -75,15 +78,18 @@ const fingerprintPath = (
     ),
   );
 
+// Materials hash under their base-relative names: candidate identity is a
+// property of workspace content, not of where the workspace sits on disk.
 const fingerprintMaterials = (
   materialPaths: ReadonlyArray<string>,
+  baseDir: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): Effect.Effect<string, AppError> =>
   Effect.gen(function* () {
     const hash = crypto.createHash("sha256");
     for (const target of materialPaths) {
-      const parts = yield* fingerprintPath(target, fs, path);
+      const parts = yield* fingerprintPath(target, path.relative(baseDir, target), fs, path);
       for (const part of parts) {
         hash.update(part);
         hash.update("\0");
@@ -125,14 +131,14 @@ export const makeExecutionCandidate = <Requirements, Output>(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const materialPaths = resolveMaterialPaths(plan, workspaceDir, baseDir, path);
-    const materialFingerprint = yield* fingerprintMaterials(materialPaths, fs, path);
+    const materialFingerprint = yield* fingerprintMaterials(materialPaths, baseDir, fs, path);
     const id = crypto
       .createHash("sha256")
       .update(planIdentity(plan))
       .update("\0")
       .update(materialFingerprint)
       .digest("hex");
-    return { id, plan, materialPaths, materialFingerprint };
+    return { id, plan, materialPaths, materialFingerprint, baseDir };
   });
 
 export const isExecutionCandidateFresh = (
@@ -141,6 +147,11 @@ export const isExecutionCandidateFresh = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const current = yield* fingerprintMaterials(candidate.materialPaths, fs, path);
+    const current = yield* fingerprintMaterials(
+      candidate.materialPaths,
+      candidate.baseDir,
+      fs,
+      path,
+    );
     return current === candidate.materialFingerprint;
   });

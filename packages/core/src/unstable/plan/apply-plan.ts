@@ -23,6 +23,7 @@ import type {
   Job,
   Plan,
   PlannedJobStep,
+  UnitBlocking,
   WarnJobStep,
 } from "./plan.js";
 
@@ -129,6 +130,7 @@ const executeStep = <Requirements, Output>(
 const blockStep = <Output>(
   step: PlannedJobStep<unknown, Output>,
   message: string,
+  blocking: UnitBlocking,
   blockedBy?: ReadonlyArray<string>,
 ): CompletedJobStep<Output> => ({
   ...(step.key === undefined ? {} : { key: step.key }),
@@ -142,6 +144,7 @@ const blockStep = <Output>(
       code: "conflict",
       detail: message,
     }),
+    blocking,
   },
 });
 
@@ -159,37 +162,56 @@ const applyReadinessGate = <Output>(
               error: makeAppError({ code: "conflict", detail: step.errorMessage }),
             },
           }
-        : blockStep(step, "blocked by plan readiness error"),
+        : blockStep(step, "blocked by plan readiness error", { class: "precondition-unmet" }),
     ),
   );
 
 const executeFailFastJob = <Requirements, Output>(
   job: Job<Requirements, Output>,
+  observeStart: (step: StartedJobStep) => Effect.Effect<void>,
+  observeStep: (step: CompletedJobStep<Output>) => Effect.Effect<void>,
 ): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
   Effect.gen(function* () {
     const completed: CompletedJobStep<Output>[] = [];
     let failed = false;
+    let failedStepId: string | undefined;
     for (const step of job.steps) {
       if (failed) {
-        completed.push(blockStep(step, "blocked by earlier step failure"));
+        const blocked = blockStep(step, "blocked by earlier step failure", {
+          class: "operation-aborted",
+          ...(failedStepId === undefined ? {} : { reference: failedStepId }),
+        });
+        completed.push(blocked);
+        yield* observeStep(blocked);
         continue;
       }
+      yield* observeStart(step);
       const result = yield* executeStep(step);
       completed.push(result);
-      failed = result.result.result === "error";
+      yield* observeStep(result);
+      if (result.result.result === "error" && !failed) {
+        failed = true;
+        failedStepId = result.key ?? result.label;
+      }
     }
     return completed;
   });
 
 const executeBestEffortJob = <Requirements, Output>(
   job: Job<Requirements, Output>,
+  observeStart: (step: StartedJobStep) => Effect.Effect<void>,
+  observeStep: (step: CompletedJobStep<Output>) => Effect.Effect<void>,
 ): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
-  Effect.forEach(job.steps, (step) => executeStep(step), {
-    concurrency: job.concurrency,
-  });
+  Effect.forEach(
+    job.steps,
+    (step) => observeStart(step).pipe(Effect.andThen(executeStep(step)), Effect.tap(observeStep)),
+    { concurrency: job.concurrency },
+  );
 
 const executeDependencyAwareJob = <Requirements, Output>(
   job: Job<Requirements, Output>,
+  observeStart: (step: StartedJobStep) => Effect.Effect<void>,
+  observeStep: (step: CompletedJobStep<Output>) => Effect.Effect<void>,
 ): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
   Effect.gen(function* () {
     const stepsByKey = new Map(
@@ -198,8 +220,10 @@ const executeDependencyAwareJob = <Requirements, Output>(
     const completed = new Map<string, CompletedJobStep<Output>>();
     const unkeyed = job.steps.filter((step) => step.key === undefined);
     for (const step of unkeyed) {
+      yield* observeStart(step);
       const result = yield* executeStep(step);
       completed.set(`label:${step.label}`, result);
+      yield* observeStep(result);
     }
 
     while ([...stepsByKey.keys()].some((key) => !completed.has(key))) {
@@ -215,10 +239,17 @@ const executeDependencyAwareJob = <Requirements, Output>(
           const result = completed.get(dependency);
           return result !== undefined && result.result.result === "error";
         });
-        completed.set(
-          key,
-          blockStep(step, `blocked by failed dependency: ${blockedBy.join(", ")}`, blockedBy),
+        const blocked = blockStep(
+          step,
+          `blocked by failed dependency: ${blockedBy.join(", ")}`,
+          {
+            class: "dependency-failed",
+            ...(blockedBy[0] === undefined ? {} : { reference: blockedBy[0] }),
+          },
+          blockedBy,
         );
+        completed.set(key, blocked);
+        yield* observeStep(blocked);
       }
 
       const ready = remaining.filter(
@@ -236,14 +267,22 @@ const executeDependencyAwareJob = <Requirements, Output>(
           if (completed.has(key)) continue;
           completed.set(
             key,
-            blockStep(step, "blocked by an unresolved dependency cycle", step.dependsOn ?? []),
+            blockStep(
+              step,
+              "blocked by an unresolved dependency cycle",
+              { class: "dependency-cycle" },
+              step.dependsOn ?? [],
+            ),
           );
         }
         break;
       }
-      const results = yield* Effect.forEach(ready, ([, step]) => executeStep(step), {
-        concurrency: job.concurrency,
-      });
+      const results = yield* Effect.forEach(
+        ready,
+        ([, step]) =>
+          observeStart(step).pipe(Effect.andThen(executeStep(step)), Effect.tap(observeStep)),
+        { concurrency: job.concurrency },
+      );
       for (const result of results) {
         if (result.key !== undefined) completed.set(result.key, result);
       }
@@ -252,7 +291,9 @@ const executeDependencyAwareJob = <Requirements, Output>(
     return job.steps.map(
       (step) =>
         completed.get(step.key ?? `label:${step.label}`) ??
-        blockStep(step, "blocked by an unresolved execution dependency"),
+        blockStep(step, "blocked by an unresolved execution dependency", {
+          class: "dependency-cycle",
+        }),
     );
   });
 
@@ -266,10 +307,26 @@ const executeDependencyAwareJob = <Requirements, Output>(
  *
  * Never fails — catches AppError and converts to error results.
  */
+/** Identity of a unit whose run closure is starting. */
+export interface StartedJobStep {
+  readonly key?: string;
+  readonly label: string;
+}
+
+export interface ApplyPlanOptions<Output> {
+  /** Observes each unit as its run closure starts; never controls execution. */
+  readonly onStepStarted?: (step: StartedJobStep) => Effect.Effect<void>;
+  /** Observes each unit the moment it completes; never controls execution. */
+  readonly onStepCompleted?: (step: CompletedJobStep<Output>) => Effect.Effect<void>;
+}
+
 export const applyPlan = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
+  options?: ApplyPlanOptions<Output>,
 ): Effect.Effect<ExecutedPlan<Output>, never, Requirements> =>
   Effect.gen(function* () {
+    const observeStep = options?.onStepCompleted ?? (() => Effect.void);
+    const observeStart = options?.onStepStarted ?? (() => Effect.void);
     const hasReadinessError = plan.jobs.some((job) =>
       job.steps.some((step) => step.readiness === "error"),
     );
@@ -281,13 +338,17 @@ export const applyPlan = <Requirements, Output>(
           (job) =>
             blocked
               ? Effect.succeed<ReadonlyArray<CompletedJobStep<Output>>>(
-                  job.steps.map((step) => blockStep(step, "blocked by earlier job failure")),
+                  job.steps.map((step) =>
+                    blockStep(step, "blocked by earlier job failure", {
+                      class: "operation-aborted",
+                    }),
+                  ),
                 )
               : (job.steps.some((step) => (step.dependsOn ?? []).length > 0)
-                  ? executeDependencyAwareJob(job)
+                  ? executeDependencyAwareJob(job, observeStart, observeStep)
                   : job.executionPolicy === "best-effort"
-                    ? executeBestEffortJob(job)
-                    : executeFailFastJob(job)
+                    ? executeBestEffortJob(job, observeStart, observeStep)
+                    : executeFailFastJob(job, observeStart, observeStep)
                 ).pipe(
                   Effect.tap((steps) => {
                     if (steps.some((step) => step.result.result === "error")) {

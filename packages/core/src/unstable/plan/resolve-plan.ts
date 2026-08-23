@@ -2,7 +2,9 @@
  * Plan preview/apply function.
  *
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
- * and `applyPlan` with `displayPlan` and interactive prompts.
+ * and `applyPlan` with `displayPlan` and interactive prompts, and produces
+ * one `OperationResolution` at every termination path. Channels project the
+ * returned resolution; this boundary renders only transient planning output.
  *
  * This is a free function, not a method on WorkspaceMutationsService.
  *
@@ -24,8 +26,35 @@ import {
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
-import type { CancelledPlan, ExecutedPlan, FailedPlan, Plan, PreviewedPlan } from "./plan.js";
+import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
+import {
+  declaredAtomicity,
+  executedUnits,
+  makeOperationResolution,
+  plannedUnits,
+  unitIdOf,
+  type OperationBlock,
+  type OperationResolution,
+  type ResolvedUnit,
+} from "./operation-resolution.js";
+import {
+  appendCompletedUnit,
+  recordOperationJournal,
+  updateOperationJournal,
+} from "./operation-journal.js";
+import {
+  publishLifecycleEvent,
+  publishPhaseStarted,
+  subscribeToLifecycle,
+} from "./operation-events.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import {
+  readOpenRecoveryRecords,
+  resolveRecoveryRecords,
+  type OpenRecoveryRecord,
+} from "../workspace/operation-records.js";
+import { readFootprint } from "../workspace/footprint-recorder.js";
+import type { OperationFootprintEntry } from "./operation-resolution.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
@@ -45,6 +74,8 @@ interface PlanApplyFailure<Output> {
   readonly error: AppError;
   readonly attemptedExecution?: ExecutedPlan<Output>;
 }
+
+export const STALE_CANDIDATE_DETAIL = "The execution candidate became stale before apply.";
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -114,12 +145,13 @@ const withExecutedAgentOutcomes = <Output>(
  * 4. Fail closed on blockers and missing named policies
  * 5. Preview or approve confirmable semantic risk
  * 6. Revalidate and apply the same candidate
+ *
+ * Every termination path resolves to one `OperationResolution`.
  */
 export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options: {
     execution: PlanExecution;
-    displayApplied?: boolean;
     beforeApply?: (
       candidate: ExecutionCandidate<Requirements, Output>,
     ) => Effect.Effect<void, AppError, Requirements>;
@@ -135,10 +167,39 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     Layer.succeed(Path.Path, path),
   );
 
+  const mode = options.execution.request.mode;
+
+  // Recovery detection: a durable record left by an earlier operation stays
+  // visible on every later invocation until a completed apply resolves it.
+  const openRecords: ReadonlyArray<OpenRecoveryRecord> = yield* readOpenRecoveryRecords(
+    ws.path,
+  ).pipe(Effect.provide(fsLayer));
+  if (openRecords.length > 0) {
+    for (const { record } of openRecords) {
+      yield* renderer.warn(
+        `Recovery pending from an interrupted or failed ${record.command} (${record.kind} at ${record.occurredAt}): ${record.resolveBy}`,
+      );
+    }
+  }
+  const pendingRecovery =
+    openRecords.length === 0
+      ? undefined
+      : {
+          blocksNormalOperation: false,
+          retained: [...new Set(openRecords.flatMap(({ record }) => record.retained))],
+          actions: openRecords.map(({ record }) => ({ description: record.resolveBy })),
+          recordPath: openRecords[0]?.path ?? "",
+        };
+  const withPendingRecovery = (
+    resolution: OperationResolution<Output>,
+  ): OperationResolution<Output> =>
+    pendingRecovery === undefined || resolution.recovery !== undefined
+      ? resolution
+      : { ...resolution, recovery: pendingRecovery };
+
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
 
-  const showPlan = (targetPlan: Plan<Requirements, Output> | ExecutedPlan<Output>) =>
-    displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
+  yield* publishPhaseStarted("planning");
 
   // Step 1: Lockfile reconciliation
   const augmented = yield* renderer.withSpinner(
@@ -245,91 +306,108 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const candidatePlan: Plan<Requirements, Output> = {
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
-    ...(riskConditions.length === 0
-      ? {}
-      : {
-          sections: [
-            ...(augmentedPlan.sections ?? []),
-            {
-              title: "Execution conditions",
-              items: riskConditions.map((condition) => condition.detail),
-            },
-          ],
-        }),
   };
   const candidate = yield* makeExecutionCandidate(candidatePlan, ws.path, ws.baseDir).pipe(
     Effect.provide(fsLayer),
   );
 
-  const failedPlan = (options: {
-    readonly reason: FailedPlan["reason"];
-    readonly errorCode: FailedPlan["errorCode"];
-    readonly failure?: AppError;
-    readonly suggestions?: FailedPlan["suggestions"];
-    readonly executionSteps?: FailedPlan["executionSteps"];
-  }): FailedPlan<Requirements, Output> => ({
-    _tag: "FailedPlan",
+  const atomicity = declaredAtomicity(candidatePlan);
+  const resolutionBase = {
     name: candidatePlan.name,
     description: candidatePlan.description,
+    mode,
+    candidateId: candidate.id,
+    releaseAge: candidatePlan.releaseAge,
+    preconditions: candidatePlan.preconditions,
+    riskConditions: riskConditions.length === 0 ? undefined : riskConditions,
+    presentation: candidatePlan.presentation,
+  };
+
+  yield* recordOperationJournal({
+    name: candidatePlan.name,
+    description: candidatePlan.description,
+    mode,
+    candidateId: candidate.id,
+    atomicity: { declared: atomicity, applied: atomicity },
+    ...(candidatePlan.presentation === undefined
+      ? {}
+      : { presentation: candidatePlan.presentation }),
     ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-    jobs: candidatePlan.jobs,
-    reason: options.reason,
-    errorCode: options.errorCode,
-    ...(options.failure === undefined ? {} : { failure: options.failure }),
     ...(candidatePlan.preconditions === undefined
       ? {}
       : { preconditions: candidatePlan.preconditions }),
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
-    candidateId: candidate.id,
-    ...(options.suggestions === undefined ? {} : { suggestions: options.suggestions }),
-    ...(options.executionSteps === undefined ? {} : { executionSteps: options.executionSteps }),
+    plannedUnits: plannedUnits(candidatePlan.jobs),
+    completed: [],
+    restoresOnFailure: candidatePlan.executionCapabilities?.rollback !== "non-rollbackable",
+    applying: false,
   });
 
+  const notExecuted = (over: {
+    readonly blocking?: OperationBlock;
+    readonly declined?: boolean;
+    readonly failure?: AppError;
+    readonly units?: ReadonlyArray<ResolvedUnit<Output>>;
+  }): OperationResolution<Output> =>
+    withPendingRecovery(
+      makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: { declared: atomicity, applied: "candidate-atomic" },
+        units: over.units ?? plannedUnits(candidatePlan.jobs),
+        blocking: over.blocking,
+        declined: over.declined,
+        failure: over.failure,
+        suggestions: candidatePlan.failureSuggestions,
+      }),
+    );
+
   // Step 3: Display the immutable candidate before any policy terminal or effect.
+  if (mode === "preview") {
+    yield* publishPhaseStarted("preview");
+  }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
-  if (
-    options.execution.request.mode === "preview" ||
-    verbosity.level !== "quiet" ||
-    hasConfirmableRisk
-  ) {
-    yield* showPlan(candidatePlan);
+  if (mode === "preview" || verbosity.level !== "quiet" || hasConfirmableRisk) {
+    yield* displayPlan(candidatePlan, { mode }).pipe(
+      Effect.provide(Layer.succeed(CliRenderer, renderer)),
+    );
   }
 
   // Step 4: Hard blockers dominate preview, overrides, and confirmation.
   if (readiness.hasErrors) {
-    return failedPlan({
-      reason: "hard-blocked",
-      errorCode: "conflict",
-      ...(candidatePlan.failureSuggestions === undefined
-        ? {}
-        : { suggestions: candidatePlan.failureSuggestions }),
+    const firstError = readinessBlockers[0];
+    return notExecuted({
+      blocking: {
+        class: "precondition-unmet",
+        subject: firstError?.id ?? candidatePlan.name,
+        phase: "planning",
+        detail: firstError?.detail ?? readiness.errorMessages[0] ?? "The plan cannot proceed.",
+        causeCode: firstError?.errorCode ?? "conflict",
+      },
     });
   }
   const blocked = riskConditions.find((condition) => condition.level === "blocked");
   if (blocked !== undefined) {
-    return failedPlan({
-      reason: "hard-blocked",
-      errorCode: blocked.errorCode,
-      ...(candidatePlan.failureSuggestions === undefined
-        ? {}
-        : { suggestions: candidatePlan.failureSuggestions }),
+    return notExecuted({
+      blocking: {
+        class: "precondition-unmet",
+        subject: blocked.id,
+        phase: "planning",
+        detail: blocked.detail,
+        causeCode: blocked.errorCode,
+        reference: blocked.id,
+      },
     });
   }
 
   // Step 5: Preview is speculative and never grants approval to a later invocation.
   if (options.execution.request.mode === "preview") {
-    return {
-      _tag: "PreviewedPlan",
-      name: candidatePlan.name,
-      description: candidatePlan.description,
-      ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-      ...(candidatePlan.preconditions === undefined
-        ? {}
-        : { preconditions: candidatePlan.preconditions }),
-      ...(riskConditions.length === 0 ? {} : { riskConditions }),
-      candidateId: candidate.id,
-      jobs: candidatePlan.jobs,
-    } satisfies PreviewedPlan<Requirements, Output>;
+    return withPendingRecovery(
+      makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: { declared: atomicity, applied: "candidate-atomic" },
+        units: plannedUnits(candidatePlan.jobs),
+      }),
+    );
   }
 
   if (!("approvalRecovery" in options.execution)) {
@@ -352,14 +430,26 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     (condition) => !applyExecution.request.acceptedPolicies.has(condition.policy),
   );
   if (missingOverrides.length > 0) {
-    return failedPlan({
-      reason: "override-required",
-      errorCode: "usage",
-      suggestions: namedPolicyRecoverySuggestions(
-        applyExecution.approvalRecovery,
-        missingOverrides.map((condition) => condition.requiredFlag),
-      ),
-    });
+    const first = missingOverrides[0];
+    const escapes = namedPolicyRecoverySuggestions(
+      applyExecution.approvalRecovery,
+      missingOverrides.map((condition) => condition.requiredFlag),
+    );
+    return withPendingRecovery(
+      makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: { declared: atomicity, applied: "candidate-atomic" },
+        units: plannedUnits(candidatePlan.jobs),
+        blocking: {
+          class: "override-required",
+          subject: first?.id ?? candidatePlan.name,
+          phase: "confirmation",
+          detail: first?.detail ?? "A named policy override is required.",
+          ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
+        },
+        suggestions: escapes,
+      }),
+    );
   }
 
   const hasSteps = candidatePlan.jobs.some((job) => job.steps.length > 0);
@@ -369,38 +459,54 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     applyExecution.request.confirmableRiskApproval === "prompt-if-interactive"
   ) {
     if (yield* isNonInteractiveOptional) {
-      return failedPlan({
-        reason: "approval-required",
-        errorCode: "usage",
-        suggestions: confirmationRecoverySuggestions(applyExecution.approvalRecovery),
-      });
+      const confirmable = riskConditions.find((condition) => condition.level === "confirmable");
+      const escapes = confirmationRecoverySuggestions(applyExecution.approvalRecovery);
+      return withPendingRecovery(
+        makeOperationResolution<Output>({
+          ...resolutionBase,
+          atomicity: { declared: atomicity, applied: "candidate-atomic" },
+          units: plannedUnits(candidatePlan.jobs),
+          blocking: {
+            class: "approval-required",
+            subject: confirmable?.id ?? candidatePlan.name,
+            phase: "confirmation",
+            detail: confirmable?.detail ?? "This plan requires confirmation before it can apply.",
+            ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
+          },
+          suggestions: escapes,
+        }),
+      );
     }
     const interaction = yield* ResolvePlanInteraction;
+    yield* publishPhaseStarted("confirmation");
     const confirmed = yield* interaction
       .confirmApplyChanges(applyExecution.approvalRecovery)
       .pipe(Effect.catchTag("PromptCancelled", (_error: PromptCancelled) => Effect.succeed(false)));
     if (!confirmed) {
-      return {
-        _tag: "CancelledPlan",
-        name: candidatePlan.name,
-        description: candidatePlan.description,
-        ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-        ...(candidatePlan.preconditions === undefined
-          ? {}
-          : { preconditions: candidatePlan.preconditions }),
-        ...(riskConditions.length === 0 ? {} : { riskConditions }),
-        candidateId: candidate.id,
-        jobs: candidatePlan.jobs,
-      } satisfies CancelledPlan<Requirements, Output>;
+      return notExecuted({ declined: true });
     }
   }
 
   // Step 6: Revalidate under the local transaction lock and apply the exact candidate.
+  const totalUnits = candidate.plan.jobs.reduce((count, job) => count + job.steps.length, 0);
+  const resolvedUnitState = (step: CompletedJobStep<Output>) =>
+    executedUnits<Output>(
+      {
+        _tag: "ExecutedPlan",
+        name: candidatePlan.name,
+        description: candidatePlan.description,
+        jobs: [{ concurrency: 1, steps: [step] }],
+      },
+      { restored: false },
+    )[0]?.state ?? "committed";
+  let startedUnits = 0;
+  let resolvedUnits = 0;
   const applyFreshCandidate = Effect.gen(function* () {
+    yield* publishPhaseStarted("validation");
     if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
       return yield* makeAppError({
         code: "conflict",
-        detail: "The execution candidate became stale before apply.",
+        detail: STALE_CANDIDATE_DETAIL,
       });
     }
     if (options.beforeApply !== undefined) {
@@ -408,11 +514,37 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
         return yield* makeAppError({
           code: "conflict",
-          detail: "The execution candidate became stale before apply.",
+          detail: STALE_CANDIDATE_DETAIL,
         });
       }
     }
-    return yield* applyPlan(candidate.plan);
+    yield* updateOperationJournal((state) => ({ ...state, applying: true }));
+    yield* publishPhaseStarted("apply");
+    return yield* applyPlan(candidate.plan, {
+      onStepStarted: (step) =>
+        publishLifecycleEvent((atNanos) => ({
+          _tag: "UnitStarted",
+          unitId: step.key ?? step.label,
+          label: step.label,
+          index: startedUnits++,
+          total: totalUnits,
+          atNanos,
+        })),
+      onStepCompleted: (step) =>
+        appendCompletedUnit(step).pipe(
+          Effect.andThen(
+            publishLifecycleEvent((atNanos) => ({
+              _tag: "UnitResolved",
+              unitId: unitIdOf(step),
+              label: step.label,
+              state: resolvedUnitState(step),
+              index: resolvedUnits++,
+              total: totalUnits,
+              atNanos,
+            })),
+          ),
+        ),
+    });
   });
   const applyCandidate = Effect.gen(function* () {
     const result = yield* applyFreshCandidate.pipe(
@@ -502,6 +634,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           targets: [],
           transition: applyCandidate,
           validate: () => Effect.void,
+          onRestorationStarted: publishPhaseStarted("restoration"),
         })
   ).pipe(
     Effect.mapError((failure): PlanApplyFailure<Output> =>
@@ -510,50 +643,113 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   );
   const applyResult = yield* renderer.withSpinner(
     `Applying ${candidatePlan.name}`,
-    () =>
-      guardedApply.pipe(
-        Effect.match({
-          onFailure: (error) => ({ type: "failure", error }) as const,
-          onSuccess: (value) => ({ type: "success", value }) as const,
-        }),
+    (handle) =>
+      Effect.scoped(
+        subscribeToLifecycle((event) => {
+          switch (event._tag) {
+            case "UnitStarted":
+              return handle.update(
+                `Applying ${candidatePlan.name} — ${event.label} (${event.index + 1}/${event.total})`,
+                { unit: event.unitId, atMs: Number(event.atNanos / 1_000_000n) },
+              );
+            case "UnitResolved":
+              return handle.update(
+                `Applying ${candidatePlan.name} — ${event.label}: ${event.state} (${event.index + 1}/${event.total})`,
+                {
+                  unit: event.unitId,
+                  state: event.state,
+                  atMs: Number(event.atNanos / 1_000_000n),
+                },
+              );
+            case "PhaseStarted":
+              return event.phase === "restoration"
+                ? handle.update(`Rolling back ${candidatePlan.name}`)
+                : Effect.void;
+            case "Waiting":
+              return Effect.void;
+          }
+        }).pipe(
+          Effect.andThen(
+            guardedApply.pipe(
+              Effect.match({
+                onFailure: (error) => ({ type: "failure", error }) as const,
+                onSuccess: (value) => ({ type: "success", value }) as const,
+              }),
+            ),
+          ),
+        ),
       ),
     { successMessage: `Processed ${candidatePlan.name}` },
   );
+  const observedFootprint: ReadonlyArray<OperationFootprintEntry> = (yield* readFootprint)
+    .map((entry) => ({
+      path: path.isAbsolute(entry.path) ? path.relative(ws.baseDir, entry.path) : entry.path,
+      change: entry.change,
+    }))
+    // The footprint reports durable workspace changes; scratch outside the
+    // workspace base (scoped temp staging) is removed with the invocation.
+    .filter((entry) => !entry.path.startsWith(".."));
+  const footprint =
+    observedFootprint.length === 0
+      ? undefined
+      : observedFootprint.filter(
+          (entry, index) =>
+            observedFootprint.findIndex(
+              (other) => other.path === entry.path && other.change === entry.change,
+            ) === index,
+        );
+
   if (applyResult.type === "failure") {
     const failure = applyResult.error.error;
-    const staleCandidate =
-      failure.code === "conflict" &&
-      failure.detail === "The execution candidate became stale before apply.";
-    const executionSteps = applyResult.error.attemptedExecution?.jobs.flatMap((job) =>
-      job.steps.map((step) => {
-        if (step.result.result === "success") {
-          return {
-            label: step.label,
-            status: "rolled-back" as const,
-            message: `${step.result.message}; rolled back`,
-          };
-        }
-        const unapplied = step.result.message.includes("blocked by");
-        return {
-          label: step.label,
-          status: unapplied ? ("unapplied" as const) : ("failed" as const),
-          message: step.result.message,
-        };
+    const attempted = applyResult.error.attemptedExecution;
+    const restored = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
+    const units =
+      attempted === undefined
+        ? plannedUnits<Requirements, Output>(candidatePlan.jobs)
+        : executedUnits(attempted, { restored });
+    const staleCandidate = failure.code === "conflict" && failure.detail === STALE_CANDIDATE_DETAIL;
+    const staleUnit = units.find((unit) => unit.blocking?.class === "stale-candidate");
+    if (staleCandidate || staleUnit !== undefined) {
+      return withPendingRecovery(
+        makeOperationResolution<Output>({
+          ...resolutionBase,
+          atomicity: { declared: atomicity, applied: "candidate-atomic" },
+          units,
+          blocking: {
+            class: "stale-candidate",
+            subject: staleUnit?.id ?? candidatePlan.name,
+            phase: "validation",
+            detail: staleUnit?.blocking?.detail ?? STALE_CANDIDATE_DETAIL,
+            escape: { description: "Rerun the command to resolve a fresh candidate." },
+          },
+          suggestions: [{ description: "Rerun the command to resolve a fresh candidate." }],
+        }),
+      );
+    }
+    return withPendingRecovery(
+      makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: {
+          declared: atomicity,
+          applied: restored && attempted !== undefined ? "candidate-atomic" : atomicity,
+        },
+        units,
+        failure,
+        footprint,
+        suggestions: failure.suggestions ?? candidatePlan.failureSuggestions,
       }),
     );
-    return failedPlan({
-      reason: staleCandidate ? "stale-candidate" : "execution-failed",
-      errorCode: failure.code,
-      failure,
-      suggestions: staleCandidate
-        ? [{ description: "Rerun the command to resolve a fresh candidate." }]
-        : failure.suggestions,
-      ...(executionSteps === undefined ? {} : { executionSteps }),
-    });
   }
   const executed = applyResult.value;
-  if (options.displayApplied !== false) {
-    yield* showPlan(executed);
+  if (openRecords.length > 0) {
+    yield* resolveRecoveryRecords({ workspaceDir: ws.path, resolvedBy: candidatePlan.name }).pipe(
+      Effect.provide(fsLayer),
+    );
   }
-  return executed;
+  return makeOperationResolution<Output>({
+    ...resolutionBase,
+    atomicity: { declared: atomicity, applied: atomicity },
+    units: executedUnits(executed),
+    footprint,
+  });
 });

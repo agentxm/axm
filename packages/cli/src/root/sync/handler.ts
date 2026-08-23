@@ -25,7 +25,7 @@ import {
   syncInlineMcpServerToAgents,
   type CodingAgentRepositoryService,
 } from "@agentxm/client-core/unstable/agents";
-import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
@@ -34,7 +34,6 @@ import {
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
-  effectCliExit,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
@@ -76,10 +75,12 @@ import {
   type ProjectionInvariantFact,
 } from "@agentxm/client-core/unstable/projection";
 import {
+  deriveOperationOutcome,
   previewOrApplyPlan,
   type Job,
   type JobStepArtifact,
   type JobStepResult,
+  type OperationPresentation,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
@@ -91,7 +92,6 @@ import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,
   cleanupStaleManagedSubagentFiles,
-  displayPlan,
   makeConfiguredReleaseAgeEvaluation,
   WorkspaceMutations,
   resolveConfiguredHook,
@@ -106,7 +106,8 @@ import {
   type DesiredStateGraph,
   type ResolvedConfiguredEntry,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 
@@ -151,6 +152,10 @@ type SyncPlanRequirements =
 const PLAN_NAME = "Sync workspace";
 const PLAN_DESCRIPTION =
   "Workspace-wide materialization from settings and on-disk extension content";
+const SYNC_PRESENTATION: OperationPresentation = {
+  verb: { imperative: "sync", past: "Synced", gerund: "Syncing" },
+  subject: { singular: "workspace item", plural: "workspace items" },
+};
 
 const desiredStateProblemText = (graph: DesiredStateGraph): string =>
   graph.problems
@@ -1169,6 +1174,7 @@ const makeSyncPlan = ({
     description: Option.some(description),
     jobs,
     releaseAge,
+    presentation: SYNC_PRESENTATION,
   };
 };
 
@@ -1470,7 +1476,18 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
 // Rule materialization and instruction reconciliation are ordered explicitly in
 // the plan so aliases are updated only after canonical content is current.
 
-export const handleSync = Effect.fn("Sync.handle")(function* (
+export const handleSync = (args: HandleSyncArgs, hooks: SyncTestHooks = {}) =>
+  withOperationLifecycle(
+    {
+      command: "sync",
+      mode: args.preview === true ? "preview" : "apply",
+      planName: "Sync workspace",
+      presentation: SYNC_PRESENTATION,
+    },
+    handleSyncBody(args, hooks),
+  );
+
+const handleSyncBody = Effect.fn("Sync.handle")(function* (
   args: HandleSyncArgs,
   hooks: SyncTestHooks = {},
 ) {
@@ -1624,7 +1641,6 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
       message: scoped
         ? `${scopeLabel} materialization is up to date`
         : "Workspace materialization is up to date",
-      ...(args.failOnChange === true ? { reconciliationRequired: false } : {}),
     });
     return;
   }
@@ -1643,35 +1659,21 @@ export const handleSync = Effect.fn("Sync.handle")(function* (
 
   const resolution = yield* previewOrApplyPlan(plan, {
     execution: args.preview ? previewPlanExecution : preapprovedPlanExecution,
-    displayApplied: false,
   }).pipe(Effect.provide(syncPlanLayer));
-  if (resolution._tag === "ExecutedPlan") yield* displayPlan(resolution);
-  const reconciliationRequired = args.failOnChange === true && resolution._tag === "PreviewedPlan";
-  const emitted = yield* emitPlanResolutionResult("sync", resolution, {
-    ...(reconciliationRequired
-      ? {
-          outcome: "reconciliation-required" as const,
-          reconciliationRequired: true,
-          ok: false,
-          message: "Workspace reconciliation is required; no changes were applied",
-        }
-      : {}),
-  });
-  if (
-    !emitted &&
-    resolution._tag === "ExecutedPlan" &&
-    resolution.jobs.every((job) => job.steps.length === 0)
-  ) {
-    yield* renderer.success(
-      scoped
-        ? `${scopeLabel} materialization is up to date`
-        : "Workspace materialization is up to date",
-    );
-  }
-  if (reconciliationRequired) {
-    if (!emitted) {
-      yield* renderer.error("Workspace reconciliation is required — no changes applied");
-    }
-    return yield* Effect.die(effectCliExit(ExitCode.Issues));
-  }
+  const outcome = deriveOperationOutcome(resolution);
+  const diverged =
+    args.failOnChange === true && outcome === "previewed" && resolution.units.length > 0;
+  yield* emitOperationResolution(
+    "sync",
+    diverged ? { ...resolution, divergence: true } : resolution,
+    diverged
+      ? { message: "Workspace reconciliation is required; no changes were applied" }
+      : outcome === "no-op" && resolution.units.length === 0
+        ? {
+            message: scoped
+              ? `${scopeLabel} materialization is up to date`
+              : "Workspace materialization is up to date",
+          }
+        : {},
+  );
 });

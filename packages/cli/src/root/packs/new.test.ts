@@ -24,7 +24,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../test-helpers.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
@@ -136,9 +136,9 @@ describe("packs-new.handler", () => {
           );
           expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 
-          expect(logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(true);
+          expect(logs.success).toContain("Created 1 pack");
           expect(rendererState.summaries).toContain(
-            "-> .axm/extensions/@acme/packs/frontend-tools/pack.json   0.0.1 | 1 file",
+            "@acme/packs/frontend-tools   0.0.1   created   1 file   .axm/extensions/@acme/packs/frontend-tools/pack.json, .axm (config/lockfile)",
           );
           expect(rendererState.suggestions).toEqual([
             {
@@ -150,9 +150,10 @@ describe("packs-new.handler", () => {
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New pack",
           });
-          const steps = planResultSteps(result);
-          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-          const artifact = expectRecord(property(firstStep, "artifact"));
+          const units = planResultUnits(result);
+          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+          expect(property(firstUnit, "state")).toBe("committed");
+          const artifact = expectRecord(property(firstUnit, "artifact"));
           expect(artifact).toMatchObject({
             path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
             scope: "project",

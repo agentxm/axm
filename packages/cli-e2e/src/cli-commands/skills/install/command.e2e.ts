@@ -105,7 +105,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("prints outcome-first output for a single skill install", async () => {
+    it("C-27: prints outcome-first output for a single skill install", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -121,10 +121,12 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).toBe(0);
         const output = getOutput(result);
-        expect(output).toContain("Installed skill my-skill for 1 agent target");
-        expect(output).toContain(".agents/skills/my-skill (created)");
-        expect(output).toContain(".claude/skills/my-skill (created) [claude-code]");
-        expect(output).toContain("1 file");
+        const headlineIndex = output.indexOf("Installed 1 skill");
+        expect(headlineIndex).toBeGreaterThanOrEqual(0);
+        const unitRow =
+          "my-skill   created   1 file   .agents/skills/my-skill, .claude/skills/my-skill";
+        expect(output.indexOf(unitRow)).toBeGreaterThan(headlineIndex);
+        expect(output).toContain("Agent coverage: claude-code");
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");

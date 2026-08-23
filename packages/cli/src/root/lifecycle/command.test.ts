@@ -237,10 +237,10 @@ describe("extension lifecycle machine output", () => {
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Yank available extension versions",
         });
-        const steps = property(result, "steps");
-        expect(Array.isArray(steps)).toBe(true);
-        if (!Array.isArray(steps)) return;
-        expect(property(expectRecord(steps[0]), "message")).toContain("2 available versions");
+        const units = property(result, "units");
+        expect(Array.isArray(units)).toBe(true);
+        if (!Array.isArray(units)) return;
+        expect(property(expectRecord(units[0]), "message")).toContain("2 available versions");
       }),
     );
   });

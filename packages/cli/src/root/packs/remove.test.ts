@@ -20,7 +20,7 @@ import {
   expectRecord,
   getAppError,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../test-helpers.js";
 import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./remove.js";
@@ -200,11 +200,11 @@ describe("packs-remove.handler", () => {
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
-          expect(logs.success).toContain("Removed 1 extension from pack frontend-tools");
+          expect(logs.success).toContain("Removed 1 pack");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
           expect(rendererState.summaries).toContain(
-            "-> .axm/extensions/@acme/packs/frontend-tools/pack.json   1 file",
+            "frontend-tools   updated   1 file   .axm/extensions/@acme/packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
             { description: "Inspect installed packs", cmd: "axm packs list" },
@@ -214,9 +214,10 @@ describe("packs-remove.handler", () => {
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "Remove from pack",
           });
-          const steps = planResultSteps(result);
-          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-          const artifact = expectRecord(property(firstStep, "artifact"));
+          const units = planResultUnits(result);
+          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+          expect(property(firstUnit, "state")).toBe("committed");
+          const artifact = expectRecord(property(firstUnit, "artifact"));
           expect(artifact).toMatchObject({
             path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
             scope: "project",

@@ -26,7 +26,8 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
@@ -157,10 +158,24 @@ const makePlan = <Requirements, Output>(
   _tag: "Plan",
   name: "Remove coding agents",
   description: Option.some(`Remove ${agentIds.join(", ")} and clean up managed artifacts`),
+  presentation: {
+    verb: { imperative: "remove", past: "Removed", gerund: "Removing" },
+    subject: { singular: "agent", plural: "agents" },
+  },
   jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
 
-export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: AgentsRemoveArgs) {
+export const handleAgentsRemove = (args: AgentsRemoveArgs) =>
+  withOperationLifecycle(
+    {
+      command: "agents.remove",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Remove coding agents",
+    },
+    handleAgentsRemoveBody(args),
+  );
+
+const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: AgentsRemoveArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -222,15 +237,10 @@ export const handleAgentsRemove = Effect.fn("Agents.remove")(function* (args: Ag
     agentIds,
     args.force ? ["accept-warnings"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
 
   const suggestions = [{ description: "Inspect configured agents", cmd: "axm agents list" }];
-  yield* emitAppliedPlanOutcome({
-    command: "agents.remove",
-    headline: `Removed ${count(agentIds.length, "agent")}`,
-    resolution,
-    suggestions,
-  });
+  yield* emitOperationResolution("agents.remove", resolution, { suggestions });
 });
 
 const removeConfig = {

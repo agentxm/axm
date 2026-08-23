@@ -8,6 +8,7 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import { PackManager } from "@agentxm/client-core/unstable/packs";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifactTarget,
   type JobStepResult,
@@ -21,7 +22,8 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
@@ -84,7 +86,17 @@ const promoteToDirectSettings = (
  * from the complete desired graph and exact refs come from authored intent or
  * accepted external resolutions.
  */
-export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
+export const handleUnpack = (args: UnpackHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.unpack",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Unpack pack",
+    },
+    handleUnpackBody(args),
+  );
+
+const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const packManager = yield* PackManager;
 
@@ -242,17 +254,11 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     _tag: "Plan",
     name: "Unpack pack",
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
+    presentation: operationPresentation(
+      { imperative: "unpack", past: "Unpacked", gerund: "Unpacking" },
+      "pack",
+    ),
     jobs: [{ steps: [graphStep], concurrency: 1 as const }],
-    sections: [
-      {
-        title: "Direct declarations created",
-        items: promotions.map((node) => `${node.type}: ${node.name}`),
-      },
-      {
-        title: "Pack source removed",
-        items: [`.axm/extensions/${normalizeIdentity(packNode.identity)}`],
-      },
-    ],
   } satisfies Plan;
 
   const execution = yield* makePublicPositionalPlanExecution(
@@ -261,5 +267,5 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     [args.name],
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult("packs.unpack", resolution);
+  yield* emitOperationResolution("packs.unpack", resolution);
 });

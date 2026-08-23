@@ -116,8 +116,10 @@ const quietTaskLogHandle: TaskLogHandle = {
 const makeStreamSpinnerHandle = (phase: string): SpinnerHandle => ({
   stop: (message) =>
     message ? emitStderrEvent({ type: "progress", phase, percent: 100, message }) : Effect.void,
-  update: (message) =>
-    message ? emitStderrEvent({ type: "progress", phase, percent: -1, message }) : Effect.void,
+  update: (message, detail) =>
+    message
+      ? emitStderrEvent({ type: "progress", phase, percent: -1, message, ...(detail ?? {}) })
+      : Effect.void,
   cancel: (message) =>
     emitStderrEvent({
       type: "progress",
@@ -254,7 +256,7 @@ export const MachineRenderer = (options?: {
     ) => Effect.void,
     info: () => Effect.void,
     success: () => Effect.void,
-    step: () => Effect.void,
+    step: (message) => emitStderrEvent({ type: "progress", phase: "step", percent: 0, message }),
     warn: (message) => emitLogEvent("warn", message),
     error: (message, options?: SuggestionOptions) =>
       emitLogEvent("error", message).pipe(

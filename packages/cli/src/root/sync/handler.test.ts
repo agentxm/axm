@@ -5,13 +5,13 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
+import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
@@ -37,7 +37,7 @@ import {
   expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../test-helpers.js";
 import {
@@ -655,13 +655,15 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ preview: true, failOnChange: true }));
 
-      expect(rendererState.results[0]?.data).toMatchObject({
-        result: {
-          outcome: "no-op",
-          reconciliationRequired: false,
-          totalSteps: 0,
-        },
+      const payload = expectRecord(rendererState.results[0]?.data);
+      const result = expectRecord(property(payload, "result"));
+      expect(result).toMatchObject({
+        contract: "plan-result-v2",
+        outcome: "no-op",
+        counts: { total: 0 },
       });
+      expect("divergence" in result).toBe(false);
+      expect(rendererState.results[0]?.ok).toBe(true);
     }),
   );
 
@@ -691,25 +693,21 @@ describe("root sync handler", () => {
         nativeConfig: fs.readFileSync(nativeConfigPath, "utf8"),
       };
 
-      const exit = yield* provide(handleSync({ preview: true, failOnChange: true })).pipe(
-        Effect.exit,
-      );
+      yield* provide(handleSync({ preview: true, failOnChange: true }));
 
-      expect(exit._tag).toBe("Failure");
-      if (exit._tag === "Failure") {
-        const defect = Cause.squash(exit.cause);
-        expect(isEffectCliExit(defect)).toBe(true);
-        if (isEffectCliExit(defect)) expect(defect.exitCode).toBe(1);
-      }
+      expect(rendererState.results[0]?.ok).toBe(false);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          outcome: "reconciliation-required",
-          reconciliationRequired: true,
-          appliedCount: 0,
-          steps: [
+          contract: "plan-result-v2",
+          outcome: "previewed",
+          mode: "preview",
+          divergence: true,
+          message: "Workspace reconciliation is required; no changes were applied",
+          counts: { committed: 0 },
+          units: [
             {
               label: "mcp-server stale managed entries",
-              status: "ready",
+              state: "ready",
             },
           ],
         },
@@ -917,11 +915,11 @@ describe("root sync handler", () => {
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
       });
-      const steps = planResultSteps(result);
-      expect(steps).toMatchObject([
+      const units = planResultUnits(result);
+      expect(units).toMatchObject([
         {
           label: "mcp-server stale managed entries",
-          status: "applied",
+          state: "committed",
           message: "Pruned stale managed MCP server entries",
         },
       ]);
@@ -995,7 +993,7 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        const humanLabel = property(planResultSteps(humanPreview)[0], "label");
+        const humanLabel = property(planResultUnits(humanPreview)[0], "label");
         expect(humanLabel).toContain("Recover @acme/packs/toolkit");
         expect(humanLabel).toContain("accepted version=1.0.0");
         expect(humanLabel).toContain(`content=${acceptedContentIdentity}`);
@@ -1008,7 +1006,7 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        const previewLabel = property(planResultSteps(machinePreview)[0], "label");
+        const previewLabel = property(planResultUnits(machinePreview)[0], "label");
         expect(previewLabel).toBe(humanLabel);
         expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(before.lockfile);
         expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(before.settings);
@@ -1028,7 +1026,7 @@ describe("root sync handler", () => {
         const applied = expectAppliedPlanResult(machine.rendererState.results[0]?.data, {
           planName: "Sync workspace",
         });
-        expect(property(planResultSteps(applied)[0], "label")).toBe(previewLabel);
+        expect(property(planResultUnits(applied)[0], "label")).toBe(previewLabel);
         expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
           packs: { toolkit: { resolvedVersion: "1.0.0" } },
           skills: { review: { resolvedVersion: "1.0.0" } },
@@ -1067,12 +1065,11 @@ describe("root sync handler", () => {
       const payload = expectRecord(rendererState.results[0]?.data);
       expect(expectRecord(property(payload, "result"))).toMatchObject({
         outcome: "failed",
-        reason: "execution-failed",
-        errorCode: "internal",
-        steps: [
+        failure: { code: "internal" },
+        units: [
           {
             label: expect.stringContaining("Recover @acme/packs/toolkit"),
-            status: "failed",
+            state: "failed",
             message: expect.stringContaining("Failed to read index"),
           },
         ],
@@ -1085,22 +1082,31 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("rolls back accepted Pack recovery when the command is interrupted", () =>
-    Effect.gen(function* () {
-      const fixture = makePackRollbackFixture(tempDir, { withMemberDependency: false });
-      const before = capturePackRollbackPreimages(fixture.paths);
-      const { provide } = makeLayers(undefined, fixture.sources);
+  it.effect(
+    "C-15: rolls back accepted Pack recovery and resolves interruption through the lifecycle",
+    () =>
+      Effect.gen(function* () {
+        const fixture = makePackRollbackFixture(tempDir, { withMemberDependency: false });
+        const before = capturePackRollbackPreimages(fixture.paths);
+        const { provide } = makeLayers(undefined, fixture.sources);
 
-      const exit = yield* Effect.exit(
-        provide(handleSync({ preview: false }, { afterMaterialization: () => Effect.interrupt })),
-      );
+        const exit = yield* Effect.exit(
+          provide(handleSync({ preview: false }, { afterMaterialization: () => Effect.interrupt })),
+        );
 
-      expect(exit._tag).toBe("Failure");
-      if (exit._tag === "Failure") {
-        expect(Cause.hasInterruptsOnly(exit.cause)).toBe(true);
-      }
-      expectPackRollbackPreimages(fixture.paths, before);
-    }),
+        // The interruption resolves through the operation lifecycle: the
+        // invocation terminates with the signal's exit code instead of an
+        // unresolved interrupt cause.
+        expect(exit._tag).toBe("Failure");
+        if (exit._tag === "Failure") {
+          const squashed = Cause.squash(exit.cause);
+          expect(isEffectCliExit(squashed)).toBe(true);
+          if (isEffectCliExit(squashed)) {
+            expect(squashed.exitCode).toBe(130);
+          }
+        }
+        expectPackRollbackPreimages(fixture.paths, before);
+      }),
   );
 
   it.effect("preserves an independent committed closure when later Pack recovery fails", () =>
@@ -1162,8 +1168,8 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        const humanLabel = property(planResultSteps(humanPreview)[0], "label");
-        const machineLabel = property(planResultSteps(machinePreview)[0], "label");
+        const humanLabel = property(planResultUnits(humanPreview)[0], "label");
+        const machineLabel = property(planResultUnits(machinePreview)[0], "label");
         expect(machineLabel).toBe(humanLabel);
         expect(machineLabel).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
         expect(machineLabel).toContain("@acme/packs/beta range=^2.1.0");
@@ -1180,7 +1186,7 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        expect(property(planResultSteps(applied)[0], "label")).toBe(machineLabel);
+        expect(property(planResultUnits(applied)[0], "label")).toBe(machineLabel);
         expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
           skills: { review: { resolvedVersion: "2.2.0" } },
         });
@@ -1245,7 +1251,7 @@ describe("root sync handler", () => {
         expectRecord(property(expectRecord(rendererState.results[0]?.data), "result")),
       ).toMatchObject({
         outcome: "failed",
-        reason: "execution-failed",
+        failure: { code: "internal" },
       });
       expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
       expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
@@ -1300,14 +1306,14 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         totalSteps: 1,
       });
-      const previewSteps = planResultSteps(preview);
-      expect(previewSteps).toMatchObject([
+      const previewUnits = planResultUnits(preview);
+      expect(previewUnits).toMatchObject([
         {
           label: "mcp-server stale managed entries",
-          status: "ready",
+          state: "ready",
         },
       ]);
-      expect(JSON.stringify(previewSteps)).not.toContain("browser");
+      expect(JSON.stringify(previewUnits)).not.toContain("browser");
 
       rendererState.results.length = 0;
       yield* provide(handleSync({ preview: false }));
@@ -1316,10 +1322,10 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         totalSteps: 1,
       });
-      expect(planResultSteps(applied)).toMatchObject([
+      expect(planResultUnits(applied)).toMatchObject([
         {
           label: "mcp-server stale managed entries",
-          status: "applied",
+          state: "committed",
         },
       ]);
 
@@ -1371,8 +1377,8 @@ describe("root sync handler", () => {
         totalSteps: 1,
         warningCount: 1,
       });
-      expect(planResultSteps(applied)).toMatchObject([
-        { label: "mcp-server demo", status: "applied" },
+      expect(planResultUnits(applied)).toMatchObject([
+        { label: "mcp-server demo", state: "committed" },
       ]);
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"node"');
     }),
@@ -1406,10 +1412,17 @@ describe("root sync handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          outcome: "failed",
-          reason: "hard-blocked",
-          steps: [
+          contract: "plan-result-v2",
+          outcome: "blocked",
+          blocking: {
+            class: "precondition-unmet",
+            phase: "planning",
+            causeCode: "conflict",
+            detail: expect.stringContaining("collides with unowned native config"),
+          },
+          units: [
             expect.objectContaining({
+              state: "blocked",
               message: expect.stringContaining("collides with unowned native config"),
             }),
           ],
@@ -1439,9 +1452,17 @@ describe("root sync handler", () => {
 
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));
-      expect(result).toMatchObject({ outcome: "failed", reason: "hard-blocked" });
-      expect(planResultSteps(result)).toContainEqual(
+      expect(result).toMatchObject({
+        outcome: "blocked",
+        blocking: {
+          class: "precondition-unmet",
+          phase: "planning",
+          detail: expect.stringContaining("Instruction reconciliation would overwrite"),
+        },
+      });
+      expect(planResultUnits(result)).toContainEqual(
         expect.objectContaining({
+          state: "blocked",
           message: expect.stringContaining("Instruction reconciliation would overwrite"),
         }),
       );
@@ -1471,7 +1492,7 @@ describe("root sync handler", () => {
         expectRecord(
           property(
             expectRecord(
-              planResultSteps(expectRecord(property(expectRecord(value), "result"))).find(
+              planResultUnits(expectRecord(property(expectRecord(value), "result"))).find(
                 (step) => property(expectRecord(step), "label") === "instruction files",
               ),
             ),
@@ -1520,9 +1541,22 @@ describe("root sync handler", () => {
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));
       expect(property(result, "outcome")).toBe("failed");
-      expect(property(result, "failedCount")).toBe(1);
-      expect(property(result, "blockedCount")).toBe(0);
-      expect(property(result, "unappliedCount")).toBe(2);
+      expect(expectRecord(property(result, "counts"))).toMatchObject({
+        total: 3,
+        committed: 0,
+        failed: 1,
+        blocked: 2,
+      });
+      // The two unfinished units were aborted by the earlier failure, not
+      // blocked by conditions of their own.
+      expect(
+        planResultUnits(result).filter(
+          (unit) => property(expectRecord(unit), "state") === "blocked",
+        ),
+      ).toMatchObject([
+        { blocking: { class: "operation-aborted" } },
+        { blocking: { class: "operation-aborted" } },
+      ]);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
       expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(true);
       expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
@@ -1558,13 +1592,13 @@ describe("root sync handler", () => {
           artifact: property(record, "artifact"),
         };
       };
-      expect(planResultSteps(preview).map(projection)).toEqual(
-        planResultSteps(applied).map(projection),
+      expect(planResultUnits(preview).map(projection)).toEqual(
+        planResultUnits(applied).map(projection),
       );
       const instructionArtifact = expectRecord(
         property(
           expectRecord(
-            planResultSteps(preview).find(
+            planResultUnits(preview).find(
               (step) => property(expectRecord(step), "label") === "instruction files",
             ),
           ),
@@ -1753,18 +1787,18 @@ describe("root sync handler", () => {
         planName: "Sync @acme/skills/release",
         totalSteps: 1,
       });
-      const steps = planResultSteps(result);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toMatchObject({
-        status: "applied",
+      const units = planResultUnits(result);
+      expect(units).toHaveLength(1);
+      expect(units[0]).toMatchObject({
+        state: "committed",
       });
-      expect(property(expectRecord(steps[0]), "label")).toContain(
+      expect(property(expectRecord(units[0]), "label")).toContain(
         "previous source=none; proposed source=workspace:@acme/skills/release",
       );
-      expect(property(expectRecord(steps[0]), "label")).toContain(
+      expect(property(expectRecord(units[0]), "label")).toContain(
         "previous version=none; proposed version=1.0.0",
       );
-      expect(property(expectRecord(steps[0]), "label")).toContain("downgrade=no");
+      expect(property(expectRecord(units[0]), "label")).toContain("downgrade=no");
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release", "SKILL.md"))).toBe(
         true,
       );
@@ -1937,8 +1971,8 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         totalSteps: 1,
       });
-      expect(planResultSteps(result)).toMatchObject([
-        { label: "instruction files", status: "ready" },
+      expect(planResultUnits(result)).toMatchObject([
+        { label: "instruction files", state: "ready" },
       ]);
       const rendered = rendererState.logs.map((entry) => entry.message).join("\n");
       expect(rendered).not.toContain("instruction gitignore entries");

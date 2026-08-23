@@ -45,7 +45,11 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import {
+  operationPresentation,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
@@ -134,6 +138,11 @@ export const validateResolvedPackUninstallTargets = (
       }
     }
   });
+
+const uninstallPresentation = operationPresentation(
+  { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
+  "pack",
+);
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -251,6 +260,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             _tag: "Plan",
             name: "Uninstall packs",
             description: Option.some("Pack graph readiness prevents this uninstall."),
+            presentation: uninstallPresentation,
             jobs: [
               {
                 concurrency: 1,
@@ -286,12 +296,6 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
                 errorCode: "conflict",
               },
             ],
-            sections: [
-              {
-                title: "Incomplete Pack graph",
-                items: graphReadiness.facts.map((fact) => fact.detail),
-              },
-            ],
           } satisfies Plan;
         }
         const graph = graphReadiness.graph;
@@ -301,6 +305,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
             _tag: "Plan",
             name: "Uninstall packs",
             description: Option.none(),
+            presentation: uninstallPresentation,
             jobs: [{ concurrency: 1 as const, steps: [] }],
           } satisfies Plan;
         }
@@ -458,13 +463,8 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
                 ? "Uninstall pack"
                 : `Uninstall ${count(intent.packsToUninstall.length, "pack")}`,
           description: Option.none(),
+          presentation: uninstallPresentation,
           jobs: [{ concurrency: 1, steps: [graphStep] }],
-          sections: [
-            {
-              title: "Pack graph removals",
-              items: orderedTargets.map((target) => `${target.type}: ${target.name}`),
-            },
-          ],
         } satisfies Plan;
       });
 

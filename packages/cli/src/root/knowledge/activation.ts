@@ -6,15 +6,17 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
 
 const KNOWLEDGE_SETTINGS_PATH = ".axm/settings.json";
@@ -25,7 +27,17 @@ export const activationConfig = {
   preview: mutationFlags.preview,
 } as const;
 
-export const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
+export const setKnowledgeEnabled = (name: string, enabled: boolean, preview: boolean) =>
+  withOperationLifecycle(
+    {
+      command: enabled ? "knowledge.enable" : "knowledge.disable",
+      mode: preview ? "preview" : "apply",
+      planName: `${enabled ? "Enable" : "Disable"} knowledge bundle`,
+    },
+    setKnowledgeEnabledBody(name, enabled, preview),
+  );
+
+const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
   name: string,
   enabled: boolean,
   preview: boolean,
@@ -100,18 +112,20 @@ export const setKnowledgeEnabled = Effect.fn("Knowledge.setEnabled")(function* (
       _tag: "Plan",
       name: `${verb} knowledge bundle`,
       description: Option.some(`${verb} ${name}`),
+      presentation: operationPresentation(
+        enabled
+          ? { imperative: "enable", past: "Enabled", gerund: "Enabling" }
+          : { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+        "knowledge",
+      ),
       jobs: [{ concurrency: 1, steps: [step] }],
     },
     {
       preview,
-      displayApplied: false,
       configuredAgentOperations: [{ extensionType: "knowledge", name, targetEnabled: enabled }],
     },
   );
-  yield* emitAppliedPlanOutcome({
-    command: enabled ? "knowledge.enable" : "knowledge.disable",
-    headline: `${verb}d knowledge bundle ${name}`,
-    resolution,
+  yield* emitOperationResolution(enabled ? "knowledge.enable" : "knowledge.disable", resolution, {
     suggestions: [{ description: "Browse installed Knowledge", cmd: "axm knowledge list" }],
   });
 });

@@ -23,13 +23,7 @@ import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/uns
 import { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { ExecutionDirectory } from "../execution-directory.js";
-import {
-  expectAppliedPlanResult,
-  expectDefined,
-  expectNoOpPlanResult,
-  expectPreviewedPlanResult,
-  planResultSteps,
-} from "../test-helpers.js";
+import { expectDefined, expectRecord, property } from "../test-helpers.js";
 import {
   AXM_SKILL_JSON,
   AXM_SKILL_MD,
@@ -293,12 +287,15 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+          // Setup keeps its own operation-plan document shape.
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(result).toMatchObject({
+            outcome: "applied",
             planName: "Set up AXM workspace",
             totalSteps: 3,
             appliedCount: 3,
-          });
-          expect(result).toMatchObject({
             steps: [
               expect.objectContaining({
                 label: "Workspace configuration",
@@ -438,11 +435,13 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
-          const result = expectNoOpPlanResult(rendererState.results[1]?.data, {
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[1]?.data), "result"),
+          );
+          expect(result).toMatchObject({
+            outcome: "no-op",
             planName: "Set up AXM workspace",
             totalSteps: 2,
-          });
-          expect(result).toMatchObject({
             steps: [
               expect.objectContaining({
                 label: "Workspace configuration",
@@ -657,11 +656,13 @@ describe("setup.handler", () => {
 
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(installCalls).toEqual([]);
-          const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(result).toMatchObject({
+            outcome: "previewed",
             planName: "Set up AXM workspace",
             totalSteps: 3,
-          });
-          expect(result).toMatchObject({
             steps: [
               expect.objectContaining({
                 label: "Workspace configuration",
@@ -682,7 +683,7 @@ describe("setup.handler", () => {
             scope: "project",
             agents: [{ id: "claude-code", name: "Claude Code" }],
           });
-          expect(planResultSteps(result)).not.toContainEqual(
+          expect(property(result, "steps")).not.toContainEqual(
             expect.objectContaining({
               label: "Instruction files",
               artifact: expect.objectContaining({

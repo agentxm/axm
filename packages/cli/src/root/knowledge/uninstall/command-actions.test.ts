@@ -11,12 +11,12 @@ import {
   preapprovedPlanExecution,
   previewPlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { toPlanResolutionResult } from "../../../operation-output.js";
 import { makeUninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
 const sourceProvidersLayer = Layer.succeed(SourceHostProviders, {
@@ -111,29 +111,26 @@ describe("Knowledge uninstall ownership", () => {
         expect(plan.jobs[0]?.steps[0]).toMatchObject({
           errorMessage: expect.stringContaining("axm adopt <extension>"),
         });
-        expect(plan.sections).toEqual([
-          {
-            title: "Knowledge ownership",
-            items: [
-              "handbook: settings absent; lock absent; accepted provenance absent; canonical unowned; rendered instructions absent; managed agent projections none",
-            ],
-          },
-        ]);
-
         const preview = yield* previewOrApplyPlan(plan, { execution: previewPlanExecution });
         const apply = yield* previewOrApplyPlan(plan, { execution: preapprovedPlanExecution });
         for (const resolution of [preview, apply]) {
           expect(resolution).toMatchObject({
-            _tag: "FailedPlan",
-            reason: "hard-blocked",
-            errorCode: "conflict",
+            _tag: "OperationResolution",
+            blocking: {
+              class: "precondition-unmet",
+              subject: "knowledge:handbook",
+              phase: "planning",
+              causeCode: "conflict",
+            },
           });
           expect(toPlanResolutionResult(resolution)).toMatchObject({
-            outcome: "failed",
-            steps: [
+            outcome: "blocked",
+            counts: expect.objectContaining({ total: 1, blocked: 1 }),
+            units: [
               {
+                id: "knowledge:handbook",
                 label: "handbook",
-                status: "error",
+                state: "blocked",
                 message: expect.stringContaining("unowned canonical surface"),
               },
             ],
@@ -190,7 +187,7 @@ describe("Knowledge uninstall ownership", () => {
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
-        expect(resolution).toMatchObject({ _tag: "ExecutedPlan" });
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(canonicalRoot)).toBe(false);
         expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "handbook",
@@ -221,18 +218,10 @@ describe("Knowledge uninstall ownership", () => {
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
         const plan = yield* actions.buildUninstallPlan(intent);
-        expect(plan.sections).toEqual([
-          {
-            title: "Knowledge ownership",
-            items: [
-              "handbook: settings present; lock present; accepted provenance lock; canonical owned; rendered instructions managed-present; managed agent projections none",
-            ],
-          },
-        ]);
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
-        expect(resolution).toMatchObject({ _tag: "ExecutedPlan" });
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(canonicalRoot)).toBe(false);
         expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).not.toContain(
           "handbook",
@@ -271,7 +260,7 @@ describe("Knowledge uninstall ownership", () => {
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
-        expect(resolution).toMatchObject({ _tag: "ExecutedPlan" });
+        expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(ownedRoot)).toBe(false);
         expect(fs.existsSync(unownedRoot)).toBe(true);
         expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).not.toContain(
@@ -323,16 +312,17 @@ describe("Knowledge uninstall ownership", () => {
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
-        expect(resolution).toMatchObject({
-          _tag: "FailedPlan",
-          reason: "execution-failed",
-        });
+        expect(resolution).toMatchObject({ _tag: "OperationResolution" });
+        expect(resolution.failure?.detail).toContain("does not support managed regions");
         expect(toPlanResolutionResult(resolution)).toMatchObject({
           outcome: "failed",
-          steps: [
+          failure: expect.objectContaining({
+            message: expect.stringContaining("does not support managed regions"),
+          }),
+          units: [
             {
               label: "handbook",
-              status: "failed",
+              state: "failed",
               message: expect.stringContaining("does not support managed regions"),
             },
           ],

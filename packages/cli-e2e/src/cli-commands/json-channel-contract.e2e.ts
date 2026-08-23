@@ -104,8 +104,8 @@ describe("JSON-mode channel contract (--json)", () => {
     });
   });
 
-  describe("atomic-failure class", () => {
-    it("axm sync --json preserves one document and rolls back when any step fails", async () => {
+  describe("blocked class", () => {
+    it("C-32: axm sync --json emits one document and mutates nothing when blocked", async () => {
       const temp = createTempDir();
       try {
         const setup = await runCli(
@@ -169,6 +169,7 @@ describe("JSON-mode channel contract (--json)", () => {
         const result = await runCli(["sync", "--non-interactive", "--json"], {
           cwd: temp.path,
         });
+        expect(result.exitCode).toBe(6);
         const { stdoutDocument } = assertJsonChannelContract(result);
 
         expect(isRecord(stdoutDocument)).toBe(true);
@@ -176,9 +177,16 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(stdoutDocument["ok"]).toBe(false);
         expect(stdoutDocument["result"]).toEqual(
           expect.objectContaining({
-            outcome: "failed",
-            reason: "hard-blocked",
-            errorCode: "conflict",
+            contract: "plan-result-v2",
+            outcome: "blocked",
+            mode: "apply",
+            blocking: expect.objectContaining({
+              class: "precondition-unmet",
+              subject: "mcp-server:inline:demo",
+              phase: "planning",
+              causeCode: "conflict",
+            }),
+            counts: expect.objectContaining({ blocked: 1, committed: 0, failed: 0 }),
           }),
         );
         expect(fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8")).toBe(mcpBefore);

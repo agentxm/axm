@@ -1,5 +1,8 @@
 # Authoring metadata
 
+For repository, Registry archive, canonical-install, and agent-projection
+boundaries—including `publish.ignore`—read `axm help publish`.
+
 Guidance for the registry-facing text you write when you publish an extension:
 the manifest `description`, `keywords`, and the package `README.md`. Good
 metadata is what makes an extension findable and trustworthy in search and

@@ -1,5 +1,8 @@
 # Hooks
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Hook packages live in `./.axm/extensions/<@owner>/hooks/<hook-name>`.
 
 A hook extension runs your code on an agent lifecycle event such as a tool

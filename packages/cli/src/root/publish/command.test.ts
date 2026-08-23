@@ -20,7 +20,7 @@ import {
   formatFqn,
 } from "@agentxm/client-core/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
-import { normalizePublishInput } from "@agentxm/client-core/unstable/publish";
+import { normalizePublishInput, validateArchive } from "@agentxm/client-core/unstable/publish";
 import {
   archiveSha256Hex,
   publicationDescriptorDigest,
@@ -1977,6 +1977,71 @@ describe("root publish", () => {
     });
 
     describe("archive guardrails", () => {
+      it.effect("reports the filtered archive plan and publishes only included files", () => {
+        const { provide, rendererState } = makeContext();
+        const registryRoot = path.join(tempDir, "registry");
+        const registryUrl = pathToFileURL(registryRoot).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            fs.mkdirSync(path.join(skillDir(), "evals"), { recursive: true });
+            fs.writeFileSync(path.join(skillDir(), "evals", "evals.json"), "{}\n");
+            const manifestPath = path.join(skillDir(), "skill.json");
+            const manifest = expectRecord(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+            fs.writeFileSync(
+              manifestPath,
+              JSON.stringify({ ...manifest, publish: { ignore: ["evals/*", "missing-*"] } }),
+            );
+
+            yield* handleRootPublish(explicit(registryUrl));
+
+            const item = reviewItem(at(rendererState.results, 0).data);
+            expect(property(item, "archive")).toMatchObject({
+              includedCount: 2,
+              excludedCount: 1,
+              patterns: [
+                { pattern: "evals/*", matchCount: 1 },
+                { pattern: "missing-*", matchCount: 0 },
+              ],
+              warnings: ['publish.ignore pattern "missing-*" matched no files.'],
+            });
+            const archive = fs.readFileSync(
+              path.join(registryRoot, "extensions", "@acme", "skills", "review", "1.0.0.zip"),
+            );
+            const entries = yield* validateArchive(archive);
+            expect(entries.map((entry) => entry.fileName).sort()).toEqual([
+              "skill.json",
+              "src/SKILL.md",
+            ]);
+          }),
+        );
+      });
+
+      it.effect("rejects a policy that filters out a required package file", () => {
+        const { provide } = makeContext(false);
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            writeReviewSkill("1.0.0");
+            const manifestPath = path.join(skillDir(), "skill.json");
+            const manifest = expectRecord(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+            fs.writeFileSync(
+              manifestPath,
+              JSON.stringify({ ...manifest, publish: { ignore: ["src/SKILL.md"] } }),
+            );
+
+            const error = getAppError(
+              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
+            );
+
+            expect(error.code).toBe("validation");
+            expect(error.detail).toContain("src/SKILL.md is required");
+          }),
+        );
+      });
+
       it.effect("refuses an archive containing node_modules", () => {
         const { provide } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;

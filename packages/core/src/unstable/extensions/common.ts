@@ -887,8 +887,8 @@ export const PublishOptionsSchema = Schema.Struct({
       .pipe(Schema.check(Schema.isUnique()))
       .annotate({
         description:
-          "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
-        examples: [["*.test.ts", "fixtures/*"]],
+          "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
+        examples: [[], ["evals/*"]],
       }),
   ),
 }).annotate({

@@ -38,7 +38,7 @@ failures retain their normal error or failed-plan contract.
 under `result`. Token commands also place their command payload under `result`;
 do not log or forward token result documents.
 
-Publish results are discriminated by `result.contract: "publish-result-v2"`.
+Publish results are discriminated by `result.contract: "publish-result-v3"`.
 They separate `selection.decisions`, the authoritative `publicationSet`, and
 `execution.outcomes`. A failed item identifies an operation that actually
 failed and carries a typed `cause`; a blocked item was not attempted and names

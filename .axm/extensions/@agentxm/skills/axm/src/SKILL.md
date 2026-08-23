@@ -118,6 +118,16 @@ When a projection is named as the desired permanent source, identify it as
 non-authoritative, resolve the canonical package first, make semantic changes
 there, then verify the projection from AXM state.
 
+For publication, distinguish the complete repository package, the filtered
+Registry archive, the canonical installation extracted from that archive, and
+the type-specific agent projection. `publish.ignore` controls only the Registry
+archive. Omission publishes every package-root file; an explicit empty array is
+a reviewed publish-all decision. AXM assigns no special packaging behavior to
+`evals/` or other development-oriented names—packages may intentionally ship
+them. Use `axm help publish` and inspect `axm publish --preview --json` before
+authorizing upload; unmatched patterns warn, and the filtered package must
+remain type-valid.
+
 ## Bound authority before acting
 
 Classify every operation and keep it within the authority supplied by the

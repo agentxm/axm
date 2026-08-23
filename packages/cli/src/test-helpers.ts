@@ -202,8 +202,8 @@ export const expectPublishResult = (
   },
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
-  if (property(payload, "contract") !== "publish-result-v2") {
-    throw new Error("Expected publish-result-v2 contract");
+  if (property(payload, "contract") !== "publish-result-v3") {
+    throw new Error("Expected publish-result-v3 contract");
   }
   const mode = property(payload, "mode");
   if (mode !== options.mode) {

@@ -89,6 +89,7 @@ import {
   type PublishVisibility,
   type VisibilityIntent,
   publishArchiveOptions,
+  normalizePublishInput,
   runPublishLintGate,
   validateArchive,
 } from "@agentxm/client-core/unstable/publish";
@@ -115,10 +116,11 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import { isWorkspaceSourceLocator, type SourceType } from "@agentxm/client-core/unstable/sources";
 import {
-  buildZipArchive,
   computeIntegrity,
   expandGlobs,
   isGlobPattern,
+  planZipArchive,
+  type ArchivePlan,
 } from "@agentxm/client-core/unstable/utils";
 import {
   VersionSchema,
@@ -249,6 +251,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
   readonly publishVisibility?: ExtensionVisibility;
   readonly archive: Uint8Array;
+  readonly archivePlan: ArchivePlan;
   readonly integrity: string;
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
@@ -1207,10 +1210,26 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     manifestJson,
     platform: { fs, path },
   });
-  const archive = yield* buildZipArchive(
+  const plannedArchive = yield* planZipArchive(
     extensionDir,
     yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
   );
+  const archive = plannedArchive.archive;
+  const likelyDevelopmentRoots = ["evals/", "tests/", "fixtures/", "benchmarks/"];
+  const developmentRoots = likelyDevelopmentRoots.filter((root) =>
+    plannedArchive.plan.included.some((file) => file.path.startsWith(root)),
+  );
+  const archivePlan: ArchivePlan = {
+    ...plannedArchive.plan,
+    warnings: [
+      ...plannedArchive.plan.warnings,
+      ...(manifest.publish?.ignore !== undefined || developmentRoots.length === 0
+        ? []
+        : [
+            `Review the Registry distribution boundary: ${developmentRoots.join(", ")} ${developmentRoots.length === 1 ? "is" : "are"} included and publish.ignore has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.`,
+          ]),
+    ],
+  };
   // Guardrails run on the built bytes and only ever reject: rewriting the
   // archive here would change its integrity digest and break republishing an
   // already-published version under `--on-existing verify`.
@@ -1247,6 +1266,27 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ),
   );
   const integrity = yield* computeIntegrity(archive);
+  yield* normalizePublishInput({
+    declaredIdentity: {
+      owner: selected.owner,
+      type: selected.type,
+      name: manifest.name,
+      version: manifest.version,
+    },
+    archive: {
+      archiveBytes: archive,
+      archiveContentType: "application/zip",
+      clientIntegrity: integrity,
+    },
+  }).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Filtered archive validation failed for ${selected.fqn}: ${"detail" in cause ? cause.detail : cause.message}`,
+        cause,
+      }),
+    ),
+  );
   const client = yield* createRegistryClient(registry.url);
   const index = yield* client.getExtensionIndex({
     owner: selected.owner,
@@ -1312,6 +1352,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       ? {}
       : { publishVisibility: manifest.publish.visibility }),
     archive,
+    archivePlan,
     integrity,
     action,
     backfill,
@@ -1601,6 +1642,11 @@ const selectedResult = (
       phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
+      archive: {
+        ...candidate.archivePlan,
+        zipBytes: candidate.archive.length,
+        integrity: candidate.integrity,
+      },
       ...(candidate.publishPreview === undefined
         ? {}
         : { visibility: candidate.publishPreview.visibility }),
@@ -1618,6 +1664,11 @@ const selectedResult = (
     phase: "authoritative_preflight",
     reason: "selected",
     status: "pending",
+    archive: {
+      ...candidate.archivePlan,
+      zipBytes: candidate.archive.length,
+      integrity: candidate.integrity,
+    },
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
@@ -1664,6 +1715,11 @@ const failedCandidateResult = (
   status: "failed",
   message: redactSensitiveText(error.detail),
   cause: publicPublishCause(error),
+  archive: {
+    ...candidate.archivePlan,
+    zipBytes: candidate.archive.length,
+    integrity: candidate.integrity,
+  },
 });
 
 const publicationSetResult = (options: {
@@ -2289,6 +2345,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(result.version === undefined ? {} : { version: result.version }),
           ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
           ...(result.authored === undefined ? {} : { authored: result.authored }),
+          ...(result.archive === undefined ? {} : { archive: result.archive }),
           action: "error",
           phase: "upload_execution",
           reason:
@@ -2487,7 +2544,9 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
-  Command.withDescription("Publish project-workspace extensions to a registry"),
+  Command.withDescription(
+    "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+  ),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {

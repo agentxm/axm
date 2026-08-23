@@ -1,5 +1,8 @@
 # MCP servers
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 An MCP server extension registers a Model Context Protocol server that your
 coding agents connect to for extra tools and resources. AXM tracks the server
 once and writes it into its applicable configured agents' native MCP configs, so you do

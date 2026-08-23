@@ -35,6 +35,12 @@ const makeValidSkillZip = (manifestOverrides?: Record<string, unknown>) => {
       fileName: "skill.json",
       content: textContent(JSON.stringify(manifest)),
     },
+    {
+      fileName: "src/SKILL.md",
+      content: textContent(
+        "---\nname: code-review\ndescription: Reviews code changes.\n---\n\n# Code review\n",
+      ),
+    },
     { fileName: "index.js", content: textContent("module.exports = {}") },
   ]);
 };
@@ -132,6 +138,73 @@ describe("normalizePublishInput", () => {
       });
 
       expect(result.type).toBe("pack");
+    }),
+  );
+
+  it.effect.each([
+    {
+      type: "skill" as const,
+      manifest: { description: "Reviews code" },
+      missing: "src/SKILL.md",
+    },
+    {
+      type: "subagent" as const,
+      manifest: { description: "Reviews code" },
+      missing: "src/code-review.md",
+    },
+    {
+      type: "rule" as const,
+      manifest: { description: "Reviews code" },
+      missing: "src/RULE.md",
+    },
+    {
+      type: "hook" as const,
+      manifest: {
+        description: "Reviews code",
+        runtime: "bash",
+        entrypoint: "src/hook.sh",
+        bindings: [{ on: "session.start" }],
+      },
+      missing: "src/hook.sh",
+    },
+    {
+      type: "knowledge" as const,
+      manifest: {
+        description: "Reviews code",
+        format: { name: "okf", version: "0.2" },
+        bundleRoot: "src",
+      },
+      missing: "src/index.md",
+    },
+  ])("rejects a filtered $type archive missing $missing", ({ type, manifest, missing }) =>
+    Effect.gen(function* () {
+      const manifestFile = `${type}.json`;
+      const zip = buildZip([
+        {
+          fileName: manifestFile,
+          content: textContent(
+            JSON.stringify({
+              owner: "@acme",
+              type,
+              name: "code-review",
+              version: "1.0.0",
+              ...manifest,
+            }),
+          ),
+        },
+      ]);
+      const error = yield* Effect.flip(
+        normalizePublishInput({
+          declaredIdentity: makeDeclaredIdentity({ type }),
+          archive: makeBody(zip),
+        }),
+      );
+
+      expect(error._tag).toBe("FilteredPackageError");
+      if (error._tag === "FilteredPackageError") {
+        expect(error.code).toBe("required_file_missing");
+        expect(error.path).toBe(missing);
+      }
     }),
   );
 });

@@ -15,7 +15,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { zipSync, type Zippable } from "fflate";
 import { makeAppError } from "../app-error/index.js";
-import { expandGlobs } from "./glob.js";
+import { expandGlob } from "./glob.js";
 
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable
@@ -35,12 +35,42 @@ export interface BuildZipArchiveOptions {
   readonly ignore?: ReadonlyArray<string> | undefined;
 }
 
+/** One file in the deterministic Registry archive plan. */
+export interface ArchivePlanFile {
+  readonly path: string;
+  readonly size: number;
+  readonly matchedPatterns: ReadonlyArray<string>;
+}
+
+/** Match accounting for one declared ignore pattern. */
+export interface ArchivePlanPattern {
+  readonly pattern: string;
+  readonly matchCount: number;
+}
+
+/** The effective Registry-only distribution boundary before ZIP construction. */
+export interface ArchivePlan {
+  readonly included: ReadonlyArray<ArchivePlanFile>;
+  readonly excluded: ReadonlyArray<ArchivePlanFile>;
+  readonly patterns: ReadonlyArray<ArchivePlanPattern>;
+  readonly warnings: ReadonlyArray<string>;
+  readonly includedCount: number;
+  readonly excludedCount: number;
+  readonly uncompressedBytes: number;
+}
+
+/** Deterministic archive bytes paired with the exact plan that produced them. */
+export interface PlannedZipArchive {
+  readonly archive: Uint8Array;
+  readonly plan: ArchivePlan;
+}
+
 /**
  * Build a zip archive of a directory.
  * Files are stored at the root of the zip (no enclosing directory).
  * Directory entries are not emitted.
  */
-export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -56,7 +86,12 @@ export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =
           Effect.gen(function* () {
             const abs = path.join(dir, relRaw);
             const info = yield* fs.stat(abs);
-            return { rel: toZipPath(relRaw), abs, isFile: info.type === "File" } as const;
+            return {
+              rel: toZipPath(relRaw),
+              abs,
+              isFile: info.type === "File",
+              size: Number(info.size),
+            } as const;
           }),
         { concurrency: READ_CONCURRENCY },
       );
@@ -64,16 +99,7 @@ export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =
       const onlyFiles = candidates.filter((c) => c.isFile);
       onlyFiles.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
 
-      const ignore = options?.ignore ?? [];
-      if (ignore.length === 0) return onlyFiles;
-
-      const ignored = new Set(
-        expandGlobs(
-          ignore,
-          onlyFiles.map((c) => c.rel),
-        ),
-      );
-      return onlyFiles.filter((c) => !ignored.has(c.rel));
+      return onlyFiles;
     }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -84,8 +110,25 @@ export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =
       ),
     );
 
+    const patterns = options?.ignore ?? [];
+    const paths = files.map((file) => file.rel);
+    const matchesByPattern = patterns.map((pattern) => ({
+      pattern,
+      matches: new Set(expandGlob(pattern, paths)),
+    }));
+    const planned = files.map((file): ArchivePlanFile => ({
+      path: file.rel,
+      size: file.size,
+      matchedPatterns: matchesByPattern
+        .filter(({ matches }) => matches.has(file.rel))
+        .map(({ pattern }) => pattern),
+    }));
+    const included = planned.filter((file) => file.matchedPatterns.length === 0);
+    const excluded = planned.filter((file) => file.matchedPatterns.length > 0);
+    const includedPaths = new Set(included.map((file) => file.path));
+
     const contents = yield* Effect.forEach(
-      files,
+      files.filter((file) => includedPaths.has(file.rel)),
       ({ rel, abs }) => fs.readFile(abs).pipe(Effect.map((bytes) => [rel, bytes] as const)),
       { concurrency: READ_CONCURRENCY },
     ).pipe(
@@ -103,7 +146,7 @@ export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =
       zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME }];
     }
 
-    return yield* Effect.try({
+    const archive = yield* Effect.try({
       try: () => zipSync(zippable, { mtime: DETERMINISTIC_MTIME }),
       catch: (cause) =>
         makeAppError({
@@ -112,4 +155,25 @@ export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =
           cause,
         }),
     });
+    const patternPlans = matchesByPattern.map(({ pattern, matches }) => ({
+      pattern,
+      matchCount: matches.size,
+    }));
+    return {
+      archive,
+      plan: {
+        included,
+        excluded,
+        patterns: patternPlans,
+        warnings: patternPlans
+          .filter(({ matchCount }) => matchCount === 0)
+          .map(({ pattern }) => `publish.ignore pattern "${pattern}" matched no files.`),
+        includedCount: included.length,
+        excludedCount: excluded.length,
+        uncompressedBytes: included.reduce((total, file) => total + file.size, 0),
+      },
+    } satisfies PlannedZipArchive;
   });
+
+export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive));

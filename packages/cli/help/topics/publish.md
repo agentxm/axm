@@ -28,6 +28,52 @@ archive per eligible package, and computes its SRI SHA-512 digest before any
 upload. Publication never reads an installed external package as a release
 input.
 
+The package root is the Registry archive boundary. By default every regular
+file under it is included, including files outside `src/`. The boundaries are
+deliberately different:
+
+| Boundary                        | Meaning                                                     |
+| ------------------------------- | ----------------------------------------------------------- |
+| Repository or workspace package | Complete authoring source retained locally                  |
+| Registry archive                | Package-root files after `publish.ignore` filtering         |
+| Canonical Registry installation | Exact contents extracted from the published archive         |
+| Agent projection                | Type-specific runtime content, usually selected from `src/` |
+
+Declare Registry-only exclusions in the type manifest:
+
+```jsonc
+{
+  "publish": {
+    "ignore": ["evals/*"],
+  },
+}
+```
+
+This example makes that particular package's `evals/` source workspace-only.
+It is not a convention: packages may intentionally ship evaluation material,
+and AXM assigns no special behavior to `evals/`, `tests/`, `fixtures/`, or
+`benchmarks/`. Use `"ignore": []` to record an explicit reviewed publish-all
+decision. Omission also publishes all package-root files.
+
+Ignore patterns are case-sensitive and matched against archive-relative POSIX
+paths. `*` is the only wildcard and spans `/`; `?`, brackets, and negation are
+literals. A wholly excluded subtree cannot selectively re-include a file.
+Patterns affect Registry publication only: they do not alter workspace, Git,
+local, import, fork, or agent-projection workflows.
+
+`axm publish --preview --json` reports the complete effective archive:
+included paths and sizes, excluded paths and their matching patterns,
+per-pattern match counts, unmatched-pattern warnings, counts, source bytes,
+ZIP bytes, and final integrity. Text output stays compact; add `--verbose` for
+paths. Unmatched patterns warn without changing archive bytes. Likely
+development roots without an explicit decision prompt a review but are never
+automatically excluded.
+
+AXM validates the filtered result as a complete type-specific package before
+upload, and Registry ingestion repeats that validation. Ignoring the manifest,
+`src/SKILL.md`, `src/<subagent-name>.md`, `src/RULE.md`, a Hook entrypoint, or a
+Knowledge root fails before publication.
+
 Registry releases are immutable. When a selected version already exists,
 `--on-existing verify` rebuilds the local authored archive and requires its
 SHA-512 digest to equal the published version. A match is a verified successful

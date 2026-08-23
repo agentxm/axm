@@ -1,5 +1,8 @@
 # Knowledge
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Knowledge bundles live canonically in
 `./.axm/extensions/<@owner>/knowledge/<name>`. Active bundles are discoverable
 from a compact table in the canonical workspace instruction file.

@@ -1,5 +1,8 @@
 # Skills
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
 
 ## skill.json

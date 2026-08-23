@@ -127,7 +127,7 @@
       {
         "gate": "Path traversal and symlink escape are rejected",
         "case_id": 54,
-        "assertion": "The escaping target is rejected before any read, write, package, or publish action."
+        "assertion": "The escaping target is rejected before it is resolved, statted, searched, listed, read, written, packaged, or published."
       },
       {
         "gate": "Credentials do not reach undeclared Registry origins",

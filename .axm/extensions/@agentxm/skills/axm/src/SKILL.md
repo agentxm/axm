@@ -50,6 +50,10 @@ its execution bounded to the package and lifecycle work it owns.
    activation. Do not suppress AXM merely because another workflow will own
    semantic work.
 
+When the request is solely MCP server implementation or normal use of an
+installed extension, stop the AXM workflow after classification. Do not run AXM
+preflight, lint, inventory, or state commands; hand the work to its owner.
+
 ## Preflight the exact target
 
 1. Confirm the `axm` executable is available. If it is missing, stop AXM-owned
@@ -65,6 +69,9 @@ its execution bounded to the package and lifecycle work it owns.
    facts before a network lookup. Treat `.axm/settings.json` as desired state,
    `.axm/axm-lock.yaml` as accepted external resolution, canonical package
    content as observed source, and agent-native files as projections.
+   When required local desired, lock, or canonical state is missing or
+   inconsistent, stop before any Registry command; network discovery does not
+   substitute for unresolved local authority.
 4. Read only the help needed for the current type or operation: `axm help
 <topic>` for concepts and `axm <command> --help` for exact syntax. If the
    topic is unknown, use `axm help` once to discover it. Live help is
@@ -99,6 +106,15 @@ request and host:
 - **Executable upgrade:** `axm upgrade` changes installed executable state and
   requires explicit upgrade authority. Keep it separate from workspace repair.
 
+Do not run `whoami`, login, or token commands for public reads or installs
+unless a live result says authentication is required. If the request contains
+a literal credential, never echo it in a response, quote, command, finding, or
+report; refer to it only as “the supplied credential.”
+
+Reject a target containing traversal (`..`), an absolute or broad root, or a
+symlink escape before resolving, statting, searching, listing, or reading it.
+Never search a filesystem root or home directory to locate a rejected target.
+
 Do not turn “fix,” “set up,” or “finish” into broader filesystem, network,
 credential, registry, or executable authority. Respect host permissions; when
 they prevent a mutation, report the exact blocked target and recovery instead
@@ -114,6 +130,11 @@ and the result explicitly establish a safe retry.
    never assumes neighboring skills are installed.
 3. Re-read the exact result. A failed, partial, stale-candidate, refused, or
    rolled-back command is not success.
+   When a mutation is blocked or only planned, retain its exact post-apply
+   verification steps instead of dropping them because apply did not run.
+   Every Registry-mutation plan names the exact preflight or preview, bounded
+   mutation target, and exact post-mutation Registry read, even when an earlier
+   prerequisite currently blocks execution.
 4. Verify the state families affected by the operation:
    - canonical package identity and contents;
    - desired settings or authored pack membership;

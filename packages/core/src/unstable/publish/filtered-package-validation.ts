@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseFrontmatterEffect } from "../extensions/frontmatter.js";
 import type { ExtensionType } from "../extensions/index.js";
+import { inspectKnowledgeEntries, type KnowledgeBundleEntry } from "../knowledge/okf.js";
 import { parseSkillMd } from "../skills/skill-content.js";
 import { parseSubagentMd } from "../subagents/subagent-content.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
@@ -138,6 +139,28 @@ export const validateFilteredPackage = (
           });
         }
         yield* readText(args, "src/index.md");
+        const sourcePrefix = "src/";
+        const knowledgeEntries = args.entries
+          .filter((entry) => entry.fileName.startsWith(sourcePrefix))
+          .map<KnowledgeBundleEntry>((entry) => ({
+            relativePath: entry.fileName.slice(sourcePrefix.length),
+            type: "File",
+            size: BigInt(entry.uncompressedSize),
+          }));
+        const inspection = yield* inspectKnowledgeEntries(knowledgeEntries, (relativePath) =>
+          readText(args, `${sourcePrefix}${relativePath}`),
+        );
+        const errors = inspection.diagnostics.filter(
+          (diagnostic) => diagnostic.severity === "error",
+        );
+        if (errors.length > 0) {
+          return yield* new FilteredPackageError({
+            code: "content_invalid",
+            detail: `Filtered Knowledge bundle is invalid: ${errors
+              .map((diagnostic) => `${diagnostic.relativePath}: ${diagnostic.message}`)
+              .join("; ")}`,
+          });
+        }
         return;
       }
       case "mcp-server":

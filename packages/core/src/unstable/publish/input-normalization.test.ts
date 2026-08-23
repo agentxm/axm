@@ -141,6 +141,61 @@ describe("normalizePublishInput", () => {
     }),
   );
 
+  it.effect("rejects filtered Knowledge content with an escaping file resource", () =>
+    Effect.gen(function* () {
+      const zip = buildZip([
+        {
+          fileName: "knowledge.json",
+          content: textContent(
+            JSON.stringify({
+              owner: "@acme",
+              type: "knowledge",
+              name: "code-review",
+              version: "1.0.0",
+              format: { name: "okf", version: "0.2" },
+              bundleRoot: "src",
+            }),
+          ),
+        },
+        {
+          fileName: "src/index.md",
+          content: textContent(
+            '---\nokf_version: "0.2"\n---\n# Review knowledge\n\n- [Review](review.md)\n',
+          ),
+        },
+        {
+          fileName: "src/review.md",
+          content: textContent(
+            [
+              "---",
+              "type: reference",
+              "description: Review guidance",
+              "tags: [review]",
+              "sources:",
+              "  - id: external",
+              "    resource: ../outside.md",
+              "---",
+              "# Review",
+              "",
+            ].join("\n"),
+          ),
+        },
+      ]);
+      const error = yield* Effect.flip(
+        normalizePublishInput({
+          declaredIdentity: makeDeclaredIdentity({ type: "knowledge" }),
+          archive: makeBody(zip),
+        }),
+      );
+
+      expect(error._tag).toBe("FilteredPackageError");
+      if (error._tag === "FilteredPackageError") {
+        expect(error.code).toBe("content_invalid");
+        expect(error.detail).toContain("escapes the Knowledge bundle");
+      }
+    }),
+  );
+
   it.effect.each([
     {
       type: "skill" as const,

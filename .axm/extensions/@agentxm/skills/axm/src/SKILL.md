@@ -33,9 +33,12 @@ its execution bounded to the package and lifecycle work it owns.
 Apply these gates immediately after loading this skill:
 
 1. If the raw request names traversal (`..`), an absolute or broad root, or a
-   symlink escape, reject that target and answer immediately. Do not run any
-   other tool or pass the target to `pwd`, `ls`, `find`, `rg`, `readlink`,
-   `realpath`, `stat`, `axm`, or another command.
+   symlink escape, reject that target and answer immediately. Loading this
+   skill is the only permitted read before rejection; rejection is the complete
+   workflow. Do not search for `AGENTS.md`, README files, fixtures, or other
+   repository context; invoke AXM or help; run another tool; or pass the target
+   or any fragment of it to `pwd`, `ls`, `find`, `rg`, `readlink`, `realpath`,
+   `stat`, `axm`, or another command.
 2. If the request contains a literal credential, mentally replace it with “the
    supplied credential” before composing any response or command. Require a
    symbolic environment or secret reference; never repeat the literal.

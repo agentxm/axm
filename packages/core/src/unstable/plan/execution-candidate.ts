@@ -98,25 +98,35 @@ const fingerprintMaterials = (
     return hash.digest("hex");
   });
 
-const planIdentity = (plan: Plan<unknown, unknown>): string =>
-  JSON.stringify({
-    name: plan.name,
-    jobs: plan.jobs.map((job) => ({
-      concurrency: job.concurrency,
-      executionPolicy: job.executionPolicy,
-      steps: job.steps.map((step) => ({
-        key: step.key,
-        dependsOn: step.dependsOn,
-        label: step.label,
-        readiness: step.readiness,
-        artifact: step.artifact,
-        registryLifecycle: step.registryLifecycle,
+// Absolute paths inside plan metadata relativize before hashing: candidate
+// identity is a property of workspace content, not of where it sits on disk.
+const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.Path): string =>
+  JSON.stringify(
+    {
+      name: plan.name,
+      jobs: plan.jobs.map((job) => ({
+        concurrency: job.concurrency,
+        executionPolicy: job.executionPolicy,
+        steps: job.steps.map((step) => ({
+          key: step.key,
+          dependsOn: step.dependsOn,
+          label: step.label,
+          readiness: step.readiness,
+          artifact: step.artifact,
+          registryLifecycle: step.registryLifecycle,
+        })),
       })),
-    })),
-    preconditions: plan.preconditions,
-    riskConditions: plan.riskConditions,
-    releaseAge: plan.releaseAge,
-  });
+      preconditions: plan.preconditions,
+      riskConditions: plan.riskConditions,
+      releaseAge: plan.releaseAge,
+    },
+    (key, value: unknown) => {
+      if (key === "evaluatedAt") return undefined;
+      return typeof value === "string" && path.isAbsolute(value)
+        ? path.relative(baseDir, value)
+        : value;
+    },
+  );
 
 export const makeExecutionCandidate = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -134,7 +144,7 @@ export const makeExecutionCandidate = <Requirements, Output>(
     const materialFingerprint = yield* fingerprintMaterials(materialPaths, baseDir, fs, path);
     const id = crypto
       .createHash("sha256")
-      .update(planIdentity(plan))
+      .update(planIdentity(plan, baseDir, path))
       .update("\0")
       .update(materialFingerprint)
       .digest("hex");

@@ -89,7 +89,7 @@ describe("axm skills list", () => {
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("Failed to read workspace lockfile");
+      expect(result.stderr).toContain("Failed to read the workspace lockfile");
     } finally {
       temp.cleanup();
     }

@@ -705,9 +705,15 @@ export const publishResultToSummary = (result: PublishResult): CommandOutcomeSum
     outcome:
       result.mode === "preview"
         ? "previewed"
-        : appliedCount === 0 && failedCount === 0
-          ? "no-op"
-          : "applied",
+        : appliedCount > 0 && (failedCount > 0 || blockedCount > 0)
+          ? "partial"
+          : failedCount > 0
+            ? "failed"
+            : blockedCount > 0
+              ? "blocked"
+              : appliedCount === 0
+                ? "no-op"
+                : "applied",
     subjectType,
     sourceKind: "workspace",
     appliedCount,

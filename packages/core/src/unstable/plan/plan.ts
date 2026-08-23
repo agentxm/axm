@@ -182,8 +182,8 @@ export type JobStepResult<Output = never> =
   | {
       readonly result: "success";
       readonly message: string;
-      /** `skipped` marks work deliberately not attempted per declared policy. */
-      readonly disposition?: "skipped";
+      /** `skipped`: deliberately not attempted per policy; `unchanged`: evaluated, nothing to do. */
+      readonly disposition?: "skipped" | "unchanged";
       readonly warnings?: ReadonlyArray<string>;
       readonly links?: { readonly html: string };
       readonly artifact?: JobStepArtifact;

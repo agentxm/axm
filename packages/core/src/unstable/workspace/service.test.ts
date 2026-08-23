@@ -254,7 +254,9 @@ describe("WorkspaceMutationsService", () => {
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
-        expect(appError.detail).toBe("Failed to read workspace lockfile");
+        expect(appError.detail).toBe(
+          "Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.",
+        );
         expect(appError.cause).toMatchObject({ _tag: "LockfileDecodeError" });
       }),
     );

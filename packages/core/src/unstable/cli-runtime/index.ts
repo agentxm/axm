@@ -94,6 +94,11 @@ export {
   type OperationExitService,
 } from "./operation-exit.js";
 export {
+  CommandCompletion,
+  recordCommandCompletion,
+  type CommandCompletionService,
+} from "./command-completion.js";
+export {
   CommandArgv,
   type CommandArgvService,
   withArgvTracking,

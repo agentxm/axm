@@ -178,12 +178,17 @@ const contextReadErrorToAppError = (
     });
   }
 
+  // An unreadable or corrupt lockfile is actionable workspace state, not a
+  // violated invariant.
+  const lockfileFailure =
+    error._tag === "LockfileIoError" ||
+    error._tag === "LockfileParseError" ||
+    error._tag === "LockfileDecodeError";
   return makeAppError({
-    code:
-      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
-        ? "validation"
-        : "internal",
-    detail: `Failed to read workspace ${source}`,
+    code: lockfileFailure ? "validation" : "internal",
+    detail: lockfileFailure
+      ? `Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.`
+      : `Failed to read workspace ${source}`,
     cause: error,
   });
 };

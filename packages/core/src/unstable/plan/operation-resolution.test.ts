@@ -452,7 +452,7 @@ describe("executedUnits", () => {
     expect(units.map((entry) => entry.state)).toEqual(["unchanged", "skipped"]);
   });
 
-  it("C-06: a restored execution reports rolled-back and untouched dispositions", () => {
+  it("C-06: a restored execution reports rolled-back and restored dispositions", () => {
     const units = executedUnits(
       {
         _tag: "ExecutedPlan",
@@ -486,7 +486,8 @@ describe("executedUnits", () => {
     );
     expect(units[0]?.state).toBe("rolled-back");
     expect(units[0]?.disposition).toBe("restored");
+    // The failed unit's in-flight effects were undone with the candidate.
     expect(units[1]?.state).toBe("failed");
-    expect(units[1]?.disposition).toBe("untouched");
+    expect(units[1]?.disposition).toBe("restored");
   });
 });

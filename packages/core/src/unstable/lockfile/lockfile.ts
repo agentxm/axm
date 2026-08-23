@@ -245,8 +245,8 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
       skipIfUnchanged: "fail-on-read-error",
       mapError: (failure) =>
         makeAppError({
-          code: "internal",
-          detail: lockfileWriteErrorDetail(lockfilePath, failure),
+          code: "validation",
+          detail: `${lockfileWriteErrorDetail(lockfilePath, failure)}. Fix the path's permissions or remove whatever occupies it, then rerun.`,
           cause: failure.cause,
         }),
     });

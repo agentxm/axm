@@ -181,6 +181,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       );
     }
   }
+  const startRecordPaths = new Set(openRecords.map((open) => open.path));
   const pendingRecovery =
     openRecords.length === 0
       ? undefined
@@ -692,17 +693,55 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const footprint =
     observedFootprint.length === 0
       ? undefined
-      : observedFootprint.filter(
-          (entry, index) =>
-            observedFootprint.findIndex(
-              (other) => other.path === entry.path && other.change === entry.change,
-            ) === index,
-        );
+      : observedFootprint
+          .filter(
+            (entry, index) =>
+              observedFootprint.findIndex(
+                (other) => other.path === entry.path && other.change === entry.change,
+              ) === index,
+          )
+          // Identity order (code-unit), so twin runs report identical bytes
+          // regardless of concurrent write scheduling.
+          .sort((left, right) =>
+            left.path < right.path
+              ? -1
+              : left.path > right.path
+                ? 1
+                : left.change < right.change
+                  ? -1
+                  : left.change > right.change
+                    ? 1
+                    : 0,
+          );
 
   if (applyResult.type === "failure") {
     const failure = applyResult.error.error;
     const attempted = applyResult.error.attemptedExecution;
-    const restored = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
+    // A restoration-failure record written during THIS apply means the
+    // rollback did not complete: effects are retained, not restored, and a
+    // normal re-run cannot safely proceed until the record's action is taken.
+    const postFailureRecords = yield* readOpenRecoveryRecords(ws.path).pipe(
+      Effect.provide(fsLayer),
+    );
+    const freshRestorationFailures = postFailureRecords.filter(
+      (open) => !startRecordPaths.has(open.path) && open.record.kind === "restoration-failure",
+    );
+    const rollbackFailed = freshRestorationFailures.length > 0;
+    const restorationRecovery =
+      freshRestorationFailures.length === 0
+        ? undefined
+        : {
+            blocksNormalOperation: true,
+            retained: [
+              ...new Set(freshRestorationFailures.flatMap(({ record }) => record.retained)),
+            ],
+            actions: freshRestorationFailures.map(({ record }) => ({
+              description: record.resolveBy,
+            })),
+            recordPath: freshRestorationFailures[0]?.path ?? "",
+          };
+    const restored =
+      candidatePlan.executionCapabilities?.rollback !== "non-rollbackable" && !rollbackFailed;
     const units =
       attempted === undefined
         ? plannedUnits<Requirements, Output>(candidatePlan.jobs)
@@ -731,11 +770,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         ...resolutionBase,
         atomicity: {
           declared: atomicity,
-          applied: restored && attempted !== undefined ? "candidate-atomic" : atomicity,
+          applied: rollbackFailed
+            ? "non-rollbackable"
+            : restored && attempted !== undefined
+              ? "candidate-atomic"
+              : atomicity,
         },
         units,
         failure,
         footprint,
+        ...(restorationRecovery === undefined ? {} : { recovery: restorationRecovery }),
         suggestions: failure.suggestions ?? candidatePlan.failureSuggestions,
       }),
     );

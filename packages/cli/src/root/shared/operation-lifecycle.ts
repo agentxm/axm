@@ -24,6 +24,7 @@ import * as Path from "effect/Path";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   effectCliExit,
+  recordCommandCompletion,
   requestedInterruptionSignal,
   type SuggestedAction,
 } from "@agentxm/client-core/unstable/cli-runtime";
@@ -48,6 +49,7 @@ import {
   acquireWorkspaceTransitionLock,
   isWorkspaceTransitionHeldByThisInvocation,
   makeFootprintRecorder,
+  readFootprint,
   writeOperationRecoveryRecord,
   type TransitionContention,
 } from "@agentxm/client-core/unstable/workspace";
@@ -106,7 +108,12 @@ const interruptionResolution = (
   args: OperationLifecycleArgs,
   journal: Option.Option<OperationJournalState>,
   signal: "SIGINT" | "SIGTERM",
+  footprint: ReadonlyArray<{
+    readonly path: string;
+    readonly change: "created" | "modified" | "removed" | "restored";
+  }>,
 ): OperationResolution<unknown> => {
+  const observedFootprint = footprint.length === 0 ? {} : { footprint };
   if (Option.isNone(journal)) {
     return makeOperationResolution<unknown>({
       name: args.planName,
@@ -116,6 +123,7 @@ const interruptionResolution = (
       units: [],
       presentation: args.presentation,
       interruption: { signal, disposition: "none" },
+      ...observedFootprint,
     });
   }
   const state = journal.value;
@@ -185,6 +193,7 @@ const interruptionResolution = (
     riskConditions: state.riskConditions,
     interruption: { signal, disposition },
     recovery,
+    ...observedFootprint,
   });
 };
 
@@ -225,6 +234,7 @@ export const withOperationLifecycle = <A, E, R>(
               args.command,
               contentionResolution(args, contention.value),
             );
+            yield* recordCommandCompletion(exitCode);
             return yield* Effect.die(effectCliExit(exitCode));
           }
         }
@@ -242,7 +252,29 @@ export const withOperationLifecycle = <A, E, R>(
                     Effect.provideService(OperationJournal, journal),
                   );
                   const signal = requestedInterruptionSignal() ?? "SIGINT";
-                  const resolution = interruptionResolution(args, state, signal);
+                  // The observed footprint travels with the interruption: what
+                  // was durably touched before the signal landed.
+                  const wsForFootprint = yield* WorkspaceMutations;
+                  const observed = (yield* readFootprint.pipe(
+                    Effect.provideService(FootprintRecorder, footprint),
+                  ))
+                    .map((entry) => ({
+                      path: path.isAbsolute(entry.path)
+                        ? path.relative(wsForFootprint.baseDir, entry.path)
+                        : entry.path,
+                      change: entry.change,
+                    }))
+                    .filter((entry) => !entry.path.startsWith(".."))
+                    .filter(
+                      (entry, index, entries) =>
+                        entries.findIndex(
+                          (other) => other.path === entry.path && other.change === entry.change,
+                        ) === index,
+                    )
+                    .sort((left, right) =>
+                      left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+                    );
+                  const resolution = interruptionResolution(args, state, signal, observed);
                   if (
                     resolution.recovery !== undefined &&
                     resolution.recovery.retained.length > 0
@@ -261,6 +293,9 @@ export const withOperationLifecycle = <A, E, R>(
                     });
                   }
                   const { exitCode } = yield* emitOperationResolution(args.command, resolution);
+                  // Inside the uninterruptible mask: the completion event must
+                  // land before the die releases the pending interrupt.
+                  yield* recordCommandCompletion(exitCode);
                   return yield* Effect.die(effectCliExit(exitCode));
                 })
               : Effect.failCause(cause),

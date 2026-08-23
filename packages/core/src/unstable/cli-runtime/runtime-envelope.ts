@@ -16,6 +16,7 @@ import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { OperationExitLive, getOperationExitCode } from "./operation-exit.js";
+import { CommandCompletion } from "./command-completion.js";
 import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 import {
   readGlobalFlagProperties,
@@ -262,8 +263,33 @@ export const withCliErrorHandling = <A, R>(
       const code = semanticProperties["cli.error_code"];
       return typeof code === "string" ? code : undefined;
     };
+    // Operation boundaries that die inside an uninterruptible region record
+    // completion through this hook, before the pending interrupt can fire at
+    // the envelope's own continuation boundary.
+    const recordForExit = (exitCode: number) =>
+      Effect.gen(function* () {
+        if (yield* Ref.get(completionRecorded)) return;
+        const semanticProperties = yield* getCommandSemanticProperties;
+        const causeClass = semanticCause(semanticProperties);
+        yield* Ref.set(completionRecorded, true);
+        yield* trackCliCommandCompleted({
+          command,
+          result:
+            exitCode === 130 || exitCode === 143
+              ? "cancelled"
+              : exitCode === 0
+                ? "success"
+                : "error",
+          durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
+          ...(causeClass === undefined || exitCode === 0
+            ? {}
+            : { errorCode: causeClass, errorCategory: causeClass }),
+          semanticProperties,
+        });
+      });
 
     return yield* program.pipe(
+      Effect.provideService(CommandCompletion, { record: recordForExit }),
       Effect.tap(() =>
         Effect.gen(function* () {
           const semanticProperties = yield* getCommandSemanticProperties;
@@ -323,24 +349,28 @@ export const withCliErrorHandling = <A, R>(
         if (isEffectCliExit(defect)) {
           // An operation boundary terminated with its own exit (blocked,
           // interrupted, contention). It already emitted its document; the
-          // completion event is still owed here, once.
-          return Effect.gen(function* () {
-            if (!(yield* Ref.get(completionRecorded))) {
-              const semanticProperties = yield* getCommandSemanticProperties;
-              const causeClass = semanticCause(semanticProperties);
-              yield* Ref.set(completionRecorded, true);
-              yield* trackCliCommandCompleted({
-                command,
-                result: defect.exitCode === 130 || defect.exitCode === 143 ? "cancelled" : "error",
-                durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
-                ...(causeClass === undefined
-                  ? {}
-                  : { errorCode: causeClass, errorCategory: causeClass }),
-                semanticProperties,
-              });
-            }
-            return yield* Effect.failCause(cause);
-          });
+          // completion event is still owed here, once — uninterruptibly, since
+          // a signal-delivered interrupt is still pending on this fiber.
+          return Effect.uninterruptible(
+            Effect.gen(function* () {
+              if (!(yield* Ref.get(completionRecorded))) {
+                const semanticProperties = yield* getCommandSemanticProperties;
+                const causeClass = semanticCause(semanticProperties);
+                yield* Ref.set(completionRecorded, true);
+                yield* trackCliCommandCompleted({
+                  command,
+                  result:
+                    defect.exitCode === 130 || defect.exitCode === 143 ? "cancelled" : "error",
+                  durationMs: elapsedMilliseconds(startTime, yield* Clock.monotonicTimeNanos),
+                  ...(causeClass === undefined
+                    ? {}
+                    : { errorCode: causeClass, errorCategory: causeClass }),
+                  semanticProperties,
+                });
+              }
+              return yield* Effect.failCause(cause);
+            }),
+          );
         }
         if (Cause.hasInterruptsOnly(cause)) {
           return Effect.failCause(cause);

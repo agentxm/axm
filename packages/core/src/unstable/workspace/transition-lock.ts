@@ -26,8 +26,10 @@ import * as lockfile from "proper-lockfile";
 import { makeAppError, type AppError } from "../app-error/index.js";
 
 export const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
-const LOCK_STALE_MILLIS = 2_000;
-const LOCK_UPDATE_MILLIS = 1_000;
+// Staleness must tolerate a busy event loop: a missed mtime update under load
+// must not let a live holder's lock be stolen mid-mutation.
+const LOCK_STALE_MILLIS = 10_000;
+const LOCK_UPDATE_MILLIS = 5_000;
 const WAIT_INTERVAL = Duration.millis(250);
 /** How long a contending invocation serializes behind the holder. */
 export const TRANSITION_WAIT_BOUND_MILLIS = 60_000;
@@ -174,6 +176,11 @@ export const acquireWorkspaceTransitionLock = (args: {
             retries: 0,
             stale: LOCK_STALE_MILLIS,
             update: LOCK_UPDATE_MILLIS,
+            // The default handler throws inside a timer: an uncatchable crash
+            // that sprays raw frames on stderr. The lock is an advisory
+            // serializer; a compromised hold must stay silent here — the
+            // workspace transaction owns durable-state safety.
+            onCompromised: () => undefined,
           }),
         catch: (cause) => ({ cause, code: errorCode(cause) }),
       }).pipe(Effect.result);
@@ -195,23 +202,18 @@ export const acquireWorkspaceTransitionLock = (args: {
                   detail: `Failed to release workspace transition lock at ${lockPath}`,
                   cause,
                 }),
-            }).pipe(
-              Effect.tapError((error) => Effect.logError(error.detail)),
-              Effect.ignore,
-            );
+            }).pipe(Effect.ignore);
             yield* removeEmptyScratch;
             yield* removeNewEmptyWorkspace;
           }),
         );
         return Option.none<TransitionContention>();
       }
-      if (attempt.failure.code !== "ELOCKED") {
-        return yield* makeAppError({
-          code: "internal",
-          detail: `Failed to acquire workspace transition lock at ${lockPath}`,
-          cause: attempt.failure.cause,
-        });
-      }
+      // ELOCKED is contention outright; any other acquisition error is a race
+      // window against the holder's own acquire, release, or staleness sweep
+      // (ENOENT/EEXIST from proper-lockfile's internal stat-remove-retry), and
+      // the bounded wait absorbs those the same way — the loser serializes or
+      // times out into a categorized blocked, never an internal crash.
       const holder = yield* readHolder(fs, path, lockPath);
       if (!reportedWaiting && args.onWaiting !== undefined) {
         reportedWaiting = true;

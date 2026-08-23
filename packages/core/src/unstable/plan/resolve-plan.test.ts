@@ -705,7 +705,8 @@ describe("previewOrApplyPlan", () => {
         ["third", "blocked"],
       ]);
       expect(result.units[0]?.disposition).toBe("restored");
-      expect(result.units[1]?.disposition).toBe("untouched");
+      expect(result.units[1]?.disposition).toBe("restored");
+      expect(result.units[2]?.disposition).toBe("untouched");
       expect(result.units[2]?.blocking?.class).toBe("operation-aborted");
       expect(result.units[2]?.blocking?.reference).toBe("second");
       expect(yield* fs.readFileString(target)).toBe("original");

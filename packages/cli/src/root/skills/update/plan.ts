@@ -91,6 +91,7 @@ export const buildUpdatePlan = (
             label: op.args.ref.skill.name,
             run: Effect.succeed<JobStepResult>({
               result: "success",
+              disposition: "unchanged",
               message: "already up to date",
             }),
           };

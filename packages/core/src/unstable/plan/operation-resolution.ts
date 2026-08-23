@@ -480,7 +480,10 @@ export const executedUnits = <Output>(
         if (step.result.disposition === "skipped") {
           return { ...success, state: "skipped" };
         }
-        if (step.result.artifact?.change === "unchanged") {
+        if (
+          step.result.disposition === "unchanged" ||
+          step.result.artifact?.change === "unchanged"
+        ) {
           return { ...success, state: "unchanged" };
         }
         if (options?.restored === true) {
@@ -498,6 +501,7 @@ export const executedUnits = <Output>(
         return {
           ...failureBase,
           state: "blocked",
+          ...(options?.restored === true ? { disposition: "untouched" as const } : {}),
           blocking: {
             class: blocking.class,
             subject: unitIdOf(step),
@@ -510,7 +514,7 @@ export const executedUnits = <Output>(
       return {
         ...failureBase,
         state: "failed",
-        ...(options?.restored === true ? { disposition: "untouched" } : {}),
+        ...(options?.restored === true ? { disposition: "restored" as const } : {}),
       };
     }),
   );

@@ -69,12 +69,17 @@ entered.
 Enabled extension capabilities may contribute independently managed content:
 
 - Rules contribute ordered behavior guidance.
-- Knowledge contributes a compact discovery table.
+- Knowledge contributes a compact discovery table for enabled bundles admitted
+  by the Knowledge-wide switch and each bundle's manifest/workspace policy.
 - Hooks may contribute an explicitly supported instruction fallback.
 
 Each region remains owned by its contributor. Global instruction-file
 management owns propagation and aliases; it does not own those extensions or
 the surrounding authored prose.
+
+Top-level instruction management is the outer gate. It does not replace the
+Knowledge-specific precedence or affect enabled Concepts; see `axm help
+knowledge` for per-bundle `instructionEntry` behavior.
 
 ## Alias `.gitignore` entries
 

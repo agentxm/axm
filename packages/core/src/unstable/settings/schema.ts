@@ -196,6 +196,14 @@ type EnabledEntry = SourceEntry & {
   readonly enabled: boolean;
 };
 
+type KnowledgeEntryObject = EnabledEntryObject & {
+  readonly instructionEntry?: boolean | undefined;
+};
+
+type CanonicalKnowledgeEntry = EnabledEntry & {
+  readonly instructionEntry?: boolean | undefined;
+};
+
 type SkillEntryObject = {
   readonly source: string;
   readonly enabled?: boolean;
@@ -635,20 +643,60 @@ export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 export const KnowledgeEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("knowledge bundle", "knowledge"),
   enabled: enabledFieldSchema,
+  instructionEntry: Schema.optionalKey(
+    Schema.Boolean.annotate({
+      description:
+        "Include this bundle in the managed Knowledge Bundles instruction table. Omit to inherit the manifest default.",
+    }),
+  ),
 }).annotate({
   title: "Knowledge Entry Object",
-  description: "A knowledge bundle entry with source and an optional enabled flag.",
+  description:
+    "A knowledge bundle entry with source, optional enabled state, and an optional instruction-entry override.",
 });
 
-export const KnowledgeEntrySchema = compactEnabledEntry(KnowledgeEntryObjectSchema, {
-  identifier: "KnowledgeEntry",
-  title: "Knowledge Entry",
-  description: "A knowledge bundle source string, or an object with optional flags.",
-  examples: [
-    "@acme/knowledge/payments@^1.0.0",
-    { source: "@acme/knowledge/payments@^1.0.0", enabled: false },
-  ],
+const KnowledgeEntryCanonicalSchema = Schema.Struct({
+  source: Schema.String,
+  enabled: Schema.Boolean,
+  instructionEntry: Schema.optionalKey(Schema.Boolean),
 });
+
+const decodeKnowledgeEntry = (entry: string | KnowledgeEntryObject): CanonicalKnowledgeEntry =>
+  typeof entry === "string"
+    ? { source: entry, enabled: true }
+    : {
+        source: entry.source,
+        enabled: entry.enabled ?? true,
+        ...(entry.instructionEntry === undefined
+          ? {}
+          : { instructionEntry: entry.instructionEntry }),
+      };
+
+const encodeKnowledgeEntry = (entry: CanonicalKnowledgeEntry): string | KnowledgeEntryObject => {
+  if (entry.enabled && entry.instructionEntry === undefined) return entry.source;
+  return {
+    source: entry.source,
+    ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.instructionEntry === undefined ? {} : { instructionEntry: entry.instructionEntry }),
+  };
+};
+
+export const KnowledgeEntrySchema = compactOrVerboseEntry(
+  KnowledgeEntryObjectSchema,
+  KnowledgeEntryCanonicalSchema,
+  { decode: decodeKnowledgeEntry, encode: encodeKnowledgeEntry },
+  {
+    identifier: "KnowledgeEntry",
+    title: "Knowledge Entry",
+    description:
+      "A knowledge bundle source string, or an object with optional lifecycle and instruction-entry settings.",
+    examples: [
+      "@acme/knowledge/payments@^1.0.0",
+      { source: "@acme/knowledge/payments@^1.0.0", enabled: false },
+      { source: "@acme/knowledge/payments@^1.0.0", instructionEntry: false },
+    ],
+  },
+);
 
 export type KnowledgeEntry = Schema.Schema.Type<typeof KnowledgeEntrySchema>;
 

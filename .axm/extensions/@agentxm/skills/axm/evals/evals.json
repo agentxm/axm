@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.2.2",
+  "suite_version": "0.2.3",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -402,12 +402,12 @@
     {
       "id": 38,
       "stage": "execution",
-      "prompt": "The knowledge bundle is installed but `enabled: false`. Explain its state and turn discovery back on.",
-      "expected_output": "A distinction between retained canonical state and inactive discovery, followed by the exact enable operation and state verification.",
+      "prompt": "Keep the installed product Knowledge bundle and its concepts active, but stop listing it in managed agent instructions.",
+      "expected_output": "A direct workspace `instructionEntry: false` override followed by sync and verification, without disabling or uninstalling the bundle.",
       "assertions": [
-        "Disabled is distinguished from uninstalled.",
-        "Canonical state is retained.",
-        "The response scopes activation and plans verification of projected discovery state."
+        "The response preserves bundle enablement and Concepts availability.",
+        "The response sets only the matching Knowledge entry's `instructionEntry` override to false.",
+        "The response runs or plans `axm sync` and verifies both instruction-entry exclusion and the active Concepts corpus."
       ]
     },
     {

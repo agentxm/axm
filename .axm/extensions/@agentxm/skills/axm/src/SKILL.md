@@ -103,6 +103,12 @@ preflight, lint, inventory, or state commands; hand the work to its owner.
    topic is unknown, use `axm help` once to discover it. Live help is
    authoritative for flags, output fields, and recovery commands.
 
+For Knowledge, only eligible active bundles appear in managed instructions.
+The bundle manifest supplies the default, a direct workspace entry may
+explicitly include or exclude that row, and the global instruction gates still
+apply. Entry suppression does not disable an enabled Concepts corpus; use `axm
+help knowledge` for the current settings shape and precedence.
+
 Never edit an agent projection when canonical source exists. For a
 workspace-authored extension, semantic edits belong under
 `.axm/extensions/<owner>/<type>/<name>` through the applicable authoring

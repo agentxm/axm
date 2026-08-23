@@ -137,6 +137,11 @@ export {
   type ResolvedKnowledgeDiscoveryConfig,
 } from "./discovery-config.js";
 export {
+  resolveKnowledgeInstructionEntry,
+  type KnowledgeInstructionEntryReason,
+  type KnowledgeInstructionEntryResolution,
+} from "./instruction-entry.js";
+export {
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryArtifact,
   type KnowledgeDiscoveryBundle,

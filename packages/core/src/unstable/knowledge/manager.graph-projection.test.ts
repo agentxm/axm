@@ -23,6 +23,7 @@ import { decodeRelativePathSync } from "../utils/path-types.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import type { KnowledgeMap } from "../settings/schema.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
@@ -68,7 +69,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     nodeFs.rmSync(baseDir, { recursive: true, force: true });
   });
 
-  const writeBundle = (name: string) => {
+  const writeBundle = (name: string, instructionEntry?: boolean) => {
     const root = nodePath.join(baseDir, ".axm/extensions/external/knowledge", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
@@ -80,6 +81,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         version: "1.0.0",
         format: { name: "okf", version: "0.2" },
         bundleRoot: "src",
+        ...(instructionEntry === undefined ? {} : { instructionEntry }),
       }),
     );
     nodeFs.writeFileSync(
@@ -91,13 +93,19 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   const makeTestLayer = (args: {
     readonly graph: DesiredStateGraph;
     readonly locked: Readonly<Record<string, ReturnType<typeof localLock>>>;
+    readonly configured?: KnowledgeMap;
+    readonly knowledgeInstructions?: boolean;
+    readonly instructionFiles?: boolean;
   }) => {
     const wsMock = makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm"), {
       getDesiredStateGraph: () => Effect.succeed(args.graph),
       getLockedKnowledge: () => Effect.succeed(args.locked),
       // The writer must never derive membership from settings entries.
-      getConfiguredKnowledgeEntries: () => Effect.succeed({}),
-      getInstructionsConfig: () => Effect.succeed(Option.some({})),
+      getConfiguredKnowledgeEntries: () => Effect.succeed(args.configured ?? {}),
+      getKnowledgeDiscoveryConfig: () =>
+        Effect.succeed({ instructions: args.knowledgeInstructions !== false }),
+      getInstructionsConfig: () =>
+        Effect.succeed(args.instructionFiles === false ? Option.none() : Option.some({})),
     });
     return KnowledgeManagerLive.pipe(
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
@@ -165,5 +173,67 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       expect(instructions).not.toContain("pack-a-bundle");
       expect(instructions.split("[pack-b-bundle]").length - 1).toBe(1);
     }).pipe(Effect.provide(after));
+  });
+
+  it.effect("applies manifest defaults and workspace overrides independently per bundle", () => {
+    writeBundle("manifest-default");
+    writeBundle("manifest-excluded", false);
+    writeBundle("workspace-included", false);
+    writeBundle("workspace-excluded", true);
+    const names = [
+      "manifest-default",
+      "manifest-excluded",
+      "workspace-included",
+      "workspace-excluded",
+    ];
+    const layer = makeTestLayer({
+      graph: completeGraph(names.map((name) => packKnowledgeNode(name, "knowledge-pack"))),
+      locked: Object.fromEntries(names.map((name) => [name, localLock(name)])),
+      configured: {
+        "workspace-included": {
+          source: `${OWNER}/knowledge/workspace-included@^1.0.0`,
+          enabled: true,
+          instructionEntry: true,
+        },
+        "workspace-excluded": {
+          source: `${OWNER}/knowledge/workspace-excluded@^1.0.0`,
+          enabled: true,
+          instructionEntry: false,
+        },
+      },
+    });
+    return Effect.gen(function* () {
+      const manager = yield* KnowledgeManager;
+      yield* applyPlannedProjections(manager);
+      const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
+
+      expect(instructions).toContain("[manifest-default]");
+      expect(instructions).not.toContain("[manifest-excluded]");
+      expect(instructions).toContain("[workspace-included]");
+      expect(instructions).not.toContain("[workspace-excluded]");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("removes all rows when Knowledge instruction discovery is disabled", () => {
+    writeBundle("platform");
+    const enabled = makeTestLayer({
+      graph: completeGraph([packKnowledgeNode("platform", "knowledge-pack")]),
+      locked: { platform: localLock("platform") },
+    });
+    const disabled = makeTestLayer({
+      graph: completeGraph([packKnowledgeNode("platform", "knowledge-pack")]),
+      locked: { platform: localLock("platform") },
+      knowledgeInstructions: false,
+    });
+    const reconcile = Effect.gen(function* () {
+      const manager = yield* KnowledgeManager;
+      yield* applyPlannedProjections(manager);
+    });
+    return Effect.gen(function* () {
+      yield* reconcile.pipe(Effect.provide(enabled));
+      yield* reconcile.pipe(Effect.provide(disabled));
+
+      expect(nodeFs.existsSync(nodePath.join(baseDir, "AGENTS.md"))).toBe(false);
+    }).pipe(Effect.provide(disabled));
   });
 });

@@ -401,6 +401,11 @@
           "enum": ["src"],
           "description": "Package-relative directory containing the authoritative OKF bundle."
         },
+        "instructionEntry": {
+          "type": "boolean",
+          "description": "Whether this bundle appears by default in the managed Knowledge Bundles instruction table. Defaults effectively to true.",
+          "default": true
+        },
         "name": { "$ref": "#/definitions/ExtensionName" }
       },
       "required": ["owner", "version", "type", "format", "bundleRoot", "name"],

@@ -25,7 +25,9 @@ marked regions for which it can establish authority.
 Enabled extension capabilities may contribute independently managed content:
 
 - Rules contribute ordered behavior guidance;
-- Knowledge contributes a compact discovery entry rather than concept content;
+- Knowledge contributes a compact discovery entry rather than concept content
+  for each enabled bundle admitted by its manifest default and optional
+  workspace override;
   and
 - Hooks may contribute an explicitly supported instruction fallback.
 
@@ -94,9 +96,11 @@ concern and are left alone without a report.
 A contribution region is owned by its contributing capability, not by any
 single extension. It is an aggregate ownership unit under the shared
 [output reconciliation contract](overview.md#output-reconciliation): its
-content is the deterministic rendering of every enabled extension the desired
+content is the deterministic rendering of every eligible extension the desired
 state routes into it, whether the route is a direct declaration or Pack
-membership. Enabling, disabling, or removing one contributing extension
+membership. Type-specific admission policy further narrows contributors; for
+Knowledge, an enabled bundle must be admitted by its manifest default and
+optional workspace override. Enabling, disabling, or removing one contributing extension
 re-renders the region from the remaining set; it never rewrites the region to
 contain only the extension being operated on.
 

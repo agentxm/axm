@@ -94,6 +94,12 @@ origins. A missing or invalid configured manifest makes that desired subtree
 unknown and blocks destructive cleanup. Removing a pack retains members still
 required directly or by another pack.
 
+A Pack-only Knowledge member follows its own manifest's `instructionEntry`
+default. A workspace override is expressed by a matching direct `knowledge`
+settings entry, not by Pack overlay data. That direct root contributes its
+source constraint and remains desired after Pack removal; see `axm help
+knowledge` for the effective instruction-entry gates.
+
 At publication time, the Registry requires every dependency to identify a
 public, active extension with at least one installable version satisfying the
 declared range. Private dependencies are rejected even when the pack is

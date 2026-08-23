@@ -83,7 +83,7 @@ The object enables propagation, `false` explicitly disables it, and absence
 means it has not been configured. Use `axm instructions` to inspect the
 effective state and `axm instructions enable|disable` to change it.
 
-Knowledge contribution config lives under `knowledgeConfig`.
+Knowledge-wide contribution config lives under `knowledgeConfig`.
 
 `knowledgeConfig.instructions` controls the managed `Knowledge Bundles` table in
 the canonical instruction source. It defaults to enabled; persist only the
@@ -97,6 +97,24 @@ concept discovery.
   },
 }
 ```
+
+One Knowledge entry may override only its own compact instruction-table row:
+
+```jsonc
+{
+  "knowledge": {
+    "platform": {
+      "source": "@acme/knowledge/platform@^1.0.0",
+      "instructionEntry": false,
+    },
+  },
+}
+```
+
+Persist either explicit boolean to override the bundle manifest; omit the field
+to inherit the manifest default. This per-extension realization choice does
+not disable the bundle or its Concepts corpus. Edit settings, then run `axm
+sync`; see `axm help knowledge` for precedence and Pack-member behavior.
 
 Workspace publication defaults live under `publish`. An extension manifest's
 `publish.visibility` takes precedence over `publish.defaultVisibility`.

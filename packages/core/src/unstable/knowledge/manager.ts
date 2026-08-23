@@ -28,6 +28,7 @@ import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
+import type { KnowledgeMap } from "../settings/index.js";
 import { knowledgeLockEntryToRef, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
@@ -64,6 +65,7 @@ import {
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
 } from "./discovery.js";
+import { resolveKnowledgeInstructionEntry } from "./instruction-entry.js";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -511,23 +513,38 @@ export const KnowledgeManagerLive = Layer.effect(
     const selectKnowledgeBundles = (
       graph: DesiredStateGraph,
       locked: Readonly<Record<string, KnowledgeLockEntry>>,
+      configured: KnowledgeMap,
+      config: ResolvedKnowledgeDiscoveryConfig,
+      instructionFilesEnabled: boolean,
     ) =>
       Effect.forEach(
         graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
         (node) =>
           Effect.gen(function* () {
             const root = yield* desiredCanonicalRoot(node, locked[node.name]);
-            return toProjectionBundle(root, yield* inspectPackage(root));
+            const inspected = yield* inspectPackage(root);
+            const workspaceInstructionEntry = configured[node.name]?.instructionEntry;
+            const resolution = resolveKnowledgeInstructionEntry({
+              bundleEnabled: node.enabled,
+              instructionFilesEnabled,
+              knowledgeInstructionsEnabled: config.instructions,
+              ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
+              ...(inspected.manifest.instructionEntry === undefined
+                ? {}
+                : { manifestInstructionEntry: inspected.manifest.instructionEntry }),
+            });
+            return resolution.included ? [toProjectionBundle(root, inspected)] : [];
           }),
-      );
+      ).pipe(Effect.map((bundles) => bundles.flat()));
 
     const resolveKnowledgeProjection = () =>
       Effect.gen(function* () {
         const graph = yield* ws.getDesiredStateGraph();
         const locked = yield* getKnowledgeLockEntries(ws);
+        const configured = yield* ws.getConfiguredKnowledgeEntries();
         const config = yield* ws.getKnowledgeDiscoveryConfig();
         const instructionsTarget = yield* getInstructionsTarget();
-        return { graph, locked, config, instructionsTarget };
+        return { graph, locked, configured, config, instructionsTarget };
       });
 
     const runKnowledgeProjectionAdapter = (args: {
@@ -554,12 +571,20 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const makeKnowledgeProjectionPlan = (): Effect.Effect<ProjectionPlan, AppError> =>
       Effect.gen(function* () {
-        const { graph, locked, config, instructionsTarget } = yield* resolveKnowledgeProjection();
+        const { graph, locked, configured, config, instructionsTarget } =
+          yield* resolveKnowledgeProjection();
         return yield* planAggregateProjection({
           unitId: "knowledge:discovery-region",
           targetFile: instructionsTarget.path,
           graph,
-          select: (completeGraph) => selectKnowledgeBundles(completeGraph, locked),
+          select: (completeGraph) =>
+            selectKnowledgeBundles(
+              completeGraph,
+              locked,
+              configured,
+              config,
+              instructionsTarget.enabled,
+            ),
           adapter: {
             observe: (input) =>
               runKnowledgeProjectionAdapter({
@@ -596,9 +621,17 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const reconcileDiscovery = (options?: { readonly dryRun?: boolean }) =>
       resolveKnowledgeProjection().pipe(
-        Effect.flatMap(({ graph, locked, config, instructionsTarget }) =>
+        Effect.flatMap(({ graph, locked, configured, config, instructionsTarget }) =>
           requireCompleteGraph(graph).pipe(
-            Effect.flatMap((completeGraph) => selectKnowledgeBundles(completeGraph, locked)),
+            Effect.flatMap((completeGraph) =>
+              selectKnowledgeBundles(
+                completeGraph,
+                locked,
+                configured,
+                config,
+                instructionsTarget.enabled,
+              ),
+            ),
             Effect.flatMap((bundles) =>
               runKnowledgeProjectionAdapter({
                 bundles,
@@ -636,6 +669,19 @@ export const KnowledgeManagerLive = Layer.effect(
           case "workspace":
             return Option.none();
         }
+      });
+
+    const setKnowledgeSourceEntry = (name: string, source: string) =>
+      Effect.gen(function* () {
+        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const current = configured[name];
+        yield* ws.setKnowledgeEntry(name, {
+          source,
+          enabled: true,
+          ...(current?.instructionEntry === undefined
+            ? {}
+            : { instructionEntry: current.instructionEntry }),
+        });
       });
 
     const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
@@ -771,10 +817,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   versionRange: args.versionRange,
                 });
               } else {
-                yield* ws.setKnowledgeEntry(name, {
-                  source: printSourceParams(args.ref.source),
-                  enabled: true,
-                });
+                yield* setKnowledgeSourceEntry(name, printSourceParams(args.ref.source));
               }
               return { name };
             });
@@ -919,10 +962,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   lockEntry: lockEntry.value,
                   versionRange,
                 })
-              : ws.setKnowledgeEntry(ref.knowledge.name, {
-                  source: printSourceParams(ref.source),
-                  enabled: true,
-                }),
+              : setKnowledgeSourceEntry(ref.knowledge.name, printSourceParams(ref.source)),
           ),
         ),
       removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),

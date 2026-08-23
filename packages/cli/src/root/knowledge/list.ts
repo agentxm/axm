@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
@@ -9,6 +10,10 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { ConfiguredAgentOutcomeSchema } from "@agentxm/client-core/unstable/plan";
+import {
+  resolveKnowledgeInstructionEntry,
+  type KnowledgeInstructionEntryResolution,
+} from "@agentxm/client-core/unstable/knowledge";
 import {
   configuredAgentLifecycleOutcomes,
   WorkspaceMutations,
@@ -24,6 +29,19 @@ const BundleSchema = Schema.Struct({
   sourceRoot: Schema.String,
   concepts: Schema.Number,
   diagnostics: Schema.Number,
+  instructionEntry: Schema.optionalKey(
+    Schema.Struct({
+      included: Schema.Boolean,
+      reason: Schema.Literals([
+        "bundle-disabled",
+        "instruction-files-disabled",
+        "knowledge-instructions-disabled",
+        "workspace-excluded",
+        "manifest-excluded",
+        "included",
+      ]),
+    }),
+  ),
   agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
 });
 
@@ -38,8 +56,16 @@ interface BundleRow {
   readonly concepts: number;
   readonly diagnostics: number;
   readonly sourceRoot: string;
+  readonly instructionEntry?: KnowledgeInstructionEntryResolution;
   readonly agentOutcomes: ReadonlyArray<typeof ConfiguredAgentOutcomeSchema.Type>;
 }
+
+const renderInstructionEntry = (
+  resolution: KnowledgeInstructionEntryResolution | undefined,
+): string =>
+  resolution === undefined
+    ? "n/a"
+    : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleTable = {
   columns: {
@@ -47,6 +73,7 @@ const BundleTable = {
     concepts: { header: "Concepts" },
     diagnostics: { header: "Diagnostics" },
     sourceRoot: { header: "Source" },
+    instructionEntry: { header: "Instruction entry", render: renderInstructionEntry },
     agentOutcomes: { header: "Agent outcomes", render: inventoryAgentOutcomes },
   },
 } as const satisfies TableView<BundleRow>;
@@ -68,26 +95,53 @@ export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
   const bundles = yield* inspectInstalledKnowledge();
   const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
   const configuredAgents = yield* ws.getConfiguredAgents();
+  const configured = yield* ws.getConfiguredKnowledgeEntries();
+  const discoveryConfig = yield* ws.getKnowledgeDiscoveryConfig();
+  const instructionFiles = yield* ws.getInstructionsConfig();
+  const instructionFilesEnabled =
+    Option.isSome(instructionFiles) && instructionFiles.value !== false;
   const bundlesByName = new Map(bundles.map((bundle) => [bundle.name, bundle]));
   const inventoryNames = new Set(inventory.items.map((item) => item.name));
   const rows = [
     ...inventory.items.map((item) => {
       const bundle = bundlesByName.get(item.name);
+      const workspaceInstructionEntry = configured[item.name]?.instructionEntry;
+      const instructionEntry =
+        item.enabled === false || bundle !== undefined
+          ? resolveKnowledgeInstructionEntry({
+              bundleEnabled: item.enabled !== false,
+              instructionFilesEnabled,
+              knowledgeInstructionsEnabled: discoveryConfig.instructions,
+              ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
+              ...(bundle?.manifest.instructionEntry === undefined
+                ? {}
+                : { manifestInstructionEntry: bundle.manifest.instructionEntry }),
+            })
+          : undefined;
       return {
         name: item.name,
         sourceRoot: bundle?.sourceRoot ?? item.paths[0] ?? "n/a",
         concepts: bundle?.inspection.concepts.length ?? 0,
         diagnostics: bundle?.inspection.diagnostics.length ?? 0,
+        ...(instructionEntry === undefined ? {} : { instructionEntry }),
         agentOutcomes: item.agentOutcomes,
       };
     }),
     ...bundles
       .filter(({ name }) => !inventoryNames.has(name))
-      .map(({ name, sourceRoot, inspection }) => ({
+      .map(({ name, sourceRoot, manifest, inspection }) => ({
         name,
         sourceRoot,
         concepts: inspection.concepts.length,
         diagnostics: inspection.diagnostics.length,
+        instructionEntry: resolveKnowledgeInstructionEntry({
+          bundleEnabled: true,
+          instructionFilesEnabled,
+          knowledgeInstructionsEnabled: discoveryConfig.instructions,
+          ...(manifest.instructionEntry === undefined
+            ? {}
+            : { manifestInstructionEntry: manifest.instructionEntry }),
+        }),
         agentOutcomes: configuredAgentLifecycleOutcomes({
           type: "knowledge",
           name,

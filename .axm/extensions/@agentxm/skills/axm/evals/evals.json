@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.1.0",
+  "suite_version": "0.1.1",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -160,12 +160,12 @@
     {
       "id": 15,
       "stage": "routing",
-      "prompt": "Set up this repo for Codex and Claude, then diagnose why the skill projection is missing.",
-      "expected_selection": "axm",
+      "prompt": "Set up the canonical agent instructions in this AXM workspace for Codex and Claude, then diagnose why the skill projection is missing.",
+      "expected_selection": ["axm", "author-agent-instructions", "axm"],
       "catalog_neighbors": ["author-agent-instructions", "audit-agent-instructions"],
       "assertions": [
-        "AXM is selected for workspace setup, agent membership, and projection diagnosis.",
-        "The missing projection is treated as managed state rather than semantic authoring."
+        "AXM is selected first for workspace setup, agent membership, and projection diagnosis.",
+        "Instruction authoring owns semantic setup between AXM state resolution and AXM projection diagnosis."
       ]
     },
     {

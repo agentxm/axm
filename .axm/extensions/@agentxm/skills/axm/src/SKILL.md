@@ -1,19 +1,21 @@
 ---
 name: axm
 description: >-
-  Manages agent extensions across their package, workspace, projection,
-  composition, installation, distribution, and lifecycle. Use for discover,
-  find, inspect, create, scaffold, import, fork, adopt, install, add, configure,
-  edit, update, upgrade, enable, disable, sync, lint, validate, package, bundle,
-  version, publish, deprecate, yank, uninstall, remove, or delete requests about
-  skills or SKILL.md, subagents or agent definitions, MCP server configurations
-  or connections, rules or instructions, hooks, Knowledge bundles, packs, or
-  AXM workspace state—even when the user does not name AXM or “extension.”
-  Examples: “create a skill,” “add a subagent,” “connect an MCP server,”
-  “configure an MCP integration,” “write a rule,” and “publish an extension.”
-  Activate before changing extension content or manifests so AXM can resolve
-  canonical source and ownership. Not for implementing or debugging MCP server
-  software, or merely using an installed extension for its normal task.
+  Manages AXM packages, workspace state, projections, composition,
+  distribution, and lifecycle. Use for
+  discover, find, inspect, create, scaffold, import, fork, adopt, install, add,
+  configure, edit, update, upgrade, enable, disable, sync, lint, validate,
+  package, bundle, version, publish, deprecate, yank, uninstall, remove, or
+  delete of skills or SKILL.md; subagents or agent definitions; MCP
+  server configurations or connections; rules or instructions; hooks;
+  Knowledge bundles; or packs—even when AXM is not named. Examples: “create a
+  skill,” “add a subagent,” and “connect an MCP server.” Activate before
+  changing managed content to resolve source and ownership. Workspace setup
+  and projection-only repair are
+  AXM state work, not instruction authoring; agent definitions are not Agent
+  Skills. For audit-and-fix, order audit, AXM state, authoring, then audit
+  verification. Not for implementing or debugging MCP
+  server software, or merely using an installed extension for its normal task.
 license: FSL-1.1-MIT; https://github.com/agentxm/axm/blob/main/LICENSE
 metadata:
   axm.sh/cli-version: "0.27.15"

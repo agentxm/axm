@@ -8,14 +8,15 @@ description: >-
   package, bundle, version, publish, deprecate, yank, uninstall, remove, or
   delete of skills or SKILL.md; subagents or agent definitions; MCP
   server configurations or connections; rules or instructions; hooks;
-  Knowledge bundles; or packs—even when AXM is not named. Examples: “create a
-  skill,” “add a subagent,” and “connect an MCP server.” Activate before
+  Knowledge bundles; or packs—even when AXM is not named. Examples: create a
+  skill; add a subagent. Activate before
   changing managed content to resolve source and ownership. Workspace setup
   and projection-only repair are
   AXM state work, not instruction authoring; agent definitions are not Agent
   Skills. For audit-and-fix, order audit, AXM state, authoring, then audit
-  verification. Not for implementing or debugging MCP
-  server software, or merely using an installed extension for its normal task.
+  verification. Not for implementing or debugging MCP server software; in
+  mixed requests, software owns it and AXM owns connection configuration. Not
+  for merely using an installed extension.
 license: FSL-1.1-MIT; https://github.com/agentxm/axm/blob/main/LICENSE
 metadata:
   axm.sh/cli-version: "0.27.15"

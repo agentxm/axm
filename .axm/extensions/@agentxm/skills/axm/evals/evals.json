@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.1.1",
+  "suite_version": "0.1.2",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -204,11 +204,11 @@
     {
       "id": 19,
       "stage": "routing",
-      "prompt": "Implement a TypeScript MCP server and configure Codex and Claude to connect to it.",
-      "expected_selection": ["clarify-or-abstain", "axm"],
+      "prompt": "Configure Codex and Claude to connect to the TypeScript MCP server I just implemented.",
+      "expected_selection": "axm",
       "catalog_neighbors": ["author-agent-skill", "audit-agent-skill"],
       "assertions": [
-        "The implementation subjob is left to software engineering while AXM is selected for the connection subjob.",
+        "AXM is selected for the MCP connection configuration without reopening the completed implementation subjob.",
         "AXM does not claim MCP server implementation."
       ]
     },

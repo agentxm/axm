@@ -7,7 +7,7 @@
       "id": 1,
       "stage": "routing",
       "prompt": "Create a reusable skill that checks API documentation for stale examples.",
-      "expected_selection": "axm",
+      "expected_selection": ["axm", "author-agent-skill"],
       "catalog_neighbors": ["author-agent-skill", "audit-agent-skill"],
       "assertions": [
         "AXM is selected first to establish the package and canonical source, followed by semantic skill authoring.",
@@ -29,7 +29,7 @@
       "id": 3,
       "stage": "routing",
       "prompt": "Add a specialized agent that can investigate flaky integration tests.",
-      "expected_selection": ["axm", "author-agent-skill"],
+      "expected_selection": "axm",
       "catalog_neighbors": ["author-agent-skill", "audit-agent-skill"],
       "assertions": [
         "AXM is selected for subagent package lifecycle.",

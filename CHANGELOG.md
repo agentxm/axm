@@ -1,3 +1,13 @@
+## 0.27.16 (2026-08-23)
+
+### 🩹 Fixes
+
+- Make the official AXM skill a broad, bounded extension-management front door and restrict publishing to workspace-authored packages with precise archive-integrity guidance.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.15 (2026-08-20)
 
 ### 🚀 Features

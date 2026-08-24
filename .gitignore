@@ -52,10 +52,6 @@ tmp/
 # Test results (JUnit XML reports)
 test-results/
 
-# >>> axm:instructions >>>
-**/CLAUDE.md
-# <<< axm:instructions <<<
-
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs

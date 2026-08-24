@@ -18,6 +18,16 @@ While doing ordinary work within a declared subject, record one note when:
 Do not record your own typo, the same incident twice in one session, or
 speculation without an observed incident.
 
+### Preserve diagnostic evidence
+
+While working within a declared subject, do not discard safe structured failure
+details before deciding whether an interaction qualifies for capture. Inspect
+the complete result, preserve the process exit status, and keep result output
+separate from diagnostic output. If output must be reduced, retain materially
+useful error, request, response, retry, recovery, and affected-artifact fields.
+Never retain credentials, authorization material, opaque response bodies, or
+other sensitive values. Do not rerun a mutation merely to recover evidence.
+
 ### How to record
 
 On the first qualifying incident in a session, read the

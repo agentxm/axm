@@ -2,14 +2,14 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "knowledge",
   "format": {
     "name": "okf",
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Operational field-note practice for factual capture, impact-aware triage, evidence-led findings, and verified corrective action",
+  "description": "Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action",
   "keywords": [
     "field-notes",
     "observation",

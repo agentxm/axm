@@ -32,6 +32,8 @@ status: open
 **Recovery:** what restored progress and whether the task completed
 **Detected by:** how the difference became visible
 **Observed factors:** relevant conditions directly seen during the incident
+**Diagnostic evidence:** safe identifiers and structured failure fields already
+available from the incident; omit when the incident was not machine-surfaced
 **Hypothesis:** a tentative explanation, or `unknown`
 **Suggests:** an optional reporter idea; omit when none is grounded
 
@@ -43,6 +45,26 @@ unavailable material fact as unknown rather than inferring it.
 Report one specific incident with observable evidence. Do not substitute a
 general impression. Keep capture brief and continue the original work; do not
 investigate to fill a field.
+
+For a machine-surfaced incident, inspect the complete structured result before
+reducing it and preserve the process exit status. Keep primary result output
+separate from diagnostic output, and ensure a pipeline does not replace the
+failing command's status with a successful formatter status.
+
+Record only already-observed, materially useful diagnostic fields, such as:
+
+- tool version, command surface, and affected artifact identity and version;
+- stable error code or class, request or correlation ID, response status, and
+  problem code;
+- retryability, attempt count, replay safety, and retry stop reason;
+- safe recovery command, remaining and blocked identities, candidate identity,
+  or archive integrity.
+
+Use `not supplied` when the authoritative result omitted an expected field.
+Use `unavailable — output was not retained` when the workflow discarded it.
+Do not infer either state, rerun a mutation to fill the note, or investigate for
+additional fields. Never record credentials, tokens, authorization headers,
+opaque response bodies, or unreviewed values that may contain sensitive data.
 
 For `Impact`, say what was delayed, degraded, repeated, or prevented and who or
 what was affected. Quantify directly observed retries, extra steps, elapsed

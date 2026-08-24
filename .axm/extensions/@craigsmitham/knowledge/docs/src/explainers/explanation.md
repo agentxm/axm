@@ -39,20 +39,20 @@ generated:
 An **explanation** is a discursive treatment of a topic that invites
 **reflection**. It is **understanding-oriented**: it deepens and broadens
 what the reader grasps, joins things into a bigger picture, and answers
-questions like *why?* and *Can you tell me about …?*
+questions like _why?_ and _Can you tell me about …?_
 
 It is documentation one can usefully read **away from the product** — material
 for study and thought rather than for hands on the console. Of the four
 Diátaxis reader-need forms, it is the only one that might make sense to read “in the
 bath.”
 
-Harold McGee’s *On Food and Cooking* is a strong everyday model: no recipes to
+Harold McGee’s _On Food and Cooking_ is a strong everyday model: no recipes to
 execute mid-kitchen, no ingredient tables to look up — the history, science,
 and culture around cooking, so that practice becomes calmer and better
 grounded.
 
-Other names hosts use for the same job: *Discussion*, *Background*,
-*Conceptual guides*, *Topics*.
+Other names hosts use for the same job: _Discussion_, _Background_,
+_Conceptual guides_, _Topics_.
 
 To write one, use [Explanation guide](../guides/explanation.md).
 
@@ -62,13 +62,13 @@ In Diátaxis, explanation sits with **cognition** (what the user knows) and
 **study** (acquisition of skill), not with action or with application at
 work:
 
-| Axis | Explanation’s side | Contrast |
-| --- | --- | --- |
-| Action vs cognition | Cognition / propositional knowledge | Tutorials and how-tos direct action |
-| Study vs work | Study (understanding for its own sake) | Reference also states facts, but for **work** — lookup while doing |
+| Axis                | Explanation’s side                     | Contrast                                                           |
+| ------------------- | -------------------------------------- | ------------------------------------------------------------------ |
+| Action vs cognition | Cognition / propositional knowledge    | Tutorials and how-tos direct action                                |
+| Study vs work       | Study (understanding for its own sake) | Reference also states facts, but for **work** — lookup while doing |
 
-So explanation is less *urgent* than a broken how-to or missing reference, but
-not less *important*: without it, knowledge of a craft stays loose and
+So explanation is less _urgent_ than a broken how-to or missing reference, but
+not less _important_: without it, knowledge of a craft stays loose and
 anxious.
 
 Its vantage is **higher and wider** than the other three forms. It is not the
@@ -76,19 +76,19 @@ user’s eye-level task view (how-to) or a close-up of the machinery
 (reference). Its unit is a **topic** — a bounded area of knowledge — and it
 may circle that topic from several directions.
 
-The word *explain* shares roots with **unfolding** — bringing into the light
-what was implicit. *Understanding* shares roots with **grasp** — holding the
+The word _explain_ shares roots with **unfolding** — bringing into the light
+what was implicit. _Understanding_ shares roots with **grasp** — holding the
 craft so practice is less fragile.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Understanding / reflection |
-| **Success** | The topic is clearer; connections and tradeoffs make sense; practice feels less fragile |
-| **Voice** | Discussion: may digress, compare, and weigh perspectives when that aids insight |
-| **Typical prompt** | *Why is it this way?* · *Can you tell me about X?* · *How does this fit together?* |
-| **Title cue** | Often reads as *About …* (explicit or implicit) |
+|                    |                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| **Reader need**    | Understanding / reflection                                                              |
+| **Success**        | The topic is clearer; connections and tradeoffs make sense; practice feels less fragile |
+| **Voice**          | Discussion: may digress, compare, and weigh perspectives when that aids insight         |
+| **Typical prompt** | _Why is it this way?_ · _Can you tell me about X?_ · _How does this fit together?_      |
+| **Title cue**      | Often reads as _About …_ (explicit or implicit)                                         |
 
 ## What belongs
 
@@ -116,13 +116,13 @@ understanding, not procedure.
 - Instruction or technical description absorbed “while covering the topic” —
   explanation tends to swallow other forms if unbounded
 - A topic with no spine — open-ended “everything about X” without a real or
-  imagined *why* (or similar prompt) to bound the page
+  imagined _why_ (or similar prompt) to bound the page
 
 ## Quality signals
 
 - A central understanding question is obvious near the top
 - The piece could be read away from the product without feeling incomplete as
-  *discussion* (even if it links out for doing and lookup)
+  _discussion_ (even if it links out for doing and lookup)
 - Connections and context dominate; steps and field catalogs do not
 - Opinions and alternatives are visible and distinguishable from hard system
   facts
@@ -139,33 +139,33 @@ how-to; study of concepts → explanation.
 
 Useful shapes (paraphrased from Diátaxis):
 
-- *The reason for x is historically y …*
-- *W is better than z here because …*
-- *An x in this system is analogous to a w in that system; however …*
-- *Some users prefer w (because z). That can work, but …*
-- *An x interacts with a y as follows …* (unfolding internals for insight)
+- _The reason for x is historically y …_
+- _W is better than z here because …_
+- _An x in this system is analogous to a w in that system; however …_
+- _Some users prefer w (because z). That can work, but …_
+- _An x interacts with a y as follows …_ (unfolding internals for insight)
 
 ## Explanation vs reference (the hard boundary)
 
 Both live in the theory half of the map. The difference is **study vs
 work**:
 
-| | Explanation | Reference |
-| --- | --- | --- |
-| User mode | Study — acquire understanding | Work — apply skill |
-| Purpose | Illuminate a topic for reflection | Describe the machinery for lookup |
-| Form | Discursive discussion | Dry, austere description |
-| Structure | Circles a bounded topic | Follows the product |
-| Opinion | Allowed and often needed | Out of place |
-| Prompt | *Can you tell me about…?* away from the console | *What is…?* while hands-on |
+|           | Explanation                                     | Reference                         |
+| --------- | ----------------------------------------------- | --------------------------------- |
+| User mode | Study — acquire understanding                   | Work — apply skill                |
+| Purpose   | Illuminate a topic for reflection               | Describe the machinery for lookup |
+| Form      | Discursive discussion                           | Dry, austere description          |
+| Structure | Circles a bounded topic                         | Follows the product               |
+| Opinion   | Allowed and often needed                        | Out of place                      |
+| Prompt    | _Can you tell me about…?_ away from the console | _What is…?_ while hands-on        |
 
 Rules of thumb: lists and tables that are boring to “read” → often reference;
 something imaginable as a discussion over a drink → often explanation.
-Expansive examples in reference that grow into *why* starve both jobs.
+Expansive examples in reference that grow into _why_ starve both jobs.
 
 ## Failure modes (common)
 
-- **Scattered explanation** — tiny *why* parcels only inside tutorials and
+- **Scattered explanation** — tiny _why_ parcels only inside tutorials and
   how-tos, with no place to go for reflection
 - **Tutorial overload** — lessons stuffed with theory the learner cannot use
   yet

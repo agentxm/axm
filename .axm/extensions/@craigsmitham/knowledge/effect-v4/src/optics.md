@@ -87,22 +87,22 @@ Validate or construct the replacement separately when an invariant must
 hold.[^src-optic]
 
 ```ts
-import { Optic } from "effect"
+import { Optic } from "effect";
 
 type Todo =
   | { readonly _tag: "Open"; readonly title: string }
-  | { readonly _tag: "Done"; readonly title: string }
+  | { readonly _tag: "Done"; readonly title: string };
 
 type State = {
-  readonly todos?: ReadonlyArray<Todo>
-}
+  readonly todos?: ReadonlyArray<Todo>;
+};
 
 const openTitles = Optic.id<State>()
   .key("todos")
   .notUndefined()
-  .forEach((todo) => todo.tag("Open").key("title"))
+  .forEach((todo) => todo.tag("Open").key("title"));
 
-const normalizeOpenTitles = openTitles.modifyAll((title) => title.trim())
+const normalizeOpenTitles = openTitles.modifyAll((title) => title.trim());
 ```
 
 Path replacement shallow-copies only objects and arrays along the focus and
@@ -146,6 +146,9 @@ synchronously; `Effect` can load the value and persist the result around it.
   structural sharing matters.
 
 [^docs-optic]: `packages/effect/OPTIC.md` at `effect@4.0.0-rc.110` — glossary, `key` vs `optionalKey` undefined semantics, traversals, `Schema.toIso` including `Schema.Class`, plain-objects-only limitation.
+
 [^src-optic]: `packages/effect/src/Optic.ts` at `effect@4.0.0-rc.110` — `get` declared only on `Lens`; `Optional` exposes `getResult`/`replaceResult`; `replace`/`modify` return the original source when the optic cannot focus; `CheckNode.set` is identity, so `check`/`refine` never validate writes; compose overloads keep Iso/Lens/Prism where earned; `PathNode.set` shallow-copies only the focus spine.
+
 [^test-optic]: `packages/effect/test/Optic.test.ts` at `effect@4.0.0-rc.110` — behavior tests including the runtime throw when replacing inside a non-plain object.
+
 [^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `toIso` returns `Optic.Iso<S["Type"], S["Iso"]>`, with `toIsoSource`/`toIsoFocus` variants.

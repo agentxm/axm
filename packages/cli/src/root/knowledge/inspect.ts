@@ -114,7 +114,7 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
     entries,
     ([name, sourceRoot]) => {
       return inspectKnowledgePackage(path.dirname(sourceRoot)).pipe(
-        Effect.map(({ inspection }) => ({ name, sourceRoot, inspection })),
+        Effect.map(({ manifest, inspection }) => ({ name, sourceRoot, manifest, inspection })),
         Effect.mapError((cause) =>
           makeAppError({
             code: "validation",

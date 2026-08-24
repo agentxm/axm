@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/run-1.0.0.json",
+  "title": "Agent Skill evaluation run",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "protocol_version",
+    "run_id",
+    "state",
+    "evidence_class",
+    "target",
+    "suite",
+    "runner",
+    "adapters",
+    "environment",
+    "authority",
+    "budgets",
+    "coverage",
+    "provenance",
+    "started_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "protocol_version": { "const": "1.0.0" },
+    "run_id": { "type": "string" },
+    "state": { "enum": ["running", "complete", "failed", "canceled"] },
+    "evidence_class": { "enum": ["authoring-smoke", "regression"] },
+    "target": { "type": "object" },
+    "suite": { "type": "object" },
+    "runner": {
+      "type": "object",
+      "required": ["implementation", "version", "content_identity", "runtime", "selection_source"],
+      "properties": {
+        "implementation": { "type": "string" },
+        "version": { "type": "string" },
+        "content_identity": { "type": "string" },
+        "runtime": { "type": "string" },
+        "selection_source": { "enum": ["explicit", "pack-default"] }
+      }
+    },
+    "adapters": { "type": "object" },
+    "environment": { "type": "object" },
+    "authority": { "type": "object" },
+    "budgets": { "type": "object" },
+    "coverage": { "type": "object" },
+    "provenance": { "type": "object" },
+    "started_at": { "type": "string" },
+    "ended_at": { "type": ["string", "null"] },
+    "outcomes": { "type": ["object", "null"] },
+    "raw_evidence": { "type": "array" },
+    "evidence_redaction": { "type": "object" }
+  }
+}

@@ -13,13 +13,13 @@ This skill is coupled to the software-engineering pack. From the active AXM
 scope root, use the guides under
 `.axm/extensions/@craigsmitham/knowledge/software-engineering/src/work-items/`:
 
-| Job | Read | Add when the artifact boundary is uncertain |
-| --- | --- | --- |
-| Any title or summary | `titling-and-summarizing-work-items.md` | `work-item-titles-and-summaries.md` |
-| Existing technical design or delivery context | `preserving-design-and-delivery-context.md` | — |
-| Operational incident | `recording-operational-incidents.md` | `operational-incident-records.md` |
-| Suspected software defect | `reporting-software-defects.md` | `software-defects-and-defect-reports.md` |
-| Requested new or changed functionality | `writing-feature-requests.md` | `feature-requests-and-delivery-work.md` |
+| Job                                           | Read                                        | Add when the artifact boundary is uncertain          |
+| --------------------------------------------- | ------------------------------------------- | ---------------------------------------------------- |
+| Any title or summary                          | `titling-and-summarizing-work-items.md`     | `work-item-titles-and-summaries.md`                  |
+| Existing technical design or delivery context | `preserving-design-and-delivery-context.md` | —                                                    |
+| Operational incident                          | `recording-operational-incidents.md`        | `operational-incident-records.md`                    |
+| Suspected software defect                     | `recording-defect-reports.md`               | `failures-defects-and-defect-reports.md`             |
+| Requested new or changed functionality        | `recording-feature-requests.md`             | `feature-requests-requirements-and-delivery-work.md` |
 
 Read `index.md` when selecting among types. Do not load every guide for a known
 type.
@@ -27,8 +27,10 @@ type.
 ## Classification boundary
 
 - Use an **operational incident record** for current or imminent service impact
-  that meets the local threshold for coordinated response. It is live until
-  impact ends; permanent corrective work has a separate lifecycle.
+  that meets the local threshold for coordinated response. It remains live
+  until the local closure criteria are met; impact end, service restoration or
+  recovery, closure, and permanent corrective work can have separate states
+  and lifecycles.
 - Use a **defect report** when observed behavior may violate an accepted
   expectation. Root-cause proof is not a prerequisite.
 - Use a **feature request** when someone seeks new or changed functionality. A
@@ -41,10 +43,11 @@ type.
 
 If the artifact is an implementation task, accepted delivery item,
 investigation, post-incident review, architecture decision, or general project
-record, use its governing workflow rather than stretching these templates.
-Classification sets the item's primary meaning and minimum content, not a body
-ceiling: a defect or request may preserve supplied design and delivery context
-without becoming the artifact that approves or executes it.
+record, its governing workflow owns lifecycle, classification, placement, and
+host fields. Faithfully authoring or revising that artifact from supplied
+accepted context remains in scope; independently designing, approving, or
+decomposing the work does not. Classification sets the item's primary meaning
+and minimum content, not a body ceiling.
 
 ## Workflow
 
@@ -70,8 +73,8 @@ without becoming the artifact that approves or executes it.
 5. **Preserve type-specific meaning.** Apply the selected guide and local host
    fields. Keep facts distinct from hypotheses, need distinct from proposed
    solution, severity distinct from priority, and current mitigation distinct
-   from permanent correction. Link related artifacts instead of merging their
-   lifecycles.
+   from impact end, restoration, recovery, closure, and permanent correction.
+   Link related artifacts instead of merging their lifecycles.
 6. **Derive the brief last.** Write a discriminating title and a one- or
    two-sentence summary from the authoritative body and structured fields.
    Nothing material may exist only in the brief, and its length limit never

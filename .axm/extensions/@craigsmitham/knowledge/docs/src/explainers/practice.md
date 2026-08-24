@@ -34,19 +34,19 @@ of action intelligible and skillful participation possible. It joins people,
 dispositions, activities, artifacts, language, roles, purposes, and standards
 of better and worse performance into a coherent undertaking.
 
-Here *practice* does not mean rehearsal, a repeated habit, or a recommended
+Here _practice_ does not mean rehearsal, a repeated habit, or a recommended
 “best practice.” Nor is it another documentation form. A practice is part of
 the lived reality that principles, patterns, rules, guides, and other documents
 selectively articulate.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Central question** | What makes these actions intelligible as participation in one purposive undertaking? |
-| **Unit** | A standing social, material, skilled, and normative structure—not one action or procedure |
-| **Participants need** | Formation, recognition, equipment, practical judgment, and opportunities to act with others |
-| **Documentation can do** | Articulate purposes, language, norms, patterns, procedures, and accumulated reflection |
+|                             |                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| **Central question**        | What makes these actions intelligible as participation in one purposive undertaking?        |
+| **Unit**                    | A standing social, material, skilled, and normative structure—not one action or procedure   |
+| **Participants need**       | Formation, recognition, equipment, practical judgment, and opportunities to act with others |
+| **Documentation can do**    | Articulate purposes, language, norms, patterns, procedures, and accumulated reflection      |
 | **Documentation cannot do** | Exhaust tacit knowing, confer competence or standing, or replace participation and judgment |
 
 ## What constitutes a practice
@@ -84,11 +84,11 @@ understanding.
 
 The distinction among practice, skill, and action is foundational:
 
-| Concept | Unit | Relationship to practice |
-| --- | --- | --- |
-| **Practice** | Standing structure of meaningful participation | Makes a domain of skillful action intelligible and possible |
-| **Skill** | Acquired capacity or disposition | Enables a participant to perceive and act fluently within the practice |
-| **Action** | Particular deed, omission, decision, or course of conduct | Expresses, develops, violates, or sometimes merely resembles the practice |
+| Concept      | Unit                                                      | Relationship to practice                                                  |
+| ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Practice** | Standing structure of meaningful participation            | Makes a domain of skillful action intelligible and possible               |
+| **Skill**    | Acquired capacity or disposition                          | Enables a participant to perceive and act fluently within the practice    |
+| **Action**   | Particular deed, omission, decision, or course of conduct | Expresses, develops, violates, or sometimes merely resembles the practice |
 
 An action's physical description does not determine whether it belongs. The
 same movement may be incidental outside a practice and meaningful within it;
@@ -103,7 +103,7 @@ can sustain it while nobody is presently performing its characteristic acts.
 ## Background and intelligibility
 
 Practices do more than regulate behavior after a situation is recognized. They
-help participants perceive what the situation *is*: what counts as equipment,
+help participants perceive what the situation _is_: what counts as equipment,
 evidence, danger, success, a permissible move, or a call for response. Dreyfus
 uses **background practice** for practices that normally recede from attention
 while making people, things, and situations intelligible.
@@ -138,7 +138,7 @@ including:
 - increasing responsibility for perception and judgment.
 
 Polanyi calls the assimilated use of bodies, language, tools, and conceptual
-frameworks **indwelling**. A capable participant ordinarily attends *through*
+frameworks **indwelling**. A capable participant ordinarily attends _through_
 them to the work rather than treating them as isolated objects. Describing a
 practice's equipment should therefore explain what practitioners perceive and
 accomplish through it, not merely list what they use.
@@ -192,17 +192,17 @@ Documentation participates in a practice when people use it to learn, judge,
 coordinate, remember, or act. Different forms make different aspects of the
 practice explicit:
 
-| Documentation or guidance | Relationship to a practice |
-| --- | --- |
-| **Tutorial** | Provides a protected path of guided participation but does not complete formation |
-| **How-to guide** | Directs a capable participant toward one concrete outcome |
-| **Reference** | Stabilizes explicit facts, vocabulary, interfaces, and distinctions for use in work |
-| **Explanation** | Brings purposes, background, relationships, and contested understanding into reflection |
-| **Principle** | Articulates a recognized good and durable direction for judgment |
-| **Standard** | Establishes a recognized basis for assessing or coordinating a defined field of the practice |
-| **Rule or policy** | Makes a determinate demand within a defined authority and scope |
-| **Pattern** | Makes a recurring contextual problem and adaptable solution transferable |
-| **Playbook or runbook** | Coordinates selection or execution of established responses within an operational practice |
+| Documentation or guidance | Relationship to a practice                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| **Tutorial**              | Provides a protected path of guided participation but does not complete formation            |
+| **How-to guide**          | Directs a capable participant toward one concrete outcome                                    |
+| **Reference**             | Stabilizes explicit facts, vocabulary, interfaces, and distinctions for use in work          |
+| **Explanation**           | Brings purposes, background, relationships, and contested understanding into reflection      |
+| **Principle**             | Articulates a recognized good and durable direction for judgment                             |
+| **Standard**              | Establishes a recognized basis for assessing or coordinating a defined field of the practice |
+| **Rule or policy**        | Makes a determinate demand within a defined authority and scope                              |
+| **Pattern**               | Makes a recurring contextual problem and adaptable solution transferable                     |
+| **Playbook or runbook**   | Coordinates selection or execution of established responses within an operational practice   |
 
 These artifacts can strengthen a practice by making important knowledge
 available beyond memory and proximity. They can also expose disagreements
@@ -222,16 +222,16 @@ of lived competence into text.
 
 ## Neighboring concepts
 
-| Concept | Difference from a practice |
-| --- | --- |
-| **Repeated activity or habit** | Recurrence alone need not establish shared purposes, roles, equipment, or standards of participation |
-| **Best practice** | Usually a claimed preferred method; it is better documented as a principle, pattern, rule, or recommendation unless it names the richer structure described here |
-| **Standard** | [Recognized basis for judgment or coordination](standard.md); articulates and stabilizes only part of a practice's normative and tacit order |
-| **Process or workflow** | Models an ordered flow of work; a practice includes the skills, meanings, norms, and social formation that make the flow intelligible |
-| **Institution** | Stabilizes roles, authority, memory, and resources; it may host several practices and is not identical to any one of them |
-| **Community** | Names a social body; a community may sustain several practices, while a practice can extend across several communities |
-| **Profession or discipline** | Names a broad field that commonly contains interdependent practices, institutions, and bodies of knowledge |
-| **Culture** | Names a wider field of shared meaning in which practices overlap and supply background for one another |
+| Concept                        | Difference from a practice                                                                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Repeated activity or habit** | Recurrence alone need not establish shared purposes, roles, equipment, or standards of participation                                                             |
+| **Best practice**              | Usually a claimed preferred method; it is better documented as a principle, pattern, rule, or recommendation unless it names the richer structure described here |
+| **Standard**                   | [Recognized basis for judgment or coordination](standard.md); articulates and stabilizes only part of a practice's normative and tacit order                     |
+| **Process or workflow**        | Models an ordered flow of work; a practice includes the skills, meanings, norms, and social formation that make the flow intelligible                            |
+| **Institution**                | Stabilizes roles, authority, memory, and resources; it may host several practices and is not identical to any one of them                                        |
+| **Community**                  | Names a social body; a community may sustain several practices, while a practice can extend across several communities                                           |
+| **Profession or discipline**   | Names a broad field that commonly contains interdependent practices, institutions, and bodies of knowledge                                                       |
+| **Culture**                    | Names a wider field of shared meaning in which practices overlap and supply background for one another                                                           |
 
 ## Questions that disclose a practice
 
@@ -272,7 +272,7 @@ subject domains and should follow their host's conventions.
   the practice is actually learned, performed, and rewarded.
 - **Static tradition** — describing inheritance as repetition without
   responsible development, criticism, or repair.
-- **Best-practice equivocation** — using *practice* for ordinary advice and
+- **Best-practice equivocation** — using _practice_ for ordinary advice and
   importing unwarranted social proof or normative force.
 
 ## Related

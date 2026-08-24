@@ -38,7 +38,7 @@ connection, not a runbook or catalog. For what explanation is and is not, read
 [Explanation explainer](../explainers/explanation.md).
 
 Canonical principles below follow Diátaxis explanation guidance (connections,
-context, *about* the subject, opinion and perspective, tightly bounded scope).
+context, _about_ the subject, opinion and perspective, tightly bounded scope).
 
 ## Goal
 
@@ -48,14 +48,14 @@ anxiety — not a longer checklist of steps or fields.
 
 ## Steps
 
-1. **Name one understanding goal** — a real or imagined *why?* / *Can you
-   tell me about …?* that bounds the page. Without a spine, explanation
+1. **Name one understanding goal** — a real or imagined _why?_ / _Can you
+   tell me about …?_ that bounds the page. Without a spine, explanation
    sprawls. Draw deliberate lines around a **topic** (an area of knowledge),
    not a task and not the whole product surface.
 
-2. **Title as *about* the subject** — explicit or implicit *About …* (*About
-   user authentication*, *About database connection policies*). The piece
-   sits *around* the topic, not as a procedure to execute or a machine to
+2. **Title as _about_ the subject** — explicit or implicit _About …_ (_About
+   user authentication_, _About database connection policies_). The piece
+   sits _around_ the topic, not as a procedure to execute or a machine to
    inventory.
 
 3. **Orient for study, not work** — write so the piece can be read **away
@@ -72,8 +72,8 @@ anxiety — not a longer checklist of steps or fields.
    a web; isolated fact dumps do not seal craft knowledge.
 
 6. **Admit opinion and perspective** — weigh alternatives, counter-examples,
-   and different approaches. Mark judgment clearly (*W is better here
-   because…*, *Some prefer X; that can work, but…*). Separate opinion from
+   and different approaches. Mark judgment clearly (_W is better here
+   because…_, _Some prefer X; that can work, but…_). Separate opinion from
    hard system facts so the reader can trust both.
 
 7. **Build the model with room to digress usefully** — definition,
@@ -86,13 +86,13 @@ anxiety — not a longer checklist of steps or fields.
    have homes: how-to and reference. Creeping procedures and field tables
    dilute reflection and hide the real owners of action and facts.
 
-9. **Close with orientation** — where to go next for *doing* (how-tos) or
-   *looking up* (reference). Optional further reading for deeper study.
+9. **Close with orientation** — where to go next for _doing_ (how-tos) or
+   _looking up_ (reference). Optional further reading for deeper study.
    Do not turn the ending into a second runbook.
 
 10. **Review for job drift** — if most of the page is numbered steps or
     parameter tables, retype or split. Test: would someone turn to this
-    while *working* a task, or while *studying* away from the console?
+    while _working_ a task, or while _studying_ away from the console?
     Work → reference or how-to; study of concepts → explanation.
 
 ## Language that fits
@@ -100,7 +100,7 @@ anxiety — not a longer checklist of steps or fields.
 The characteristic language shapes live in the
 [Explanation explainer](../explainers/explanation.md#language-that-fits-explanation);
 use them as drafting checks rather than restating them here. One
-production-specific cue: title the piece as *About …* (explicit or implicit)
+production-specific cue: title the piece as _About …_ (explicit or implicit)
 to signal discussion of a topic, not a task.
 
 ## Preconditions

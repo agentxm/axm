@@ -10,9 +10,9 @@ okf_version: "0.2"
 
 ## {{Reader-facing group}}
 
-* [{{Exact concept title}}]({{relative-url}}) - {{exact concept frontmatter description}}
-* [{{Section title}}]({{subdir}}/) - {{what belongs in this section and distinguishes it}}
+- [{{Exact concept title}}]({{relative-url}}) - {{exact concept frontmatter description}}
+- [{{Section title}}]({{subdir}}/) - {{what belongs in this section and distinguishes it}}
 
 ## {{Another reader-facing group}}
 
-* [{{Exact concept title}}]({{relative-url}}) - {{exact concept frontmatter description}}
+- [{{Exact concept title}}]({{relative-url}}) - {{exact concept frontmatter description}}

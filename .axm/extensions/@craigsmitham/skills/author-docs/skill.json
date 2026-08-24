@@ -18,9 +18,7 @@
     "principles",
     "patterns"
   ],
-  "recommendedPacks": [
-    "@craigsmitham/packs/docs"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/docs"],
   "standalone": false,
   "repository": {
     "type": "git",

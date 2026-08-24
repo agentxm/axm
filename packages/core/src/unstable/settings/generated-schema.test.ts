@@ -304,7 +304,13 @@ describe("generated schemas", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const definitions = getRecord(settingsSchema, "definitions");
 
-    for (const name of ["SkillEntry", "SubagentEntry", "McpServerEntry", "PackEntry"]) {
+    for (const name of [
+      "SkillEntry",
+      "SubagentEntry",
+      "McpServerEntry",
+      "KnowledgeEntry",
+      "PackEntry",
+    ]) {
       const entry = getDefinition(settingsSchema, name);
       expect(entry["title"]).toEqual(expect.any(String));
       expect(entry["description"]).toEqual(expect.any(String));
@@ -322,7 +328,25 @@ describe("generated schemas", () => {
     expect(definitions).not.toHaveProperty("SkillEntryObject");
     expect(definitions).not.toHaveProperty("SubagentEntryObject");
     expect(definitions).not.toHaveProperty("McpServerEntryObject");
+    expect(definitions).not.toHaveProperty("KnowledgeEntryObject");
     expect(definitions).not.toHaveProperty("PackEntryObject");
+
+    const knowledgeEntry = getDefinition(settingsSchema, "KnowledgeEntry");
+    const knowledgeArms = knowledgeEntry["anyOf"];
+    if (!Array.isArray(knowledgeArms) || !isRecord(knowledgeArms[1])) {
+      throw new Error("Expected KnowledgeEntry anyOf to contain an object arm.");
+    }
+    expect(getProperty(knowledgeArms[1], "instructionEntry")["description"]).toContain(
+      "inherit the manifest default",
+    );
+  });
+
+  it("publishes the Knowledge manifest instruction-entry default", () => {
+    const schema = readGeneratedSchema("knowledge.schema.json");
+    const manifest = getDefinition(schema, "KnowledgeManifest");
+    const instructionEntry = getProperty(manifest, "instructionEntry");
+
+    expect(instructionEntry).toMatchObject({ type: "boolean", default: true });
   });
 
   it("publishes lint rules map annotations inside settings schema", () => {

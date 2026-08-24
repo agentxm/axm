@@ -54,11 +54,11 @@ throws it away.
 
 That is why a note carries a `kind`:
 
-| Kind | What it records |
-| --- | --- |
-| `gap` | Outcome differed from what the instructions or output implied |
-| `workaround` | Succeeded by improvising a step no document describes |
-| `blocked` | A subject in `target` mode was prevented from reaching its condition |
+| Kind         | What it records                                                      |
+| ------------ | -------------------------------------------------------------------- |
+| `gap`        | Outcome differed from what the instructions or output implied        |
+| `workaround` | Succeeded by improvising a step no document describes                |
+| `blocked`    | A subject in `target` mode was prevented from reaching its condition |
 
 ## Incidents, not impressions
 
@@ -136,9 +136,14 @@ being asked to report against its own apparent competence. Any such system must
 say plainly that recording is the correct behavior and carries no implication of
 failure, or the records quietly stop appearing.
 
-[^hollnagel-safety-ii]: Hollnagel, *From Safety-I to Safety-II*.
-[^flanagan-cit]: Flanagan, *The Critical Incident Technique*, 1954.
-[^army-aar]: FM 7-0 Appendix K, *After Action Reviews*.
-[^esm-survey]: *The Experience Sampling Method on Mobile Devices*.
-[^who-minimal-information]: WHO, *Minimal Information Model for Patient Safety Incident Reporting and Learning Systems*.
-[^ahrq-report-design]: AHRQ, *Developing and Testing the Health Care Safety Hotline*.
+[^hollnagel-safety-ii]: Hollnagel, _From Safety-I to Safety-II_.
+
+[^flanagan-cit]: Flanagan, _The Critical Incident Technique_, 1954.
+
+[^army-aar]: FM 7-0 Appendix K, _After Action Reviews_.
+
+[^esm-survey]: _The Experience Sampling Method on Mobile Devices_.
+
+[^who-minimal-information]: WHO, _Minimal Information Model for Patient Safety Incident Reporting and Learning Systems_.
+
+[^ahrq-report-design]: AHRQ, _Developing and Testing the Health Care Safety Hotline_.

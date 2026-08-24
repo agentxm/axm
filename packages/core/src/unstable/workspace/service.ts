@@ -979,9 +979,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentKnowledge: KnowledgeMap = currentSettings.knowledge ?? {};
+            const currentEntry = currentKnowledge[name];
             yield* writeSettings(workspaceDir, {
               ...currentSettings,
-              knowledge: { ...currentKnowledge, [name]: { source, enabled: true } },
+              knowledge: {
+                ...currentKnowledge,
+                [name]: {
+                  source,
+                  enabled: true,
+                  ...(currentEntry?.instructionEntry === undefined
+                    ? {}
+                    : { instructionEntry: currentEntry.instructionEntry }),
+                },
+              },
             }).pipe(Effect.provide(fsLayer));
 
             const currentLockfile = yield* readLockfileSafe(workspaceDir);

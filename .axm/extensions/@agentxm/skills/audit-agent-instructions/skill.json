@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "audit-agent-instructions",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "description": "Audits effective repository agent instruction systems against context-engineering guidance and can verify explicitly authorized remediation",
   "keywords": [
     "agents.md",
@@ -19,6 +19,6 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": ["@agentxm/packs/context-engineering", "@agentxm/packs/harness-engineering"],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": false
 }

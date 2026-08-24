@@ -19,6 +19,13 @@ the active AXM scope root, read:
 Read `.axm/extensions/@agentxm/knowledge/agent-engineering/src/evaluation/context-evaluation.md`
 when the requested scope requires evidence about selection, use, or economy.
 
+When `.axm/settings.json`, AXM ownership markers, or `axm instructions` show
+that AXM manages the instruction system, compose with the installed `axm`
+skill and read `axm help instructions`. Use `axm instructions`, `axm lint`, and
+`axm sync --preview` as read-only evidence for canonical source, ownership,
+target health, and proposed reconciliation. Audit-only mode never applies
+`axm sync` or edits an AXM-owned alias or managed region.
+
 ## Modes and authority
 
 - **Audit** is the default and leaves the instruction system unchanged.
@@ -47,7 +54,9 @@ approval.
    unknown behavior as unknown instead of assuming ancestry or precedence.
 3. **Map authority.** Distinguish canonical sources from aliases, imports,
    symlinks, copies, generated regions, and host projections. Identify drift or
-   conflicting ownership without repairing it.
+   conflicting ownership without repairing it. When AXM owns the surface,
+   inspect its current instruction inventory instead of inferring ownership
+   from filenames or banner prose.
 4. **Choose representative entry points.** Include broad work, work inside each
    meaningful local scope, and adjacent work that must not receive local
    guidance. Bind each case to its working location or target path.

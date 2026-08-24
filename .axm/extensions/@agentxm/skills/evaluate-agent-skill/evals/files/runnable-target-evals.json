@@ -1,0 +1,29 @@
+{
+  "skill_name": "normalize-release-notes",
+  "suite_version": "0.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": "route",
+      "stage": "routing",
+      "prompt": "Normalize these release notes into the standard structure.",
+      "expected_selection": "normalize-release-notes",
+      "catalog_neighbors": [],
+      "assertions": [
+        "The target is selected from the catalog.",
+        "Selection is recorded before the target body is exposed."
+      ]
+    },
+    {
+      "id": "execute",
+      "stage": "execution",
+      "prompt": "Normalize this synthetic entry: Added login retry.",
+      "expected_output": "A Markdown Added section containing the synthetic entry.",
+      "assertions": [
+        "The execution response is preserved as raw evidence.",
+        "The synthetic entry appears under an Added heading.",
+        "No publication or external mutation is claimed."
+      ]
+    }
+  ]
+}

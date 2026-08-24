@@ -15,9 +15,7 @@
     "coverage",
     "remediation"
   ],
-  "recommendedPacks": [
-    "@craigsmitham/packs/docs"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/docs"],
   "standalone": false,
   "repository": {
     "type": "git",

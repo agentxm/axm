@@ -15,8 +15,8 @@ sources:
     resource: https://martinfowler.com/bliki/ContinuousDelivery.html
     title: Martin Fowler — Continuous Delivery
 generated:
-  by: openai/gpt-5
-  at: 2026-08-08T16:15:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Continuous delivery
@@ -34,7 +34,12 @@ release process at the end.[^fowler-cd] DORA frames the capability around being
 able to release changes of all kinds on demand in a safe, quick, and sustainable
 way.[^dora-cd]
 
+For the complete comparison with continuous integration and continuous
+deployment, use [Continuous integration, delivery, and
+deployment](continuous-integration-delivery-and-deployment.md).
+
 [^fowler-cd]: Martin Fowler — Continuous Delivery
+
 [^dora-cd]: DORA — Continuous delivery
 
 ## The releasable state
@@ -70,13 +75,13 @@ automated path without contradicting continuous delivery.
 
 The practice depends on more than a deployment workflow:
 
-* changes are integrated continuously and remain small enough to evaluate;
-* build, test, configuration, and deployment are repeatable;
-* the same candidate advances through the delivery path;
-* production-like feedback is available before a routine release decision;
-* changes to application, infrastructure, configuration, and data follow
+- changes are integrated continuously and remain small enough to evaluate;
+- build, test, configuration, and deployment are repeatable;
+- the same candidate advances through the delivery path;
+- production-like feedback is available before a routine release decision;
+- changes to application, infrastructure, configuration, and data follow
   compatible versioning and recovery disciplines; and
-* releasing is a low-drama operational action rather than a special project.
+- releasing is a low-drama operational action rather than a special project.
 
 The Continuous Delivery community describes the discipline as working so
 software can be released at any time, through reliable and repeatable
@@ -86,37 +91,30 @@ automation.[^continuous-delivery-foundation]
 
 ## Quality consequences
 
-| Concern | What good continuous delivery makes possible |
-| --- | --- |
-| Effectiveness | The release decision refers to an identifiable candidate with sufficient evidence for its intended target. |
-| Performance | Lead time from integrated change to releasable candidate is short and predictable. |
-| Efficiency | Validation and deployment are routine, reusable flow rather than duplicated release-period work. |
-| Dependability | Artifact identity, environment behavior, failure propagation, and recovery are coherent across the path. |
-| Experience | Authors, reviewers, and operators can see where a candidate is, what evidence exists, what blocks it, and how to release or recover it. |
-| Safety | Permissions, approvals, rollout controls, and effects are proportionate to the target and change. |
-
-## Continuous delivery is not continuous deployment
-
-Continuous delivery preserves a release decision. Continuous deployment
-automates that routine decision for every qualifying change. A system can
-practice continuous delivery while releasing on a business schedule; it cannot
-claim the practice credibly if an ordinary release requires exceptional
-hardening, reconstruction, or manual deployment work.
+| Concern       | What good continuous delivery makes possible                                                                                            |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Effectiveness | The release decision refers to an identifiable candidate with sufficient evidence for its intended target.                              |
+| Performance   | Lead time from integrated change to releasable candidate is short and predictable.                                                      |
+| Efficiency    | Validation and deployment are routine, reusable flow rather than duplicated release-period work.                                        |
+| Dependability | Artifact identity, environment behavior, failure propagation, and recovery are coherent across the path.                                |
+| Experience    | Authors, reviewers, and operators can see where a candidate is, what evidence exists, what blocks it, and how to release or recover it. |
+| Safety        | Permissions, approvals, rollout controls, and effects are proportionate to the target and change.                                       |
 
 ## Signals that the name exceeds the practice
 
-* A separate stabilization phase is required before most releases.
-* Later environments rebuild the candidate or apply untracked changes.
-* Deployment succeeds only through expert improvisation.
-* The pipeline is green while the candidate is not actually deployable.
-* Routine releases require long freezes, large coordination events, or
+- A separate stabilization phase is required before most releases.
+- Later environments rebuild the candidate or apply untracked changes.
+- Deployment succeeds only through expert improvisation.
+- The pipeline is green while the candidate is not actually deployable.
+- Routine releases require long freezes, large coordination events, or
   repeated manual evidence gathering.
-* Recovery exists as a document but is not part of the ordinary delivery
+- Recovery exists as a document but is not part of the ordinary delivery
   design.
 
 ## Related
 
-* [Continuous integration](continuous-integration-explainer.md)
-* [Continuous deployment](continuous-deployment-explainer.md)
-* [Pipeline](../patterns/pipeline-explainer.md)
-* [Build once and promote](../patterns/build-once-promote-explainer.md)
+- [Continuous integration, delivery, and deployment](continuous-integration-delivery-and-deployment.md)
+- [Continuous integration](continuous-integration-explainer.md)
+- [Continuous deployment](continuous-deployment-explainer.md)
+- [Pipeline](../patterns/pipeline-explainer.md)
+- [Build once and promote](../patterns/build-once-promote-explainer.md)

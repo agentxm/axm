@@ -89,6 +89,7 @@ import {
   type PublishVisibility,
   type VisibilityIntent,
   publishArchiveOptions,
+  normalizePublishInput,
   runPublishLintGate,
   validateArchive,
 } from "@agentxm/client-core/unstable/publish";
@@ -115,10 +116,11 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import { isWorkspaceSourceLocator, type SourceType } from "@agentxm/client-core/unstable/sources";
 import {
-  buildZipArchive,
   computeIntegrity,
   expandGlobs,
   isGlobPattern,
+  planZipArchive,
+  type ArchivePlan,
 } from "@agentxm/client-core/unstable/utils";
 import {
   VersionSchema,
@@ -249,6 +251,7 @@ interface PublishCandidate extends SelectedEntry {
   readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
   readonly publishVisibility?: ExtensionVisibility;
   readonly archive: Uint8Array;
+  readonly archivePlan: ArchivePlan;
   readonly integrity: string;
   readonly action: "publish" | "skip";
   readonly backfill: boolean;
@@ -258,7 +261,7 @@ interface PublishCandidate extends SelectedEntry {
 
 interface PublishPreparationFailure {
   readonly _tag: "PublishPreparationFailure";
-  readonly reason: "version_exists" | "integrity_drift";
+  readonly reason: "version_exists" | "integrity_drift" | "not_authored";
   readonly error: AppError;
 }
 
@@ -489,8 +492,6 @@ interface TargetRegistry {
 
 export interface RootPublishHandlerArgs {
   readonly selectors: ReadonlyArray<string>;
-  readonly authored: boolean;
-  readonly all: boolean;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<SelectableType>;
   readonly excludes: ReadonlyArray<string>;
@@ -503,7 +504,6 @@ export interface RootPublishHandlerArgs {
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
-  readonly includeDependency: ReadonlyArray<string>;
   readonly recoveryCommand?: ReadonlyArray<string>;
   readonly recoverySelectors?: ReadonlyArray<string>;
   readonly recoveryExcludes?: ReadonlyArray<string>;
@@ -819,25 +819,12 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
-  if (args.all && (args.selectors.length > 0 || args.authored)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--all cannot be combined with selectors or --authored",
-    });
-  }
   if (args.selectors.length > 0 && hasFilters) {
     return yield* makeAppError({
       code: "usage",
       detail: "Selection filters cannot be combined with explicit selectors",
     });
   }
-  if (args.includeDependency.length > 0 && !args.includeDependencies) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--include-dependency requires --include-dependencies",
-    });
-  }
-
   const resolvedIdentities = yield* Effect.forEach(
     catalog,
     (entry) => identityFromManagedPackage(entry),
@@ -853,14 +840,13 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     for (const selector of args.selectors) {
       yield* parseRootSelector(selector);
     }
-    selected = identities.filter((entry) =>
-      args.selectors.some((selector) => matchesSelector(entry, selector)),
-    );
-    if (args.authored) selected = selected.filter((entry) => entry.authored);
-    mode = args.authored ? "filtered-explicit" : "explicit";
+    selected = identities
+      .filter((entry) => args.selectors.some((selector) => matchesSelector(entry, selector)))
+      .map((entry) => (entry.authored ? entry : { ...entry, skipReason: "not_authored" }));
+    mode = "explicit";
   } else {
-    selected = args.all ? identities : identities.filter((entry) => entry.authored);
-    mode = args.all ? "all" : "authored";
+    selected = identities.filter((entry) => entry.authored);
+    mode = "authored";
     if (args.owners.length > 0) {
       selected = selected.filter((entry) => args.owners.includes(entry.owner));
     }
@@ -931,12 +917,9 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
           ];
           continue;
         }
-        const explicitlyIncluded = args.includeDependency.some((selector) =>
-          matchesSelector(dependency, selector),
-        );
         selected = [
           ...selected,
-          dependency.authored || explicitlyIncluded
+          dependency.authored
             ? { ...dependency, includedDependency: true, includedBy: [pack.fqn] }
             : {
                 ...dependency,
@@ -1110,6 +1093,28 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   registry: TargetRegistry,
   backfillRequested: boolean,
 ) {
+  if (selected.skipReason === "not_authored" && selected.includedDependency !== true) {
+    return yield* Effect.fail(
+      preparationFailure(
+        "not_authored",
+        makeAppError({
+          code: "conflict",
+          detail: `${selected.fqn} is not authored by this workspace and cannot be published from mutable installed content. Run \`axm adopt ${selected.fqn}\` when this workspace should own it, or \`axm fork ${selected.fqn} <new-extension>\` for a separately authored identity.`,
+          suggestions: [
+            {
+              description:
+                "Adopt the canonical package when this workspace should own and publish it.",
+              cmd: `axm adopt ${selected.fqn}`,
+            },
+            {
+              description: "Fork the package when the published result should have a new identity.",
+              cmd: `axm fork ${selected.fqn} <new-extension>`,
+            },
+          ],
+        }),
+      ),
+    );
+  }
   if (selected.skipReason !== undefined) return undefined;
   if (!isPublishableType(selected.type)) return undefined;
   const ws = yield* WorkspaceMutations;
@@ -1205,10 +1210,26 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     manifestJson,
     platform: { fs, path },
   });
-  const archive = yield* buildZipArchive(
+  const plannedArchive = yield* planZipArchive(
     extensionDir,
     yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
   );
+  const archive = plannedArchive.archive;
+  const likelyDevelopmentRoots = ["evals/", "tests/", "fixtures/", "benchmarks/"];
+  const developmentRoots = likelyDevelopmentRoots.filter((root) =>
+    plannedArchive.plan.included.some((file) => file.path.startsWith(root)),
+  );
+  const archivePlan: ArchivePlan = {
+    ...plannedArchive.plan,
+    warnings: [
+      ...plannedArchive.plan.warnings,
+      ...(manifest.publish?.ignore !== undefined || developmentRoots.length === 0
+        ? []
+        : [
+            `Review the Registry distribution boundary: ${developmentRoots.join(", ")} ${developmentRoots.length === 1 ? "is" : "are"} included and publish.ignore has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.`,
+          ]),
+    ],
+  };
   // Guardrails run on the built bytes and only ever reject: rewriting the
   // archive here would change its integrity digest and break republishing an
   // already-published version under `--on-existing verify`.
@@ -1245,6 +1266,27 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ),
   );
   const integrity = yield* computeIntegrity(archive);
+  yield* normalizePublishInput({
+    declaredIdentity: {
+      owner: selected.owner,
+      type: selected.type,
+      name: manifest.name,
+      version: manifest.version,
+    },
+    archive: {
+      archiveBytes: archive,
+      archiveContentType: "application/zip",
+      clientIntegrity: integrity,
+    },
+  }).pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "validation",
+        detail: `Filtered archive validation failed for ${selected.fqn}: ${"detail" in cause ? cause.detail : cause.message}`,
+        cause,
+      }),
+    ),
+  );
   const client = yield* createRegistryClient(registry.url);
   const index = yield* client.getExtensionIndex({
     owner: selected.owner,
@@ -1310,6 +1352,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       ? {}
       : { publishVisibility: manifest.publish.visibility }),
     archive,
+    archivePlan,
     integrity,
     action,
     backfill,
@@ -1582,7 +1625,7 @@ const selectedResult = (
       status: "skipped",
       message:
         reason === "not_authored"
-          ? "Dependency is not workspace-sourced; include it explicitly to publish"
+          ? "External dependency remains a Registry reference and is not an upload candidate"
           : "Dependency is not a managed publish candidate",
     };
   }
@@ -1599,6 +1642,11 @@ const selectedResult = (
       phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
+      archive: {
+        ...candidate.archivePlan,
+        zipBytes: candidate.archive.length,
+        integrity: candidate.integrity,
+      },
       ...(candidate.publishPreview === undefined
         ? {}
         : { visibility: candidate.publishPreview.visibility }),
@@ -1616,6 +1664,11 @@ const selectedResult = (
     phase: "authoritative_preflight",
     reason: "selected",
     status: "pending",
+    archive: {
+      ...candidate.archivePlan,
+      zipBytes: candidate.archive.length,
+      integrity: candidate.integrity,
+    },
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
@@ -1662,6 +1715,11 @@ const failedCandidateResult = (
   status: "failed",
   message: redactSensitiveText(error.detail),
   cause: publicPublishCause(error),
+  archive: {
+    ...candidate.archivePlan,
+    zipBytes: candidate.archive.length,
+    integrity: candidate.integrity,
+  },
 });
 
 const publicationSetResult = (options: {
@@ -2286,6 +2344,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(result.version === undefined ? {} : { version: result.version }),
           ...(result.sourceType === undefined ? {} : { sourceType: result.sourceType }),
           ...(result.authored === undefined ? {} : { authored: result.authored }),
+          ...(result.archive === undefined ? {} : { archive: result.archive }),
           action: "error",
           phase: "upload_execution",
           reason:
@@ -2432,14 +2491,6 @@ const publishConfig = {
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
   ),
-  authored: Flag.boolean("authored").pipe(
-    Flag.withDescription("Publish extensions authored in this workspace"),
-    Flag.withDefault(false),
-  ),
-  all: Flag.boolean("all").pipe(
-    Flag.withDescription("Publish all managed local packages"),
-    Flag.withDefault(false),
-  ),
   owner: Flag.string("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
   type: Flag.choice("type", selectableTypes).pipe(
     Flag.withDescription("Filter by extension type"),
@@ -2469,17 +2520,11 @@ const publishConfig = {
     Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
     Flag.withDefault(false),
   ),
-  includeDependency: Flag.string("include-dependency").pipe(
-    Flag.withDescription("Explicitly include a non-workspace pack dependency"),
-    Flag.atLeast(0),
-  ),
 } as const;
 
 export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   handleRootPublish({
     selectors: [...parsed.selectors],
-    authored: parsed.authored,
-    all: parsed.all,
     owners: [...parsed.owner],
     types: [...parsed.type],
     excludes: [...parsed.exclude],
@@ -2492,20 +2537,21 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     scope: "project",
     visibility: parsed.visibility,
     includeDependencies: parsed.includeDependencies,
-    includeDependency: [...parsed.includeDependency],
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
-  Command.withDescription("Publish project-workspace extensions to a registry"),
+  Command.withDescription(
+    "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+  ),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {
-      command: "axm publish --authored --owner @acme --on-existing verify --yes",
+      command: "axm publish --owner @acme --on-existing verify --yes",
       description: "Idempotently publish an authored catalog",
     },
     {
       command: "axm publish @acme/skills/code-review",
-      description: "Publish one configured extension explicitly",
+      description: "Publish one workspace-authored extension explicitly",
     },
   ]),
 );

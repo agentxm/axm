@@ -26,6 +26,13 @@ export const KnowledgeManifestSchema = Schema.Struct({
   bundleRoot: Schema.Literal(KNOWLEDGE_SOURCE_DIR).annotate({
     description: "Package-relative directory containing the authoritative OKF bundle.",
   }),
+  instructionEntry: Schema.optionalKey(
+    Schema.Boolean.annotate({
+      description:
+        "Whether this bundle appears by default in the managed Knowledge Bundles instruction table. Defaults effectively to true.",
+      default: true,
+    }),
+  ),
   name: ExtensionNameSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "knowledge bundle name is required" }),
     Schema.annotate({

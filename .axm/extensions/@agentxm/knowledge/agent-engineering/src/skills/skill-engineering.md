@@ -54,14 +54,17 @@ rather than static prompt collections.[^dynamic-agent-skills]
 ## Scope
 
 Skill engineering owns an individual skill's routing, workflow, capabilities,
-outcomes, trust, compatibility, and lifecycle. It also owns portfolio questions
-that emerge from many skills: admission, ownership, capability governance,
-collision, utility, composition, versioning, and retirement.
+outcomes, trust, compatibility, and behavioral lifecycle. It also owns
+portfolio decisions that emerge from many skills: admission, ownership,
+capability governance, collision, utility, composition intent, version intent,
+and retirement criteria.
 
 It does not own the whole harness, an agent's identity and tool policy, an MCP
-server's implementation, a plugin distribution system, or repository-wide
-instructions. Those surfaces constrain skills and must be observed, but they
-remain separate authorities.
+server's implementation, an extension manager's package and projection state,
+a plugin distribution system, or repository-wide instructions. Those surfaces
+constrain skills and must be observed, but they remain separate authorities.
+For AXM's concrete management layer, read the
+[AXM extension-management profile](platforms/axm.md).
 
 [^agent-skills-spec]: Agent Skills specification
 

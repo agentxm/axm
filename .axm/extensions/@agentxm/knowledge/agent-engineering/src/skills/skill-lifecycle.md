@@ -29,10 +29,22 @@ evidence and creates obligations for later stages.
 | Distribute | Accepted package, metadata, license, integrity             | Who can install which version?            | Published immutable identity              |
 | Operate    | Usage, failures, drift, dependency changes                 | Maintain, evolve, constrain, or retire?   | Revised evidence, deprecation, or removal |
 
+The table describes available lifecycle responsibilities, not mandatory
+ceremony for every edit. Match depth to the requested outcome, changed
+contract, consequence, and evidence claim. A narrow local correction may need
+structural validation and affected regressions; independent evaluation, audit,
+admission, or release work applies when requested or when the changed trust or
+distribution surface genuinely requires it.
+
 Governed libraries add explicit states: `candidate`, `experimental`,
 `approved`, `deprecated`, `revoked`, and `retired`. Publication and installation
 do not imply approval. Decisions bind to an exact artifact, intended cohort,
 and effective capability policy.
+
+Governance states do not themselves change registry availability or installed
+state. Apply the extension manager's native deprecation, availability,
+activation, and removal controls needed to realize the decision. For AXM, see
+the [AXM extension-management profile](platforms/axm.md).
 
 ## Feedback without self-approval
 

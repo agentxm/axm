@@ -22,15 +22,15 @@ planning, or testing detail.
 
 ## Operational incidents
 
-- [Operational incident records](operational-incident-records.md) - Why an operational incident record coordinates response to a time-bounded service disruption rather than serving as an urgent defect report or permanent-fix backlog item.
-- [Recording operational incidents](recording-operational-incidents.md) - How to create and maintain a live incident work item with clear impact, status, ownership, timing, decisions, mitigation, and follow-up links.
+- [Operational incident records](operational-incident-records.md) - How operational impact, service state, response state, and understanding evolve independently; how one incident identity coordinates several response surfaces; and why impact end, restoration, recovery, closure, and follow-up remain distinct.
+- [Recording operational incidents](recording-operational-incidents.md) - How to create and maintain a safe live incident record with impact evidence, command roles, current objectives, actions, communication, chronology, handoffs, exit criteria, closure validation, and independently owned follow-up.
 
 ## Software defects
 
-- [Software defects and defect reports](software-defects-and-defect-reports.md) - How defects differ from errors and observed failures, why a report can begin before the cause is confirmed, and how defect work relates to incidents and requested functionality.
-- [Reporting software defects](reporting-software-defects.md) - How to write an evidence-rich defect work item that makes the expected behavior, observed discrepancy, context, impact, and verification conditions clear.
+- [Failures, defects, and defect reports](failures-defects-and-defect-reports.md) - How observations and anomalies become classified defect reports; how failures, defects, incidents, corrections, verification, and closure differ; and why tracker labels do not prove diagnosis.
+- [Recording defect reports](recording-defect-reports.md) - How to capture a suspected discrepancy safely, preserve its source and expectation, provide proportional static or dynamic evidence, and maintain classification, resolution, relationships, and verification without inventing diagnosis or priority.
 
 ## Requested functionality
 
-- [Feature requests and delivery work](feature-requests-and-delivery-work.md) - Why a feature request is evidence of desired new or changed functionality rather than a commitment, specification, user story, or implementation task.
-- [Writing feature requests](writing-feature-requests.md) - How to write a feature request that preserves the affected context, underlying need, desired outcome, evidence, constraints, and success signals without prematurely prescribing a solution.
+- [Feature requests, requirements, and delivery work](feature-requests-requirements-and-delivery-work.md) - How source requests, normalized feature requests, accepted requirements, and delivery work differ in evidence, authority, maturity, and tracker representation.
+- [Recording feature requests](recording-feature-requests.md) - How to preserve a source request, frame an evaluable need and desired outcome, add proportional evidence and context, and retain the resulting decision without prescribing an unapproved solution.

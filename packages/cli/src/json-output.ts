@@ -141,6 +141,31 @@ const PublishResultItemSchema = Schema.Struct({
   cause: Schema.optional(PublishCauseSchema),
   blockedBy: Schema.optional(Schema.Array(Schema.String)),
   findings: Schema.optional(Schema.Array(PublishAdvisoryFindingSchema)),
+  archive: Schema.optional(
+    Schema.Struct({
+      included: Schema.Array(
+        Schema.Struct({
+          path: Schema.String,
+          size: Schema.Number,
+          matchedPatterns: Schema.Array(Schema.String),
+        }),
+      ),
+      excluded: Schema.Array(
+        Schema.Struct({
+          path: Schema.String,
+          size: Schema.Number,
+          matchedPatterns: Schema.Array(Schema.String),
+        }),
+      ),
+      patterns: Schema.Array(Schema.Struct({ pattern: Schema.String, matchCount: Schema.Number })),
+      warnings: Schema.Array(Schema.String),
+      includedCount: Schema.Number,
+      excludedCount: Schema.Number,
+      uncompressedBytes: Schema.Number,
+      zipBytes: Schema.Number,
+      integrity: Schema.String,
+    }),
+  ),
   visibility: Schema.optional(PublishVisibilitySchema),
   links: Schema.optional(
     Schema.Struct({
@@ -177,7 +202,7 @@ const PublishSelectionDecisionSchema = Schema.Struct({
 });
 
 const PublishSelectionSchema = Schema.Struct({
-  mode: Schema.Literals(["authored", "all", "explicit", "filtered-explicit"] as const),
+  mode: Schema.Literals(["authored", "explicit"] as const),
   scope: Schema.Literals(["project", "user"] as const),
   owners: Schema.Array(HandleSchema),
   types: Schema.Array(ExtensionTypeSchema),
@@ -243,7 +268,7 @@ const PublishRecoverySchema = Schema.Struct({
 });
 
 export const PublishResultSchema = Schema.Struct({
-  contract: Schema.Literal("publish-result-v2"),
+  contract: Schema.Literal("publish-result-v3"),
   mode: PublishModeSchema,
   selection: PublishSelectionSchema,
   publicationSet: PublishPublicationSetSchema,
@@ -336,7 +361,7 @@ const normalizePublishResult = (result: PublishResultInput): PublishResult => {
   const decisions = result.selection?.decisions ?? [];
   const counts = classifyPublishResults(result.results);
   return {
-    contract: "publish-result-v2",
+    contract: "publish-result-v3",
     mode: result.mode,
     selection: {
       mode: result.selection?.mode ?? "explicit",
@@ -455,6 +480,23 @@ const renderHumanPublishResult = (
           ? `Required pack compatibility review: ${finding.message}`
           : finding.message,
       );
+    }
+    for (const item of result.execution.outcomes) {
+      if (item.archive === undefined) continue;
+      yield* renderer.info(
+        `Archive ${publishIdentity(item)} — ${item.archive.includedCount} included, ${item.archive.excludedCount} excluded, ${item.archive.uncompressedBytes} source bytes, ${item.archive.zipBytes} ZIP bytes`,
+      );
+      for (const warning of item.archive.warnings) yield* renderer.warn(warning);
+      if (verbosity.level === "verbose") {
+        const inventory = [
+          ...item.archive.included.map((file) => `include ${file.path} (${file.size} bytes)`),
+          ...item.archive.excluded.map(
+            (file) =>
+              `exclude ${file.path} (${file.size} bytes) — ${file.matchedPatterns.join(", ")}`,
+          ),
+        ];
+        if (inventory.length > 0) yield* renderer.info(inventory.join("\n"));
+      }
     }
     for (const finding of result.publicationSet.findings) {
       if (finding.severity === "error") yield* renderer.error(finding.message);

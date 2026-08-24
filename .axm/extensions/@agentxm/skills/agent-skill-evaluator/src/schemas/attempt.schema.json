@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/attempt-1.0.0.json",
+  "title": "Agent Skill evaluation attempt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "configuration_id",
+    "configuration_role",
+    "trial_number",
+    "attempt_number",
+    "comparison_position",
+    "outcome",
+    "failure_class",
+    "started_at",
+    "ended_at",
+    "duration_ms"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "case_id": { "type": ["string", "integer"] },
+    "configuration_id": { "type": "string" },
+    "configuration_role": { "enum": ["candidate", "baseline"] },
+    "trial_number": { "type": "integer", "minimum": 1 },
+    "attempt_number": { "type": "integer", "minimum": 1 },
+    "comparison_position": { "type": "integer", "minimum": 1 },
+    "outcome": { "enum": ["pass", "fail", "unknown", "harness-error"] },
+    "failure_class": { "type": ["string", "null"] },
+    "started_at": { "type": "string" },
+    "ended_at": { "type": "string" },
+    "duration_ms": { "type": "number", "minimum": 0 }
+  }
+}

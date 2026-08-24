@@ -13,6 +13,9 @@ support of a decision.
 - [Evaluation systems and harnesses](evaluation-systems-and-harnesses.md) - The
   target, operational agent harness, evaluation harness, environment, evidence,
   and decision.
+- [Evaluation runner engineering](evaluation-runner-engineering.md) - Versioned
+  protocols, capability-aware adapters, isolation, enforced budgets,
+  recoverable lifecycle, and attributable evidence for reusable runners.
 
 ## Design
 
@@ -48,6 +51,9 @@ support of a decision.
   attribution.
 - [Agent Skill evaluation model](skill-evaluation-model.md) - Independent
   routing, activated execution, and coexistence evidence.
+- [How to evaluate an Agent Skill](evaluating-agent-skills.md) - Running
+  independent routing and activated-execution trials with meaningful baselines,
+  grading, attribution, and retention.
 - [Routing evaluations](skill-routing-evaluations.md) - Cases and metrics for
   implicit selection, rejection, ambiguity, and catalog collisions.
 - [Execution evaluations](skill-execution-evaluations.md) - Cases and evidence
@@ -73,3 +79,6 @@ support of a decision.
 - [Evaluation lifecycle and governance](evaluation-lifecycle-and-governance.md) -
   Suites and graders as versioned products with owners, provenance, review,
   freshness, and retirement.
+- [How to manage evaluation assets and evidence](managing-evaluation-assets-and-evidence.md) -
+  Separating versioned evaluation source, generated trial evidence, and
+  deliberately promoted decision records.

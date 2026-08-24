@@ -33,6 +33,7 @@ similarly place compilation early so later stages examine and advance the
 resulting binaries.[^fowler-deployment-pipeline]
 
 [^twelve-factor]: The Twelve-Factor App — Build, release, run
+
 [^fowler-deployment-pipeline]: Martin Fowler — Deployment Pipeline
 
 ## Context and intent
@@ -45,11 +46,11 @@ content-addressable outputs.
 
 The pattern needs:
 
-* a stable artifact identity, such as version plus digest
-* durable storage from which later work retrieves the artifact
-* provenance connecting source revision, build run, inputs, and producer
-* verification when the artifact crosses a trust or lifecycle boundary
-* target configuration kept distinct from rebuilding the artifact
+- a stable artifact identity, such as version plus digest
+- durable storage from which later work retrieves the artifact
+- provenance connecting source revision, build run, inputs, and producer
+- verification when the artifact crosses a trust or lifecycle boundary
+- target configuration kept distinct from rebuilding the artifact
 
 ## Structure in the workflow model
 
@@ -82,13 +83,13 @@ described as promotion of the earlier build.
 
 ## Quality consequences
 
-| Concern | Consequence |
-| --- | --- |
-| Effectiveness | Evidence and deployment refer to the same material |
-| Performance | Expensive build work is not repeated for every environment |
-| Efficiency | Storage and transfer replace repeated computation; retention must be managed |
+| Concern       | Consequence                                                                    |
+| ------------- | ------------------------------------------------------------------------------ |
+| Effectiveness | Evidence and deployment refer to the same material                             |
+| Performance   | Expensive build work is not repeated for every environment                     |
+| Efficiency    | Storage and transfer replace repeated computation; retention must be managed   |
 | Dependability | Provenance, signature, and digest checks can detect substitution or corruption |
-| Experience | Users can answer what was built, tested, approved, deployed, and rolled back |
+| Experience    | Users can answer what was built, tested, approved, deployed, and rolled back   |
 
 DORA treats canonical builds and packages as outputs of continuous integration
 that are ultimately deployed and released.[^dora-continuous-delivery]
@@ -108,17 +109,17 @@ need for compatible migration and recovery design.
 
 ## Common failure forms
 
-* rebuilding separately for test, staging, and production
-* identifying artifacts only with mutable tags such as `latest`
-* copying output without retaining its source revision and build provenance
-* validating one artifact while deploying another selected indirectly
-* modifying an artifact after approval
-* treating environment configuration as if it were part of an unchanged build
-* retaining artifacts without a discoverable lifecycle or cleanup policy
+- rebuilding separately for test, staging, and production
+- identifying artifacts only with mutable tags such as `latest`
+- copying output without retaining its source revision and build provenance
+- validating one artifact while deploying another selected indirectly
+- modifying an artifact after approval
+- treating environment configuration as if it were part of an unchanged build
+- retaining artifacts without a discoverable lifecycle or cleanup policy
 
 ## Related
 
-* [Pipeline](pipeline-explainer.md)
-* [Quality gate](quality-gate-explainer.md)
-* [Continuous integration](../practices/continuous-integration-explainer.md)
-* [Continuous delivery](../practices/continuous-delivery-explainer.md)
+- [Pipeline](pipeline-explainer.md)
+- [Quality gate](quality-gate-explainer.md)
+- [Continuous integration](../practices/continuous-integration-explainer.md)
+- [Continuous delivery](../practices/continuous-delivery-explainer.md)

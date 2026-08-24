@@ -22,7 +22,7 @@ generated:
 # Documentation craft guide
 
 Use this when you need to **write or revise one document** and want a
-portable process. For *why* the four reader-need forms exist and the quality principles
+portable process. For _why_ the four reader-need forms exist and the quality principles
 behind them, read [Documentation craft](../explainers/documentation-craft.md) first. For
 iterative remediation across a corpus, use
 [Documentation workflow guide](documentation-workflow.md).

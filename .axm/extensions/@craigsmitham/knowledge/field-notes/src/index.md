@@ -16,12 +16,12 @@ repository layout, tracker, or tool.
 
 ## Concepts
 
-* [Field notes](field-notes-explainer.md) - How field notes preserve one
+- [Field notes](field-notes-explainer.md) - How field notes preserve one
   operational occurrence with observed facts, impact, detection, recovery, and
   explicitly tentative interpretation.
-* [Subjects](subject-explainer.md) - What a field note subject is — survey
+- [Subjects](subject-explainer.md) - What a field note subject is — survey
   versus target mode, what makes a usable target condition, how a survey
   subject graduates, and when a subject retires.
-* [Closure](closure-explainer.md) - How field notes become improvements through
+- [Closure](closure-explainer.md) - How field notes become improvements through
   evidence-led patterning, multidimensional priority, explicit decisions, and
   verified corrective action.

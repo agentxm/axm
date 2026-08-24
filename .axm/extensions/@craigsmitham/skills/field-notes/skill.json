@@ -14,9 +14,7 @@
     "triage",
     "retrospective"
   ],
-  "recommendedPacks": [
-    "@craigsmitham/packs/field-notes"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/field-notes"],
   "standalone": false,
   "repository": {
     "type": "git",

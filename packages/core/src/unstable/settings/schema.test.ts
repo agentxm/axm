@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { enabledConfiguredEntries } from "../extensions/index.js";
 import {
   KnowledgeConfigSchema,
+  KnowledgeEntrySchema,
   McpServersMapSchema,
   McpServerEntryObjectSchema,
   McpServerEntrySchema,
@@ -166,6 +167,32 @@ describe("Settings schema", () => {
 
     it("accepts an empty Knowledge config so instruction discovery defaults on", () => {
       expect(Schema.decodeUnknownSync(KnowledgeConfigSchema)({})).toEqual({});
+    });
+
+    it.each([true, false] as const)(
+      "round-trips an explicit Knowledge instruction-entry override of %s",
+      (instructionEntry) => {
+        const input = {
+          source: "@acme/knowledge/payments@^1.0.0",
+          instructionEntry,
+        };
+        const decoded = Schema.decodeUnknownSync(KnowledgeEntrySchema)(input);
+
+        expect(decoded).toEqual({
+          source: input.source,
+          enabled: true,
+          instructionEntry,
+        });
+        expect(Schema.encodeSync(KnowledgeEntrySchema)(decoded)).toEqual(input);
+      },
+    );
+
+    it("keeps the compact Knowledge source form when no override is present", () => {
+      const source = "@acme/knowledge/payments@^1.0.0";
+      const decoded = Schema.decodeUnknownSync(KnowledgeEntrySchema)(source);
+
+      expect(decoded).toEqual({ source, enabled: true });
+      expect(Schema.encodeSync(KnowledgeEntrySchema)(decoded)).toBe(source);
     });
 
     it("exposes only the current Knowledge instruction setting", () => {

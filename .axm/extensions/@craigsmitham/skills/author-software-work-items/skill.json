@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-software-work-items",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Create and revise evidence-rich software work items while preserving supplied technical design and delivery context",
   "keywords": [
     "work-items",
@@ -26,8 +26,6 @@
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/software-engineering"],
   "standalone": false
 }

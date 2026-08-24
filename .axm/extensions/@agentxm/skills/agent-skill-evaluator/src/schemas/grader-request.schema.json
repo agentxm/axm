@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/grader-request-1.0.0.json",
+  "title": "Agent Skill evaluator grader request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "blind_configuration_id",
+    "expected_output",
+    "assertions",
+    "response",
+    "budgets"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "case_id": { "type": ["string", "number"] },
+    "blind_configuration_id": { "type": "string", "pattern": "^configuration-[a-f0-9]{12}$" },
+    "expected_output": { "type": ["string", "null"] },
+    "assertions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "response": { "type": "object" },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token_remaining", "cost_remaining_usd"],
+      "properties": {
+        "token_remaining": { "type": ["integer", "null"], "minimum": 0 },
+        "cost_remaining_usd": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

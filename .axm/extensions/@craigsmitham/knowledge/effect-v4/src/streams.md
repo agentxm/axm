@@ -93,13 +93,13 @@ Avoid converting an unbounded stream to an in-memory collection.
 ## Build and consume deliberately
 
 ```ts
-import { Stream } from "effect"
+import { Stream } from "effect";
 
 const program = Stream.fromIterable(ids).pipe(
   Stream.mapEffect(loadOne, { concurrency: 8 }),
   Stream.groupedWithin(100, "250 millis"),
   Stream.runForEach(writeBatch),
-)
+);
 ```
 
 - Construct finite sources from iterables, effectful sources from effects or
@@ -128,10 +128,17 @@ const program = Stream.fromIterable(ids).pipe(
   version, not remembered from v3.
 
 [^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — `callback` (no `async` export), `fromQueue` returning `Stream<A, Exclude<E, Cause.Done>>`, `mapEffect` with `{ concurrency, unordered }`, `groupedWithin(chunkSize, duration)`, `buffer` with `"suspend" | "dropping" | "sliding"`, `throttle`/`debounce`.
+
 [^docs-stream-creating]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.110` — `Stream.callback` registers listeners via `Effect.acquireRelease` so removal runs when the stream finishes.
+
 [^docs-stream-consuming]: `ai-docs/src/03_stream/20_consuming-streams.ts` at `effect@4.0.0-rc.110`; `runCollect` returns `Effect<Array<A>, E, R>` at `packages/effect/src/Stream.ts`.
+
 [^src-sink]: `packages/effect/src/Sink.ts` at `effect@4.0.0-rc.110`.
+
 [^src-channel]: `packages/effect/src/Channel.ts` at `effect@4.0.0-rc.110` — "most application code uses those higher-level modules instead."
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/SyncClient.ts` (effect 4.0.0-beta.103).
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/DiscordGateway/Messaging.ts` (effect 4.0.0-beta.105).
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/common/src/leader-thread/LeaderSyncProcessor.ts` (effect 4.0.0-beta.99).

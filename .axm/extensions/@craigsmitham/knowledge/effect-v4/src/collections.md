@@ -88,19 +88,19 @@ Related: [Streams](streams.md) when delivery is incremental,
   between native and Effect representations in the core pipeline.
 
 ```ts
-import { Array, Option, Result } from "effect"
+import { Array, Option, Result } from "effect";
 
 const parsePort = (s: string): Result.Result<number, string> => {
-  const n = Number(s)
-  return Number.isInteger(n) && n > 0 ? Result.succeed(n) : Result.fail(s)
-}
+  const n = Number(s);
+  return Number.isInteger(n) && n > 0 ? Result.succeed(n) : Result.fail(s);
+};
 
-declare const inputs: ReadonlyArray<string>
-declare const lookups: ReadonlyArray<Option.Option<number>>
+declare const inputs: ReadonlyArray<string>;
+declare const lookups: ReadonlyArray<Option.Option<number>>;
 
-const ports = Array.filterMap(inputs, parsePort) // keep successes
-const [invalid, valid] = Array.partition(inputs, parsePort) // keep both sides
-const found = Array.getSomes(lookups) // Option removal is getSomes, not filterMap
+const ports = Array.filterMap(inputs, parsePort); // keep successes
+const [invalid, valid] = Array.partition(inputs, parsePort); // keep both sides
+const found = Array.getSomes(lookups); // Option removal is getSomes, not filterMap
 ```
 
 ## Keep concerns separate
@@ -125,9 +125,15 @@ const found = Array.getSomes(lookups) // Option removal is getSomes, not filterM
 - Finite collection work has not been over-modeled as a Stream.
 
 [^src-array]: `packages/effect/src/Array.ts` at `effect@4.0.0-rc.110` — `get`/`head`/`findFirst` return `Option`, `getUnsafe` is the unsafe alternative, `filterMap` and `partition` take `(a, i) => Result<B, X>`, `separate` is `partition(identity)`, `getSomes` extracts present Option values.
+
 [^src-record]: `packages/effect/src/Record.ts` at `effect@4.0.0-rc.110` — `Record.partition` takes a Result-returning function and preserves keys; `Record.separate` splits a record of Results; no `partitionMap` export exists.
+
 [^src-chunk]: `packages/effect/src/Chunk.ts` at `effect@4.0.0-rc.110` — module header: "designed for efficient append, prepend, and concatenation", plus slicing and array conversion.
+
 [^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — no Chunk import; `fromArray`/`fromArrays` constructors and `runCollect` returning `Effect<Array<A>, E, R>`.
+
 [^src-hashmap]: `packages/effect/src/HashMap.ts` at `effect@4.0.0-rc.110` — keys hashed and matched with Effect's structural equality rules; HAMT structural sharing.
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/Interactions/builder.ts` (effect peer `>=4.0.0-beta.101`) — `Chunk.append`/`appendAll`/`map` accumulation, `Chunk.toReadonlyArray` at consumption.
+
 [^applied-alchemy]: Observed in alchemy@67022d6 `packages/alchemy/src/AWS/Lambda/MicrovmBinding.ts` (`Ref<HashMap>` memoization) and `packages/cloudflare-runtime/src/core/registry/Registry.ts` (`MutableHashMap` inside one owned boundary), effect peer `>=4.0.0-beta.105`.

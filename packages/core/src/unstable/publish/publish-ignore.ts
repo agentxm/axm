@@ -35,8 +35,8 @@ export class PublishIgnoreError extends Data.TaggedError("PublishIgnoreError")<{
  *
  * Only the manifest is protected here. Required body files (a skill's
  * `SKILL.md`, a hook's entrypoint, a knowledge bundle's root index) are
- * enforced by the publish lint gate, which reads the built archive and reports
- * the missing file by name.
+ * enforced by filtered-package validation on the built archive, which reports
+ * the missing file by name at both the client and Registry ingestion boundary.
  */
 export const protectedPublishPaths = (type: ExtensionType): ReadonlyArray<string> => [
   manifestFilenameForType(type),

@@ -17,5 +17,5 @@ For example, an agent changing two distant functions may first move them
 together in a behavior-preserving commit when that makes the requested change
 safer and easier to review.
 
-The rule is original guidance informed by Kent Beck's *Tidy First?* and Martin
+The rule is original guidance informed by Kent Beck's _Tidy First?_ and Martin
 Fowler's Preparatory Refactoring. It is licensed under MIT.

@@ -93,7 +93,7 @@ describe("axm source smoke", () => {
     expect(result.stderr).toContain("Use --debug");
   });
 
-  it("keeps help and bundled skill guidance aligned with output-mode guarantees", async () => {
+  it("keeps detailed output guarantees in live help and routes the bundled skill to it", async () => {
     const help = await runAxm(["help", "environment"]);
     const skill = fs.readFileSync(
       path.resolve(PACKAGE_ROOT, "../..", ".axm/extensions/@agentxm/skills/axm/src/SKILL.md"),
@@ -110,14 +110,8 @@ describe("axm source smoke", () => {
     ]) {
       expect(help.stdout).toContain(guarantee);
     }
-    for (const guarantee of [
-      "never prompts",
-      "only final",
-      "wins over verbose and debug",
-      "TERM=dumb",
-      "remain redacted",
-    ]) {
-      expect(skill).toContain(guarantee);
-    }
+    expect(skill).toContain("Live help is");
+    expect(skill).toContain("authoritative for flags, output fields");
+    expect(skill).toContain("Keep secrets symbolic");
   });
 });

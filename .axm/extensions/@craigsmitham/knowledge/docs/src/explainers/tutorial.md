@@ -33,12 +33,12 @@ generated:
 # Tutorial explainer
 
 A **tutorial** is a **lesson** — an **experience** under the guidance of a
-tutor. It is always **learning-oriented**: the user *does* something
+tutor. It is always **learning-oriented**: the user _does_ something
 meaningful toward an achievable goal so they can **acquire** skill, not so
 they can finish a production task.
 
 The obligation is a **successful learning experience**. What the learner
-*does* is not always what they *learn*; through action they pick up names,
+_does_ is not always what they _learn_; through action they pick up names,
 tools, workflows, confidence, and how things relate.
 
 Teaching a child to cook is a strong everyday model: success is what the
@@ -52,10 +52,10 @@ To write one, use [Tutorial guide](../guides/tutorial.md).
 In Diátaxis, tutorial sits with **action** (what the user does) and **study**
 (acquisition of skill):
 
-| Axis | Tutorial’s side | Contrast |
-| --- | --- | --- |
-| Action vs cognition | Action / practical steps | Reference and explanation inform what the user *knows* |
-| Study vs work | Study (learn under guidance) | How-to also directs action, but for **work** — a real goal |
+| Axis                | Tutorial’s side              | Contrast                                                   |
+| ------------------- | ---------------------------- | ---------------------------------------------------------- |
+| Action vs cognition | Action / practical steps     | Reference and explanation inform what the user _knows_     |
+| Study vs work       | Study (learn under guidance) | How-to also directs action, but for **work** — a real goal |
 
 So tutorial and how-to both sequence steps, yet they answer different needs:
 learning vs doing. Conflating them is the most common failure in product
@@ -67,13 +67,13 @@ and not an inventory of the machinery.
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Learning / acquisition of skill |
-| **Success** | Confidence and familiarity; a completed path that worked; desire to return and practice |
-| **Voice** | Tutor leading a lesson — we are in this together; not a manual listing options |
-| **Typical prompt** | *Can you teach me to…?* · *Help me get my first success with…* |
-| **Title cue** | Often *Getting started…*, *Your first…*, or *In this tutorial we will…* — a lesson frame, not *How to* production work |
+|                    |                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| **Reader need**    | Learning / acquisition of skill                                                                                        |
+| **Success**        | Confidence and familiarity; a completed path that worked; desire to return and practice                                |
+| **Voice**          | Tutor leading a lesson — we are in this together; not a manual listing options                                         |
+| **Typical prompt** | _Can you teach me to…?_ · _Help me get my first success with…_                                                         |
+| **Title cue**      | Often _Getting started…_, _Your first…_, or _In this tutorial we will…_ — a lesson frame, not _How to_ production work |
 
 ## Contract of the lesson
 
@@ -96,16 +96,16 @@ gaps a live teacher would catch.
 
 ## What belongs
 
-- A clear picture of **where the learner will be going** (*In this tutorial
-  we will create… Along the way we will encounter…*) — not the presumptuous
-  *you will learn…*
+- A clear picture of **where the learner will be going** (_In this tutorial
+  we will create… Along the way we will encounter…_) — not the presumptuous
+  _you will learn…_
 - **Concrete actions** in a managed, often single-line path; small steps;
   **visible results early and often**
 - A **narrative of the expected** — what output should look like; likely
   signs of going wrong; preparation for surprising volume of output
 - Prompts to **notice** the environment (close the learning loop)
-- **Minimal** in-path explanation (*We’re using HTTPS because it’s more
-  secure*) with links out for depth
+- **Minimal** in-path explanation (_We’re using HTTPS because it’s more
+  secure_) with links out for depth
 - Room for **repetition** of successful steps where reversible
 - Enough scene-setting to start; cut optional branches and catalogs
 
@@ -126,7 +126,7 @@ gaps a live teacher would catch.
 - A suitable beginner can complete it without inventing missing steps
 - Every step serves the learning path; dead ends are rare
 - Results are visible and meaningful along the way
-- Failure modes that routinely block *this* lesson are handled or avoided
+- Failure modes that routinely block _this_ lesson are handled or avoided
 - Explanation and option lists appear as **links**, not bulk digressions
 - After finishing, the learner has **confidence and familiarity** — not only
   a shipped production outcome or a scanned catalog
@@ -135,28 +135,28 @@ gaps a live teacher would catch.
 
 Useful shapes (paraphrased from Diátaxis):
 
-- *We…* / *In this tutorial, we will…* (shared journey; name the accomplishment)
-- *First, do x. Now, do y. Now that you have done y, do z.* (no ambiguity)
-- *We must always do x before y because… (see Explanation for more details).*
-  (minimal *why*; link out)
-- *The output should look something like…*
-- *Notice that… Remember that… Let’s check…*
-- *You have built a…* (mildly admire what they accomplished)
+- _We…_ / _In this tutorial, we will…_ (shared journey; name the accomplishment)
+- _First, do x. Now, do y. Now that you have done y, do z._ (no ambiguity)
+- _We must always do x before y because… (see Explanation for more details)._
+  (minimal _why_; link out)
+- _The output should look something like…_
+- _Notice that… Remember that… Let’s check…_
+- _You have built a…_ (mildly admire what they accomplished)
 
 ## Tutorial vs how-to (the hard boundary)
 
 Both are practical sequences of steps. The difference is **need**, not
 basic-vs-advanced:
 
-| | Tutorial | How-to |
-| --- | --- | --- |
-| User mode | Study — acquire skill | Work — apply skill |
-| Purpose | Successful learning experience | Correct task completion |
-| Path | Managed, often single line; eliminate surprise | Real world; prepare for the unexpected |
-| Safety | Must be safe to retry under the “teacher” | Cannot always promise safety; user owns risk |
-| Choices | Few or none mid-path | Forks and alternatives common |
+|            | Tutorial                                                           | How-to                                                                                            |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| User mode  | Study — acquire skill                                              | Work — apply skill                                                                                |
+| Purpose    | Successful learning experience                                     | Correct task completion                                                                           |
+| Path       | Managed, often single line; eliminate surprise                     | Real world; prepare for the unexpected                                                            |
+| Safety     | Must be safe to retry under the “teacher”                          | Cannot always promise safety; user owns risk                                                      |
+| Choices    | Few or none mid-path                                               | Forks and alternatives common                                                                     |
 | Generality | One concrete, particular experience that builds transferable skill | Addresses a particular task, but framed to adapt across the varying real conditions readers bring |
-| Competence | May lack even the right questions | Assumed to ask the right question |
+| Competence | May lack even the right questions                                  | Assumed to ask the right question                                                                 |
 
 A clinical training pad (lesson) vs a surgical procedure manual (work) is the
 same distinction as a sandboxed “first project” vs “deploy blue-green with
@@ -167,7 +167,7 @@ rollback.”
 - **Tutorial/how-to conflation** — production guidance labeled as a lesson,
   or a lesson that pretends to be a runbook
 - **Teaching by explaining** — long theory mid-path that dissolves attention
-  instead of *doing*
+  instead of _doing_
 - **Choice overload** — every option and alternative on the first path
 - **No early success** — long setup before any meaningful result
 - **Unreliable path** — steps that often fail; confidence collapses

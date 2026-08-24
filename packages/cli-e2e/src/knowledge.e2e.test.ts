@@ -705,6 +705,9 @@ describe("axm knowledge lifecycle", () => {
       );
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
       expect(installedInstructions).toContain("## Knowledge Bundles");
+      expect(installedInstructions).toContain(
+        "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
+      );
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
         "[platform](.axm/extensions/external/knowledge/platform/src/index.md)",
@@ -767,6 +770,80 @@ describe("axm knowledge lifecycle", () => {
       const restoreTable = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
       expect(restoreTable.exitCode, restoreTable.stdout + restoreTable.stderr).toBe(0);
 
+      writeJson(path.join(sourceRoot, "knowledge.json"), {
+        ...readJson(path.join(sourceRoot, "knowledge.json")),
+        instructionEntry: false,
+      });
+      const applyManifestDefault = await runCli(
+        ["knowledge", "update", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(
+        applyManifestDefault.exitCode,
+        applyManifestDefault.stdout + applyManifestDefault.stderr,
+      ).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "[platform]",
+      );
+      const searchWithManifestExclusion = await runCli(
+        ["knowledge", "concepts", "search", "architecture"],
+        { cwd: temp.path },
+      );
+      expect(searchWithManifestExclusion.exitCode).toBe(0);
+      expect(searchWithManifestExclusion.stdout).toContain("Updated architecture");
+
+      const currentSettings = readJson(settingsPath);
+      writeJson(settingsPath, {
+        ...currentSettings,
+        knowledge: {
+          platform: {
+            source: "./knowledge-source",
+            instructionEntry: true,
+          },
+        },
+      });
+      const includeOverride = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
+      expect(includeOverride.exitCode, includeOverride.stdout + includeOverride.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain("[platform]");
+      const updateWithIncludeOverride = await runCli(
+        ["knowledge", "update", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(
+        updateWithIncludeOverride.exitCode,
+        updateWithIncludeOverride.stdout + updateWithIncludeOverride.stderr,
+      ).toBe(0);
+      expect(readJson(settingsPath)).toMatchObject({
+        knowledge: { platform: { instructionEntry: true } },
+      });
+
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        knowledge: {
+          platform: {
+            source: "./knowledge-source",
+            instructionEntry: false,
+          },
+        },
+      });
+      const excludeOverride = await runCli(["sync", "--non-interactive"], { cwd: temp.path });
+      expect(excludeOverride.exitCode, excludeOverride.stdout + excludeOverride.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "[platform]",
+      );
+      const list = await runCli(["knowledge", "list", "--json"], { cwd: temp.path });
+      expect(list.exitCode, list.stdout + list.stderr).toBe(0);
+      expect(JSON.parse(list.stdout)).toMatchObject({
+        result: {
+          items: [
+            {
+              name: "platform",
+              instructionEntry: { included: false, reason: "workspace-excluded" },
+            },
+          ],
+        },
+      });
+
       const disable = await runCli(["knowledge", "disable", "platform"], { cwd: temp.path });
       expect(disable.exitCode, disable.stdout + disable.stderr).toBe(0);
       expect(fs.existsSync(canonical)).toBe(true);
@@ -776,6 +853,30 @@ describe("axm knowledge lifecycle", () => {
 
       const enable = await runCli(["knowledge", "enable", "platform"], { cwd: temp.path });
       expect(enable.exitCode, enable.stdout + enable.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).not.toContain(
+        "[platform]",
+      );
+      expect(readJson(settingsPath)).toMatchObject({
+        knowledge: { platform: { instructionEntry: false } },
+      });
+      const searchAfterEnable = await runCli(["knowledge", "concepts", "search", "architecture"], {
+        cwd: temp.path,
+      });
+      expect(searchAfterEnable.exitCode).toBe(0);
+
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        knowledge: {
+          platform: {
+            source: "./knowledge-source",
+            instructionEntry: true,
+          },
+        },
+      });
+      const restoreOverride = await runCli(["sync", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(restoreOverride.exitCode, restoreOverride.stdout + restoreOverride.stderr).toBe(0);
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain("[platform]");
 
       const uninstall = await runCli(

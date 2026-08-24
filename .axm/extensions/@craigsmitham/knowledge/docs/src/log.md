@@ -1,5 +1,14 @@
 # Documentation craft update log
 
+## 2026-08-21
+
+- **Pattern**: Added [Concept boundaries](patterns/concept-boundaries.md) for
+  giving recurring cross-concept comparisons one substantive authority while
+  keeping indexes navigational and individual definitions canonical.
+- **Organization**: Connected the concept-boundary pattern to the organizing
+  and naming workflow so recurring distinctions are not duplicated across
+  concept pages or expanded inside indexes.
+
 ## 2026-08-15
 
 - **Update**: Expanded bundle discovery metadata to name documentation naming

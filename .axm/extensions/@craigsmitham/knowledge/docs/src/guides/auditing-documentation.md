@@ -116,12 +116,12 @@ separate findings when causes, owners, or remediation differ.
 Use plain severity labels whose meanings are stated in the report. A useful
 default is:
 
-| Severity | Meaning |
-| --- | --- |
+| Severity | Meaning                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------- |
 | Critical | Likely to cause serious harm, unsafe action, or broad inability to use the documented system |
-| High | Blocks an important reader journey or materially misstates authoritative behavior |
-| Medium | Creates recurring confusion, inconsistency, or maintenance cost without broadly blocking use |
-| Low | Localized friction or a bounded quality defect with a straightforward workaround |
+| High     | Blocks an important reader journey or materially misstates authoritative behavior            |
+| Medium   | Creates recurring confusion, inconsistency, or maintenance cost without broadly blocking use |
+| Low      | Localized friction or a bounded quality defect with a straightforward workaround             |
 
 ## 7. Report in decision order
 

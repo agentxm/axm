@@ -106,16 +106,16 @@ browsing the `Config` and `ConfigProvider` surfaces.
   alternative sources.[^src-config]
 
 ```ts
-import { Config, Effect, Redacted, Schema, SchemaIssue } from "effect"
+import { Config, Effect, Redacted, Schema, SchemaIssue } from "effect";
 
 interface Tracing {
-  readonly endpoint: string
-  readonly token: Redacted.Redacted
-  readonly sampleRatio: number
+  readonly endpoint: string;
+  readonly token: Redacted.Redacted;
+  readonly sampleRatio: number;
 }
 
 const invalid = (message: string) =>
-  new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })))
+  new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })));
 
 const tracing: Config.Config<Tracing | undefined> = Config.boolean("TRACING_ENABLED").pipe(
   Config.withDefault(false),
@@ -124,17 +124,19 @@ const tracing: Config.Config<Tracing | undefined> = Config.boolean("TRACING_ENAB
   Config.mapOrFail((enabled): Effect.Effect<Tracing | undefined, Config.ConfigError> =>
     enabled
       ? Config.all({
-        endpoint: Config.string("OTLP_ENDPOINT"),
-        token: Config.redacted("OTLP_TOKEN"),
-        sampleRatio: Config.number("OTLP_SAMPLE_RATIO").pipe(Config.withDefault(1)),
-      })
-      : Effect.succeed(undefined)),
+          endpoint: Config.string("OTLP_ENDPOINT"),
+          token: Config.redacted("OTLP_TOKEN"),
+          sampleRatio: Config.number("OTLP_SAMPLE_RATIO").pipe(Config.withDefault(1)),
+        })
+      : Effect.succeed(undefined),
+  ),
   // ConfigError is the only permitted failure here.
   Config.mapOrFail((t): Effect.Effect<Tracing | undefined, Config.ConfigError> =>
     t !== undefined && t.sampleRatio <= 0
       ? Effect.fail(invalid("OTLP_SAMPLE_RATIO must be > 0 while TRACING_ENABLED is true"))
-      : Effect.succeed(t)),
-)
+      : Effect.succeed(t),
+  ),
+);
 ```
 
 ## Set the boundary
@@ -153,10 +155,10 @@ const tracing: Config.Config<Tracing | undefined> = Config.boolean("TRACING_ENAB
   consuming code.[^src-config-provider]
 
 ```ts
-import { Config, ConfigProvider, Context, Effect, Layer, Redacted } from "effect"
+import { Config, ConfigProvider, Context, Effect, Layer, Redacted } from "effect";
 
-const port = Config.port("SMTP_PORT").pipe(Config.withDefault(587))
-const pass_ = Config.redacted("SMTP_PASS")
+const port = Config.port("SMTP_PORT").pipe(Config.withDefault(587));
+const pass_ = Config.redacted("SMTP_PASS");
 
 class Mailer extends Context.Service<
   Mailer,
@@ -168,22 +170,22 @@ class Mailer extends Context.Service<
 // layer's error channel before any application work runs.
 const MailerLive = Layer.effect(
   Mailer,
-  Effect.gen(function*() {
-    const p = yield* port
-    const key = yield* pass_
+  Effect.gen(function* () {
+    const p = yield* port;
+    const key = yield* pass_;
     return Mailer.of({
       // unwrap the secret only at the integration that needs it
       send: (to) => smtpSend(p, Redacted.value(key), to),
-    })
+    });
   }),
-)
+);
 
 // Tests override where values come from, not the code that uses them.
 const MailerTest = MailerLive.pipe(
-  Layer.provide(ConfigProvider.layer(
-    ConfigProvider.fromUnknown({ SMTP_PORT: "2525", SMTP_PASS: "test-pass" }),
-  )),
-)
+  Layer.provide(
+    ConfigProvider.layer(ConfigProvider.fromUnknown({ SMTP_PORT: "2525", SMTP_PASS: "test-pass" })),
+  ),
+);
 ```
 
 ## Protect and evolve
@@ -224,11 +226,19 @@ state.
 - No configuration value carries per-request or mutable domain state.
 
 [^src-config]: `packages/effect/src/Config.ts` at `effect@4.0.0-rc.110` — `Config<T> extends Effect<T, ConfigError>`; `ConfigError` wraps `SourceError` or `Schema.SchemaError` (`:72`); `withDefault`/`option` gotchas state that validation errors and partially supplied groups still propagate; `orElse` handles all `ConfigError`s; `redacted` is `schema(Schema.Redacted(Schema.String))` (`:1498`); `mapOrFail` takes `(a: A) => Effect<B, ConfigError>` (`:289`); `literals(literals, name?)` is defined as `schema(Schema.Literals(literals), name)` (`:1295`), the shape Effect uses for its own `Config.LogLevel` (`:975`). There is no exported `Config.flatMap`. The closed-set claim rests on this first-party source alone — no `Config.literals`, `Config.literal`, or `Config.schema(Schema.Literals(…))` use appears in the surveyed applied corpus.
+
 [^src-config-provider]: `packages/effect/src/ConfigProvider.ts` at `effect@4.0.0-rc.110` — `fromEnv`, `fromEnvRecord`, `fromDotEnv`, `fromDir`, `fromUnknown`; `ConfigProvider` is a `Context.Reference` with a `fromEnv()` default; `layer`, `layerAdd`, `mapInput`, `constantCase`, `nested`.
+
 [^test-config]: `packages/effect/test/Config.test.ts` at `effect@4.0.0-rc.110` — "defaults wholly absent products and rejects partial products"; "validates empty env numbers when they are preserved"; "mapOrFail supports effectful validation" (`:231-252`) constructs the failure as `new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })))`.
+
 [^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `SchemaError` takes a `SchemaIssue.Issue` (`:1178`); `Schema.makeFilter` examples on `.check` return `{ path, issue }` for one field and an array of them for several (`:6546`, `:6561`).
+
 [^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.110` — `Layer.unwrap` reads `Config.boolean("MESSAGE_STORE_IN_MEMORY")` and returns one of two concrete layers (`:51-64`).
+
 [^docs-acquire-release]: `ai-docs/src/01_effect/05_resources/10_acquire-release.ts` at `effect@4.0.0-rc.110` — `Config.string`/`Config.redacted` yielded in `Layer.effect`; `Redacted.value` unwrapped only inside the SMTP transport.
+
 [^applied-browser-control]: Observed in browser-control@0110939 `src/session-store.ts` (effect 4.0.0-beta.97).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/opencode/src/effect/config-service.ts` (effect 4.0.0-beta.83).
+
 [^applied-alchemy-env]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/GitHub/Env.ts` (effect 4.0.0-rc.110) — `Config.boolean("GITHUB_ACTIONS")` gated over `Config.mapOrFail`, with the in-code rationale at `:30-31`: "Config has no flatMap in Effect 4; a Config is itself an Effect, so the enabled branch returns the inner config for mapOrFail to evaluate."

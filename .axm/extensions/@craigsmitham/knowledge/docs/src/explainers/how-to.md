@@ -44,7 +44,7 @@ situation.
 It serves the user **at work**, not at study. The obligation is to help
 accomplish a named task — not to provide a learning experience.
 
-A recipe is a strong everyday model: a specific *How do I make…?*, competence
+A recipe is a strong everyday model: a specific _How do I make…?_, competence
 assumed, teaching and history left out while cooking — practical
 problem-solving steps for a competent user, not a lesson and not a concept
 essay.
@@ -56,10 +56,10 @@ To write one, use [How-to guide](../guides/how-to.md).
 In Diátaxis, how-to sits with **action** (what the user does) and **work**
 (application of skill), not with study or pure lookup:
 
-| Axis | How-to’s side | Contrast |
-| --- | --- | --- |
-| Action vs cognition | Action / practical directions | Reference and explanation inform what the user *knows* |
-| Study vs work | Work (apply skill to a real goal) | Tutorial also directs action, but for **study** — a managed lesson |
+| Axis                | How-to’s side                     | Contrast                                                           |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------ |
+| Action vs cognition | Action / practical directions     | Reference and explanation inform what the user _knows_             |
+| Study vs work       | Work (apply skill to a real goal) | Tutorial also directs action, but for **study** — a managed lesson |
 
 So how-to and tutorial both sequence steps, yet they answer different needs:
 learning vs doing. Conflating them is the most common failure in product
@@ -75,29 +75,29 @@ How-to and reference both serve work: how-to **directs action**; reference
 
 ## Orientation
 
-| | |
-| --- | --- |
-| **Reader need** | Doing / problem-solving |
-| **Success** | The goal is completed correctly under realistic conditions |
-| **Voice** | Practical expert: sequence of actions, judgment when needed, assumptions brief |
-| **Typical prompt** | *How do I…?* · *How can I achieve X in this situation?* · *What steps get me to Y?* |
-| **Title cue** | Often *How to …* stating the **outcome**, not a bare topic name |
+|                    |                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| **Reader need**    | Doing / problem-solving                                                             |
+| **Success**        | The goal is completed correctly under realistic conditions                          |
+| **Voice**          | Practical expert: sequence of actions, judgment when needed, assumptions brief      |
+| **Typical prompt** | _How do I…?_ · _How can I achieve X in this situation?_ · _What steps get me to Y?_ |
+| **Title cue**      | Often _How to …_ stating the **outcome**, not a bare topic name                     |
 
 ## What belongs
 
 - A **named goal or problem** framed from the user’s need (a human project),
   not from “operations the product exposes”
 - An **executable approach**: actions in a logical sequence — including when
-  to *think* and *judge*, not only button presses
+  to _think_ and _judge_, not only button presses
 - Preconditions the competent reader must already meet (access, tools, prior
   skill); link a tutorial when basics may be missing
-- **Real-world adaptability** — branches, *if this, then that*, alternate
+- **Real-world adaptability** — branches, _if this, then that_, alternate
   routes when the path cannot be fully managed
 - Pitfalls and recovery that block the goal in production-like conditions
-- Pointers to reference (full options/inventories) and explanation (*why*)
+- Pointers to reference (full options/inventories) and explanation (_why_)
   instead of swallowing them
 
-A good catalog of how-tos also sketches what the product can *do* for real
+A good catalog of how-tos also sketches what the product can _do_ for real
 work — not only how widgets behave.
 
 ## What does not belong
@@ -110,7 +110,7 @@ work — not only how widgets behave.
   wrong time to digress is mid-task
 - Tool-centric “take the machinery through its motions” with no human purpose
   (e.g. restating that the Deploy button deploys)
-- An open-ended sphere of skill (*How to build a web application*) rather than
+- An open-ended sphere of skill (_How to build a web application_) rather than
   a bounded goal
 - Multiple unrelated goals packed into one undifferentiated document
 - Completeness-as-virtue that dilutes action with every related option
@@ -136,36 +136,36 @@ and need judgment; forcing a single rigid script can mis-serve work.
 
 Useful shapes (paraphrased from Diátaxis):
 
-- *This guide shows you how to…* (name the problem or result)
-- *If you want x, do y. To achieve w, do z.* (conditional imperatives)
-- *If this, then that. In the case of …, an alternative is…*
-- *Refer to the x reference guide for a full list of options.*
-- *Before you start: …* (preconditions only as far as this goal needs)
+- _This guide shows you how to…_ (name the problem or result)
+- _If you want x, do y. To achieve w, do z._ (conditional imperatives)
+- _If this, then that. In the case of …, an alternative is…_
+- _Refer to the x reference guide for a full list of options._
+- _Before you start: …_ (preconditions only as far as this goal needs)
 
 Prefer titles that encode the outcome (Diátaxis naming grades):
 
-| Grade | Title | Why |
-| --- | --- | --- |
-| Good | *How to integrate application performance monitoring* | Says exactly what the guide shows |
-| Bad | *Integrating application performance monitoring* | Could be whether to, not how to |
-| Very bad | *Application performance monitoring* | Topic only — how, whether, or what? |
-| Good | *How to rotate the API token* | Outcome-encoded |
-| Bad | *Tokens* | Topic, not task |
+| Grade    | Title                                                 | Why                                 |
+| -------- | ----------------------------------------------------- | ----------------------------------- |
+| Good     | _How to integrate application performance monitoring_ | Says exactly what the guide shows   |
+| Bad      | _Integrating application performance monitoring_      | Could be whether to, not how to     |
+| Very bad | _Application performance monitoring_                  | Topic only — how, whether, or what? |
+| Good     | _How to rotate the API token_                         | Outcome-encoded                     |
+| Bad      | _Tokens_                                              | Topic, not task                     |
 
 ## How-to vs tutorial (the hard boundary)
 
 Both are practical sequences of steps. The difference is **need**, not
 basic-vs-advanced:
 
-| | Tutorial | How-to |
-| --- | --- | --- |
-| User mode | Study — acquire skill | Work — apply skill |
-| Purpose | Successful learning experience | Correct task completion |
-| Path | Managed, often single line; eliminate surprise | Real world; prepare for the unexpected |
-| Safety | Must be safe to retry under the “teacher” | Cannot always promise safety; user owns risk |
-| Choices | Few or none mid-path | Forks and alternatives common |
+|            | Tutorial                                                           | How-to                                                                                            |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| User mode  | Study — acquire skill                                              | Work — apply skill                                                                                |
+| Purpose    | Successful learning experience                                     | Correct task completion                                                                           |
+| Path       | Managed, often single line; eliminate surprise                     | Real world; prepare for the unexpected                                                            |
+| Safety     | Must be safe to retry under the “teacher”                          | Cannot always promise safety; user owns risk                                                      |
+| Choices    | Few or none mid-path                                               | Forks and alternatives common                                                                     |
 | Generality | One concrete, particular experience that builds transferable skill | Addresses a particular task, but framed to adapt across the varying real conditions readers bring |
-| Competence | May lack even the right questions | Assumed to ask the right question |
+| Competence | May lack even the right questions                                  | Assumed to ask the right question                                                                 |
 
 A clinical training pad (lesson) vs a surgical procedure manual (work) is the
 same distinction as a sandboxed “first project” vs “deploy blue-green with

@@ -139,14 +139,23 @@ Use the host's conventions. This is a drafting aid, not a required schema:
 Concise action-directing formulation.
 
 ## Good sought or protected
+
 ## Warrant and provenance
+
 ## Normative strength
+
 ## Scope
+
 ## Practical implications
+
 ## Tensions and limits
+
 ## Demands on the practitioner
+
 ## Judgment cases
+
 ## Misreadings
+
 ## Related principles, patterns, practices, and rules
 ```
 
@@ -158,14 +167,14 @@ direction, strength, and field easy to locate.
 Use a parallel shape so cases reveal reasoning rather than merely approved
 answers:
 
-| Case element | What to show |
-| --- | --- |
-| **Decision** | The concrete choice the practitioner faces |
-| **Relevant facts** | Conditions that materially affect application |
-| **Goods and tensions** | What the principle protects and what else matters |
-| **Practitioner demands** | Knowledge, perception, competence, or restraint required |
-| **Judgment** | The chosen direction and why it fits this case |
-| **Enactment** | The resulting action, rule, practice, or selected pattern |
+| Case element             | What to show                                              |
+| ------------------------ | --------------------------------------------------------- |
+| **Decision**             | The concrete choice the practitioner faces                |
+| **Relevant facts**       | Conditions that materially affect application             |
+| **Goods and tensions**   | What the principle protects and what else matters         |
+| **Practitioner demands** | Knowledge, perception, competence, or restraint required  |
+| **Judgment**             | The chosen direction and why it fits this case            |
+| **Enactment**            | The resulting action, rule, practice, or selected pattern |
 
 Prefer diverse cases over repeated descendants of one canonical example. A
 case may be synthetic for teaching, but label it honestly and never present it
@@ -221,8 +230,12 @@ deprecate it as understanding changes.
 - [Explanation guide](explanation.md)
 - [Reference guide](reference.md)
 
-[^frame-christian-life]: John Frame — *The Doctrine of the Christian Life* (excerpt)
-[^poythress-redeeming-reason]: Vern Poythress — *Redeeming Reason*
-[^odonovan-created-order]: Oliver O'Donovan — *Created Order / Theology*
-[^odonovan-virtue]: Oliver O'Donovan — *The Place of Virtue Theory in Christian Ethics*
-[^odonovan-judgment]: Oliver O'Donovan — *Government as Judgment*
+[^frame-christian-life]: John Frame — _The Doctrine of the Christian Life_ (excerpt)
+
+[^poythress-redeeming-reason]: Vern Poythress — _Redeeming Reason_
+
+[^odonovan-created-order]: Oliver O'Donovan — _Created Order / Theology_
+
+[^odonovan-virtue]: Oliver O'Donovan — _The Place of Virtue Theory in Christian Ethics_
+
+[^odonovan-judgment]: Oliver O'Donovan — _Government as Judgment_

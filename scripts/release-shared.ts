@@ -168,8 +168,8 @@ export const writeSkillVersion = (version: string, path: string = AXM_SKILL_MANI
   const content = readFileSync(path, "utf8");
   const updated = replaceExactlyOnce(
     content,
-    /^[ \t]*"version"[ \t]*:[ \t]*"[^"]+"[ \t]*,?[ \t]*$/gm,
-    `  "version": "${version}"`,
+    /^([ \t]*"version"[ \t]*:[ \t]*)"[^"]+"([ \t]*,?[ \t]*)$/gm,
+    `$1"${version}"$2`,
     path,
   );
   writeFileSync(path, updated, "utf8");

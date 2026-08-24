@@ -13,7 +13,6 @@
  * | `workspace/settings-keys-recognized`    | error    | —           |
  * | `workspace/lockfile-valid`              | error    | autofixing  |
  * | `workspace/desired-state-reconcilable`  | error    | —           |
- * | `workspace/authored-content-unpublished` | warning  | —           |
  * | `workspace/agents-recognized`           | error    | —           |
  * | `workspace/agents-detected-declared`    | warning  | —           |
  * | `workspace/skills-declarations-valid`   | error    | —           |

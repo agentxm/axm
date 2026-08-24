@@ -38,7 +38,9 @@ Kubernetes-oriented engines expose similar ideas through pipelines, tasks,
 templates, dependency graphs, and runtime resources.[^argo-concepts][^tekton-overview]
 
 [^cloudflare-workflows]: Cloudflare Workflows overview
+
 [^argo-concepts]: Argo Workflows core concepts
+
 [^tekton-overview]: Tekton overview
 
 ## The subject
@@ -72,16 +74,16 @@ runs as durable workflow steps.[^cloudflare-ci]
 
 Other profiles include:
 
-| Profile | Intended outcome |
-| --- | --- |
-| Integration and validation | Establish whether a change integrates and meets stated checks |
-| Build and publication | Produce and publish a versioned artifact or package |
-| Delivery and deployment | Make a validated change releasable or place it in a target environment |
-| Provisioning | Create or reconcile infrastructure and configuration |
-| Maintenance and operations | Perform scheduled or event-driven operational work |
-| Data processing | Transform, validate, and move data through dependent work |
-| Durable application flow | Coordinate long waits, callbacks, approvals, or human interaction |
-| Agent-contained work | Provide durable triggers, dependencies, state, approvals, retries, cancellation, and compensation around bounded agent steps |
+| Profile                    | Intended outcome                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Integration and validation | Establish whether a change integrates and meets stated checks                                                                |
+| Build and publication      | Produce and publish a versioned artifact or package                                                                          |
+| Delivery and deployment    | Make a validated change releasable or place it in a target environment                                                       |
+| Provisioning               | Create or reconcile infrastructure and configuration                                                                         |
+| Maintenance and operations | Perform scheduled or event-driven operational work                                                                           |
+| Data processing            | Transform, validate, and move data through dependent work                                                                    |
+| Durable application flow   | Coordinate long waits, callbacks, approvals, or human interaction                                                            |
+| Agent-contained work       | Provide durable triggers, dependencies, state, approvals, retries, cancellation, and compensation around bounded agent steps |
 
 One workflow may serve several profiles. Purpose should therefore be recorded as
 context, not inferred from whether the platform calls the definition a pipeline
@@ -107,17 +109,17 @@ practice exists.
 
 A successful status is necessary but insufficient. Workflow quality includes:
 
-* **Effectiveness and correctness** — the workflow establishes the intended
+- **Effectiveness and correctness** — the workflow establishes the intended
   outcome and its result means what users think it means.
-* **Performance** — useful feedback and outcomes arrive with appropriate
+- **Performance** — useful feedback and outcomes arrive with appropriate
   latency and throughput.
-* **Efficiency** — compute, waiting, data movement, retries, and human attention
+- **Efficiency** — compute, waiting, data movement, retries, and human attention
   are not wasted disproportionately.
-* **Dependability** — repeated execution is trustworthy; failure, retry,
+- **Dependability** — repeated execution is trustworthy; failure, retry,
   cancellation, and recovery have coherent semantics.
-* **Experience** — authors, reviewers, operators, and result consumers can
+- **Experience** — authors, reviewers, operators, and result consumers can
   understand, reproduce, navigate, and control the work.
-* **Safety** — permissions and external effects are bounded, attributable, and
+- **Safety** — permissions and external effects are bounded, attributable, and
   recoverable where the domain permits.
 
 Every pattern and practice in this bundle discusses these consequences in its
@@ -139,7 +141,7 @@ inside an agent boundary. See [Agents and agentic workflows](agents-and-agentic-
 
 ## Related
 
-* [Workflow model](workflow-model-explainer.md)
-* [Agents and agentic workflows](agents-and-agentic-workflows.md)
-* [Pipeline](patterns/pipeline-explainer.md)
-* [Continuous integration](practices/continuous-integration-explainer.md)
+- [Workflow model](workflow-model-explainer.md)
+- [Agents and agentic workflows](agents-and-agentic-workflows.md)
+- [Pipeline](patterns/pipeline-explainer.md)
+- [Continuous integration](practices/continuous-integration-explainer.md)

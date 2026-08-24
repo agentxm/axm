@@ -32,13 +32,13 @@ at a time will miss a systemic problem.
 
 ## Boundaries
 
-| Activity | Primary question | Typical output |
-| --- | --- | --- |
-| Audit | What is true of this bounded corpus, and what deserves attention? | Evidence-backed findings and remediation order |
-| Document review | How well does this identified document serve its job? | Focused feedback or edits |
-| Lint or link check | Does the corpus satisfy deterministic rules? | Machine findings |
-| Verification | Does a claim or completed change agree with its authority? | Pass, fail, or unresolved evidence |
-| Remediation | What should be changed now? | Revised documents, paths, or metadata |
+| Activity           | Primary question                                                  | Typical output                                 |
+| ------------------ | ----------------------------------------------------------------- | ---------------------------------------------- |
+| Audit              | What is true of this bounded corpus, and what deserves attention? | Evidence-backed findings and remediation order |
+| Document review    | How well does this identified document serve its job?             | Focused feedback or edits                      |
+| Lint or link check | Does the corpus satisfy deterministic rules?                      | Machine findings                               |
+| Verification       | Does a claim or completed change agree with its authority?        | Pass, fail, or unresolved evidence             |
+| Remediation        | What should be changed now?                                       | Revised documents, paths, or metadata          |
 
 These activities can compose, but they should not be conflated. Lint results
 are evidence in an audit, not proof that documentation is accurate or useful.
@@ -134,6 +134,7 @@ traceable to evidence, then use the smallest appropriate authoring workflow.
 - [Documentation craft](documentation-craft.md)
 - [Documentation workflow guide](../guides/documentation-workflow.md)
 
-[^documentation-quality]: Documentation quality distinguishes objective,
+[^documentation-quality]:
+    Documentation quality distinguishes objective,
     independently checkable functional qualities from interdependent qualities
     of human fit and flow.

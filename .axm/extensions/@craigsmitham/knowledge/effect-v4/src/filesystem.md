@@ -57,20 +57,18 @@ contents.
 ## Acquire platform services
 
 ```ts
-import { NodeFileSystem, NodePath } from "@effect/platform-node"
-import { Effect, FileSystem, Path } from "effect"
+import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import { Effect, FileSystem, Path } from "effect";
 
 const readText = (file: string) =>
-  Effect.gen(function*() {
-    const fs = yield* FileSystem.FileSystem
-    const path = yield* Path.Path
-    return yield* fs.readFileString(path.resolve(file))
-  })
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    return yield* fs.readFileString(path.resolve(file));
+  });
 
 // Composition root: the only place that names a platform package.
-const main = readText("app.json").pipe(
-  Effect.provide([NodeFileSystem.layer, NodePath.layer]),
-)
+const main = readText("app.json").pipe(Effect.provide([NodeFileSystem.layer, NodePath.layer]));
 ```
 
 - `FileSystem`, `Path`, and `PlatformError` are core `effect` modules;
@@ -129,9 +127,15 @@ const main = readText("app.json").pipe(
 - Directory creation, overwrite, concurrency, and cleanup policies are explicit.
 
 [^src-filesystem]: `packages/effect/src/FileSystem.ts` at `effect@4.0.0-rc.110` — core `Context.Service`, `layerNoop`/`makeNoop` defaults, and `makeTempDirectoryScoped`/`makeTempFileScoped`; the module header states platform packages provide the concrete layers.
+
 [^src-path]: `packages/effect/src/Path.ts` at `effect@4.0.0-rc.110` — `Path.layer` is the built-in POSIX implementation; the service doc shows `Layer.succeed(Path.Path)(custom)`.
+
 [^src-platform-error]: `packages/effect/src/PlatformError.ts` at `effect@4.0.0-rc.110` — wraps a `BadArgument | SystemError` reason carrying module, method, path, and cause.
+
 [^src-node-filesystem]: `packages/platform/node/src/NodeFileSystem.ts`, `NodePath.ts`, `NodeServices.ts` at `effect@4.0.0-rc.110`; Bun and Deno equivalents in `packages/platform/{bun,deno}/src`.
+
 [^test-filesystem-conformance]: `packages/effect/test/FileSystem.test-utils.ts` at `effect@4.0.0-rc.110` — shared behavioral suite run against each platform layer.
+
 [^applied-browser-control]: Observed in browser-control@0110939 `src/session-store.ts` and `src/cli.ts` (effect 4.0.0-beta.97).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/fs-util.ts` and `packages/core/src/effect/app-node-platform.ts` (effect 4.0.0-beta.83).

@@ -1,0 +1,126 @@
+{
+  "skill_name": "maintain-architecture-docs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review the architecture docs for the checkout system and report maintenance problems. Do not change any files.",
+      "expected_output": "A read-only, scoped maintenance assessment with findings, positive practices, evidence checked, and unresolved decisions clearly separated.",
+      "assertions": [
+        "The skill states and preserves review-only mode.",
+        "No repository file is edited.",
+        "Findings distinguish mechanical issues, semantic maintenance, disagreements, decisions, and evidence gaps.",
+        "The handoff identifies the reviewed system and evidence scope."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Maintain our architecture docs. The root index omits two existing accepted subjects, one relative link is broken after a file move, and the replacement paths are unambiguous.",
+      "expected_output": "Bounded mechanical maintenance that repairs navigation and the broken link, then verifies reachability without rewriting substantive meaning.",
+      "assertions": [
+        "The two existing subjects become reachable from the root.",
+        "The broken link is repaired to the unambiguous target.",
+        "No substantive architecture claim is changed without need.",
+        "The final verification checks root reachability and the changed links."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Refresh the architecture docs. They say billing owns invoice numbering, but checkout has generated numbers since last week's refactor, so update the docs to match the newer code.",
+      "expected_output": "An authority-disagreement finding that does not let code recency override accepted desired state and names the evidence or acceptance needed to resolve it.",
+      "assertions": [
+        "Accepted desired state and current implementation are treated as different authorities.",
+        "The docs are not silently changed merely because the code is newer.",
+        "Possible implementation defect, obsolete docs, changed intent, and insufficient evidence remain distinguishable.",
+        "The handoff names the unresolved owner or acceptance needed."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Clean up architecture docs that copy every endpoint, environment variable, and package dependency from the codebase. Preserve the accepted trust boundary and recovery responsibility they were trying to explain.",
+      "expected_output": "Maintenance removes or replaces copied mechanics with evidence routes while retaining the admitted trust and recovery meaning.",
+      "assertions": [
+        "Exact endpoints, environment variables, and dependency inventories remain with executable authorities.",
+        "The accepted trust boundary and recovery responsibility are preserved.",
+        "Evidence links state what their targets establish.",
+        "The skill does not conclude that all architecture documentation is redundant."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Prune two architecture documents that both claim to own customer identity. Their wording conflicts and no accepted decision establishes which one is canonical.",
+      "expected_output": "A maintenance finding that exposes competing ownership and requests the missing authority instead of arbitrarily merging or deleting either document.",
+      "assertions": [
+        "The duplicate canonical ownership is identified.",
+        "Neither conflicting meaning is silently selected as authoritative.",
+        "Deletion or merger is deferred until supersession is established.",
+        "The response names the architecture decision or authority needed."
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Maintain our strategic architecture docs. A Wardley map presents workshop guesses from nine months ago as timeless facts and has no evidence dates or review trigger.",
+      "expected_output": "Maintenance restores hypothesis and freshness boundaries, separates accepted consequences from map positions, and records an evidence-aware review trigger.",
+      "assertions": [
+        "Unverified map positions are not retained as timeless accepted architecture.",
+        "Time-sensitive claims receive evidence dates or an explicit freshness boundary.",
+        "Accepted architecture consequences remain separate from strategic hypotheses.",
+        "The skill does not invent current map positions."
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Maintain the architecture docs in this repository. There is no declared architecture-doc root, adoption statement, or persistent instruction route, only scattered design notes and proposals.",
+      "expected_output": "A precondition finding that does not silently establish setup or promote scattered proposals into accepted architecture.",
+      "assertions": [
+        "The absence of an established setup is reported.",
+        "Scattered proposals are not treated as accepted architecture docs.",
+        "The skill does not choose a root or system boundary under maintenance authority.",
+        "Setup work is identified separately from any safely reviewable existing material."
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "While maintaining the existing payment architecture docs, create a new accepted architecture subject for fraud scoring that the team approved yesterday.",
+      "expected_output": "The current maintenance scope is completed where possible, while the known new fraud-scoring subject is separated as author-architecture-docs work.",
+      "assertions": [
+        "Existing payment-doc maintenance is not abandoned.",
+        "The new fraud-scoring subject is identified as bounded authoring work.",
+        "The maintenance skill does not absorb unrelated new-subject authoring.",
+        "The handoff preserves the accepted source needed by the authoring workflow."
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "Maintain the architecture docs. One document appears redundant because the repository now generates the same current dependency inventory, and deleting it would simplify navigation.",
+      "expected_output": "Mechanical repairs may proceed, but deletion remains a grounded recommendation because the broad maintenance request did not explicitly authorize semantic removal.",
+      "assertions": [
+        "The generated repository view is assessed as the likely authority for the current inventory.",
+        "The document is not deleted under general maintenance authority.",
+        "The recommendation weighs omission risk against duplication, drift, reading, and maintenance cost.",
+        "The smallest safe reduction and required user authorization are explicit."
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Remove docs/architecture/current-dependencies.md. It only copies the generated dependency report; preserve its one durable boundary rationale in the owning system overview and repair navigation.",
+      "expected_output": "The explicitly authorized reduction removes the copied inventory, preserves the accepted rationale at its canonical owner, repairs links, and verifies that generated evidence remains reachable.",
+      "assertions": [
+        "The named document is removed because target and semantic reduction are explicit.",
+        "The durable boundary rationale is preserved without copying the dependency inventory.",
+        "Navigation and evidence routes are repaired in the same change.",
+        "No unrelated semantic documents are removed or reorganized."
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "Reorganize the accepted use cases currently combined in docs/architecture/use-cases.md. Move each named use case to the profile's canonical structure, preserve meaning, update all links, and remove the catch-all file.",
+      "expected_output": "An explicitly authorized stable-identity migration to use-cases/index.md and one canonical named file per use case, with the old catch-all removed and no duplicate copies.",
+      "assertions": [
+        "Each independently addressable use case receives its own named canonical file.",
+        "use-cases/index.md is navigational and does not become the semantic owner.",
+        "Inbound links and root navigation are updated as part of the migration.",
+        "The plural catch-all is removed rather than kept as a parallel authority."
+      ]
+    }
+  ]
+}

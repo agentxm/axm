@@ -68,13 +68,13 @@ reference](https://www.effect.website/docs/v4/api) for browsing the `Effect`,
 ## Wrap one operation
 
 ```ts
-import { Effect } from "effect"
+import { Effect } from "effect";
 
 const fetchUser = (id: UserId) =>
   Effect.tryPromise({
     try: (signal) => client.users.get(id, { signal }),
     catch: (cause) => new UserLookupError({ id, cause }),
-  })
+  });
 ```
 
 - Use `Effect.sync` or `Effect.try` for synchronous boundaries,
@@ -95,18 +95,18 @@ const fetchUser = (id: UserId) =>
 ## Wrap a callback API
 
 ```ts
-import { Effect } from "effect"
+import { Effect } from "effect";
 
 const nextMessage = Effect.callback<Message, SocketClosed>((resume) => {
-  const onMessage = (message: Message) => resume(Effect.succeed(message))
-  const onClose = () => resume(Effect.fail(new SocketClosed()))
-  socket.on("message", onMessage)
-  socket.on("close", onClose)
+  const onMessage = (message: Message) => resume(Effect.succeed(message));
+  const onClose = () => resume(Effect.fail(new SocketClosed()));
+  socket.on("message", onMessage);
+  socket.on("close", onClose);
   return Effect.sync(() => {
-    socket.off("message", onMessage)
-    socket.off("close", onClose)
-  })
-})
+    socket.off("message", onMessage);
+    socket.off("close", onClose);
+  });
+});
 ```
 
 - Use `Effect.callback` for APIs that complete through callbacks instead of
@@ -155,7 +155,7 @@ that choice is between exactly two shapes.
   arriving as a typed failure.[^applied-alchemy-rpc]
 - Redaction and marker types are part of the crossing, not an afterthought: a
   value that serializes fine in-process can be unserializable on the wire.
-- Exhausting the error channel *before* a runner whose signature promises
+- Exhausting the error channel _before_ a runner whose signature promises
   `E = never` is owned by [Services and
   layers](services-and-layers.md).
 
@@ -176,9 +176,15 @@ that choice is between exactly two shapes.
   explicitly and reconstructs them symmetrically.
 
 [^docs-creating-effects]: `ai-docs/src/01_effect/01_basics/10_creating-effects.ts` at `effect@4.0.0-rc.110` — `Effect.sync`, `Effect.try`, `Effect.tryPromise`, `Effect.fromNullishOr`, and `Effect.callback` with a returned finalizer.
+
 [^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `tryPromise` receives an `AbortSignal` and "the underlying asynchronous operation only stops if it observes that signal"; a throwing `catch` mapper is treated as a defect; `callback` resumes at most once and may return a cleanup effect.
+
 [^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.110` — "aborts the provided AbortSignal on interruption" and "callback cleanup effect runs on interrupt".
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/Interactions/webhook.ts` (effect peer `>=4.0.0-beta.101`, dev `4.0.0-beta.105`).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/fs-util.ts` (effect 4.0.0-beta.83).
+
 [^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.110` — a Hono host driving a `ManagedRuntime`: `Effect.catchTag("TodoNotFound", () => Effect.succeed(null))` before `runtime.runPromise` (:86-89), the `null` sentinel turned into a 404 by the host (:92-93), and `Schema.decodeUnknownSync` (:99) called inside a plain `try`/`catch` (:105-107). No `Result` appears anywhere in the bridge.
+
 [^applied-alchemy-rpc]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Local/RpcSerialization.ts` (effect 4.0.0-rc.110) — the handler wrapper pipes through `Effect.exit` (:102), maps `exit.cause.reasons` with `switch (reason._tag)` over `Fail` / `Die` / `Interrupt` (:117-127) into a `RpcSerializedCause` union, and only then reaches `Effect.runPromise` (:131); the unwrap side rebuilds the `Exit` from the same union (:159-164).

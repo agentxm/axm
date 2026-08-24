@@ -29,7 +29,7 @@ accuracy, completeness, or other functional obligations.
 Practical authoring principles (one job per document, match form to job, link
 rather than restate, stay accurate enough for the job, and so on) live in
 [Documentation craft](documentation-craft.md). Use this concept when judging
-*whether a problem is “wrong facts” or “wrong job/flow”* — and what form-aware craft
+_whether a problem is “wrong facts” or “wrong job/flow”_ — and what form-aware craft
 can and cannot fix.
 
 ## Functional quality
@@ -73,13 +73,13 @@ Deep quality is **conditional** on functional quality. Inaccurate or
 inconsistent docs will not feel excellent for long — functional failures
 tarnish the experience immediately.
 
-| Functional quality | Deep quality |
-| --- | --- |
-| Independent characteristics | Interdependent characteristics |
+| Functional quality                    | Deep quality                      |
+| ------------------------------------- | --------------------------------- |
+| Independent characteristics           | Interdependent characteristics    |
 | Objective (checked against the world) | Subjective (judged for the human) |
-| Measured or verified | Judged and interrogated |
-| A condition of deep quality | Conditional on functional quality |
-| Constraints the author must meet | Room for craft, taste, and design |
+| Measured or verified                  | Judged and interrogated           |
+| A condition of deep quality           | Conditional on functional quality |
+| Constraints the author must meet      | Room for craft, taste, and design |
 
 ## What form-aware craft does for quality
 
@@ -100,7 +100,7 @@ guarantee deep quality; it removes systematic ways of working against it.
 
 ## Exposing functional gaps
 
-Although form-aware craft does not *supply* functional quality, applying it often
+Although form-aware craft does not _supply_ functional quality, applying it often
 **exposes** functional lapses that mixed pages hid:
 
 - Aligning reference structure with the thing described makes **missing**
@@ -118,12 +118,12 @@ separation as an **analytical** aid that makes those defects easier to see.
 The quality principles in [Documentation craft](documentation-craft.md) mix both
 layers on purpose:
 
-| Principle (examples) | Layer |
-| --- | --- |
-| Stay accurate enough for the job; refresh stale how-tos and reference | Functional |
-| One primary job; match form to job; link rather than restate | Deep (need fit, flow) |
-| Prefer clarity of outcome near the top | Both (skip wrong page; serve the need) |
-| Resist feature-only IA without reader-need forms | Deep (portfolio consistency of jobs) |
+| Principle (examples)                                                  | Layer                                  |
+| --------------------------------------------------------------------- | -------------------------------------- |
+| Stay accurate enough for the job; refresh stale how-tos and reference | Functional                             |
+| One primary job; match form to job; link rather than restate          | Deep (need fit, flow)                  |
+| Prefer clarity of outcome near the top                                | Both (skip wrong page; serve the need) |
+| Resist feature-only IA without reader-need forms                      | Deep (portfolio consistency of jobs)   |
 
 When reviewing, ask both:
 

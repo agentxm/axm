@@ -2,7 +2,20 @@
 type: Guide
 title: Structured concurrency
 description: Giving every child fiber an owner, failure policy, and shutdown path — including dynamic FiberSet, FiberMap, and FiberHandle collections; use for detached promises, `AbortController`, manual races, or orphanable background tasks.
-tags: [effect, effect-v4, concurrency, fibers, forking, supervision, cancellation, shutdown, fiberset, fibermap, fiberhandle]
+tags:
+  [
+    effect,
+    effect-v4,
+    concurrency,
+    fibers,
+    forking,
+    supervision,
+    cancellation,
+    shutdown,
+    fiberset,
+    fibermap,
+    fiberhandle,
+  ]
 status: stable
 sources:
   - id: src-effect
@@ -134,10 +147,17 @@ time, keep them in a scoped container instead of loose forks:
   sequence.
 
 [^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `forkChild`, `forkIn`, `forkScoped`, `forkDetach`; `raceFirst` "The losing effect is interrupted"; `timeout` "If the timeout wins, the source effect is interrupted"; `Effect.all` `mode: "result"` and `Effect.partition`.
+
 [^docs-run-main]: `ai-docs/src/01_effect/06_running/10_run-main.ts` at `effect@4.0.0-rc.110`.
+
 [^src-fiberset]: `packages/effect/src/FiberSet.ts` at `effect@4.0.0-rc.110`.
+
 [^src-fibermap]: `packages/effect/src/FiberMap.ts` at `effect@4.0.0-rc.110`.
+
 [^src-fiberhandle]: `packages/effect/src/FiberHandle.ts` at `effect@4.0.0-rc.110`.
+
 [^applied-dfx]: Observed in dfx@23988a4 `src/DiscordGateway/Shard.ts` (effect 4.0.0-beta.105) — heartbeat loop under `forkScoped`, reconnect fiber in a `FiberHandle` cleared on resume and re-run on Hello.
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/session/run-coordinator.ts` (effect 4.0.0-beta.83) — `FiberSet.makeRuntime` forking drain fibers whose exits are settled explicitly.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-browser/src/internal/leadership.ts` (effect 4.0.0-beta.103) — lock acquisition raced against a steal signal with `raceFirst`, retry loop under `forkScoped`.

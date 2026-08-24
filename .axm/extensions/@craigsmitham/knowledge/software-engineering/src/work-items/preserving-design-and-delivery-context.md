@@ -2,7 +2,17 @@
 type: Guide
 title: Preserving design and delivery context in software work items
 description: How to retain supplied findings, constraints, decisions, architecture and code sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
-tags: [work-item-context, technical-design, architecture-sketch, code-sketch, implementation-plan, testing-strategy, decision-status, issue-body]
+tags:
+  [
+    work-item-context,
+    technical-design,
+    architecture-sketch,
+    code-sketch,
+    implementation-plan,
+    testing-strategy,
+    decision-status,
+    issue-body,
+  ]
 status: draft
 sources:
   - id: google-design-docs
@@ -45,14 +55,14 @@ a one-sentence constraint may be binding.
 
 These dimensions can vary independently:
 
-| Dimension | Examples |
-| --- | --- |
-| Artifact class | Defect report, feature request, incident record, delivery item |
-| Investigation | Unexplored, suspected, reproduced, root cause established |
-| Design | None, options, proposed, accepted, superseded |
-| Delivery | Unplanned, sequenced, approved, decomposed |
-| Verification | Conditions known, strategy proposed, evidence gathered |
-| Container | One issue, linked design document, decision record, parent and child items |
+| Dimension      | Examples                                                                   |
+| -------------- | -------------------------------------------------------------------------- |
+| Artifact class | Defect report, feature request, incident record, delivery item             |
+| Investigation  | Unexplored, suspected, reproduced, root cause established                  |
+| Design         | None, options, proposed, accepted, superseded                              |
+| Delivery       | Unplanned, sequenced, approved, decomposed                                 |
+| Verification   | Conditions known, strategy proposed, evidence gathered                     |
+| Container      | One issue, linked design document, decision record, parent and child items |
 
 A diagnosed defect can therefore remain a defect report while carrying an
 accepted adapter design and delivery plan. A feature request can retain a
@@ -92,12 +102,12 @@ authorization.
 
 ## 3. Choose a proportional home
 
-| Place | Use when | Work item retains |
-| --- | --- | --- |
-| Same work item | Context is bounded, stable enough, and serves one work item or owner | The material itself |
-| Linked design or RFC | Detail is lengthy, evolving, cross-cutting, or needs independent review | A decision-status synopsis and authoritative link |
-| Architecture decision record | An accepted, durable architectural choice and consequences need their own lifecycle | The relevant decision and ADR link |
-| Parent and child work items | An accepted workstream has been deliberately decomposed for delivery | Shared context, approved boundaries, and child links |
+| Place                        | Use when                                                                            | Work item retains                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Same work item               | Context is bounded, stable enough, and serves one work item or owner                | The material itself                                  |
+| Linked design or RFC         | Detail is lengthy, evolving, cross-cutting, or needs independent review             | A decision-status synopsis and authoritative link    |
+| Architecture decision record | An accepted, durable architectural choice and consequences need their own lifecycle | The relevant decision and ADR link                   |
+| Parent and child work items  | An accepted workstream has been deliberately decomposed for delivery                | Shared context, approved boundaries, and child links |
 
 Decision records are appropriate for durable accepted choices because they
 preserve context, decision, and consequences under an explicit lifecycle.[^aws-adr]
@@ -113,10 +123,15 @@ is:
 ## Technical design and delivery context
 
 ### Findings and constraints
+
 ### Decision status and tradeoffs
+
 ### Architecture and code sketches
+
 ### Proposed or accepted implementation sequence
+
 ### Testing strategy
+
 ### Risks and open questions
 ```
 
@@ -148,14 +163,14 @@ discarding body context.
 
 ## Representative cases
 
-| Source material | Correct treatment |
-| --- | --- |
-| Bare defect evidence with no design | Write the defect report; do not invent design sections or placeholders |
-| Defect plus supplied architecture and code sketches | Preserve the sketches and their authority state in or from the defect |
-| Several options with a recommendation but no decision | Retain options and tradeoffs; label the recommendation as proposed |
-| Accepted plan and testing strategy | Retain the implementation sequence and test layers without collapsing them into verification conditions |
-| Cross-cutting design in an authoritative document | Keep a concise status synopsis and link rather than copying a divergent second source |
-| “Capture all this” | Perform a lossless transfer of material context, not a template-shaped summary |
+| Source material                                       | Correct treatment                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Bare defect evidence with no design                   | Write the defect report; do not invent design sections or placeholders                                  |
+| Defect plus supplied architecture and code sketches   | Preserve the sketches and their authority state in or from the defect                                   |
+| Several options with a recommendation but no decision | Retain options and tradeoffs; label the recommendation as proposed                                      |
+| Accepted plan and testing strategy                    | Retain the implementation sequence and test layers without collapsing them into verification conditions |
+| Cross-cutting design in an authoritative document     | Keep a concise status synopsis and link rather than copying a divergent second source                   |
+| “Capture all this”                                    | Perform a lossless transfer of material context, not a template-shaped summary                          |
 
 ## Final check
 
@@ -168,6 +183,9 @@ discarding body context.
 - The brief is concise without imposing a length limit on the body.
 
 [^aws-adr]: AWS Prescriptive Guidance, “ADR process.”
+
 [^google-design-docs]: Google Software Engineering, “Design Docs.”
+
 [^kubernetes-kep-template]: Kubernetes Enhancement Proposal template.
+
 [^mozilla-rfc-template]: Mozilla RFC template.

@@ -2,7 +2,8 @@
 type: Guide
 title: Keyed resource sharing
 description: Sharing one live resource per key across concurrent consumers with RcMap, LayerMap, or Pool; use for per-tenant clients, keyed registries, per-key locks, and release-when-last-user-leaves lifetimes.
-tags: [effect, effect-v4, rcmap, layermap, pool, keyed-resources, reference-counting, idle-ttl, tenancy]
+tags:
+  [effect, effect-v4, rcmap, layermap, pool, keyed-resources, reference-counting, idle-ttl, tenancy]
 status: stable
 sources:
   - id: src-rcmap
@@ -79,24 +80,24 @@ composition root that owns the map's scope.
 ## Share live resources with RcMap
 
 ```ts
-import { Effect, RcMap } from "effect"
+import { Effect, RcMap } from "effect";
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const clients = yield* RcMap.make({
     lookup: (tenantId: string) =>
       Effect.acquireRelease(connectTenant(tenantId), (client) => client.close),
     idleTimeToLive: "5 minutes",
-  })
+  });
 
   // Concurrent gets for "acme" share one live client; the connection is
   // released five minutes after the last holding scope closes.
   yield* Effect.scoped(
-    Effect.gen(function*() {
-      const client = yield* RcMap.get(clients, "acme")
-      yield* client.send("hello")
+    Effect.gen(function* () {
+      const client = yield* RcMap.get(clients, "acme");
+      yield* client.send("hello");
     }),
-  )
-})
+  );
+});
 ```
 
 - `RcMap.make` itself requires a `Scope`; build the map once in the owning
@@ -177,11 +178,19 @@ const program = Effect.gen(function*() {
 - Plain values with no release action live in a cache, not an RcMap.
 
 [^src-rcmap]: `packages/effect/src/RcMap.ts` at `effect@4.0.0-rc.110` — `make` takes `lookup`, optional `idleTimeToLive` (`Duration.Input` or per-key function), and optional `capacity`, requires `Scope`; with `capacity` set, `get` can fail with `Cause.ExceededCapacityError`. The module doc scopes RcMap to resource lifecycles, "not as a general mutable cache".
+
 [^src-layermap]: `packages/effect/src/LayerMap.ts` at `effect@4.0.0-rc.110` — `LayerMap.make`/`LayerMap.Service` wrap an internal `RcMap` of built layer contexts; the service class exposes `layer`, `layerNoDeps`, `get`, `contextEffect`, `invalidate`.
+
 [^docs-layer-map]: `ai-docs/src/01_effect/05_resources/30_layer-map.ts` at `effect@4.0.0-rc.110` — per-tenant `DatabasePool` provided through `PoolMap.get(tenantId)`.
+
 [^src-pool]: `packages/effect/src/Pool.ts` at `effect@4.0.0-rc.110` — `make` (fixed `size`), `makeWithTTL` (`min`/`max`/`timeToLive`, `timeToLiveStrategy` `"creation" | "usage"`), scoped `get`, `invalidate`, per-item `concurrency`, `targetUtilization`.
+
 [^src-scopedcache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.110` — each entry owns a scope released when the entry is removed by expiry, refresh, invalidation, or capacity eviction.
+
 [^applied-opencode-locks]: Observed in opencode@2cba7e2 `packages/opencode/src/storage/storage.ts` (effect 4.0.0-beta.83) — `RcMap.make({ lookup: () => TxReentrantLock.make(), idleTimeToLive: 0 })`.
+
 [^applied-opencode-layermap]: Observed in opencode@2cba7e2 `packages/core/src/location-services.ts` (effect 4.0.0-beta.83).
+
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/livestore/src/store/StoreRegistry.ts` (effect 4.0.0-beta.99) — `StoreCacheKey` implements `Equal`/`Hash` over `storeId` while carrying full store options.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/EphemeralHub.ts` (effect 4.0.0-beta.103) — per-space runtimes with `capacity` and idle TTL, mapping `Cause.ExceededCapacityError` to a domain error.

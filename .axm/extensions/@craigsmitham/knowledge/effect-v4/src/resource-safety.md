@@ -120,7 +120,11 @@ promises.
 - No `try/finally` or detached promise performs cleanup an owner should.
 
 [^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `acquireRelease` (default-uninterruptible acquisition, `{ interruptible: true }` opt-out, finalizer added to the current scope with the closing `Exit`), `acquireUseRelease` (unconditionally protected acquire and release), `acquireDisposable` (`@since 4.0.0`), `addFinalizer`, `ensuring`, `uninterruptibleMask`.
+
 [^docs-acquire-release]: `ai-docs/src/01_effect/05_resources/10_acquire-release.ts` at `effect@4.0.0-rc.110`; `Layer.effect` runs construction in the layer scope and erases `Scope` from its requirements (`packages/effect/src/Layer.ts`).
+
 [^src-scope]: `packages/effect/src/Scope.ts` at `effect@4.0.0-rc.110` — `make` (sequential or parallel finalizer strategy), `provide`, `fork`, `close`; ordering covered by `packages/effect/test/Scope.test.ts`.
+
 [^applied-effect-http-recorder]: Observed in effect-http-recorder@89e1b85 `src/replay/state.ts` (effect 4.0.0-beta.83) — constructors return `Effect<..., Scope.Scope>` and `Effect.addFinalizer` inspects the closing `Exit` for end-of-scope invariant checks.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/EphemeralHub.ts` (effect >=4.0.0-beta.103) — `Effect.acquireRelease` pairs a PubSub with its shutdown and a semaphore permit with its release under a `Layer.effect` scope.

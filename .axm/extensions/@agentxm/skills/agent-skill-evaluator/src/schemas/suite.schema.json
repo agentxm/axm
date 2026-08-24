@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxm.dev/schemas/agent-skill-evaluator/suite-1.0.0.json",
+  "title": "Agent Skill evaluation suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["skill_name", "suite_version", "evaluation_contract", "evals"],
+  "properties": {
+    "skill_name": { "type": "string" },
+    "suite_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "evaluation_contract": { "const": "evals/evaluation-contract.json" },
+    "evals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "stage", "prompt", "assertions"],
+        "properties": {
+          "id": { "type": ["string", "number"] },
+          "stage": { "enum": ["routing", "execution"] },
+          "prompt": { "type": "string", "minLength": 1 },
+          "assertions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "deterministic_assertions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["assertion", "kind", "targets", "launchers"],
+              "properties": {
+                "assertion": { "type": "string", "minLength": 1 },
+                "kind": { "const": "forbid-target-execution" },
+                "targets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "launchers": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -3,8 +3,8 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "audit-agent-skill",
-  "version": "0.3.1",
-  "description": "Audits Agent Skills against skill-engineering guidance and can orchestrate explicitly authorized remediation with snapshot-bound closure verification",
+  "version": "0.7.3",
+  "description": "Audits exact Agent Skill revisions and their behavioral evidence against skill-engineering, trust, packaging, and lifecycle guidance",
   "keywords": [
     "agent-skills",
     "skill-audit",
@@ -21,6 +21,6 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": ["@agentxm/packs/skill-engineering"],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": false
 }

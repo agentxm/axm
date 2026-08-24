@@ -70,7 +70,11 @@ export const renderKnowledgeBaseTable = (args: {
       ...rows,
     ].join("\n");
   });
-  return ["## Knowledge Bundles", ...sections].join("\n\n");
+  return [
+    "## Knowledge Bundles",
+    "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
+    ...sections,
+  ].join("\n\n");
 };
 
 export const reconcileKnowledgeDiscovery = (args: {

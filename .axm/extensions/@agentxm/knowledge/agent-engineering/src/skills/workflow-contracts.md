@@ -15,7 +15,11 @@ is finished. A bag of advice can improve prose yet still fail as a workflow.
 
 ## Contract checklist
 
-| Contract      | Required questions                                                                   |
+Resolve the fields that change execution. A small skill need not restate a
+field already supplied or enforced by its host, and an inapplicable field does
+not need placeholder prose.
+
+| Contract      | Questions to resolve when applicable                                                 |
 | ------------- | ------------------------------------------------------------------------------------ |
 | Start         | Which event, request, or artifact begins the job?                                    |
 | Inputs        | What may the caller supply, and what must the agent discover?                        |
@@ -31,15 +35,29 @@ is finished. A bag of advice can improve prose yet still fail as a workflow.
 
 ## Instruction shape
 
-- Use imperative steps in execution order.
+- Include guidance that changes a decision, preserves a non-obvious invariant,
+  or prevents a demonstrated failure. Omit generic competence reminders,
+  repeated policy, and speculative edge cases.
+- Use outcome and decision criteria when several approaches are valid; use
+  imperative steps in execution order when dependencies or fragile mechanics
+  make sequence material.
 - Name the evidence each material step consumes and produces.
 - Branch only where a real decision changes action.
 - State destructive or externally mutable behavior before the action.
 - Require confirmation when authority cannot be derived from the request.
+- Bound retries and state when to degrade, return preserved state, request help,
+  or stop—especially for external mutations.
 - End with verification proportional to the consequence of failure.
 
 Avoid aspirations such as “ensure quality” without an observer, condition, or
-check. Avoid rigid steps where the task legitimately admits several approaches.
+check. Distinguish requirements from recommendations, examples, and local
+conventions. Avoid rigid steps where the task legitimately admits several
+approaches.
+
+Skill selection or activation does not grant new execution authority. Preserve
+the user's selected product, tool, deliverable, and task scope; require separate
+authorization before an undeclared external effect or unrelated configuration
+change.
 
 ## Presentation contracts
 

@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { unzipSync } from "fflate";
-import { buildZipArchive } from "./build-zip-archive.js";
+import { buildZipArchive, planZipArchive } from "./build-zip-archive.js";
 
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -119,6 +119,36 @@ describe("buildZipArchive", () => {
         const archive = yield* buildZipArchive(sourceDir, { ignore: ["nested/*"] });
 
         expect(Object.keys(unzipSync(archive))).toEqual(["hello.txt"]);
+      }),
+    ),
+  );
+
+  it.effect("reports the exact archive inventory and ignore-pattern attribution", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const planned = yield* planZipArchive(sourceDir, {
+          ignore: ["nested/*", "missing-*"],
+        });
+
+        expect(planned.plan).toEqual({
+          included: [{ path: "hello.txt", size: 11, matchedPatterns: [] }],
+          excluded: [
+            {
+              path: "nested/inner.txt",
+              size: 5,
+              matchedPatterns: ["nested/*"],
+            },
+          ],
+          patterns: [
+            { pattern: "nested/*", matchCount: 1 },
+            { pattern: "missing-*", matchCount: 0 },
+          ],
+          warnings: ['publish.ignore pattern "missing-*" matched no files.'],
+          includedCount: 1,
+          excludedCount: 1,
+          uncompressedBytes: 11,
+        });
+        expect(Object.keys(unzipSync(planned.archive))).toEqual(["hello.txt"]);
       }),
     ),
   );

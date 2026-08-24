@@ -10,8 +10,11 @@ stale_after: 2027-02-14
 
 # How to select a skill candidate
 
-Create a skill when reusable procedural knowledge materially improves repeated
-work. Do not create one merely because a task can be described in Markdown.
+Create a skill when reusable procedural knowledge materially improves a
+recognizable job. Repeated work provides the strongest admission evidence; an
+explicitly commissioned greenfield skill may instead begin from defined
+requirements and remain experimental until representative behavior is tested.
+Do not create one merely because a topic can be described in Markdown.
 
 ## Evidence to gather
 
@@ -34,9 +37,10 @@ A strong candidate answers yes to most of these questions:
 6. Can the package travel without private incidental dependencies?
 7. Is a skill better than an instruction, knowledge document, tool, or script?
 
-## Reject or defer when
+## Reject or defer a proposed candidate when
 
-- the workflow is hypothetical and unobserved;
+- the workflow is hypothetical and lacks both observed evidence and a coherent
+  commissioned contract;
 - one obvious tool call already owns the whole job;
 - the content is primarily facts or explanation;
 - the rule must apply to every task before routing;
@@ -45,3 +49,9 @@ A strong candidate answers yes to most of these questions:
 
 Deferral is useful evidence: observe the work until the missing pattern becomes
 clear instead of encoding assumptions as reusable behavior.
+
+When a user explicitly requests a greenfield skill, do not require repeated
+examples merely as ceremony. Proceed if the job, authority, environment, and
+observable outcome can be bounded; state assumptions, use synthetic
+representative cases, and leave unsupported compatibility or readiness claims
+unverified. See [How to author an Agent Skill](authoring-agent-skills.md).

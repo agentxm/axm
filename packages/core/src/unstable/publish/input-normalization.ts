@@ -22,6 +22,7 @@ import {
   validateDeclaredManifestAlignment,
 } from "./manifest-policy.js";
 import type { Version } from "../version-constraints/version-constraints.js";
+import { FilteredPackageError, validateFilteredPackage } from "./filtered-package-validation.js";
 
 export interface DeclaredPublishIdentity {
   readonly owner: Handle;
@@ -151,7 +152,11 @@ export const normalizePublishInput = (
   args: NormalizePublishInputArgs,
 ): Effect.Effect<
   PublishInput,
-  IngestLimitError | IngestUnsupportedContentTypeError | ArchiveGuardrailError | ManifestError
+  | IngestLimitError
+  | IngestUnsupportedContentTypeError
+  | ArchiveGuardrailError
+  | ManifestError
+  | FilteredPackageError
 > =>
   Effect.gen(function* () {
     const { declaredIdentity, archive, digestHeader, guardrailLimits } = args;
@@ -183,6 +188,24 @@ export const normalizePublishInput = (
     yield* Effect.fromResult(
       validateDeclaredManifestAlignment(declaredIdentity, manifest.identity),
     );
+
+    yield* validateFilteredPackage({
+      type: declaredIdentity.type,
+      entries,
+      manifest,
+      readEntry: (fileName) => {
+        const entry = entries.find((candidate) => candidate.fileName === fileName);
+        return entry === undefined
+          ? Effect.fail(
+              new FilteredPackageError({
+                code: "required_file_missing",
+                detail: `Filtered package file "${fileName}" is missing.`,
+                path: fileName,
+              }),
+            )
+          : entryReader(archive.archiveBytes, entry);
+      },
+    });
 
     return {
       owner: declaredIdentity.owner,

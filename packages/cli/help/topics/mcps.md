@@ -1,10 +1,18 @@
 # MCP servers
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 An MCP server extension registers a Model Context Protocol server that your
 coding agents connect to for extra tools and resources. AXM tracks the server
 once and writes it into its applicable configured agents' native MCP configs, so you do
 not hand-maintain `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, and
 friends in parallel.
+
+AXM manages the connection definition and its lifecycle, including command or
+URL, arguments, environment-variable references, headers, installation,
+projection, packaging, and publication. It does not implement or debug the MCP
+server software behind that connection.
 
 MCP server packages live in
 `./.axm/extensions/<@owner>/mcps/<name>/mcp.json`. Unlike skills and

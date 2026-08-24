@@ -1,0 +1,13 @@
+{
+  "owner": "@agentxm",
+  "publish": {
+    "defaultVisibility": "public"
+  },
+  "agents": ["codex"],
+  "skills": {
+    "agent-skill-evaluator": "workspace:@agentxm/skills/agent-skill-evaluator"
+  },
+  "knowledge": {
+    "agent-engineering": "workspace:@agentxm/knowledge/agent-engineering"
+  }
+}

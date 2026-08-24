@@ -4,10 +4,11 @@ description: >-
   Author, convert, maintain, and validate Open Knowledge Format (OKF) v0.2 knowledge bundles —
   directory trees of markdown concept documents with YAML frontmatter. Use when creating an OKF
   bundle or concept document, converting existing docs / wiki pages / data-catalog metadata into
-  OKF, adding or updating concepts in an existing bundle, writing index.md or log.md, authoring an
-  Attested Computation, setting provenance / trust / lifecycle frontmatter (sources, generated,
-  verified, status, stale_after), or checking a bundle for conformance. Triggers on: OKF, Open
-  Knowledge Format, knowledge bundle, concept document, okf_version, attested computation.
+  OKF, defining or applying an OKF application profile, adding or updating concepts in an existing
+  bundle, writing index.md or log.md, authoring an Attested Computation, setting provenance / trust /
+  lifecycle frontmatter (sources, generated, verified, status, stale_after), or checking base and
+  profile conformance. Triggers on: OKF, Open Knowledge Format, knowledge bundle, concept document,
+  OKF application profile, profile conformance, okf_version, attested computation.
 ---
 
 # Authoring OKF bundles
@@ -33,6 +34,8 @@ the version this skill targets.
 5. **Never invent provenance.** `sources`, `generated.by`, and `verified` are trust claims. Record
    what actually happened; omit the field when you do not know. Absence is meaningful and always
    permitted — a fabricated `verified: { by: human:... }` entry is worse than no entry.
+6. **Keep conformance layers separate.** An application-profile failure does not make a bundle
+   non-conformant with OKF v0.2.
 
 ## Progressive discovery
 
@@ -40,13 +43,13 @@ Design discovery outside-in so each surface gives a human or agent only enough i
 choose the next useful surface. Then verify inside-out that every narrower surface fulfills the
 promise made above it.
 
-| Surface | Reader decision | Authoring contract |
-|---|---|---|
-| Publisher or catalog metadata, when present | Is this bundle relevant? | One sentence naming the domain and distinctive scope; for an AXM package this is `knowledge.json.description`. |
-| Root `index.md` | Where should I begin? | Bundle title, a short scope-and-use introduction, then the major reader-facing routes. |
-| Nested `index.md` | Which part of this area matters? | State the grouping principle and enumerate the immediate concepts or narrower sections. |
-| Concept preview or search result | Is this the exact concept? | Distinctive `title` and `description`, stable `type`, and query vocabulary in `tags`. |
-| Concept body | What knowledge applies? | The detail promised by its metadata, organized for reading and retrieval. |
+| Surface                                     | Reader decision                  | Authoring contract                                                                                             |
+| ------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Publisher or catalog metadata, when present | Is this bundle relevant?         | One sentence naming the domain and distinctive scope; for an AXM package this is `knowledge.json.description`. |
+| Root `index.md`                             | Where should I begin?            | Bundle title, a short scope-and-use introduction, then the major reader-facing routes.                         |
+| Nested `index.md`                           | Which part of this area matters? | State the grouping principle and enumerate the immediate concepts or narrower sections.                        |
+| Concept preview or search result            | Is this the exact concept?       | Distinctive `title` and `description`, stable `type`, and query vocabulary in `tags`.                          |
+| Concept body                                | What knowledge applies?          | The detail promised by its metadata, organized for reading and retrieval.                                      |
 
 Browsing and search are parallel routes. Indexes support browsing; concept metadata must stand on
 its own when search bypasses every index.
@@ -113,8 +116,11 @@ conformance and bundle coherence, not the host repository's documentation taxono
 
 ### Extend or maintain an existing bundle
 
-**Read before writing.** Scan the bundle for its existing `type` values, directory conventions, and
-actor strings, and match them. The validator's `--summary` prints the type inventory:
+**Read before writing.** Discover any declared application profile, then scan the bundle for its
+existing `type` values, directory conventions, and actor strings. Follow the profile when one
+exists; otherwise match established bundle conventions. When a profile applies, read
+`references/application-profiles.md` before changing its types, metadata, paths, relationships, or
+validation rules. The validator's `--summary` prints the type inventory:
 
 ```bash
 python3 scripts/validate_okf.py <bundle> --summary
@@ -143,23 +149,30 @@ python3 scripts/validate_okf.py <bundle> --json       # machine-readable
 Report findings by severity and fix `error` findings before reporting done. Weigh `warn` findings
 on their merits — several are advisory by design (broken links are explicitly legal per §11).
 
+The bundled validator checks OKF v0.2 and general authoring hazards; it does not enforce arbitrary
+producer application profiles. When a profile applies, run its validator when one exists and
+report **OKF conformance** and **profile conformance** separately. Never classify a profile-only
+violation as an OKF specification error. If no executable profile validator exists, label the
+profile review as manual and name the rules checked. Read `references/application-profiles.md` when
+defining, applying, or validating a profile.
+
 ## Frontmatter reference
 
 `type` is the only always-required key. A concept carrying just `type` is fully conformant.
 
-| Field | Req | Form | Notes |
-|---|---|---|---|
-| `type` | **yes** | string | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline). |
-| `title` | rec | string | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename. |
-| `description` | rec | string | One sentence distinguishing this concept from its neighbors. Reuse it in index entries and search snippets. |
-| `resource` | rec | URI/path | Canonical URI of the underlying asset. Omit for abstract concepts. |
-| `tags` | rec | list | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title. |
-| `sources` | opt | list | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |
-| `usage_window` | opt | `{from, to}` | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`. |
-| `generated` | opt | `{by, at}` | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime. |
-| `verified` | opt | list of `{by, at}` | Verification events. A bare mapping is a one-element list. |
-| `status` | opt | enum | `draft` \| `stable` \| `deprecated`. Absent means `stable`. |
-| `stale_after` | opt | `YYYY-MM-DD` | Absolute date, not a TTL. Stale when `today >= stale_after`. |
+| Field          | Req     | Form               | Notes                                                                                                       |
+| -------------- | ------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `type`         | **yes** | string             | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline).                         |
+| `title`        | rec     | string             | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename.          |
+| `description`  | rec     | string             | One sentence distinguishing this concept from its neighbors. Reuse it in index entries and search snippets. |
+| `resource`     | rec     | URI/path           | Canonical URI of the underlying asset. Omit for abstract concepts.                                          |
+| `tags`         | rec     | list               | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title.                         |
+| `sources`      | opt     | list               | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional.  |
+| `usage_window` | opt     | `{from, to}`       | Sibling of `sources`; frames every `usage_count`. Dates are `YYYY-MM-DD`.                                   |
+| `generated`    | opt     | `{by, at}`         | `by` required within it; an actor. `at` = last meaningful content change, ISO 8601 datetime.                |
+| `verified`     | opt     | list of `{by, at}` | Verification events. A bare mapping is a one-element list.                                                  |
+| `status`       | opt     | enum               | `draft` \| `stable` \| `deprecated`. Absent means `stable`.                                                 |
+| `stale_after`  | opt     | `YYYY-MM-DD`       | Absolute date, not a TTL. Stale when `today >= stale_after`.                                                |
 
 Producers may add any other keys; consumers must preserve them. Use that freedom sparingly — a
 custom key no consumer reads is dead weight.
@@ -226,8 +239,8 @@ Short statement of scope, intended use, and important boundaries.
 
 ## Reader-facing group
 
-* [Exact concept title](relative-url) - exact concept description
-* [Section title](subdir/) - what belongs in this section and distinguishes it
+- [Exact concept title](relative-url) - exact concept description
+- [Section title](subdir/) - what belongs in this section and distinguishes it
 ```
 
 **`log.md`** — optional at any level, newest first. `##` headings **must** be ISO `YYYY-MM-DD`. The
@@ -237,8 +250,9 @@ leading bold word is convention, not requirement.
 # Directory Update Log
 
 ## 2026-05-22
-* **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
-* **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
+
+- **Update**: Added a BigQuery table reference for [Customer Metrics](/tables/customer-metrics.md).
+- **Creation**: Established the [Dataplex Playbook](/playbooks/dataplex.md).
 ```
 
 ## Attested Computation
@@ -249,12 +263,12 @@ the blessed thing ran rather than agent-improvised SQL. Start from
 subtleties this summary omits.
 
 Essentials: `runtime` is **required** for this type (`bigquery`, `postgres`, `dbt`, `python`,
-`Looker`, …) and defines what `parameters` mean. Supply the computation *either* inline as one fenced
-block under `# Computation` *or* via a `computation:` path — never both. `executor.resource` names
+`Looker`, …) and defines what `parameters` mean. Supply the computation _either_ inline as one fenced
+block under `# Computation` _or_ via a `computation:` path — never both. `executor.resource` names
 run instructions and `executor.receipt` lists the fields a run must return; `attester.resource`
 names deterministic, no-LLM verification code.
 
-One rule matters above the rest: **an agent may only supply parameter *values*. It must never
+One rule matters above the rest: **an agent may only supply parameter _values_. It must never
 author or edit the computation.** That parameter-only surface is what makes attestation a mechanical
 comparison instead of a judgement call. If a computation looks wrong, say so — do not rewrite it.
 

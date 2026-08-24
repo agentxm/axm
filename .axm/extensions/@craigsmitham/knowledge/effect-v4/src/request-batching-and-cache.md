@@ -65,7 +65,7 @@ layers](services-and-layers.md) for placing the cache at the owning boundary.
   owns a scope, released on expiry, eviction, invalidation, or cache
   close.[^src-scoped-cache] [^applied-opencode-scoped] What release must
   guarantee is owned by [Resource safety](resource-safety.md).
-- Both caches reuse *values*. When consumers need a live per-key resource —
+- Both caches reuse _values_. When consumers need a live per-key resource —
   client, session, connection — shared while in use and released when the last
   user leaves, that is keyed resource sharing (`RcMap` and friends), not a
   cache; see [Keyed resource sharing](keyed-resource-sharing.md).
@@ -118,8 +118,13 @@ sharing, expiry, and safe invalidation.
   invalidation.
 
 [^docs-batching]: `ai-docs/src/05_batching/10_request-resolver.ts` at `effect@4.0.0-rc.110` — `Request.Class`, `RequestResolver.make` with `entry.completeUnsafe(Exit...)`, `setDelay`, `withCache`, `Effect.request`, and per-entry captured context.
+
 [^src-request-resolver]: `packages/effect/src/RequestResolver.ts` at `effect@4.0.0-rc.110` — `makeWith` gotcha ("Accepted entries must be completed. If `runAll` succeeds with incomplete entries, waiting requests fail."), `batchN`, `makeGrouped`/`grouped`; behavior exercised in `packages/effect/test/Request.test.ts`.
+
 [^src-cache]: `packages/effect/src/Cache.ts` at `effect@4.0.0-rc.110` — the module stores successful and failed results and shares in-progress lookups; `makeWith` takes `timeToLive: (exit, key) => Duration.Input`; the default returns `Duration.infinity` for all exits.
+
 [^src-scoped-cache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.110` — per-entry `Scope` released on expiry, eviction, invalidation, or cache close.
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/opencode/src/account/account.ts` (effect 4.0.0-beta.83) — `Cache.make` with `timeToLive: Duration.zero` collapses concurrent token refreshes per account with no retention.
+
 [^applied-opencode-scoped]: Observed in opencode@2cba7e2 `packages/opencode/src/effect/instance-state.ts` (effect 4.0.0-beta.83) — `ScopedCache` keyed by directory with explicit invalidation hooks so per-instance state releases resources on eviction.

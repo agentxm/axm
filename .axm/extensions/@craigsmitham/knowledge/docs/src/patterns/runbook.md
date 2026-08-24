@@ -112,7 +112,7 @@ A runbook still branches for **verify and continue**, **roll back**, or **stop
 and escalate**. Those branches remain inside one procedure. A fork between
 different procedures belongs to a playbook's selection layer.
 
-The terms *runbook* and *playbook* are not standardized across organizations.
+The terms _runbook_ and _playbook_ are not standardized across organizations.
 Use local vocabulary, but preserve the structural distinction when it helps:
 one selected response versus selection among responses.
 

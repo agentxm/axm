@@ -1,6 +1,14 @@
-# Synthetic AXM workspace fact
+# Synthetic AXM revision request
 
-AXM reports the target's canonical source as the skill extension package's
-`src/SKILL.md` and projects it into the configured hosts' generated skill
-directories. A recorded case shows that “deploy this release” falsely selects
-the review-only skill.
+- Target: `@example/skills/review-release@0.4.0`
+- Canonical package: `.axm/extensions/@example/skills/review-release/`
+- Runtime source: `.axm/extensions/@example/skills/review-release/src/SKILL.md`
+- Evaluation source: `.axm/extensions/@example/skills/review-release/evals/`
+- Ownership: workspace-authored through AXM; agent-facing copies are projections
+- Confirmed failure: “deploy this release” falsely selects this review-only skill
+
+Revise only the model-facing routing description needed to exclude deployment,
+preserve the current review workflow, add the confirmed failure as a routing
+regression, validate every available responsible surface, and report any
+mechanical evaluation validation that remains unavailable. Do not edit an
+agent-facing projection, install, enable, deploy, or publish anything.

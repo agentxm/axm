@@ -2,7 +2,17 @@
 type: Guide
 title: Titling and summarizing work items
 description: How to write and re-derive a work item's title and one- or two-sentence summary so it is understandable at a glance, traceable to the item, and safe to update without changing anything else.
-tags: [issue-title, work-item-summary, summary-section, backlog-hygiene, triage, plain-language, batch-update, issue-template]
+tags:
+  [
+    issue-title,
+    work-item-summary,
+    summary-section,
+    backlog-hygiene,
+    triage,
+    plain-language,
+    batch-update,
+    issue-template,
+  ]
 status: draft
 sources:
   - id: brief-explainer
@@ -38,11 +48,11 @@ nothing in the brief that the item does not support.
 The title's job is to separate this item from its neighbors on a list.[^linear-write-issues]
 What it names depends on the type:
 
-| Type | Title the | Example |
-| --- | --- | --- |
-| [Operational incident](recording-operational-incidents.md) | Affected service and observed impact | Checkout unavailable for some European customers |
-| [Defect](reporting-software-defects.md) | Affected behavior, observed result, and triggering condition | Invoice export omits zero-value lines when tax details are included |
-| [Feature request](writing-feature-requests.md) | Desired ability or outcome | Let account owners export invoice history for external reconciliation |
+| Type                                                       | Title the                                                    | Example                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| [Operational incident](recording-operational-incidents.md) | Affected service and observed impact                         | Checkout unavailable for some European customers                      |
+| [Defect](recording-defect-reports.md)                      | Affected behavior, observed result, and triggering condition | Invoice export omits zero-value lines when tax details are included   |
+| [Feature request](recording-feature-requests.md)           | Desired ability or outcome                                   | Let account owners export invoice history for external reconciliation |
 
 Cut whatever the reading surface already displays: the tracker identifier, the
 item type, and any team or component label that a structured field carries.
@@ -140,4 +150,5 @@ points at a stale summary.
 - Nothing outside the title and summary changed.
 
 [^jira-issue-fields]: Atlassian, "Issue fields and statuses."
+
 [^linear-write-issues]: Linear Method, "Write issues, not user stories."

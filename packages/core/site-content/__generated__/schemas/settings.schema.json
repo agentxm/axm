@@ -400,19 +400,24 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "instructionEntry": {
+              "type": "boolean",
+              "description": "Include this bundle in the managed Knowledge Bundles instruction table. Omit to inherit the manifest default."
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Knowledge Entry Object",
-          "description": "A knowledge bundle entry with source and an optional enabled flag."
+          "description": "A knowledge bundle entry with source, optional enabled state, and an optional instruction-entry override."
         }
       ],
       "title": "Knowledge Entry",
-      "description": "A knowledge bundle source string, or an object with optional flags.",
+      "description": "A knowledge bundle source string, or an object with optional lifecycle and instruction-entry settings.",
       "examples": [
         "@acme/knowledge/payments@^1.0.0",
-        { "source": "@acme/knowledge/payments@^1.0.0", "enabled": false }
+        { "source": "@acme/knowledge/payments@^1.0.0", "enabled": false },
+        { "source": "@acme/knowledge/payments@^1.0.0", "instructionEntry": false }
       ]
     },
     "KnowledgeMap": {

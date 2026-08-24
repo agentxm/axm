@@ -499,7 +499,9 @@ describe("setup.handler", () => {
             JSON.parse(AXM_SKILL_JSON),
           );
           expect(fs.readFileSync(skillMdPath, "utf-8")).toBe(AXM_SKILL_MD);
-          expect(fs.readFileSync(skillMdPath, "utf-8")).toContain("Keep extensions self-contained");
+          expect(fs.readFileSync(skillMdPath, "utf-8")).toContain(
+            "The AXM skill remains self-contained",
+          );
           for (const sourceFile of AXM_SKILL_SOURCE_FILES) {
             expect(fs.readFileSync(path.join(path.dirname(skillMdPath), sourceFile.path))).toEqual(
               Buffer.from(sourceFile.base64, "base64"),

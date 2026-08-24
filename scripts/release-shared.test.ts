@@ -136,7 +136,11 @@ describe("bundled skill release stamps", () => {
     const manifestPath = join(directory, "skill.json");
     const documentPath = join(directory, "SKILL.md");
 
-    writeFileSync(manifestPath, '{\n  "name": "axm",\n  "version": "0.2.8"\n}\n', "utf8");
+    writeFileSync(
+      manifestPath,
+      '{\n  "name": "axm",\n  "version": "0.2.8",\n  "description": "Test skill"\n}\n',
+      "utf8",
+    );
     writeFileSync(
       documentPath,
       '---\nname: axm\ndescription: AXM test skill.\nmetadata:\n  axm.sh/cli-version: "0.2.8"\n  axm.sh/cli-version-range: "0.2.8"\n---\n\n# AXM\n',
@@ -146,7 +150,10 @@ describe("bundled skill release stamps", () => {
     writeSkillVersion("0.24.9", manifestPath);
     stampSkillCompatibility("0.24.9", documentPath);
 
-    expect(readFileSync(manifestPath, "utf8")).toContain('"version": "0.24.9"');
+    expect(JSON.parse(readFileSync(manifestPath, "utf8"))).toMatchObject({
+      version: "0.24.9",
+      description: "Test skill",
+    });
     expect(readSkillCompatibility(documentPath)).toEqual({
       cliVersion: "0.24.9",
       cliVersionRange: ">=0.24.0 <0.25.0",

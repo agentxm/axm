@@ -171,11 +171,12 @@ describe("root command help", () => {
         expect(flags, command).toContain("backfill");
         if (command === "axm publish" || command === "axm packs publish") {
           expect(flags).toContain("include-dependencies");
-          expect(flags).toContain("include-dependency");
         } else {
           expect(flags, command).not.toContain("include-dependencies");
-          expect(flags, command).not.toContain("include-dependency");
         }
+        expect(flags, command).not.toContain("include-dependency");
+        expect(flags, command).not.toContain("authored");
+        expect(flags, command).not.toContain("all");
       }
     }),
   );

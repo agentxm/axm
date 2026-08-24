@@ -2,7 +2,16 @@
 type: Principle
 title: "YAGNI: defer speculative capability and structure"
 description: Why capability and structure should be deferred until needed, preserving optionality and economic timing without neglecting present quality.
-tags: [yagni, simple-design, incremental-design, speculative-generality, premature-abstraction, optionality, reversibility]
+tags:
+  [
+    yagni,
+    simple-design,
+    incremental-design,
+    speculative-generality,
+    premature-abstraction,
+    optionality,
+    reversibility,
+  ]
 status: draft
 sources:
   - id: beck-yagni-timing
@@ -164,14 +173,23 @@ enables today's behavior change.
   current behavior change makes it useful, rather than in anticipation of an
   imagined change.
 
-[^beck]: Beck calls YAGNI a meditation on timing and grounds the cost of
+[^beck]:
+    Beck calls YAGNI a meditation on timing and grounds the cost of
     speculative structure in lost optionality and unfavorable economic timing.
-[^fowler]: Fowler traces the phrase to Beck and Hendrickson and relates it to
+
+[^fowler]:
+    Fowler traces the phrase to Beck and Hendrickson and relates it to
     XP's Simple Design and incremental-design practice.
-[^metz]: Metz shows how premature shared abstractions accumulate parameters and
+
+[^metz]:
+    Metz shows how premature shared abstractions accumulate parameters and
     conditionals when later cases vary differently than expected.
-[^aws]: AWS uses reversible and irreversible decisions to distinguish the
+
+[^aws]:
+    AWS uses reversible and irreversible decisions to distinguish the
     amount and timing of analysis a choice warrants.
-[^simple]: The Agile Alliance describes simple design as continuous design in
+
+[^simple]:
+    The Agile Alliance describes simple design as continuous design in
     which elements justify their cost and decisions can be deferred to gather
     information.

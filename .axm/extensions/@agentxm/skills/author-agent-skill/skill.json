@@ -3,8 +3,8 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "author-agent-skill",
-  "version": "0.3.1",
-  "description": "Creates or revises portable Agent Skills from workflow evidence, observed failures, changed requirements, or accepted audit findings",
+  "version": "0.10.0",
+  "description": "Creates or revises portable Agent Skills and their versioned evaluation contracts, cases, fixtures, graders, and harness inputs",
   "keywords": [
     "agent-skills",
     "skill-authoring",
@@ -19,6 +19,6 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": ["@agentxm/packs/skill-engineering"],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": false
 }

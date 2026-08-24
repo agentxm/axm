@@ -16,9 +16,7 @@
     "small-safe-steps"
   ],
   "standalone": false,
-  "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/software-engineering"],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",

@@ -37,22 +37,22 @@ retire), and `closure-explainer.md` (triage / promote / close).
 
 ## Artifact contract
 
-| Artifact | Contract |
-| --- | --- |
+| Artifact        | Contract                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Active subjects | `## Field note subjects` in the human-authored part of the workspace instruction file, outside `axm:` managed regions |
-| Observed notes | Read and triage `field-notes/<subject>/<occurrence-id>-<key>.md`; accept legacy date-key names |
-| Findings | Write and maintain `field-notes/findings/<key>.md` |
+| Observed notes  | Read and triage `field-notes/<subject>/<occurrence-id>-<key>.md`; accept legacy date-key names                        |
+| Findings        | Write and maintain `field-notes/findings/<key>.md`                                                                    |
 
 ## Operations
 
-| Operation | Does | Read |
-| --- | --- | --- |
-| **declare** | Add a subject; pick mode, scope, target condition, retirement | `references/subjects.md` |
-| **graduate** | Survey subject → `target` mode, with a stated target condition | `references/subjects.md` |
-| **retire** | Stop collection; keep notes and findings | `references/subjects.md` |
-| **triage** (default) | Cluster notes, apply the threshold, promote to findings | `references/triage.md` |
-| **close** | Confirm a landed change stopped the class of note | `references/triage.md` |
-| **prune** | Drop stale or superseded open notes | `references/triage.md` |
+| Operation            | Does                                                           | Read                     |
+| -------------------- | -------------------------------------------------------------- | ------------------------ |
+| **declare**          | Add a subject; pick mode, scope, target condition, retirement  | `references/subjects.md` |
+| **graduate**         | Survey subject → `target` mode, with a stated target condition | `references/subjects.md` |
+| **retire**           | Stop collection; keep notes and findings                       | `references/subjects.md` |
+| **triage** (default) | Cluster notes, apply the threshold, promote to findings        | `references/triage.md`   |
+| **close**            | Confirm a landed change stopped the class of note              | `references/triage.md`   |
+| **prune**            | Drop stale or superseded open notes                            | `references/triage.md`   |
 
 If the request is ambiguous between setup and review: no subjects declared →
 **declare**; subjects exist → **triage**.

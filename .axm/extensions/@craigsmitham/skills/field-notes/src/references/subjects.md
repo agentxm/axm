@@ -11,10 +11,10 @@ Lives in the workspace instruction file, outside any `axm:` managed region:
 ```markdown
 ## Field note subjects
 
-| Subject | Mode | Scope | Target condition | Retire when |
-| --- | --- | --- | --- | --- |
-| cli-onboarding | target | any session running `mytool` | a first-time user completes `mytool init` without opening docs or retrying | 10 sessions, no new blocked note |
-| ci-duration | survey | any session editing CI config or waiting on CI | — | a target condition can be stated |
+| Subject        | Mode   | Scope                                          | Target condition                                                           | Retire when                      |
+| -------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------- |
+| cli-onboarding | target | any session running `mytool`                   | a first-time user completes `mytool init` without opening docs or retrying | 10 sessions, no new blocked note |
+| ci-duration    | survey | any session editing CI config or waiting on CI | —                                                                          | a target condition can be stated |
 ```
 
 Rules for the table:
@@ -33,8 +33,8 @@ the format from drifting over time.
 ## Declare
 
 1. Name the area in the user's words. Do not rename it into jargon.
-2. Choose the mode by asking one question: *can you state the outcome you want,
-   specifically enough that a note could say it was blocked?* Yes → `target`.
+2. Choose the mode by asking one question: _can you state the outcome you want,
+   specifically enough that a note could say it was blocked?_ Yes → `target`.
    No → `survey`. Do not talk the user into `target`.
 3. Write the scope as an observable trigger.
 4. Write the retirement condition now, not later.
@@ -47,11 +47,11 @@ read. If the user wants a fourth, ask which existing subject retires.
 
 Describe the **process operating as desired**, not work getting done.
 
-| Not usable | Usable |
-| --- | --- |
-| The CLI should be easier | A first-time user completes `init` without opening docs or retrying |
-| Speed up CI | A pull-request check reports in under 5 minutes at p90 |
-| Fix the docs | A new contributor makes a first commit without asking a question in chat |
+| Not usable               | Usable                                                                   |
+| ------------------------ | ------------------------------------------------------------------------ |
+| The CLI should be easier | A first-time user completes `init` without opening docs or retrying      |
+| Speed up CI              | A pull-request check reports in under 5 minutes at p90                   |
+| Fix the docs             | A new contributor makes a first commit without asking a question in chat |
 
 Test: could a note plausibly say "this was blocked"? If not, it is a wish.
 

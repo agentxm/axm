@@ -36,7 +36,6 @@ const TARGET_FILES = [
   "packages/cli/README.md",
   "packages/cli/help/topics/getting-started.md",
   "packages/cli/help/topics/basic-usage.md",
-  ".axm/extensions/@agentxm/skills/axm/src/SKILL.md",
 ];
 
 const catalogTypes: ReadonlySet<string> = new Set(CATALOG_EXTENSION_TYPES);

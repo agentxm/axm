@@ -2,7 +2,16 @@
 type: Pattern
 title: Tidy First
 description: A contextual pattern for making the smallest useful behavior-preserving structural change immediately before a behavior change it makes easier.
-tags: [tidy-first, preparatory-refactoring, refactoring, structural-change, behavioral-change, small-safe-steps, optionality]
+tags:
+  [
+    tidy-first,
+    preparatory-refactoring,
+    refactoring,
+    structural-change,
+    behavioral-change,
+    small-safe-steps,
+    optionality,
+  ]
 status: draft
 sources:
   - id: beck-tidy-first-preface
@@ -151,10 +160,15 @@ rather than only a slogan.[^fowler]
 - **Incremental design and refactoring** are broader practices in which the
   pattern is learned, performed, and judged.
 
-[^economics]: Beck recommends tidying first when the combined cost of tidying
+[^economics]:
+    Beck recommends tidying first when the combined cost of tidying
     and the resulting easier behavior change is lower than changing directly,
     while also accounting for option value and the timing of costs and returns.
-[^beck]: Beck's book and interview present repeated examples, timing
+
+[^beck]:
+    Beck's book and interview present repeated examples, timing
     alternatives, management guidance, and the forces governing the decision.
-[^fowler]: Fowler documents Preparatory Refactoring as restructuring code into
+
+[^fowler]:
+    Fowler documents Preparatory Refactoring as restructuring code into
     a form that makes the intended feature easier to add.

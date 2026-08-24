@@ -2,7 +2,8 @@
 type: Reference
 title: Agents and agentic workflows
 description: Distinguishes deterministic automation, LLM workflows, agents, and agents contained within durable workflows by who controls execution.
-tags: [agents, agentic-workflows, llm-workflows, automation, control-flow, durability, orchestration]
+tags:
+  [agents, agentic-workflows, llm-workflows, automation, control-flow, durability, orchestration]
 status: stable
 sources:
   - id: anthropic-agents
@@ -20,12 +21,12 @@ stale_after: 2027-02-14
 Classify a system by who controls its meaningful next steps, not by whether it
 uses a model, tool, graph, or “agent” product label.
 
-| Form | Control path | Workflow-automation ownership | Agent-engineering ownership |
-| --- | --- | --- | --- |
-| Deterministic automation | Code or rules choose every step | Complete definition and execution lifecycle | None |
-| LLM workflow | A predefined graph invokes models at known steps | Graph, dependencies, state, retries, timeout, cancellation, compensation | Only local model behavior if a step has bounded dynamic choice |
-| Agent | A model-directed loop chooses meaningful next steps | Optional surrounding invocation or delivery process | Goal, planning, capability choice, recovery, delegation, stopping |
-| Agentic workflow | Durable workflow surrounds one or more bounded agent steps | Trigger, dependencies, durable progress, approvals, retries, cancellation, compensation, reconciliation | Dynamic decisions inside each agent step and between delegated actors |
+| Form                     | Control path                                               | Workflow-automation ownership                                                                           | Agent-engineering ownership                                           |
+| ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Deterministic automation | Code or rules choose every step                            | Complete definition and execution lifecycle                                                             | None                                                                  |
+| LLM workflow             | A predefined graph invokes models at known steps           | Graph, dependencies, state, retries, timeout, cancellation, compensation                                | Only local model behavior if a step has bounded dynamic choice        |
+| Agent                    | A model-directed loop chooses meaningful next steps        | Optional surrounding invocation or delivery process                                                     | Goal, planning, capability choice, recovery, delegation, stopping     |
+| Agentic workflow         | Durable workflow surrounds one or more bounded agent steps | Trigger, dependencies, durable progress, approvals, retries, cancellation, compensation, reconciliation | Dynamic decisions inside each agent step and between delegated actors |
 
 Anthropic's operational distinction is that workflows follow predefined code
 paths while agents dynamically direct their process and tool use.[^anthropic-agents]
@@ -51,4 +52,5 @@ coordination only when tool or instruction complexity warrants it.[^openai-guide
 That agent may still be one bounded participant in a larger durable workflow.
 
 [^anthropic-agents]: Anthropic — Building effective agents
+
 [^openai-guide]: OpenAI — A practical guide to building agents

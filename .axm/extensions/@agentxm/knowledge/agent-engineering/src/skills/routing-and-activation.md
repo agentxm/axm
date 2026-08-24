@@ -29,10 +29,13 @@ A useful description contains:
 1. **Capability** — the outcome or job the skill performs.
 2. **Positive triggers** — verbs, artifacts, file types, tools, and domain terms
    likely to appear in real requests.
-3. **Negative boundary** — adjacent tasks that would otherwise over-match.
+3. **Negative boundary when needed** — a plausible adjacent task that would
+   otherwise over-match.
 
 Put all selection information in metadata; the body cannot repair a missed
-activation because it has not loaded yet.
+activation because it has not loaded yet. Do not accumulate exclusions for
+neighbors that are unlikely to collide: every extra clause consumes discovery
+attention and can make the route less legible.
 
 ## Distinct surfaces
 

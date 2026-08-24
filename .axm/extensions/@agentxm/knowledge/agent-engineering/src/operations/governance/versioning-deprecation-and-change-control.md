@@ -56,10 +56,18 @@ Use lifecycle states deliberately:
 
 - `experimental` limits exposure while evidence accumulates;
 - `approved` permits named cohorts and effective policy;
-- `deprecated` warns consumers, names a successor and deadline, and blocks new
-  adoption by default;
-- `revoked` disables exposure immediately for safety or trust loss; and
+- `deprecated` warns consumers and names a successor and deadline; pair it with
+  a separate distribution control when new adoption must stop;
+- `revoked` records an immediate safety or trust decision that must be realized
+  through the available distribution and activation controls; and
 - `retired` records completed removal and retained provenance.
+
+These are governance states, not portable command semantics. Deprecation may be
+warning-only, blocking fresh resolution may be a separate registry action, and
+deactivating an installed package may require another operation. For AXM's
+mapping, read the
+[AXM extension-management profile](../../skills/platforms/axm.md). Never infer
+that one lifecycle label performed the other controls.
 
 Approval is bound to an exact artifact, not inherited forever by name. Research
 on Agent Skill security identifies persistent trust after one approval as a

@@ -27,10 +27,13 @@ instruction publication is disabled. The compact entry is one optional
 contribution to the shared instruction surface, not the authority for the
 bundle or its index.
 
-`knowledgeConfig.instructionDiscovery` controls only whether active bundles
-publish that compact entry. It does not control bundle installation,
-activation, indexing, search, concept reading, or the shared instruction-file
-capability.
+An author may set the bundle manifest's `instructionEntry` default, and a
+workspace may override it on that bundle's direct settings entry. Omission at
+both layers admits the entry. The workspace choice wins over the manifest,
+while disabled instruction-file management, disabled Knowledge instruction
+publication, and disabled bundle activation remain outer gates. None of these
+entry-publication choices changes the enabled bundle's indexing, search, or
+concept reading.
 
 ## Non-responsibilities
 
@@ -58,10 +61,15 @@ ownership units.
 
 The discovery region is an aggregate ownership unit under the shared
 [output reconciliation contract](../workspace/overview.md#output-reconciliation).
-Its contributor set is every active bundle the desired state reaches that the
-workspace's discovery configuration permits to publish, whether reached
-directly or through a Pack. Every write renders that whole set, so one bundle's
-lifecycle never drops another bundle's discovery routing.
+Its contributor set is every active bundle the desired state reaches whose
+manifest default and optional workspace override effectively admit it, whether
+reached directly or through a Pack. Every write renders that whole set, so one
+bundle's lifecycle never drops another bundle's discovery routing.
+
+A Pack-only bundle follows its manifest default. A direct settings declaration
+for the same bundle may override that default. The declaration is durable
+desired intent rather than a Pack-member overlay: it contributes its source
+constraint and remains after the Pack route is removed.
 
 A workspace-authored Knowledge bundle may exist without being desired or
 discoverable; it remains authoring inventory. Removing activation strips only
@@ -77,6 +85,8 @@ lost reachability and evidence that AXM owns the installed canonical content.
   content.
 - Instruction-surface enablement, Knowledge activation, and publication of the
   compact Knowledge entry remain distinct choices.
+- Workspace entry policy overrides authored manifest policy without changing
+  either bundle identity or concept availability.
 
 ## Testing strategy
 

@@ -2,7 +2,8 @@
 type: Guide
 title: Error modeling
 description: Keeping expected failure, defects, and interruption distinct; use for throws, `catch (unknown)`, stringified failures, broad recovery, indiscriminate retry, or a `Result` used as an error channel.
-tags: [effect, effect-v4, errors, failure, defects, interruption, retry, tagged-errors, reasons, result]
+tags:
+  [effect, effect-v4, errors, failure, defects, interruption, retry, tagged-errors, reasons, result]
 status: stable
 sources:
   - id: docs-error-handling
@@ -123,12 +124,12 @@ members are `.success`/`.failure`, and its guards are
 `Result.isSuccess`/`isFailure`.[^src-result]
 
 - A `Result` is strictly lossier than an error channel. `Effect.result`
-  captures only typed, recoverable failure; defects and interruption are *not*
+  captures only typed, recoverable failure; defects and interruption are _not_
   captured and still fail the effect. That is enforced by the type, so no
   convention can widen it.[^src-effect]
 - Therefore keep `Result` out of service, Layer, and handler signatures between
   Effect-owned modules. Both sides already speak `Effect<A, E, R>`, which
-  carries `E` *and* preserves `Die` and `Interrupt`; handing over a `Result`
+  carries `E` _and_ preserves `Die` and `Interrupt`; handing over a `Result`
   drives `E` to `never` and discards exactly the two cases the caller cannot
   reconstruct.
 - Consume a `Result` immediately where a non-Effect helper hands you one:
@@ -142,7 +143,7 @@ members are `.success`/`.failure`, and its guards are
   error channel cannot express "this item failed, the rest are fine".
   `Stream.result` deliberately moves the failure into the element type and
   leaves `E = never`, and `Stream.partitionEffect` routes each element on a
-  `Result`. Here the `Result` *is* the payload, not a substitute
+  `Result`. Here the `Result` _is_ the payload, not a substitute
   channel.[^src-stream]
 - Even the schema layer refuses to smuggle a defect through one:
   `Schema.decodeResult` returns `Result.fail` only for causes made entirely of
@@ -155,20 +156,17 @@ When the far side is genuinely outside Effect, the answer is a domain value or
 ## Encode failures with the right base
 
 ```ts
-import { Data, Effect, Schema } from "effect"
+import { Data, Effect, Schema } from "effect";
 
 class StorageUnavailable extends Data.TaggedError("StorageUnavailable")<{
-  readonly operation: string
-  readonly cause: unknown
+  readonly operation: string;
+  readonly cause: unknown;
 }> {}
 
-class ImportFailed extends Schema.TaggedError<ImportFailed>()(
-  "ImportFailed",
-  {
-    source: Schema.String,
-    cause: Schema.optional(Schema.Defect()),
-  },
-) {}
+class ImportFailed extends Schema.TaggedError<ImportFailed>()("ImportFailed", {
+  source: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 ```
 
 - Use `Data.TaggedError` for in-process domain failures and
@@ -212,15 +210,27 @@ class ImportFailed extends Schema.TaggedError<ImportFailed>()(
 - Retry and observability policy are bounded, safe, and non-duplicative.
 
 [^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.110` — failure, defect, and interruption as distinct `Reason` cases.
+
 [^src-schema]: `Data.TaggedError`: `packages/effect/src/Data.ts`; `Schema.TaggedError` and `Schema.Defect`: `packages/effect/src/Schema.ts`, all at `effect@4.0.0-rc.110`. `Schema.decodeResult` (`Schema.ts:1787-1797`) documents that "only causes made entirely of schema issues are returned as `Result.fail`. Causes that contain defects, interruptions, or other non-schema reasons throw instead."
+
 [^src-result]: `packages/effect/src/Result.ts` at `effect@4.0.0-rc.110` — `export type Result<A, E = never> = Success<A, E> | Failure<A, E>` (:66); success-first parameters, `.success`/`.failure` members, `isSuccess`/`isFailure` guards, `succeed`/`fail` constructors. No `Either.ts` exists in `packages/effect/src`.
+
 [^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `result` (:2254) returns `Effect<Result<A, E>, never, R>` and its own **Gotchas** note reads "`result` only captures typed, recoverable failures. Defects and interruptions are not captured inside the `Result` and still fail the effect"; `exit` (:2339) returns `Effect<Exit<A, E>, never, R>` and is cross-referenced from `result` as the full-fidelity alternative.
+
 [^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — `result` (:1979) is `Stream<A, E, R> => Stream<Result<A, E>, never, R>`, implemented as `map(Result.succeed)` plus `catch_((e) => succeed(Result.fail(e)))`; `partitionEffect` (:4316) builds on `partitionQueue<Result<Pass, Fail>, …>` (:4361) to route per-element outcomes.
+
 [^applied-alchemy-consume]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/Fetch.ts` (effect 4.0.0-rc.110) — `Url.make` returns a `Result`; `Result.isFailure(urlResult)` (:84) returns `Effect.fail(new HttpClientError.InvalidUrlError({ cause: urlResult.failure }))` and the success path reads `urlResult.success` (:93). The published signature is `Effect<HttpClientResponse, RequestError>`.
+
 [^applied-alchemy-globals]: Observed in alchemy-effect@1596e50 `packages/cloudflare-runtime/src/core/globals/Globals.ts` (effect 4.0.0-rc.110) — `Result.isSuccess(Cron.parse(expression, "UTC"))` (:141) selects between `Effect.succeed` and `Effect.fail(new ConfigError(...))` inline, so a typo becomes a config-time failure rather than a dead timer.
+
 [^applied-opencode-cursor]: Observed in opencode@65c3597 `packages/protocol/src/groups/session.ts` (effect 4.0.0-beta.83) — `Encoding.decodeBase64UrlString` returns a `Result`; `Result.isFailure(result)` (:74) is branched inside `Effect.suspend`, and the exported `parse` returns an Effect.
+
 [^applied-dfx-no-result]: Observed in dfx@23988a4 `src/` (effect peer `>=4.0.0-beta.101`, dev `4.0.0-beta.105`) — a published library exporting Effect-returning operations and Layers; the only matches for "Result" in the tree are generated Discord API type names (`PollResultsResponse`), and the `Result` module is never imported. Negative evidence for the signature rule.
+
 [^docs-error-handling]: `ai-docs/src/01_effect/04_errors/01_error-handling.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-reason-errors]: `ai-docs/src/01_effect/04_errors/20_reason-errors.ts` at `effect@4.0.0-rc.110`.
+
 [^applied-alchemy]: Observed in alchemy@67022d6 `packages/alchemy/src/Auth/AuthProvider.ts` (effect peer `>=4.0.0-beta.105`).
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/fs-util.ts` (effect 4.0.0-beta.83).

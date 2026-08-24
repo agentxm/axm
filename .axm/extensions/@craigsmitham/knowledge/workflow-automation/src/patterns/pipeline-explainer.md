@@ -33,7 +33,9 @@ progresses.[^fowler-deployment-pipeline] Platforms may express the shape through
 stages and actions, or directly as a graph of job dependencies.[^aws-codepipeline][^circleci-workflows]
 
 [^fowler-deployment-pipeline]: Martin Fowler — Deployment Pipeline
+
 [^aws-codepipeline]: AWS CodePipeline concepts
+
 [^circleci-workflows]: CircleCI workflow orchestration
 
 ## Context and intent
@@ -49,14 +51,14 @@ presents them as one progression.
 
 ## Structure in the workflow model
 
-* The pipeline is a workflow definition; one passage is a workflow run.
-* The progressing subject is an invocation input and usually a data object.
-* Groups may organize phases or policy boundaries.
-* Tasks transform, inspect, or publish the subject.
-* Gates decide whether the subject may proceed.
-* Dependency edges express actual prerequisites; data edges identify what is
+- The pipeline is a workflow definition; one passage is a workflow run.
+- The progressing subject is an invocation input and usually a data object.
+- Groups may organize phases or policy boundaries.
+- Tasks transform, inspect, or publish the subject.
+- Gates decide whether the subject may proceed.
+- Dependency edges express actual prerequisites; data edges identify what is
   passed.
-* Targets identify environments or systems affected along the way.
+- Targets identify environments or systems affected along the way.
 
 A pipeline need not be linear. Fan-out, fan-in, conditional paths, and nested
 calls remain pipelines when they contribute to one recognizable progression.
@@ -94,27 +96,27 @@ may be pure waste for pre-merge feedback where only the latest revision matters.
 
 ## Quality consequences
 
-| Concern | Questions |
-| --- | --- |
-| Effectiveness | Does the final status establish the intended outcome for the identified subject? |
-| Performance | What is the critical path? When does the first useful result arrive? |
-| Efficiency | Which work is duplicated, obsolete, idle, or transferring avoidable data? |
-| Dependability | Are dependencies, failure propagation, cancellation, and selective restart coherent? |
-| Experience | Can a user see the subject, graph, current position, evidence, timing, and reason progression stopped? |
+| Concern       | Questions                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| Effectiveness | Does the final status establish the intended outcome for the identified subject?                       |
+| Performance   | What is the critical path? When does the first useful result arrive?                                   |
+| Efficiency    | Which work is duplicated, obsolete, idle, or transferring avoidable data?                              |
+| Dependability | Are dependencies, failure propagation, cancellation, and selective restart coherent?                   |
+| Experience    | Can a user see the subject, graph, current position, evidence, timing, and reason progression stopped? |
 
 ## Common failure forms
 
-* **Incidental sequence** — declaration order substitutes for real dependencies.
-* **Stage theater** — named stages decorate a fundamentally opaque monolith.
-* **Green ambiguity** — the displayed success does not say which outcome or
+- **Incidental sequence** — declaration order substitutes for real dependencies.
+- **Stage theater** — named stages decorate a fundamentally opaque monolith.
+- **Green ambiguity** — the displayed success does not say which outcome or
   evidence it establishes.
-* **Serial by default** — independent work waits because the graph was never
+- **Serial by default** — independent work waits because the graph was never
   expressed.
-* **Parallel by hope** — work runs concurrently despite hidden data or target
+- **Parallel by hope** — work runs concurrently despite hidden data or target
   coupling.
-* **Pipeline congestion** — obsolete runs consume capacity needed by current
+- **Pipeline congestion** — obsolete runs consume capacity needed by current
   work.
-* **Rebuild drift** — later phases recreate rather than advance the same
+- **Rebuild drift** — later phases recreate rather than advance the same
   subject.
 
 ## When another shape fits better
@@ -126,7 +128,7 @@ pipeline is useful only if progression of one subject explains its behavior.
 
 ## Related
 
-* [Workflow model](../workflow-model-explainer.md)
-* [Quality gate](quality-gate-explainer.md)
-* [Build once and promote](build-once-promote-explainer.md)
-* [Continuous delivery](../practices/continuous-delivery-explainer.md)
+- [Workflow model](../workflow-model-explainer.md)
+- [Quality gate](quality-gate-explainer.md)
+- [Build once and promote](build-once-promote-explainer.md)
+- [Continuous delivery](../practices/continuous-delivery-explainer.md)

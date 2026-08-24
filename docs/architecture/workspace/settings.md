@@ -24,23 +24,31 @@ managed outputs must never be used to invent missing settings.
 Settings records several kinds of choices that a user may reasonably make and
 review:
 
-| Configuration kind          | Architectural role                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Extension intent            | Names directly desired extensions, source or version constraints, and activation.                          |
-| Workspace realization       | Selects coding agents, inline definitions, and workspace capabilities such as instruction-file management. |
-| Acquisition policy          | Configures source hosts and policy that constrains new resolution.                                         |
-| Authoring defaults          | Supplies workspace identity defaults used for authoring and local resolution.                              |
-| Workspace validation policy | Configures lint behavior without declaring extensions desired.                                             |
+| Configuration kind          | Architectural role                                                                                                   |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Extension intent            | Names directly desired extensions, source or version constraints, activation, and per-extension realization choices. |
+| Workspace realization       | Selects coding agents, inline definitions, and workspace capabilities such as instruction-file management.           |
+| Acquisition policy          | Configures source hosts and policy that constrains new resolution.                                                   |
+| Authoring defaults          | Supplies workspace identity defaults used for authoring and local resolution.                                        |
+| Workspace validation policy | Configures lint behavior without declaring extensions desired.                                                       |
 
 Extension entries are roots of desired state. Pack members remain derived from
 accepted locked Pack metadata or workspace-authored Pack manifests; AXM does not
 flatten them into settings.
 
-An extension entry and capability configuration have different
-jobs. An entry expresses whether one extension is desired and active. Feature
-configuration governs how a capability as a whole participates in the
-workspace. Enabling a Rule, for example, is distinct from enabling
+An extension entry and capability configuration have different jobs. An entry
+expresses whether one extension is desired and active and may hold
+type-specific realization choices for that extension. Feature configuration
+governs how a capability as a whole participates in the workspace. A
+Knowledge entry's instruction-publication override, for example, is distinct
+from both Knowledge-wide instruction publication and top-level
 instruction-file management.
+
+A settings entry for a Pack member is direct desired intent, even when its only
+type-specific choice overrides package behavior. It contributes its own source
+constraint, combines with the Pack constraint, and remains desired if the Pack
+route is removed. Settings does not contain a separate non-retaining
+Pack-member overlay model.
 
 Instruction-file management is a first-class workspace capability represented
 by the top-level `instructionFiles` object, not Rule configuration. Absence

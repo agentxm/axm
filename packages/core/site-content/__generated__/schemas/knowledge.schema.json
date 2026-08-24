@@ -22,8 +22,8 @@
               "allOf": [
                 {
                   "uniqueItems": true,
-                  "description": "Glob patterns matched against archive-relative POSIX paths. Matching files are left out of the published archive. `*` matches any run of characters, including `/`. A pattern that would drop the manifest is rejected at publish time.",
-                  "examples": [["*.test.ts", "fixtures/*"]]
+                  "description": "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
+                  "examples": [[], ["evals/*"]]
                 }
               ],
               "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
@@ -400,6 +400,11 @@
           "type": "string",
           "enum": ["src"],
           "description": "Package-relative directory containing the authoritative OKF bundle."
+        },
+        "instructionEntry": {
+          "type": "boolean",
+          "description": "Whether this bundle appears by default in the managed Knowledge Bundles instruction table. Defaults effectively to true.",
+          "default": true
         },
         "name": { "$ref": "#/definitions/ExtensionName" }
       },

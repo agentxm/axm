@@ -29,6 +29,11 @@ export {
   type PublishArchiveInput,
   type PublishInput,
 } from "./input-normalization.js";
+export {
+  FilteredPackageError,
+  validateFilteredPackage,
+  type ValidateFilteredPackageArgs,
+} from "./filtered-package-validation.js";
 export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";
 export {
   PublishVisibilitySchema,

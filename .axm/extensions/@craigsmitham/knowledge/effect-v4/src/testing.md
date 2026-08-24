@@ -93,17 +93,17 @@ Flakiness is usually evidence of an uncontrolled dependency or lifetime, not som
 ## Use the Effect test runtime
 
 ```ts
-import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { assert, describe, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 describe("lookup", () => {
   it.effect("returns a typed failure", () =>
-    Effect.gen(function*() {
-      const error = yield* lookup(missingId).pipe(Effect.flip)
-      assert.strictEqual(error._tag, "UserNotFound")
+    Effect.gen(function* () {
+      const error = yield* lookup(missingId).pipe(Effect.flip);
+      assert.strictEqual(error._tag, "UserNotFound");
     }).pipe(Effect.provide(TestUsers)),
-  )
-})
+  );
+});
 ```
 
 - Use `it.effect` for ordinary Effect tests and `it.live` when the real clock
@@ -134,10 +134,17 @@ describe("lookup", () => {
   between tests.
 
 [^src-vitest]: `packages/vitest/src/index.ts` at `effect@4.0.0-rc.110` — exported testers are `effect`, `live`, `layer`, `prop`, and `flakyTest`; the internal tester wraps every `it.effect`/`it.live` body in `Effect.scoped`.
+
 [^docs-effect-tests]: `ai-docs/src/09_testing/10_effect-tests.ts` at `effect@4.0.0-rc.110`.
+
 [^docs-layer-tests]: `ai-docs/src/09_testing/20_layer-tests.ts` at `effect@4.0.0-rc.110`.
+
 [^src-testclock]: `packages/effect/src/testing/TestClock.ts` at `effect@4.0.0-rc.110` — `adjust`, `setTime`.
+
 [^test-testclock]: `packages/effect/test/TestClock.test.ts` at `effect@4.0.0-rc.110` — fork the waiting effect, adjust, then assert.
+
 [^src-random]: `packages/effect/src/Random.ts` at `effect@4.0.0-rc.110` — `Random.withSeed`; `effect/testing` contains no TestRandom service.
+
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/test/SyncClient.test.ts` (effect 4.0.0-beta.103) — retry boundaries pinned by adjusting to 4999 ms then 1 ms more.
+
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/test/lib/effect.ts` (effect 4.0.0-beta.83).

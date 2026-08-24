@@ -27,25 +27,25 @@ subject produces field notes; work outside every subject produces none.
 Subjects exist to make observation selective. An observer told to record anything
 interesting records either nothing or everything, and both outcomes are useless.
 A small set of named subjects — two or three is a working number — makes the
-question at any moment answerable: *does this fall under something we are
-watching?*
+question at any moment answerable: _does this fall under something we are
+watching?_
 
 ## Two modes
 
 The mode determines the trigger breadth, the evidence bar, and what counts as
 done. It is not a label; it changes behavior.
 
-| | `survey` | `target` |
-| --- | --- | --- |
-| You know | The area is costly | The specific outcome you want |
-| Trigger | Broad — any work touching the area | Narrow — tied to the target condition |
-| Evidence bar | Low; capture anything anomalous | High; specific incidents only |
-| Promotion | None; accumulate first | Recurrence threshold |
-| Exit | A target condition can be stated | Target condition met and holding |
+|              | `survey`                           | `target`                              |
+| ------------ | ---------------------------------- | ------------------------------------- |
+| You know     | The area is costly                 | The specific outcome you want         |
+| Trigger      | Broad — any work touching the area | Narrow — tied to the target condition |
+| Evidence bar | Low; capture anything anomalous    | High; specific incidents only         |
+| Promotion    | None; accumulate first             | Recurrence threshold                  |
+| Exit         | A target condition can be stated   | Target condition met and holding      |
 
 The distinction resolves a real tension. Structured improvement practice normally
-logs obstacles *relative to an already-named target
-condition*.[^rother-obstacle-parking-lot] But often the point is to discover what
+logs obstacles _relative to an already-named target
+condition_.[^rother-obstacle-parking-lot] But often the point is to discover what
 the obstacles are — and the original incident-collection method was built
 precisely to **derive** requirements nobody had yet articulated.[^flanagan-cit]
 Both are legitimate; they are different phases, not different practices.
@@ -64,7 +64,7 @@ Not usable — nothing can be measured against it:
 
 > The CLI should be easier to use.
 
-Write target conditions about the *process operating*, not about work getting
+Write target conditions about the _process operating_, not about work getting
 done.[^rother-starter-kata] "Ship the new installer" is a task. "Installation
 succeeds on first attempt" is a condition the process either satisfies or does
 not.
@@ -103,6 +103,8 @@ Reasonable retirement conditions:
 
 Retiring a subject does not delete its notes or findings. It stops collection.
 
-[^rother-obstacle-parking-lot]: *Toyota Kata — How to use the Obstacles Parking Lot*.
-[^flanagan-cit]: Flanagan, *The Critical Incident Technique*, 1954.
-[^rother-starter-kata]: Rother, *The Toyota Kata Starter Kata*.
+[^rother-obstacle-parking-lot]: _Toyota Kata — How to use the Obstacles Parking Lot_.
+
+[^flanagan-cit]: Flanagan, _The Critical Incident Technique_, 1954.
+
+[^rother-starter-kata]: Rother, _The Toyota Kata Starter Kata_.

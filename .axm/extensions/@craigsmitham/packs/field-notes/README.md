@@ -22,10 +22,10 @@ inert.
 Members are **not standalone** (`standalone: false`): install this pack rather
 than treating the leaves as complete units on their own.
 
-| Extension | Role |
-| --- | --- |
-| `@craigsmitham/rules/field-notes` | Always-on capture: when to record, the record format, and when to stop and ask instead |
-| `@craigsmitham/skills/field-notes` | Declare, graduate, and retire subjects; triage notes into findings and close them |
+| Extension                             | Role                                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `@craigsmitham/rules/field-notes`     | Always-on capture: when to record, the record format, and when to stop and ask instead |
+| `@craigsmitham/skills/field-notes`    | Declare, graduate, and retire subjects; triage notes into findings and close them      |
 | `@craigsmitham/knowledge/field-notes` | The concepts: the observed gap, subject modes, recurrence thresholds, verified closure |
 
 ## Install
@@ -36,16 +36,16 @@ axm packs install @craigsmitham/packs/field-notes
 
 ## Set up
 
-Ask for a subject in your own words — *"start watching our CLI onboarding"* —
+Ask for a subject in your own words — _"start watching our CLI onboarding"_ —
 and the `field-notes` skill will add a table like this to your instruction file:
 
 ```markdown
 ## Field note subjects
 
-| Subject | Mode | Scope | Target condition | Retire when |
-| --- | --- | --- | --- | --- |
-| cli-onboarding | target | any session running `mytool` | a first-time user completes `mytool init` without opening docs or retrying | 10 sessions, no new blocked note |
-| ci-duration | survey | any session editing CI config or waiting on CI | — | a target condition can be stated |
+| Subject        | Mode   | Scope                                          | Target condition                                                           | Retire when                      |
+| -------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------- |
+| cli-onboarding | target | any session running `mytool`                   | a first-time user completes `mytool init` without opening docs or retrying | 10 sessions, no new blocked note |
+| ci-duration    | survey | any session editing CI config or waiting on CI | —                                                                          | a target condition can be stated |
 ```
 
 Two modes, because you do not always know what is wrong yet:
@@ -57,7 +57,7 @@ Two modes, because you do not always know what is wrong yet:
   it, and retire the subject when it holds.
 
 Then work normally. Ask for a review when notes have accumulated:
-*"what have the field notes been picking up?"*
+_"what have the field notes been picking up?"_
 
 ## What gets recorded
 
@@ -72,7 +72,7 @@ hypothesis and optional improvement idea. Unknown values stay unknown rather
 than triggering an inline investigation or becoming a confident-sounding
 guess. Existing date-key notes remain valid during triage.
 
-Successes count. An undocumented workaround that *worked* is knowledge the
+Successes count. An undocumented workaround that _worked_ is knowledge the
 project depends on and has not written down — those notes are often the most
 valuable in the set.
 

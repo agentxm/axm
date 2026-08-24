@@ -1021,6 +1021,50 @@ describe("WorkspaceMutationsService", () => {
   // Compound mutations
   // ---------------------------------------------------------------------------
 
+  describe("setKnowledge", () => {
+    it.effect("preserves an explicit instruction-entry override while updating source state", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          knowledge: {
+            platform: {
+              source: "@acme/knowledge/platform@^1.0.0",
+              instructionEntry: false,
+            },
+          },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, undefined, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setKnowledge({
+          name: "platform",
+          lockEntry: {
+            type: "registry",
+            owner: handle("@acme"),
+            name: extensionName("platform"),
+            resolvedVersion: exactVersion("1.1.0"),
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            publisherBindingId: "hbnd_test",
+          },
+          versionRange: Option.some(versionRange("^1.1.0")),
+        });
+
+        const settings: unknown = JSON.parse(
+          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf8"),
+        );
+        expect(settings).toMatchObject({
+          knowledge: {
+            platform: {
+              source: "@acme/knowledge/platform@^1.1.0",
+              instructionEntry: false,
+            },
+          },
+        });
+      }),
+    );
+  });
+
   describe("setSkill", () => {
     it.effect("installs new skill: adds to settings and lockfile", () =>
       Effect.gen(function* () {

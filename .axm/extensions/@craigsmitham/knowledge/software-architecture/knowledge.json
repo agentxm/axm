@@ -1,0 +1,47 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "software-architecture",
+  "version": "1.1.1",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Human-first, risk-driven software architecture guidance for durable system meaning, product quality requirements, lifecycle, stewardship, boundaries, invariants, and selected views",
+  "keywords": [
+    "software-architecture",
+    "system-design",
+    "architecture-documentation",
+    "architecture-docs",
+    "human-comprehension",
+    "semantic-delta",
+    "system-lifecycle",
+    "c4-model",
+    "domain-driven-design",
+    "capability-modeling",
+    "feature-modeling",
+    "offering-modeling",
+    "jobs-to-be-done",
+    "value-propositions",
+    "use-cases",
+    "quality-attributes",
+    "product-quality",
+    "quality-requirements",
+    "functional-semantics",
+    "boundaries",
+    "invariants",
+    "changeability",
+    "wardley-mapping"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "standalone": true,
+  "recommendedPacks": ["@craigsmitham/packs/software-architecture"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/knowledge/software-architecture"
+  }
+}

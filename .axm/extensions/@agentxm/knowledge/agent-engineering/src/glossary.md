@@ -34,11 +34,15 @@ sources:
   - id: microsoft-agent-experience
     resource: https://developer.microsoft.com/blog/the-ax-stack-whats-fixed-where-you-can-win
     title: Microsoft — The AX stack
+  - id: qualitymd-agent-mediated-ux
+    resource: https://github.com/qualitymd/quality.md/blob/f0c50e2faa8fb36e1faed62dce2dbfebee5d5511/docs/guides/agent-mediated-ux.md
+    title: QUALITY.md — Designing agent-mediated UX
+    author: human:craigsmitham
   - id: aws-harness-runtime
     resource: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness-vs-runtime.html
     title: Amazon Bedrock AgentCore — Agent harnesses and agent runtimes
-generated: { by: "claude/opus-5", at: 2026-08-17T00:00:00Z }
-stale_after: 2027-02-09
+generated: { by: "codex/gpt-5.6", at: 2026-08-22T01:17:48Z }
+stale_after: 2027-02-21
 ---
 
 # Agent engineering glossary
@@ -201,6 +205,14 @@ architectural category.
 harness, and working environment. It includes discoverability and legibility,
 tool affordances, feedback quality, authority, continuity, and
 recovery.[^microsoft-agent-experience]
+
+**Agent-mediated user experience**
+: The human-facing experience of a product, workflow, or task as conveyed
+through an agent's openings, progress, questions, choices, confirmations,
+results, and handoffs. It concerns the person's interaction through the
+agent; agent experience concerns how effectively the agent itself can
+operate.[^qualitymd-agent-mediated-ux] See
+[How to design agent-mediated user experience](agents/agent-mediated-user-experience.md).
 
 **Agent legibility**
 : The degree to which a harness and working environment render task-relevant
@@ -368,5 +380,7 @@ evaluations.[^anthropic-evals]
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
 
 [^microsoft-agent-experience]: Microsoft — The AX stack
+
+[^qualitymd-agent-mediated-ux]: QUALITY.md — Designing agent-mediated UX
 
 [^aws-harness-runtime]: Amazon Bedrock AgentCore — Agent harnesses and agent runtimes

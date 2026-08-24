@@ -88,7 +88,7 @@ example.
    aid, not a benefits pitch.
 
 7. **Make applicability rejectable.** State observable indications, necessary
-   preconditions, and explicit *when not to use* conditions. Compare the
+   preconditions, and explicit _when not to use_ conditions. Compare the
    nearest alternatives by the forces that make each one preferable. A reader
    should be able to reject the pattern without reading implementation notes.
 
@@ -106,7 +106,7 @@ example.
 10. **Map relationships by role.** Identify patterns that establish this
     context, solve resulting problems, offer alternatives, complement the
     solution, specialize or generalize it, or conflict with it. Write the
-    relationship in prose; a bare *Related* list does not help readers compose
+    relationship in prose; a bare _Related_ list does not help readers compose
     a design.
 
 11. **Write for two reading depths.** Make the name, intent, problem, and
@@ -137,13 +137,21 @@ Use the host's conventions. This is a drafting aid, not a required schema:
 One sentence naming the intent or solution core.
 
 ## Context
+
 ## Problem
+
 ## Forces
+
 ## Solution
+
 ## Consequences
+
 ## When to use
+
 ## When not to use
+
 ## Evidence and known uses
+
 ## Related patterns
 ```
 
@@ -175,7 +183,7 @@ For a maintained library:
 - support problem-first browsing rather than technology-only categories;
 - use consistent scan-critical elements across entries;
 - distinguish candidate, established, and deprecated guidance visibly;
-- typed relationships such as *alternative to* or *followed by*;
+- typed relationships such as _alternative to_ or _followed by_;
 - keep known uses, research, issues, and contribution routes discoverable;
   and
 - claim a **pattern language** only when relationships or sequences help

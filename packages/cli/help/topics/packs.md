@@ -1,5 +1,8 @@
 # Packs
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Pack packages live in `./.axm/extensions/<@owner>/packs/<pack-name>`.
 
 ## pack.json
@@ -24,8 +27,8 @@ Run `axm packs publish <name>` to release a new version. Install with `axm packs
 Pack publication keeps the requested selection narrow by default. Use
 `--include-dependencies` with either `axm publish` or `axm packs publish` to add
 workspace-authored dependencies of selected packs. A dependency that is not
-workspace-authored is never added implicitly; pair `--include-dependencies`
-with a repeatable `--include-dependency <extension>` to select one deliberately.
+workspace-authored remains a Registry reference and is never an upload
+candidate.
 
 Included dependencies publish before packs that reference them. Included
 versions that are already published are integrity-verified and skipped; a
@@ -93,6 +96,12 @@ keeps owner, type, locator, and constraints when combining direct and pack
 origins. A missing or invalid configured manifest makes that desired subtree
 unknown and blocks destructive cleanup. Removing a pack retains members still
 required directly or by another pack.
+
+A Pack-only Knowledge member follows its own manifest's `instructionEntry`
+default. A workspace override is expressed by a matching direct `knowledge`
+settings entry, not by Pack overlay data. That direct root contributes its
+source constraint and remains desired after Pack removal; see `axm help
+knowledge` for the effective instruction-entry gates.
 
 At publication time, the Registry requires every dependency to identify a
 public, active extension with at least one installable version satisfying the

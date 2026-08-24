@@ -210,6 +210,53 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
     }),
   );
 
+  it.effect(
+    "retains a direct Knowledge override as desired intent alongside and after a Pack",
+    () =>
+      Effect.gen(function* () {
+        writePack(root, "@acme", "platform", {
+          "@acme/knowledge/handbook": "^1.0.0",
+        });
+        const knowledge = {
+          handbook: {
+            source: "@acme/knowledge/handbook@^1.1.0",
+            enabled: true,
+            instructionEntry: false,
+          },
+        };
+
+        const withPack = yield* buildDesiredStateGraph({
+          baseDir: root,
+          settings: {
+            knowledge,
+            packs: {
+              platform: { source: "@acme/packs/platform", enabled: true },
+            },
+          },
+        });
+        const directOnly = yield* buildDesiredStateGraph({
+          baseDir: root,
+          settings: { knowledge },
+        });
+
+        const withPackNode = withPack.nodes.find(
+          (node) => node.type === "knowledge" && node.name === "handbook",
+        );
+        const directOnlyNode = directOnly.nodes.find(
+          (node) => node.type === "knowledge" && node.name === "handbook",
+        );
+        expect(withPackNode?.origins.map((origin) => origin.type)).toEqual(["settings", "pack"]);
+        expect(withPackNode?.constraints).toEqual(["^1.1.0", "^1.0.0"]);
+        expect(directOnlyNode).toMatchObject({
+          source: "@acme/knowledge/handbook@>=1.1.0 <2.0.0-0",
+          enabled: true,
+        });
+        expect(directOnlyNode?.origins).toEqual([
+          expect.objectContaining({ type: "settings", source: knowledge.handbook.source }),
+        ]);
+      }),
+  );
+
   it.effect("keeps a member active when another enabled pack still requires it", () =>
     Effect.gen(function* () {
       writePack(root, "@acme", "reviewers", {

@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "docs",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
@@ -37,9 +37,7 @@
   ],
   "license": "CC-BY-SA-4.0",
   "homepage": "https://github.com/craigsmitham/agent-extensions",
-  "recommendedPacks": [
-    "@craigsmitham/packs/docs"
-  ],
+  "recommendedPacks": ["@craigsmitham/packs/docs"],
   "standalone": false,
   "repository": {
     "type": "git",

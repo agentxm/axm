@@ -40,10 +40,11 @@ Authoritative lock resolution applies when its source is external.
 
 Workspace settings distinguish an extension entry from configuration for a
 capability as a whole. An entry expresses one desired extension, source, and
-activation. Some capability configuration belongs to the workspace itself,
-such as instruction-file management; some belongs to an extension type, such
-as Knowledge discovery publication. Changing capability configuration does not
-silently change extension intent or activation.
+activation, and may carry type-specific realization settings for that one
+extension. Capability configuration applies across contributors, such as
+top-level instruction-file management and Knowledge-wide instruction
+publication. Changing either layer does not silently change extension intent
+or activation.
 
 Leaf extensions retain canonical content and may produce agent or workspace
 outputs. Packs are containers: they contribute a dependency graph rather than

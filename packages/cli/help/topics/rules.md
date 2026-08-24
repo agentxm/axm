@@ -1,5 +1,8 @@
 # Rules
 
+Before distributing package-root files, read `axm help publish` for the
+Registry-only archive policy and effective preview.
+
 Rule extensions are installable guidance packages. A rule package has a
 `rule.json` manifest and a `src/RULE.md` body. When instruction-file management
 is enabled, active Rules contribute their bodies to the complete managed

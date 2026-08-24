@@ -32,19 +32,19 @@ job and respects local authority.
 2. **Choose the smallest knowledge route.** Open only the needed concepts under
    `.axm/extensions/@craigsmitham/knowledge/docs/src/`:
 
-| Request | Start with | Add when needed |
-| --- | --- | --- |
-| Understand or classify a documentation form | `explainers/documentation-craft.md` | Matching `explainers/<subject>.md` |
-| Create or substantially revise one document | `guides/documentation-craft.md` | Matching guide and explainer for the reader need |
-| Review one document's structure | Matching `guides/<subject>.md` | Matching explainer for form-fit questions |
-| Remediate or restructure a corpus | `guides/documentation-workflow.md` | `explainers/documentation-workflow.md` for rationale; concepts for the selected unit |
-| Propose, organize, place, or rename documentation paths, filenames, titles, or collections | `guides/organizing-and-naming-documentation.md` | `explainers/documentation-organization-and-discovery.md` for tradeoffs |
-| Implement accepted audit findings | The supplied finding set | `guides/documentation-workflow.md` and the concept for each affected unit |
-| Author or review a principle | `explainers/principle.md` | `guides/principle.md`; related patterns or domain cases when needed |
-| Author or review a pattern or pattern library | `explainers/pattern.md` | `guides/pattern.md` and matching `patterns/*.md` examples |
-| Author or review a playbook or runbook | Matching `patterns/*.md` | Pattern explainer and guide when pattern quality is in scope |
-| Distinguish a practice, standard, principle, or pattern | Matching `explainers/{practice,standard,principle,pattern}.md` | A guide only when authoring is requested |
-| Check links, staleness, or factual accuracy | Repository-local sources and validators | Relevant concepts only when form or structure is also in scope |
+| Request                                                                                    | Start with                                                     | Add when needed                                                                      |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Understand or classify a documentation form                                                | `explainers/documentation-craft.md`                            | Matching `explainers/<subject>.md`                                                   |
+| Create or substantially revise one document                                                | `guides/documentation-craft.md`                                | Matching guide and explainer for the reader need                                     |
+| Review one document's structure                                                            | Matching `guides/<subject>.md`                                 | Matching explainer for form-fit questions                                            |
+| Remediate or restructure a corpus                                                          | `guides/documentation-workflow.md`                             | `explainers/documentation-workflow.md` for rationale; concepts for the selected unit |
+| Propose, organize, place, or rename documentation paths, filenames, titles, or collections | `guides/organizing-and-naming-documentation.md`                | `explainers/documentation-organization-and-discovery.md` for tradeoffs               |
+| Implement accepted audit findings                                                          | The supplied finding set                                       | `guides/documentation-workflow.md` and the concept for each affected unit            |
+| Author or review a principle                                                               | `explainers/principle.md`                                      | `guides/principle.md`; related patterns or domain cases when needed                  |
+| Author or review a pattern or pattern library                                              | `explainers/pattern.md`                                        | `guides/pattern.md` and matching `patterns/*.md` examples                            |
+| Author or review a playbook or runbook                                                     | Matching `patterns/*.md`                                       | Pattern explainer and guide when pattern quality is in scope                         |
+| Distinguish a practice, standard, principle, or pattern                                    | Matching `explainers/{practice,standard,principle,pattern}.md` | A guide only when authoring is requested                                             |
+| Check links, staleness, or factual accuracy                                                | Repository-local sources and validators                        | Relevant concepts only when form or structure is also in scope                       |
 
 `explainers/` supports understanding, `guides/` supports action, and
 `patterns/` holds reusable solutions to recurring documentation problems.

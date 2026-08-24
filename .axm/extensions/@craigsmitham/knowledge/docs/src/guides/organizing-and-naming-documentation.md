@@ -2,7 +2,18 @@
 type: Guide
 title: Organizing and naming documentation
 description: How to choose a form-first or subject-first organization, colocate the documents that belong together, create descriptive paths and titles, and preserve discovery during change.
-tags: [docs, organization, information-architecture, navigation, naming, filenames, folders, migration, discovery]
+tags:
+  [
+    docs,
+    organization,
+    information-architecture,
+    navigation,
+    naming,
+    filenames,
+    folders,
+    migration,
+    discovery,
+  ]
 status: stable
 sources:
   - id: organization
@@ -13,7 +24,7 @@ sources:
     title: Documentation craft guide
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T16:43:45Z
+  at: 2026-08-21T22:05:43Z
 ---
 
 # Organizing and naming documentation
@@ -76,16 +87,22 @@ tidy taxonomy from fragmenting the subject.
 
 Use the strongest evidence at this scope:[^organization]
 
-| Choose | When |
-| --- | --- |
-| Form-first folders | Readers browse by help needed; same-form comparison and common authoring practice matter most |
-| Subject-first folders | Readers browse by domain; cross-form documents share authority and change together |
-| Side-by-side files | One subject has a small, cohesive set and another folder would add a decision without clarifying a boundary |
-| A subject subfolder | The subject has enough internal structure to warrant its own index or browsing decision |
+| Choose                | When                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Form-first folders    | Readers browse by help needed; same-form comparison and common authoring practice matter most               |
+| Subject-first folders | Readers browse by domain; cross-form documents share authority and change together                          |
+| Side-by-side files    | One subject has a small, cohesive set and another folder would add a decision without clarifying a boundary |
+| A subject subfolder   | The subject has enough internal structure to warrant its own index or browsing decision                     |
 
 A hybrid is coherent when different scopes have explicit rules—for example, a
 subject-first root with one bounded form-first collection. Do not alternate
 axes unpredictably among siblings at the same scope.
+
+When several adjacent concepts are repeatedly confused, do not expand their
+index entries into a substantive comparison or make every concept repeat the
+same matrix. Apply [Concept boundaries](../patterns/concept-boundaries.md): keep
+each positive definition canonical, give the comparative relationship one
+explicit document, and use the index only to route readers to both.
 
 ## 4. Make every folder earn its boundary
 
@@ -103,12 +120,12 @@ empty shelves for expected future content.
 Derive each filename from the document's specific subject or action, not only
 its form.
 
-| Document job | Filename shape | Example |
-| --- | --- | --- |
-| Explain a concept | Distinctive subject-oriented noun phrase | `patterns-as-reusable-guidance.md` |
-| Guide an action | Verb or outcome phrase | `documenting-patterns.md` |
-| State reference facts | Named interface, object, or fact set | `payment-status-fields.md` |
-| Record a named pattern | Stable pattern name | `runbook.md` |
+| Document job           | Filename shape                           | Example                            |
+| ---------------------- | ---------------------------------------- | ---------------------------------- |
+| Explain a concept      | Distinctive subject-oriented noun phrase | `patterns-as-reusable-guidance.md` |
+| Guide an action        | Verb or outcome phrase                   | `documenting-patterns.md`          |
+| State reference facts  | Named interface, object, or fact set     | `payment-status-fields.md`         |
+| Record a named pattern | Stable pattern name                      | `runbook.md`                       |
 
 Avoid generic leaf names such as `overview.md`, `guide.md`, or `concept.md`
 unless their enclosing scope is guaranteed to remain present in every URL,
@@ -188,6 +205,7 @@ match their targets.
 - Every filename is stable and meaningful outside its directory.
 - Every title communicates the document's specific reader job.
 - Metadata and indexes expose useful secondary views without duplication.
+- Recurring cross-concept distinctions have one authority outside indexes.
 - Moves and renames preserve or deliberately migrate inbound references.
 - Browse, search, and raw-path discovery all work.
 
@@ -197,10 +215,14 @@ match their targets.
 - [Documentation craft](../explainers/documentation-craft.md) · [Documentation craft guide](documentation-craft.md)
 - [Documentation workflow](../explainers/documentation-workflow.md) · [Documentation workflow guide](documentation-workflow.md)
 - [Documentation quality](../explainers/documentation-quality.md)
+- [Concept boundaries](../patterns/concept-boundaries.md)
 
-[^organization]: Documentation organization and discovery defines form-first
+[^organization]:
+    Documentation organization and discovery defines form-first
     and subject-first grouping and treats semantic adjacency as the deciding
     relationship.
-[^documentation-craft-guide]: Documentation craft guide begins with the reader
+
+[^documentation-craft-guide]:
+    Documentation craft guide begins with the reader
     need and applies host paths, metadata, and validators after the document's
     job is clear.

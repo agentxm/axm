@@ -2,11 +2,11 @@
   "$schema": "https://axm.sh/schemas/rule.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "rule",
   "title": "Field notes",
   "priority": 200,
-  "description": "Capture uniquely identified operational occurrences, observed impact, detection, recovery, and tentative interpretation without derailing work",
+  "description": "Capture uniquely identified operational occurrences, safe diagnostic evidence, observed impact, detection, recovery, and tentative interpretation without derailing work",
   "keywords": [
     "field-notes",
     "observation",

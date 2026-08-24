@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Field notes
-description: How field notes preserve one operational occurrence with observed facts, impact, detection, recovery, and explicitly tentative interpretation.
+description: How field notes preserve one operational occurrence with observed facts, safe diagnostic evidence, impact, detection, recovery, and explicitly tentative interpretation.
 tags: [field-notes, observation, continuous-improvement, resilience-engineering, explanation]
 status: draft
 sources:
@@ -24,8 +24,8 @@ sources:
     resource: https://www.ahrq.gov/patient-safety/reports/hotline/design2.html
     title: AHRQ — Developing and Testing the Health Care Safety Hotline
 generated:
-  by: codex/gpt-5.6
-  at: 2026-08-15T23:32:51Z
+  by: codex/gpt-5
+  at: 2026-08-24T21:16:03Z
 ---
 
 # Field notes
@@ -114,6 +114,29 @@ so anything not written during the session is gone completely rather than merely
 degraded. Capture must therefore be cheap enough to happen inline, which means
 appending a small file and continuing — never investigating, fixing, or
 escalating what was just observed.
+
+## Preserve evidence before reducing it
+
+In-situ capture begins before the note is written. Structured command and API
+results often carry the only durable retrieval keys for an operational
+occurrence: a stable error class, request or correlation identifier, response
+status, retry decision, recovery command, or artifact integrity. A formatter
+that keeps only a human summary, a pipeline that hides the failing process
+status, or suppressed diagnostic output can destroy that evidence before the
+capture rule runs.
+
+The practice therefore preserves a small **diagnostic envelope** until capture
+eligibility is decided. It contains only already-observed fields that help
+retrieve, verify, or compare the incident. It is not a raw transcript: secrets,
+authorization material, opaque response bodies, and unreviewed values stay out
+of a public note. Nor does preservation authorize a second mutation merely to
+recover a missing identifier.
+
+Missing evidence has two materially different meanings. `Not supplied` means
+the authoritative result did not expose the field. `Unavailable — output was
+not retained` means the observing workflow discarded it. Keeping that
+distinction visible lets triage separate a product observability gap from a
+capture-process gap without guessing at either cause.
 
 ## Notes are not findings
 

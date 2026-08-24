@@ -85,6 +85,74 @@ describe("workspace transition lock", () => {
       }).pipe(Effect.provide(services)),
   );
 
+  // Expected-failure pin: the release finalizer today removes the lock
+  // directory whenever holder metadata is absent or unreadable. The marker
+  // comes off when removal requires this acquisition's own owner token.
+  it.effect.fails(
+    "C-20: release never removes another invocation's lock left without holder metadata",
+    () =>
+      Effect.gen(function* () {
+        const workspaceDir = path.join(tempDir, ".axm");
+        const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const contention = yield* acquireWorkspaceTransitionLock({
+              workspaceDir,
+              holder: { command: "install", pid: process.pid },
+            });
+            expect(Option.isNone(contention)).toBe(true);
+            // The successor window: another process reclaimed this hold as
+            // stale and acquired its own lock, but has not yet written its
+            // holder metadata. Absent metadata is indistinguishable from
+            // that window and is never license to remove the lock.
+            fs.rmSync(lockPath, { recursive: true, force: true });
+            fs.mkdirSync(lockPath, { recursive: true });
+          }),
+        );
+        expect(fs.existsSync(lockPath)).toBe(true);
+      }).pipe(Effect.provide(services)),
+  );
+
+  // Expected-failure pin: holder metadata today records only command and pid.
+  // The marker comes off when acquisition writes a per-acquisition token.
+  it.effect.fails(
+    "C-20: each acquisition records a distinct owner token in the holder metadata",
+    () =>
+      Effect.gen(function* () {
+        const workspaceDir = path.join(tempDir, ".axm");
+        const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+        // A process id can recur across reboots and containers; only a
+        // per-acquisition token proves ownership.
+        const holderToken = (): string | undefined => {
+          const parsed: unknown = JSON.parse(
+            fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
+          );
+          return typeof parsed === "object" &&
+            parsed !== null &&
+            "token" in parsed &&
+            typeof parsed.token === "string"
+            ? parsed.token
+            : undefined;
+        };
+        const acquireOnce = Effect.scoped(
+          Effect.gen(function* () {
+            const contention = yield* acquireWorkspaceTransitionLock({
+              workspaceDir,
+              holder: { command: "update", pid: process.pid },
+            });
+            expect(Option.isNone(contention)).toBe(true);
+            return holderToken();
+          }),
+        );
+        const first = yield* acquireOnce;
+        const second = yield* acquireOnce;
+        expect(first).toBeDefined();
+        expect(second).toBeDefined();
+        expect(first?.length ?? 0).toBeGreaterThanOrEqual(16);
+        expect(second).not.toBe(first);
+      }).pipe(Effect.provide(services)),
+  );
+
   it.effect("transitionLockPath names the load-bearing location", () =>
     Effect.gen(function* () {
       const pathService = yield* Path.Path;

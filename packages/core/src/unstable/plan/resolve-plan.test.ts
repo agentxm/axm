@@ -712,4 +712,90 @@ describe("previewOrApplyPlan", () => {
       expect(yield* fs.readFileString(target)).toBe("original");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+
+  // Expected-failure pin: rollback failure is inferred today by re-reading
+  // recovery records from the workspace, so when no record can be written the
+  // resolution reports `failed` with no recovery content instead of
+  // `recovery-required`. The marker comes off when restoration failure is a
+  // typed fact on the transaction's error channel.
+  it.effect.fails(
+    "C-07: reports recovery-required when restoration fails and no recovery record can be written",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-restore-fail-" });
+        const workspaceDir = path.join(directory, ".axm");
+        yield* fs.makeDirectory(workspaceDir, { recursive: true });
+        // A file at the records location makes every post-failure recovery
+        // write fail alongside the restoration itself.
+        yield* fs.writeFileString(path.join(workspaceDir, "operations"), "not a directory");
+        const managedDir = path.join(directory, "managed");
+        const movedDir = `${managedDir}-moved`;
+        const target = path.join(managedDir, "managed.txt");
+        yield* fs.makeDirectory(managedDir, { recursive: true });
+        yield* fs.writeFileString(target, "original");
+        const semaphore = Semaphore.makeUnsafe(1);
+        const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+        const workspace: WorkspaceMutationsService = {
+          ...baseWorkspace,
+          runTransaction: (args) =>
+            runWorkspaceTransaction({
+              semaphore,
+              workspaceDir,
+              targets: args.targets ?? [],
+              transition: args.transition,
+              validate: args.validate,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            ),
+        };
+        const context = makeTestContext(undefined, undefined, workspace);
+        const plan: Plan = {
+          _tag: "Plan",
+          name: "Update managed files",
+          description: Option.none(),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                {
+                  readiness: "ready",
+                  label: "first",
+                  run: protectWorkspacePath(target).pipe(
+                    Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
+                    // Restoration cannot recreate the target afterwards: its
+                    // parent directory is replaced by a plain file.
+                    Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
+                    Effect.andThen(
+                      fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
+                    ),
+                    Effect.as({ result: "success" as const, message: "changed" }),
+                  ),
+                },
+                {
+                  readiness: "ready",
+                  label: "second",
+                  run: Effect.succeed({
+                    result: "error" as const,
+                    message: "second step failed",
+                    error: makeAppError({ code: "internal", detail: "second step failed" }),
+                  }),
+                },
+              ],
+            },
+          ],
+        };
+
+        const result = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        }).pipe(Effect.provide(context.layer));
+
+        expect(deriveOperationOutcome(result)).toBe("recovery-required");
+        expect(operationExitCode(result)).toBe(6);
+        expect(result.recovery?.blocksNormalOperation).toBe(true);
+        expect(result.recovery?.retained.length ?? 0).toBeGreaterThan(0);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

@@ -255,6 +255,15 @@ describe("runWorkspaceTransaction", () => {
             const marker = "Rollback backup retained at: ";
             const backupPath = error.detail.slice(error.detail.indexOf(marker) + marker.length);
             expect(nodeFs.existsSync(backupPath.trim())).toBe(true);
+            // The flip leaves a plain file at the workspace path, so every
+            // post-failure workspace write fails with the restoration: no
+            // recovery record can land under `<workspace>/operations`.
+            // Restoration failure must stay reportable without one — the
+            // terminal report is pinned by the C-07 restoration-failure test
+            // in resolve-plan.test.ts.
+            expect(nodeFs.statSync(parent).isFile()).toBe(true);
+            expect(nodeFs.existsSync(nodePath.join(parent, "operations"))).toBe(false);
+            expect(nodeFs.existsSync(nodePath.join(movedParent, "operations"))).toBe(false);
           }),
         ),
         Effect.ensuring(

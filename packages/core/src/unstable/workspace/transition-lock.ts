@@ -93,6 +93,7 @@ export interface HeldWorkspaceTransition {
  * lock's; the workspace transaction consults it to avoid deadlocking on the
  * invocation's own hold and to observe compromise of that hold.
  */
+// eslint-disable-next-line no-restricted-syntax -- Owned exclusively by acquireWorkspaceTransitionLock: an entry's lifetime is exactly the lock's, and the acquisition's scope finalizer removes it.
 const heldTransitions = new Map<string, HeldWorkspaceTransition>();
 
 export const isWorkspaceTransitionHeldByThisInvocation = (workspaceDir: string): boolean =>

@@ -271,8 +271,11 @@ export {
 export {
   TRANSITION_WAIT_BOUND_MILLIS,
   acquireWorkspaceTransitionLock,
+  heldWorkspaceTransition,
   isWorkspaceTransitionHeldByThisInvocation,
   transitionLockPath,
+  WorkspaceTransitionCompromised,
+  type HeldWorkspaceTransition,
   type TransitionContention,
   type TransitionLockHolder,
 } from "./transition-lock.js";

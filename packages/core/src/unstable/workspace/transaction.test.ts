@@ -4,6 +4,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
@@ -14,6 +15,7 @@ import {
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";
+import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
 
 let transactionSemaphore: Semaphore.Semaphore;
 
@@ -285,6 +287,76 @@ describe("runWorkspaceTransaction", () => {
           Effect.sync(() => {
             nodeFs.rmSync(parent, { force: true });
             nodeFs.renameSync(movedParent, parent);
+            if (snapshotDir !== undefined) {
+              nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
+            }
+          }),
+        ),
+      ),
+    );
+  });
+
+  it.live("stops a compromised mutation without restoring over the successor", () => {
+    const lockPath = nodePath.join(workspaceDir, "tmp", "workspace-transition.lock");
+    let continued = false;
+    let snapshotDir: string | undefined;
+    return withContext(
+      Effect.scoped(
+        Effect.gen(function* () {
+          // The invocation-level hold, with fast staleness so compromise
+          // detection is prompt enough for a deterministic test.
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+            timingMillis: { stale: 2000, update: 1000 },
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          const failure = yield* runWorkspaceTransaction({
+            workspaceDir,
+            targets: [settingsPath],
+            transition: Effect.gen(function* () {
+              yield* Effect.sync(() => {
+                nodeFs.writeFileSync(settingsPath, '{"changed":true}\n');
+                // A successor reclaims the stale hold mid-mutation, carrying
+                // a distinct mtime as any real post-staleness reclaim would.
+                nodeFs.rmSync(lockPath, { recursive: true, force: true });
+                nodeFs.mkdirSync(lockPath, { recursive: true });
+                const reclaimedAt = new Date(Date.now() + 60_000);
+                nodeFs.utimesSync(lockPath, reclaimedAt, reclaimedAt);
+              });
+              // The compromise race interrupts this wait; nothing after it
+              // may run once ownership is lost.
+              yield* Effect.sleep("30 seconds");
+              continued = true;
+            }),
+            validate: () => Effect.void,
+          }).pipe(Effect.flip);
+          expect(failure._tag).toBe("WorkspaceRestorationIncomplete");
+          if (failure._tag !== "WorkspaceRestorationIncomplete") return;
+          snapshotDir = failure.snapshotDir;
+          expect(continued).toBe(false);
+          const restoration: unknown = failure.restorationCause;
+          expect(
+            typeof restoration === "object" &&
+              restoration !== null &&
+              "_tag" in restoration &&
+              restoration._tag === "WorkspaceTransitionCompromised",
+          ).toBe(true);
+          // No split-brain writes: the mutation stopped where it was, and
+          // restoration was not attempted over the successor's workspace.
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+          expect(failure.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+          // The pre-change snapshot is preserved for manual recovery.
+          expect(snapshotDir).toBeDefined();
+          if (snapshotDir !== undefined) {
+            expect(nodeFs.readFileSync(nodePath.join(snapshotDir, "0.snap"), "utf8")).toBe(
+              '{"future":{"value":1}}\n',
+            );
+          }
+        }),
+      ).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
             if (snapshotDir !== undefined) {
               nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
             }

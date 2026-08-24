@@ -12,6 +12,7 @@ import * as PlatformError from "effect/PlatformError";
 
 import {
   acquireWorkspaceTransitionLock,
+  heldWorkspaceTransition,
   isWorkspaceTransitionHeldByThisInvocation,
   transitionLockPath,
 } from "./transition-lock.js";
@@ -151,6 +152,56 @@ describe("workspace transition lock", () => {
       expect(second).toBeDefined();
       expect(first?.length ?? 0).toBeGreaterThanOrEqual(16);
       expect(second).not.toBe(first);
+    }).pipe(Effect.provide(services)),
+  );
+
+  // Compromise is a typed signal, never a silent event: once proper-lockfile
+  // cannot confirm ownership, the held-transition view fails its compromise
+  // effect so the owning mutation can stop — and release never removes the
+  // successor's lock.
+  it.live("C-20: compromise fails the held signal and release leaves the successor's lock", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+            timingMillis: { stale: 2000, update: 1000 },
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          const held = heldWorkspaceTransition(path.resolve(workspaceDir));
+          expect(held).toBeDefined();
+          if (held === undefined) return;
+          expect(held.isCompromised()).toBe(false);
+          // A successor reclaims the stale hold and stamps its own holder.
+          // The recreated directory carries a distinct mtime, as any real
+          // reclaim after the staleness window would.
+          fs.rmSync(lockPath, { recursive: true, force: true });
+          fs.mkdirSync(lockPath, { recursive: true });
+          fs.writeFileSync(
+            path.join(lockPath, "holder.json"),
+            JSON.stringify({ command: "successor", pid: 4321, token: "s".repeat(32) }),
+          );
+          const reclaimedAt = new Date(Date.now() + 60_000);
+          fs.utimesSync(lockPath, reclaimedAt, reclaimedAt);
+          const failure = yield* Effect.raceFirst(
+            Effect.flip(held.compromised),
+            Effect.sleep("10 seconds").pipe(
+              Effect.andThen(Effect.die(new Error("compromise did not fire"))),
+            ),
+          );
+          expect(failure._tag).toBe("WorkspaceTransitionCompromised");
+          expect(held.isCompromised()).toBe(true);
+        }),
+      );
+      // The release finalizer proved no ownership and left the successor's
+      // lock — holder metadata and all — untouched.
+      const residual = JSON.parse(
+        fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
+      ) as { command: string };
+      expect(residual.command).toBe("successor");
     }).pipe(Effect.provide(services)),
   );
 

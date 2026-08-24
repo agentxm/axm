@@ -14,7 +14,9 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import {
   acquireWorkspaceTransitionLock,
+  heldWorkspaceTransition,
   isWorkspaceTransitionHeldByThisInvocation,
+  WorkspaceTransitionCompromised,
 } from "./transition-lock.js";
 
 type Snapshot =
@@ -289,12 +291,24 @@ const restoreAll = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   snapshots: ReadonlyArray<Snapshot>,
-): Effect.Effect<void, PlatformError> =>
+  transitionCompromised: () => boolean,
+): Effect.Effect<void, PlatformError | AppError> =>
   Effect.forEach(
     [...snapshots].reverse(),
     (snapshot) =>
-      restoreSnapshot(fs, path, snapshot).pipe(
-        Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
+      Effect.suspend((): Effect.Effect<void, PlatformError | AppError> =>
+        // Restoration is a durable write like any other: once lock ownership
+        // is lost it must stop, or it could overwrite a successor's work.
+        transitionCompromised()
+          ? Effect.fail(
+              transactionError(
+                `Workspace restoration stopped before ${snapshot.target}: the workspace transition was compromised`,
+                undefined,
+              ),
+            )
+          : restoreSnapshot(fs, path, snapshot).pipe(
+              Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
+            ),
       ),
     {
       discard: true,
@@ -442,6 +456,18 @@ export const runWorkspaceTransaction = <A, E, R>(
                     .remove(context.snapshotStore.dir, { recursive: true, force: true })
                     .pipe(Effect.ignore),
             );
+            // The compromise signal of the hold serializing this mutation:
+            // the invocation-level hold when one exists, else the one just
+            // acquired above. Mutation races against it and stops when
+            // ownership is lost.
+            const held = heldWorkspaceTransition(workspaceDir);
+            // Interruptible like the business side: the race runs inside the
+            // uninterruptible rollback guard, and its loser must be
+            // interruptible for the race to settle.
+            const compromiseSignal = (held === undefined ? Effect.never : held.compromised).pipe(
+              Effect.interruptible,
+            );
+            const transitionCompromised = held === undefined ? () => false : held.isCompromised;
             const business = Effect.gen(function* () {
               yield* Effect.forEach(
                 normalizedTargets(path, args.targets),
@@ -456,36 +482,63 @@ export const runWorkspaceTransaction = <A, E, R>(
               Effect.interruptible,
             );
 
-            return yield* business.pipe(
+            const retainAll = (cause: Cause.Cause<unknown>, restorationCause: unknown) =>
+              Effect.gen(function* () {
+                const interruption = Cause.hasInterruptsOnly(cause);
+                return yield* new WorkspaceRestorationIncomplete({
+                  terminationCause: interruption ? "interruption" : "failure",
+                  transitionCause: cause,
+                  restorationCause,
+                  snapshotDir: context.snapshotStore.dir,
+                  retained: context.snapshots.map((snapshot) =>
+                    workspaceRelative(path, workspaceDir, snapshot.target),
+                  ),
+                });
+              });
+
+            return yield* Effect.raceFirst(business, compromiseSignal).pipe(
               Effect.matchCauseEffect({
-                onFailure: (cause) =>
-                  (args.onRestorationStarted ?? Effect.void)
+                onFailure: (cause) => {
+                  const raceError = Option.getOrUndefined(Cause.findErrorOption(cause));
+                  if (raceError instanceof WorkspaceTransitionCompromised) {
+                    // Ownership is lost: restoring now could overwrite a
+                    // successor's work. Retain everything the failure left,
+                    // keep the snapshots, and fail typed.
+                    return retainAll(cause, raceError);
+                  }
+                  return (args.onRestorationStarted ?? Effect.void)
                     .pipe(
-                      Effect.andThen(restoreAll(fs, path, context.snapshots)),
+                      Effect.andThen(
+                        restoreAll(fs, path, context.snapshots, transitionCompromised),
+                      ),
                       Effect.andThen(verifySnapshots(fs, path, context.snapshots)),
                     )
                     .pipe(
                       Effect.matchEffect({
-                        onFailure: (restorationCause) =>
-                          Effect.gen(function* () {
-                            const interruption = Cause.hasInterruptsOnly(cause);
-                            return yield* new WorkspaceRestorationIncomplete({
-                              terminationCause: interruption ? "interruption" : "failure",
-                              transitionCause: cause,
-                              restorationCause,
-                              snapshotDir: context.snapshotStore.dir,
-                              retained: context.snapshots.map((snapshot) =>
-                                workspaceRelative(path, workspaceDir, snapshot.target),
-                              ),
-                            });
-                          }),
+                        onFailure: (restorationCause) => retainAll(cause, restorationCause),
                         onSuccess: () =>
                           removeSnapshotStore.pipe(Effect.andThen(Effect.failCause(cause))),
                       }),
-                    ),
+                    );
+                },
                 onSuccess: (value) => removeSnapshotStore.pipe(Effect.as(value)),
               }),
               Effect.uninterruptible,
+              // The compromise branch above consumes the raced error; this
+              // conversion only discharges the type union — an escaped
+              // compromise still surfaces as its conflict rendering.
+              Effect.catchIf(
+                (error): error is WorkspaceTransitionCompromised =>
+                  error instanceof WorkspaceTransitionCompromised,
+                (error) =>
+                  Effect.fail(
+                    makeAppError({
+                      code: "conflict",
+                      detail: `The workspace transition at ${error.lockPath} was compromised; the operation stopped.`,
+                      cause: error.cause,
+                    }),
+                  ),
+              ),
             );
           }),
         ).pipe(Effect.ensuring(removeEmptyScratch), Effect.ensuring(removeNewEmptyWorkspace));

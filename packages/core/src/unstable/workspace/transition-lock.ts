@@ -23,6 +23,8 @@
 
 import { randomBytes } from "node:crypto";
 
+import * as Data from "effect/Data";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -63,16 +65,43 @@ interface StoredTransitionHolder extends TransitionLockHolder {
 }
 
 /**
+ * The hold is no longer provably owned: `proper-lockfile` failed to confirm
+ * ownership within the staleness window, so a contender may already have
+ * reclaimed the lock. Any further durable write by the original owner —
+ * mutation and restoration alike — could overwrite a successor's work.
+ */
+export class WorkspaceTransitionCompromised extends Data.TaggedError(
+  "WorkspaceTransitionCompromised",
+)<{
+  readonly workspaceDir: string;
+  readonly lockPath: string;
+  readonly cause: unknown;
+}> {}
+
+/** The live view of one acquisition this process currently holds. */
+export interface HeldWorkspaceTransition {
+  /** Fails when the hold is compromised; never succeeds and never ends otherwise. */
+  readonly compromised: Effect.Effect<never, WorkspaceTransitionCompromised>;
+  /** Synchronous probe for boundaries that cannot race, such as restoration. */
+  readonly isCompromised: () => boolean;
+}
+
+/**
  * Held transition locks in this process, keyed by resolved workspace
  * directory. Owned exclusively by `acquireWorkspaceTransitionLock`, whose
  * scope finalizer removes the entry, so an entry's lifetime is exactly the
  * lock's; the workspace transaction consults it to avoid deadlocking on the
- * invocation's own hold.
+ * invocation's own hold and to observe compromise of that hold.
  */
-const heldTransitions = new Set<string>();
+const heldTransitions = new Map<string, HeldWorkspaceTransition>();
 
 export const isWorkspaceTransitionHeldByThisInvocation = (workspaceDir: string): boolean =>
   heldTransitions.has(workspaceDir);
+
+/** The live hold for a workspace this process acquired, when one exists. */
+export const heldWorkspaceTransition = (
+  workspaceDir: string,
+): HeldWorkspaceTransition | undefined => heldTransitions.get(workspaceDir);
 
 const errorCode = (cause: unknown): string | undefined =>
   typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
@@ -147,6 +176,8 @@ export const acquireWorkspaceTransitionLock = (args: {
   readonly waitBoundMillis?: number;
   /** Called once when the invocation starts waiting on another holder. */
   readonly onWaiting?: (holder: Option.Option<TransitionLockHolder>) => Effect.Effect<void>;
+  /** Staleness/refresh override for deterministic compromise tests only. */
+  readonly timingMillis?: { readonly stale: number; readonly update: number };
 }): Effect.Effect<
   Option.Option<TransitionContention>,
   AppError,
@@ -196,6 +227,7 @@ export const acquireWorkspaceTransitionLock = (args: {
           Effect.ignore,
         );
 
+    const compromisedSignal = Deferred.makeUnsafe<never, WorkspaceTransitionCompromised>();
     let waitedMillis = 0;
     let reportedWaiting = false;
     while (true) {
@@ -205,13 +237,20 @@ export const acquireWorkspaceTransitionLock = (args: {
             lockfilePath: lockPath,
             realpath: false,
             retries: 0,
-            stale: LOCK_STALE_MILLIS,
-            update: LOCK_UPDATE_MILLIS,
+            stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
+            update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
             // The default handler throws inside a timer: an uncatchable crash
-            // that sprays raw frames on stderr. The lock is an advisory
-            // serializer; a compromised hold must stay silent here — the
-            // workspace transaction owns durable-state safety.
-            onCompromised: () => undefined,
+            // that sprays raw frames on stderr. Complete the typed compromise
+            // signal instead — the workspace transaction races against it and
+            // never continues mutating after ownership is lost.
+            onCompromised: (cause) => {
+              Deferred.doneUnsafe(
+                compromisedSignal,
+                Effect.fail(
+                  new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause }),
+                ),
+              );
+            },
           }),
         catch: (cause) => ({ cause, code: errorCode(cause) }),
       }).pipe(Effect.result);
@@ -240,7 +279,10 @@ export const acquireWorkspaceTransitionLock = (args: {
           yield* removeNewEmptyWorkspace;
           return yield* holderWrite.failure;
         }
-        heldTransitions.add(workspaceDir);
+        heldTransitions.set(workspaceDir, {
+          compromised: Deferred.await(compromisedSignal),
+          isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
+        });
         yield* Effect.addFinalizer(() =>
           Effect.gen(function* () {
             heldTransitions.delete(workspaceDir);

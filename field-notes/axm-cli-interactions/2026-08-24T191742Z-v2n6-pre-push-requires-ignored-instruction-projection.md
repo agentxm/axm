@@ -5,7 +5,7 @@ key: pre-push-requires-ignored-instruction-projection
 observed_at: "2026-08-24T19:17:42Z"
 session: 01a03512-fee3-79a2-8e87-0d51cd2476bb
 kind: gap
-status: open
+status: promoted
 ---
 
 **Expected:** A clean, fully verified commit from the current `main` checkout would pass the repository pre-push checks without additional local workspace state.

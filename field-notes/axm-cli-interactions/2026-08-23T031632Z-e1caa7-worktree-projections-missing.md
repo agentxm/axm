@@ -5,7 +5,7 @@ key: worktree-projections-missing
 observed_at: "2026-08-23T03:16:32Z"
 session: 36f8ab95
 kind: workaround
-status: open
+status: promoted
 ---
 
 **Expected:** A clean isolated Git worktree created from `main` would satisfy the repository's pre-push `axm lint --strict` gate after the staged change passed strict Git-index lint.

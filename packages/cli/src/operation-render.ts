@@ -197,6 +197,19 @@ export const renderOperationOutcome = (
         if (cause !== undefined && cause.length > 0) {
           yield* renderer.error(`  ${cause}`);
         }
+        const recovery = resolution.recovery;
+        if (recovery !== undefined && recovery.retained.length > 0) {
+          yield* renderer.error(
+            `  restoration incomplete — ${count(recovery.retained.length, "path")} retained${
+              recovery.snapshotDir === undefined
+                ? ""
+                : ` (pre-change snapshots preserved at ${recovery.snapshotDir})`
+            }`,
+          );
+          for (const path of recovery.retained) {
+            yield* renderer.error(`  retained: ${path}`);
+          }
+        }
         yield* renderFailureUnits(resolution.units, renderer);
         return;
       }
@@ -233,19 +246,6 @@ export const renderOperationOutcome = (
               : "no changes applied";
         yield* renderer.error(`Interrupted — ${phrase}`, suggestionOptions);
         yield* renderFailureUnits(resolution.units, renderer);
-        return;
-      }
-      case "recovery-required": {
-        const retained = resolution.recovery?.retained ?? [];
-        yield* renderer.error(
-          `Recovery required — restoration did not complete${
-            retained.length === 0 ? "" : ` (${count(retained.length, "path")} retained)`
-          }`,
-          suggestionOptions,
-        );
-        for (const path of retained) {
-          yield* renderer.error(`  retained: ${path}`);
-        }
         return;
       }
     }

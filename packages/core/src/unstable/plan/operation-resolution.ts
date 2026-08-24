@@ -83,7 +83,6 @@ export const OperationOutcomeSchema = Schema.Literals([
   "blocked",
   "cancelled",
   "interrupted",
-  "recovery-required",
 ] as const).annotate({
   identifier: "OperationOutcome",
   title: "Operation Outcome",
@@ -179,17 +178,16 @@ export interface OperationFootprintEntry {
 }
 
 /**
- * Machine-readable recovery content: what durable state remains and what
- * action resolves it. `blocksNormalOperation` is true only when a normal
- * re-invocation cannot safely proceed without the named action — that is what
- * turns the outcome into `recovery-required` rather than recovery content
- * accompanying `partial` or `interrupted`.
+ * Machine-readable recovery content accompanying a `failed`, `partial`, or
+ * `interrupted` outcome: what durable state was retained rather than restored
+ * and what action resolves it. It never blocks a later invocation — the next
+ * mutation converges from the current workspace state.
  */
 export interface OperationRecovery {
-  readonly blocksNormalOperation: boolean;
   readonly retained: ReadonlyArray<string>;
+  /** OS-temporary directory preserving pre-change snapshots, when it survives. */
+  readonly snapshotDir?: string;
   readonly actions: ReadonlyArray<SuggestedAction>;
-  readonly recordPath?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -316,8 +314,6 @@ export const countUnitStates = (units: ReadonlyArray<ResolvedUnit<unknown>>): Un
  * operation-level events and its unit terminal multiset:
  *
  * - an external termination request resolves `interrupted`;
- * - durable state a normal re-run cannot safely continue from resolves
- *   `recovery-required`;
  * - a typed blocking condition that prevented execution resolves `blocked`;
  * - a declined confirmation resolves `cancelled`;
  * - preview mode resolves `previewed`;
@@ -329,7 +325,6 @@ export const deriveOperationOutcome = (
   resolution: OperationResolution<unknown>,
 ): OperationOutcome => {
   if (resolution.interruption !== undefined) return "interrupted";
-  if (resolution.recovery?.blocksNormalOperation === true) return "recovery-required";
   if (resolution.blocking !== undefined) return "blocked";
   if (resolution.declined === true) return "cancelled";
   if (resolution.mode === "preview") return "previewed";
@@ -357,7 +352,7 @@ const BLOCKED_CONFLICT_CLASSES: ReadonlySet<BlockingClass> = new Set([
  * preview exits 1); partial exits 1; failed exits by cause class (default 1);
  * blocked exits by blocking class (approval/override 2; stale-candidate,
  * resource-conflict, policy-excluded, dependency-cycle 6; otherwise cause
- * class); interrupted exits 130/143; recovery-required exits 6.
+ * class); interrupted exits 130/143.
  */
 export const operationExitCode = (
   resolution: OperationResolution<unknown>,
@@ -385,8 +380,6 @@ export const operationExitCode = (
     }
     case "interrupted":
       return resolution.interruption?.signal === "SIGTERM" ? 143 : 130;
-    case "recovery-required":
-      return ExitCode.Conflict;
   }
 };
 

@@ -246,14 +246,14 @@ const FootprintEntrySchema = Schema.Struct({
 });
 
 const OperationRecoverySchema = Schema.Struct({
-  blocksNormalOperation: Schema.Boolean,
   retained: Schema.Array(Schema.String),
+  snapshotDir: Schema.optional(Schema.String),
   actions: Schema.Array(SuggestedActionSchema),
-  recordPath: Schema.optional(Schema.String),
 }).annotate({
   identifier: "OperationRecovery",
   title: "Operation Recovery",
-  description: "Machine-readable recovery content: retained durable state and resolving actions.",
+  description:
+    "Machine-readable recovery content: retained durable state, preserved pre-change snapshots, and resolving actions. Never blocks a later invocation.",
 });
 
 const ReleaseAgeRecordSchema = Schema.Struct({

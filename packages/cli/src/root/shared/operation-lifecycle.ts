@@ -1,19 +1,17 @@
 /**
  * Plan-family operation lifecycle wrapper.
  *
- * Owns the two lifecycle facts a handler body cannot own for itself:
+ * Owns the lifecycle fact a handler body cannot own for itself:
+ * **interruption**. An external termination request resolves through the
+ * normal lifecycle: the body's interruption is converted — from the operation
+ * journal the resolution boundary maintains — into a terminal resolution with
+ * outcome `interrupted`, a contract-valid document, a stated durable-state
+ * disposition, and the signal's exit code.
  *
- * - **Mutual exclusion.** Apply-mode invocations acquire the workspace
- *   transition lock before the workspace read model is consulted for
- *   mutation, hold it through apply, and release it with the resolution. A
- *   contending invocation waits with a visible reason up to a bound, then
- *   terminates blocked with class `resource-conflict` and a machine-readable
- *   reference to the holder.
- * - **Interruption.** An external termination request resolves through the
- *   normal lifecycle: the body's interruption is converted — from the
- *   operation journal the resolution boundary maintains — into a terminal
- *   resolution with outcome `interrupted`, a contract-valid document, a
- *   stated durable-state disposition, and the signal's exit code.
+ * Mutual exclusion is not acquired here: planning, network acquisition,
+ * preview, and confirmation run lock-free, and the plan-family apply (or the
+ * workspace transaction it delegates to) acquires the workspace transition
+ * after confirmation, for revalidation through apply.
  */
 
 import * as Cause from "effect/Cause";
@@ -21,12 +19,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
   effectCliExit,
   recordCommandCompletion,
   requestedInterruptionSignal,
-  type SuggestedAction,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   OperationJournal,
@@ -46,11 +42,8 @@ import {
 import {
   FootprintRecorder,
   WorkspaceMutations,
-  acquireWorkspaceTransitionLock,
-  isWorkspaceTransitionHeldByThisInvocation,
   makeFootprintRecorder,
   readFootprint,
-  type TransitionContention,
 } from "@agentxm/client-core/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
@@ -65,43 +58,6 @@ export interface OperationLifecycleArgs {
 }
 
 const replayCommand = (command: string): string => `axm ${command.split(".").join(" ")}`;
-
-const holderReference = (contention: TransitionContention): string | undefined =>
-  Option.match(contention.holder, {
-    onNone: () => undefined,
-    onSome: (holder) => `${holder.command} (pid ${holder.pid})`,
-  });
-
-const contentionResolution = (
-  args: OperationLifecycleArgs,
-  contention: TransitionContention,
-): OperationResolution => {
-  const reference = holderReference(contention);
-  const escape: SuggestedAction = {
-    description: "Wait for the holding operation to finish, then rerun.",
-    cmd: replayCommand(args.command),
-  };
-  return makeOperationResolution({
-    name: args.planName,
-    description: Option.none(),
-    mode: "apply",
-    atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
-    units: [],
-    presentation: args.presentation,
-    blocking: {
-      class: "resource-conflict",
-      subject: args.planName,
-      phase: "planning",
-      detail: `another operation holds the workspace transition${
-        reference === undefined ? "" : ` (${reference})`
-      }; waited ${Math.round(contention.waitedMillis / 1000)}s`,
-      causeCode: "conflict",
-      ...(reference === undefined ? {} : { reference }),
-      escape,
-    },
-    suggestions: [escape],
-  });
-};
 
 const interruptionResolution = (
   args: OperationLifecycleArgs,
@@ -164,7 +120,6 @@ const interruptionResolution = (
   const recovery: OperationRecovery | undefined =
     disposition === "retained"
       ? {
-          blocksNormalOperation: false,
           retained: committed.flatMap((unit) =>
             unit.artifact === undefined ? [unit.id] : [unit.artifact.path],
           ),
@@ -197,10 +152,10 @@ const interruptionResolution = (
 };
 
 /**
- * Run a plan-family handler body under the operation lifecycle. The body's
- * planning, confirmation, apply, and emit all run while the workspace
- * transition is held (apply mode); interruption resolves through the same
- * emit boundary as every other termination.
+ * Run a plan-family handler body under the operation lifecycle. The body owns
+ * planning, confirmation, apply (which acquires the workspace transition
+ * after confirmation), and emit; interruption resolves through the same emit
+ * boundary as every other termination.
  */
 export const withOperationLifecycle = <A, E, R>(
   args: OperationLifecycleArgs,
@@ -212,31 +167,7 @@ export const withOperationLifecycle = <A, E, R>(
         const journal = yield* makeOperationJournal;
         const footprint = yield* makeFootprintRecorder;
         const lifecycle = yield* makeOperationLifecycle;
-        const ws = yield* WorkspaceMutations;
         const path = yield* Path.Path;
-        const alreadyHeld = isWorkspaceTransitionHeldByThisInvocation(path.resolve(ws.path));
-        if (args.mode === "apply" && !alreadyHeld) {
-          const renderer = yield* CliRenderer;
-          const contention = yield* acquireWorkspaceTransitionLock({
-            workspaceDir: ws.path,
-            holder: { command: args.command, pid: process.pid },
-            onWaiting: (holder) =>
-              renderer.step(
-                `Waiting: resource-conflict — workspace transition held by ${Option.match(holder, {
-                  onNone: () => "another operation",
-                  onSome: (value) => `${value.command} (pid ${value.pid})`,
-                })}`,
-              ),
-          });
-          if (Option.isSome(contention)) {
-            const { exitCode } = yield* emitOperationResolution(
-              args.command,
-              contentionResolution(args, contention.value),
-            );
-            yield* recordCommandCompletion(exitCode);
-            return yield* Effect.die(effectCliExit(exitCode));
-          }
-        }
         return yield* restore(
           body.pipe(
             Effect.provideService(OperationJournal, journal),
@@ -273,11 +204,11 @@ export const withOperationLifecycle = <A, E, R>(
                     .sort((left, right) =>
                       left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
                     );
-                  // An interruption whose retained work a normal re-run can
-                  // safely continue leaves nothing behind: the terminal
-                  // report's recovery content and the next run's convergence
-                  // carry it. Restoration failures persist their own capsule
-                  // inside the workspace transaction instead.
+                  // An interruption leaves nothing behind in the workspace:
+                  // the terminal report's recovery content and the next
+                  // run's ordinary convergence carry the retained work. A
+                  // restoration failure reports through the transaction's
+                  // typed error instead, on this same emit boundary.
                   const resolution = interruptionResolution(args, state, signal, observed);
                   const { exitCode } = yield* emitOperationResolution(args.command, resolution);
                   // Inside the uninterruptible mask: the completion event must

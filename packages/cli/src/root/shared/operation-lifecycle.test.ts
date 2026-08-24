@@ -27,12 +27,9 @@ afterEach(() => {
 });
 
 describe("withOperationLifecycle", () => {
-  // Expected-failure pin: the apply-mode boundary today acquires the
-  // workspace transition before the body runs. The marker comes off when
-  // acquisition moves to post-confirmation revalidation. Lock lifetime is a
-  // design invariant, not a contract obligation, so this test carries no
-  // obligation ID.
-  it.effect.fails("does not hold the workspace transition before the body confirms", () =>
+  // Lock lifetime is a design invariant, not a contract obligation, so this
+  // test carries no obligation ID.
+  it.effect("does not hold the workspace transition before the body confirms", () =>
     Effect.gen(function* () {
       const workspaceDir = nodePath.join(tempDir, ".axm");
       const resolved = nodePath.resolve(workspaceDir);

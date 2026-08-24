@@ -193,6 +193,8 @@ export {
   type ExtensionTargetFor,
   type ExtensionManager,
   type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
+  type WorkspaceTransitionRequest,
   type WorkspaceLifecycleTransactionArgs,
   type SkillExtensionTarget,
   type PackExtensionTarget,
@@ -213,7 +215,6 @@ export {
   surfaceRestorationIncomplete,
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
-  type WorkspaceTransactionIdentity,
 } from "./transaction.js";
 
 // Initialization
@@ -267,16 +268,6 @@ export {
   type FootprintObservation,
   type FootprintRecorderService,
 } from "./footprint-recorder.js";
-export {
-  RecoveryCapsuleSchema,
-  capsuleMatchesSealedState,
-  readRecoveryCapsules,
-  recoveryCapsulesDir,
-  removeRecoveryCapsule,
-  restoreRecoveryCapsule,
-  type DetectedCapsule,
-  type RecoveryCapsule,
-} from "./recovery-capsule.js";
 export {
   TRANSITION_WAIT_BOUND_MILLIS,
   acquireWorkspaceTransitionLock,

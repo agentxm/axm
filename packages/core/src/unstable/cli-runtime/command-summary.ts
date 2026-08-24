@@ -13,8 +13,7 @@ export type CommandOutcome =
   | "partial"
   | "failed"
   | "blocked"
-  | "interrupted"
-  | "recovery-required";
+  | "interrupted";
 
 /**
  * What a command acted on, for telemetry and JSON output. Derived from the

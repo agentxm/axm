@@ -133,24 +133,24 @@ describe("deriveOperationOutcome", () => {
     expect(deriveOperationOutcome(value)).toBe("interrupted");
   });
 
-  it("C-07: recovery that blocks normal operation derives recovery-required at exit 6", () => {
+  it("C-07: recovery content never decides the outcome — a retained failure stays failed", () => {
     const value = resolution({
       units: [unit("a", "failed", { disposition: "retained" })],
+      failure: makeAppError({ code: "internal", detail: "restoration failed" }),
       recovery: {
-        blocksNormalOperation: true,
         retained: [".axm/extensions/@test/skills/a"],
-        actions: [{ description: "Re-run the update to resolve retained state." }],
+        snapshotDir: "/tmp/axm-rollback-abc123",
+        actions: [{ description: "Re-run the update; planning restarts from current state." }],
       },
     });
-    expect(deriveOperationOutcome(value)).toBe("recovery-required");
-    expect(operationExitCode(value)).toBe(6);
+    expect(deriveOperationOutcome(value)).toBe("failed");
+    expect(operationExitCode(value)).not.toBe(0);
   });
 
   it("C-07: recovery content accompanying survivable state stays partial", () => {
     const value = resolution({
       units: [unit("a", "committed"), unit("b", "failed")],
       recovery: {
-        blocksNormalOperation: false,
         retained: [],
         actions: [],
       },

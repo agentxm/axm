@@ -4,8 +4,11 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 
 import {
   acquireWorkspaceTransitionLock,
@@ -85,10 +88,10 @@ describe("workspace transition lock", () => {
       }).pipe(Effect.provide(services)),
   );
 
-  // Expected-failure pin: the release finalizer today removes the lock
-  // directory whenever holder metadata is absent or unreadable. The marker
-  // comes off when removal requires this acquisition's own owner token.
-  it.effect.fails(
+  // Residual cleanup requires an exact owner-token match: absent metadata is
+  // indistinguishable from a successor that reclaimed the stale hold but has
+  // not yet written its holder file.
+  it.effect(
     "C-20: release never removes another invocation's lock left without holder metadata",
     () =>
       Effect.gen(function* () {
@@ -113,44 +116,62 @@ describe("workspace transition lock", () => {
       }).pipe(Effect.provide(services)),
   );
 
-  // Expected-failure pin: holder metadata today records only command and pid.
-  // The marker comes off when acquisition writes a per-acquisition token.
-  it.effect.fails(
-    "C-20: each acquisition records a distinct owner token in the holder metadata",
-    () =>
-      Effect.gen(function* () {
-        const workspaceDir = path.join(tempDir, ".axm");
-        const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
-        // A process id can recur across reboots and containers; only a
-        // per-acquisition token proves ownership.
-        const holderToken = (): string | undefined => {
-          const parsed: unknown = JSON.parse(
-            fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
-          );
-          return typeof parsed === "object" &&
-            parsed !== null &&
-            "token" in parsed &&
-            typeof parsed.token === "string"
-            ? parsed.token
-            : undefined;
-        };
-        const acquireOnce = Effect.scoped(
-          Effect.gen(function* () {
-            const contention = yield* acquireWorkspaceTransitionLock({
-              workspaceDir,
-              holder: { command: "update", pid: process.pid },
-            });
-            expect(Option.isNone(contention)).toBe(true);
-            return holderToken();
-          }),
+  // A process id can recur across reboots and containers; only a distinct
+  // per-acquisition token proves ownership.
+  it.effect("C-20: each acquisition records a distinct owner token in the holder metadata", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      // A process id can recur across reboots and containers; only a
+      // per-acquisition token proves ownership.
+      const holderToken = (): string | undefined => {
+        const parsed: unknown = JSON.parse(
+          fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
         );
-        const first = yield* acquireOnce;
-        const second = yield* acquireOnce;
-        expect(first).toBeDefined();
-        expect(second).toBeDefined();
-        expect(first?.length ?? 0).toBeGreaterThanOrEqual(16);
-        expect(second).not.toBe(first);
-      }).pipe(Effect.provide(services)),
+        return typeof parsed === "object" &&
+          parsed !== null &&
+          "token" in parsed &&
+          typeof parsed.token === "string"
+          ? parsed.token
+          : undefined;
+      };
+      const acquireOnce = Effect.scoped(
+        Effect.gen(function* () {
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          return holderToken();
+        }),
+      );
+      const first = yield* acquireOnce;
+      const second = yield* acquireOnce;
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect(first?.length ?? 0).toBeGreaterThanOrEqual(16);
+      expect(second).not.toBe(first);
+    }).pipe(Effect.provide(services)),
+  );
+
+  // Holder metadata is the only ownership evidence an acquisition has.
+  // Failing to record it must fail the acquisition safely: release the hold
+  // rather than hold anonymously, leaving nothing for a contender to wait on.
+  it.effect("C-20: a failed holder write releases the acquisition and fails typed", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      const failure = yield* Effect.scoped(
+        acquireWorkspaceTransitionLock({
+          workspaceDir,
+          holder: { command: "update", pid: process.pid },
+        }),
+      ).pipe(Effect.flip);
+      expect(failure._tag).toBe("AppError");
+      expect(failure.detail).toContain("workspace transition holder");
+      expect(fs.existsSync(lockPath)).toBe(false);
+      expect(isWorkspaceTransitionHeldByThisInvocation(path.resolve(workspaceDir))).toBe(false);
+    }).pipe(Effect.provide(holderWriteFailingServices)),
   );
 
   it.effect("transitionLockPath names the load-bearing location", () =>
@@ -162,6 +183,27 @@ describe("workspace transition lock", () => {
     }).pipe(Effect.provide(services)),
   );
 });
+
+/** Node services with a FileSystem whose holder.json writes always fail. */
+const holderWriteFailingServices = Layer.effect(
+  FileSystem.FileSystem,
+  Effect.gen(function* () {
+    const real = yield* FileSystem.FileSystem;
+    return {
+      ...real,
+      writeFileString: (...args: Parameters<FileSystem.FileSystem["writeFileString"]>) =>
+        args[0].endsWith("holder.json")
+          ? Effect.fail(
+              PlatformError.badArgument({
+                module: "FileSystem",
+                method: "writeFileString",
+                description: "injected holder write failure",
+              }),
+            )
+          : real.writeFileString(...args),
+    };
+  }),
+).pipe(Layer.provideMerge(NodeServices.layer));
 
 const acquireWorkspaceTransitionLockForTest = (
   workspaceDir: string,

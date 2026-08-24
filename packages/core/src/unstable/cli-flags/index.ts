@@ -14,12 +14,6 @@ export {
 } from "./non-interactive.js";
 import { nonInteractiveFlag } from "./non-interactive.js";
 
-export {
-  recoveryConsentOptional,
-  resolveRecoveryFlag,
-  type RecoveryConsent,
-} from "./resolve-recovery.js";
-
 export const jsonFlag = GlobalFlag.setting("axm-json")({
   flag: Flag.boolean("json").pipe(
     Flag.withAlias("j"),

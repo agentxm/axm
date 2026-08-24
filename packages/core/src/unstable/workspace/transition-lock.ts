@@ -2,18 +2,26 @@
  * Workspace transition lock.
  *
  * One cross-process lock serializes mutation-class operations on a workspace.
- * A mutating invocation acquires it before building the workspace read model
- * it will mutate from, holds it through apply, and releases it with its
- * resolution; the workspace transaction reuses the invocation's hold instead
- * of acquiring a second lock. A contending invocation waits with a visible
+ * A plan-family apply acquires it after confirmation — planning, network
+ * acquisition, preview, and the confirmation decision stay lock-free — then
+ * revalidates its candidate and applies while holding it; the workspace
+ * transaction reuses the invocation's hold, or acquires its own when no
+ * plan-family hold exists. A contending invocation waits with a visible
  * reason up to a bound, then terminates blocked with a machine-readable
  * reference to the holder.
+ *
+ * Each acquisition records a distinct owner token in the holder metadata.
+ * Ownership is proven only by an exact token match — never inferred from a
+ * pid or from missing or unreadable metadata — and a holder write that fails
+ * releases the acquisition instead of holding anonymously.
  *
  * The lock file lives at `.axm/tmp/workspace-transition.lock`; its path is
  * load-bearing for operational tooling and must not move casually.
  *
  * @experimental This API is unstable and may change without notice.
  */
+
+import { randomBytes } from "node:crypto";
 
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -45,6 +53,16 @@ export interface TransitionLockHolder {
 }
 
 /**
+ * What acquisition durably records: the caller's holder description plus the
+ * per-acquisition owner token. The token — never the pid, which recurs across
+ * reboots and containers — is the only evidence that a residual lock belongs
+ * to this acquisition.
+ */
+interface StoredTransitionHolder extends TransitionLockHolder {
+  readonly token: string;
+}
+
+/**
  * Held transition locks in this process, keyed by resolved workspace
  * directory. Owned exclusively by `acquireWorkspaceTransitionLock`, whose
  * scope finalizer removes the entry, so an entry's lifetime is exactly the
@@ -68,7 +86,7 @@ const readHolder = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   lockPath: string,
-): Effect.Effect<Option.Option<TransitionLockHolder>> =>
+): Effect.Effect<Option.Option<TransitionLockHolder & { readonly token?: string }>> =>
   fs.readFileString(path.join(lockPath, "holder.json")).pipe(
     Effect.map((content) => {
       const parsed: unknown = JSON.parse(content);
@@ -86,22 +104,31 @@ const readHolder = (
           ...("candidateId" in parsed && typeof parsed.candidateId === "string"
             ? { candidateId: parsed.candidateId }
             : {}),
-        } satisfies TransitionLockHolder);
+          ...("token" in parsed && typeof parsed.token === "string" ? { token: parsed.token } : {}),
+        });
       }
-      return Option.none<TransitionLockHolder>();
+      return Option.none<TransitionLockHolder & { readonly token?: string }>();
     }),
-    Effect.catch(() => Effect.succeed(Option.none<TransitionLockHolder>())),
+    Effect.catch(() =>
+      Effect.succeed(Option.none<TransitionLockHolder & { readonly token?: string }>()),
+    ),
   );
 
 const writeHolder = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   lockPath: string,
-  holder: TransitionLockHolder,
-): Effect.Effect<void> =>
-  fs
-    .writeFileString(path.join(lockPath, "holder.json"), JSON.stringify(holder))
-    .pipe(Effect.ignore);
+  holder: StoredTransitionHolder,
+): Effect.Effect<void, AppError> =>
+  fs.writeFileString(path.join(lockPath, "holder.json"), JSON.stringify(holder)).pipe(
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to record the workspace transition holder at ${lockPath}`,
+        cause: error,
+      }),
+    ),
+  );
 
 export interface TransitionContention {
   /** The holder recorded by the invocation that owns the lock, when readable. */
@@ -190,30 +217,57 @@ export const acquireWorkspaceTransitionLock = (args: {
       }).pipe(Effect.result);
       if (attempt._tag === "Success") {
         const release = attempt.success;
-        yield* writeHolder(fs, path, lockPath, args.holder);
+        const token = randomBytes(16).toString("hex");
+        const holderWrite = yield* writeHolder(fs, path, lockPath, {
+          ...args.holder,
+          token,
+        }).pipe(Effect.result);
+        if (holderWrite._tag === "Failure") {
+          // The holder metadata is the only ownership evidence this
+          // acquisition will ever have; holding without it would be
+          // indistinguishable from a successor's half-written acquisition.
+          // Release the lock and fail rather than hold anonymously.
+          yield* Effect.tryPromise({
+            try: () => release(),
+            catch: (cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to release workspace transition lock at ${lockPath}`,
+                cause,
+              }),
+          }).pipe(Effect.ignore);
+          yield* removeEmptyScratch;
+          yield* removeNewEmptyWorkspace;
+          return yield* holderWrite.failure;
+        }
         heldTransitions.add(workspaceDir);
         yield* Effect.addFinalizer(() =>
           Effect.gen(function* () {
             heldTransitions.delete(workspaceDir);
-            yield* Effect.tryPromise({
-              try: () => release(),
-              catch: (cause) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to release workspace transition lock at ${lockPath}`,
-                  cause,
-                }),
-            }).pipe(Effect.ignore);
-            // A compromised hold makes release() refuse and would leave the
-            // dir for the next invocation to wait out as stale. The dir is
-            // still ours unless another process re-acquired and re-stamped
-            // the holder file — remove it only in that owned case.
+            // Removal requires an exact owner-token match, proven before
+            // release() — which would remove the directory unconditionally.
+            // Absent or unreadable holder metadata is indistinguishable from
+            // a successor that reclaimed the stale hold but has not yet
+            // written its holder file, and is never license to remove; the
+            // unowned in-process bookkeeping self-resolves as compromised on
+            // its next update tick without touching the directory.
             const residualHolder = yield* readHolder(fs, path, lockPath);
             const ownsResidual = Option.match(residualHolder, {
-              onNone: () => true,
-              onSome: (value) => value.pid === process.pid,
+              onNone: () => false,
+              onSome: (value) => value.token === token,
             });
             if (ownsResidual) {
+              yield* Effect.tryPromise({
+                try: () => release(),
+                catch: (cause) =>
+                  makeAppError({
+                    code: "internal",
+                    detail: `Failed to release workspace transition lock at ${lockPath}`,
+                    cause,
+                  }),
+              }).pipe(Effect.ignore);
+              // A compromised hold makes release() refuse; the directory is
+              // still ours by exact token match — remove it directly.
               yield* fs.remove(lockPath, { recursive: true, force: true }).pipe(Effect.ignore);
             }
             yield* removeEmptyScratch;

@@ -1,36 +1,21 @@
-import { randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import * as Cause from "effect/Cause";
 import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
-import * as lockfile from "proper-lockfile";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import {
-  appendCapsuleEntry,
-  capsuleEntryPath,
-  createRecoveryCapsule,
-  hashPathState,
-  nextCapsuleArtifact,
-  removeRecoveryCapsule,
-  sealRecoveryCapsule,
-  type CapsuleEntry,
-  type CapsuleWriter,
-} from "./recovery-capsule.js";
-import { isWorkspaceTransitionHeldByThisInvocation } from "./transition-lock.js";
-
-const TRANSACTION_LOCK_FILENAME = "workspace-transition.lock";
-const LOCK_RETRY_DELAY = Duration.millis(25);
-const LOCK_STALE_MILLIS = 2_000;
-const LOCK_UPDATE_MILLIS = 1_000;
+  acquireWorkspaceTransitionLock,
+  isWorkspaceTransitionHeldByThisInvocation,
+} from "./transition-lock.js";
 
 type Snapshot =
   | { readonly target: string; readonly state: "absent" }
@@ -41,8 +26,8 @@ interface WorkspaceTransactionContext {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceDir: string;
-  readonly identity: WorkspaceTransactionIdentity;
-  readonly capsule: { writer: CapsuleWriter | undefined };
+  /** Uniquely prefixed OS-temporary directory holding rollback snapshots. */
+  readonly snapshotStore: { dir: string | undefined };
   readonly protectedTargets: Set<string>;
   readonly snapshots: Array<Snapshot>;
   readonly snapshotSemaphore: Semaphore.Semaphore;
@@ -53,13 +38,6 @@ const CurrentWorkspaceTransaction = ServiceMap.Reference<
 >("@agentxm/client-core/unstable/workspace/CurrentWorkspaceTransaction", {
   defaultValue: () => Option.none(),
 });
-
-/** Names the capsule this transaction snapshots into, and the command it serves. */
-export interface WorkspaceTransactionIdentity {
-  /** Capsule directory name; plan-family passes the candidate identity. */
-  readonly capsuleId: string;
-  readonly command: string;
-}
 
 export interface WorkspaceTransactionArgs<A, E, R> {
   readonly workspaceDir: string;
@@ -73,14 +51,14 @@ export interface WorkspaceTransactionArgs<A, E, R> {
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
   /** Observes the start of rollback restoration; never controls it. */
   readonly onRestorationStarted?: Effect.Effect<void>;
-  /** Capsule identity; omitted callers snapshot under a per-run capsule name. */
-  readonly identity?: WorkspaceTransactionIdentity;
 }
 
 /**
  * Restoration did not complete: the typed fact the terminal resolution
- * derives outcome, disposition, recovery requirement, and exit status from.
- * The capsule referenced here persists with the snapshots already on disk.
+ * derives outcome, disposition, and exit status from. The pre-change
+ * snapshots survive in the OS-temporary snapshot directory; nothing about
+ * this failure persists in the workspace, and the next mutation converges
+ * from the current workspace state.
  */
 export class WorkspaceRestorationIncomplete extends Data.TaggedError(
   "WorkspaceRestorationIncomplete",
@@ -88,18 +66,21 @@ export class WorkspaceRestorationIncomplete extends Data.TaggedError(
   readonly terminationCause: "failure" | "interruption";
   readonly transitionCause: Cause.Cause<unknown>;
   readonly restorationCause: unknown;
-  readonly capsuleDir: string;
-  /** Workspace-relative capsule location, safe for machine-document values. */
-  readonly capsulePath: string;
+  /** OS-temporary directory preserving the pre-change snapshots, when any were taken. */
+  readonly snapshotDir: string | undefined;
+  /** Protected paths, workspace-root-relative where possible, left as the failure left them. */
   readonly retained: ReadonlyArray<string>;
-  readonly sealed: boolean;
 }> {}
 
 /** Render the typed restoration failure for boundaries without a resolution. */
 export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncomplete): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Workspace restoration did not complete; retained state and its snapshots are preserved in the recovery capsule at ${error.capsulePath}.`,
+    detail: `Workspace restoration did not complete; the affected paths keep the state the failure left${
+      error.snapshotDir === undefined
+        ? "."
+        : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`
+    }`,
     cause: {
       transition: Cause.pretty(error.transitionCause),
       restoration: error.restorationCause,
@@ -107,11 +88,7 @@ export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncom
     suggestions: [
       {
         description:
-          "Re-run the command with --resolve-recovery restore to restore the retained paths from their snapshots.",
-      },
-      {
-        description:
-          "Re-run the command with --resolve-recovery accept to accept the retained state as it stands.",
+          "Re-run the command; the next mutation plans from the current workspace state.",
       },
     ],
   });
@@ -153,64 +130,41 @@ const normalizedTargets = (
   return retained;
 };
 
-const finalizeLockResource = (effect: Effect.Effect<void, AppError>): Effect.Effect<void> =>
-  effect.pipe(
-    Effect.tapError((error) => Effect.logError(error.detail)),
-    Effect.ignore,
-  );
+const workspaceRelative = (path: Path.Path, workspaceDir: string, target: string): string => {
+  const relative = path.relative(path.dirname(workspaceDir), target);
+  return relative.startsWith("..") ? target : relative;
+};
 
-const errorCode = (cause: unknown): string | undefined =>
-  typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
-    ? cause.code
-    : undefined;
+const sha256 = (input: string | Uint8Array): string =>
+  createHash("sha256").update(input).digest("hex");
 
-const acquireWorkspaceLock = (
-  workspaceDir: string,
-  lockPath: string,
-  afterRelease: Effect.Effect<void>,
-) =>
-  Effect.uninterruptibleMask((restore) =>
-    Effect.gen(function* () {
-      let release: (() => Promise<void>) | undefined;
-      while (release === undefined) {
-        const attempt = yield* Effect.tryPromise({
-          try: () =>
-            lockfile.lock(workspaceDir, {
-              lockfilePath: lockPath,
-              realpath: false,
-              retries: 0,
-              stale: LOCK_STALE_MILLIS,
-              update: LOCK_UPDATE_MILLIS,
-            }),
-          catch: (cause) => ({ cause, code: errorCode(cause) }),
-        }).pipe(Effect.result);
-        if (attempt._tag === "Success") {
-          release = attempt.success;
-          break;
-        }
-        if (attempt.failure.code !== "ELOCKED") {
-          return yield* transactionError(
-            `Failed to acquire workspace transaction lock at ${lockPath}`,
-            attempt.failure.cause,
-          );
-        }
-        yield* restore(Effect.sleep(LOCK_RETRY_DELAY));
+/**
+ * Deterministic content hash of a path's current state: file bytes, symlink
+ * target, recursive directory listing, or the literal `absent`.
+ */
+const hashPathState = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  target: string,
+): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const link = yield* fs.readLink(target).pipe(Effect.option);
+    if (Option.isSome(link)) return sha256(`symlink:${link.value}`);
+    const exists = yield* fs.exists(target);
+    if (!exists) return "absent";
+    const info = yield* fs.stat(target);
+    if (info.type === "Directory") {
+      const entries = [...(yield* fs.readDirectory(target))].sort();
+      const parts: Array<string> = [];
+      for (const entry of entries) {
+        const child = yield* hashPathState(fs, path, path.join(target, entry));
+        parts.push(`${entry}:${child}`);
       }
-      const releaseLock = release;
-      yield* Effect.addFinalizer(() =>
-        finalizeLockResource(
-          Effect.tryPromise({
-            try: () => releaseLock(),
-            catch: (cause) =>
-              transactionError(
-                `Failed to release workspace transaction lock at ${lockPath}`,
-                cause,
-              ),
-          }),
-        ).pipe(Effect.andThen(afterRelease)),
-      );
-    }),
-  );
+      return sha256(`dir:${parts.join("\n")}`);
+    }
+    const bytes = yield* fs.readFile(target);
+    return sha256(bytes);
+  }).pipe(Effect.catch(() => Effect.succeed("unhashable")));
 
 const protectInContext = (
   context: WorkspaceTransactionContext,
@@ -221,22 +175,9 @@ const protectInContext = (
       const { fs, path } = context;
       const normalized = path.resolve(target);
       if (context.protectedTargets.has(normalized)) return;
-      if (context.capsule.writer === undefined) {
-        context.capsule.writer = yield* createRecoveryCapsule({
-          fs,
-          path,
-          workspaceDir: context.workspaceDir,
-          capsuleId: context.identity.capsuleId,
-          command: context.identity.command,
-        });
-      }
-      const writer = context.capsule.writer;
-      const relative = capsuleEntryPath(path, writer, normalized);
       const link = yield* fs.readLink(normalized).pipe(Effect.option);
-      let entry: CapsuleEntry;
       let snapshot: Snapshot;
       if (Option.isSome(link)) {
-        entry = { path: relative, preState: "symlink", linkTarget: link.value };
         snapshot = { target: normalized, state: "symlink", linkTarget: link.value };
       } else {
         const exists = yield* fs
@@ -247,24 +188,30 @@ const protectInContext = (
             ),
           );
         if (!exists) {
-          entry = { path: relative, preState: "absent" };
           snapshot = { target: normalized, state: "absent" };
         } else {
-          const artifact = nextCapsuleArtifact(path, writer);
+          if (context.snapshotStore.dir === undefined) {
+            context.snapshotStore.dir = yield* fs
+              .makeTempDirectory({ prefix: "axm-rollback-" })
+              .pipe(
+                Effect.mapError((error) =>
+                  transactionError("Failed to create the rollback snapshot directory", error),
+                ),
+              );
+          }
+          const backup = path.join(context.snapshotStore.dir, `${context.snapshots.length}.snap`);
+          // The pre-change bytes are preserved before the path is first
+          // mutated; a path that cannot be snapshotted is never mutated.
           yield* fs
-            .copy(normalized, artifact, { preserveTimestamps: true })
+            .copy(normalized, backup, { preserveTimestamps: true })
             .pipe(
               Effect.mapError((error) =>
                 transactionError(`Failed to snapshot transaction target ${normalized}`, error),
               ),
             );
-          entry = { path: relative, preState: "copied", snapshot: path.basename(artifact) };
-          snapshot = { target: normalized, state: "copied", backup: artifact };
+          snapshot = { target: normalized, state: "copied", backup };
         }
       }
-      // The entry is durably recorded before the path is first mutated; a
-      // path whose entry cannot be recorded is never mutated.
-      yield* appendCapsuleEntry(fs, path, writer, entry);
       context.protectedTargets.add(normalized);
       context.snapshots.push(snapshot);
     }),
@@ -386,15 +333,19 @@ const verifySnapshots = (
   );
 
 /**
- * Run one coupled workspace mutation under a scope-local lock.
+ * Run one coupled workspace mutation under the workspace transition lock.
  *
- * Every authoritative target is snapshotted into the recovery capsule before
- * the transition begins. A failed transition or postcondition check restores
- * and verifies the exact pre-operation paths and removes the capsule; a
- * restoration that does not complete and verify fails with the typed
- * {@link WorkspaceRestorationIncomplete}, leaving the sealed capsule as the
- * only surviving recovery state. The lock is held by the operating system and
- * released on descriptor close or process death.
+ * Every authoritative target is snapshotted into a uniquely prefixed
+ * OS-temporary directory before the transition begins. A failed transition or
+ * postcondition check restores and verifies the exact pre-operation paths and
+ * removes the snapshots; a restoration that does not complete and verify
+ * fails with the typed {@link WorkspaceRestorationIncomplete}, preserving the
+ * snapshot directory for manual inspection. Nothing about a failure persists
+ * in the workspace: the next mutation plans from the current workspace state.
+ *
+ * The invocation-level transition hold is reused when a plan-family apply
+ * already acquired it; otherwise this transaction acquires its own for the
+ * duration of the mutation.
  */
 export const runWorkspaceTransaction = <A, E, R>(
   args: WorkspaceTransactionArgs<A, E, R>,
@@ -437,14 +388,6 @@ export const runWorkspaceTransaction = <A, E, R>(
             ),
           );
         const scratchDir = path.join(workspaceDir, "tmp");
-        yield* fs
-          .makeDirectory(scratchDir, { recursive: true })
-          .pipe(
-            Effect.mapError((error) =>
-              transactionError(`Failed to create workspace scratch directory ${scratchDir}`, error),
-            ),
-          );
-        const lockPath = path.join(scratchDir, TRANSACTION_LOCK_FILENAME);
         const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
           Effect.flatMap((entries) =>
             entries.length === 0
@@ -469,25 +412,35 @@ export const runWorkspaceTransaction = <A, E, R>(
             // cross-process exclusion; acquiring here again would deadlock on
             // our own lock.
             if (!isWorkspaceTransitionHeldByThisInvocation(workspaceDir)) {
-              yield* acquireWorkspaceLock(workspaceDir, lockPath, removeEmptyScratch);
+              const contention = yield* acquireWorkspaceTransitionLock({
+                workspaceDir,
+                holder: { command: "workspace-transaction", pid: process.pid },
+              });
+              if (Option.isSome(contention)) {
+                const holder = Option.getOrUndefined(contention.value.holder);
+                return yield* makeAppError({
+                  code: "conflict",
+                  detail: `another operation holds the workspace transition${
+                    holder === undefined ? "" : ` (${holder.command} (pid ${holder.pid}))`
+                  }; waited ${Math.round(contention.value.waitedMillis / 1000)}s`,
+                });
+              }
             }
             const context: WorkspaceTransactionContext = {
               fs,
               path,
               workspaceDir,
-              identity: args.identity ?? {
-                capsuleId: `workspace-transaction-${randomBytes(4).toString("hex")}`,
-                command: "workspace-transaction",
-              },
-              capsule: { writer: undefined },
+              snapshotStore: { dir: undefined },
               protectedTargets: new Set(),
               snapshots: [],
               snapshotSemaphore: Semaphore.makeUnsafe(1),
             };
-            const removeCapsuleIfAny = Effect.suspend(() =>
-              context.capsule.writer === undefined
+            const removeSnapshotStore = Effect.suspend(() =>
+              context.snapshotStore.dir === undefined
                 ? Effect.void
-                : removeRecoveryCapsule(fs, path, workspaceDir, context.capsule.writer.dir),
+                : fs
+                    .remove(context.snapshotStore.dir, { recursive: true, force: true })
+                    .pipe(Effect.ignore),
             );
             const business = Effect.gen(function* () {
               yield* Effect.forEach(
@@ -515,33 +468,22 @@ export const runWorkspaceTransaction = <A, E, R>(
                       Effect.matchEffect({
                         onFailure: (restorationCause) =>
                           Effect.gen(function* () {
-                            const writer = context.capsule.writer;
                             const interruption = Cause.hasInterruptsOnly(cause);
-                            const sealed =
-                              writer === undefined
-                                ? false
-                                : yield* sealRecoveryCapsule(
-                                    fs,
-                                    path,
-                                    writer,
-                                    interruption ? "interruption" : "failure",
-                                  );
-                            const capsuleDir = writer?.dir ?? scratchDir;
                             return yield* new WorkspaceRestorationIncomplete({
                               terminationCause: interruption ? "interruption" : "failure",
                               transitionCause: cause,
                               restorationCause,
-                              capsuleDir,
-                              capsulePath: path.relative(path.dirname(workspaceDir), capsuleDir),
-                              retained: (writer?.entries ?? []).map((entry) => entry.path),
-                              sealed,
+                              snapshotDir: context.snapshotStore.dir,
+                              retained: context.snapshots.map((snapshot) =>
+                                workspaceRelative(path, workspaceDir, snapshot.target),
+                              ),
                             });
                           }),
                         onSuccess: () =>
-                          removeCapsuleIfAny.pipe(Effect.andThen(Effect.failCause(cause))),
+                          removeSnapshotStore.pipe(Effect.andThen(Effect.failCause(cause))),
                       }),
                     ),
-                onSuccess: (value) => removeCapsuleIfAny.pipe(Effect.as(value)),
+                onSuccess: (value) => removeSnapshotStore.pipe(Effect.as(value)),
               }),
               Effect.uninterruptible,
             );

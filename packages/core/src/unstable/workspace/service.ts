@@ -105,12 +105,14 @@ import {
   type SkillPathSource,
   type ExtensionTarget,
   type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { runWorkspaceTransaction } from "./transaction.js";
+import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
@@ -338,7 +340,17 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ...(args.onRestorationStarted === undefined
           ? {}
           : { onRestorationStarted: args.onRestorationStarted }),
-        ...(args.identity === undefined ? {} : { identity: args.identity }),
+      }).pipe(Effect.provide(fsLayer));
+
+    const acquireTransition: WorkspaceTransitionAcquirer = (request) =>
+      acquireWorkspaceTransitionLock({
+        workspaceDir,
+        holder: {
+          command: request.command,
+          pid: process.pid,
+          ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
+        },
+        ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
       }).pipe(Effect.provide(fsLayer));
 
     /**
@@ -490,6 +502,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       baseDir,
 
       runTransaction,
+
+      acquireTransition,
 
       getLockfileState,
 

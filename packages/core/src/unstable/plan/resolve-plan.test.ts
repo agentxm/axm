@@ -8,7 +8,7 @@ import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
 import { makeAppError } from "../app-error/index.js";
-import { resolveRecoveryFlag, TestFlagsLayer } from "../cli-flags/index.js";
+import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestRenderer } from "../cli-renderer/index.js";
 import {
   applyPlanExecution,
@@ -18,10 +18,13 @@ import {
   type ConfirmationRecovery,
 } from "../cli-runtime/confirmation-recovery.js";
 import {
+  acquireWorkspaceTransitionLock,
+  isWorkspaceTransitionHeldByThisInvocation,
   protectWorkspacePath,
   runWorkspaceTransaction,
   WorkspaceMutations,
   type WorkspaceMutationsService,
+  type WorkspaceTransitionAcquirer,
 } from "../workspace/index.js";
 import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
@@ -714,11 +717,10 @@ describe("previewOrApplyPlan", () => {
   );
 
   // Restoration failure is a typed fact on the transaction's error channel:
-  // the resolution derives `recovery-required`, the retained set, and exit 6
-  // from that value alone, with the recovery capsule as the surviving
-  // recovery content. Formerly an expected-failure pin against the inference
-  // that re-read recovery records from the workspace.
-  it.effect("C-07: reports recovery-required when restoration fails", () =>
+  // the resolution derives the retained set, dispositions, atomicity, and
+  // exit from that value alone. The pre-change snapshots survive in
+  // OS-temporary storage, and nothing persists in the workspace.
+  it.effect("C-07: reports retained state and preserved snapshots when restoration fails", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -787,30 +789,35 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
-      expect(deriveOperationOutcome(result)).toBe("recovery-required");
-      expect(operationExitCode(result)).toBe(6);
-      expect(result.recovery?.blocksNormalOperation).toBe(true);
-      expect(result.recovery?.retained.length ?? 0).toBeGreaterThan(0);
-      // The machine-visible recovery content names the capsule, which
-      // persists with its snapshots inside the transient location.
-      expect(result.recovery?.recordPath ?? "").toContain(path.join(".axm", "tmp", "recovery"));
-      const capsuleDir = path.join(directory, result.recovery?.recordPath ?? "");
-      expect(yield* fs.exists(path.join(capsuleDir, "capsule.json"))).toBe(true);
+      // The committed unit's effects survive unrestored: partial, nonzero
+      // exit, retained disposition, and non-rollbackable applied atomicity.
+      expect(deriveOperationOutcome(result)).toBe("partial");
+      expect(operationExitCode(result)).not.toBe(0);
+      expect(result.atomicity.applied).toBe("non-rollbackable");
+      expect(result.units.find((unit) => unit.id === "first")?.disposition).toBe("retained");
+      expect(result.recovery?.retained).toEqual([path.join("managed", "managed.txt")]);
+      // The pre-change snapshots survive outside the workspace, in
+      // OS-temporary storage, and the recovery content names them.
+      const snapshotDir = result.recovery?.snapshotDir ?? "";
+      expect(snapshotDir.length).toBeGreaterThan(0);
+      expect(snapshotDir.startsWith(directory)).toBe(false);
+      expect(yield* fs.readFileString(path.join(snapshotDir, "0.snap"))).toBe("original");
+      // Nothing persists in the workspace: no capsule, record, or marker.
+      expect(yield* fs.exists(path.join(workspaceDir, "tmp", "recovery"))).toBe(false);
+      expect(yield* fs.exists(path.join(workspaceDir, "operations"))).toBe(false);
+      yield* fs.remove(snapshotDir, { recursive: true, force: true });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  // A prior restoration failure stays blocking for every later
-  // mutation-class apply until resolved: detection finds the live capsule and
-  // terminates `recovery-required` before touching anything. The retained
-  // state is deliberately tampered with between the runs so no automatic
-  // restoration may legitimately continue either. Formerly an
-  // expected-failure pin against the non-blocking warning and the
-  // bulk-resolution of open records by any successful apply.
-  it.effect("C-07: blocks a later apply while a restoration failure remains unresolved", () =>
+  // Nothing about a restoration failure persists in the workspace: the next
+  // ordinary mutation resolves owned transient state and converges from
+  // surviving authority — no recovery flag, command-intent record, or repair
+  // workflow.
+  it.effect("C-07: a later apply converges ordinarily after a restoration failure", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-recovery-block-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-recovery-converge-" });
       const workspaceDir = path.join(directory, ".axm");
       yield* fs.makeDirectory(workspaceDir, { recursive: true });
       const managedDir = path.join(directory, "managed");
@@ -874,14 +881,8 @@ describe("previewOrApplyPlan", () => {
       const first = yield* previewOrApplyPlan(failingPlan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
-      expect(deriveOperationOutcome(first)).toBe("recovery-required");
-
-      // Tamper with the retained state so no automatic restoration can
-      // legitimately proceed: the failed region now holds bytes the failure
-      // never recorded.
-      yield* fs.remove(managedDir, { force: true });
-      yield* fs.makeDirectory(managedDir, { recursive: true });
-      yield* fs.writeFileString(target, "tampered");
+      expect(deriveOperationOutcome(first)).toBe("partial");
+      const snapshotDir = first.recovery?.snapshotDir;
 
       const otherTarget = path.join(directory, "other.txt");
       const followUp: Plan = {
@@ -911,42 +912,65 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
-      expect(deriveOperationOutcome(second)).toBe("recovery-required");
-      expect(operationExitCode(second)).toBe(6);
-      expect(second.recovery?.blocksNormalOperation).toBe(true);
-      expect(yield* fs.exists(otherTarget)).toBe(false);
-
-      // The one-shot consent flag resolves the condition: accepting the
-      // retained state removes the capsule and the apply proceeds.
-      const accepted = yield* previewOrApplyPlan(followUp, {
-        execution: preapprovedPlanExecution,
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(context.layer, Layer.succeed(resolveRecoveryFlag, Option.some("accept"))),
-        ),
-      );
-      expect(deriveOperationOutcome(accepted)).toBe("applied");
+      // The follow-up needs no flag, consents to nothing, and repairs
+      // nothing: it converges from the current workspace state.
+      expect(deriveOperationOutcome(second)).toBe("applied");
+      expect(operationExitCode(second)).toBe(0);
+      expect(second.recovery).toBeUndefined();
       expect(yield* fs.exists(otherTarget)).toBe(true);
       expect(yield* fs.exists(path.join(workspaceDir, "tmp", "recovery"))).toBe(false);
+      expect(yield* fs.exists(path.join(workspaceDir, "operations"))).toBe(false);
+      if (snapshotDir !== undefined) {
+        yield* fs.remove(snapshotDir, { recursive: true, force: true });
+      }
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  // Fail-closed detection: recovery state that cannot be interpreted is a
-  // blocking conflict, never evidence of absence.
-  it.effect("C-07: an uninterpretable capsule blocks a later apply", () =>
+  // Lock lifetime: the workspace transition is acquired after confirmation,
+  // held through revalidation and apply, and released with the resolution.
+  it.effect("C-20: acquires the workspace transition for apply and releases it after", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-recovery-garbage-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-lock-lifetime-" });
       const workspaceDir = path.join(directory, ".axm");
-      const capsuleDir = path.join(workspaceDir, "tmp", "recovery", "unknown-capsule");
-      yield* fs.makeDirectory(capsuleDir, { recursive: true });
-      yield* fs.writeFileString(path.join(capsuleDir, "capsule.json"), "{not json");
-      const context = makeTestContext(undefined, undefined, makeBaseWorkspaceMock(workspaceDir));
-      const target = path.join(directory, "other.txt");
+      yield* fs.makeDirectory(workspaceDir, { recursive: true });
+      const resolved = path.resolve(workspaceDir);
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      const heldDuringApply: Array<boolean> = [];
+      const lockOnDisk: Array<boolean> = [];
+      const semaphore = Semaphore.makeUnsafe(1);
+      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+      const workspace: WorkspaceMutationsService = {
+        ...baseWorkspace,
+        acquireTransition: (request) =>
+          acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: {
+              command: request.command,
+              pid: process.pid,
+              ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
+            },
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+        runTransaction: (args) =>
+          runWorkspaceTransaction({
+            semaphore,
+            workspaceDir,
+            targets: args.targets ?? [],
+            transition: args.transition,
+            validate: args.validate,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
       const plan: Plan = {
         _tag: "Plan",
-        name: "Write unrelated file",
+        name: "Observe the transition hold",
         description: Option.none(),
         jobs: [
           {
@@ -954,13 +978,12 @@ describe("previewOrApplyPlan", () => {
             steps: [
               {
                 readiness: "ready",
-                label: "write-other",
-                run: fs
-                  .writeFileString(target, "unrelated")
-                  .pipe(
-                    Effect.orDie,
-                    Effect.as({ result: "success" as const, message: "written" }),
-                  ),
+                label: "observe",
+                run: Effect.gen(function* () {
+                  heldDuringApply.push(isWorkspaceTransitionHeldByThisInvocation(resolved));
+                  lockOnDisk.push(yield* fs.exists(lockPath).pipe(Effect.orDie));
+                  return { result: "success" as const, message: "observed" };
+                }),
               },
             ],
           },
@@ -971,19 +994,101 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
-      expect(deriveOperationOutcome(result)).toBe("recovery-required");
-      expect(operationExitCode(result)).toBe(6);
-      expect(yield* fs.exists(target)).toBe(false);
-      // Consent to restore cannot apply to state without snapshots.
-      const restoreAttempt = yield* previewOrApplyPlan(plan, {
+      expect(deriveOperationOutcome(result)).toBe("applied");
+      expect(heldDuringApply).toEqual([true]);
+      expect(lockOnDisk).toEqual([true]);
+      expect(isWorkspaceTransitionHeldByThisInvocation(resolved)).toBe(false);
+      expect(yield* fs.exists(lockPath)).toBe(false);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("C-20: preview never requests the workspace transition", () =>
+    Effect.gen(function* () {
+      let acquisitions = 0;
+      const counting: WorkspaceTransitionAcquirer = () =>
+        Effect.sync(() => {
+          acquisitions += 1;
+          return Option.none();
+        });
+      const workspace: WorkspaceMutationsService = {
+        ...makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
+        acquireTransition: counting,
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Preview only",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "would-write",
+                run: Effect.succeed({ result: "success" as const, message: "never runs" }),
+              },
+            ],
+          },
+        ],
+      };
+
+      const previewed = yield* previewOrApplyPlan(plan, {
+        execution: previewPlanExecution,
+      }).pipe(Effect.provide(context.layer));
+      expect(deriveOperationOutcome(previewed)).toBe("previewed");
+      expect(acquisitions).toBe(0);
+
+      const applied = yield* previewOrApplyPlan(plan, {
         execution: preapprovedPlanExecution,
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(context.layer, Layer.succeed(resolveRecoveryFlag, Option.some("restore"))),
-        ),
-      );
-      expect(deriveOperationOutcome(restoreAttempt)).toBe("recovery-required");
-      expect(yield* fs.exists(target)).toBe(false);
+      }).pipe(Effect.provide(context.layer));
+      expect(deriveOperationOutcome(applied)).toBe("applied");
+      expect(acquisitions).toBe(1);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("C-20: contention terminates blocked with the holder reference", () =>
+    Effect.gen(function* () {
+      const contended: WorkspaceTransitionAcquirer = () =>
+        Effect.succeed(
+          Option.some({
+            holder: Option.some({ command: "install", pid: 1234 }),
+            waitedMillis: 60_000,
+          }),
+        );
+      const workspace: WorkspaceMutationsService = {
+        ...makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
+        acquireTransition: contended,
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Contended apply",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "never-runs",
+                run: Effect.succeed({ result: "success" as const, message: "never runs" }),
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: preapprovedPlanExecution,
+      }).pipe(Effect.provide(context.layer));
+
+      expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(operationExitCode(result)).toBe(6);
+      expect(result.blocking?.class).toBe("resource-conflict");
+      expect(result.blocking?.reference).toBe("install (pid 1234)");
+      expect(result.blocking?.detail).toContain("waited 60s");
+      expect(result.units.every((unit) => unit.state === "ready")).toBe(true);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

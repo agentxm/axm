@@ -50,6 +50,7 @@ import {
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
 import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
+import { handleListMcpServers } from "../mcps/list.js";
 import { handleSync } from "./handler.js";
 
 const writeJson = (filePath: string, value: unknown) => {
@@ -1381,6 +1382,67 @@ describe("root sync handler", () => {
         { label: "mcp-server demo", state: "committed" },
       ]);
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"node"');
+    }),
+  );
+
+  it.effect("agrees with MCP list that a legacy Codex ownership fence is stale", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["codex"],
+        mcps: { context: "workspace:@acme/mcps/context" },
+      });
+      writeMcpServerExtension(tempDir, "context");
+      const configPath = path.join(tempDir, ".codex", "config.toml");
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(
+        configPath,
+        [
+          "# axm managed mcp-server context start",
+          "[mcp_servers.context]",
+          'command = "npx"',
+          'args = ["-y", "@acme/context-mcp@1.0.0"]',
+          "enabled = true",
+          "",
+          "[mcp_servers.context.x-axm]",
+          "managed = true",
+          'source = "registry"',
+          'ref = "@acme/mcps/context"',
+          "# axm managed mcp-server context end",
+          "",
+        ].join("\n"),
+      );
+
+      yield* provide(handleListMcpServers());
+      expect(rendererState.results[0]?.data).toMatchObject({
+        items: [
+          {
+            name: "context",
+            status: "drift",
+            agentOutcomes: [
+              {
+                agentId: "codex",
+                outcome: "failed",
+                reasonCode: "stale-projection",
+                path: ".codex/config.toml",
+              },
+            ],
+          },
+        ],
+      });
+
+      rendererState.results.length = 0;
+      yield* provide(handleSync({ preview: true }));
+
+      const preview = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      const steps = planResultUnits(preview);
+      expect(steps.map((step) => property(expectRecord(step), "label"))).toEqual([
+        "context; previous source=none; proposed source=workspace:@acme/mcps/context; previous version=none; proposed version=1.0.0; reason=stale-projection; downgrade=no",
+      ]);
     }),
   );
 

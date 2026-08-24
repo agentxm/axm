@@ -44,6 +44,30 @@ describe("list command empty output", () => {
     );
   };
 
+  const writeRegistryMcpWorkspace = () => {
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      agents: ["codex"],
+      mcps: { context: "@acme/mcps/context" },
+      lockfileMcpServers: {
+        context: {
+          type: "registry",
+          owner: "@acme",
+          name: "context",
+          resolvedVersion: "2.3.4",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+          publisherBindingId: "hbnd_test",
+        },
+      },
+    });
+  };
+
+  const writeCodexConfig = (lines: ReadonlyArray<string>) => {
+    const configPath = path.join(tempDir, ".codex", "config.toml");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, `${lines.join("\n")}\n`);
+  };
+
   it.effect("emits a single empty hooks list payload", () => runEmptyList(handleListHook()));
 
   it.effect("emits a single empty MCP server list payload", () =>
@@ -134,12 +158,134 @@ describe("list command empty output", () => {
               name: "context",
               enabled: true,
               version: "2.3.4",
-              status: "enabled",
+              status: "missing",
+              agentOutcomes: [
+                {
+                  agentId: "claude-code",
+                  outcome: "failed",
+                  reasonCode: "projection-missing",
+                  path: ".mcp.json",
+                },
+              ],
               classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
+      }),
+    );
+  });
+
+  it.effect("reports a current registry-backed Codex projection with its target", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeRegistryMcpWorkspace();
+    writeCodexConfig([
+      "# axm:start v=1 region=mcp-server:context ext=@acme/mcps/context",
+      "[mcp_servers.context]",
+      'url = "https://mcp.acme.test/mcp"',
+      "enabled = true",
+      "",
+      '[mcp_servers.context."x-axm"]',
+      "v = 1",
+      "managed = true",
+      'ext = "@acme/mcps/context"',
+      'source = "registry"',
+      'ref = "@acme/mcps/context"',
+      "# axm:end v=1 region=mcp-server:context ext=@acme/mcps/context",
+    ]);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListMcpServers();
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          items: [
+            {
+              name: "context",
+              status: "enabled",
+              agentOutcomes: [
+                {
+                  agentId: "codex",
+                  outcome: "current",
+                  path: ".codex/config.toml",
+                },
+              ],
+            },
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("reports a legacy Codex ownership fence as stale rather than missing", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeRegistryMcpWorkspace();
+    writeCodexConfig([
+      "# axm managed mcp-server context start",
+      "[mcp_servers.context]",
+      'url = "https://mcp.acme.test/mcp"',
+      "enabled = true",
+      "",
+      "[mcp_servers.context.x-axm]",
+      "managed = true",
+      'source = "registry"',
+      'ref = "@acme/mcps/context"',
+      "# axm managed mcp-server context end",
+    ]);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListMcpServers();
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          items: [
+            {
+              name: "context",
+              status: "drift",
+              agentOutcomes: [
+                {
+                  agentId: "codex",
+                  outcome: "failed",
+                  reasonCode: "stale-projection",
+                  path: ".codex/config.toml",
+                },
+              ],
+            },
+          ],
+        });
+      }),
+    );
+  });
+
+  it.effect("preserves the unmanaged Codex collision classification", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    writeRegistryMcpWorkspace();
+    writeCodexConfig([
+      "[mcp_servers.context]",
+      'url = "https://unmanaged.acme.test/mcp"',
+      "enabled = true",
+    ]);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleListMcpServers();
+
+        expect(rendererState.results[0]?.data).toMatchObject({
+          items: [
+            {
+              name: "context",
+              status: "drift",
+              agentOutcomes: [
+                {
+                  agentId: "codex",
+                  outcome: "failed",
+                  reasonCode: "mcp-unmanaged",
+                  path: ".codex/config.toml",
+                },
+              ],
+            },
+          ],
+        });
       }),
     );
   });

@@ -183,6 +183,17 @@ const managedTomlBlock = (raw: string, serverName: string) =>
     rendered: "",
   });
 
+const legacyManagedTomlBlock = (raw: string, serverName: string): Option.Option<string> => {
+  const lines = raw.split(/\r?\n/u);
+  const start = `# axm managed mcp-server ${serverName} start`;
+  const end = `# axm managed mcp-server ${serverName} end`;
+  const startIndex = lines.findIndex((line) => line.trim() === start);
+  if (startIndex < 0) return Option.none();
+  const endOffset = lines.slice(startIndex + 1).findIndex((line) => line.trim() === end);
+  if (endOffset < 0) return Option.none();
+  return Option.some(lines.slice(startIndex + 1, startIndex + 1 + endOffset).join("\n"));
+};
+
 const tableHeader = (serversKey: string, serverName: string, suffix?: string): string =>
   `[${stringifyTomlKey(serversKey)}.${stringifyTomlKey(serverName)}${suffix === undefined ? "" : `.${stringifyTomlKey(suffix)}`}]`;
 
@@ -228,12 +239,19 @@ const parseTomlEntry = (
   return { ...root, ...nested };
 };
 
+const hasTomlEntry = (raw: string, serversKey: string, serverName: string): boolean => {
+  const header = tableHeader(serversKey, serverName);
+  return raw.split(/\r?\n/u).some((line) => line.trim() === header);
+};
+
+type McpInspectionExpectation = ExpectedAgentEntry | { readonly _tag: "managed" };
+
 const inspectActual = (args: {
   readonly target: McpConfigTarget;
   readonly configPath: string;
   readonly serversKey: string;
   readonly serverName: string;
-  readonly expected: ExpectedAgentEntry;
+  readonly expected: McpInspectionExpectation;
 }): Effect.Effect<
   {
     readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "not-applicable">;
@@ -261,9 +279,30 @@ const inspectActual = (args: {
               : `MCP server ${args.serverName} has malformed AXM ownership markers`,
         });
       }
-      if (actualBlock.body === undefined) return { status: "absent", fields: [] };
-      if (args.expected._tag !== "projected") return { status: "drift", fields: ["transport"] };
+      if (actualBlock.body === undefined) {
+        const legacyBlock = legacyManagedTomlBlock(raw.value, args.serverName);
+        if (Option.isSome(legacyBlock)) {
+          return {
+            status: "drift",
+            fields: ["ownership-marker"],
+            actual: parseTomlEntry(legacyBlock.value, args.serversKey, args.serverName),
+          };
+        }
+        if (!hasTomlEntry(raw.value, args.serversKey, args.serverName)) {
+          return { status: "absent", fields: [] };
+        }
+        const unfenced = parseTomlEntry(raw.value, args.serversKey, args.serverName);
+        return isAxmManagedMcpEntry(unfenced)
+          ? { status: "drift", fields: ["ownership-marker"], actual: unfenced }
+          : { status: "unmanaged", fields: [], actual: unfenced };
+      }
       const actual = parseTomlEntry(actualBlock.body, args.serversKey, args.serverName);
+      if (args.expected._tag === "managed") {
+        return isAxmManagedMcpEntry(actual)
+          ? { status: "match", fields: [], actual }
+          : { status: "drift", fields: ["x-axm"], actual };
+      }
+      if (args.expected._tag !== "projected") return { status: "drift", fields: ["transport"] };
       const drift = diffAgentEntry(args.expected, actual);
       if (drift._tag === "match") return { status: "match", fields: [], actual };
       if (drift._tag === "unmanaged") return { status: "unmanaged", fields: [], actual };
@@ -278,6 +317,9 @@ const inspectActual = (args: {
     if (Option.isNone(actual)) return { status: "absent", fields: [] };
     if (!isAxmManagedMcpEntry(actual.value)) {
       return { status: "unmanaged", fields: [], actual: actual.value };
+    }
+    if (args.expected._tag === "managed") {
+      return { status: "match", fields: [], actual: actual.value };
     }
     const drift = diffAgentEntry(args.expected, actual.value);
     if (drift._tag === "match") return { status: "match", fields: [], actual: actual.value };
@@ -353,16 +395,19 @@ const inspectAgentMcpServerInternal = (
       };
     }
 
-    const projected = projectExpectedEntry({
-      serverName: args.serverName,
-      entry: args.entry,
-      stdio: config.stdio,
-      remote: config.remote,
-      activationField: config.activationField,
-      envExpansion: capability.native.mcpEnvExpansion,
-    });
+    const projected: McpInspectionExpectation =
+      args.entry.command === undefined && args.entry.url === undefined
+        ? { _tag: "managed" }
+        : projectExpectedEntry({
+            serverName: args.serverName,
+            entry: args.entry,
+            stdio: config.stdio,
+            remote: config.remote,
+            activationField: config.activationField,
+            envExpansion: capability.native.mcpEnvExpansion,
+          });
     const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
-    if (projected._tag !== "projected") {
+    if (projected._tag === "unsupported") {
       return {
         agentId: args.agentId,
         path: target.path,
@@ -387,8 +432,8 @@ const inspectAgentMcpServerInternal = (
       absolutePath,
       status: actual.status,
       fields: actual.fields,
-      warnings: projected.warnings,
-      expected: projected.entry,
+      warnings: projected._tag === "projected" ? projected.warnings : [],
+      ...(projected._tag === "projected" ? { expected: projected.entry } : {}),
       ...(actual.actual === undefined ? {} : { actual: actual.actual }),
     };
   });

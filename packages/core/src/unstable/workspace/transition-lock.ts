@@ -246,9 +246,7 @@ export const acquireWorkspaceTransitionLock = (args: {
             onCompromised: (cause) => {
               Deferred.doneUnsafe(
                 compromisedSignal,
-                Effect.fail(
-                  new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause }),
-                ),
+                Effect.fail(new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause })),
               );
             },
           }),

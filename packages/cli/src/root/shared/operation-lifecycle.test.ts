@@ -8,10 +8,7 @@ import * as Layer from "effect/Layer";
 
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  deriveOperationOutcome,
-  operationExitCode,
-} from "@agentxm/client-core/unstable/plan";
+import { deriveOperationOutcome, operationExitCode } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
   isWorkspaceTransitionHeldByThisInvocation,

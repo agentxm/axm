@@ -198,9 +198,9 @@ describe("workspace transition lock", () => {
       );
       // The release finalizer proved no ownership and left the successor's
       // lock — holder metadata and all — untouched.
-      const residual = JSON.parse(
-        fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
-      ) as { command: string };
+      const residual = JSON.parse(fs.readFileSync(path.join(lockPath, "holder.json"), "utf8")) as {
+        command: string;
+      };
       expect(residual.command).toBe("successor");
     }).pipe(Effect.provide(services)),
   );

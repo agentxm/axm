@@ -798,4 +798,123 @@ describe("previewOrApplyPlan", () => {
         expect(result.recovery?.retained.length ?? 0).toBeGreaterThan(0);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
+
+  // Expected-failure pin: a prior restoration failure is warned about and
+  // marked non-blocking today, and any later successful apply marks every
+  // open record resolved — so an unrelated mutation proceeds over unrecovered
+  // state and the evidence stops surfacing. The marker comes off when recovery
+  // detection blocks the next mutation-class apply. The retained state is
+  // deliberately tampered with between the runs so no automatic restoration
+  // may legitimately continue either.
+  it.effect.fails("C-07: blocks a later apply while a restoration failure remains unresolved", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-recovery-block-" });
+      const workspaceDir = path.join(directory, ".axm");
+      yield* fs.makeDirectory(workspaceDir, { recursive: true });
+      const managedDir = path.join(directory, "managed");
+      const movedDir = `${managedDir}-moved`;
+      const target = path.join(managedDir, "managed.txt");
+      yield* fs.makeDirectory(managedDir, { recursive: true });
+      yield* fs.writeFileString(target, "original");
+      const semaphore = Semaphore.makeUnsafe(1);
+      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+      const workspace: WorkspaceMutationsService = {
+        ...baseWorkspace,
+        runTransaction: (args) =>
+          runWorkspaceTransaction({
+            semaphore,
+            workspaceDir,
+            targets: args.targets ?? [],
+            transition: args.transition,
+            validate: args.validate,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
+      const failingPlan: Plan = {
+        _tag: "Plan",
+        name: "Update managed files",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "first",
+                run: protectWorkspacePath(target).pipe(
+                  Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
+                  // Restoration cannot recreate the target afterwards: its
+                  // parent directory is replaced by a plain file.
+                  Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
+                  Effect.andThen(
+                    fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
+                  ),
+                  Effect.as({ result: "success" as const, message: "changed" }),
+                ),
+              },
+              {
+                readiness: "ready",
+                label: "second",
+                run: Effect.succeed({
+                  result: "error" as const,
+                  message: "second step failed",
+                  error: makeAppError({ code: "internal", detail: "second step failed" }),
+                }),
+              },
+            ],
+          },
+        ],
+      };
+
+      const first = yield* previewOrApplyPlan(failingPlan, {
+        execution: preapprovedPlanExecution,
+      }).pipe(Effect.provide(context.layer));
+      expect(deriveOperationOutcome(first)).toBe("recovery-required");
+
+      // Tamper with the retained state so no automatic restoration can
+      // legitimately proceed: the failed region now holds bytes the failure
+      // never recorded.
+      yield* fs.remove(managedDir, { force: true });
+      yield* fs.makeDirectory(managedDir, { recursive: true });
+      yield* fs.writeFileString(target, "tampered");
+
+      const otherTarget = path.join(directory, "other.txt");
+      const followUp: Plan = {
+        _tag: "Plan",
+        name: "Write unrelated file",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "write-other",
+                run: fs
+                  .writeFileString(otherTarget, "unrelated")
+                  .pipe(
+                    Effect.orDie,
+                    Effect.as({ result: "success" as const, message: "written" }),
+                  ),
+              },
+            ],
+          },
+        ],
+      };
+
+      const second = yield* previewOrApplyPlan(followUp, {
+        execution: preapprovedPlanExecution,
+      }).pipe(Effect.provide(context.layer));
+
+      expect(deriveOperationOutcome(second)).toBe("recovery-required");
+      expect(operationExitCode(second)).toBe(6);
+      expect(second.recovery?.blocksNormalOperation).toBe(true);
+      expect(yield* fs.exists(otherTarget)).toBe(false);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

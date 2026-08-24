@@ -33,6 +33,7 @@ import {
   makeOperationLifecycle,
   makeOperationResolution,
   unitIdOf,
+  type AtomicityClass,
   type OperationPresentation,
   type OperationRecovery,
   type OperationResolution,
@@ -54,12 +55,26 @@ export interface OperationLifecycleArgs {
   readonly mode: "preview" | "apply";
   /** Operation name for a resolution produced before planning completes. */
   readonly planName: string;
+  /**
+   * The command family's statically declared atomicity, for a resolution
+   * produced before the journal exists. Defaults to `candidate-atomic`.
+   */
+  readonly declaredAtomicity?: AtomicityClass;
   readonly presentation?: OperationPresentation;
 }
 
 const replayCommand = (command: string): string => `axm ${command.split(".").join(" ")}`;
 
-const interruptionResolution = (
+/**
+ * Derive the terminal resolution for an externally interrupted invocation.
+ * Before the journal exists nothing was planned or attempted: the resolution
+ * carries the requested mode and the command family's declared atomicity —
+ * never a hardcoded apply/candidate-atomic claim. Exported for direct tests
+ * of this mapping; not part of the module's public surface.
+ *
+ * @internal
+ */
+export const interruptionResolution = (
   args: OperationLifecycleArgs,
   journal: Option.Option<OperationJournalState>,
   signal: "SIGINT" | "SIGTERM",
@@ -73,8 +88,12 @@ const interruptionResolution = (
     return makeOperationResolution<unknown>({
       name: args.planName,
       description: Option.none(),
-      mode: "apply",
-      atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+      mode: args.mode,
+      atomicity: {
+        declared: args.declaredAtomicity ?? "candidate-atomic",
+        // Nothing was attempted, so no durable effect was made or retained.
+        applied: "candidate-atomic",
+      },
       units: [],
       presentation: args.presentation,
       interruption: { signal, disposition: "none" },

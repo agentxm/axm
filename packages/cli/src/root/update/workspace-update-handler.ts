@@ -69,6 +69,7 @@ export const handleWorkspaceUpdate = (args: {
       command: args.command,
       mode: args.flags.preview ? "preview" : "apply",
       planName: args.planName,
+      declaredAtomicity: "non-rollbackable",
       presentation: operationPresentation(
         { imperative: "update", past: "Updated", gerund: "Updating" },
         Option.getOrUndefined(args.type),

@@ -7,10 +7,11 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   protectWorkspacePath,
   runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
+  WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";
 
@@ -19,6 +20,9 @@ let transactionSemaphore: Semaphore.Semaphore;
 const runWorkspaceTransaction = <A, E, R>(
   args: Omit<WorkspaceTransactionArgs<A, E, R>, "semaphore">,
 ) => runWorkspaceTransactionWithSemaphore({ ...args, semaphore: transactionSemaphore });
+
+const detailOf = (error: AppError | WorkspaceRestorationIncomplete): string =>
+  error._tag === "AppError" ? error.detail : `restoration-incomplete:${error.capsulePath}`;
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -67,11 +71,13 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("injected transition failure");
+            expect(detailOf(error)).toBe("injected transition failure");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
             expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
               "before\n",
             );
+            // Verified restoration removes the capsule completely.
+            expect(nodeFs.existsSync(nodePath.join(workspaceDir, "tmp", "recovery"))).toBe(false);
           }),
         ),
       ),
@@ -111,7 +117,7 @@ describe("runWorkspaceTransaction", () => {
             Effect.flip,
             Effect.tap((error) =>
               Effect.sync(() => {
-                expect(error.detail).toBe(`${family} failure`);
+                expect(detailOf(error)).toBe(`${family} failure`);
                 expect(nodeFs.readFileSync(target, "utf8"), family).toBe(before);
               }),
             ),
@@ -177,7 +183,7 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("postcondition invalid");
+            expect(detailOf(error)).toBe("postcondition invalid");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
           }),
         ),
@@ -219,7 +225,7 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("injected later-target failure");
+            expect(detailOf(error)).toBe("injected later-target failure");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
             expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
               "before\n",
@@ -231,7 +237,7 @@ describe("runWorkspaceTransaction", () => {
     );
   });
 
-  it.effect("retains a usable backup path when exact rollback fails", () => {
+  it.effect("fails typed with retained snapshots when exact rollback fails", () => {
     const parent = nodePath.dirname(settingsPath);
     const movedParent = `${parent}-moved`;
     return withContext(
@@ -251,19 +257,28 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toContain("Workspace rollback failed");
-            const marker = "Rollback backup retained at: ";
-            const backupPath = error.detail.slice(error.detail.indexOf(marker) + marker.length);
-            expect(nodeFs.existsSync(backupPath.trim())).toBe(true);
-            // The flip leaves a plain file at the workspace path, so every
-            // post-failure workspace write fails with the restoration: no
-            // recovery record can land under `<workspace>/operations`.
-            // Restoration failure must stay reportable without one — the
-            // terminal report is pinned by the C-07 restoration-failure test
-            // in resolve-plan.test.ts.
+            // Restoration failure is a typed fact on the error channel; the
+            // fixture's flip makes every post-failure workspace write fail
+            // too (the workspace path is now a plain file), so the value —
+            // not any later write — must carry the truth.
+            expect(error._tag).toBe("WorkspaceRestorationIncomplete");
+            if (error._tag !== "WorkspaceRestorationIncomplete") return;
+            expect(error.terminationCause).toBe("failure");
+            expect(error.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+            // Sealing needs a workspace write, which the flip blocks.
+            expect(error.sealed).toBe(false);
             expect(nodeFs.statSync(parent).isFile()).toBe(true);
-            expect(nodeFs.existsSync(nodePath.join(parent, "operations"))).toBe(false);
-            expect(nodeFs.existsSync(nodePath.join(movedParent, "operations"))).toBe(false);
+            // The snapshot-before-write invariant put the snapshot on disk
+            // before the mutation; the hostile rename relocated it with the
+            // workspace, artifacts intact.
+            const movedRecovery = nodePath.join(movedParent, "tmp", "recovery");
+            const capsules = nodeFs.readdirSync(movedRecovery);
+            expect(capsules).toHaveLength(1);
+            const capsuleDir = nodePath.join(movedRecovery, capsules[0] ?? "");
+            expect(nodeFs.existsSync(nodePath.join(capsuleDir, "capsule.json"))).toBe(true);
+            expect(nodeFs.readFileSync(nodePath.join(capsuleDir, "0.snap"), "utf8")).toBe(
+              '{"future":{"value":1}}\n',
+            );
           }),
         ),
         Effect.ensuring(

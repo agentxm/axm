@@ -11,6 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Cause from "effect/Cause";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -49,15 +50,25 @@ import {
 } from "./operation-events.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
-  readOpenRecoveryRecords,
-  resolveRecoveryRecords,
-  type OpenRecoveryRecord,
-} from "../workspace/operation-records.js";
-import { readFootprint } from "../workspace/footprint-recorder.js";
+  capsuleMatchesSealedState,
+  readRecoveryCapsules,
+  removeRecoveryCapsule,
+  restoreRecoveryCapsule,
+} from "../workspace/recovery-capsule.js";
+import {
+  restorationIncompleteToAppError,
+  WorkspaceRestorationIncomplete,
+} from "../workspace/transaction.js";
+import { requestedInterruptionSignal } from "../cli-runtime/interruption.js";
+import { readFootprint, recordFootprint } from "../workspace/footprint-recorder.js";
 import type { OperationFootprintEntry } from "./operation-resolution.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
-import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
+import {
+  isNonInteractiveOptional,
+  recoveryConsentOptional,
+  Verbosity,
+} from "../cli-flags/index.js";
 import type { ConfiguredAgentOperation } from "../cli-runtime/confirmation-recovery.js";
 import { HookManager } from "../hooks/manager.js";
 import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
@@ -73,6 +84,8 @@ import type { ConfiguredAgentOutcome } from "./plan.js";
 interface PlanApplyFailure<Output> {
   readonly error: AppError;
   readonly attemptedExecution?: ExecutedPlan<Output>;
+  /** The typed restoration-failure fact; present only when rollback did not complete. */
+  readonly restoration?: WorkspaceRestorationIncomplete;
 }
 
 export const STALE_CANDIDATE_DETAIL = "The execution candidate became stale before apply.";
@@ -169,28 +182,112 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   const mode = options.execution.request.mode;
 
-  // Recovery detection: a durable record left by an earlier operation stays
-  // visible on every later invocation until a completed apply resolves it.
-  const openRecords: ReadonlyArray<OpenRecoveryRecord> = yield* readOpenRecoveryRecords(
-    ws.path,
-  ).pipe(Effect.provide(fsLayer));
-  if (openRecords.length > 0) {
-    for (const { record } of openRecords) {
-      yield* renderer.warn(
-        `Recovery pending from an interrupted or failed ${record.command} (${record.kind} at ${record.occurredAt}): ${record.resolveBy}`,
-      );
-    }
-  }
-  const startRecordPaths = new Set(openRecords.map((open) => open.path));
-  const pendingRecovery =
-    openRecords.length === 0
+  // Recovery detection: a live capsule left by an earlier operation stays
+  // detectable by every later mutation-class invocation until resolved.
+  // Preview reports capsules and never touches them; apply restores
+  // automatically only where that is provably safe, resolves under the
+  // one-shot consent flag, and otherwise blocks before touching anything —
+  // an unreadable or malformed capsule blocks the same way (fail closed).
+  const detectedCapsules = yield* readRecoveryCapsules(ws.path).pipe(Effect.provide(fsLayer));
+  const capsuleWorkspacePath = (dir: string): string => path.relative(ws.baseDir, dir);
+  const consentSuggestions = [
+    {
+      description:
+        "Re-run the command with --resolve-recovery restore to restore the retained paths from their snapshots.",
+    },
+    {
+      description:
+        "Re-run the command with --resolve-recovery accept to accept the retained state as it stands.",
+    },
+  ];
+  const capsuleRecovery = (blocks: boolean) =>
+    detectedCapsules.length === 0
       ? undefined
       : {
-          blocksNormalOperation: false,
-          retained: [...new Set(openRecords.flatMap(({ record }) => record.retained))],
-          actions: openRecords.map(({ record }) => ({ description: record.resolveBy })),
-          recordPath: openRecords[0]?.path ?? "",
+          blocksNormalOperation: blocks,
+          retained: [
+            ...new Set(
+              detectedCapsules.flatMap((detected) =>
+                detected.state === "readable"
+                  ? detected.capsule.entries.map((entry) => entry.path)
+                  : [capsuleWorkspacePath(detected.dir)],
+              ),
+            ),
+          ],
+          actions: consentSuggestions,
+          recordPath: capsuleWorkspacePath(detectedCapsules[0]?.dir ?? ws.path),
         };
+  for (const detected of detectedCapsules) {
+    yield* renderer.warn(
+      detected.state === "readable"
+        ? `Recovery pending from an interrupted or failed ${detected.capsule.command} (capsule at ${capsuleWorkspacePath(detected.dir)}).`
+        : `Recovery state at ${capsuleWorkspacePath(detected.dir)} cannot be interpreted: ${detected.problem}`,
+    );
+  }
+  const pendingRecovery = mode === "preview" ? capsuleRecovery(false) : undefined;
+  if (mode === "apply" && detectedCapsules.length > 0) {
+    const consent = yield* recoveryConsentOptional;
+    if (typeof consent === "object") {
+      return yield* makeAppError({
+        code: "usage",
+        detail: `--resolve-recovery accepts "restore" or "accept", not "${consent.invalid}".`,
+      });
+    }
+    const blockedByRecovery = (failure?: AppError): OperationResolution<Output> =>
+      makeOperationResolution<Output>({
+        name: plan.name,
+        description: plan.description,
+        mode,
+        atomicity: { declared: declaredAtomicity(plan), applied: "candidate-atomic" },
+        units: plannedUnits(plan.jobs),
+        recovery: capsuleRecovery(true),
+        failure,
+        suggestions: consentSuggestions,
+      });
+    if (consent === "accept") {
+      for (const detected of detectedCapsules) {
+        yield* removeRecoveryCapsule(fs, path, ws.path, detected.dir);
+        yield* renderer.warn(
+          `Accepted the retained state; removed the recovery capsule at ${capsuleWorkspacePath(detected.dir)}.`,
+        );
+      }
+    } else {
+      // Without explicit consent, silent restoration is permitted only for a
+      // sealed, non-compromise, restorable capsule whose every entry still
+      // matches its retained-state hash — and it is all-or-nothing.
+      for (const detected of detectedCapsules) {
+        if (detected.state !== "readable" || detected.capsule.form !== "restorable") {
+          return blockedByRecovery();
+        }
+        if (consent === undefined) {
+          const provablySafe =
+            detected.capsule.seal !== undefined &&
+            detected.capsule.seal.cause !== "compromised" &&
+            (yield* capsuleMatchesSealedState(fs, path, ws.path, detected.capsule));
+          if (!provablySafe) return blockedByRecovery();
+        }
+      }
+      for (const detected of detectedCapsules) {
+        if (detected.state !== "readable") return blockedByRecovery();
+        const outcome = yield* restoreRecoveryCapsule(fs, path, ws.path, detected).pipe(
+          Effect.match({
+            onFailure: (error) => ({ type: "failed", error }) as const,
+            onSuccess: (restored) => ({ type: "restored", restored }) as const,
+          }),
+        );
+        if (outcome.type === "failed") return blockedByRecovery(outcome.error);
+        for (const relative of outcome.restored) {
+          yield* recordFootprint({
+            path: path.resolve(ws.baseDir, relative),
+            change: "restored",
+          });
+        }
+        yield* renderer.warn(
+          `Restored ${outcome.restored.length} retained path(s) from the recovery capsule at ${capsuleWorkspacePath(detected.dir)}.`,
+        );
+      }
+    }
+  }
   const withPendingRecovery = (
     resolution: OperationResolution<Output>,
   ): OperationResolution<Output> =>
@@ -628,6 +725,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       candidateId: candidate.id,
     } satisfies ExecutedPlan<Output>;
   });
+  const isPlanApplyFailureShape = (value: unknown): value is PlanApplyFailure<Output> =>
+    typeof value === "object" &&
+    value !== null &&
+    "error" in value &&
+    typeof value.error === "object" &&
+    value.error !== null &&
+    "_tag" in value.error &&
+    value.error._tag === "AppError";
   const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"
       ? applyCandidate
@@ -636,11 +741,30 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           transition: applyCandidate,
           validate: () => Effect.void,
           onRestorationStarted: publishPhaseStarted("restoration"),
+          identity: {
+            capsuleId: candidate.id,
+            command: applyExecution.approvalRecovery.command.join(" "),
+          },
         })
   ).pipe(
-    Effect.mapError((failure): PlanApplyFailure<Output> =>
-      "error" in failure ? failure : { error: failure },
-    ),
+    Effect.mapError((failure): PlanApplyFailure<Output> => {
+      if (failure instanceof WorkspaceRestorationIncomplete) {
+        // The transition's own failure travels inside the typed value; the
+        // resolution derives units and failure from it, and the recovery
+        // requirement from the restoration fact — never from disk.
+        const transitionFailure = Cause.findErrorOption(failure.transitionCause);
+        const inner = Option.getOrUndefined(transitionFailure);
+        const innerApplyFailure = isPlanApplyFailureShape(inner) ? inner : undefined;
+        return {
+          error: innerApplyFailure?.error ?? restorationIncompleteToAppError(failure),
+          ...(innerApplyFailure?.attemptedExecution === undefined
+            ? {}
+            : { attemptedExecution: innerApplyFailure.attemptedExecution }),
+          restoration: failure,
+        };
+      }
+      return "error" in failure ? failure : { error: failure };
+    }),
   );
   const applyResult = yield* renderer.withSpinner(
     `Applying ${candidatePlan.name}`,
@@ -717,28 +841,19 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   if (applyResult.type === "failure") {
     const failure = applyResult.error.error;
     const attempted = applyResult.error.attemptedExecution;
-    // A restoration-failure record written during THIS apply means the
-    // rollback did not complete: effects are retained, not restored, and a
-    // normal re-run cannot safely proceed until the record's action is taken.
-    const postFailureRecords = yield* readOpenRecoveryRecords(ws.path).pipe(
-      Effect.provide(fsLayer),
-    );
-    const freshRestorationFailures = postFailureRecords.filter(
-      (open) => !startRecordPaths.has(open.path) && open.record.kind === "restoration-failure",
-    );
-    const rollbackFailed = freshRestorationFailures.length > 0;
+    // Restoration failure is a typed fact on the transaction's error channel;
+    // the resolution derives the recovery requirement, disposition, and exit
+    // from that value alone — never from re-reading disk.
+    const restoration = applyResult.error.restoration;
+    const rollbackFailed = restoration !== undefined;
     const restorationRecovery =
-      freshRestorationFailures.length === 0
+      restoration === undefined
         ? undefined
         : {
             blocksNormalOperation: true,
-            retained: [
-              ...new Set(freshRestorationFailures.flatMap(({ record }) => record.retained)),
-            ],
-            actions: freshRestorationFailures.map(({ record }) => ({
-              description: record.resolveBy,
-            })),
-            recordPath: freshRestorationFailures[0]?.path ?? "",
+            retained: [...restoration.retained],
+            actions: consentSuggestions,
+            recordPath: restoration.capsulePath,
           };
     const restored =
       candidatePlan.executionCapabilities?.rollback !== "non-rollbackable" && !rollbackFailed;
@@ -780,16 +895,19 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         failure,
         footprint,
         ...(restorationRecovery === undefined ? {} : { recovery: restorationRecovery }),
+        ...(restoration?.terminationCause === "interruption"
+          ? {
+              interruption: {
+                signal: requestedInterruptionSignal() ?? "SIGINT",
+                disposition: "retained",
+              },
+            }
+          : {}),
         suggestions: failure.suggestions ?? candidatePlan.failureSuggestions,
       }),
     );
   }
   const executed = applyResult.value;
-  if (openRecords.length > 0) {
-    yield* resolveRecoveryRecords({ workspaceDir: ws.path, resolvedBy: candidatePlan.name }).pipe(
-      Effect.provide(fsLayer),
-    );
-  }
   return makeOperationResolution<Output>({
     ...resolutionBase,
     atomicity: { declared: atomicity, applied: atomicity },

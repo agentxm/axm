@@ -50,7 +50,6 @@ import {
   isWorkspaceTransitionHeldByThisInvocation,
   makeFootprintRecorder,
   readFootprint,
-  writeOperationRecoveryRecord,
   type TransitionContention,
 } from "@agentxm/client-core/unstable/workspace";
 
@@ -274,24 +273,12 @@ export const withOperationLifecycle = <A, E, R>(
                     .sort((left, right) =>
                       left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
                     );
+                  // An interruption whose retained work a normal re-run can
+                  // safely continue leaves nothing behind: the terminal
+                  // report's recovery content and the next run's convergence
+                  // carry it. Restoration failures persist their own capsule
+                  // inside the workspace transaction instead.
                   const resolution = interruptionResolution(args, state, signal, observed);
-                  if (
-                    resolution.recovery !== undefined &&
-                    resolution.recovery.retained.length > 0
-                  ) {
-                    const ws = yield* WorkspaceMutations;
-                    yield* writeOperationRecoveryRecord({
-                      workspaceDir: ws.path,
-                      kind: "interruption",
-                      command: args.command,
-                      signal,
-                      retained: resolution.recovery.retained,
-                      resolveBy: `Re-run ${replayCommand(args.command)} to continue the remaining units.`,
-                      ...(resolution.candidateId === undefined
-                        ? {}
-                        : { candidateId: resolution.candidateId }),
-                    });
-                  }
                   const { exitCode } = yield* emitOperationResolution(args.command, resolution);
                   // Inside the uninterruptible mask: the completion event must
                   // land before the die releases the pending interrupt.

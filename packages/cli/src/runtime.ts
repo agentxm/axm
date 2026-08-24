@@ -39,6 +39,7 @@ import {
   debugFlag,
   quietFlag,
   directoryFlag,
+  resolveRecoveryFlag,
   verbosityToLogLevel,
 } from "@agentxm/client-core/unstable/cli-flags";
 import {
@@ -104,6 +105,7 @@ export const axmGlobalFlags = [
   quietFlag,
   jsonFlag,
   directoryFlag,
+  resolveRecoveryFlag,
 ] as const;
 
 // -- Runtime layers --

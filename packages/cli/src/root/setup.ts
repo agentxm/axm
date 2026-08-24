@@ -33,6 +33,7 @@ import {
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import {
   ExtensionTypeSchema,
   normalizeHandle,
@@ -368,46 +369,48 @@ export const installBundledAxmSkill = Effect.gen(function* () {
     Layer.succeed(CodingAgentRepository, agentRepo),
   );
 
-  yield* ws.runTransaction({
-    targets: [canonicalPath, ...targetDirectories],
-    transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
-    validate: () =>
-      Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredSkillEntries();
-        const installedEntry = configured["axm"];
-        if (
-          installedEntry?.source !== "workspace:@agentxm/skills/axm" ||
-          installedEntry.origin !== "bundled"
-        ) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: "Bundled AXM skill did not retain its bundled source authority",
-          });
-        }
-        const compatibility = evaluateAxmSkillCompatibility({
-          cliVersion: loadVersion(),
-          skill: {
-            manifestVersion: AXM_SKILL_VERSION,
-            source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
-            metadata: {
-              [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
-              [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
+  yield* ws
+    .runTransaction({
+      targets: [canonicalPath, ...targetDirectories],
+      transition: materializeBundledAxmSkill.pipe(Effect.provide(captured)),
+      validate: () =>
+        Effect.gen(function* () {
+          const configured = yield* ws.getConfiguredSkillEntries();
+          const installedEntry = configured["axm"];
+          if (
+            installedEntry?.source !== "workspace:@agentxm/skills/axm" ||
+            installedEntry.origin !== "bundled"
+          ) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: "Bundled AXM skill did not retain its bundled source authority",
+            });
+          }
+          const compatibility = evaluateAxmSkillCompatibility({
+            cliVersion: loadVersion(),
+            skill: {
+              manifestVersion: AXM_SKILL_VERSION,
+              source: `bundled:@agentxm/skills/axm@${AXM_SKILL_VERSION}`,
+              metadata: {
+                [AXM_SKILL_CLI_VERSION_METADATA_KEY]: AXM_SKILL_CLI_VERSION,
+                [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: AXM_SKILL_CLI_VERSION_RANGE,
+              },
             },
-          },
-        });
-        if (compatibility.status === "incompatible") {
-          return yield* makeAppError({
-            code: "internal",
-            detail:
-              compatibility.detail ??
-              "Bundled AXM skill remained incompatible after workspace installation",
-            ...(compatibility.recovery.nextAction === null
-              ? {}
-              : { cmd: compatibility.recovery.nextAction }),
           });
-        }
-      }),
-  });
+          if (compatibility.status === "incompatible") {
+            return yield* makeAppError({
+              code: "internal",
+              detail:
+                compatibility.detail ??
+                "Bundled AXM skill remained incompatible after workspace installation",
+              ...(compatibility.recovery.nextAction === null
+                ? {}
+                : { cmd: compatibility.recovery.nextAction }),
+            });
+          }
+        }),
+    })
+    .pipe(surfaceRestorationIncomplete);
 });
 
 export const SetupSkillInstallerLive = Layer.effect(
@@ -893,7 +896,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
           targets: [],
           transition: initialize,
           validate: () => Effect.void,
-        });
+        }).pipe(surfaceRestorationIncomplete);
   const defaultSkillInstalled = initialized;
   const agentIds = settings.agents ?? [];
   const scopeAgentIds = cancelled

@@ -208,8 +208,12 @@ export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 export {
   protectCreatedAncestors,
   protectWorkspacePath,
+  restorationIncompleteToAppError,
   runWorkspaceTransaction,
+  surfaceRestorationIncomplete,
+  WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
+  type WorkspaceTransactionIdentity,
 } from "./transaction.js";
 
 // Initialization
@@ -264,14 +268,15 @@ export {
   type FootprintRecorderService,
 } from "./footprint-recorder.js";
 export {
-  OPERATION_RECORDS_DIRNAME,
-  RecoveryRecordSchema,
-  readOpenRecoveryRecords,
-  resolveRecoveryRecords,
-  writeOperationRecoveryRecord,
-  type OpenRecoveryRecord,
-  type RecoveryRecord,
-} from "./operation-records.js";
+  RecoveryCapsuleSchema,
+  capsuleMatchesSealedState,
+  readRecoveryCapsules,
+  recoveryCapsulesDir,
+  removeRecoveryCapsule,
+  restoreRecoveryCapsule,
+  type DetectedCapsule,
+  type RecoveryCapsule,
+} from "./recovery-capsule.js";
 export {
   TRANSITION_WAIT_BOUND_MILLIS,
   acquireWorkspaceTransitionLock,

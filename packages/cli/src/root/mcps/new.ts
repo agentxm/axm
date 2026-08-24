@@ -30,6 +30,7 @@ import {
   resolveWorkspaceExtensionRef,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -268,6 +269,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             }
           }),
       })
+      .pipe(surfaceRestorationIncomplete)
       .pipe(
         Effect.as({
           result: "success",

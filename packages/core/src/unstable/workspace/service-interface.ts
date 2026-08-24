@@ -15,6 +15,10 @@ import type * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
+import type {
+  WorkspaceRestorationIncomplete,
+  WorkspaceTransactionIdentity,
+} from "./transaction.js";
 import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import type { ExtensionVisibility } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
@@ -171,11 +175,13 @@ export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
   /** Observes the start of rollback restoration; never controls it. */
   readonly onRestorationStarted?: Effect.Effect<void>;
+  /** Recovery-capsule identity; plan-family passes the candidate identity. */
+  readonly identity?: WorkspaceTransactionIdentity;
 }
 
 export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(
   args: WorkspaceLifecycleTransactionArgs<A, E, R>,
-) => Effect.Effect<A, AppError | E, R>;
+) => Effect.Effect<A, AppError | WorkspaceRestorationIncomplete | E, R>;
 
 // ---------------------------------------------------------------------------
 // Extension Manager Interface

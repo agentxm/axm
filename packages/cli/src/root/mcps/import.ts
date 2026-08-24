@@ -51,6 +51,7 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -378,35 +379,37 @@ const applyImport = (
     enabled: true,
     ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
   });
-  return ws.runTransaction({
-    targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
-    transition: Effect.gen(function* () {
-      for (const candidate of candidates) {
-        yield* ws.setMcpServerEntry(candidate.name, settingsEntry(candidate));
-      }
-      for (const adoption of adoptions) {
-        if (hooks.beforeAdoptionWrite !== undefined) {
-          yield* hooks.beforeAdoptionWrite(adoption);
-        }
-        yield* writeAdoptedMcpConfig(fs, adoption);
-      }
-    }),
-    validate: () =>
-      Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredMcpServerEntries();
+  return ws
+    .runTransaction({
+      targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
+      transition: Effect.gen(function* () {
         for (const candidate of candidates) {
-          if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
-            return yield* makeAppError({
-              code: "validation",
-              detail: `Failed to validate imported MCP server ${candidate.name}`,
-            });
-          }
+          yield* ws.setMcpServerEntry(candidate.name, settingsEntry(candidate));
         }
-        yield* Effect.forEach(adoptions, (adoption) => validateAdoption(fs, adoption), {
-          concurrency: 1,
-        });
+        for (const adoption of adoptions) {
+          if (hooks.beforeAdoptionWrite !== undefined) {
+            yield* hooks.beforeAdoptionWrite(adoption);
+          }
+          yield* writeAdoptedMcpConfig(fs, adoption);
+        }
       }),
-  });
+      validate: () =>
+        Effect.gen(function* () {
+          const configured = yield* ws.getConfiguredMcpServerEntries();
+          for (const candidate of candidates) {
+            if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
+              return yield* makeAppError({
+                code: "validation",
+                detail: `Failed to validate imported MCP server ${candidate.name}`,
+              });
+            }
+          }
+          yield* Effect.forEach(adoptions, (adoption) => validateAdoption(fs, adoption), {
+            concurrency: 1,
+          });
+        }),
+    })
+    .pipe(surfaceRestorationIncomplete);
 };
 
 const importArtifact = (

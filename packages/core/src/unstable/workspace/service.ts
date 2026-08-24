@@ -338,6 +338,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ...(args.onRestorationStarted === undefined
           ? {}
           : { onRestorationStarted: args.onRestorationStarted }),
+        ...(args.identity === undefined ? {} : { identity: args.identity }),
       }).pipe(Effect.provide(fsLayer));
 
     /**

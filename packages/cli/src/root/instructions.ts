@@ -29,6 +29,7 @@ import type {
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
@@ -291,6 +292,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
           ),
           validate: () => Effect.void,
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.as({
             result: "success",
@@ -368,6 +370,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
           ),
           validate: () => Effect.void,
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.as({
             result: "success",

@@ -39,6 +39,7 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -334,50 +335,53 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
             label: packIdentity,
             artifact: activationArtifact,
             run: Effect.gen(function* () {
-              yield* ws.runTransaction({
-                transition: Effect.gen(function* () {
-                  yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
-                  const memberTypes = args.enabled
-                    ? new Set(
-                        graph.nodes
-                          .filter(
-                            (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
-                          )
-                          .map((node) => node.type),
-                      )
-                    : new Set(affected.map((node) => node.type));
-                  if (args.enabled) {
-                    yield* runMaterializeSteps(packIdentity);
-                  } else {
-                    // Aggregate units are re-rendered once below instead of
-                    // per contributor.
-                    yield* Effect.forEach(
-                      affected.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
-                      dematerializeNode,
-                      { concurrency: 1 },
-                    );
-                  }
-                  yield* reconcileAggregateProjections(memberTypes);
-                }).pipe(Effect.provide(runServices)),
-                validate: () =>
-                  validatePackGraphPostcondition({
-                    requiredPacks: [
-                      {
-                        name: args.name,
-                        identity: packIdentity,
-                        enabled: args.enabled,
-                      },
-                    ],
-                    ...(args.enabled
-                      ? {}
-                      : {
-                          inactive: affected.map((node) => ({
-                            type: node.type,
-                            name: node.name,
-                          })),
-                        }),
-                  }).pipe(Effect.provideService(WorkspaceMutations, ws)),
-              });
+              yield* ws
+                .runTransaction({
+                  transition: Effect.gen(function* () {
+                    yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                    const memberTypes = args.enabled
+                      ? new Set(
+                          graph.nodes
+                            .filter(
+                              (node) =>
+                                node.type !== "pack" && packContributesTo(node, packIdentity),
+                            )
+                            .map((node) => node.type),
+                        )
+                      : new Set(affected.map((node) => node.type));
+                    if (args.enabled) {
+                      yield* runMaterializeSteps(packIdentity);
+                    } else {
+                      // Aggregate units are re-rendered once below instead of
+                      // per contributor.
+                      yield* Effect.forEach(
+                        affected.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
+                        dematerializeNode,
+                        { concurrency: 1 },
+                      );
+                    }
+                    yield* reconcileAggregateProjections(memberTypes);
+                  }).pipe(Effect.provide(runServices)),
+                  validate: () =>
+                    validatePackGraphPostcondition({
+                      requiredPacks: [
+                        {
+                          name: args.name,
+                          identity: packIdentity,
+                          enabled: args.enabled,
+                        },
+                      ],
+                      ...(args.enabled
+                        ? {}
+                        : {
+                            inactive: affected.map((node) => ({
+                              type: node.type,
+                              name: node.name,
+                            })),
+                          }),
+                    }).pipe(Effect.provideService(WorkspaceMutations, ws)),
+                })
+                .pipe(surfaceRestorationIncomplete);
               return {
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,

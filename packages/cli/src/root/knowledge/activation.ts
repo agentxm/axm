@@ -12,6 +12,7 @@ import {
   resolveConfiguredKnowledge,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -94,6 +95,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
             }),
             validate: () => Effect.void,
           })
+          .pipe(surfaceRestorationIncomplete)
           .pipe(
             Effect.as({
               result: "success",

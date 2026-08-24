@@ -15,6 +15,7 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -103,19 +104,21 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
     onNone: () => ({
       readiness: "ready",
       label: args.name,
-      run: ruleManager.runTransaction({
-        transition: Option.isSome(instructionsConfig)
-          ? reconcileInstructionTransition({
-              ws,
-              config: instructionsConfig.value,
-              transition: disableTransition,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            )
-          : disableTransition,
-        validate: () => Effect.void,
-      }),
+      run: ruleManager
+        .runTransaction({
+          transition: Option.isSome(instructionsConfig)
+            ? reconcileInstructionTransition({
+                ws,
+                config: instructionsConfig.value,
+                transition: disableTransition,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              )
+            : disableTransition,
+          validate: () => Effect.void,
+        })
+        .pipe(surfaceRestorationIncomplete),
     }),
   });
   const plan: Plan = {

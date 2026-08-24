@@ -14,7 +14,10 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
 import { logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import {
+  surfaceRestorationIncomplete,
+  WorkspaceMutations,
+} from "@agentxm/client-core/unstable/workspace";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
 import { renderOperationOutcome } from "../../operation-render.js";
@@ -54,26 +57,28 @@ describe("atomic pack graph transition", () => {
           const childSteps: ReadonlyArray<PlannedJobStep> = targets.map((target, index) => ({
             readiness: "ready",
             label: `member-${String(index)}`,
-            run: ws.runTransaction({
-              targets: [target],
-              transition: Effect.sync(() => {
-                fs.writeFileSync(target, `after-${String(index)}\n`);
-                return index === failAt
-                  ? ({
-                      result: "error",
-                      message: `injected failure at ${String(index)}`,
-                      error: makeAppError({
-                        code: "internal",
-                        detail: `injected failure at ${String(index)}`,
-                      }),
-                    } satisfies JobStepResult)
-                  : ({
-                      result: "success",
-                      message: `updated member ${String(index)}`,
-                    } satisfies JobStepResult);
-              }),
-              validate: () => Effect.void,
-            }),
+            run: ws
+              .runTransaction({
+                targets: [target],
+                transition: Effect.sync(() => {
+                  fs.writeFileSync(target, `after-${String(index)}\n`);
+                  return index === failAt
+                    ? ({
+                        result: "error",
+                        message: `injected failure at ${String(index)}`,
+                        error: makeAppError({
+                          code: "internal",
+                          detail: `injected failure at ${String(index)}`,
+                        }),
+                      } satisfies JobStepResult)
+                    : ({
+                        result: "success",
+                        message: `updated member ${String(index)}`,
+                      } satisfies JobStepResult);
+                }),
+                validate: () => Effect.void,
+              })
+              .pipe(surfaceRestorationIncomplete),
           }));
           const graphStep = yield* buildAtomicPackGraphStep({
             label: "@test/packs/atomic",
@@ -133,14 +138,16 @@ describe("atomic pack graph transition", () => {
                 step: {
                   readiness: "ready",
                   label: `${label} member`,
-                  run: workspace.runTransaction({
-                    targets: [target],
-                    transition: Effect.sync(() => {
-                      fs.writeFileSync(target, "after\n");
-                      return { result: "success", message: `Updated ${label} member` } as const;
-                    }),
-                    validate: () => Effect.void,
-                  }),
+                  run: workspace
+                    .runTransaction({
+                      targets: [target],
+                      transition: Effect.sync(() => {
+                        fs.writeFileSync(target, "after\n");
+                        return { result: "success", message: `Updated ${label} member` } as const;
+                      }),
+                      validate: () => Effect.void,
+                    })
+                    .pipe(surfaceRestorationIncomplete),
                 },
               },
             ],
@@ -422,23 +429,25 @@ describe("atomic pack graph transition", () => {
               step: {
                 readiness: "ready",
                 label: "skill:user",
-                run: ws.runTransaction({
-                  targets: [target],
-                  transition: Effect.sync(() => {
-                    fs.writeFileSync(target, "after\n");
-                    return {
-                      result: "success",
-                      message: "installed user skill",
-                      artifact: {
-                        path: ".agents/skills/user-skill",
-                        scope: "user",
-                        change: "created",
-                        agents: ["codex"],
-                      },
-                    } satisfies JobStepResult;
-                  }),
-                  validate: () => Effect.void,
-                }),
+                run: ws
+                  .runTransaction({
+                    targets: [target],
+                    transition: Effect.sync(() => {
+                      fs.writeFileSync(target, "after\n");
+                      return {
+                        result: "success",
+                        message: "installed user skill",
+                        artifact: {
+                          path: ".agents/skills/user-skill",
+                          scope: "user",
+                          change: "created",
+                          agents: ["codex"],
+                        },
+                      } satisfies JobStepResult;
+                    }),
+                    validate: () => Effect.void,
+                  })
+                  .pipe(surfaceRestorationIncomplete),
               },
             },
           ],

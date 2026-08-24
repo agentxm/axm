@@ -8,7 +8,7 @@ import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
 import { makeAppError } from "../app-error/index.js";
-import { TestFlagsLayer } from "../cli-flags/index.js";
+import { resolveRecoveryFlag, TestFlagsLayer } from "../cli-flags/index.js";
 import { TestRenderer } from "../cli-renderer/index.js";
 import {
   applyPlanExecution,
@@ -713,100 +713,100 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  // Expected-failure pin: rollback failure is inferred today by re-reading
-  // recovery records from the workspace, so when no record can be written the
-  // resolution reports `failed` with no recovery content instead of
-  // `recovery-required`. The marker comes off when restoration failure is a
-  // typed fact on the transaction's error channel.
-  it.effect.fails(
-    "C-07: reports recovery-required when restoration fails and no recovery record can be written",
-    () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-restore-fail-" });
-        const workspaceDir = path.join(directory, ".axm");
-        yield* fs.makeDirectory(workspaceDir, { recursive: true });
-        // A file at the records location makes every post-failure recovery
-        // write fail alongside the restoration itself.
-        yield* fs.writeFileString(path.join(workspaceDir, "operations"), "not a directory");
-        const managedDir = path.join(directory, "managed");
-        const movedDir = `${managedDir}-moved`;
-        const target = path.join(managedDir, "managed.txt");
-        yield* fs.makeDirectory(managedDir, { recursive: true });
-        yield* fs.writeFileString(target, "original");
-        const semaphore = Semaphore.makeUnsafe(1);
-        const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
-        const workspace: WorkspaceMutationsService = {
-          ...baseWorkspace,
-          runTransaction: (args) =>
-            runWorkspaceTransaction({
-              semaphore,
-              workspaceDir,
-              targets: args.targets ?? [],
-              transition: args.transition,
-              validate: args.validate,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            ),
-        };
-        const context = makeTestContext(undefined, undefined, workspace);
-        const plan: Plan = {
-          _tag: "Plan",
-          name: "Update managed files",
-          description: Option.none(),
-          jobs: [
-            {
-              concurrency: 1,
-              steps: [
-                {
-                  readiness: "ready",
-                  label: "first",
-                  run: protectWorkspacePath(target).pipe(
-                    Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
-                    // Restoration cannot recreate the target afterwards: its
-                    // parent directory is replaced by a plain file.
-                    Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
-                    Effect.andThen(
-                      fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
-                    ),
-                    Effect.as({ result: "success" as const, message: "changed" }),
+  // Restoration failure is a typed fact on the transaction's error channel:
+  // the resolution derives `recovery-required`, the retained set, and exit 6
+  // from that value alone, with the recovery capsule as the surviving
+  // recovery content. Formerly an expected-failure pin against the inference
+  // that re-read recovery records from the workspace.
+  it.effect("C-07: reports recovery-required when restoration fails", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-restore-fail-" });
+      const workspaceDir = path.join(directory, ".axm");
+      yield* fs.makeDirectory(workspaceDir, { recursive: true });
+      const managedDir = path.join(directory, "managed");
+      const movedDir = `${managedDir}-moved`;
+      const target = path.join(managedDir, "managed.txt");
+      yield* fs.makeDirectory(managedDir, { recursive: true });
+      yield* fs.writeFileString(target, "original");
+      const semaphore = Semaphore.makeUnsafe(1);
+      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+      const workspace: WorkspaceMutationsService = {
+        ...baseWorkspace,
+        runTransaction: (args) =>
+          runWorkspaceTransaction({
+            semaphore,
+            workspaceDir,
+            targets: args.targets ?? [],
+            transition: args.transition,
+            validate: args.validate,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Update managed files",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "first",
+                run: protectWorkspacePath(target).pipe(
+                  Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
+                  // Restoration cannot recreate the target afterwards: its
+                  // parent directory is replaced by a plain file.
+                  Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
+                  Effect.andThen(
+                    fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
                   ),
-                },
-                {
-                  readiness: "ready",
-                  label: "second",
-                  run: Effect.succeed({
-                    result: "error" as const,
-                    message: "second step failed",
-                    error: makeAppError({ code: "internal", detail: "second step failed" }),
-                  }),
-                },
-              ],
-            },
-          ],
-        };
+                  Effect.as({ result: "success" as const, message: "changed" }),
+                ),
+              },
+              {
+                readiness: "ready",
+                label: "second",
+                run: Effect.succeed({
+                  result: "error" as const,
+                  message: "second step failed",
+                  error: makeAppError({ code: "internal", detail: "second step failed" }),
+                }),
+              },
+            ],
+          },
+        ],
+      };
 
-        const result = yield* previewOrApplyPlan(plan, {
-          execution: preapprovedPlanExecution,
-        }).pipe(Effect.provide(context.layer));
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: preapprovedPlanExecution,
+      }).pipe(Effect.provide(context.layer));
 
-        expect(deriveOperationOutcome(result)).toBe("recovery-required");
-        expect(operationExitCode(result)).toBe(6);
-        expect(result.recovery?.blocksNormalOperation).toBe(true);
-        expect(result.recovery?.retained.length ?? 0).toBeGreaterThan(0);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      expect(deriveOperationOutcome(result)).toBe("recovery-required");
+      expect(operationExitCode(result)).toBe(6);
+      expect(result.recovery?.blocksNormalOperation).toBe(true);
+      expect(result.recovery?.retained.length ?? 0).toBeGreaterThan(0);
+      // The machine-visible recovery content names the capsule, which
+      // persists with its snapshots inside the transient location.
+      expect(result.recovery?.recordPath ?? "").toContain(path.join(".axm", "tmp", "recovery"));
+      const capsuleDir = path.join(directory, result.recovery?.recordPath ?? "");
+      expect(yield* fs.exists(path.join(capsuleDir, "capsule.json"))).toBe(true);
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  // Expected-failure pin: a prior restoration failure is warned about and
-  // marked non-blocking today, and any later successful apply marks every
-  // open record resolved — so an unrelated mutation proceeds over unrecovered
-  // state and the evidence stops surfacing. The marker comes off when recovery
-  // detection blocks the next mutation-class apply. The retained state is
-  // deliberately tampered with between the runs so no automatic restoration
-  // may legitimately continue either.
-  it.effect.fails("C-07: blocks a later apply while a restoration failure remains unresolved", () =>
+  // A prior restoration failure stays blocking for every later
+  // mutation-class apply until resolved: detection finds the live capsule and
+  // terminates `recovery-required` before touching anything. The retained
+  // state is deliberately tampered with between the runs so no automatic
+  // restoration may legitimately continue either. Formerly an
+  // expected-failure pin against the non-blocking warning and the
+  // bulk-resolution of open records by any successful apply.
+  it.effect("C-07: blocks a later apply while a restoration failure remains unresolved", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -915,6 +915,75 @@ describe("previewOrApplyPlan", () => {
       expect(operationExitCode(second)).toBe(6);
       expect(second.recovery?.blocksNormalOperation).toBe(true);
       expect(yield* fs.exists(otherTarget)).toBe(false);
+
+      // The one-shot consent flag resolves the condition: accepting the
+      // retained state removes the capsule and the apply proceeds.
+      const accepted = yield* previewOrApplyPlan(followUp, {
+        execution: preapprovedPlanExecution,
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(context.layer, Layer.succeed(resolveRecoveryFlag, Option.some("accept"))),
+        ),
+      );
+      expect(deriveOperationOutcome(accepted)).toBe("applied");
+      expect(yield* fs.exists(otherTarget)).toBe(true);
+      expect(yield* fs.exists(path.join(workspaceDir, "tmp", "recovery"))).toBe(false);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  // Fail-closed detection: recovery state that cannot be interpreted is a
+  // blocking conflict, never evidence of absence.
+  it.effect("C-07: an uninterpretable capsule blocks a later apply", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-recovery-garbage-" });
+      const workspaceDir = path.join(directory, ".axm");
+      const capsuleDir = path.join(workspaceDir, "tmp", "recovery", "unknown-capsule");
+      yield* fs.makeDirectory(capsuleDir, { recursive: true });
+      yield* fs.writeFileString(path.join(capsuleDir, "capsule.json"), "{not json");
+      const context = makeTestContext(undefined, undefined, makeBaseWorkspaceMock(workspaceDir));
+      const target = path.join(directory, "other.txt");
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Write unrelated file",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                label: "write-other",
+                run: fs
+                  .writeFileString(target, "unrelated")
+                  .pipe(
+                    Effect.orDie,
+                    Effect.as({ result: "success" as const, message: "written" }),
+                  ),
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = yield* previewOrApplyPlan(plan, {
+        execution: preapprovedPlanExecution,
+      }).pipe(Effect.provide(context.layer));
+
+      expect(deriveOperationOutcome(result)).toBe("recovery-required");
+      expect(operationExitCode(result)).toBe(6);
+      expect(yield* fs.exists(target)).toBe(false);
+      // Consent to restore cannot apply to state without snapshots.
+      const restoreAttempt = yield* previewOrApplyPlan(plan, {
+        execution: preapprovedPlanExecution,
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(context.layer, Layer.succeed(resolveRecoveryFlag, Option.some("restore"))),
+        ),
+      );
+      expect(deriveOperationOutcome(restoreAttempt)).toBe("recovery-required");
+      expect(yield* fs.exists(target)).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

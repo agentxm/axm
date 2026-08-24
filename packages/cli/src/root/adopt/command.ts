@@ -36,6 +36,7 @@ import {
   WorkspaceMutations,
   resolveWorkspaceExtensionRef,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -74,21 +75,23 @@ const workspaceMcpAdoptionOperation = Effect.fn("Adopt.workspaceMcpOperation")(f
     key: toStepKey(targetFromRef(ref)),
     label: `Adopt ${ref.owner}/mcps/${ref.name}`,
     readiness: "ready",
-    run: ws.runTransaction({
-      targets: [ref.location],
-      transition,
-      validate: () =>
-        ws.getConfiguredMcpServerEntries().pipe(
-          Effect.flatMap((configured) =>
-            configured[ref.name]?.source === source
-              ? Effect.void
-              : makeAppError({
-                  code: "internal",
-                  detail: `Adopted MCP server ${ref.name} did not retain ${source} as its configured source`,
-                }),
+    run: ws
+      .runTransaction({
+        targets: [ref.location],
+        transition,
+        validate: () =>
+          ws.getConfiguredMcpServerEntries().pipe(
+            Effect.flatMap((configured) =>
+              configured[ref.name]?.source === source
+                ? Effect.void
+                : makeAppError({
+                    code: "internal",
+                    detail: `Adopted MCP server ${ref.name} did not retain ${source} as its configured source`,
+                  }),
+            ),
           ),
-        ),
-    }),
+      })
+      .pipe(surfaceRestorationIncomplete),
   } satisfies PlannedJobStep;
 });
 

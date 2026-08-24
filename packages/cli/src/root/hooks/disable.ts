@@ -18,6 +18,7 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -120,18 +121,20 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
               const lockEntry = yield* ws
                 .getLockedHookEntry(args.name)
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              yield* hookManager.runTransaction({
-                transition: Effect.gen(function* () {
-                  yield* ws.updateHookEntry(args.name, (current) => ({
-                    ...current,
-                    enabled: false,
-                  }));
-                  yield* hookManager.materializeDeactivate({
-                    target: { type: "hook", name: args.name },
-                  });
-                }),
-                validate: () => Effect.void,
-              });
+              yield* hookManager
+                .runTransaction({
+                  transition: Effect.gen(function* () {
+                    yield* ws.updateHookEntry(args.name, (current) => ({
+                      ...current,
+                      enabled: false,
+                    }));
+                    yield* hookManager.materializeDeactivate({
+                      target: { type: "hook", name: args.name },
+                    });
+                  }),
+                  validate: () => Effect.void,
+                })
+                .pipe(surfaceRestorationIncomplete);
               return {
                 result: "success",
                 message: `Disabled ${args.name}`,

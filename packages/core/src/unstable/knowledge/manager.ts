@@ -41,6 +41,7 @@ import {
 } from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
+import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
@@ -844,6 +845,7 @@ export const KnowledgeManagerLive = Layer.effect(
               ),
             ),
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.scoped,
           Effect.tapError(() =>
@@ -896,18 +898,22 @@ export const KnowledgeManagerLive = Layer.effect(
       projectionPlans,
       runTransaction: ws.runTransaction,
       refreshCatalog: () =>
-        ws.runTransaction({
-          transition: applyKnowledgeProjection,
-          validate: () => Effect.void,
-        }),
+        ws
+          .runTransaction({
+            transition: applyKnowledgeProjection,
+            validate: () => Effect.void,
+          })
+          .pipe(surfaceRestorationIncomplete),
       sync: ({ dryRun }) =>
         dryRun
           ? Effect.scoped(syncLocked(true))
           : Effect.scoped(
-              ws.runTransaction({
-                transition: syncLocked(false),
-                validate: () => Effect.void,
-              }),
+              ws
+                .runTransaction({
+                  transition: syncLocked(false),
+                  validate: () => Effect.void,
+                })
+                .pipe(surfaceRestorationIncomplete),
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>

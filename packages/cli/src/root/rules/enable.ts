@@ -19,6 +19,7 @@ import {
   resolveConfiguredRule,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -117,7 +118,9 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
                   Effect.provideService(Path.Path, path),
                 )
               : installStep.run;
-            const run = ruleManager.runTransaction({ transition, validate: () => Effect.void });
+            const run = ruleManager
+              .runTransaction({ transition, validate: () => Effect.void })
+              .pipe(surfaceRestorationIncomplete);
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,

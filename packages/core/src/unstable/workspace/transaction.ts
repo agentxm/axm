@@ -1,5 +1,8 @@
+import { randomBytes } from "node:crypto";
+
 import * as Cause from "effect/Cause";
 import * as ServiceMap from "effect/Context";
+import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -9,11 +12,19 @@ import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 
-import * as Layer from "effect/Layer";
-
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { recordFootprint } from "./footprint-recorder.js";
-import { writeOperationRecoveryRecord } from "./operation-records.js";
+import {
+  appendCapsuleEntry,
+  capsuleEntryPath,
+  createRecoveryCapsule,
+  hashPathState,
+  nextCapsuleArtifact,
+  removeRecoveryCapsule,
+  sealRecoveryCapsule,
+  type CapsuleEntry,
+  type CapsuleWriter,
+} from "./recovery-capsule.js";
 import { isWorkspaceTransitionHeldByThisInvocation } from "./transition-lock.js";
 
 const TRANSACTION_LOCK_FILENAME = "workspace-transition.lock";
@@ -27,9 +38,11 @@ type Snapshot =
   | { readonly target: string; readonly state: "symlink"; readonly linkTarget: string };
 
 interface WorkspaceTransactionContext {
-  readonly backupDir: string;
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
+  readonly workspaceDir: string;
+  readonly identity: WorkspaceTransactionIdentity;
+  readonly capsule: { writer: CapsuleWriter | undefined };
   readonly protectedTargets: Set<string>;
   readonly snapshots: Array<Snapshot>;
   readonly snapshotSemaphore: Semaphore.Semaphore;
@@ -40,6 +53,13 @@ const CurrentWorkspaceTransaction = ServiceMap.Reference<
 >("@agentxm/client-core/unstable/workspace/CurrentWorkspaceTransaction", {
   defaultValue: () => Option.none(),
 });
+
+/** Names the capsule this transaction snapshots into, and the command it serves. */
+export interface WorkspaceTransactionIdentity {
+  /** Capsule directory name; plan-family passes the candidate identity. */
+  readonly capsuleId: string;
+  readonly command: string;
+}
 
 export interface WorkspaceTransactionArgs<A, E, R> {
   readonly workspaceDir: string;
@@ -53,7 +73,65 @@ export interface WorkspaceTransactionArgs<A, E, R> {
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
   /** Observes the start of rollback restoration; never controls it. */
   readonly onRestorationStarted?: Effect.Effect<void>;
+  /** Capsule identity; omitted callers snapshot under a per-run capsule name. */
+  readonly identity?: WorkspaceTransactionIdentity;
 }
+
+/**
+ * Restoration did not complete: the typed fact the terminal resolution
+ * derives outcome, disposition, recovery requirement, and exit status from.
+ * The capsule referenced here persists with the snapshots already on disk.
+ */
+export class WorkspaceRestorationIncomplete extends Data.TaggedError(
+  "WorkspaceRestorationIncomplete",
+)<{
+  readonly terminationCause: "failure" | "interruption";
+  readonly transitionCause: Cause.Cause<unknown>;
+  readonly restorationCause: unknown;
+  readonly capsuleDir: string;
+  /** Workspace-relative capsule location, safe for machine-document values. */
+  readonly capsulePath: string;
+  readonly retained: ReadonlyArray<string>;
+  readonly sealed: boolean;
+}> {}
+
+/** Render the typed restoration failure for boundaries without a resolution. */
+export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncomplete): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Workspace restoration did not complete; retained state and its snapshots are preserved in the recovery capsule at ${error.capsulePath}.`,
+    cause: {
+      transition: Cause.pretty(error.transitionCause),
+      restoration: error.restorationCause,
+    },
+    suggestions: [
+      {
+        description:
+          "Re-run the command with --resolve-recovery restore to restore the retained paths from their snapshots.",
+      },
+      {
+        description:
+          "Re-run the command with --resolve-recovery accept to accept the retained state as it stands.",
+      },
+    ],
+  });
+
+/**
+ * Surface the typed restoration failure as its AppError rendering at a
+ * boundary whose error contract is AppError. Inside a plan-family apply this
+ * is type-satisfaction only: nested transactions reuse the outer snapshot
+ * store and never fail restoration themselves.
+ */
+export const surfaceRestorationIncomplete = <A, E, R>(
+  effect: Effect.Effect<A, E | WorkspaceRestorationIncomplete, R>,
+): Effect.Effect<A, E | AppError, R> =>
+  effect.pipe(
+    Effect.catchIf(
+      (error): error is WorkspaceRestorationIncomplete =>
+        error instanceof WorkspaceRestorationIncomplete,
+      (error) => Effect.fail(restorationIncompleteToAppError(error)),
+    ),
+  );
 
 const transactionError = (detail: string, cause: unknown): AppError =>
   makeAppError({ code: "internal", detail, cause });
@@ -134,60 +212,59 @@ const acquireWorkspaceLock = (
     }),
   );
 
-const snapshotTargets = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  backupDir: string,
-  targets: ReadonlyArray<string>,
-  startIndex = 0,
-): Effect.Effect<ReadonlyArray<Snapshot>, AppError> =>
-  Effect.forEach(targets, (target, index) =>
-    Effect.gen(function* () {
-      const link = yield* fs.readLink(target).pipe(Effect.option);
-      if (Option.isSome(link)) {
-        return { target, state: "symlink", linkTarget: link.value } satisfies Snapshot;
-      }
-      const exists = yield* fs
-        .exists(target)
-        .pipe(
-          Effect.mapError((error) =>
-            transactionError(`Failed to inspect transaction target ${target}`, error),
-          ),
-        );
-      if (!exists) return { target, state: "absent" } satisfies Snapshot;
-
-      const backup = path.join(backupDir, (startIndex + index).toString(36));
-      yield* fs
-        .copy(target, backup, { preserveTimestamps: true })
-        .pipe(
-          Effect.mapError((error) =>
-            transactionError(`Failed to snapshot transaction target ${target}`, error),
-          ),
-        );
-      return { target, state: "copied", backup } satisfies Snapshot;
-    }),
-  );
-
 const protectInContext = (
   context: WorkspaceTransactionContext,
   target: string,
 ): Effect.Effect<void, AppError> =>
   context.snapshotSemaphore.withPermits(1)(
     Effect.gen(function* () {
-      const normalized = context.path.resolve(target);
+      const { fs, path } = context;
+      const normalized = path.resolve(target);
       if (context.protectedTargets.has(normalized)) return;
-      const [snapshot] = yield* snapshotTargets(
-        context.fs,
-        context.path,
-        context.backupDir,
-        [normalized],
-        context.snapshots.length,
-      );
-      if (snapshot === undefined) {
-        return yield* transactionError(`Failed to snapshot transaction target ${normalized}`, {
-          reason: "snapshot was not produced",
+      if (context.capsule.writer === undefined) {
+        context.capsule.writer = yield* createRecoveryCapsule({
+          fs,
+          path,
+          workspaceDir: context.workspaceDir,
+          capsuleId: context.identity.capsuleId,
+          command: context.identity.command,
         });
       }
+      const writer = context.capsule.writer;
+      const relative = capsuleEntryPath(path, writer, normalized);
+      const link = yield* fs.readLink(normalized).pipe(Effect.option);
+      let entry: CapsuleEntry;
+      let snapshot: Snapshot;
+      if (Option.isSome(link)) {
+        entry = { path: relative, preState: "symlink", linkTarget: link.value };
+        snapshot = { target: normalized, state: "symlink", linkTarget: link.value };
+      } else {
+        const exists = yield* fs
+          .exists(normalized)
+          .pipe(
+            Effect.mapError((error) =>
+              transactionError(`Failed to inspect transaction target ${normalized}`, error),
+            ),
+          );
+        if (!exists) {
+          entry = { path: relative, preState: "absent" };
+          snapshot = { target: normalized, state: "absent" };
+        } else {
+          const artifact = nextCapsuleArtifact(path, writer);
+          yield* fs
+            .copy(normalized, artifact, { preserveTimestamps: true })
+            .pipe(
+              Effect.mapError((error) =>
+                transactionError(`Failed to snapshot transaction target ${normalized}`, error),
+              ),
+            );
+          entry = { path: relative, preState: "copied", snapshot: path.basename(artifact) };
+          snapshot = { target: normalized, state: "copied", backup: artifact };
+        }
+      }
+      // The entry is durably recorded before the path is first mutated; a
+      // path whose entry cannot be recorded is never mutated.
+      yield* appendCapsuleEntry(fs, path, writer, entry);
       context.protectedTargets.add(normalized);
       context.snapshots.push(snapshot);
     }),
@@ -277,17 +354,55 @@ const restoreAll = (
     },
   );
 
+const verifySnapshots = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  snapshots: ReadonlyArray<Snapshot>,
+): Effect.Effect<void, AppError> =>
+  Effect.forEach(
+    snapshots,
+    (snapshot) =>
+      Effect.gen(function* () {
+        const verified = yield* Effect.gen(function* () {
+          if (snapshot.state === "absent") {
+            return !(yield* fs.exists(snapshot.target));
+          }
+          if (snapshot.state === "symlink") {
+            const link = yield* fs.readLink(snapshot.target).pipe(Effect.option);
+            return Option.exists(link, (value) => value === snapshot.linkTarget);
+          }
+          const restored = yield* hashPathState(fs, path, snapshot.target);
+          const backup = yield* hashPathState(fs, path, snapshot.backup);
+          return restored === backup && restored !== "unhashable";
+        }).pipe(Effect.catch(() => Effect.succeed(false)));
+        if (!verified) {
+          return yield* transactionError(
+            `Workspace restoration did not verify for ${snapshot.target}`,
+            { state: snapshot.state },
+          );
+        }
+      }),
+    { discard: true },
+  );
+
 /**
  * Run one coupled workspace mutation under a scope-local lock.
  *
- * Every authoritative target is snapshotted before the transition begins. A
- * failed transition or postcondition check restores the exact pre-operation
- * paths. The lock is held by the operating system and released on descriptor
- * close or process death.
+ * Every authoritative target is snapshotted into the recovery capsule before
+ * the transition begins. A failed transition or postcondition check restores
+ * and verifies the exact pre-operation paths and removes the capsule; a
+ * restoration that does not complete and verify fails with the typed
+ * {@link WorkspaceRestorationIncomplete}, leaving the sealed capsule as the
+ * only surviving recovery state. The lock is held by the operating system and
+ * released on descriptor close or process death.
  */
 export const runWorkspaceTransaction = <A, E, R>(
   args: WorkspaceTransactionArgs<A, E, R>,
-): Effect.Effect<A, AppError | E, R | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  A,
+  AppError | WorkspaceRestorationIncomplete | E,
+  R | FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const current = yield* CurrentWorkspaceTransaction;
     if (Option.isSome(current)) {
@@ -356,31 +471,24 @@ export const runWorkspaceTransaction = <A, E, R>(
             if (!isWorkspaceTransitionHeldByThisInvocation(workspaceDir)) {
               yield* acquireWorkspaceLock(workspaceDir, lockPath, removeEmptyScratch);
             }
-            const backupDir = yield* fs
-              .makeTempDirectory({ prefix: "axm-workspace-rollback-" })
-              .pipe(
-                Effect.mapError((error) =>
-                  transactionError("Failed to create workspace rollback backup", error),
-                ),
-              );
             const context: WorkspaceTransactionContext = {
-              backupDir,
               fs,
               path,
+              workspaceDir,
+              identity: args.identity ?? {
+                capsuleId: `workspace-transaction-${randomBytes(4).toString("hex")}`,
+                command: "workspace-transaction",
+              },
+              capsule: { writer: undefined },
               protectedTargets: new Set(),
               snapshots: [],
               snapshotSemaphore: Semaphore.makeUnsafe(1),
             };
-            const cleanup = fs
-              .remove(backupDir, { recursive: true })
-              .pipe(
-                Effect.mapError((error) =>
-                  transactionError(
-                    `Failed to remove workspace rollback backup ${backupDir}`,
-                    error,
-                  ),
-                ),
-              );
+            const removeCapsuleIfAny = Effect.suspend(() =>
+              context.capsule.writer === undefined
+                ? Effect.void
+                : removeRecoveryCapsule(fs, path, workspaceDir, context.capsule.writer.dir),
+            );
             const business = Effect.gen(function* () {
               yield* Effect.forEach(
                 normalizedTargets(path, args.targets),
@@ -399,39 +507,41 @@ export const runWorkspaceTransaction = <A, E, R>(
               Effect.matchCauseEffect({
                 onFailure: (cause) =>
                   (args.onRestorationStarted ?? Effect.void)
-                    .pipe(Effect.andThen(restoreAll(fs, path, context.snapshots)))
+                    .pipe(
+                      Effect.andThen(restoreAll(fs, path, context.snapshots)),
+                      Effect.andThen(verifySnapshots(fs, path, context.snapshots)),
+                    )
                     .pipe(
                       Effect.matchEffect({
-                        onFailure: (rollbackCause) =>
-                          writeOperationRecoveryRecord({
-                            workspaceDir,
-                            kind: "restoration-failure",
-                            command: "workspace-transaction",
-                            retained: [
-                              backupDir,
-                              ...context.snapshots.map((snapshot) => snapshot.target),
-                            ],
-                            resolveBy: `Restore the affected paths from the retained rollback backup at ${backupDir}, then re-run the operation.`,
-                          }).pipe(
-                            Effect.provide(
-                              Layer.mergeAll(
-                                Layer.succeed(FileSystem.FileSystem, fs),
-                                Layer.succeed(Path.Path, path),
-                              ),
-                            ),
-                            Effect.andThen(
-                              Effect.fail(
-                                transactionError(
-                                  `Workspace rollback failed. Rollback backup retained at: ${backupDir}`,
-                                  { transition: Cause.pretty(cause), rollback: rollbackCause },
-                                ),
-                              ),
-                            ),
-                          ),
-                        onSuccess: () => cleanup.pipe(Effect.andThen(Effect.failCause(cause))),
+                        onFailure: (restorationCause) =>
+                          Effect.gen(function* () {
+                            const writer = context.capsule.writer;
+                            const interruption = Cause.hasInterruptsOnly(cause);
+                            const sealed =
+                              writer === undefined
+                                ? false
+                                : yield* sealRecoveryCapsule(
+                                    fs,
+                                    path,
+                                    writer,
+                                    interruption ? "interruption" : "failure",
+                                  );
+                            const capsuleDir = writer?.dir ?? scratchDir;
+                            return yield* new WorkspaceRestorationIncomplete({
+                              terminationCause: interruption ? "interruption" : "failure",
+                              transitionCause: cause,
+                              restorationCause,
+                              capsuleDir,
+                              capsulePath: path.relative(path.dirname(workspaceDir), capsuleDir),
+                              retained: (writer?.entries ?? []).map((entry) => entry.path),
+                              sealed,
+                            });
+                          }),
+                        onSuccess: () =>
+                          removeCapsuleIfAny.pipe(Effect.andThen(Effect.failCause(cause))),
                       }),
                     ),
-                onSuccess: (value) => cleanup.pipe(Effect.as(value)),
+                onSuccess: (value) => removeCapsuleIfAny.pipe(Effect.as(value)),
               }),
               Effect.uninterruptible,
             );

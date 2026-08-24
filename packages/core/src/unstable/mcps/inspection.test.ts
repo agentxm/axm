@@ -38,6 +38,18 @@ const contextEntry = {
   env: { ACME_TOKEN: "secret" },
 } satisfies McpServerEntry;
 
+const registryContextEntry = {
+  source: "@acme/mcps/context",
+  enabled: true,
+  env: {},
+} satisfies McpServerEntry;
+
+const writeCodexConfig = (workspaceRoot: string, lines: ReadonlyArray<string>) => {
+  const configDir = nodePath.join(workspaceRoot, ".codex");
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(nodePath.join(configDir, "config.toml"), `${lines.join("\n")}\n`);
+};
+
 const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, unknown>>) =>
   writeAgentMcpConfig({
     workspaceRoot,
@@ -141,6 +153,129 @@ describe("agent MCP config inspection", () => {
 
           expect(result.status).toBe("match");
           expect(result.fields).toEqual([]);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports a current registry-backed Codex TOML projection as a match", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-registry-"));
+        try {
+          writeCodexConfig(workspaceRoot, [
+            "# axm:start v=1 region=mcp-server:context ext=@acme/mcps/context",
+            "[mcp_servers.context]",
+            'url = "https://mcp.acme.test/mcp"',
+            "enabled = true",
+            "",
+            '[mcp_servers.context."x-axm"]',
+            "v = 1",
+            "managed = true",
+            'ext = "@acme/mcps/context"',
+            'source = "registry"',
+            'ref = "@acme/mcps/context"',
+            "# axm:end v=1 region=mcp-server:context ext=@acme/mcps/context",
+          ]);
+
+          const result = yield* inspectAgentMcpServer({
+            workspaceRoot,
+            scope: "project",
+            agentId: "codex",
+            serverName: "context",
+            entry: registryContextEntry,
+          });
+
+          expect(result.status).toBe("match");
+          expect(result.path).toBe(".codex/config.toml");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports the legacy Codex ownership fence as drift", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-legacy-"));
+        try {
+          writeCodexConfig(workspaceRoot, [
+            "# axm managed mcp-server context start",
+            "[mcp_servers.context]",
+            'url = "https://mcp.acme.test/mcp"',
+            "enabled = true",
+            "",
+            "[mcp_servers.context.x-axm]",
+            "managed = true",
+            'source = "registry"',
+            'ref = "@acme/mcps/context"',
+            "# axm managed mcp-server context end",
+          ]);
+
+          const result = yield* inspectAgentMcpServer({
+            workspaceRoot,
+            scope: "project",
+            agentId: "codex",
+            serverName: "context",
+            entry: registryContextEntry,
+          });
+
+          expect(result.status).toBe("drift");
+          expect(result.fields).toEqual(["ownership-marker"]);
+          expect(result.path).toBe(".codex/config.toml");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports an absent registry-backed Codex projection as absent", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-absent-"));
+        try {
+          const result = yield* inspectAgentMcpServer({
+            workspaceRoot,
+            scope: "project",
+            agentId: "codex",
+            serverName: "context",
+            entry: registryContextEntry,
+          });
+
+          expect(result.status).toBe("absent");
+          expect(result.path).toBe(".codex/config.toml");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reports an unmanaged same-name Codex projection as unmanaged", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-unmanaged-"));
+        try {
+          writeCodexConfig(workspaceRoot, [
+            "[mcp_servers.context]",
+            'url = "https://unmanaged.acme.test/mcp"',
+            "enabled = true",
+          ]);
+
+          const result = yield* inspectAgentMcpServer({
+            workspaceRoot,
+            scope: "project",
+            agentId: "codex",
+            serverName: "context",
+            entry: registryContextEntry,
+          });
+
+          expect(result.status).toBe("unmanaged");
+          expect(result.path).toBe(".codex/config.toml");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

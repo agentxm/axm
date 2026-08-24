@@ -56,9 +56,6 @@ registerEntity<McpServerListItem>("mcp-server", {
   },
 });
 
-const hasInlineProjection = (entry: McpServerEntry): boolean =>
-  entry.command !== undefined || entry.url !== undefined;
-
 const driftStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
   if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
   if (inspections.some((inspection) => inspection.status === "unmanaged")) return "drift";
@@ -73,7 +70,6 @@ const configuredStatus = (args: {
 }): string => {
   if (!args.enabled) return "disabled";
   if (args.configuredEntry === undefined) return "enabled";
-  if (!hasInlineProjection(args.configuredEntry)) return "enabled";
   return driftStatus(args.inspections);
 };
 
@@ -92,8 +88,19 @@ const inspectionOutcome = (
         : inspection.status === "unsupported"
           ? "unsupported"
           : "failed",
-  reasonCode: `mcp-${inspection.status}`,
-  reason: inspection.reason ?? `MCP projection status is ${inspection.status}.`,
+  reasonCode:
+    inspection.status === "absent"
+      ? "projection-missing"
+      : inspection.status === "drift"
+        ? "stale-projection"
+        : `mcp-${inspection.status}`,
+  reason:
+    inspection.reason ??
+    (inspection.status === "absent"
+      ? `The expected ${inspection.agentId} projection is missing.`
+      : inspection.status === "drift"
+        ? `The expected ${inspection.agentId} projection is stale.`
+        : `MCP projection status is ${inspection.status}.`),
   path: inspection.path,
 });
 
@@ -111,9 +118,9 @@ export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function*
         const locked = yield* ws.getLockedMcpServer(row.name);
         const configuredEntry = configuredEntries[row.name];
         const inspections =
+          row.enabled !== false &&
           row.classification.lifecycle !== "unmanaged" &&
-          configuredEntry !== undefined &&
-          hasInlineProjection(configuredEntry)
+          configuredEntry !== undefined
             ? yield* inspectMcpServerAcrossAgents({
                 workspaceRoot: ws.baseDir,
                 scope: ws.scope,

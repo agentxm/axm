@@ -175,6 +175,15 @@ describe("bundled skill release stamps", () => {
     ).toEqual({ cliVersion: "0.27.12", cliVersionRange: ">=0.27.0 <0.28.0" });
   });
 
+  it("rolls a managed minor band forward for a breaking release", () => {
+    expect(
+      transitionSkillCompatibility(
+        { cliVersion: "0.27.18", cliVersionRange: ">=0.27.0 <0.28.0" },
+        "0.28.0",
+      ),
+    ).toEqual({ cliVersion: "0.28.0", cliVersionRange: ">=0.28.0 <0.29.0" });
+  });
+
   it("preserves an intentional range only when it includes the next release", () => {
     expect(
       transitionSkillCompatibility(
@@ -185,7 +194,7 @@ describe("bundled skill release stamps", () => {
 
     expect(() =>
       transitionSkillCompatibility(
-        { cliVersion: "1.2.3", cliVersionRange: ">=1.2.0 <1.3.0" },
+        { cliVersion: "1.2.3", cliVersionRange: ">=1.2.2 <1.3.0" },
         "1.3.0",
       ),
     ).toThrow("skill-release-range-mismatch");

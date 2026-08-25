@@ -219,20 +219,21 @@ const minorBandRange = (version: string): string => {
 };
 
 /**
- * An exact pin widens to the release's minor band. Any other range is an
- * intentional declaration and is preserved verbatim — the compatibility guard
- * then fails the release when it no longer covers the release version, which
- * keeps widening across a minor an explicit decision.
+ * An exact pin widens to the release's minor band. A previously managed minor
+ * band rolls forward when the release crosses that boundary. Any other range
+ * is an intentional declaration and is preserved verbatim — the compatibility
+ * guard then fails the release when it no longer covers the release version.
  */
 export const transitionSkillCompatibility = (
   current: AxmSkillCompatibilityDeclaration,
   releaseVersion: string,
 ): AxmSkillCompatibilityDeclaration => {
   requireCompatibleSkillDeclaration(current.cliVersion, current, "current AXM skill");
+  const currentMinorBand = minorBandRange(current.cliVersion);
   const next = {
     cliVersion: releaseVersion,
     cliVersionRange:
-      current.cliVersionRange === current.cliVersion
+      current.cliVersionRange === current.cliVersion || current.cliVersionRange === currentMinorBand
         ? minorBandRange(releaseVersion)
         : current.cliVersionRange,
   } satisfies AxmSkillCompatibilityDeclaration;

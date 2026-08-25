@@ -5,7 +5,10 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
+import {
+  acquiredExtensionDisplayPathFromLockEntry,
+  buildUninstallOperation,
+} from "@agentxm/client-core/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
@@ -20,7 +23,7 @@ import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-c
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {
-  workspaceCanonicalPath,
+  workspaceCanonicalRoot,
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
@@ -40,10 +43,12 @@ const hookUninstallArtifactTargets = (
   scope: JobStepArtifact["scope"],
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (Option.isNone(entry)) return [];
-  const sourcePath =
-    entry.value.type === "registry"
-      ? workspaceCanonicalPath(scope, `${entry.value.owner}/hooks/${entry.value.name}`)
-      : workspaceCanonicalPath(scope, `external/hooks/${targetName}`);
+  const sourcePath = acquiredExtensionDisplayPathFromLockEntry(
+    workspaceCanonicalRoot(scope),
+    entry.value,
+    "hooks",
+    targetName,
+  );
   return [
     { path: workspaceLockfilePath(scope), change: "updated" },
     { path: workspaceSettingsPath(scope), change: "updated" },

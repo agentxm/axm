@@ -76,11 +76,7 @@ export {
   SUBAGENT_CONFIG_SURFACE,
   renderedSubagentTargets,
   subagentConfigTarget,
-  subagentContentSourcePath,
   subagentLifecycleArtifact,
-  subagentManifestSourcePath,
-  subagentScaffoldArtifact,
-  subagentSourcePath,
 } from "./operations/artifact.js";
 export type { EnableSubagentOperation } from "./operations/enable.js";
 export { enableSubagent } from "./operations/enable.js";

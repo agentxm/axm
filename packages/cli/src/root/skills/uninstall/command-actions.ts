@@ -24,13 +24,18 @@ import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "@agentxm/client-core/unstable/skills";
-import { buildUninstallOperation, sanitizeName } from "@agentxm/client-core/unstable/extensions";
+import {
+  acquiredExtensionDisplayPathFromLockEntry,
+  buildUninstallOperation,
+  sanitizeName,
+} from "@agentxm/client-core/unstable/extensions";
 import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import {
   workspaceAuthoredPath,
   workspaceCanonicalPath,
+  workspaceCanonicalRoot,
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
@@ -91,19 +96,18 @@ const skillSourceTarget = (
   }
   if (Option.isSome(lockEntry)) {
     const entry = lockEntry.value;
-    if (entry.type === "registry") {
-      return {
-        path: workspaceCanonicalPath(ws.scope, `${entry.owner}/skills/${entry.name}`),
-        change: "removed",
-      };
-    }
     return {
-      path: workspaceCanonicalPath(ws.scope, `${entry.packageOwner}/skills/${entry.packageName}`),
+      path: acquiredExtensionDisplayPathFromLockEntry(
+        workspaceCanonicalRoot(ws.scope),
+        entry,
+        "skills",
+        entry.workspaceName,
+      ),
       change: "removed",
     };
   }
   return {
-    path: workspaceCanonicalPath(ws.scope, `external/skills/${sanitizedName}`),
+    path: workspaceCanonicalPath(ws.scope, sanitizedName),
     change: "removed",
   };
 };

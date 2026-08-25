@@ -64,7 +64,7 @@ const initWorkspace = (
     hooks: opts.hooks,
     rules: opts.rules,
     knowledge: opts.knowledge,
-    sources: [{ type: "registry", name: "local", location: "file:///tmp/test-registry" }],
+    sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
     lockfileSkills: opts.lockfileSkills,
     lockfileHooks: opts.lockfileHooks,
     lockfileRules: opts.lockfileRules,
@@ -81,7 +81,14 @@ const initWorkspace = (
       const version = typeof raw["resolvedVersion"] === "string" ? raw["resolvedVersion"] : "1.0.0";
       const plural = type === "knowledge" ? "knowledge" : `${type}s`;
       const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
-      const packageDir = path.join(projectRoot, "agent_extensions", owner, plural, packageName);
+      const packageDir = path.join(
+        projectRoot,
+        "agent_extensions",
+        "agentxm",
+        owner,
+        plural,
+        packageName,
+      );
       fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
       const extras =
         type === "hook"
@@ -116,10 +123,21 @@ const initWorkspace = (
         const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
         const plural = type === "knowledge" ? "knowledge" : `${type}s`;
         const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
-        const packageDir = path.join(projectRoot, "agent_extensions", owner, plural, packageName);
+        const packageDir = path.join(
+          projectRoot,
+          "agent_extensions",
+          "agentxm",
+          owner,
+          plural,
+          packageName,
+        );
         return [
           workspaceName,
-          { ...raw, treeIntegrity: computeMaterializedTreeIntegritySync(packageDir) },
+          {
+            ...raw,
+            ...(raw["type"] === "registry" ? { endpoint: "file:///tmp/test-registry" } : {}),
+            treeIntegrity: computeMaterializedTreeIntegritySync(packageDir),
+          },
         ];
       }),
     );
@@ -133,7 +151,7 @@ const initWorkspace = (
     hooks: opts.hooks,
     rules: opts.rules,
     knowledge: opts.knowledge,
-    sources: [{ type: "registry", name: "local", location: "file:///tmp/test-registry" }],
+    sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
     lockfileSkills: withTreeIntegrity("skill", opts.lockfileSkills),
     lockfileHooks: withTreeIntegrity("hook", opts.lockfileHooks),
     lockfileRules: withTreeIntegrity("rule", opts.lockfileRules),
@@ -148,7 +166,7 @@ const registryLockEntry = (name: string, version: string) => ({
   name,
   resolvedVersion: version,
   integrity: "sha512-AAAA==",
-  sourceName: "local",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   installedAt: "2025-01-01T00:00:00.000Z",
   updatedAt: "2025-01-01T00:00:00.000Z",
@@ -233,7 +251,7 @@ describe("packs-add.handler", () => {
           owner: handle("@acme"),
           name: extensionName("review"),
           resolvedVersion: exactVersion("1.2.3"),
-          sourceName: "local",
+          sourceName: "agentxm",
           publisherBindingId: "hbnd_test",
         }),
       },
@@ -266,7 +284,7 @@ describe("packs-add.handler", () => {
           owner: handle("@acme"),
           name: extensionName("review"),
           resolvedVersion: exactVersion(version),
-          sourceName: "local",
+          sourceName: "agentxm",
           publisherBindingId: "hbnd_test",
         }),
       },
@@ -296,7 +314,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -456,7 +474,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("shared-review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -489,7 +507,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -521,7 +539,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("review"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -553,7 +571,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -592,21 +610,21 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("effect-basics"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
           "effect-streams": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("effect-streams"),
             resolvedVersion: exactVersion("2.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
           "other-skill": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("other-skill"),
             resolvedVersion: exactVersion("3.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -637,7 +655,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("some-skill"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -719,14 +737,14 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("skill-a"),
             resolvedVersion: exactVersion("1.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
           "skill-b": makeRegistrySkillLockEntry({
             owner: handle("@acme"),
             name: extensionName("skill-b"),
             resolvedVersion: exactVersion("2.0.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -762,7 +780,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },
@@ -801,7 +819,7 @@ describe("packs-add.handler", () => {
             owner: handle("@acme"),
             name: extensionName("code-review"),
             resolvedVersion: exactVersion("1.2.0"),
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
           }),
         },

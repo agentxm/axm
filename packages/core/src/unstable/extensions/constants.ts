@@ -5,4 +5,3 @@
  */
 
 export const REGISTRY_EXTENSIONS_DIR = "agent_extensions";
-export const EXTERNAL_EXTENSIONS_DIR = "agent_extensions/external";

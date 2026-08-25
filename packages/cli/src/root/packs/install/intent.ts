@@ -19,6 +19,8 @@ export interface InstallPackCommandIntent {
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
   /** Immutable dependency authority supplied by deterministic recovery workflows. */
   readonly dependencyResolver?: PackDependencyRefResolver;
+  /** Render shared aggregate projections after a larger enclosing transition. */
+  readonly deferProjections?: boolean;
   /**
    * Reacquire the Pack's canonical content instead of reusing the installed
    * tree. Recovery sets this because the observed tree already diverged from

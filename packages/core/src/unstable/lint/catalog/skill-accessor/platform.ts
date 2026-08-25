@@ -5,10 +5,8 @@
  * the caller-supplied skill-root directory. Layout conventions per
  * the lint design "Skill accessor root":
  *
- * - **Native (registry-installed):**
- *   `<workspaceRoot>/.axm/extensions/<@owner>/skills/<sanitized-name>/src/`
- * - **Non-native (managed external):**
- *   `<workspaceRoot>/.axm/extensions/external/skills/<sanitized-name>/`
+ * - **Native acquired package:** the source-qualified package's `src/` directory.
+ * - **Portable Agent Skill:** the source-qualified selected package directory.
  *
  * The accessor is provenance-agnostic — rules see one uniform contract and
  * never branch on native-vs-non-native. The caller (`buildSkillRuleContexts`
@@ -53,8 +51,8 @@ type ResolveResult =
  * Build a platform-backed `SkillFileAccessor` rooted at `absoluteRoot`.
  *
  * `absoluteRoot` SHOULD be the absolute path to the skill root directory
- * (either `.../src/` for native, or `.../external/skills/<name>/` for
- * non-native). The caller typically sources it from `computeSkillPaths` in
+ * (either `.../src/` for native, or the selected package directory for a
+ * portable Agent Skill). The caller typically sources it from `computeSkillPaths` in
  * `../../../skills/paths.ts`.
  *
  * @experimental This API is unstable and may change without notice.

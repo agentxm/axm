@@ -43,6 +43,9 @@ export const buildSubagentLockEntry = (
       return {
         ...gitSourceLockFields(
           ref.source,
+          "subagent",
+          ref.subagent.name,
+          Option.fromUndefinedOr(ref.sourcePath),
           ref.gitCommitSha,
           ref.gitTreeSha,
           contentIdentity,
@@ -55,6 +58,11 @@ export const buildSubagentLockEntry = (
     case "local":
       return {
         type: "local",
+        sourceType: "local",
+        sourceName: "local",
+        extensionType: "subagent",
+        workspaceName: ref.subagent.name,
+        packageFormat: "agentxm",
         packageOwner: ref.owner,
         packageName: ref.name,
         path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
@@ -65,11 +73,16 @@ export const buildSubagentLockEntry = (
     case "registry":
       return {
         type: "registry",
+        sourceType: "registry",
+        packageFormat: "agentxm",
+        endpoint: ref.source.location,
+        extensionType: "subagent",
+        workspaceName: ref.subagent.name,
         owner: ref.owner,
         name: ref.subagent.name,
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
-        sourceName: "default",
+        sourceName: ref.source.name,
         publisherBindingId: ref.publisherBindingId,
         treeIntegrity,
       };

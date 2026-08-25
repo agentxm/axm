@@ -56,11 +56,16 @@ const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNo
 
 const resolution = {
   type: "registry",
+  sourceType: "registry",
+  sourceName: "agentxm",
+  endpoint: "https://registry.agentxm.ai",
+  extensionType: "skill",
+  workspaceName: "my-skill",
+  packageFormat: "agentxm",
   owner: "@examples",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-stub",
-  sourceName: "default",
   publisherBindingId: "hbnd_test",
   treeIntegrity,
 };
@@ -71,7 +76,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 5, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 6, skills: { "my-skill": resolution } };
   return state;
 };
 
@@ -79,7 +84,8 @@ describe("workspace/skills-integrity-valid", () => {
   it.effect("accepts present canonical content for a desired accepted resolution", () =>
     Effect.gen(function* () {
       const state = stateWithDesiredSkill();
-      state.existingPaths.add("agent_extensions/@examples/skills/my-skill/src/SKILL.md");
+      state.existingPaths.add("agent_extensions/agentxm/@examples/skills/my-skill/src/SKILL.md");
+      state.existingPaths.add("agent_extensions/agentxm/@examples/skills/my-skill/skill.json");
 
       expect(yield* runCheck(state, [desired])).toEqual([]);
     }),
@@ -111,7 +117,7 @@ describe("workspace/skills-integrity-valid", () => {
         agents: ["claude-code"],
         skills: { draft: "workspace:@examples/skills/draft" },
       };
-      state.lockfile = { lockfileVersion: 5, skills: {} };
+      state.lockfile = { lockfileVersion: 6, skills: {} };
 
       expect(yield* runCheck(state, [])).toEqual([]);
     }),

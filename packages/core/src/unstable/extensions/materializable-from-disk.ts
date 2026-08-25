@@ -22,6 +22,7 @@ import type { WorkspaceLayout } from "../workspace/layout.js";
 import { enabledConfiguredEntries } from "./configured-entry.js";
 import { decodeExtensionNameSync } from "./common.js";
 import { decodeHandleSync } from "./handle.js";
+import { stripFileProtocol } from "../utils/fs-helpers.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
@@ -85,8 +86,8 @@ export const configuredSkillsToDiskRefs = (
         const packageName = decodeExtensionNameSync(settingsName);
         const packageRoot =
           env.layout.scope === "project"
-            ? env.path.join(env.layout.acquiredRoot, owner, "skills", settingsName)
-            : env.path.join(env.layout.canonicalRoot, owner, "skills", settingsName);
+            ? env.path.join(env.layout.acquiredRoot, "agentxm", owner, "skills", settingsName)
+            : env.path.join(env.layout.canonicalRoot, "agentxm", owner, "skills", settingsName);
         return resolveWorkspaceExtensionRef({
           settingsName,
           source: "workspace",
@@ -124,48 +125,32 @@ export const configuredSkillsToDiskRefs = (
         return Effect.succeed(Option.none<SkillExtensionRef>());
       }
 
-      const skillFile =
-        env.layout.scope === "project"
-          ? env.path.join(
-              env.layout.acquiredRoot,
-              lockEntry.packageOwner,
-              "skills",
-              lockEntry.packageName,
-              "src",
-              "SKILL.md",
-            )
-          : env.path.join(
-              env.layout.canonicalRoot,
-              "external",
-              "skills",
-              lockEntry.packageName,
-              "SKILL.md",
-            );
-      return env.fs.exists(skillFile).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to inspect canonical skill content for "${settingsName}"`,
-            cause,
-          }),
-        ),
-        Effect.flatMap((exists) =>
-          exists
-            ? skillLockEntryToRef(settingsName, lockEntry, {
-                baseDir: env.baseDir,
-                path: env.path,
-                scope: env.scope,
-                getConfiguredSources: accepted.getConfiguredSources,
-                getConfiguredSourceByName: accepted.getConfiguredSourceByName,
-              }).pipe(
-                Effect.map((ref) =>
-                  ref.refType === "git-hosted"
-                    ? Option.some(ref)
-                    : Option.none<SkillExtensionRef>(),
-                ),
-              )
-            : Effect.succeed(Option.none<SkillExtensionRef>()),
-        ),
+      return skillLockEntryToRef(settingsName, lockEntry, {
+        baseDir: env.baseDir,
+        path: env.path,
+        scope: env.scope,
+        getConfiguredSourceByName: accepted.getConfiguredSourceByName,
+      }).pipe(
+        Effect.flatMap((ref) => {
+          if (ref.refType !== "git-hosted") {
+            return Effect.succeed(Option.none<SkillExtensionRef>());
+          }
+          const skillFile = env.path.join(
+            stripFileProtocol(ref.location),
+            ...(ref.portable === true ? [] : ["src"]),
+            "SKILL.md",
+          );
+          return env.fs.exists(skillFile).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to inspect canonical skill content for "${settingsName}"`,
+                cause,
+              }),
+            ),
+            Effect.map((exists) => (exists ? Option.some(ref) : Option.none<SkillExtensionRef>())),
+          );
+        }),
       );
     },
     { concurrency: "unbounded" },

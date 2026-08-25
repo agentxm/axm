@@ -45,15 +45,27 @@ describe("actual cells never fail", () => {
       // while enumerating one owner's skill packages, leaving the other owner
       // readable. The first read lets directory classification succeed; the
       // second exercises the scanner's warning-producing enumeration path.
-      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/.axm/extensions/@unreadable/skills`;
+      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/agentxm/@unreadable/skills`;
 
       const spec: FixtureSpec = {
         workspaceRoot: SCENARIO_WORKSPACE_ROOT,
         userHome: SCENARIO_USER_HOME,
         project: {
           axmExtensions: {
-            "@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
-            "@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
+            "agentxm/@readable/skills/readable-skill/skill.json": JSON.stringify({
+              owner: "@readable",
+              type: "skill",
+              name: "readable-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
+            "agentxm/@unreadable/skills/unreadable-skill/skill.json": JSON.stringify({
+              owner: "@unreadable",
+              type: "skill",
+              name: "unreadable-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
           },
         },
       };

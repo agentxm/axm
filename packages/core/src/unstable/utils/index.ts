@@ -13,11 +13,7 @@ export {
   type BuildZipArchiveOptions,
   type PlannedZipArchive,
 } from "./build-zip-archive.js";
-export {
-  removeIfExists,
-  removeFromAllCanonicalLocations,
-  stripFileProtocol,
-} from "./fs-helpers.js";
+export { removeIfExists, stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
 export { isPathSafe, safeChildPath } from "./path-safety.js";
 export {

@@ -128,7 +128,7 @@ const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.
 const configureRegistry = (workspacePath: string, location: string) => {
   const settingsPath = settingsPathIn(workspacePath);
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location }];
+  settings.sources = [{ name: "agentxm", type: "registry", location }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -408,7 +408,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterUpdate).toMatchObject({
-        skills: { review: `${OWNER}/skills/review` },
+        skills: { review: `agentxm:${OWNER}/skills/review` },
       });
 
       const secondRun = await runCli(
@@ -421,7 +421,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterSecondRun).toMatchObject({
-        skills: { review: `${OWNER}/skills/review` },
+        skills: { review: `agentxm:${OWNER}/skills/review` },
       });
     } finally {
       publisher.cleanup();
@@ -969,7 +969,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, "agent_extensions", OWNER, "skills", name);
+        path.join(workspacePath, "agent_extensions", "agentxm", OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),

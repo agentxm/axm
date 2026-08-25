@@ -30,6 +30,12 @@ describe("extension list assessment", () => {
     Effect.gen(function* () {
       const accepted = {
         type: "github" as const,
+        sourceType: "github" as const,
+        sourceName: "github",
+        endpoint: new URL("https://github.com"),
+        extensionType: "skill" as const,
+        workspaceName: decodeExtensionNameSync("review"),
+        packageFormat: "agentxm" as const,
         packageOwner: handle("@acme"),
         packageName: decodeExtensionNameSync("review"),
         owner: "acme",
@@ -57,6 +63,7 @@ describe("extension list assessment", () => {
         },
         source: {
           type: "github",
+          name: "github",
           url: new URL("https://github.com"),
           owner: "acme",
           repo: "extensions",

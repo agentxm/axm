@@ -48,6 +48,7 @@ const makeLocalSubagentRef = (
   },
   source: { type: "local", path: sourcePath },
   location: `file://${sourcePath}`,
+  sourcePath: `sources/${name}`,
   ...(fallback === undefined ? {} : { fallback }),
 });
 
@@ -166,6 +167,11 @@ describe("SubagentManager", () => {
                 Effect.succeed({
                   planner: {
                     type: "local",
+                    sourceType: "local",
+                    sourceName: "local",
+                    extensionType: "subagent",
+                    workspaceName: extensionName("planner"),
+                    packageFormat: "agentxm",
                     packageOwner: handle("@acme"),
                     packageName: extensionName("planner"),
                     path: decodeRelativePathSync("test"),
@@ -329,7 +335,7 @@ describe("SubagentManager", () => {
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
         expect(addSubagentCalls[0]?.editSourcePath).toBe(
-          "agent_extensions/@acme/subagents/planner/src/planner.md",
+          "agent_extensions/local/sources/planner/src/planner.md",
         );
         expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
@@ -384,9 +390,14 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
+                    sourceType: "local",
+                    sourceName: "local",
+                    extensionType: "subagent",
+                    workspaceName: extensionName("planner"),
+                    packageFormat: "agentxm",
                     packageOwner: handle("@acme"),
                     packageName: extensionName("planner"),
-                    path: decodeRelativePathSync("source/planner"),
+                    path: decodeRelativePathSync("sources/planner"),
                     contentIdentity: TEST_CONTENT_IDENTITY,
                     treeIntegrity: TEST_TREE_INTEGRITY,
                   } satisfies SubagentLockEntry),
@@ -540,6 +551,11 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
+                    sourceType: "local",
+                    sourceName: "local",
+                    extensionType: "subagent",
+                    workspaceName: extensionName("planner"),
+                    packageFormat: "agentxm",
                     packageOwner: handle("@acme"),
                     packageName: extensionName("planner"),
                     path: decodeRelativePathSync("tmp/source/planner"),
@@ -560,6 +576,7 @@ describe("SubagentManager", () => {
         tmpDir,
         "project",
         "agent_extensions",
+        "agentxm",
         "@test",
         "subagents",
         "planner",
@@ -598,11 +615,16 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "registry",
+                    sourceType: "registry",
+                    packageFormat: "agentxm",
+                    endpoint: new URL("https://registry.agentxm.ai"),
+                    extensionType: "subagent",
+                    workspaceName: extensionName("planner"),
                     owner: handle("@test"),
                     name: extensionName("planner"),
                     resolvedVersion: exactVersion("1.0.0"),
                     integrity: "sha512-test",
-                    sourceName: "registry",
+                    sourceName: "agentxm",
                     publisherBindingId: "hbnd_test",
                     treeIntegrity: TEST_TREE_INTEGRITY,
                   } satisfies SubagentLockEntry),

@@ -212,7 +212,7 @@ const writeInstalledPackManifest = ({
   readonly name: string;
   readonly dependencies: Record<string, string>;
 }) => {
-  const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
+  const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, "local-reg", owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, PACK_MANIFEST_FILENAME),
@@ -366,7 +366,7 @@ describe("update.handler — error recovery", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
         "my-skill": { source: "@acme/skills/my-skill", enabled: false },
       },
       skillLocks: {
@@ -451,7 +451,7 @@ describe("update.handler — error recovery", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
       },
       skillLocks: {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
@@ -489,7 +489,7 @@ describe("update.handler — error recovery", () => {
           location: pathToFileURL(registryRoot).href,
         },
       ],
-      skills: { "code-review": "@acme/skills/code-review" },
+      skills: { "code-review": "local-reg:@acme/skills/code-review" },
       skillLocks: {
         "code-review": makeRegistryLockEntry(
           "@acme",
@@ -532,7 +532,7 @@ describe("update.handler — error recovery", () => {
           location: pathToFileURL(registryRoot).href,
         },
       ],
-      skills: { "code-review": "@acme/skills/code-review" },
+      skills: { "code-review": "local-reg:@acme/skills/code-review" },
       skillLocks: {
         "code-review": makeRegistryLockEntry(
           "@acme",
@@ -575,7 +575,7 @@ describe("update.handler — error recovery", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
       },
       skillLocks: {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
@@ -621,7 +621,7 @@ describe("update.handler — error recovery", () => {
           },
         ],
         skills: {
-          "code-review": "@acme/skills/code-review@^1.0.0",
+          "code-review": "local-reg:@acme/skills/code-review@^1.0.0",
         },
         skillLocks: {
           "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
@@ -637,7 +637,7 @@ describe("update.handler — error recovery", () => {
             "Expected settings object",
           );
           const skills = expectRecord(settings["skills"], "Expected settings.skills");
-          expect(skills["code-review"]).toBe("@acme/skills/code-review@^1.0.0");
+          expect(skills["code-review"]).toBe("local-reg:@acme/skills/code-review@^1.0.0");
 
           const lockfile = expectRecord(
             YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
@@ -686,7 +686,7 @@ describe("update.handler — error recovery", () => {
           location: pathToFileURL(registryRoot).href,
         },
       ],
-      skills: { axm: "@agentxm/skills/axm" },
+      skills: { axm: "local-reg:@agentxm/skills/axm" },
       skillLocks: {
         axm: makeRegistryLockEntry("@agentxm", "axm", "0.0.0"),
       },
@@ -739,10 +739,10 @@ describe("update.handler — error recovery", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
       },
       packs: {
-        "frontend-pack": "@acme/packs/frontend-pack",
+        "frontend-pack": "local-reg:@acme/packs/frontend-pack",
       },
       skillLocks: {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
@@ -862,7 +862,7 @@ describe("update.handler — preview flag", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review@^1.0.0",
+        "code-review": "local-reg:@acme/skills/code-review@^1.0.0",
       },
       skillLocks: {
         "code-review": makeRegistryLockEntry("@acme", "code-review", "1.0.0"),
@@ -891,7 +891,7 @@ describe("update.handler — preview flag", () => {
           "Expected settings object",
         );
         const skills = expectRecord(settings["skills"], "Expected settings.skills");
-        expect(skills["code-review"]).toBe("@acme/skills/code-review@^1.0.0");
+        expect(skills["code-review"]).toBe("local-reg:@acme/skills/code-review@^1.0.0");
 
         // Preview outcome should be displayed
         expect(logs.info.some((m) => m.includes("Would update 1 skill"))).toBe(true);
@@ -931,7 +931,7 @@ describe("update.handler — preview flag", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
         testing: "@acme/skills/testing",
       },
       skillLocks: {
@@ -989,7 +989,7 @@ describe("update.handler — preview flag", () => {
         },
       ],
       skills: {
-        "code-review": "@acme/skills/code-review",
+        "code-review": "local-reg:@acme/skills/code-review",
         missing: "@acme/skills/missing",
       },
       skillLocks: {

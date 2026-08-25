@@ -45,7 +45,7 @@ describe("buildSkillRuleContexts", () => {
       {
         isNative: false,
         skillJson: undefined,
-        displayRoot: ".axm/extensions/external/skills/b",
+        displayRoot: ".axm/extensions/github/acme/extensions/skills/b",
         files: absentAccessor,
         packageFiles: absentAccessor,
       },
@@ -68,7 +68,7 @@ describe("buildSkillRuleContexts", () => {
 
     expect(contexts[1]?.subject.isNative).toBe(false);
     expect(contexts[1]?.subject.skillJson).toBeUndefined();
-    expect(contexts[1]?.displayRoot).toBe(".axm/extensions/external/skills/b");
+    expect(contexts[1]?.displayRoot).toBe(".axm/extensions/github/acme/extensions/skills/b");
     expect(contexts[1]?.files).toBe(absentAccessor);
     expect(contexts[1]?.packageFiles).toBe(absentAccessor);
   });

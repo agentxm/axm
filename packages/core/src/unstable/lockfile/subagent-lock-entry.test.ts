@@ -11,6 +11,11 @@ const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
 
 const localEntry = {
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "subagent",
+  workspaceName: "planner",
+  packageFormat: "agentxm",
   packageOwner: "@acme",
   packageName: "planner",
   path: "../subagents/planner",
@@ -24,6 +29,12 @@ describe("Subagent accepted resolutions", () => {
     expect(
       Schema.decodeUnknownSync(SubagentLockEntrySchema)({
         type: "github",
+        sourceType: "github",
+        sourceName: "github",
+        endpoint: "https://github.com",
+        extensionType: "subagent",
+        workspaceName: "planner",
+        packageFormat: "agentxm",
         packageOwner: "@acme",
         packageName: "planner",
         owner: "acme",
@@ -55,7 +66,7 @@ describe("Subagent accepted resolutions", () => {
   it("decodes a current lockfile with Subagent external resolution state", () => {
     expect(
       Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: {},
         subagents: {
           planner: localEntry,

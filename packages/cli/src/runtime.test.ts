@@ -8,7 +8,27 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { makeCliLoggerLayer, resolveBuiltInRegistryLocation, withAxmUserAgent } from "./runtime.js";
+import {
+  getBuiltInSources,
+  makeCliLoggerLayer,
+  resolveBuiltInRegistryLocation,
+  withAxmUserAgent,
+} from "./runtime.js";
+
+describe("getBuiltInSources", () => {
+  it("defines exactly the four accepted built-in source names and types", () => {
+    expect(getBuiltInSources("https://registry.agentxm.ai")).toEqual([
+      {
+        name: "agentxm",
+        type: "registry",
+        location: new URL("https://registry.agentxm.ai"),
+      },
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+      { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
+    ]);
+  });
+});
 
 describe("resolveBuiltInRegistryLocation", () => {
   it("prefers AXM_REGISTRY_LOCATION when set to a remote URL", () => {

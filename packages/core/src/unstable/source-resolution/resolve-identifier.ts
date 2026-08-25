@@ -13,7 +13,7 @@ import {
   extensionTypePluralSentenceLabels,
   formatFqn,
   parseExtensionFqnParts,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionTypePlural,
   type ExtensionName,
   type ExtensionType,
@@ -38,6 +38,7 @@ export interface ResolvedIdentifier {
   readonly fqn: string;
   readonly installedName: Option.Option<string>;
   readonly registryLocation: Option.Option<URL>;
+  readonly registrySourceName: Option.Option<string>;
   readonly source: "installed" | "registry" | "passthrough";
 }
 
@@ -45,6 +46,7 @@ export interface ResolveIdentifierArgs {
   readonly input: string;
   readonly resourceType: IdentifierResourceType;
   readonly scope: IdentifierResolutionScope;
+  readonly registrySourceName: string;
 }
 
 interface IdentifierCandidate {
@@ -54,6 +56,7 @@ interface IdentifierCandidate {
   readonly fqn: string;
   readonly installedName: Option.Option<string>;
   readonly registryLocation: Option.Option<URL>;
+  readonly registrySourceName: Option.Option<string>;
   readonly source: "installed" | "registry";
 }
 
@@ -93,6 +96,7 @@ const makeCandidate = (
   fqn: formatFqn(parts),
   installedName,
   registryLocation: Option.none(),
+  registrySourceName: Option.none(),
   source,
 });
 
@@ -100,7 +104,7 @@ const configuredSourceParts = (
   resourceType: IdentifierResourceType,
   source: string,
 ): Option.Option<IdentifierParts> => {
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parsed === undefined || parsed.name === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== toExtensionTypePlural(resourceType)) {
     return Option.none();
@@ -201,6 +205,7 @@ const installedCandidates = (
           fqn: node.name,
           installedName: Option.some(node.name),
           registryLocation: Option.none(),
+          registrySourceName: Option.none(),
           source: "installed",
         });
       }
@@ -212,6 +217,7 @@ const installedCandidates = (
 const registryCandidates = (
   input: string,
   resourceType: IdentifierResourceType,
+  registrySourceName: string,
 ): Effect.Effect<
   ReadonlyArray<IdentifierCandidate>,
   AppError,
@@ -220,7 +226,9 @@ const registryCandidates = (
   Effect.gen(function* () {
     const name = yield* decodeName(input);
     const ws = yield* WorkspaceMutations;
-    const registrySources = yield* ws.getRegistrySourceHosts();
+    const registrySources = (yield* ws.getRegistrySourceHosts()).filter(
+      (source) => source.name === registrySourceName,
+    );
 
     const results = yield* Effect.forEach(
       registrySources,
@@ -249,6 +257,7 @@ const registryCandidates = (
               "registry",
             ),
             registryLocation: Option.some(sourceConfig.location),
+            registrySourceName: Option.some(sourceConfig.name),
           }));
         }).pipe(Effect.result),
       { concurrency: "unbounded" },
@@ -311,6 +320,7 @@ const resolveFromCandidates = (
       fqn: candidate.fqn,
       installedName: candidate.installedName,
       registryLocation: candidate.registryLocation,
+      registrySourceName: candidate.registrySourceName,
       source: candidate.source,
     } satisfies ResolvedIdentifier;
   });
@@ -350,6 +360,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
         fqn: formatFqn(parsed),
         installedName: Option.some(parsed.name),
         registryLocation: Option.none(),
+        registrySourceName: Option.some(args.registrySourceName),
         source: "passthrough" as const,
       } satisfies ResolvedIdentifier;
     }
@@ -360,7 +371,11 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
         return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
       }
       case "registry": {
-        const candidates = yield* registryCandidates(trimmed, args.resourceType);
+        const candidates = yield* registryCandidates(
+          trimmed,
+          args.resourceType,
+          args.registrySourceName,
+        );
         return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
       }
       case "both": {
@@ -368,7 +383,11 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
         if (installed.length > 0) {
           return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", installed);
         }
-        const registry = yield* registryCandidates(trimmed, args.resourceType);
+        const registry = yield* registryCandidates(
+          trimmed,
+          args.resourceType,
+          args.registrySourceName,
+        );
         return yield* resolveFromCandidates(trimmed, args.resourceType, "registry", registry);
       }
     }

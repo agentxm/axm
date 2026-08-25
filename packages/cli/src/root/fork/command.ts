@@ -36,7 +36,7 @@ import {
   forkExtensionPackage,
   fqnInvalidErrorToAppError,
   parseFqn,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   preflightCreateOnly,
   recoverCanonicalDirectory,
   type ExtensionFqnParts,
@@ -75,7 +75,7 @@ const filterForSource = (
       Effect.map(exactFilter),
     );
   }
-  const registry = parseRegistrySourcePatternParts(sourceInput);
+  const registry = parseSourceQualifiedRegistrySourcePatternParts(sourceInput);
   if (registry?.type !== undefined && registry.name !== undefined) {
     return Effect.succeed({
       names: [registry.name],

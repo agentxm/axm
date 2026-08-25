@@ -4,7 +4,7 @@
  * The lockfile (axm-lock.yaml) records accepted immutable resolutions for
  * externally sourced extensions.
  *
- * Lockfile v4 is authority, not receipt history. It contains no authored,
+ * Lockfile v6 is authority, not receipt history. It contains no authored,
  * bundled, inline, projection, completion-time, or command-history state.
  *
  * @experimental This API is unstable and may change without notice.
@@ -23,7 +23,7 @@ import {
   SourceSubPathSchema,
 } from "../sources/types.js";
 
-export const LOCKFILE_VERSION = 5;
+export const LOCKFILE_VERSION = 6;
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -49,11 +49,27 @@ const LocalSourceLockPathSchema = Schema.String.pipe(
  *
  * Used to produce lock-entry schemas with feature-specific shared fields.
  */
-const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
+const makeSourceLockUnion = <
+  TExtensionType extends CatalogExtensionType,
+  TPackageOwner extends Schema.Top,
+  TPackageFormat extends Schema.Top,
+  F extends Schema.Struct.Fields,
+>(
+  extensionType: TExtensionType,
+  packageOwner: TPackageOwner,
+  packageFormat: TPackageFormat,
+  extraFields: F,
+) =>
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("github"),
+      sourceName: Schema.String,
+      endpoint: Schema.URLFromString,
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
@@ -67,7 +83,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("gitlab"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("gitlab"),
+      sourceName: Schema.String,
+      endpoint: Schema.URLFromString,
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
@@ -81,7 +103,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("bitbucket"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("bitbucket"),
+      sourceName: Schema.String,
+      endpoint: Schema.URLFromString,
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
@@ -95,7 +123,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("azurerepos"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("azurerepos"),
+      sourceName: Schema.String,
+      endpoint: Schema.URLFromString,
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       organization: SourceSegmentSchema,
       project: SourceSegmentSchema,
@@ -110,7 +144,12 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("git"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("git"),
+      sourceName: Schema.Literal("git"),
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       url: Schema.String,
       ref: Schema.optional(SourceRefSchema),
@@ -123,7 +162,12 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("local"),
-      packageOwner: HandleSchema,
+      sourceType: Schema.Literal("local"),
+      sourceName: Schema.Literal("local"),
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat,
+      packageOwner,
       packageName: ExtensionNameSchema,
       path: LocalSourceLockPathSchema,
       contentIdentity: SourceHashSchema,
@@ -132,6 +176,11 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
     }),
     Schema.Struct({
       type: Schema.Literal("registry"),
+      sourceType: Schema.Literal("registry"),
+      endpoint: Schema.URLFromString,
+      extensionType: Schema.Literal(extensionType),
+      workspaceName: ExtensionNameSchema,
+      packageFormat: Schema.Literal("agentxm"),
       owner: HandleSchema,
       name: ExtensionNameSchema,
       resolvedVersion: VersionSchema,
@@ -164,7 +213,12 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = makeSourceLockUnion({});
+export const SkillLockEntrySchema = makeSourceLockUnion(
+  "skill",
+  Schema.optional(HandleSchema),
+  Schema.Literals(["agentxm", "agent-skill"]),
+  {},
+);
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -207,7 +261,12 @@ export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentLockEntrySchema = makeSourceLockUnion({});
+export const SubagentLockEntrySchema = makeSourceLockUnion(
+  "subagent",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {},
+);
 
 /**
  * Inferred type for SubagentLockEntry schema.
@@ -249,7 +308,12 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerLockEntrySchema = makeSourceLockUnion({});
+export const McpServerLockEntrySchema = makeSourceLockUnion(
+  "mcp-server",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {},
+);
 
 /**
  * Inferred type for McpServerLockEntry schema.
@@ -292,7 +356,12 @@ export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchem
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion({});
+export const RuleLockEntrySchema = makeSourceLockUnion(
+  "rule",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {},
+);
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -318,7 +387,12 @@ export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion({});
+export const HookLockEntrySchema = makeSourceLockUnion(
+  "hook",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {},
+);
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -344,7 +418,12 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const KnowledgeLockEntrySchema = makeSourceLockUnion({});
+export const KnowledgeLockEntrySchema = makeSourceLockUnion(
+  "knowledge",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {},
+);
 
 export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
 export const KnowledgeLockMapSchema = Schema.Record(Schema.String, KnowledgeLockEntrySchema);
@@ -361,6 +440,11 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
  */
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
+  sourceType: Schema.Literal("registry"),
+  endpoint: Schema.URLFromString,
+  extensionType: Schema.Literal("pack"),
+  workspaceName: ExtensionNameSchema,
+  packageFormat: Schema.Literal("agentxm"),
   owner: HandleSchema,
   name: ExtensionNameSchema,
   resolvedVersion: VersionSchema,
@@ -473,7 +557,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 3)
+ * - lockfileVersion: Schema version (currently 6)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *

@@ -21,6 +21,7 @@ import {
 
 const registrySource = {
   type: "registry" as const,
+  name: "agentxm",
   location: new URL("https://registry.agentxm.ai"),
   owner: Option.none(),
 };

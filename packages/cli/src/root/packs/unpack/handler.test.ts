@@ -65,7 +65,7 @@ const initWorkspace = (
   writeWorkspaceFiles(axmDir, {
     owner: "@test",
     agents: ["claude-code"],
-    sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
+    sources: [{ name: "agentxm", type: "registry", location: "file:///tmp/test-registry" }],
     skills: options.skills,
     mcps: options.mcps,
     packs: options.packs,
@@ -83,7 +83,15 @@ const createCanonicalDirs = (
   },
 ) => {
   for (const skill of opts.skills ?? []) {
-    const srcDir = path.join(baseDir, "agent_extensions", skill.owner, "skills", skill.name, "src");
+    const srcDir = path.join(
+      baseDir,
+      "agent_extensions",
+      "agentxm",
+      skill.owner,
+      "skills",
+      skill.name,
+      "src",
+    );
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(
       path.join(path.dirname(srcDir), "skill.json"),
@@ -100,7 +108,7 @@ const createCanonicalDirs = (
     );
   }
   for (const srv of opts.mcpServers ?? []) {
-    const srvDir = path.join(baseDir, "agent_extensions", srv.owner, "mcps", srv.name);
+    const srvDir = path.join(baseDir, "agent_extensions", "agentxm", srv.owner, "mcps", srv.name);
     fs.mkdirSync(srvDir, { recursive: true });
     fs.writeFileSync(path.join(srvDir, "server.js"), "module.exports = {}");
   }
@@ -119,7 +127,14 @@ const createCanonicalDirs = (
       ...Object.fromEntries(
         entries.map((entry) => {
           const current = expectRecord(locked[entry.name]);
-          const root = path.join(baseDir, "agent_extensions", entry.owner, directory, entry.name);
+          const root = path.join(
+            baseDir,
+            "agent_extensions",
+            "agentxm",
+            entry.owner,
+            directory,
+            entry.name,
+          );
           return [
             entry.name,
             { ...current, treeIntegrity: computeMaterializedTreeIntegritySync(root) },
@@ -138,7 +153,7 @@ const createPackManifest = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
 ) => {
-  const packDir = path.join(baseDir, "agent_extensions", "@test", "packs", name);
+  const packDir = path.join(baseDir, "agent_extensions", "agentxm", "@test", "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
     owner: "@test",
@@ -155,15 +170,9 @@ const createPackManifest = (
   const updatedPacks = {
     ...packs,
     [name]: {
-      type: "registry",
-      owner: "@test",
-      name,
-      resolvedVersion: "1.0.0",
-      integrity: lockedPack["integrity"],
+      ...lockedPack,
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
       treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
-      sourceName: lockedPack["sourceName"],
-      publisherBindingId: lockedPack["publisherBindingId"],
     },
   };
   fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
@@ -276,7 +285,7 @@ describe("packs unpack.handler", () => {
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -287,7 +296,7 @@ describe("packs unpack.handler", () => {
             name: "test-writer",
             resolvedVersion: "2.0.0",
             integrity: "",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -300,7 +309,7 @@ describe("packs unpack.handler", () => {
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -394,7 +403,7 @@ describe("packs unpack.handler", () => {
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -405,7 +414,7 @@ describe("packs unpack.handler", () => {
             name: "new-skill",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -418,7 +427,7 @@ describe("packs unpack.handler", () => {
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -518,7 +527,7 @@ describe("packs unpack.handler", () => {
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "local",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

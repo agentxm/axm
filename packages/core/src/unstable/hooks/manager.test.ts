@@ -62,6 +62,7 @@ const makeLocalHookRef = (name: string, packageRoot: string): LocalHookRef => ({
   owner: handle("@acme"),
   name: extensionName(name),
   source: { type: "local", path: packageRoot },
+  sourcePath: nodePath.basename(packageRoot),
   location: pathToFileURL(packageRoot).href,
   hook: { name: decodeExtensionNameSync(name) },
 });
@@ -107,12 +108,17 @@ const makeHookManagerLayer = (
                   name,
                   {
                     type: "local" as const,
+                    sourceType: "local" as const,
+                    sourceName: "local" as const,
+                    extensionType: "hook" as const,
+                    workspaceName: extensionName(name),
+                    packageFormat: "agentxm" as const,
                     packageOwner: handle("@acme"),
                     packageName: extensionName(name),
                     path: decodeRelativePathSync("source-hook"),
                     contentIdentity: TEST_CONTENT_IDENTITY,
                     treeIntegrity: computeMaterializedTreeIntegritySync(
-                      nodePath.join(workspaceRoot, "agent_extensions", "@acme", "hooks", name),
+                      nodePath.join(workspaceRoot, "agent_extensions", "local", "source-hook"),
                     ),
                   },
                 ]),
@@ -168,7 +174,7 @@ describe("HookManager", () => {
         expect(raw).toContain("echo keep");
         expect(raw).toContain('"PreToolUse"');
         expect(raw).toContain('"matcher": "Write|Edit"');
-        expect(raw).toContain("agent_extensions/@acme/hooks/identity-check/src/hook.sh");
+        expect(raw).toContain("agent_extensions/local/source-hook/src/hook.sh");
         expect(raw).not.toContain('"name": "identity-check"');
         expect(existsSync(`${settingsPath}.bak`)).toBe(false);
       } finally {
@@ -286,7 +292,7 @@ describe("HookManager", () => {
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
         expect(instructions).toContain("region=hook-fallbacks");
         expect(instructions).toContain("managed advisory rule");
-        expect(instructions).toContain("unsupported-agent/src/hook.sh");
+        expect(instructions).toContain("agent_extensions/local/source-hook/src/hook.sh");
         expect(existsSync(settingsPath)).toBe(false);
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });

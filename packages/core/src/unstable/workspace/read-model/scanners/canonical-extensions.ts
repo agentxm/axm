@@ -1,7 +1,7 @@
 /**
- * Canonical-extensions scanner: enumerates authored project type roots,
- * project-acquired `agent_extensions/<owner>/<local-type>/<name>`, and the
- * corresponding user-scope `.axm/extensions` materializations.
+ * Canonical-extensions scanner: enumerates authored project type roots and
+ * source-qualified acquired packages beneath `agent_extensions/` or the
+ * corresponding user-scope `.axm/extensions/` root.
  *
  * Per Decision 5 of the workspace read-model design, scanner output is
  * occurrence-shaped. Each emitted occurrence carries the scanner-tier origin
@@ -33,8 +33,17 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { type ExtensionType, decodeExtensionNameSync } from "../../../extensions/common.js";
-import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
+import * as Schema from "effect/Schema";
+import {
+  type ExtensionType,
+  decodeExtensionNameSync,
+  ExtensionNameSchema,
+  ExtensionTypeSchema,
+} from "../../../extensions/common.js";
+import { HandleSchema, type Handle } from "../../../extensions/handle.js";
+import { MANIFEST_FILENAME_BY_TYPE } from "../../../publish/manifest-policy.js";
+import { parseSkillMd } from "../../../skills/skill-content.js";
+import { DISCOVERY_SKIPPED_DIRECTORIES } from "../../../extensions/discovery-walk.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { AXM_DIR_NAME } from "../../paths.js";
 import type { Diagnostics } from "../diagnostics.js";
@@ -95,32 +104,6 @@ const subjectFileNameFor = (type: ExtensionType, name: string): string | null =>
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const EXTERNAL_OWNER_SEGMENT = "external";
-
-const isOwnerSegment = (entry: string): boolean =>
-  entry.length > 0 && entry !== EXTERNAL_OWNER_SEGMENT;
-
-const extensionTypeFromLocalDir = (entry: string): ExtensionType | null => {
-  switch (entry) {
-    case "skills":
-      return "skill";
-    case "mcps":
-      return "mcp-server";
-    case "subagents":
-      return "subagent";
-    case "rules":
-      return "rule";
-    case "hooks":
-      return "hook";
-    case "knowledge":
-      return "knowledge";
-    case "packs":
-      return "pack";
-    default:
-      return null;
-  }
-};
-
 /**
  * Build one occurrence record from a discovered subject directory. Probes
  * the canonical subject file (e.g., `SKILL.md`) when applicable.
@@ -162,120 +145,133 @@ const buildOccurrence = (
     return occurrence;
   });
 
-const scanCanonicalForOwner = (
-  deps: CanonicalExtensionsScannerDeps,
-  ownerDirAbsolute: string,
-  ownerName: Handle,
-): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
-  Effect.gen(function* () {
-    const { fs, path, diagnostics } = deps;
-    const typeCandidates = yield* childEntries(
-      SCANNER_NAME,
-      fs,
-      diagnostics,
-      path,
-      ownerDirAbsolute,
-    );
-    const typeDirs = yield* filterDirectories(fs, typeCandidates);
+const manifestFilenames = new Set<string>(Object.values(MANIFEST_FILENAME_BY_TYPE));
 
-    const occurrences = yield* Effect.forEach(
-      typeDirs,
-      (typeDirAbsolute) =>
-        Effect.gen(function* () {
-          const extensionType = extensionTypeFromLocalDir(path.basename(typeDirAbsolute));
-          if (extensionType === null) {
-            const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
-            return empty;
-          }
-          const packageChildCandidates = yield* childEntries(
-            SCANNER_NAME,
-            fs,
-            diagnostics,
-            path,
-            typeDirAbsolute,
-          );
-          const packageDirs = yield* filterDirectories(fs, packageChildCandidates);
-          const packageOccurrences = yield* Effect.forEach(
-            packageDirs,
-            (packageDir) =>
-              Effect.gen(function* () {
-                const nameDir =
-                  extensionType === "pack" || extensionType === "mcp-server"
-                    ? packageDir
-                    : path.join(packageDir, "src");
-                const nameDirExists = yield* fs.readDirectory(nameDir).pipe(
-                  Effect.as(true),
-                  Effect.catch(() => Effect.succeed(false)),
-                );
-                if (!nameDirExists) {
-                  const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
-                  return empty;
-                }
-                const occurrence = yield* buildOccurrence(deps, {
-                  extensionType,
-                  origin: "canonical-axm",
-                  nameDir,
-                  name: path.basename(packageDir),
-                  owner: ownerName,
-                });
-                return [occurrence];
-              }),
-            { concurrency: "unbounded" },
-          );
-          return packageOccurrences.flat();
-        }),
-      { concurrency: "unbounded" },
-    );
-    return occurrences.flat();
+const ScannableManifestIdentitySchema = Schema.Struct({
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+});
+
+interface ScannableManifestIdentity {
+  readonly owner: Handle | null;
+  readonly type: ExtensionType;
+  readonly name: ReturnType<typeof decodeExtensionNameSync>;
+}
+
+const extensionTypeForManifest = (filename: string): ExtensionType | undefined => {
+  switch (filename) {
+    case "skill.json":
+      return "skill";
+    case "mcp.json":
+      return "mcp-server";
+    case "subagent.json":
+      return "subagent";
+    case "rule.json":
+      return "rule";
+    case "hook.json":
+      return "hook";
+    case "knowledge.json":
+      return "knowledge";
+    case "pack.json":
+      return "pack";
+    default:
+      return undefined;
+  }
+};
+
+const readNativeIdentity = (
+  deps: CanonicalExtensionsScannerDeps,
+  dir: string,
+  entries: ReadonlyArray<string>,
+): Effect.Effect<Option.Option<ScannableManifestIdentity>> =>
+  Effect.gen(function* () {
+    const filename = entries.find((entry) => manifestFilenames.has(entry));
+    if (filename === undefined) return Option.none();
+    const filenameType = extensionTypeForManifest(filename);
+    if (filenameType === undefined) return Option.none();
+    const raw = yield* deps.fs.readFileString(deps.path.join(dir, filename)).pipe(Effect.option);
+    if (Option.isNone(raw)) {
+      return Option.some({
+        type: filenameType,
+        name: decodeExtensionNameSync(deps.path.basename(dir)),
+        owner: null,
+      });
+    }
+    const identity = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(ScannableManifestIdentitySchema),
+    )(raw.value).pipe(Effect.option);
+    if (Option.isNone(identity) || MANIFEST_FILENAME_BY_TYPE[identity.value.type] !== filename) {
+      return Option.some({
+        type: filenameType,
+        name: decodeExtensionNameSync(deps.path.basename(dir)),
+        owner: null,
+      });
+    }
+    return identity;
   });
 
-const scanExternal = (
+const scanAcquiredDirectory = (
   deps: CanonicalExtensionsScannerDeps,
-  externalDirAbsolute: string,
+  dir: string,
 ): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
   Effect.gen(function* () {
-    const { fs, path, diagnostics } = deps;
-    const typeCandidates = yield* childEntries(
-      SCANNER_NAME,
-      fs,
-      diagnostics,
-      path,
-      externalDirAbsolute,
-    );
-    const typeDirs = yield* filterDirectories(fs, typeCandidates);
+    const childPaths = yield* childEntries(SCANNER_NAME, deps.fs, deps.diagnostics, deps.path, dir);
+    const entries = childPaths.map((childPath) => deps.path.basename(childPath));
 
-    const occurrences = yield* Effect.forEach(
-      typeDirs,
-      (typeDirAbsolute) =>
-        Effect.gen(function* () {
-          const extensionType = extensionTypeFromLocalDir(path.basename(typeDirAbsolute));
-          if (extensionType === null) {
-            const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
-            return empty;
-          }
-          const nameCandidates = yield* childEntries(
-            SCANNER_NAME,
-            fs,
-            diagnostics,
-            path,
-            typeDirAbsolute,
-          );
-          const nameDirs = yield* filterDirectories(fs, nameCandidates);
-          return yield* Effect.forEach(
-            nameDirs,
-            (nameDir) =>
-              buildOccurrence(deps, {
-                extensionType,
-                origin: "external-axm",
-                nameDir,
-                owner: null,
-              }),
-            { concurrency: "unbounded" },
-          );
+    const nativeIdentity = yield* readNativeIdentity(deps, dir, entries);
+    if (Option.isSome(nativeIdentity)) {
+      const identity = nativeIdentity.value;
+      const contentDir =
+        identity.type === "pack" || identity.type === "mcp-server"
+          ? dir
+          : deps.path.join(dir, "src");
+      const contentDirExists = yield* deps.fs.readDirectory(contentDir).pipe(
+        Effect.as(true),
+        Effect.catch(() => Effect.succeed(false)),
+      );
+      if (!contentDirExists) return [];
+      return [
+        yield* buildOccurrence(deps, {
+          extensionType: identity.type,
+          origin: "canonical-axm",
+          nameDir: contentDir,
+          name: identity.name,
+          owner: identity.owner,
         }),
+      ];
+    }
+
+    if (entries.includes("SKILL.md")) {
+      const raw = yield* deps.fs
+        .readFileString(deps.path.join(dir, "SKILL.md"))
+        .pipe(Effect.option);
+      const parsed = Option.flatMap(raw, (content) =>
+        parseSkillMd(content, deps.path.basename(dir)),
+      );
+      if (Option.isSome(parsed)) {
+        return [
+          yield* buildOccurrence(deps, {
+            extensionType: "skill",
+            origin: "external-axm",
+            nameDir: dir,
+            name: parsed.value.name,
+            owner: null,
+          }),
+        ];
+      }
+    }
+
+    const childCandidates = entries
+      .filter((entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry))
+      .map((entry) => deps.path.join(dir, entry));
+    const childDirs = yield* filterDirectories(deps.fs, childCandidates);
+    const nested = yield* Effect.forEach(
+      childDirs,
+      (childDir) => scanAcquiredDirectory(deps, childDir),
       { concurrency: "unbounded" },
     );
-    return occurrences.flat();
+    return nested.flat();
   });
 
 const authoredTypeDirectories: ReadonlyArray<{
@@ -338,38 +334,13 @@ const scanAuthoredType = (
 
 const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonical-extensions")(
   function* (deps: CanonicalExtensionsScannerDeps) {
-    const { fs, path, workspaceRoot, diagnostics, layout } = deps;
+    const { path, workspaceRoot, layout } = deps;
     const extensionsRoot =
       layout.scope === "project"
         ? layout.acquiredRoot
         : path.join(workspaceRoot, AXM_DIR_NAME, "extensions");
 
-    const ownerCandidates = yield* childEntries(
-      SCANNER_NAME,
-      fs,
-      diagnostics,
-      path,
-      extensionsRoot,
-    );
-    const ownerDirs = yield* filterDirectories(fs, ownerCandidates);
-
-    const occurrences = yield* Effect.forEach(
-      ownerDirs,
-      (ownerDir) => {
-        const ownerName = path.basename(ownerDir);
-        if (ownerName === EXTERNAL_OWNER_SEGMENT) {
-          return scanExternal(deps, ownerDir);
-        }
-        if (!isOwnerSegment(ownerName)) {
-          const empty: ReadonlyArray<CanonicalExtensionOccurrence> = [];
-          return Effect.succeed(empty);
-        }
-        return scanCanonicalForOwner(deps, ownerDir, decodeHandleSync(ownerName));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    const acquired = occurrences.flat();
+    const acquired = yield* scanAcquiredDirectory(deps, extensionsRoot);
     if (layout.scope !== "project") return acquired;
     const authored = yield* Effect.forEach(
       authoredTypeDirectories,

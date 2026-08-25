@@ -33,8 +33,8 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     const owner = Reflect.get(value, "owner");
     const version = Reflect.get(value, "resolvedVersion");
     if (typeof owner !== "string" || typeof version !== "string") continue;
-    packs[name] = `${owner}/packs/${name}`;
-    const packDir = path.join(projectRoot, "agent_extensions", owner, "packs", name);
+    packs[name] = `agentxm:${owner}/packs/${name}`;
+    const packDir = path.join(projectRoot, "agent_extensions", "agentxm", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const manifest = { owner, type: "pack" as const, name, version, dependencies: {} };
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
@@ -53,7 +53,7 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   name: "starter-pack",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   ...overrides,
 });
@@ -124,7 +124,7 @@ describe("packs list.handler", () => {
               name: "starter-pack",
               owner: "@acme",
               version: "1.0.0",
-              source: "default",
+              source: "agentxm",
             }),
             expect.objectContaining({
               name: "frontend-tools",
@@ -174,7 +174,7 @@ describe("packs list.handler", () => {
               enabled: true,
               owner: "@acme",
               version: "1.0.0",
-              source: "default",
+              source: "agentxm",
               classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],

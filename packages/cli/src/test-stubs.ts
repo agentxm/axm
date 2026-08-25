@@ -277,8 +277,8 @@ export const makeBaseWorkspaceMock = (
     getLockedSkill: () => Effect.succeed(Option.none()),
     getSkillDir: () =>
       Effect.succeed({
-        canonicalPath: `${axmDir}/extensions/external/skills/test`,
-        skillSrcPath: `${axmDir}/extensions/external/skills/test`,
+        canonicalPath: `${axmDir}/extensions/agentxm/@test/skills/test`,
+        skillSrcPath: `${axmDir}/extensions/agentxm/@test/skills/test/src`,
       }),
     setSkill: () => Effect.void,
     setSkillLock: () => Effect.void,
@@ -344,31 +344,42 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v5 accepted resolutions to the workspace under test.
+ * valid v6 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
   entries: Record<string, unknown> | undefined,
-  feature: "extension" | "pack" = "extension",
+  extensionType: "skill" | "rule" | "hook" | "knowledge" | "subagent" | "mcp-server" | "pack",
+  sourceEndpoints: ReadonlyMap<string, string>,
 ): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(entries ?? {}).flatMap(([name, value]) => {
       if (!isRecord(value) || value["type"] === "workspace") return [];
       const type = value["type"];
       if (type === "registry") {
+        const sourceName =
+          typeof value["sourceName"] === "string" ? value["sourceName"] : "agentxm";
         return [
           [
             name,
             {
               type,
+              sourceType: "registry",
+              endpoint:
+                value["endpoint"] ??
+                sourceEndpoints.get(sourceName) ??
+                "https://registry.agentxm.ai",
+              extensionType,
+              workspaceName: value["workspaceName"] ?? name,
+              packageFormat: "agentxm",
               owner: value["owner"],
               name: value["name"],
               resolvedVersion: value["resolvedVersion"],
               integrity: value["integrity"],
-              sourceName: value["sourceName"],
+              sourceName,
               publisherBindingId: value["publisherBindingId"],
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
-              ...(feature === "pack"
+              ...(extensionType === "pack"
                 ? {
                     manifestContentIdentity:
                       value["manifestContentIdentity"] ??
@@ -386,6 +397,11 @@ const normalizeTestLockMap = (
             name,
             {
               type,
+              sourceType: "local",
+              sourceName: "local",
+              extensionType,
+              workspaceName: value["workspaceName"] ?? name,
+              packageFormat: value["packageFormat"] ?? "agentxm",
               packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
               packageName: value["packageName"] ?? name,
               path: value["path"],
@@ -404,11 +420,25 @@ const normalizeTestLockMap = (
         type === "git"
       ) {
         const immutableRevision = value["gitTreeHash"] ?? "test-revision";
+        const sourceName = type === "git" ? "git" : (value["sourceName"] ?? type);
         return [
           [
             name,
             {
               type,
+              sourceType: type,
+              sourceName,
+              ...(type === "git"
+                ? {}
+                : {
+                    endpoint:
+                      value["endpoint"] ??
+                      sourceEndpoints.get(String(sourceName)) ??
+                      `https://${type}.com`,
+                  }),
+              extensionType,
+              workspaceName: value["workspaceName"] ?? name,
+              packageFormat: value["packageFormat"] ?? "agentxm",
               packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
               packageName: value["packageName"] ?? name,
               ...(type === "azurerepos"
@@ -500,6 +530,17 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
           location: "file:///tmp/test-registry",
         }))
       : undefined);
+  const sourceEndpoints = new Map(
+    (sources ?? []).flatMap((source) => {
+      if (!isRecord(source) || typeof source["name"] !== "string") return [];
+      const location = source["location"] ?? source["url"];
+      return typeof location === "string"
+        ? [[source["name"], location] as const]
+        : location instanceof URL
+          ? [[source["name"], location.href] as const]
+          : [];
+    }),
+  );
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(Object.hasOwn(opts, "owner")
@@ -522,21 +563,25 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 5,
-    skills: normalizeTestLockMap(opts.lockfileSkills),
-    ...(hasEntries(opts.lockfileRules) && { rules: normalizeTestLockMap(opts.lockfileRules) }),
-    ...(hasEntries(opts.lockfileHooks) && { hooks: normalizeTestLockMap(opts.lockfileHooks) }),
+    lockfileVersion: 6,
+    skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
+    ...(hasEntries(opts.lockfileRules) && {
+      rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
+    }),
+    ...(hasEntries(opts.lockfileHooks) && {
+      hooks: normalizeTestLockMap(opts.lockfileHooks, "hook", sourceEndpoints),
+    }),
     ...(hasEntries(opts.lockfileKnowledge) && {
-      knowledge: normalizeTestLockMap(opts.lockfileKnowledge),
+      knowledge: normalizeTestLockMap(opts.lockfileKnowledge, "knowledge", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfileSubagents) && {
-      subagents: normalizeTestLockMap(opts.lockfileSubagents),
+      subagents: normalizeTestLockMap(opts.lockfileSubagents, "subagent", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfileMcpServers) && {
-      mcpServers: normalizeTestLockMap(opts.lockfileMcpServers),
+      mcpServers: normalizeTestLockMap(opts.lockfileMcpServers, "mcp-server", sourceEndpoints),
     }),
     ...(hasEntries(opts.lockfilePacks) && {
-      packs: normalizeTestLockMap(opts.lockfilePacks, "pack"),
+      packs: normalizeTestLockMap(opts.lockfilePacks, "pack", sourceEndpoints),
     }),
   };
 
@@ -582,7 +627,7 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   return computeSourceHash(hash.digest("hex"));
 };
 
-/** Compute the strict v5 lock identity for a materialized test package tree. */
+/** Compute the strict v6 lock identity for a materialized test package tree. */
 export const computeMaterializedTreeIntegritySync = (root: string): string => {
   const files: Array<{ readonly relativePath: string; readonly absolutePath: string }> = [];
   const walk = (directory: string, relativeDirectory: string): void => {
@@ -657,6 +702,11 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: extensionName(opts?.name ?? "test"),
+  packageFormat: "agentxm",
   packageOwner: normalizeHandle(opts?.owner ?? "@acme"),
   packageName: extensionName(opts?.name ?? "test"),
   path: decodeRelativePathSync(opts?.path ?? "installed"),
@@ -670,17 +720,23 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  extensionType: "skill",
+  workspaceName: extensionName(opts.name),
+  packageFormat: "agentxm",
   owner: normalizeHandle(opts.owner),
   name: extensionName(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
+  sourceName: opts.sourceName ?? "agentxm",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
@@ -691,6 +747,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly resolvedSkills?: Readonly<Record<string, unknown>>;
@@ -700,11 +757,16 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
+    sourceType: "registry",
+    endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    extensionType: "pack",
+    workspaceName: extensionName(opts.name),
+    packageFormat: "agentxm",
     owner: normalizeHandle(opts.owner),
     name: extensionName(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
-    sourceName: opts.sourceName ?? "default",
+    sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
     treeIntegrity: TEST_TREE_INTEGRITY,
     manifestContentIdentity:

@@ -113,14 +113,17 @@ describe("global directory flag", () => {
         cwd: invoking.path,
       });
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
+      const selectedSourcePath = path
+        .relative(workspace.path, sourcePackage)
+        .split(path.sep)
+        .map((segment) => (segment === ".." ? "%2E%2E" : encodeURIComponent(segment)));
       expect(
         fs.existsSync(
           path.join(
             workspace.path,
             "agent_extensions",
-            "@acme",
-            "skills",
-            "review",
+            "local",
+            ...selectedSourcePath,
             "src",
             "SKILL.md",
           ),

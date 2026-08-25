@@ -19,6 +19,7 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import {
   operationPresentation,
+  type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
@@ -437,6 +438,7 @@ const resolvePackRef = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   forceCanonical?: boolean,
+  deferProjections?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -454,6 +456,7 @@ const resolvePackRef = (
           releaseAgeHoldbackBehavior: "preserve-or-block",
           dependencyResolver: acceptedPackDependencyResolver(ws, fs, path),
           ...(forceCanonical === true ? { forceCanonical: true } : {}),
+          ...(deferProjections === true ? { deferProjections: true } : {}),
         } satisfies InstallPackCommandIntent,
         releaseAge: undefined,
       };
@@ -470,6 +473,7 @@ const resolvePackRef = (
         releaseAgeEvaluation,
         releaseAgeHoldbackBehavior: "preserve-or-block",
         ...(forceCanonical === true ? { forceCanonical: true } : {}),
+        ...(deferProjections === true ? { deferProjections: true } : {}),
       } satisfies InstallPackCommandIntent,
       releaseAge,
     };
@@ -643,6 +647,7 @@ const collectPackPlans = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   selectedNames?: ReadonlySet<string>,
   forceCanonical?: boolean,
+  deferProjections?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -652,22 +657,73 @@ const collectPackPlans = (
       ([name]) => selectedNames === undefined || selectedNames.has(name),
     );
 
-    const plans = yield* Effect.forEach(
+    const resolvedPlans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(name, entry.source, releaseAgeEvaluation, forceCanonical).pipe(
+        resolvePackRef(
+          name,
+          entry.source,
+          releaseAgeEvaluation,
+          forceCanonical,
+          deferProjections,
+        ).pipe(
           Effect.flatMap(({ intent, releaseAge }) =>
-            actions
-              .buildPlan(intent)
-              .pipe(
-                Effect.map((plan) =>
-                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
-                ),
-              ),
+            actions.buildPlan(intent).pipe(
+              Effect.map((plan) => ({
+                intent,
+                plan: attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+              })),
+            ),
           ),
         ),
       { concurrency: "unbounded" },
     );
+
+    const plans = resolvedPlans.map(({ intent, plan }) => {
+      if (deferProjections !== true) return plan;
+      return {
+        ...plan,
+        jobs: plan.jobs.map((job) => ({
+          ...job,
+          steps: job.steps.map((step): PlannedJobStep => {
+            if (step.readiness === "error") return step;
+            return {
+              ...step,
+              run: actions.buildPlan(intent).pipe(
+                Effect.flatMap((freshPlan) => {
+                  const freshSteps = flattenPlanSteps(freshPlan);
+                  const freshStep = freshSteps[0];
+                  if (freshStep === undefined || freshSteps.length !== 1) {
+                    return Effect.fail(
+                      makeAppError({
+                        code: "internal",
+                        detail: `Configured Pack replan expected one graph step and received ${freshSteps.length}`,
+                      }),
+                    );
+                  }
+                  if (freshStep.readiness === "error") {
+                    return Effect.fail(
+                      makeAppError({
+                        code: "conflict",
+                        detail: freshStep.errorMessage,
+                      }),
+                    );
+                  }
+                  return freshStep.run;
+                }),
+                Effect.catch((error) =>
+                  Effect.succeed({
+                    result: "error",
+                    message: `Configured Pack replan failed: ${error.detail}`,
+                    error,
+                  } satisfies JobStepResult),
+                ),
+              ),
+            };
+          }),
+        })),
+      };
+    });
 
     return toCollectedWorkspaceInstallPlans({
       plans,
@@ -684,7 +740,8 @@ const workspaceInstallCollectorsByType = {
   knowledge: collectKnowledgePlans,
   subagent: collectSubagentPlans,
   "mcp-server": collectMcpServerPlans,
-  pack: collectPackPlans,
+  pack: (releaseAgeEvaluation) =>
+    collectPackPlans(releaseAgeEvaluation, undefined, undefined, true),
 } satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
 
 const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> =
@@ -795,9 +852,18 @@ export const buildWorkspaceInstallPlan = (args: {
       if (
         collection !== undefined &&
         collection.fragments.length > 0 &&
-        (collector.type === "rule" || collector.type === "hook" || collector.type === "knowledge")
+        (collector.type === "rule" ||
+          collector.type === "hook" ||
+          collector.type === "knowledge" ||
+          collector.type === "pack")
       ) {
-        aggregateTypes.add(collector.type);
+        if (collector.type === "pack") {
+          aggregateTypes.add("rule");
+          aggregateTypes.add("hook");
+          aggregateTypes.add("knowledge");
+        } else {
+          aggregateTypes.add(collector.type);
+        }
       }
     }
     const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });

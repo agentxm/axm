@@ -28,10 +28,12 @@ const initWorkspace = (root: string, registryRoot: string) => {
     JSON.stringify({
       owner: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
+      sources: [
+        { name: "test-registry", type: "registry", location: new URL(`file://${registryRoot}`) },
+      ],
     }),
   );
-  fs.writeFileSync(path.join(root, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+  fs.writeFileSync(path.join(root, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
 };
 
 const writeIndex = (registryRoot: string, deprecation: unknown = null) => {
@@ -114,13 +116,13 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.some("version"),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(logs.message).toContain("1.2.3\n");
         expect(rendererState.spinnerMessages).toEqual([
-          "Loading @test/skills/code-review from local",
-          "Loaded @test/skills/code-review from local",
+          "Loading @test/skills/code-review from test-registry",
+          "Loaded @test/skills/code-review from test-registry",
         ]);
       }),
     );
@@ -136,7 +138,7 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.none(),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(rendererState.results[0]?.data).toEqual(
@@ -166,7 +168,7 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.none(),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(rendererState.results[0]?.data).toMatchObject({
@@ -192,7 +194,7 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.none(),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(rendererState.tables[0]?.items).toEqual(
@@ -216,7 +218,7 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.none(),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(rendererState.results[0]?.data).toEqual(
@@ -240,7 +242,7 @@ describe("view handler", () => {
         yield* handleView({
           handle: "@test/rules/house-style",
           field: Option.none(),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         });
 
         expect(rendererState.results[0]?.data).toEqual(
@@ -355,7 +357,7 @@ describe("view handler", () => {
         const result = yield* handleView({
           handle: "@test/skills/code-review",
           field: Option.some("bad-field"),
-          registry: Option.some("local"),
+          registry: Option.some("test-registry"),
         }).pipe(Effect.flip);
         expect(getAppError(result).detail).toContain("Unknown view field");
       }),
@@ -377,15 +379,15 @@ describe("view handler", () => {
             const error = yield* handleView({
               handle: "@test/skills/missing",
               field: Option.none(),
-              registry: Option.some("local"),
+              registry: Option.some("test-registry"),
             }).pipe(Effect.flip);
 
             expect(getAppError(error).code).toBe("not_found");
             expect(rendererState.spinnerMessages).toContain(
-              "Loading @test/skills/missing from local",
+              "Loading @test/skills/missing from test-registry",
             );
             expect(rendererState.spinnerMessages).not.toContain(
-              "Loaded @test/skills/missing from local",
+              "Loaded @test/skills/missing from test-registry",
             );
           }),
         );

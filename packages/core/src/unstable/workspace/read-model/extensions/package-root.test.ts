@@ -28,7 +28,7 @@ describe("canonicalAxmPackageRoot", () => {
   });
 
   it("keeps external package roots scoped to the extension name", () => {
-    const contentLocation = "/ws/.axm/extensions/external/skills/local-tool";
+    const contentLocation = "/ws/.axm/extensions/github/acme/extensions/skills/local-tool";
 
     expect(
       canonicalAxmPackageRoot({

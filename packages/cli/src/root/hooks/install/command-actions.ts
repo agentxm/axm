@@ -13,8 +13,10 @@ import {
   type HookExtensionRef,
 } from "@agentxm/client-core/unstable/hooks";
 import {
+  acquiredExtensionDisplayPath,
+  acquiredExtensionDisplayPathFromLockEntry,
   buildInstallOperation,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   REGISTRY_EXTENSIONS_DIR,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
@@ -55,18 +57,21 @@ export type HookInstallSourceRequest = ParsedHookInstallArgs;
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
+const acquiredRoot = (scope: JobStepArtifact["scope"]): string =>
+  scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions";
+
+const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
+  ref.refType === "workspace"
+    ? ref.location
+    : acquiredExtensionDisplayPath(acquiredRoot(scope), ref, HOOK_EXTENSION_DIR, ref.name);
+
 const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["scope"]): string => {
-  if (entry.type === "registry") {
-    return `${scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions"}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
-  }
-  if (entry.type === "local") {
-    return entry.path;
-  }
-  return "path" in entry && entry.path !== undefined
-    ? entry.path
-    : scope === "project"
-      ? REGISTRY_EXTENSIONS_DIR
-      : ".axm/extensions";
+  return acquiredExtensionDisplayPathFromLockEntry(
+    acquiredRoot(scope),
+    entry,
+    HOOK_EXTENSION_DIR,
+    entry.workspaceName,
+  );
 };
 
 export const hookInstallArtifact = (args: {
@@ -127,7 +132,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           const input = args.source.trim();
-          const parsed = parseRegistrySourcePatternParts(input);
+          const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
           const source = yield* resolveSource(input).pipe(
             Effect.mapError((error) =>
               makeAppError({
@@ -219,10 +224,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []
                   : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
-              const previewPath =
-                ref.refType === "registry" || ref.refType === "workspace"
-                  ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
-                  : ref.hook.name;
+              const previewPath = hookRefArtifactPath(ref, ws.scope);
               const previewArtifact = {
                 path: previewPath,
                 scope: ws.scope,
@@ -277,10 +279,7 @@ export const InstallHookCommandWorkflowActionsLive = Layer.effect(
                       .getLockedHookEntry(ref.hook.name)
                       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                     if (Option.isNone(currentLockEntry)) {
-                      const path =
-                        ref.refType === "registry" || ref.refType === "workspace"
-                          ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${HOOK_EXTENSION_DIR}/${ref.name}`
-                          : ref.hook.name;
+                      const path = hookRefArtifactPath(ref, ws.scope);
                       const change = installedBefore ? "updated" : "created";
                       return {
                         path,

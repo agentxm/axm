@@ -59,11 +59,16 @@ const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNo
 
 const registryResolution = (resolvedVersion: string) => ({
   type: "registry",
+  sourceType: "registry",
+  sourceName: "agentxm",
+  endpoint: "https://registry.agentxm.ai",
+  extensionType: "skill",
+  workspaceName: "reviewer",
+  packageFormat: "agentxm",
   owner: "@acme",
   name: "reviewer",
   resolvedVersion,
   integrity: "sha512-stub",
-  sourceName: "default",
   publisherBindingId: "hbnd_test",
   treeIntegrity,
 });
@@ -74,7 +79,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 
@@ -93,10 +98,16 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: {
           review: {
             type: "github",
+            sourceType: "github",
+            sourceName: "github",
+            endpoint: "https://github.com",
+            extensionType: "skill",
+            workspaceName: "review",
+            packageFormat: "agentxm",
             packageOwner: "@acme",
             packageName: "review",
             owner: "acme",
@@ -127,7 +138,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: { reviewer: registryResolution("0.1.0") },
       };
 
@@ -141,7 +152,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 

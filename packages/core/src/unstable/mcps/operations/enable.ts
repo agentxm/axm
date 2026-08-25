@@ -140,7 +140,10 @@ export const enableMcpServer = (
       });
     }
     const canonicalPath = canonical.value.observation.path;
-    const accepted = canonical.value.accepted;
+    const accepted =
+      canonical.value.accepted?.extensionType === "mcp-server"
+        ? canonical.value.accepted
+        : undefined;
     const identity = canonical.value.desired.identity.startsWith("workspace:")
       ? canonical.value.desired.identity.slice("workspace:".length)
       : canonical.value.desired.identity;

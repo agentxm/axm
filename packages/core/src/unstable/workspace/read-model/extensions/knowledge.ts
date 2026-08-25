@@ -6,7 +6,7 @@
  * `axm-lock.yaml` `knowledge`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "knowledge"`), which enumerates
  * project-authored `knowledge/<name>/src`, project-acquired
- * `agent_extensions/<owner>/knowledge/<name>/src`, and user-scope packages.
+ * `agent_extensions/<source>/<source-full-name>`, and user-scope packages.
  *
  * Knowledge installs also write two derived artifacts — the `.axm/knowledge/index.md`
  * catalog and the discovery region inside the agent instructions file. Both live

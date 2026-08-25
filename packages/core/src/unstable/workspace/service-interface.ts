@@ -69,6 +69,7 @@ import type { AbsolutePath } from "../utils/path-types.js";
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "../agent-capabilities/index.js";
 import type { WorkspaceLayout } from "./layout.js";
+import type { ExtensionPathSource } from "../extensions/extension-paths.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -80,9 +81,7 @@ import type { WorkspaceLayout } from "./layout.js";
  * Registry refs carry an owner for the canonical path; all other ref types
  * use the shared external extensions directory.
  */
-export type SkillPathSource =
-  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
+export type SkillPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed skill directory.
@@ -227,6 +226,15 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
     /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
     readonly force?: boolean;
   }) => Effect.Effect<void, AppError, never>;
+  /**
+   * Capture cleanup for the currently accepted canonical package before a
+   * replacement writes its new lock entry. The returned effect runs only
+   * after the replacement resolution has been committed inside the same
+   * workspace transaction.
+   */
+  readonly prepareSourceTransition?: (args: {
+    readonly ref: TRef;
+  }) => Effect.Effect<Effect.Effect<void, AppError, never>, AppError, never>;
   readonly getLastMaterialization?: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<MaterializationObservation, never, never>;
@@ -544,7 +552,11 @@ export interface WorkspaceMutationsService {
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, AppError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, owner: Handle) => Effect.Effect<PackDirPath, AppError>;
+  readonly getPackDir: (
+    name: string,
+    owner: Handle,
+    sourceName: string,
+  ) => Effect.Effect<PackDirPath, AppError>;
   /** Read lockfile and return the subagents lock map. */
   readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, AppError>;
   /** Read lockfile and return the entry for a specific subagent, or Option.none(). */

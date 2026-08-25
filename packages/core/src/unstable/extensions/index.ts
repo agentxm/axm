@@ -102,8 +102,10 @@ export {
   formatRegistrySourcePatternParts,
   formatRegistrySourceRef,
   parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   parseRegistrySourceRef,
   type RegistrySourcePatternParts,
+  type SourceQualifiedRegistrySourcePatternParts,
   type RegistrySourceRefParts,
 } from "./registry-source.js";
 
@@ -152,12 +154,16 @@ export {
 } from "./fqn-pattern.js";
 
 // Constants
-export { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
+export { REGISTRY_EXTENSIONS_DIR } from "./constants.js";
 export {
-  canonicalExtensionPathForLockEntry,
-  externalExtensionPath,
-  registryExtensionPath,
-} from "./canonical-path.js";
+  acquiredExtensionDisplayPath,
+  acquiredExtensionDisplayPathFromLockEntry,
+  computeExtensionPaths,
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+  type ExtensionPathLockEntry,
+  type ExtensionPathSource,
+} from "./extension-paths.js";
 
 export {
   UNIVERSAL_SKILLS_DIR,

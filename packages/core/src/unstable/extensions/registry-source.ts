@@ -49,6 +49,10 @@ export type RegistrySourcePatternParts = Schema.Schema.Type<
   typeof RegistrySourcePatternPartsSchema
 >;
 
+export type SourceQualifiedRegistrySourcePatternParts = RegistrySourcePatternParts & {
+  readonly sourceName: string;
+};
+
 export const RegistrySourceRefPartsSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypePluralSchema,
@@ -146,8 +150,24 @@ export const parseRegistrySourcePatternParts = (
   return Result.isSuccess(result) ? result.success : undefined;
 };
 
+/** Parse a Registry locator, assigning unqualified input to the built-in agentxm source. */
+export const parseSourceQualifiedRegistrySourcePatternParts = (
+  input: string,
+): SourceQualifiedRegistrySourcePatternParts | undefined => {
+  const unqualified = parseRegistrySourcePatternParts(input);
+  if (unqualified !== undefined) {
+    return { ...unqualified, sourceName: "agentxm" };
+  }
+
+  const separator = input.indexOf(":");
+  if (separator <= 0) return undefined;
+  const sourceName = input.slice(0, separator);
+  const qualified = parseRegistrySourcePatternParts(input.slice(separator + 1));
+  return qualified === undefined ? undefined : { ...qualified, sourceName };
+};
+
 export const parseRegistrySourceRef = (input: string): RegistrySourceRefParts | undefined => {
-  const parsed = parseRegistrySourcePatternParts(input);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
   if (parsed?.type === undefined || parsed.name === undefined) {
     return undefined;
   }

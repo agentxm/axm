@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import {
+  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+} from "@agentxm/client-core/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import type { ConfiguredRecordRow } from "@agentxm/client-core/unstable/workspace";
 
@@ -33,7 +36,7 @@ const configuredPackFqn = (
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
 
-  const parsed = parseRegistrySourcePatternParts(entry.source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;

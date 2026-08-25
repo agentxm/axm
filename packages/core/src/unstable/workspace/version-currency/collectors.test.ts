@@ -46,16 +46,22 @@ const owner = normalizeHandle("@acme");
  * Registry lock fields shared verbatim by the rule/hook/knowledge lock unions,
  * none of which has a dedicated factory in workspace/test-stubs.ts.
  */
-const makeRegistryLockFields = (opts: {
+const makeRegistryLockFields = <const TType extends "rule" | "hook" | "knowledge">(opts: {
+  readonly extensionType: TType;
   readonly name: string;
   readonly resolvedVersion?: Version;
 }) => ({
   type: "registry" as const,
+  sourceType: "registry" as const,
+  endpoint: new URL("https://registry.agentxm.ai"),
+  extensionType: opts.extensionType,
+  workspaceName: decodeExtensionNameSync(opts.name),
+  packageFormat: "agentxm" as const,
   owner,
   name: decodeExtensionNameSync(opts.name),
   resolvedVersion: opts.resolvedVersion ?? v("1.0.0"),
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
@@ -69,7 +75,7 @@ describe("collectSkillCurrency", () => {
             configuredRow({
               type: "skill",
               name: "code-review",
-              source: "@acme/skills/code-review@^1.0.0",
+              source: "agentxm:@acme/skills/code-review@^1.0.0",
               packagingKind: "non-native",
             }),
           ],
@@ -148,6 +154,12 @@ describe("collectSkillCurrency", () => {
           Effect.succeed({
             "local-skill": {
               type: "github" as const,
+              sourceType: "github" as const,
+              sourceName: "github",
+              endpoint: new URL("https://github.com"),
+              extensionType: "skill" as const,
+              workspaceName: decodeExtensionNameSync("local-skill"),
+              packageFormat: "agentxm" as const,
               packageOwner: handle("@local"),
               packageName: decodeExtensionNameSync("local-skill"),
               owner: "user",
@@ -191,6 +203,12 @@ describe("collectSkillSourceFreshness", () => {
           Effect.succeed({
             "find-skills": {
               type: "github" as const,
+              sourceType: "github" as const,
+              sourceName: "github",
+              endpoint: new URL("https://github.com"),
+              extensionType: "skill" as const,
+              workspaceName: decodeExtensionNameSync("find-skills"),
+              packageFormat: "agentxm" as const,
               packageOwner: handle("@vercel-labs"),
               packageName: decodeExtensionNameSync("find-skills"),
               owner: "vercel-labs",
@@ -220,6 +238,7 @@ describe("collectSkillSourceFreshness", () => {
               },
               source: {
                 type: "github",
+                name: "github",
                 url: new URL("https://github.com"),
                 owner: "vercel-labs",
                 repo: "skills",
@@ -258,8 +277,18 @@ describe("collectSkillSourceFreshness", () => {
 });
 
 describe("git-source freshness beyond skills", () => {
-  const gitLockEntry = (repo: string, resolvedTree: string) => ({
+  const gitLockEntry = <const TType extends "hook" | "knowledge">(
+    extensionType: TType,
+    repo: string,
+    resolvedTree: string,
+  ) => ({
     type: "github" as const,
+    sourceType: "github" as const,
+    sourceName: "github",
+    endpoint: new URL("https://github.com"),
+    extensionType,
+    workspaceName: decodeExtensionNameSync(repo),
+    packageFormat: "agentxm" as const,
     packageOwner: handle("@acme"),
     packageName: decodeExtensionNameSync(repo),
     owner: "acme",
@@ -280,6 +309,7 @@ describe("git-source freshness beyond skills", () => {
 
   const gitSource = (repo: string) => ({
     type: "github" as const,
+    name: "github",
     url: new URL("https://github.com"),
     owner: "acme",
     repo,
@@ -304,7 +334,7 @@ describe("git-source freshness beyond skills", () => {
         getConfiguredSources: configuredSources,
         getConfiguredHookEntries: () =>
           Effect.succeed({ guard: { source: "github:acme/guard", enabled: true } }),
-        getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("guard", "same-tree") }),
+        getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("hook", "guard", "same-tree") }),
       });
       const layer = Layer.merge(
         Layer.mergeAll(
@@ -348,7 +378,9 @@ describe("git-source freshness beyond skills", () => {
             "domain-model": { source: "unknown-host:acme/domain-model", enabled: true },
           }),
         getLockedKnowledge: () =>
-          Effect.succeed({ "domain-model": gitLockEntry("domain-model", "old-tree") }),
+          Effect.succeed({
+            "domain-model": gitLockEntry("knowledge", "domain-model", "old-tree"),
+          }),
       });
       const layer = Layer.merge(
         Layer.mergeAll(
@@ -456,11 +488,16 @@ describe("collectSubagentCurrency", () => {
           Effect.succeed({
             "my-agent": {
               type: "registry" as const,
+              sourceType: "registry" as const,
+              endpoint: new URL("https://registry.agentxm.ai"),
+              extensionType: "subagent" as const,
+              workspaceName: decodeExtensionNameSync("my-agent"),
+              packageFormat: "agentxm" as const,
               owner,
               name: decodeExtensionNameSync("my-agent"),
               resolvedVersion: v("1.0.0"),
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               treeIntegrity: TEST_TREE_INTEGRITY,
@@ -534,6 +571,7 @@ describe("collectRuleCurrency", () => {
         getLockedRules: () =>
           Effect.succeed({
             "api-conventions": makeRegistryLockFields({
+              extensionType: "rule",
               name: "api-conventions",
               resolvedVersion: v("1.0.0"),
             }),
@@ -563,7 +601,10 @@ describe("collectRuleCurrency", () => {
           }),
         getLockedRules: () =>
           Effect.succeed({
-            "api-conventions": makeRegistryLockFields({ name: "api-conventions" }),
+            "api-conventions": makeRegistryLockFields({
+              extensionType: "rule",
+              name: "api-conventions",
+            }),
           }),
       });
 
@@ -587,6 +628,12 @@ describe("collectRuleCurrency", () => {
           Effect.succeed({
             "local-rule": {
               type: "github" as const,
+              sourceType: "github" as const,
+              sourceName: "github",
+              endpoint: new URL("https://github.com"),
+              extensionType: "rule" as const,
+              workspaceName: decodeExtensionNameSync("local-rule"),
+              packageFormat: "agentxm" as const,
               packageOwner: handle("@local"),
               packageName: decodeExtensionNameSync("local-rule"),
               owner: "user",
@@ -619,6 +666,7 @@ describe("collectHookCurrency", () => {
         getLockedHooks: () =>
           Effect.succeed({
             "block-secrets": makeRegistryLockFields({
+              extensionType: "hook",
               name: "block-secrets",
               resolvedVersion: v("1.0.0"),
             }),
@@ -649,7 +697,11 @@ describe("collectKnowledgeCurrency", () => {
           }),
         getLockedKnowledge: () =>
           Effect.succeed({
-            payments: makeRegistryLockFields({ name: "payments", resolvedVersion: v("1.0.0") }),
+            payments: makeRegistryLockFields({
+              extensionType: "knowledge",
+              name: "payments",
+              resolvedVersion: v("1.0.0"),
+            }),
           }),
       });
 
@@ -696,6 +748,7 @@ describe("collectAllCurrencyEntries", () => {
         getLockedRules: () =>
           Effect.succeed({
             "api-conventions": makeRegistryLockFields({
+              extensionType: "rule",
               name: "api-conventions",
               resolvedVersion: v("1.0.0"),
             }),

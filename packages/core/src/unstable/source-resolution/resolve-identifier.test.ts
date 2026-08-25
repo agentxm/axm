@@ -25,6 +25,9 @@ import { WorkspaceMutations, type WorkspaceMutationsService } from "../workspace
 import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 
 const name = (value: string) => decodeExtensionNameSync(value);
+const resolveTestIdentifier = (
+  args: Omit<Parameters<typeof resolveIdentifier>[0], "registrySourceName">,
+) => resolveIdentifier({ ...args, registrySourceName: "agentxm" });
 
 const provide = (
   effect: ReturnType<typeof resolveIdentifier>,
@@ -47,7 +50,7 @@ const provide = (
             getRegistrySourceHosts: () =>
               Effect.succeed([
                 {
-                  name: "default",
+                  name: "agentxm",
                   type: "registry",
                   location: new URL(`file://${options?.registryDir ?? "/tmp/registry"}`),
                 },
@@ -81,7 +84,7 @@ describe("resolveIdentifier", () => {
   it.effect("passes through fully-qualified identifiers", () =>
     Effect.gen(function* () {
       const resolved = yield* provide(
-        resolveIdentifier({
+        resolveTestIdentifier({
           input: "@acme/skills/code-review",
           resourceType: "skill",
           scope: "registry",
@@ -97,7 +100,7 @@ describe("resolveIdentifier", () => {
   it.effect("resolves a unique installed bare name", () =>
     Effect.gen(function* () {
       const resolved = yield* provide(
-        resolveIdentifier({
+        resolveTestIdentifier({
           input: "code-review",
           resourceType: "skill",
           scope: "installed",
@@ -108,7 +111,7 @@ describe("resolveIdentifier", () => {
               configuredRow({
                 type: "skill",
                 name: "localKey",
-                source: "@acme/skills/code-review",
+                source: "agentxm:@acme/skills/code-review",
               }),
             ],
           }),
@@ -124,7 +127,7 @@ describe("resolveIdentifier", () => {
     Effect.gen(function* () {
       const result = yield* Effect.result(
         provide(
-          resolveIdentifier({
+          resolveTestIdentifier({
             input: "code-review",
             resourceType: "skill",
             scope: "installed",
@@ -160,7 +163,7 @@ describe("resolveIdentifier", () => {
   it.effect("ignores stale receipt identities", () =>
     Effect.gen(function* () {
       const resolved = yield* provide(
-        resolveIdentifier({
+        resolveTestIdentifier({
           input: "code-review",
           resourceType: "skill",
           scope: "installed",
@@ -195,7 +198,7 @@ describe("resolveIdentifier", () => {
       writeRegistrySkill(registryDir, "@acme", "code-review");
 
       const resolved = yield* provide(
-        resolveIdentifier({
+        resolveTestIdentifier({
           input: "code-review",
           resourceType: "skill",
           scope: "registry",
@@ -211,7 +214,7 @@ describe("resolveIdentifier", () => {
   it.effect("prefers installed matches in both scope", () =>
     Effect.gen(function* () {
       const resolved = yield* provide(
-        resolveIdentifier({
+        resolveTestIdentifier({
           input: "code-review",
           resourceType: "skill",
           scope: "both",
@@ -238,7 +241,7 @@ describe("resolveIdentifier", () => {
     Effect.gen(function* () {
       const result = yield* Effect.result(
         provide(
-          resolveIdentifier({
+          resolveTestIdentifier({
             input: "missing",
             resourceType: "skill",
             scope: "installed",

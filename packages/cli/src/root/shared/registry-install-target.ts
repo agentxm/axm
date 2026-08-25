@@ -2,7 +2,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
   ExtensionNameSchema,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type ExtensionType,
   type Handle,
@@ -93,7 +93,7 @@ export const parseRegistryInstallTarget = (
   input: string,
   options: ParseRegistryInstallTargetOptions,
 ): Result.Result<RegistryInstallTarget, RegistryInstallTargetParseError> => {
-  const parsedRegistry = parseRegistrySourcePatternParts(input);
+  const parsedRegistry = parseSourceQualifiedRegistrySourcePatternParts(input);
   if (parsedRegistry !== undefined) {
     const parsedSingularType =
       parsedRegistry.type !== undefined ? toExtensionType(parsedRegistry.type) : undefined;

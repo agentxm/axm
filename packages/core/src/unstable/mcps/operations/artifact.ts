@@ -1,5 +1,8 @@
 import type { AgentId } from "../../agents/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import {
+  REGISTRY_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPathFromLockEntry,
+} from "../../extensions/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 import type { WorkspaceScope } from "../../workspace/scope.js";
@@ -12,9 +15,12 @@ export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined 
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
 export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
-  entry.type === "registry"
-    ? `${scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions"}/${entry.owner}/mcps/${entry.name}`
-    : mcpConfigSurface(scope);
+  acquiredExtensionDisplayPathFromLockEntry(
+    scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+    entry,
+    "mcps",
+    entry.workspaceName,
+  );
 
 export const agentConfigTarget = (
   change: JobStepArtifactTarget["change"],

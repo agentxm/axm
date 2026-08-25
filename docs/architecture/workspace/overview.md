@@ -118,7 +118,9 @@ Project workspaces keep those authorities physically distinct. Authored
 packages live in the type-specific roots declared by `axm.json`, defaulting to
 `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
 `packs/`. Acquired packages live under
-`agent_extensions/@owner/<type>/<name>/`. The ignored `.axm/` directory is
+`agent_extensions/<source-name>/<source-full-name>/`. For example, Registry
+packages from the built-in `agentxm` source live under
+`agent_extensions/agentxm/@owner/<type>/<name>/`. The ignored `.axm/` directory is
 runtime state, not project configuration or canonical package inventory.
 User scope retains its self-contained `.axm/` layout.
 

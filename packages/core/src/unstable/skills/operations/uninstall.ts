@@ -20,9 +20,13 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { removeFromAllCanonicalLocations } from "../../utils/index.js";
+import { removeIfExists } from "../../utils/index.js";
 import { sanitizeName } from "../../extensions/utils.js";
-import { existsInAnyCanonicalLocation } from "../disk-check.js";
+import {
+  acceptedCanonicalObservation,
+  acceptedLockedCanonicalPath,
+  removableAcceptedCanonicalPath,
+} from "../../workspace/accepted-canonical-ref.js";
 
 // Operation types
 // -----------------------------------------------------------------------------
@@ -86,7 +90,25 @@ export const uninstallSkill: OperationHandler<
     const desiredNode = desired.nodes.find(
       (node) => node.type === "skill" && node.name === op.args.skillName,
     );
-    const installedOnDisk = yield* existsInAnyCanonicalLocation(fs, path, base, op.args.skillName);
+    const acceptedCanonical = yield* acceptedCanonicalObservation({
+      workspace: ws,
+      type: "skill",
+      name: op.args.skillName,
+    });
+    const lockedCanonical = yield* acceptedLockedCanonicalPath({
+      workspace: ws,
+      type: "skill",
+      name: op.args.skillName,
+    });
+    const removableCanonical = Option.orElse(
+      removableAcceptedCanonicalPath(acceptedCanonical),
+      () => lockedCanonical,
+    );
+    const installedOnDisk = yield* Option.match(removableCanonical, {
+      onNone: () => Effect.succeed(false),
+      onSome: (canonicalPath) =>
+        fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false))),
+    });
 
     if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
@@ -208,10 +230,8 @@ export const uninstallSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    // Full uninstall: remove from all known canonical locations
-    if (installedOnDisk) {
-      yield* removeFromAllCanonicalLocations(fs, base, "skills", sanitizedName, path);
-    }
+    // Full uninstall removes only the canonical package proven by accepted authority.
+    if (Option.isSome(removableCanonical)) yield* removeIfExists(fs, removableCanonical.value);
 
     // Remove from both settings and lockfile (swallow errors on full uninstall)
     yield* ws.removeSkill(op.args.skillName).pipe(Effect.catch(() => Effect.void));

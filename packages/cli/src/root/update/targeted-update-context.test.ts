@@ -145,8 +145,8 @@ describe("classifyTargetedUpdate", () => {
         ]),
       ]),
       configuredPacks: [
-        configuredPack("toolkit", "workspace"),
-        configuredPack("reviewers", "workspace"),
+        configuredPack("toolkit", "agentxm:@acme/packs/toolkit@^1.0.0"),
+        configuredPack("reviewers", "agentxm:@acme/packs/reviewers@^1.0.0"),
       ],
     });
 

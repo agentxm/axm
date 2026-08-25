@@ -6,7 +6,7 @@ and more.
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the
-[AgentXM Knowledge bundle](agent_extensions/@agentxm/knowledge/agentxm/src/index.md).
+[AgentXM Knowledge bundle](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md).
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
@@ -252,21 +252,21 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 ### @agentxm
 
-| Bundle                                                                                  | Description                                                                                                                                                         |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [agent-engineering](agent_extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](agent_extensions/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
+| Bundle                                                                                          | Description                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agent-engineering](agent_extensions/agentxm/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
-| Bundle                                                                                               | Description                                                                                                                                                                      |
-| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs](agent_extensions/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns               |
-| [effect-v4](agent_extensions/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                     |
-| [field-notes](agent_extensions/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                          |
-| [software-architecture](agent_extensions/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views |
-| [software-engineering](agent_extensions/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                          |
-| [workflow-automation](agent_extensions/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
+| Bundle                                                                                                       | Description                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns               |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                     |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                          |
+| [software-architecture](agent_extensions/agentxm/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views |
+| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                          |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
@@ -278,27 +278,27 @@ When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
 v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
 v4 sources.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/yagni@0.1.1 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/yagni@0.1.2 kind=rule -->
 
 ## YAGNI
 
 Before adding capability, structure, process, or scope for future use, consult
-the [YAGNI principle](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/yagni-and-speculative-complexity.md).
+the YAGNI principle in the installed software-engineering Knowledge bundle.
 Defer the commitment unless it serves a current feature, constraint, invariant,
 or concrete risk. If delay would close an option that is costly to recover,
 take only the cheapest safe action that preserves it.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/tidy-first@0.1.1 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/tidy-first@0.1.2 kind=rule -->
 
 ## Tidy First
 
 When current structure materially increases the difficulty or risk of an
-authorized software behavior change, consult the [Tidy First
-pattern](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/design-and-change/tidy-first.md).
+authorized software behavior change, consult the Tidy First pattern in the
+installed software-engineering Knowledge bundle.
 Choose first, after, later, or never. If tidying first, make only the smallest
 behavior-preserving change that makes the authorized change easier.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.1 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.2 kind=rule -->
 
 ## Field notes
 
@@ -332,8 +332,8 @@ other sensitive values. Do not rerun a mutation merely to recover evidence.
 
 ### How to record
 
-On the first qualifying incident in a session, read the
-[capture instructions](.axm/extensions/@craigsmitham/rules/field-notes/src/capture.md).
+On the first qualifying incident in a session, read `capture.md` alongside the
+installed field-notes rule source.
 Append one note for each qualifying incident. Recording it is expected behavior,
 not an admission of failure.
 

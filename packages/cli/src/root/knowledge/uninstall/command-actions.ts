@@ -8,12 +8,11 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { resolveInstructionsConfig } from "@agentxm/client-core/unstable/agents";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
   buildUninstallOperation,
 } from "@agentxm/client-core/unstable/extensions";
 import {
-  KNOWLEDGE_EXTENSION_DIR,
   KnowledgeManager,
   KnowledgeManagerLive,
   type KnowledgeExtensionRef,
@@ -26,6 +25,7 @@ import {
   WorkspaceMutations,
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
+  type WorkspaceLayout,
 } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
@@ -65,19 +65,16 @@ interface KnowledgeUninstallOwnership {
 
 const lockCanonicalRoot = (
   path: Path.Path,
-  baseDir: string,
-  targetName: string,
+  layout: WorkspaceLayout,
   locked: KnowledgeLockEntry,
 ): string =>
-  locked.type === "registry"
-    ? path.join(
-        baseDir,
-        REGISTRY_EXTENSIONS_DIR,
-        locked.owner,
-        KNOWLEDGE_EXTENSION_DIR,
-        locked.name,
-      )
-    : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, targetName);
+  computeExtensionPathsForLayout(
+    path.join,
+    layout,
+    extensionPathSourceFromLockEntry(locked),
+    "knowledge",
+    locked.workspaceName,
+  ).canonicalPath;
 
 export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
@@ -109,9 +106,7 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             }).pipe(Effect.provide(platformLayer));
       const expectedCanonicalPath = Option.match(acceptedObservation, {
         onNone: () =>
-          Option.isSome(locked)
-            ? lockCanonicalRoot(path, ws.baseDir, target.name, locked.value)
-            : undefined,
+          Option.isSome(locked) ? lockCanonicalRoot(path, ws.layout, locked.value) : undefined,
         onSome: (accepted) => accepted.observation.path,
       });
       const inventory = yield* ws.records.getExtensionInventory("knowledge", {});

@@ -25,7 +25,7 @@ describe("print", () => {
 
   it("formats with subPath", () => {
     expect(print(makeSource({ subPath: "src/lib" }))).toBe(
-      "azurerepos:myorg/myproject/myrepo/src/lib",
+      "azurerepos:myorg/myproject/myrepo//src/lib",
     );
   });
 
@@ -35,7 +35,7 @@ describe("print", () => {
 
   it("formats with subPath and ref", () => {
     expect(print(makeSource({ subPath: "src/lib", ref: "v2" }))).toBe(
-      "azurerepos:myorg/myproject/myrepo/src/lib@v2",
+      "azurerepos:myorg/myproject/myrepo//src/lib@v2",
     );
   });
 });

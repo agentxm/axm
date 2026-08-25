@@ -7,9 +7,9 @@
  * `LintWorkspaceView` exposes `installedSkills: InstalledSkillInfo[]` and
  * `installedPacks: InstalledPackInfo[]` with per-provenance `displayRoot`s:
  *
- *   Registry-installed native skill: `.axm/extensions/<@owner>/skills/<name>/src/`
- *   External skill:                  `.axm/extensions/external/skills/<name>/`
- *   Registry pack:                   `.axm/extensions/<@owner>/packs/<name>/`
+ *   Registry-installed native skill: `.axm/extensions/<source>/<@owner>/skills/<name>/src/`
+ *   Portable acquired skill:         `.axm/extensions/<source>/<source-full-name>/`
+ *   Registry pack:                   `.axm/extensions/<source>/<@owner>/packs/<name>/`
  *                                    (NO `src/` — matches the on-disk layout.)
  *
  * The companion `WorkspaceRuleContext` is scoped to project or user.
@@ -72,7 +72,12 @@ import type { InstalledSkillInfo } from "../skill-accessor/contexts.js";
 import type { InstalledPackInfo } from "../pack-accessor/contexts.js";
 import { makePlatformSkillFileAccessor } from "../skill-accessor/platform.js";
 import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
+import {
+  acquiredExtensionDisplayPathFromLockEntry,
+  type ExtensionPathLockEntry,
+} from "../../../extensions/extension-paths.js";
 import { parseRegistrySourceRef } from "../../../extensions/registry-source.js";
+import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { HOOK_MANIFEST_FILENAME } from "../../../hooks/manifest-schema.js";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "../../../knowledge/manifest-schema.js";
 import { inspectKnowledgePackage } from "../../../knowledge/package-inspection.js";
@@ -94,7 +99,7 @@ import type { AxmSkillCompatibilityPolicyService } from "../../../skills/axm-ski
 import type { Handle } from "../../../extensions/handle.js";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "../../../subagents/manifest-schema.js";
 import { readManifestJson } from "./manifest-json.js";
-import type { ExtensionType } from "../../../extensions/common.js";
+import type { ExtensionType, ExtensionTypePlural } from "../../../extensions/common.js";
 import { toExtensionTypePlural } from "../../../extensions/common.js";
 
 // -----------------------------------------------------------------------------
@@ -360,16 +365,18 @@ const buildLintWorkspaceView = (
       ],
       { concurrency: "unbounded" },
     );
-    const namedSkills = skills
-      .filter((skill) => skill.actual.length > 0 || Option.isSome(skill.resolved))
-      .map((skill): NamedSkill => {
-        const built = installedSkillToInfo(args, skill);
-        return {
-          name: skill.key.name,
-          manifestPath: joinManifestPath(built.packageDisplayRoot, SKILL_MANIFEST_FILENAME),
-          info: built.info,
-        };
-      });
+    const namedSkills = skills.flatMap((skill): ReadonlyArray<NamedSkill> => {
+      const built = installedSkillToInfo(args, skill);
+      return built === undefined
+        ? []
+        : [
+            {
+              name: skill.key.name,
+              manifestPath: joinManifestPath(built.packageDisplayRoot, SKILL_MANIFEST_FILENAME),
+              info: built.info,
+            },
+          ];
+    });
     const installedPacks = packs.flatMap((pack): ReadonlyArray<NamedPack> => {
       const info = installedPackToInfo(args, pack);
       return info === undefined ? [] : [{ installed: pack, info }];
@@ -681,7 +688,7 @@ interface BuiltSkillInfo {
 const installedSkillToInfo = (
   args: BuildLintWorkspaceViewArgs,
   skill: InstalledSkill,
-): BuiltSkillInfo => {
+): BuiltSkillInfo | undefined => {
   const actual = chooseSkillActual(skill.actual);
   if (actual !== undefined) {
     const files = makePlatformSkillFileAccessor(args.platform, actual.contentRoot);
@@ -700,30 +707,38 @@ const installedSkillToInfo = (
   }
 
   const resolved = skill.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
-    return nativeSkillInfo(args, resolved.value.lockEntry.owner, skill.key.name);
+  if (Option.isSome(resolved)) {
+    const info = buildAcquiredInstalledSkillInfo({
+      platform: args.platform,
+      workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
+      lockEntry: resolved.value.lockEntry,
+      name: skill.key.name,
+    });
+    return {
+      info,
+      packageDisplayRoot: acquiredPackageDisplayRoot(
+        args.scope,
+        resolved.value.lockEntry,
+        "skills",
+        skill.key.name,
+      ),
+    };
   }
 
   if (skill.installationOrigin._tag === "direct") {
     const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
     if (parsed !== undefined && parsed.type === "skills") {
-      return nativeSkillInfo(args, parsed.owner, skill.key.name);
+      return nativeSkillInfo(args, "agentxm", parsed.owner, skill.key.name);
     }
   }
 
-  return {
-    info: buildExternalInstalledSkillInfo({
-      platform: args.platform,
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-      name: skill.key.name,
-    }),
-    packageDisplayRoot: externalSkillDisplayRoot(args.scope, skill.key.name),
-  };
+  return undefined;
 };
 
 const nativeSkillInfo = (
   args: BuildLintWorkspaceViewArgs,
+  sourceName: string,
   owner: string,
   name: string,
 ): BuiltSkillInfo => ({
@@ -731,11 +746,12 @@ const nativeSkillInfo = (
     platform: args.platform,
     workspaceRoot: args.workspaceRoot,
     scope: args.scope,
+    sourceName,
     owner,
     name,
     skillJson: undefined,
   }),
-  packageDisplayRoot: `${canonicalDisplayRoot(args.scope)}/${owner}/skills/${name}`,
+  packageDisplayRoot: `${canonicalDisplayRoot(args.scope)}/${sourceName}/${owner}/skills/${name}`,
 });
 
 const installedPackToInfo = (
@@ -757,6 +773,7 @@ const installedPackToInfo = (
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
+      sourceName: resolved.value.lockEntry.sourceName,
       owner: resolved.value.lockEntry.owner,
       name: pack.key.name,
       packJson: undefined,
@@ -770,6 +787,7 @@ const installedPackToInfo = (
         platform: args.platform,
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,
+        sourceName: "agentxm",
         owner: parsed.owner,
         name: pack.key.name,
         packJson: undefined,
@@ -876,11 +894,10 @@ const installedKnowledgeToContext = (
 
 /**
  * Locate an installed package's root the same way for every family whose
- * canonical layout is `.axm/extensions/<owner>/<plural>/<name>`: prefer a
- * scanned `packageRoot`, then the registry owner the lockfile resolved, then
- * the owner parsed out of a direct settings declaration.
+ * canonical layout is source-qualified: prefer a scanned `packageRoot`, then
+ * reconstruct the exact path from the accepted lock entry.
  *
- * Returns `undefined` when none of the three apply — the extension is
+ * Returns `undefined` when neither applies — the extension is
  * configured but not on disk in a location lint can read, which is
  * `workspace/configured-but-not-installed`'s finding to make, not a per-type
  * manifest rule's.
@@ -889,9 +906,9 @@ const canonicalPackageRoot = (
   args: BuildLintWorkspaceViewArgs,
   subject: {
     readonly name: string;
-    readonly plural: string;
+    readonly plural: ExtensionTypePlural;
     readonly actual: ReadonlyArray<{ readonly packageRoot: string | null }>;
-    readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+    readonly resolved: Option.Option<{ readonly lockEntry: ExtensionPathLockEntry }>;
     readonly installationOrigin: { readonly _tag: string };
   },
 ): string | undefined => {
@@ -900,46 +917,20 @@ const canonicalPackageRoot = (
     return scanned.packageRoot;
   }
 
-  const owner = canonicalOwner(subject);
-  return owner === undefined
-    ? undefined
-    : args.platform.path.resolve(
-        args.workspaceRoot,
-        `${canonicalDisplayRoot(args.scope)}/${owner}/${subject.plural}/${subject.name}`,
-      );
-};
-
-const canonicalOwner = (subject: {
-  readonly plural: string;
-  readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
-  readonly installationOrigin: { readonly _tag: string };
-}): string | undefined => {
   const resolved = subject.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
-    const lockEntry = resolved.value.lockEntry;
-    if ("owner" in lockEntry && typeof lockEntry.owner === "string") {
-      return lockEntry.owner;
-    }
+  if (Option.isSome(resolved)) {
+    return args.platform.path.resolve(
+      args.workspaceRoot,
+      acquiredPackageDisplayRoot(
+        args.scope,
+        resolved.value.lockEntry,
+        subject.plural,
+        subject.name,
+      ),
+    );
   }
 
-  const origin = subject.installationOrigin;
-  if (origin._tag !== "direct" || !("declared" in origin)) {
-    return undefined;
-  }
-  const declared = origin.declared;
-  if (typeof declared !== "object" || declared === null || !("entry" in declared)) {
-    return undefined;
-  }
-  const entry = declared.entry;
-  if (typeof entry !== "object" || entry === null || !("source" in entry)) {
-    return undefined;
-  }
-  const source = entry.source;
-  if (typeof source !== "string") {
-    return undefined;
-  }
-  const parsed = parseRegistrySourceRef(source);
-  return parsed !== undefined && parsed.type === subject.plural ? parsed.owner : undefined;
+  return undefined;
 };
 
 const chooseSkillActual = (actual: ReadonlyArray<ActualSkill>): ActualSkill | undefined =>
@@ -964,10 +955,15 @@ const subagentPackageRoot = (
   }
 
   const resolved = subagent.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+  if (Option.isSome(resolved)) {
     return args.platform.path.resolve(
       args.workspaceRoot,
-      `${canonicalDisplayRoot(args.scope)}/${resolved.value.lockEntry.owner}/subagents/${subagent.key.name}`,
+      acquiredPackageDisplayRoot(
+        args.scope,
+        resolved.value.lockEntry,
+        "subagents",
+        subagent.key.name,
+      ),
     );
   }
 
@@ -976,7 +972,7 @@ const subagentPackageRoot = (
     if (parsed !== undefined && parsed.type === "subagents") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `${canonicalDisplayRoot(args.scope)}/${parsed.owner}/subagents/${subagent.key.name}`,
+        `${canonicalDisplayRoot(args.scope)}/agentxm/${parsed.owner}/subagents/${subagent.key.name}`,
       );
     }
   }
@@ -994,10 +990,10 @@ const mcpServerPackageRoot = (
   }
 
   const resolved = mcpServer.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+  if (Option.isSome(resolved)) {
     return args.platform.path.resolve(
       args.workspaceRoot,
-      `${canonicalDisplayRoot(args.scope)}/${resolved.value.lockEntry.owner}/mcps/${mcpServer.key.name}`,
+      acquiredPackageDisplayRoot(args.scope, resolved.value.lockEntry, "mcps", mcpServer.key.name),
     );
   }
 
@@ -1006,7 +1002,7 @@ const mcpServerPackageRoot = (
     if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `${canonicalDisplayRoot(args.scope)}/${parsed.owner}/mcps/${mcpServer.key.name}`,
+        `${canonicalDisplayRoot(args.scope)}/agentxm/${parsed.owner}/mcps/${mcpServer.key.name}`,
       );
     }
   }
@@ -1017,7 +1013,7 @@ const mcpServerPackageRoot = (
 const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   const resolved = skill.resolved;
   if (Option.isSome(resolved)) {
-    return resolved.value.lockEntry.type === "registry";
+    return resolved.value.lockEntry.packageFormat === "agentxm";
   }
   if (actual.origin._tag === "canonical-axm-skill") {
     return true;
@@ -1034,6 +1030,14 @@ const relativeDisplayRoot = (
   absoluteRoot: string,
 ): string => args.platform.path.relative(args.workspaceRoot, absoluteRoot);
 
+const acquiredPackageDisplayRoot = (
+  scope: "project" | "user",
+  entry: ExtensionPathLockEntry,
+  type: ExtensionTypePlural,
+  name: string,
+): string =>
+  acquiredExtensionDisplayPathFromLockEntry(canonicalDisplayRoot(scope), entry, type, name);
+
 // -----------------------------------------------------------------------------
 // Provenance → displayRoot helpers
 // -----------------------------------------------------------------------------
@@ -1045,17 +1049,24 @@ const relativeDisplayRoot = (
  */
 export const registryNativeSkillDisplayRoot = (
   scope: "project" | "user",
+  sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${owner}/skills/${name}/src`;
+): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/skills/${name}/src`;
 
 /**
- * Compute the `displayRoot` for an external (non-native) skill.
+ * Compute the content `displayRoot` for a source-qualified acquired skill.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const externalSkillDisplayRoot = (scope: "project" | "user", name: string): string =>
-  `${canonicalDisplayRoot(scope)}/external/skills/${name}`;
+export const acquiredSkillDisplayRoot = (
+  scope: "project" | "user",
+  entry: SkillLockEntry,
+  name: string,
+): string => {
+  const packageRoot = acquiredPackageDisplayRoot(scope, entry, "skills", name);
+  return entry.packageFormat === "agent-skill" ? packageRoot : `${packageRoot}/src`;
+};
 
 /**
  * Compute the `displayRoot` for a registry-installed pack.
@@ -1067,9 +1078,10 @@ export const externalSkillDisplayRoot = (scope: "project" | "user", name: string
  */
 export const registryPackDisplayRoot = (
   scope: "project" | "user",
+  sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${owner}/packs/${name}`;
+): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
 // Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
@@ -1086,6 +1098,7 @@ export interface BuildInstalledSkillInfoNativeArgs {
   };
   readonly workspaceRoot: string;
   readonly scope: "project" | "user";
+  readonly sourceName: string;
   readonly owner: string;
   readonly name: string;
   readonly skillJson: unknown;
@@ -1101,52 +1114,56 @@ export const buildNativeInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/${args.owner}/skills/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/${args.sourceName}/${args.owner}/skills/${args.name}`,
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
     isNative: true,
     skillJson: args.skillJson,
     expectedName: args.name,
-    displayRoot: registryNativeSkillDisplayRoot(args.scope, args.owner, args.name),
+    displayRoot: registryNativeSkillDisplayRoot(args.scope, args.sourceName, args.owner, args.name),
     files: makePlatformSkillFileAccessor(args.platform, contentRoot),
     packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
   };
 };
 
 /**
- * Options for building an `InstalledSkillInfo` for an external (non-native) skill.
+ * Options for building an `InstalledSkillInfo` from an accepted acquired skill.
  */
-export interface BuildInstalledSkillInfoExternalArgs {
+export interface BuildAcquiredInstalledSkillInfoArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
   readonly scope: "project" | "user";
+  readonly lockEntry: SkillLockEntry;
   readonly name: string;
 }
 
 /**
- * Build an `InstalledSkillInfo` rooted at `.axm/extensions/external/skills/<name>/`.
+ * Build an `InstalledSkillInfo` rooted at its exact accepted source-qualified path.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const buildExternalInstalledSkillInfo = (
-  args: BuildInstalledSkillInfoExternalArgs,
+export const buildAcquiredInstalledSkillInfo = (
+  args: BuildAcquiredInstalledSkillInfoArgs,
 ): InstalledSkillInfo => {
-  const absoluteRoot = args.platform.path.resolve(
+  const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/external/skills/${args.name}`,
+    acquiredPackageDisplayRoot(args.scope, args.lockEntry, "skills", args.name),
   );
-  const accessor = makePlatformSkillFileAccessor(args.platform, absoluteRoot);
+  const contentRoot =
+    args.lockEntry.packageFormat === "agent-skill"
+      ? packageRoot
+      : args.platform.path.resolve(packageRoot, "src");
   return {
-    isNative: false,
+    isNative: args.lockEntry.packageFormat === "agentxm",
     skillJson: undefined,
     expectedName: args.name,
-    displayRoot: externalSkillDisplayRoot(args.scope, args.name),
-    files: accessor,
-    packageFiles: accessor,
+    displayRoot: acquiredSkillDisplayRoot(args.scope, args.lockEntry, args.name),
+    files: makePlatformSkillFileAccessor(args.platform, contentRoot),
+    packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
   };
 };
 
@@ -1160,6 +1177,7 @@ export interface BuildInstalledPackInfoArgs {
   };
   readonly workspaceRoot: string;
   readonly scope: "project" | "user";
+  readonly sourceName: string;
   readonly owner: string;
   readonly name: string;
   readonly packJson: unknown;
@@ -1175,11 +1193,11 @@ export interface BuildInstalledPackInfoArgs {
 export const buildInstalledPackInfo = (args: BuildInstalledPackInfoArgs): InstalledPackInfo => {
   const absoluteRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/${args.owner}/packs/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/${args.sourceName}/${args.owner}/packs/${args.name}`,
   );
   return {
     packJson: args.packJson,
-    displayRoot: registryPackDisplayRoot(args.scope, args.owner, args.name),
+    displayRoot: registryPackDisplayRoot(args.scope, args.sourceName, args.owner, args.name),
     files: makePlatformPackFileAccessor(args.platform, absoluteRoot),
   };
 };

@@ -60,7 +60,11 @@ import {
   serializeMarker,
 } from "../projection/marker-grammar.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { makeWorkspaceRelativeSourcePath, removeIfExists } from "../utils/index.js";
+import {
+  makeWorkspaceRelativeSourcePath,
+  removeIfExists,
+  stripFileProtocol,
+} from "../utils/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type {
@@ -76,6 +80,7 @@ import {
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import {
@@ -109,11 +114,16 @@ const registryRuleLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): RuleLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "rule",
+  workspaceName: ref.rule.name,
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
 });
@@ -125,6 +135,9 @@ const gitRuleLockEntry = (
 ): RuleLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
+    "rule",
+    ref.rule.name,
+    Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
     contentIdentity,
@@ -141,6 +154,11 @@ const localRuleLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): RuleLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "rule",
+  workspaceName: ref.rule.name,
+  packageFormat: "agentxm",
   packageOwner: ref.owner,
   packageName: ref.name,
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
@@ -599,7 +617,11 @@ export const RuleManagerLive = Layer.effect(
 
       const workspaceRelativeLocalSourcePath =
         ref.refType === "local"
-          ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+          ? makeWorkspaceRelativeSourcePath(
+              path,
+              baseDir,
+              ref.sourcePath ?? stripFileProtocol(ref.location),
+            )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
         return yield* makeAppError({
@@ -687,6 +709,15 @@ export const RuleManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "rule",
+            name: ref.rule.name,
+            ref,
+          }),
+        ),
       getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredRuleEntries();

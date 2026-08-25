@@ -43,6 +43,7 @@ describe("axm setup", () => {
             path.join(
               temp.path,
               "agent_extensions",
+              "agentxm",
               "@agentxm",
               "skills",
               "axm",
@@ -94,6 +95,7 @@ describe("axm setup", () => {
         const bundledSkillPath = path.join(
           temp.path,
           "agent_extensions",
+          "agentxm",
           "@agentxm",
           "skills",
           "axm",

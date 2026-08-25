@@ -44,17 +44,37 @@ configured agent directory has neither a structured file marker nor a managed
 symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
 delete it automatically.
 
-User scope uses `.axm/settings.json`, `.axm/axm-lock.yaml`, and
-`.axm/extensions/`; the authority relationships are otherwise the same.
+User scope uses `.axm/settings.json`, `.axm/axm-lock.yaml`, and the same
+source-qualified acquired package scheme under `.axm/extensions/`; the
+authority relationships are otherwise the same.
 
 ## Accepted external resolution
 
-Lockfile v5 contains only external resolutions. Registry rows pin version,
-archive integrity, source name, publisher binding, and the strict integrity of
-the complete materialized package tree. Git and local-source rows likewise pin
-their immutable source identity plus the complete tree. Workspace-authored,
-bundled, inline, projected, and command-history state does not belong in the
-lockfile.
+Lockfile v6 contains only external resolutions. Every row records the source
+type and exact source name, accepted endpoint or local coordinate, original
+intent, immutable resolution, package format, workspace name, extension type,
+and strict integrity of the complete materialized package tree. Registry rows
+also pin version, archive integrity, and publisher binding. Git-hosted rows pin
+their host coordinates, selected subpath, commit, and tree; local rows pin a
+workspace-relative path. Workspace-authored, bundled, inline, projected, and
+command-history state does not belong in the lockfile.
+
+Source names are durable identity. The built-in names are `agentxm` for the
+AgentXM Registry and `github`, `gitlab`, and `bitbucket` for those hosts.
+Unqualified Registry identifiers resolve through `agentxm`; alternate
+registries must use their configured source name. `git`, `local`, and
+`workspace` are reserved coordinate kinds, and `default` has no special
+meaning. Changing the endpoint behind an accepted source name is drift: lint
+and sync block until an explicit lifecycle operation accepts the transition.
+
+Acquired canonical packages use
+`agent_extensions/<source-name>/<source-full-name>/` in project scope and
+`.axm/extensions/<source-name>/<source-full-name>/` in user scope. Registry
+full names are `<@owner>/<plural-type>/<name>`; hosted Git full names preserve
+the repository owner or namespace, repository, and selected subpath. Azure
+Repos additionally preserves organization and project, generic Git preserves
+host and repository path, and local sources preserve their workspace-relative
+selected path.
 
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
 verifies downloaded archive bytes before extraction, then records

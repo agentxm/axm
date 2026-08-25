@@ -131,7 +131,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 5\nskills: {}\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
 
     return provide(
@@ -156,7 +156,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 5\nskills: {}\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
 
     return provide(
@@ -186,7 +186,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 5\nskills: {}\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
 
     return provide(
@@ -239,7 +239,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ failCleanupAtApply: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 5\nskills: {}\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
 
     return provide(
@@ -277,9 +277,17 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 5\nskills: {}\n",
+      lockfile: "lockfileVersion: 6\nskills: {}\n",
     });
-    const sourceDir = path.join(tempDir, "agent_extensions", "@agentxm", "skills", "axm", "src");
+    const sourceDir = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@agentxm",
+      "skills",
+      "axm",
+      "src",
+    );
     const skillsDir = path.join(tempDir, ".opencode", "skills");
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });

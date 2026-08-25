@@ -83,17 +83,17 @@ const settingsKeyForSurface = (surface: InstallSurface): SettingsKey =>
   surface === "mcps" ? "mcpServers" : surface;
 
 const hasAggregateProjection = (surface: InstallSurface): boolean =>
-  surface === "rules" || surface === "hooks" || surface === "knowledge";
+  surface === "rules" || surface === "hooks" || surface === "knowledge" || surface === "packs";
 
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
-  path.join(workspacePath, "agent_extensions", OWNER, surface, name);
+  path.join(workspacePath, "agent_extensions", "agentxm", OWNER, surface, name);
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
   const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -676,7 +676,9 @@ describe("axm install", () => {
         );
         expect(rootFootprint).toContain("modified axm.json");
         expect(rootFootprint).toContain("modified axm-lock.yaml");
-        expect(rootFootprint).toContain(`created agent_extensions/${OWNER}/${surface}/${name}`);
+        expect(rootFootprint).toContain(
+          `created agent_extensions/agentxm/${OWNER}/${surface}/${name}`,
+        );
 
         const settingsKey = settingsKeyForSurface(surface);
         const rootSettings = readSettings(rootWorkspace.path);

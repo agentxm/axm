@@ -24,6 +24,11 @@ const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
 );
 const localEntry = (pathValue: string, packageName = "review"): SkillLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: decodeExtensionNameSync(packageName),
+  packageFormat: "agentxm",
   packageOwner: decodeHandleSync("@acme"),
   packageName: decodeExtensionNameSync(packageName),
   path: pathValue,
@@ -49,7 +54,7 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 5,
+          lockfileVersion: 6,
           skills: { review: localEntry("../sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
@@ -64,7 +69,7 @@ describe("lockfile", () => {
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 5, skills: {} };
+    const base: Lockfile = { lockfileVersion: 6, skills: {} };
     const result = applyLockfileUpdates(base, [
       (lockfile) => ({ ...lockfile, skills: { review: localEntry("../one") } }),
       (lockfile) => ({
@@ -78,9 +83,9 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 5, skills: {} };
+        const base: Lockfile = { lockfileVersion: 6, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 5,
+          lockfileVersion: 6,
           skills: { existing: localEntry("../existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
@@ -98,15 +103,15 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 5,
+          lockfileVersion: 6,
           skills: { review: localEntry("../old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 5,
+          lockfileVersion: 6,
           skills: { ...base.skills, independent: localEntry("../independent", "independent") },
         });
         const next: Lockfile = {
-          lockfileVersion: 5,
+          lockfileVersion: 6,
           skills: { review: localEntry("../new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);

@@ -130,7 +130,13 @@ describe("actual-occurrence shape", () => {
             },
           },
           axmExtensions: {
-            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+              owner: "@owner",
+              type: "skill",
+              name: "some-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
           },
         }),
       );
@@ -164,7 +170,8 @@ describe("actual-occurrence shape", () => {
             },
           },
           axmExtensions: {
-            "external/skills/some-skill/SKILL.md": "# external\n",
+            "github/owner/repo/.agents/skills/some-skill/SKILL.md":
+              "---\nname: some-skill\ndescription: External skill\n---\n# external\n",
           },
         }),
       );

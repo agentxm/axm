@@ -24,8 +24,8 @@ describe("adopt command", () => {
       path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [] }),
     );
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
-    const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "review");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+    const skillDir = path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -55,7 +55,9 @@ describe("adopt command", () => {
         expect(settings.skills?.["review"]).toEqual({ source: "workspace", enabled: true });
         expect(fs.existsSync(path.join(tempDir, "skills", "review", "skill.json"))).toBe(true);
         expect(
-          fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "review")),
+          fs.existsSync(
+            path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "review"),
+          ),
         ).toBe(false);
         expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "review:",

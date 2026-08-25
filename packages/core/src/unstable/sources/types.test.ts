@@ -67,28 +67,36 @@ describe("RefType", () => {
 
 describe("SourceHost", () => {
   it("narrows GitHubSourceHost via type", () => {
-    const host: SourceHost = { type: "github", url: new URL("https://github.com") };
+    const host: SourceHost = { type: "github", name: "github", url: new URL("https://github.com") };
     if (host.type === "github") {
       expect(host.url.hostname).toBe("github.com");
     }
   });
 
   it("narrows GitLabSourceHost via type", () => {
-    const host: SourceHost = { type: "gitlab", url: new URL("https://gitlab.com") };
+    const host: SourceHost = { type: "gitlab", name: "gitlab", url: new URL("https://gitlab.com") };
     if (host.type === "gitlab") {
       expect(host.url.hostname).toBe("gitlab.com");
     }
   });
 
   it("narrows BitbucketSourceHost via type", () => {
-    const host: SourceHost = { type: "bitbucket", url: new URL("https://bitbucket.org") };
+    const host: SourceHost = {
+      type: "bitbucket",
+      name: "bitbucket",
+      url: new URL("https://bitbucket.org"),
+    };
     if (host.type === "bitbucket") {
       expect(host.url.hostname).toBe("bitbucket.org");
     }
   });
 
   it("narrows AzureReposSourceHost via type", () => {
-    const host: SourceHost = { type: "azurerepos", url: new URL("https://dev.azure.com") };
+    const host: SourceHost = {
+      type: "azurerepos",
+      name: "azurerepos",
+      url: new URL("https://dev.azure.com"),
+    };
     if (host.type === "azurerepos") {
       expect(host.url.hostname).toBe("dev.azure.com");
     }
@@ -97,6 +105,7 @@ describe("SourceHost", () => {
   it("narrows RegistrySourceHost via type", () => {
     const host: SourceHost = {
       type: "registry",
+      name: "agentxm",
       location: new URL("file:///registry"),
     };
     if (host.type === "registry") {
@@ -215,6 +224,7 @@ describe("Source", () => {
   it("GitHubSource has host and params fields via flat intersection", () => {
     const source: Source = {
       type: "github",
+      name: "github",
       url: new URL("https://github.com"),
       owner: "octocat",
       repo: "hello-world",
@@ -231,6 +241,7 @@ describe("Source", () => {
   it("RegistrySource has host and params fields via flat intersection", () => {
     const source: Source = {
       type: "registry",
+      name: "agentxm",
       location: new URL("file:///registry"),
       owner: Option.none(),
     };
@@ -249,6 +260,7 @@ describe("Source", () => {
   it("switch (source.type) gives access to all fields", () => {
     const source: Source = {
       type: "azurerepos",
+      name: "azurerepos",
       url: new URL("https://dev.azure.com"),
       organization: "myorg",
       project: "myproject",
@@ -276,18 +288,18 @@ describe("Source", () => {
 describe("convenience unions", () => {
   it("GitHostingSourceHost includes all 4 git hosting types", () => {
     const hosts: GitHostingSourceHost[] = [
-      { type: "github", url: new URL("https://github.com") },
-      { type: "gitlab", url: new URL("https://gitlab.com") },
-      { type: "bitbucket", url: new URL("https://bitbucket.org") },
-      { type: "azurerepos", url: new URL("https://dev.azure.com") },
+      { type: "github", name: "github", url: new URL("https://github.com") },
+      { type: "gitlab", name: "gitlab", url: new URL("https://gitlab.com") },
+      { type: "bitbucket", name: "bitbucket", url: new URL("https://bitbucket.org") },
+      { type: "azurerepos", name: "azurerepos", url: new URL("https://dev.azure.com") },
     ];
     expect(hosts).toHaveLength(4);
   });
 
   it("ConfiguredSourceHost includes git hosting + registry", () => {
     const hosts: ConfiguredSourceHost[] = [
-      { type: "github", url: new URL("https://github.com") },
-      { type: "registry", location: new URL("file:///r") },
+      { type: "github", name: "github", url: new URL("https://github.com") },
+      { type: "registry", name: "agentxm", location: new URL("file:///r") },
     ];
     expect(hosts).toHaveLength(2);
   });
@@ -358,6 +370,7 @@ describe("SkillExtensionRef", () => {
       },
       source: {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "o",
         repo: "r",
@@ -386,6 +399,7 @@ describe("SkillExtensionRef", () => {
       skill: { name: extensionName("test"), description: Option.none(), metadata: Option.none() },
       source: {
         type: "registry",
+        name: "agentxm",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
@@ -464,6 +478,7 @@ describe("McpServerExtensionRef", () => {
       server: { name: extensionName("my-server") },
       source: {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "o",
         repo: "r",
@@ -488,6 +503,7 @@ describe("McpServerExtensionRef", () => {
       server: { name: extensionName("my-server") },
       source: {
         type: "registry",
+        name: "agentxm",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
@@ -521,6 +537,7 @@ describe("PackRef", () => {
       },
       source: {
         type: "registry",
+        name: "agentxm",
         location: new URL("file:///reg"),
         owner: Option.none(),
       },
@@ -584,7 +601,12 @@ describe("ExtensionRef", () => {
       publisherBindingId: "hbnd_test",
       owner: handle("@axm"),
       pack: { name: extensionName("p"), dependencies: {} },
-      source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
+      source: {
+        type: "registry",
+        name: "agentxm",
+        location: new URL("file:///reg"),
+        owner: Option.none(),
+      },
       name: extensionName("p"),
       version: exactVersion("1.0.0"),
       integrity: Option.none(),
@@ -602,7 +624,12 @@ describe("ExtensionRef", () => {
 
       publisherBindingId: "hbnd_test",
       skill: { name: extensionName("s"), description: Option.none(), metadata: Option.none() },
-      source: { type: "registry", location: new URL("file:///reg"), owner: Option.none() },
+      source: {
+        type: "registry",
+        name: "agentxm",
+        location: new URL("file:///reg"),
+        owner: Option.none(),
+      },
       owner: handle("@acme"),
       name: extensionName("pkg"),
       version: exactVersion("1.0.0"),

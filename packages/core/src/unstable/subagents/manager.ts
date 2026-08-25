@@ -29,7 +29,6 @@ import { CodingAgentRepository, type SubagentSyncOutcome } from "../agents/index
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
   removeIfExists,
-  removeFromAllCanonicalLocations,
   stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
 } from "../utils/index.js";
@@ -67,6 +66,7 @@ import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import {
@@ -198,10 +198,7 @@ export const SubagentManagerLive = Layer.effect(
     // Compute canonical paths for a subagent ref
     const getCanonicalPaths = (ref: SubagentExtensionRef) => {
       const sanitized = sanitizeName(ref.subagent.name);
-      const source: SubagentPathSource =
-        ref.refType === "registry" || ref.refType === "workspace"
-          ? { refType: ref.refType, owner: ref.owner }
-          : { refType: ref.refType, owner: ref.owner };
+      const source: SubagentPathSource = ref;
       const paths = computeSubagentPathsForLayout(path.join, ws.layout, source, sanitized);
       return { sanitized, paths };
     };
@@ -303,14 +300,6 @@ export const SubagentManagerLive = Layer.effect(
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
             if (!isSelfCopy) {
               const materialized = yield* copyToCanonical(sourcePath, targetPath);
-              yield* removeFromAllCanonicalLocations(
-                fs,
-                baseDir,
-                "subagents",
-                sanitized,
-                path,
-                targetPath,
-              );
               return materialized.treeIntegrity;
             }
             return yield* provide(computeMaterializedTreeIntegrity(targetPath));
@@ -323,14 +312,6 @@ export const SubagentManagerLive = Layer.effect(
             const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
             if (!isSelfCopy) {
               const materialized = yield* copyToCanonical(sourcePath, targetPath);
-              yield* removeFromAllCanonicalLocations(
-                fs,
-                baseDir,
-                "subagents",
-                sanitized,
-                path,
-                targetPath,
-              );
               return materialized.treeIntegrity;
             }
             return yield* provide(computeMaterializedTreeIntegrity(targetPath));
@@ -666,6 +647,15 @@ export const SubagentManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "subagent",
+            name: ref.subagent.name,
+            ref,
+          }),
+        ),
       getLastMaterialization: ({ target }) =>
         Effect.succeed(
           lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
@@ -697,7 +687,11 @@ export const SubagentManagerLive = Layer.effect(
       }) {
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
           return yield* makeAppError({
@@ -755,7 +749,11 @@ export const SubagentManagerLive = Layer.effect(
       }) {
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
           return yield* makeAppError({

@@ -9,7 +9,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   buildInstallOperation,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
@@ -81,7 +81,7 @@ export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
       provide(
         Effect.gen(function* () {
           const input = args.source.trim();
-          const parsed = parseRegistrySourcePatternParts(input);
+          const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
           const source = yield* resolveSource(input).pipe(
             Effect.mapError((error) =>
               makeAppError({

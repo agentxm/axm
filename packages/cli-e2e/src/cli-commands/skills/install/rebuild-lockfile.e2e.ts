@@ -6,7 +6,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("authoritative lockfile recovery boundary", () => {
-  it("creates a new v5 lockfile containing only the requested external resolution", async () => {
+  it("creates a new v6 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
       await runCli(
@@ -23,7 +23,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(5);
+      expect(lock.lockfileVersion).toBe(6);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
       expect(lock.skills["another-skill"]).toMatchObject({ type: "local" });
     } finally {
@@ -50,9 +50,7 @@ describe("authoritative lockfile recovery boundary", () => {
       expect(result.exitCode).toBe(6);
       expect(getOutput(result)).toContain("authoritative lockfile is invalid");
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
-      expect(
-        fs.existsSync(path.join(temp.path, "agent_extensions", "@test", "skills", "another-skill")),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "local"))).toBe(false);
     } finally {
       temp.cleanup();
     }

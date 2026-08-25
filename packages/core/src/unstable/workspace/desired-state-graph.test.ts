@@ -14,7 +14,7 @@ const writePack = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
 ) => {
-  const dir = nodePath.join(root, "agent_extensions", owner, "packs", name);
+  const dir = nodePath.join(root, "agent_extensions", "agentxm", owner, "packs", name);
   nodeFs.mkdirSync(dir, { recursive: true });
   nodeFs.writeFileSync(
     nodePath.join(dir, "pack.json"),
@@ -448,6 +448,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       const manifestPath = nodePath.join(
         root,
         "agent_extensions",
+        "agentxm",
         "@acme",
         "packs",
         "expected",

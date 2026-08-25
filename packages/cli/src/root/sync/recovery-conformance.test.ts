@@ -262,6 +262,13 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "lockAuthority",
     evidence: workspaceEvidence,
   }),
+  makeEntry("workspace/source-endpoints-aligned", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: [
+      "packages/core/src/unstable/lint/catalog/workspace/source-endpoints-aligned.test.ts",
+    ],
+  }),
   makeEntry("workspace/skills-integrity-valid", {
     owner: "sync",
     field: "canonicalContent",

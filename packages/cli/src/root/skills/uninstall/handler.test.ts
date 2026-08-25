@@ -74,26 +74,23 @@ const initWorkspace = (
 };
 
 /** Create a canonical skill directory with SKILL.md. */
-const createCanonicalSkill = (base: string, name: string) => {
-  const dir = path.join(base, "agent_extensions", "@acme", "skills", name);
+const createCanonicalSkill = (base: string, name: string, owner = "@acme") => {
+  const dir = path.join(base, "agent_extensions", "agentxm", owner, "skills", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "SKILL.md"), `# ${name}`);
   return dir;
 };
 
 /** Create an agent symlink pointing to canonical. */
-const createAgentSymlink = (base: string, agentDir: string, name: string) => {
-  const canonical = path.join(base, "agent_extensions", "@acme", "skills", name);
+const createAgentSymlink = (base: string, agentDir: string, name: string, owner = "@acme") => {
+  const canonical = path.join(base, "agent_extensions", "agentxm", owner, "skills", name);
   const agentSkillDir = path.join(base, agentDir, "skills");
   fs.mkdirSync(agentSkillDir, { recursive: true });
   fs.symlinkSync(canonical, path.join(agentSkillDir, name));
 };
 
-const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
-  type: "local",
-  path: "installed",
-  contentIdentity: "test-content",
-});
+const makeLockEntry = (name: string, _agents: string[] = ["claude-code"]) =>
+  makeRegistryLockEntry("@acme", name, _agents);
 
 const makeRegistryLockEntry = (
   owner: string,
@@ -105,7 +102,7 @@ const makeRegistryLockEntry = (
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -121,7 +118,7 @@ const makePackLockEntry = (
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha256-abc",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   manifestContentIdentity: computePackManifestContentIdentity({
     owner,
@@ -196,7 +193,7 @@ describe("uninstall.handler", () => {
     it.effect("uninstalls a skill from lockfile and disk", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": makeLockEntry(),
+        "my-skill": makeLockEntry("my-skill"),
       });
       createCanonicalSkill(tempDir, "my-skill");
       createAgentSymlink(tempDir, ".claude", "my-skill");
@@ -210,7 +207,9 @@ describe("uninstall.handler", () => {
 
           // Canonical directory should be removed
           expect(
-            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
+            fs.existsSync(
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "my-skill"),
+            ),
           ).toBe(false);
 
           // Agent symlink should be removed
@@ -265,9 +264,9 @@ describe("uninstall.handler", () => {
     it.effect("expands glob pattern to match multiple skills", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        "effect-basics": makeLockEntry(),
-        "effect-stream": makeLockEntry(),
-        "testing-unit": makeLockEntry(),
+        "effect-basics": makeLockEntry("effect-basics"),
+        "effect-stream": makeLockEntry("effect-stream"),
+        "testing-unit": makeLockEntry("testing-unit"),
       });
       createCanonicalSkill(tempDir, "effect-basics");
       createCanonicalSkill(tempDir, "effect-stream");
@@ -283,19 +282,19 @@ describe("uninstall.handler", () => {
           // effect-* skills should be removed
           expect(
             fs.existsSync(
-              path.join(tempDir, "agent_extensions", "@acme", "skills", "effect-basics"),
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "effect-basics"),
             ),
           ).toBe(false);
           expect(
             fs.existsSync(
-              path.join(tempDir, "agent_extensions", "@acme", "skills", "effect-stream"),
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "effect-stream"),
             ),
           ).toBe(false);
 
           // testing-unit should remain
           expect(
             fs.existsSync(
-              path.join(tempDir, "agent_extensions", "@acme", "skills", "testing-unit"),
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "testing-unit"),
             ),
           ).toBe(true);
         }),
@@ -305,7 +304,7 @@ describe("uninstall.handler", () => {
     it.effect("reports no-op when glob matches no skills", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": makeLockEntry(),
+        "my-skill": makeLockEntry("my-skill"),
       });
 
       return provide(
@@ -324,7 +323,7 @@ describe("uninstall.handler", () => {
     it.effect("emits JSON no-op when glob matches no skills in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": makeLockEntry(),
+        "my-skill": makeLockEntry("my-skill"),
       });
 
       return provide(
@@ -378,7 +377,7 @@ describe("uninstall.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
-        { "my-skill": makeLockEntry(["claude-code", "cursor"]) },
+        { "my-skill": makeLockEntry("my-skill", ["claude-code", "cursor"]) },
         ["claude-code", "cursor"],
       );
       createCanonicalSkill(tempDir, "my-skill");
@@ -400,7 +399,9 @@ describe("uninstall.handler", () => {
 
           // Canonical should be removed
           expect(
-            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
+            fs.existsSync(
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "my-skill"),
+            ),
           ).toBe(false);
 
           // Lockfile should not have the skill
@@ -421,7 +422,14 @@ describe("uninstall.handler", () => {
       const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
-      const packDir = path.join(tempDir, "agent_extensions", "@my-ns", "packs", "my-pack");
+      const packDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "agentxm",
+        "@my-ns",
+        "packs",
+        "my-pack",
+      );
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
         path.join(packDir, "pack.json"),
@@ -443,8 +451,8 @@ describe("uninstall.handler", () => {
         { [skillName]: fqn },
         { "my-pack": "@my-ns/packs/my-pack" },
       );
-      createCanonicalSkill(tempDir, skillName);
-      createAgentSymlink(tempDir, ".claude", skillName);
+      createCanonicalSkill(tempDir, skillName, "@my-ns");
+      createAgentSymlink(tempDir, ".claude", skillName, "@my-ns");
 
       return provide(
         Effect.gen(function* () {
@@ -455,7 +463,9 @@ describe("uninstall.handler", () => {
 
           // Canonical directory should still exist (retained because pack requires it)
           expect(
-            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", skillName)),
+            fs.existsSync(
+              path.join(tempDir, "agent_extensions", "agentxm", "@my-ns", "skills", skillName),
+            ),
           ).toBe(true);
 
           // Settings should not have the skill
@@ -503,7 +513,7 @@ describe("uninstall.handler", () => {
       () => {
         const { provide, logs } = makeLayers();
         initWorkspace(path.join(tempDir, ".axm"), {
-          "my-skill": makeLockEntry(),
+          "my-skill": makeLockEntry("my-skill"),
         });
         createCanonicalSkill(tempDir, "my-skill");
         createAgentSymlink(tempDir, ".claude", "my-skill");
@@ -517,7 +527,9 @@ describe("uninstall.handler", () => {
 
             // Canonical directory should still exist (preview = no side effects)
             expect(
-              fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
+              fs.existsSync(
+                path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "my-skill"),
+              ),
             ).toBe(true);
 
             // Agent symlink should still exist
@@ -539,7 +551,7 @@ describe("uninstall.handler", () => {
               expect.arrayContaining([
                 "    updated: axm-lock.yaml",
                 "    updated: axm.json",
-                "    removed: agent_extensions/@acme/skills/my-skill",
+                "    removed: agent_extensions/agentxm/@acme/skills/my-skill",
                 "    removed: .claude/skills/my-skill",
               ]),
             );
@@ -554,7 +566,7 @@ describe("uninstall.handler", () => {
         const { provide } = makeLayers();
         initWorkspace(
           path.join(tempDir, ".axm"),
-          { "my-skill": makeLockEntry(["claude-code", "cursor"]) },
+          { "my-skill": makeLockEntry("my-skill", ["claude-code", "cursor"]) },
           ["claude-code", "cursor"],
         );
         createCanonicalSkill(tempDir, "my-skill");
@@ -570,7 +582,9 @@ describe("uninstall.handler", () => {
 
             // Canonical directory should still exist
             expect(
-              fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
+              fs.existsSync(
+                path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "my-skill"),
+              ),
             ).toBe(true);
 
             // Both agent symlinks should still exist

@@ -8,6 +8,7 @@ import {
   formatRegistrySourceRef,
   parseRegistrySourcePatternParts,
   parseRegistrySourceRef,
+  parseSourceQualifiedRegistrySourcePatternParts,
 } from "./registry-source.js";
 
 describe("registry-source", () => {
@@ -61,8 +62,40 @@ describe("registry-source", () => {
       });
     });
 
+    it("parses explicitly source-qualified refs", () => {
+      expect(parseRegistrySourceRef("agentxm:@acme/skills/reviewer@^1.2.3")).toEqual({
+        owner: "@acme",
+        type: "skills",
+        name: "reviewer",
+        versionRange: "^1.2.3",
+      });
+    });
+
     it("rejects owner-only patterns", () => {
       expect(parseRegistrySourceRef("@acme")).toBeUndefined();
+    });
+  });
+
+  describe("parseSourceQualifiedRegistrySourcePatternParts", () => {
+    it("assigns unqualified Registry locators to agentxm", () => {
+      expect(parseSourceQualifiedRegistrySourcePatternParts("@acme/skills/reviewer")).toEqual({
+        owner: "@acme",
+        type: "skills",
+        name: "reviewer",
+        sourceName: "agentxm",
+      });
+    });
+
+    it("preserves an explicit Registry source and version constraint", () => {
+      expect(
+        parseSourceQualifiedRegistrySourcePatternParts("internal:@acme/skills/reviewer@^1.2.3"),
+      ).toEqual({
+        owner: "@acme",
+        type: "skills",
+        name: "reviewer",
+        versionRange: "^1.2.3",
+        sourceName: "internal",
+      });
     });
   });
 

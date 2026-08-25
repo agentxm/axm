@@ -10,6 +10,7 @@ import {
   makeAbsolutePath,
   makeRelativePath,
   makeWorkspaceRelativePath,
+  makeWorkspaceRelativeSourcePath,
 } from "./path-types.js";
 
 layer(NodeServices.layer, { excludeTestServices: true })("path-types", (it) => {
@@ -77,6 +78,32 @@ layer(NodeServices.layer, { excludeTestServices: true })("path-types", (it) => {
       );
 
       expect(Option.isNone(result)).toBe(true);
+    }),
+  );
+
+  it.effect("derives a selected local source coordinate under the workspace", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const result = makeWorkspaceRelativeSourcePath(
+        path,
+        decodeAbsolutePathSync("/workspace"),
+        "/workspace/vendor/skills/review",
+      );
+
+      expect(Option.getOrNull(result)).toBe("vendor/skills/review");
+    }),
+  );
+
+  it.effect("represents selected local sources outside the workspace with parent segments", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const result = makeWorkspaceRelativeSourcePath(
+        path,
+        decodeAbsolutePathSync("/workspace"),
+        "/outside/review",
+      );
+
+      expect(Option.getOrNull(result)).toBe(nodePath.normalize("../outside/review"));
     }),
   );
 });

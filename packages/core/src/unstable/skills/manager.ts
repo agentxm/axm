@@ -29,12 +29,15 @@ import type {
   SkillExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { sanitizeName } from "../extensions/utils.js";
 import type { SourceHash } from "../extensions/index.js";
 import { computePackageContentHash } from "../extensions/index.js";
 import type { TreeIntegrity } from "../extensions/materialized-tree.js";
-import { makeWorkspaceRelativeSourcePath, removeIfExists } from "../utils/index.js";
+import {
+  makeWorkspaceRelativeSourcePath,
+  removeIfExists,
+  stripFileProtocol,
+} from "../utils/index.js";
 import { CodingAgentRepository, type AgentId } from "../agents/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { computeSkillSourceHash } from "./operations/source-hash.js";
@@ -47,6 +50,7 @@ import {
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonicalRef,
 } from "../workspace/accepted-canonical-ref.js";
@@ -324,14 +328,19 @@ export const SkillManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        if (yield* isObservedInstalled(ws, "skill", target.name)) {
-          return true;
-        }
-
-        return yield* existsInAnyCanonicalLocation(fs, path, baseDir, target.name);
+        return yield* isObservedInstalled(ws, "skill", target.name);
       }),
 
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "skill",
+            name: ref.skill.name,
+            ref,
+          }),
+        ),
       getLastMaterialization: ({ target }) =>
         Effect.succeed(
           lastMaterializations.get(target.name) ?? {
@@ -391,7 +400,11 @@ export const SkillManagerLive = Layer.effect(
       }) {
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
           return yield* makeAppError({
@@ -450,7 +463,11 @@ export const SkillManagerLive = Layer.effect(
       }) {
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
           return yield* makeAppError({

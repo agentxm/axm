@@ -47,11 +47,16 @@ const externalPackGraph = {
 
 const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(manifest)) =>
   ({
-    lockfileVersion: 5,
+    lockfileVersion: 6,
     skills: {},
     packs: {
       toolkit: {
         type: "registry",
+        sourceType: "registry",
+        endpoint: new URL("https://registry.agentxm.ai"),
+        extensionType: "pack",
+        workspaceName: name,
+        packageFormat: "agentxm",
         owner,
         name,
         resolvedVersion: version,
@@ -75,7 +80,14 @@ describe("validateDesiredPackLock", () => {
   const setupCanonicalPack = () => {
     const baseDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "pack-lock-")));
     temporaryDirectories.push(baseDir);
-    const canonical = path.join(baseDir, "agent_extensions", "@acme", "packs", "toolkit");
+    const canonical = path.join(
+      baseDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "packs",
+      "toolkit",
+    );
     fs.mkdirSync(canonical, { recursive: true });
     fs.writeFileSync(path.join(canonical, "pack.json"), JSON.stringify(manifest));
     return { baseDir, canonical };
@@ -87,7 +99,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         baseDir,
         graph: externalPackGraph,
-        lockfile: { lockfileVersion: 5, skills: {} },
+        lockfile: { lockfileVersion: 6, skills: {} },
       });
 
       expect(validated.complete).toBe(false);
@@ -161,7 +173,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         baseDir,
         graph,
-        lockfile: { lockfileVersion: 5, skills: {} },
+        lockfile: { lockfileVersion: 6, skills: {} },
       });
       expect(validated.complete).toBe(true);
     }).pipe(Effect.provide(NodeServices.layer)),

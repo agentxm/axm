@@ -18,12 +18,7 @@ import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { SkillExtensionRef, WorkspaceSkillRef } from "./refs.js";
 import { computeSkillPathsForLayout, type SkillPathSource } from "./paths.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
-import {
-  createSymlink,
-  isPathSafe,
-  removeFromAllCanonicalLocations,
-  stripFileProtocol,
-} from "../utils/index.js";
+import { createSymlink, isPathSafe, stripFileProtocol } from "../utils/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 
@@ -66,14 +61,6 @@ const replaceExternalCanonical = (
         copyFailureDetail: (target) => `Failed to copy skill files to ${target}`,
       }),
     );
-    yield* removeFromAllCanonicalLocations(
-      fs,
-      baseDir,
-      "skills",
-      sanitizedName,
-      pathService,
-      copyTarget,
-    );
     return materialized.treeIntegrity;
   });
 
@@ -91,12 +78,13 @@ const materializeGitHosted = (
     const { canonicalPath, skillSrcPath } = computeSkillPathsForLayout(
       pathService.join,
       layout,
-      { refType: ref.refType, owner: ref.owner },
+      ref,
       sanitizedName,
     );
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
     const packageRoot = stripFileProtocol(ref.location);
-    const sourceSkillPath = pathService.join(packageRoot, "src");
+    const sourceSkillPath =
+      ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
     yield* provide(
       validateAxmSkillCandidate({
         ref,
@@ -104,18 +92,16 @@ const materializeGitHosted = (
         skillSourcePath: sourceSkillPath,
       }),
     );
-    const sourcePath = layout.scope === "project" ? packageRoot : sourceSkillPath;
-    const copyTarget = layout.scope === "project" ? canonicalPath : skillSrcPath;
-    const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(copyTarget);
+    const isSelfCopy = pathService.resolve(packageRoot) === pathService.resolve(canonicalPath);
     const treeIntegrity = isSelfCopy
-      ? yield* provide(computeMaterializedTreeIntegrity(copyTarget))
+      ? yield* provide(computeMaterializedTreeIntegrity(canonicalPath))
       : yield* replaceExternalCanonical(
           fs,
           pathService,
           baseDir,
           sanitizedName,
-          sourcePath,
-          copyTarget,
+          packageRoot,
+          canonicalPath,
           reuse,
           provide,
         );
@@ -136,12 +122,13 @@ const materializeLocal = (
     const { canonicalPath, skillSrcPath } = computeSkillPathsForLayout(
       pathService.join,
       layout,
-      { refType: ref.refType, owner: ref.owner },
+      ref,
       sanitizedName,
     );
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
     const packageRoot = stripFileProtocol(ref.location);
-    const sourceSkillPath = pathService.join(packageRoot, "src");
+    const sourceSkillPath =
+      ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
     yield* provide(
       validateAxmSkillCandidate({
         ref,
@@ -149,18 +136,16 @@ const materializeLocal = (
         skillSourcePath: sourceSkillPath,
       }),
     );
-    const sourcePath = layout.scope === "project" ? packageRoot : sourceSkillPath;
-    const copyTarget = layout.scope === "project" ? canonicalPath : skillSrcPath;
-    const isSelfCopy = pathService.resolve(sourcePath) === pathService.resolve(copyTarget);
+    const isSelfCopy = pathService.resolve(packageRoot) === pathService.resolve(canonicalPath);
     const treeIntegrity = isSelfCopy
-      ? yield* provide(computeMaterializedTreeIntegrity(copyTarget))
+      ? yield* provide(computeMaterializedTreeIntegrity(canonicalPath))
       : yield* replaceExternalCanonical(
           fs,
           pathService,
           baseDir,
           sanitizedName,
-          sourcePath,
-          copyTarget,
+          packageRoot,
+          canonicalPath,
           reuse,
           provide,
         );
@@ -180,7 +165,7 @@ const materializeRegistry = (
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const source: SkillPathSource = { refType: "registry", owner: ref.owner };
+      const source: SkillPathSource = ref;
       const { canonicalPath, skillSrcPath } = computeSkillPathsForLayout(
         pathService.join,
         layout,
@@ -235,14 +220,6 @@ const materializeRegistry = (
               }).pipe(Effect.asVoid),
             ),
         }),
-      );
-      yield* removeFromAllCanonicalLocations(
-        fs,
-        baseDir,
-        "skills",
-        sanitizedName,
-        pathService,
-        canonicalPath,
       );
       return { skillSrcPath, treeIntegrity: materialized.treeIntegrity };
     }),

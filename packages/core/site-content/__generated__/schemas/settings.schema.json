@@ -130,7 +130,7 @@
     },
     "SourceName": {
       "type": "string",
-      "pattern": "^(?!workspace$)[a-z0-9][a-z0-9.-]*$",
+      "pattern": "^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$",
       "title": "Source Name",
       "description": "Alias used in entry source strings for this source host.",
       "examples": ["github", "my-registry.dev"]

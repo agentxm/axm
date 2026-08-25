@@ -43,7 +43,6 @@ interface LockEntryToRefDeps {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly scope: WorkspaceScope;
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   readonly getConfiguredSourceByName: (
     name: string,
   ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
@@ -92,88 +91,126 @@ const registrySourceFromEntry = (
     if (Option.isNone(configured) || configured.value.type !== "registry") {
       return yield* missingSource("registry", entry.sourceName);
     }
+    if (configured.value.location.href !== entry.endpoint.href) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Lockfile Registry source "${entry.sourceName}" accepts endpoint ${entry.endpoint.href}, but configuration resolves it to ${configured.value.location.href}`,
+      });
+    }
     return {
       type: "registry" as const,
-      location: configured.value.location,
+      name: configured.value.name,
+      location: entry.endpoint,
       owner: Option.some(entry.owner),
     };
   });
 
 function findSourceConfig(
   sourceType: "github",
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  sourceName: string,
+  endpoint: URL,
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<Extract<SourceHostConfig, { readonly type: "github" }>, AppError>;
 function findSourceConfig(
   sourceType: "gitlab",
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  sourceName: string,
+  endpoint: URL,
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<Extract<SourceHostConfig, { readonly type: "gitlab" }>, AppError>;
 function findSourceConfig(
   sourceType: "bitbucket",
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  sourceName: string,
+  endpoint: URL,
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<Extract<SourceHostConfig, { readonly type: "bitbucket" }>, AppError>;
 function findSourceConfig(
   sourceType: "azurerepos",
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  sourceName: string,
+  endpoint: URL,
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<Extract<SourceHostConfig, { readonly type: "azurerepos" }>, AppError>;
 function findSourceConfig(
   sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos",
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  sourceName: string,
+  endpoint: URL,
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ) {
   return Effect.gen(function* () {
-    const sources = yield* getSources();
-    const source = sources.find(hasSourceType(sourceType));
-    if (source === undefined) {
+    const configured = yield* getSourceByName(sourceName);
+    if (Option.isNone(configured) || !hasSourceType(sourceType)(configured.value)) {
       return yield* makeAppError({
-        code: "internal",
-        detail: `Lockfile ${sourceType} entry requires a configured ${sourceType} source`,
+        code: "conflict",
+        detail: `Lockfile ${sourceType} entry references source "${sourceName}", but configuration does not resolve that name to ${sourceType}`,
       });
     }
-    return source;
+    if (configured.value.url.href !== endpoint.href) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Lockfile ${sourceType} source "${sourceName}" accepts endpoint ${endpoint.href}, but configuration resolves it to ${configured.value.url.href}`,
+      });
+    }
+    return configured.value;
   });
 }
 
 const gitBasedSourceFromEntry = (
   entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" | "inline" | "workspace" }>,
-  getSources: LockEntryToRefDeps["getConfiguredSources"],
+  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<GitBasedSource, AppError> => {
   switch (entry.type) {
     case "github":
-      return Effect.map(findSourceConfig("github", getSources), (source) => ({
-        type: "github" as const,
-        url: source.url,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      }));
+      return Effect.map(
+        findSourceConfig("github", entry.sourceName, entry.endpoint, getSourceByName),
+        (source) => ({
+          type: "github" as const,
+          name: source.name,
+          url: source.url,
+          owner: entry.owner,
+          repo: entry.repo,
+          ref: Option.fromUndefinedOr(entry.ref),
+          subPath: Option.fromUndefinedOr(entry.path),
+        }),
+      );
     case "gitlab":
-      return Effect.map(findSourceConfig("gitlab", getSources), (source) => ({
-        type: "gitlab" as const,
-        url: source.url,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      }));
+      return Effect.map(
+        findSourceConfig("gitlab", entry.sourceName, entry.endpoint, getSourceByName),
+        (source) => ({
+          type: "gitlab" as const,
+          name: source.name,
+          url: source.url,
+          owner: entry.owner,
+          repo: entry.repo,
+          ref: Option.fromUndefinedOr(entry.ref),
+          subPath: Option.fromUndefinedOr(entry.path),
+        }),
+      );
     case "bitbucket":
-      return Effect.map(findSourceConfig("bitbucket", getSources), (source) => ({
-        type: "bitbucket" as const,
-        url: source.url,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      }));
+      return Effect.map(
+        findSourceConfig("bitbucket", entry.sourceName, entry.endpoint, getSourceByName),
+        (source) => ({
+          type: "bitbucket" as const,
+          name: source.name,
+          url: source.url,
+          owner: entry.owner,
+          repo: entry.repo,
+          ref: Option.fromUndefinedOr(entry.ref),
+          subPath: Option.fromUndefinedOr(entry.path),
+        }),
+      );
     case "azurerepos":
-      return Effect.map(findSourceConfig("azurerepos", getSources), (source) => ({
-        type: "azurerepos" as const,
-        url: source.url,
-        organization: entry.organization,
-        project: entry.project,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      }));
+      return Effect.map(
+        findSourceConfig("azurerepos", entry.sourceName, entry.endpoint, getSourceByName),
+        (source) => ({
+          type: "azurerepos" as const,
+          name: source.name,
+          url: source.url,
+          organization: entry.organization,
+          project: entry.project,
+          repo: entry.repo,
+          ref: Option.fromUndefinedOr(entry.ref),
+          subPath: Option.fromUndefinedOr(entry.path),
+        }),
+      );
     case "git":
       return Effect.map(
         Effect.try({
@@ -190,11 +227,30 @@ const gitBasedSourceFromEntry = (
 };
 
 const lockEntryLocation = (
-  baseDir: string,
-  owner: string,
-  pluralType: string,
-  name: string,
-): string => fileHref(`${baseDir}/agent_extensions/${owner}/${pluralType}/${name}`);
+  deps: LockEntryToRefDeps,
+  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" }>,
+): string => {
+  const root =
+    deps.scope === "project"
+      ? `${deps.baseDir}/agent_extensions`
+      : `${deps.baseDir}/.axm/extensions`;
+  const selected = entry.path === undefined ? "" : `/${entry.path}`;
+  switch (entry.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+      return fileHref(`${root}/${entry.sourceName}/${entry.owner}/${entry.repo}${selected}`);
+    case "azurerepos":
+      return fileHref(
+        `${root}/${entry.sourceName}/${entry.organization}/${entry.project}/${entry.repo}${selected}`,
+      );
+    case "git": {
+      const url = new URL(entry.url);
+      const repository = url.pathname.replace(/^\/+|\/+$/gu, "").replace(/\.git$/u, "");
+      return fileHref(`${root}/git/${url.hostname}/${repository}${selected}`);
+    }
+  }
+};
 
 export const skillLockEntryToRef = (
   name: string,
@@ -226,10 +282,12 @@ export const skillLockEntryToRef = (
           return Effect.succeed({
             type: "skill" as const,
             refType: "local" as const,
-            owner: entry.packageOwner,
+            ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
             name: entry.packageName,
             source: { type: "local" as const, path: skillSourcePath },
             location: fileHref(skillSourcePath),
+            sourcePath: entry.path,
+            portable: entry.packageFormat === "agent-skill",
             skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
           });
         }
@@ -239,19 +297,16 @@ export const skillLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "skill" as const,
               refType: "git-hosted" as const,
-              owner: entry.packageOwner,
+              ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
               name: entry.packageName,
               source,
-              location: lockEntryLocation(
-                deps.baseDir,
-                entry.packageOwner,
-                "skills",
-                extensionName,
-              ),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              portable: entry.packageFormat === "agent-skill",
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
@@ -295,6 +350,7 @@ export const mcpServerLockEntryToRef = (
             name: entry.packageName,
             source: { type: "local" as const, path: mcpServerSourcePath },
             location: fileHref(mcpServerSourcePath),
+            sourcePath: entry.path,
             server: { name: extensionName },
           });
         }
@@ -304,14 +360,15 @@ export const mcpServerLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "mcp-server" as const,
               refType: "git-hosted" as const,
               owner: entry.packageOwner,
               name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "mcps", extensionName),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               server: { name: extensionName },
@@ -355,6 +412,7 @@ export const subagentLockEntryToRef = (
             name: entry.packageName,
             source: { type: "local" as const, path: subagentSourcePath },
             location: fileHref(subagentSourcePath),
+            sourcePath: entry.path,
             subagent: { name: extensionName, description: Option.none() },
           });
         }
@@ -364,19 +422,15 @@ export const subagentLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "subagent" as const,
               refType: "git-hosted" as const,
               owner: entry.packageOwner,
               name: entry.packageName,
               source,
-              location: lockEntryLocation(
-                deps.baseDir,
-                entry.packageOwner,
-                "subagents",
-                extensionName,
-              ),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               subagent: { name: extensionName, description: Option.none() },
@@ -420,6 +474,7 @@ export const ruleLockEntryToRef = (
             name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
+            sourcePath: entry.path,
             rule: { name: extensionName },
           });
         }
@@ -429,14 +484,15 @@ export const ruleLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "rule" as const,
               refType: "git-hosted" as const,
               owner: entry.packageOwner,
               name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "rules", extensionName),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               rule: { name: extensionName },
@@ -480,6 +536,7 @@ export const hookLockEntryToRef = (
             name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
+            sourcePath: entry.path,
             hook: { name: extensionName },
           });
         }
@@ -489,14 +546,15 @@ export const hookLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "hook" as const,
               refType: "git-hosted" as const,
               owner: entry.packageOwner,
               name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "hooks", extensionName),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               hook: { name: extensionName },
@@ -540,6 +598,7 @@ export const knowledgeLockEntryToRef = (
             name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
+            sourcePath: entry.path,
             knowledge: { name: extensionName },
           });
         }
@@ -549,19 +608,15 @@ export const knowledgeLockEntryToRef = (
         case "azurerepos":
         case "git":
           return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSources),
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
             (source) => ({
               type: "knowledge" as const,
               refType: "git-hosted" as const,
               owner: entry.packageOwner,
               name: entry.packageName,
               source,
-              location: lockEntryLocation(
-                deps.baseDir,
-                entry.packageOwner,
-                "knowledge",
-                extensionName,
-              ),
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               knowledge: { name: extensionName },

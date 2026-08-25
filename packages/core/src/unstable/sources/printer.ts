@@ -8,6 +8,7 @@
 import * as Option from "effect/Option";
 import type {
   McpServerLockEntry,
+  PackLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   RuleLockEntry,
@@ -28,7 +29,8 @@ type SourceLockEntry =
   | RuleLockEntry
   | HookLockEntry
   | KnowledgeLockEntry
-  | SubagentLockEntry;
+  | SubagentLockEntry
+  | PackLockEntry;
 
 /**
  * Print source params as their canonical shorthand string.
@@ -38,13 +40,25 @@ type SourceLockEntry =
 export const printSourceParams = (source: SourceParams): string => {
   switch (source.type) {
     case "github":
-      return githubPrint(source);
+      return githubPrint(
+        source,
+        source.sourceName ?? ("name" in source ? String(source.name) : "github"),
+      );
     case "gitlab":
-      return gitlabPrint(source);
+      return gitlabPrint(
+        source,
+        source.sourceName ?? ("name" in source ? String(source.name) : "gitlab"),
+      );
     case "bitbucket":
-      return bitbucketPrint(source);
+      return bitbucketPrint(
+        source,
+        source.sourceName ?? ("name" in source ? String(source.name) : "bitbucket"),
+      );
     case "azurerepos":
-      return azurereposPrint(source);
+      return azurereposPrint(
+        source,
+        source.sourceName ?? ("name" in source ? String(source.name) : "azurerepos"),
+      );
     case "local":
       return localPrint(source);
     case "git": {
@@ -53,7 +67,7 @@ export const printSourceParams = (source: SourceParams): string => {
       return url.href;
     }
     case "registry": {
-      return "registry";
+      return source.sourceName ?? ("name" in source ? String(source.name) : "agentxm");
     }
     case "inline":
       return "inline";
@@ -77,6 +91,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "github":
       return {
         type: "github",
+        sourceName: entry.sourceName,
         owner: entry.owner,
         repo: entry.repo,
         ref: Option.fromUndefinedOr(entry.ref),
@@ -85,6 +100,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "gitlab":
       return {
         type: "gitlab",
+        sourceName: entry.sourceName,
         owner: entry.owner,
         repo: entry.repo,
         ref: Option.fromUndefinedOr(entry.ref),
@@ -93,6 +109,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "bitbucket":
       return {
         type: "bitbucket",
+        sourceName: entry.sourceName,
         owner: entry.owner,
         repo: entry.repo,
         ref: Option.fromUndefinedOr(entry.ref),
@@ -101,6 +118,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "azurerepos":
       return {
         type: "azurerepos",
+        sourceName: entry.sourceName,
         organization: entry.organization,
         project: entry.project,
         repo: entry.repo,
@@ -118,6 +136,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
     case "registry":
       return {
         type: "registry",
+        sourceName: entry.sourceName,
         owner: Option.none(),
       };
   }
@@ -132,5 +151,5 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
  */
 export const printSkillLockSourceLocator = (_lockName: string, entry: SkillLockEntry): string =>
   entry.type === "registry"
-    ? `${formatFqn({ owner: entry.owner, type: "skill", name: entry.name })}@${entry.resolvedVersion}`
+    ? `${entry.sourceName}:${formatFqn({ owner: entry.owner, type: "skill", name: entry.name })}@${entry.resolvedVersion}`
     : printSourceParams(lockEntryToSourceParams(entry));

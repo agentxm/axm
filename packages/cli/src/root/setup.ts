@@ -238,8 +238,8 @@ const bundledSkillCanonicalPath = (
   path: Path.Path,
 ): string =>
   ws.layout.scope === "project"
-    ? path.join(ws.layout.acquiredRoot, "@agentxm", "skills", "axm")
-    : path.join(ws.layout.canonicalRoot, "@agentxm", "skills", "axm");
+    ? path.join(ws.layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm")
+    : path.join(ws.layout.canonicalRoot, "agentxm", "@agentxm", "skills", "axm");
 
 const materializeBundledAxmSkill = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
@@ -608,8 +608,8 @@ const setupSkillTargetPath = (agentId: string): string => {
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project"
-    ? "agent_extensions/@agentxm/skills/axm"
-    : ".axm/extensions/@agentxm/skills/axm";
+    ? "agent_extensions/agentxm/@agentxm/skills/axm"
+    : ".axm/extensions/agentxm/@agentxm/skills/axm";
 
 const setupSkillFootprint = (scope: WorkspaceScope, agentIds: ReadonlyArray<string>): string => {
   const sourcePath = bundledSkillDisplayPath(scope);

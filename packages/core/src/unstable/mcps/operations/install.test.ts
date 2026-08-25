@@ -203,6 +203,7 @@ const makeRegistryRef = (
     publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
+      name: "agentxm",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
@@ -233,6 +234,7 @@ const makeUnsafeRegistryRef = (
     publisherBindingId: "hbnd_test",
     source: {
       type: "registry",
+      name: "agentxm",
       location: new URL(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
@@ -298,7 +300,7 @@ describe("installMcpServer", () => {
     name = "my-server",
     runnable = true,
   ) => {
-    const canonicalPath = path.join(base, "agent_extensions", owner, "mcps", name);
+    const canonicalPath = path.join(base, "agent_extensions", "agentxm", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp.json"),
@@ -374,6 +376,7 @@ describe("installMcpServer", () => {
         const canonicalPath = path.join(
           base,
           "agent_extensions",
+          "agentxm",
           "@community",
           "mcps",
           "my-server",
@@ -552,6 +555,7 @@ describe("installMcpServer", () => {
         const canonicalPath = path.join(
           base,
           "agent_extensions",
+          "agentxm",
           "@community",
           "mcps",
           "my-server",
@@ -784,7 +788,7 @@ describe("installMcpServer", () => {
             fileCount: 3,
             targets: [
               expect.objectContaining({
-                path: "agent_extensions/@community/mcps/my-server",
+                path: "agent_extensions/agentxm/@community/mcps/my-server",
                 change: "created",
               }),
               { path: "axm.json", change: "created" },
@@ -908,7 +912,9 @@ describe("installMcpServer", () => {
             agents: [],
             fileCount: 2,
             targets: [
-              expect.objectContaining({ path: "agent_extensions/@community/mcps/my-server" }),
+              expect.objectContaining({
+                path: "agent_extensions/agentxm/@community/mcps/my-server",
+              }),
               expect.objectContaining({ path: "axm.json" }),
             ],
           }),

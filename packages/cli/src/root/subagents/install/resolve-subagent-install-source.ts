@@ -166,6 +166,7 @@ const resolveRegistrySource = (
         }
         return {
           type: "registry" as const,
+          name: regConfig.name,
           location: regConfig.location,
           owner: Option.some(owner),
         } satisfies RegistrySource;
@@ -225,7 +226,9 @@ const resolveSubagentRegistrySourceByName = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
-    const registryHosts = yield* ws.getRegistrySourceHosts();
+    const registryHosts = (yield* ws.getRegistrySourceHosts()).filter(
+      (source) => source.name === "agentxm",
+    );
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
@@ -249,6 +252,7 @@ const resolveSubagentRegistrySourceByName = (
         input: name,
         resourceType: "subagent",
         scope: "registry",
+        registrySourceName: "agentxm",
       }),
     ).pipe(
       Effect.mapError((error) => {
@@ -309,6 +313,7 @@ const resolveSubagentRegistrySourceByName = (
 
     return {
       type: "registry" as const,
+      name: defaultRegistry.name,
       location: Option.getOrElse(resolved.registryLocation, () => defaultRegistry.location),
       owner: Option.some(resolvedOwner),
     } satisfies RegistrySource;

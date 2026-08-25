@@ -183,7 +183,7 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 5, skills: {} },
+            contents: { lockfileVersion: 6, skills: {} },
           },
         },
       };
@@ -193,7 +193,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const parsed = YAML.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(5);
+      expect(decoded.lockfileVersion).toBe(6);
     }),
   );
 
@@ -261,19 +261,19 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "external/skills/some-skill/SKILL.md": "# external\n",
+            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "github/acme/extensions/skills/some-skill/SKILL.md": "# acquired\n",
           },
         },
       };
       const deps = yield* buildFixture(spec);
 
-      const canonical = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/some-skill/src/SKILL.md`;
-      const external = `${WORKSPACE_ROOT}/agent_extensions/external/skills/some-skill/SKILL.md`;
+      const canonical = `${WORKSPACE_ROOT}/agent_extensions/agentxm/@owner/skills/some-skill/src/SKILL.md`;
+      const acquired = `${WORKSPACE_ROOT}/agent_extensions/github/acme/extensions/skills/some-skill/SKILL.md`;
       expect(yield* exists(deps, canonical)).toBe(true);
-      expect(yield* exists(deps, external)).toBe(true);
+      expect(yield* exists(deps, acquired)).toBe(true);
       expect(yield* readBytes(deps, canonical)).toBe("# canonical\n");
-      expect(yield* readBytes(deps, external)).toBe("# external\n");
+      expect(yield* readBytes(deps, acquired)).toBe("# acquired\n");
     }),
   );
 
@@ -304,14 +304,14 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/present/src/SKILL.md": "# present\n",
-            "@owner/skills/missing/src/SKILL.md": { _tag: "absent" },
+            "agentxm/@owner/skills/present/src/SKILL.md": "# present\n",
+            "agentxm/@owner/skills/missing/src/SKILL.md": { _tag: "absent" },
           },
         },
       };
       const deps = yield* buildFixture(spec);
-      const presentPath = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/present/src/SKILL.md`;
-      const missingPath = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/missing/src/SKILL.md`;
+      const presentPath = `${WORKSPACE_ROOT}/agent_extensions/agentxm/@owner/skills/present/src/SKILL.md`;
+      const missingPath = `${WORKSPACE_ROOT}/agent_extensions/agentxm/@owner/skills/missing/src/SKILL.md`;
       expect(yield* exists(deps, presentPath)).toBe(true);
       expect(yield* exists(deps, missingPath)).toBe(false);
     }),
@@ -536,7 +536,7 @@ describe("named scenario constructors", () => {
         expect(
           yield* exists(
             deps,
-            `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/some-skill/src/SKILL.md`,
+            `${WORKSPACE_ROOT}/agent_extensions/agentxm/@owner/skills/some-skill/src/SKILL.md`,
           ),
         ).toBe(true);
       }),
@@ -577,9 +577,9 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 5, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 6, skills: {} } },
           axmExtensions: {
-            "external/skills/legacy/SKILL.md": "# legacy\n",
+            "github/acme/extensions/skills/legacy/SKILL.md": "# acquired\n",
           },
           agentDirs: {
             "claude-code": {
@@ -598,7 +598,7 @@ describe("buildFixture: serialize round trip", () => {
       const checks: ReadonlyArray<readonly [string, true]> = [
         [PROJECT_SETTINGS_PATH, true],
         [PROJECT_LOCKFILE_PATH, true],
-        [`${WORKSPACE_ROOT}/agent_extensions/external/skills/legacy/SKILL.md`, true],
+        [`${WORKSPACE_ROOT}/agent_extensions/github/acme/extensions/skills/legacy/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.claude/skills/some-skill/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.mcp.json`, true],
         [USER_SETTINGS_PATH, true],

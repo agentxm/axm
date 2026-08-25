@@ -80,6 +80,8 @@ export {
 export {
   acceptedResolutionRef,
   acceptedLockedResolutionRef,
+  acceptedLockedCanonicalPath,
+  prepareAcceptedCanonicalTransition,
   acceptedCanonicalObservation,
   usableAcceptedCanonical,
   usableAcceptedCanonicalObservation,

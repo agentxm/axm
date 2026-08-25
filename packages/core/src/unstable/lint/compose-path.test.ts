@@ -8,7 +8,7 @@
  * | --------------------------- | ---------------------------------------------- |
  * | Registry publish            | `""`                                           |
  * | `axm lint` — registry skill | `".axm/extensions/<@owner>/skills/<name>/src"` |
- * | `axm lint` — external skill | `".axm/extensions/external/skills/<name>"`     |
+ * | `axm lint` — external skill | `".axm/extensions/github/acme/extensions/skills/<name>"`     |
  * | `axm lint` — workspace rule | `""`                                           |
  */
 
@@ -59,15 +59,17 @@ describe("composePath", () => {
   });
 
   describe("axm lint — external (non-native) skill displayRoot", () => {
-    const root = ".axm/extensions/external/skills/foo";
+    const root = ".axm/extensions/github/acme/extensions/skills/foo";
 
     it("joins displayRoot with location file", () => {
-      expect(composePath(root, loc())).toBe("./.axm/extensions/external/skills/foo/SKILL.md");
+      expect(composePath(root, loc())).toBe(
+        "./.axm/extensions/github/acme/extensions/skills/foo/SKILL.md",
+      );
     });
 
     it("appends line", () => {
       expect(composePath(root, loc({ line: 1 }))).toBe(
-        "./.axm/extensions/external/skills/foo/SKILL.md:1",
+        "./.axm/extensions/github/acme/extensions/skills/foo/SKILL.md:1",
       );
     });
   });

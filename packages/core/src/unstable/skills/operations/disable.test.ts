@@ -66,6 +66,11 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 /** Creates a local source lock entry. */
 const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: extensionName("my-skill"),
+  packageFormat: "agentxm",
   packageOwner: handle("@local"),
   packageName: extensionName("my-skill"),
   path: decodeRelativePathSync("tmp/source"),
@@ -440,7 +445,8 @@ describe("disableSkill", () => {
                     {
                       type: "pack",
                       pack: "@community/packs/toolkit",
-                      manifestPath: "/project/agent_extensions/@community/packs/toolkit/pack.json",
+                      manifestPath:
+                        "/project/agent_extensions/agentxm/@community/packs/toolkit/pack.json",
                       source: "@community/skills/my-skill",
                       constraint: "*",
                       enabled: true,

@@ -288,7 +288,7 @@ export const acquireWorkspaceTransitionLock = (args: {
       // granting the hold through finalizer registration there is no
       // interruptible gap, so an interrupt requested mid-acquisition defers
       // until the release finalizer exists and then releases through it. The
-      // mask stays narrow — a single no-retry grant plus two local writes —
+      // mask stays narrow — a single no-retry grant plus local metadata —
       // and the contention wait below remains interruptible.
       const attempt = yield* Effect.uninterruptible(
         Effect.gen(function* () {
@@ -332,11 +332,45 @@ export const acquireWorkspaceTransitionLock = (args: {
           }
           const release = granted.success;
           const token = randomBytes(16).toString("hex");
-          const holderWrite = yield* writeHolder(fs, path, lockPath, {
-            ...args.holder,
-            token,
+          const holderStamped = yield* Effect.gen(function* () {
+            const lockInfo = yield* fs.stat(lockPath).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to inspect the workspace transition lock timestamp at ${lockPath}`,
+                  cause: error,
+                }),
+              ),
+            );
+            const lockMtime = yield* Option.match(lockInfo.mtime, {
+              onNone: () =>
+                Effect.fail(
+                  makeAppError({
+                    code: "internal",
+                    detail: `Workspace transition lock at ${lockPath} has no modification time`,
+                  }),
+                ),
+              onSome: Effect.succeed,
+            });
+            yield* writeHolder(fs, path, lockPath, {
+              ...args.holder,
+              token,
+            });
+            // proper-lockfile proves ownership by comparing the directory's
+            // mtime with the timestamp it recorded at acquisition. Writing
+            // holder.json changes that directory mtime, so restore the exact
+            // acquired value before the first refresh observes it.
+            yield* fs.utimes(lockPath, lockMtime, lockMtime).pipe(
+              Effect.mapError((error) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to preserve the workspace transition lock timestamp at ${lockPath}`,
+                  cause: error,
+                }),
+              ),
+            );
           }).pipe(Effect.result);
-          if (holderWrite._tag === "Failure") {
+          if (holderStamped._tag === "Failure") {
             // The holder metadata is the only ownership evidence this
             // acquisition will ever have; holding without it would be
             // indistinguishable from a successor's half-written acquisition.
@@ -350,7 +384,7 @@ export const acquireWorkspaceTransitionLock = (args: {
                   cause,
                 }),
             }).pipe(Effect.ignore);
-            return { _tag: "failed", error: holderWrite.failure } as const;
+            return { _tag: "failed", error: holderStamped.failure } as const;
           }
           heldTransitions.set(workspaceDir, {
             compromised: Deferred.await(compromisedSignal),

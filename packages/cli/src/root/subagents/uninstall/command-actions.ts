@@ -17,9 +17,9 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
+  acquiredExtensionDisplayPathFromLockEntry,
   buildUninstallOperation,
   parseExtensionFqnParts,
-  sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SubagentExtensionTarget } from "@agentxm/client-core/unstable/workspace";
@@ -36,6 +36,7 @@ import type { UninstallSubagentCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {
   workspaceCanonicalPath,
+  workspaceCanonicalRoot,
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
@@ -74,17 +75,19 @@ const subagentSourceTarget = (args: {
   readonly change: JobStepArtifactTarget["change"];
   readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifactTarget => {
-  if (args.lockEntry?.type === "registry") {
+  if (args.lockEntry !== undefined) {
     return {
-      path: workspaceCanonicalPath(
-        args.scope,
-        `${args.lockEntry.owner}/subagents/${args.lockEntry.name}`,
+      path: acquiredExtensionDisplayPathFromLockEntry(
+        workspaceCanonicalRoot(args.scope),
+        args.lockEntry,
+        "subagents",
+        args.lockEntry.workspaceName,
       ),
       change: args.change,
     };
   }
   return {
-    path: workspaceCanonicalPath(args.scope, `external/subagents/${sanitizeName(args.name)}`),
+    path: workspaceCanonicalPath(args.scope, args.name),
     change: args.change,
   };
 };

@@ -4,7 +4,11 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
-live in `./agent_extensions/<@owner>/skills/<skill-name>`.
+use the source-qualified canonical scheme. A Registry skill such as
+`@acme/skills/review` lives at
+`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+`github:remix-run/react-router//.agents/skills/react-router@main` lives at
+`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
 
 ## skill.json
 
@@ -14,7 +18,12 @@ Run `axm help skill-schema` to print the raw JSON Schema.
 
 ## `src/`
 
-The `src/` directory holds `SKILL.md` and any other files described by the [agentskills.io](https://agentskills.io) specification.
+For an AgentXM skill package, the `src/` directory holds `SKILL.md` and any
+other files described by the [agentskills.io](https://agentskills.io)
+specification. A portable Agent Skill acquired directly from Git or a local
+source is preserved exactly at its selected source path: `SKILL.md`,
+`references/`, and other sibling content remain at that canonical root, and AXM
+does not fabricate `skill.json` or a publisher identity.
 
 `SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
 required, and `name` must match both the manifest's `name` and the agent-facing
@@ -97,8 +106,10 @@ AXM records accepted immutable resolution for externally sourced skills:
 - **Local-source identity** — relative locator and content identity for an accepted local source.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v5 records the strict integrity of their
-complete package tree. If any path or byte changes locally, AXM preserves the
+observed materialization. Lockfile v6 records the source type, exact source
+name and endpoint or coordinate, requested intent, immutable resolution,
+package format, and strict integrity of their complete package tree. If any
+path or byte changes locally, AXM preserves the
 drift and blocks affected lint, inspection, reconciliation, projection, and
 lifecycle work until reinstall, update, or fork resolves it. Workspace-authored
 packages remain local authority.

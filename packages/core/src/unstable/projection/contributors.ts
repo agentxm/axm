@@ -16,10 +16,15 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
   parseExtensionFqnParts,
   type ExtensionType,
+  type ExtensionTypePlural,
 } from "../extensions/index.js";
+import {
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+  type ExtensionPathLockEntry,
+} from "../extensions/extension-paths.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
@@ -37,19 +42,11 @@ import type { WorkspaceLayout } from "../workspace/layout.js";
  * entries locate a canonical package under the registry extensions tree;
  * every other source class materializes under the external extensions tree.
  */
-export type SourceLockEntryLike =
-  | {
-      readonly type: "registry";
-      readonly owner: Handle;
-      readonly name: string;
-      readonly treeIntegrity: TreeIntegrity;
-    }
-  | {
-      readonly type: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "local";
-      readonly packageOwner: Handle;
-      readonly packageName: string;
-      readonly treeIntegrity: TreeIntegrity;
-    };
+export type SourceLockEntryLike = ExtensionPathLockEntry & {
+  readonly workspaceName: string;
+  readonly packageOwner?: Handle | undefined;
+  readonly treeIntegrity: TreeIntegrity;
+};
 
 /** One member of an aggregate unit's contributor set, resolved to content. */
 export interface AggregateContributor {
@@ -103,11 +100,11 @@ export const contributorForNode = (args: {
   readonly path: Path.Path;
   readonly node: DesiredExtensionNode;
   /** Type-specific segment under the extensions trees, e.g. `rules`. */
-  readonly extensionDir: string;
+  readonly extensionDir: ExtensionTypePlural;
   readonly locked: SourceLockEntryLike | undefined;
 }): Effect.Effect<AggregateContributor, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const { baseDir, extensionDir, layout, locked, node, path } = args;
+    const { extensionDir, layout, locked, node, path } = args;
     if (node.identity.startsWith("workspace:")) {
       const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
       if (identity === undefined || identity.type !== node.type) {
@@ -131,14 +128,13 @@ export const contributorForNode = (args: {
         detail: `Active ${node.type} has no accepted resolution: ${node.name}`,
       });
     }
-    const packageOwner = locked.type === "registry" ? locked.owner : locked.packageOwner;
-    const packageName = locked.type === "registry" ? locked.name : locked.packageName;
-    const packageRoot =
-      layout.scope === "project"
-        ? path.join(layout.acquiredRoot, packageOwner, extensionDir, packageName)
-        : locked.type === "registry"
-          ? path.join(layout.canonicalRoot, packageOwner, extensionDir, packageName)
-          : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, extensionDir, packageName);
+    const packageRoot = computeExtensionPathsForLayout(
+      path.join,
+      layout,
+      extensionPathSourceFromLockEntry(locked),
+      extensionDir,
+      locked.workspaceName,
+    ).canonicalPath;
     const observedTree = yield* computeMaterializedTreeIntegrity(packageRoot);
     if (observedTree !== locked.treeIntegrity) {
       return yield* makeAppError({
@@ -155,7 +151,10 @@ export const contributorForNode = (args: {
     return {
       node,
       packageRoot,
-      identityOwner: Option.some(packageOwner),
+      identityOwner:
+        locked.type === "registry"
+          ? Option.some(locked.owner)
+          : Option.fromUndefinedOr(locked.packageOwner),
     };
   });
 
@@ -169,7 +168,7 @@ export const activeContributors = (args: {
   readonly layout: WorkspaceLayout;
   readonly path: Path.Path;
   readonly type: ExtensionType;
-  readonly extensionDir: string;
+  readonly extensionDir: ExtensionTypePlural;
   readonly graph: DesiredStateGraph;
   readonly locked: Readonly<Record<string, SourceLockEntryLike>>;
 }): Effect.Effect<

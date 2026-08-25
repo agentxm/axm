@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "agent-skill-evaluator",
+  "version": "0.2.2",
+  "description": "Operates and integrates a portable, provider-neutral runner for validating and executing Agent Skill evaluation suites",
+  "keywords": [
+    "agent-skills",
+    "evaluation-runner",
+    "eval-harness",
+    "skill-evaluation",
+    "regression-testing",
+    "host-adapters"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/agent-extensions",
+    "directory": ".axm/extensions/@agentxm/skills/agent-skill-evaluator"
+  },
+  "homepage": "https://github.com/agentxm/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
+  "standalone": true
+}

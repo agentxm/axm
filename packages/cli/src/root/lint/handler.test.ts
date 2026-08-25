@@ -79,7 +79,7 @@ describe("axm lint handler", () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 5\nskills: {}\nmcpServers: {}\n",
+      "lockfileVersion: 6\nskills: {}\nmcpServers: {}\n",
     );
   };
 
@@ -395,7 +395,14 @@ describe("axm lint handler", () => {
       skills: { demo: sourceDir },
     });
     fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: [broken\n");
-    const installedDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "demo");
+    const installedDir = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "skills",
+      "demo",
+    );
     fs.mkdirSync(installedDir, { recursive: true });
     fs.writeFileSync(path.join(installedDir, "SKILL.md"), "---\nname: demo\n\n# demo\n");
 

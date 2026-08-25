@@ -1,7 +1,22 @@
 import * as Option from "effect/Option";
-import type { PackLockEntry, SkillLockEntry } from "./schema.js";
+import type {
+  HookLockEntry,
+  KnowledgeLockEntry,
+  McpServerLockEntry,
+  PackLockEntry,
+  RuleLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "./schema.js";
 
-type ExternalLockEntry = SkillLockEntry | PackLockEntry;
+type ExternalLockEntry =
+  | SkillLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry
+  | PackLockEntry;
 
 interface RegistryRefIdentity {
   readonly owner: string;

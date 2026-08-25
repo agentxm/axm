@@ -25,23 +25,17 @@ describe("axm skills enable", () => {
         cwd: temp.path,
       });
 
+      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+      const canonicalSkillDir = path.dirname(fs.realpathSync(agentSkillDir));
+
       // Disable the skill first
       await runCli(["skills", "disable", "my-skill", "--yes"], {
         cwd: temp.path,
       });
 
-      // Verify canonical files are preserved after disable
-      const canonicalSkillDir = path.join(
-        temp.path,
-        "agent_extensions",
-        "@test",
-        "skills",
-        "my-skill",
-      );
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
       // Verify agent symlink is removed after disable
-      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
       expect(fs.existsSync(agentSkillDir)).toBe(false);
 
       // Enable the skill

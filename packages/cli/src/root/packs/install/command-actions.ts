@@ -23,6 +23,7 @@ import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
   evaluateSourceAuthority,
   parseExtensionFqnParts,
   toExtensionTypePlural,
@@ -31,6 +32,7 @@ import {
   type ExtensionName,
   type ExtensionRef,
   type ExtensionType,
+  type ExtensionTypePlural,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -47,6 +49,7 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
 import {
+  acceptedLockedCanonicalPath,
   WorkspaceMutations,
   isDesiredExtensionActive,
 } from "@agentxm/client-core/unstable/workspace";
@@ -204,7 +207,6 @@ type PackDependencyTarget =
 
 interface DroppedPackDependency {
   readonly target: PackDependencyTarget;
-  readonly sourcePath: string;
 }
 
 const makePackDependencyNameSets = (): PackDependencyNameSets => ({
@@ -267,13 +269,8 @@ const collectDroppedPackDependencyTargets = (args: {
         (origin.type === "pack" && origin.pack !== args.replacingPackIdentity),
     );
     if (!retainedElsewhere) {
-      const identity = parseExtensionFqnParts(node.identity);
       droppedTargets.push({
         target: { type: node.type, name: node.name },
-        sourcePath:
-          identity === undefined
-            ? toLabel({ type: node.type, name: node.name })
-            : `${REGISTRY_EXTENSIONS_DIR}/${identity.owner}/${registryPluralSegment(identity.type)}/${identity.name}`,
       });
     }
   }
@@ -312,7 +309,7 @@ const formatRegistrySourceLabel = ({
   return source.location.href;
 };
 
-const registryPluralSegment = (type: ExtensionType): string => {
+const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural => {
   switch (type) {
     case "skill":
       return "skills";
@@ -338,15 +335,15 @@ const registrySourceArtifact = (args: {
 }): JobStepArtifact => {
   const change =
     args.ref.refType === "workspace" ? "unchanged" : args.installedBefore ? "updated" : "created";
-  const target = targetFromRef(args.ref);
   const sourcePath =
-    args.ref.refType === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref.type)}/${
-          args.ref.name
-        }`
-      : args.ref.refType === "workspace"
-        ? args.ref.location
-        : toLabel(target);
+    args.ref.refType === "workspace"
+      ? args.ref.location
+      : acquiredExtensionDisplayPath(
+          args.scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+          args.ref,
+          registryPluralSegment(args.ref.type),
+          args.ref.name,
+        );
   return {
     path: sourcePath,
     scope: args.scope,
@@ -374,10 +371,15 @@ const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineli
   }
 };
 
-const registrySourcePath = (ref: ExtensionRef): string =>
-  ref.refType === "registry"
-    ? `${REGISTRY_EXTENSIONS_DIR}/${ref.owner}/${registryPluralSegment(ref.type)}/${ref.name}`
-    : toLabel(targetFromRef(ref));
+const registrySourcePath = (ref: ExtensionRef, scope: JobStepArtifact["scope"]): string =>
+  ref.refType === "workspace"
+    ? ref.location
+    : acquiredExtensionDisplayPath(
+        scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+        ref,
+        registryPluralSegment(ref.type),
+        ref.name,
+      );
 
 const resolveMinimumReleaseAge = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
@@ -793,6 +795,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                     (host) =>
                       ({
                         type: "registry" as const,
+                        name: host.name,
                         location: host.location,
                         owner: Option.some(req.owner),
                       }) satisfies RegistrySource,
@@ -1134,7 +1137,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
         );
 
         const nextDependencies = collectResolvedDependencyNames(refs);
-        const droppedTargets =
+        const unresolvedDroppedTargets =
           existingPack === undefined
             ? []
             : collectDroppedPackDependencyTargets({
@@ -1142,6 +1145,25 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 replacingPackIdentity: existingPack.identity,
                 nextDependencies,
               });
+        const droppedTargets = yield* Effect.forEach(
+          unresolvedDroppedTargets,
+          (dropped) =>
+            acceptedLockedCanonicalPath({
+              workspace: ws,
+              type: dropped.target.type,
+              name: dropped.target.name,
+            }).pipe(
+              provide,
+              Effect.map((canonicalPath) => ({
+                ...dropped,
+                sourcePath: Option.match(canonicalPath, {
+                  onNone: () => toLabel(dropped.target),
+                  onSome: (value) => pathSvc.relative(ws.baseDir, value),
+                }),
+              })),
+            ),
+          { concurrency: 1 },
+        );
         const uninstallSteps = droppedTargets.map(({ target }): PlannedJobStep => {
           if (target.type === "skill") {
             return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
@@ -1212,7 +1234,7 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               return { path: ref.location, change: "unchanged" };
             }
             return {
-              path: registrySourcePath(ref),
+              path: registrySourcePath(ref, ws.scope),
               change: graph.nodes.some(
                 (node) => node.type === target.type && node.name === target.name,
               )
@@ -1225,12 +1247,15 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             change: "removed",
           })),
         ];
-        const projectionStep = yield* buildAggregateProjectionStep({
-          types: new Set([
-            ...refs.map((ref) => ref.type),
-            ...droppedTargets.map(({ target }) => target.type),
-          ]),
-        }).pipe(provide);
+        const projectionStep =
+          intent.deferProjections === true
+            ? Option.none<PlannedJobStep>()
+            : yield* buildAggregateProjectionStep({
+                types: new Set([
+                  ...refs.map((ref) => ref.type),
+                  ...droppedTargets.map(({ target }) => target.type),
+                ]),
+              }).pipe(provide);
         const graphStep = yield* buildAtomicPackGraphStep({
           label: packIdentity,
           message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,

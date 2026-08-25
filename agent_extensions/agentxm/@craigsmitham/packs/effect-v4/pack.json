@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.6.0",
+  "description": "Effect v4 guidance: a rule requiring v4 conventions, a routing skill, and an opinionated knowledge bundle covering modeling, services, failure, lifetimes, concurrency, platforms, and verification",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "functional-programming"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/packs/effect-v4"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "effect-v4",
+  "dependencies": {
+    "@craigsmitham/knowledge/effect-v4": ">=0.5.0",
+    "@craigsmitham/skills/craft-effect-v4": ">=0.2.0",
+    "@craigsmitham/rules/use-effect-v4": ">=0.1.0"
+  }
+}

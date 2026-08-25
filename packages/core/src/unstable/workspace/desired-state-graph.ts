@@ -142,6 +142,16 @@ const nodeKey = (type: ExtensionType, name: string): string => `${type}:${name}`
 const packageIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
+const registryLocator = (
+  source: string,
+): { readonly sourceName: string; readonly ref: string } | undefined => {
+  if (source.startsWith("@")) return { sourceName: "agentxm", ref: source };
+  const separator = source.indexOf(":");
+  if (separator <= 0) return undefined;
+  const ref = source.slice(separator + 1);
+  return ref.startsWith("@") ? { sourceName: source.slice(0, separator), ref } : undefined;
+};
+
 const sourceIdentity = (
   type: ExtensionType,
   name: string,
@@ -154,7 +164,8 @@ const sourceIdentity = (
       : { identity: `workspace:${settings.owner}/${toExtensionTypePlural(type)}/${name}` };
   }
 
-  const parsed = parseRegistrySourceRef(source);
+  const locator = registryLocator(source);
+  const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === toExtensionTypePlural(type)) {
     return {
       identity: `${parsed.owner}/${parsed.type}/${parsed.name}`,
@@ -179,7 +190,8 @@ const packIdentity = (
     };
   }
 
-  const parsed = parseRegistrySourceRef(source);
+  const locator = registryLocator(source);
+  const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === "packs") {
     return {
       owner: parsed.owner,
@@ -354,19 +366,20 @@ export const buildDesiredStateGraph = ({
       });
 
       const workspacePack = isWorkspaceSourceLocator(entry.source);
+      const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
       const manifestPath = path.join(
         layout === undefined
           ? path.join(
               baseDir,
               workspacePack
                 ? configuredAuthoredDirectory(settings, "pack")
-                : path.join(ACQUIRED_DIRECTORY, identity.owner, "packs"),
+                : path.join(ACQUIRED_DIRECTORY, configuredRegistrySource, identity.owner, "packs"),
               identity.name,
             )
           : computePackPathsForLayout(
               path.join,
               layout,
-              workspacePack ? "workspace" : "external",
+              workspacePack ? "workspace" : configuredRegistrySource,
               identity.owner,
               identity.name,
             ).canonicalPath,

@@ -83,7 +83,7 @@ describe("WorkspaceMutationsService", () => {
     const axmDir = projectDir;
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.writeFileSync(path.join(axmDir, "axm.json"), JSON.stringify({ agents: ["claude-code"] }));
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -200,7 +200,7 @@ describe("WorkspaceMutationsService", () => {
           path.join(homeDir, "axm.json"),
           JSON.stringify({ agents: ["claude-code"], owner: "@project" }),
         );
-        fs.writeFileSync(path.join(homeDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
+        fs.writeFileSync(path.join(homeDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
 
         const ws = yield* getService({
           scope: "project",
@@ -301,7 +301,7 @@ describe("WorkspaceMutationsService", () => {
     name: string,
     dependencies: Readonly<Record<string, string>>,
   ) => {
-    const packDir = path.join(dir, "agent_extensions", owner, "packs", name);
+    const packDir = path.join(dir, "agent_extensions", "agentxm", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const decodedManifest = Schema.decodeUnknownSync(PackManifestSchema)({
       owner,
@@ -324,16 +324,21 @@ describe("WorkspaceMutationsService", () => {
     fs.writeFileSync(
       path.join(dir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 5,
+        lockfileVersion: 6,
         skills: {},
         packs: {
           [name]: {
             type: "registry",
+            sourceType: "registry",
+            endpoint: "https://registry.agentxm.ai",
+            extensionType: "pack",
+            workspaceName: name,
+            packageFormat: "agentxm",
             owner,
             name,
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             treeIntegrity,
             manifestContentIdentity: contentIdentity,
@@ -734,7 +739,11 @@ describe("WorkspaceMutationsService", () => {
     knowledge?: Record<string, unknown>,
   ) => {
     fs.mkdirSync(dir, { recursive: true });
-    const normalizeEntry = (name: string, value: unknown, pack: boolean): unknown => {
+    const normalizeEntry = (
+      name: string,
+      value: unknown,
+      extensionType: "skill" | "mcp-server" | "subagent" | "knowledge" | "pack",
+    ): unknown => {
       if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
       const entry: Record<string, unknown> = {};
       for (const [key, field] of Object.entries(value)) {
@@ -756,6 +765,10 @@ describe("WorkspaceMutationsService", () => {
         entry[key] = field;
       }
       const type = entry["type"];
+      entry["sourceType"] ??= type;
+      entry["extensionType"] ??= extensionType;
+      entry["workspaceName"] ??= typeof entry["name"] === "string" ? entry["name"] : name;
+      entry["packageFormat"] ??= "agentxm";
       entry["treeIntegrity"] ??= `sha256-tree-v1:${"0".repeat(64)}`;
       if (
         type === "github" ||
@@ -769,34 +782,58 @@ describe("WorkspaceMutationsService", () => {
         entry["contentIdentity"] ??= computeSourceHash("test-content");
         entry["packageOwner"] ??= "@acme";
         entry["packageName"] ??= name;
+        entry["sourceName"] ??= type;
+        if (type !== "git") {
+          entry["endpoint"] ??=
+            type === "azurerepos"
+              ? "https://dev.azure.com"
+              : type === "gitlab"
+                ? "https://gitlab.com"
+                : type === "bitbucket"
+                  ? "https://bitbucket.org"
+                  : "https://github.com";
+        }
       } else if (type === "local") {
+        entry["sourceName"] ??= "local";
         entry["contentIdentity"] ??= computeSourceHash("test-content");
         entry["packageOwner"] ??= "@acme";
         entry["packageName"] ??= name;
-      } else if (type === "registry" && pack) {
-        entry["manifestContentIdentity"] ??= computeSourceHash("test-pack-manifest");
+      } else if (type === "registry") {
+        entry["endpoint"] ??= "https://registry.agentxm.ai";
+        if (entry["sourceName"] === undefined || entry["sourceName"] === "default") {
+          entry["sourceName"] = "agentxm";
+        }
+        if (extensionType === "pack") {
+          entry["manifestContentIdentity"] ??= computeSourceHash("test-pack-manifest");
+        }
       }
       return entry;
     };
-    const normalizeEntries = (entries: Record<string, unknown>, pack = false) =>
+    const normalizeEntries = (
+      entries: Record<string, unknown>,
+      extensionType: "skill" | "mcp-server" | "subagent" | "knowledge" | "pack",
+    ) =>
       Object.fromEntries(
-        Object.entries(entries).map(([name, value]) => [name, normalizeEntry(name, value, pack)]),
+        Object.entries(entries).map(([name, value]) => [
+          name,
+          normalizeEntry(name, value, extensionType),
+        ]),
       );
     const lockfileData: Record<string, unknown> = {
-      lockfileVersion: 5,
-      skills: normalizeEntries(skills),
+      lockfileVersion: 6,
+      skills: normalizeEntries(skills, "skill"),
     };
     if (packs !== undefined) {
-      lockfileData["packs"] = normalizeEntries(packs, true);
+      lockfileData["packs"] = normalizeEntries(packs, "pack");
     }
     if (mcpServers !== undefined) {
-      lockfileData["mcpServers"] = normalizeEntries(mcpServers);
+      lockfileData["mcpServers"] = normalizeEntries(mcpServers, "mcp-server");
     }
     if (subagents !== undefined) {
-      lockfileData["subagents"] = normalizeEntries(subagents);
+      lockfileData["subagents"] = normalizeEntries(subagents, "subagent");
     }
     if (knowledge !== undefined) {
-      lockfileData["knowledge"] = normalizeEntries(knowledge);
+      lockfileData["knowledge"] = normalizeEntries(knowledge, "knowledge");
     }
     fs.writeFileSync(path.join(dir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
@@ -821,6 +858,12 @@ describe("WorkspaceMutationsService", () => {
   /** Create a sample SkillLockEntry for testing. */
   const makeSampleLockEntry = (): Extract<SkillLockEntry, { readonly type: "github" }> => ({
     type: "github" as const,
+    sourceType: "github",
+    sourceName: "github",
+    endpoint: new URL("https://github.com"),
+    extensionType: "skill",
+    workspaceName: extensionName("code-review"),
+    packageFormat: "agentxm",
     packageOwner: handle("@acme"),
     packageName: extensionName("code-review"),
     owner: "acme",
@@ -836,6 +879,12 @@ describe("WorkspaceMutationsService", () => {
     { readonly type: "github" }
   > => ({
     type: "github" as const,
+    sourceType: "github",
+    sourceName: "github",
+    endpoint: new URL("https://github.com"),
+    extensionType: "subagent",
+    workspaceName: extensionName("planner"),
+    packageFormat: "agentxm",
     packageOwner: handle("@acme"),
     packageName: extensionName("planner"),
     owner: "acme",
@@ -844,6 +893,46 @@ describe("WorkspaceMutationsService", () => {
     resolvedTree: "test-tree",
     contentIdentity: computeSourceHash("test-content"),
     treeIntegrity,
+  });
+
+  const registryLockFields = <
+    T extends "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack",
+  >(
+    extensionType: T,
+    workspaceName: string,
+  ) => ({
+    sourceType: "registry" as const,
+    endpoint: new URL("https://registry.agentxm.ai"),
+    extensionType,
+    workspaceName: extensionName(workspaceName),
+    packageFormat: "agentxm" as const,
+  });
+
+  const githubLockFields = <
+    T extends "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge",
+  >(
+    extensionType: T,
+    workspaceName: string,
+  ) => ({
+    sourceType: "github" as const,
+    sourceName: "github",
+    endpoint: new URL("https://github.com"),
+    extensionType,
+    workspaceName: extensionName(workspaceName),
+    packageFormat: "agentxm" as const,
+  });
+
+  const localLockFields = <
+    T extends "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge",
+  >(
+    extensionType: T,
+    workspaceName: string,
+  ) => ({
+    sourceType: "local" as const,
+    sourceName: "local" as const,
+    extensionType,
+    workspaceName: extensionName(workspaceName),
+    packageFormat: "agentxm" as const,
   });
 
   describe("getLockfileState", () => {
@@ -1071,11 +1160,12 @@ describe("WorkspaceMutationsService", () => {
           name: "platform",
           lockEntry: {
             type: "registry",
+            ...registryLockFields("knowledge", "platform"),
             owner: handle("@acme"),
             name: extensionName("platform"),
             resolvedVersion: exactVersion("1.1.0"),
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             treeIntegrity,
           },
@@ -1088,7 +1178,7 @@ describe("WorkspaceMutationsService", () => {
         expect(settings).toMatchObject({
           knowledge: {
             platform: {
-              source: "@acme/knowledge/platform@^1.1.0",
+              source: "agentxm:@acme/knowledge/platform@^1.1.0",
               instructionEntry: false,
             },
           },
@@ -1194,6 +1284,7 @@ describe("WorkspaceMutationsService", () => {
           name: "local-review",
           lockEntry: {
             type: "local",
+            ...localLockFields("skill", "local-review"),
             packageOwner: handle("@acme"),
             packageName: extensionName("local-review"),
             path: "skills/local-review",
@@ -1276,6 +1367,7 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             type: "github",
+            ...githubLockFields("skill", "code-review"),
             packageOwner: handle("@acme"),
             packageName: extensionName("code-review"),
             owner: "acme",
@@ -1303,11 +1395,12 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
+          ...registryLockFields("skill", "tool"),
           owner: handle("@acme"),
           name: extensionName("tool"),
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
-          sourceName: "default",
+          sourceName: "agentxm",
 
           publisherBindingId: "hbnd_test",
           treeIntegrity,
@@ -1321,7 +1414,7 @@ describe("WorkspaceMutationsService", () => {
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/skills/tool@^1.0.0");
+        expect(settings.skills.tool).toBe("agentxm:@acme/skills/tool@^1.0.0");
       }),
     );
 
@@ -1333,11 +1426,12 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
+          ...registryLockFields("skill", "tool"),
           owner: handle("@acme"),
           name: extensionName("tool"),
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
-          sourceName: "default",
+          sourceName: "agentxm",
 
           publisherBindingId: "hbnd_test",
           treeIntegrity,
@@ -1351,7 +1445,7 @@ describe("WorkspaceMutationsService", () => {
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/skills/tool");
+        expect(settings.skills.tool).toBe("agentxm:@acme/skills/tool");
       }),
     );
 
@@ -1363,11 +1457,12 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
+          ...registryLockFields("skill", "tool"),
           owner: handle("@acme"),
           name: extensionName("tool"),
           resolvedVersion: exactVersion("1.2.3"),
           integrity: "sha512-AAAA==",
-          sourceName: "default",
+          sourceName: "agentxm",
 
           publisherBindingId: "hbnd_test",
           treeIntegrity,
@@ -1381,7 +1476,7 @@ describe("WorkspaceMutationsService", () => {
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/skills/tool@1.2.3");
+        expect(settings.skills.tool).toBe("agentxm:@acme/skills/tool@1.2.3");
       }),
     );
   });
@@ -1405,6 +1500,7 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             type: "github",
+            ...githubLockFields("skill", "code-review"),
             packageOwner: handle("@acme"),
             packageName: extensionName("code-review"),
             owner: "acme",
@@ -1463,11 +1559,12 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.some(versionRange("~2.0.0")),
           lockEntry: {
             type: "registry",
+            ...registryLockFields("subagent", "reviewer"),
             owner: handle("@acme"),
             name: extensionName("reviewer"),
             resolvedVersion: exactVersion("2.0.4"),
             integrity: "sha512-BBBB==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             treeIntegrity,
           },
@@ -1477,19 +1574,20 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.some(versionRange("3.x")),
           lockEntry: {
             type: "registry",
+            ...registryLockFields("mcp-server", "browser"),
             owner: handle("@acme"),
             name: extensionName("browser"),
             resolvedVersion: exactVersion("3.1.0"),
             integrity: "sha512-CCCC==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             treeIntegrity,
           },
         });
 
         const settings = JSON.parse(fs.readFileSync(path.join(projectDir, "axm.json"), "utf8"));
-        expect(settings.subagents.reviewer).toBe("@acme/subagents/reviewer@~2.0.0");
-        expect(settings.mcpServers.browser).toBe("@acme/mcps/browser@3.x");
+        expect(settings.subagents.reviewer).toBe("agentxm:@acme/subagents/reviewer@~2.0.0");
+        expect(settings.mcpServers.browser).toBe("agentxm:@acme/mcps/browser@3.x");
       }),
     );
   });
@@ -1860,7 +1958,7 @@ describe("WorkspaceMutationsService", () => {
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -1869,9 +1967,9 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill");
 
-        expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/my-skill");
+        expect(paths.canonicalPath).toContain("agent_extensions/agentxm/@acme/skills/my-skill");
         expect(paths.skillSrcPath).toContain(
-          "agent_extensions/@acme/skills/my-skill" + path.sep + "src",
+          "agent_extensions/agentxm/@acme/skills/my-skill" + path.sep + "src",
         );
         expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
@@ -1892,7 +1990,7 @@ describe("WorkspaceMutationsService", () => {
           const ws = yield* getService(defaultOptions);
           const paths = yield* ws.getSkillDir("code-review");
 
-          expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/code-review");
+          expect(paths.canonicalPath).toContain("agent_extensions/github/acme/code-review");
           expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
         }),
     );
@@ -1906,9 +2004,15 @@ describe("WorkspaceMutationsService", () => {
         const paths = yield* ws.getSkillDir("my-skill", {
           refType: "registry",
           owner: handle("@corp"),
+          source: {
+            type: "registry",
+            name: "agentxm",
+            location: new URL("https://registry.agentxm.ai"),
+            owner: Option.none(),
+          },
         });
 
-        expect(paths.canonicalPath).toContain("agent_extensions/@corp/skills/my-skill");
+        expect(paths.canonicalPath).toContain("agent_extensions/agentxm/@corp/skills/my-skill");
         expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
     );
@@ -1921,10 +2025,18 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("code-review", {
           refType: "git-hosted",
-          owner: handle("@acme"),
+          source: {
+            type: "github",
+            name: "github",
+            url: new URL("https://github.com"),
+            owner: "acme",
+            repo: "code-review",
+            ref: Option.none(),
+            subPath: Option.none(),
+          },
         });
 
-        expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/code-review");
+        expect(paths.canonicalPath).toContain("agent_extensions/github/acme/code-review");
         expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
     );
@@ -2178,13 +2290,18 @@ describe("WorkspaceMutationsService", () => {
     overrides?: Partial<Extract<SetPackArgs, { type: "registry" }>>,
   ): Extract<SetPackArgs, { type: "registry" }> => ({
     type: "registry",
+    sourceType: "registry",
+    endpoint: new URL("https://registry.agentxm.ai"),
+    extensionType: "pack",
+    workspaceName: extensionName("starter-pack"),
+    packageFormat: "agentxm",
     owner: handle("@acme"),
     name: extensionName("starter-pack"),
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-AAAA==",
     manifestContentIdentity: computeSourceHash("test-pack-manifest"),
     treeIntegrity,
-    sourceName: "default",
+    sourceName: "agentxm",
     versionRange: Option.none(),
     ...overrides,
     publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
@@ -2341,16 +2458,17 @@ describe("WorkspaceMutationsService", () => {
 
           const resolutionEntry = (name: string, owner = "@acme") => ({
             type: "registry",
+            ...registryLockFields("skill", name),
             owner,
             name,
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
           });
           const lock = (suffix = "", owner = "@acme") => ({
-            lockfileVersion: 5,
+            lockfileVersion: 6,
             skills: { [`unrelated${suffix}`]: resolutionEntry(`unrelated${suffix}`, owner) },
           });
           const lockfilePath = path.join(projectDir, "axm-lock.yaml");
@@ -2362,7 +2480,7 @@ describe("WorkspaceMutationsService", () => {
             {
               name: "empty",
               write: () =>
-                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 5, skills: {} })),
+                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 6, skills: {} })),
             },
             {
               name: "unrelated",
@@ -2531,7 +2649,7 @@ describe("WorkspaceMutationsService", () => {
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {
@@ -2582,7 +2700,7 @@ describe("WorkspaceMutationsService", () => {
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -2627,7 +2745,7 @@ describe("WorkspaceMutationsService", () => {
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toBeDefined();
-        expect(settings.packs["starter-pack"]).toBe("@acme/packs/starter-pack");
+        expect(settings.packs["starter-pack"]).toBe("agentxm:@acme/packs/starter-pack");
 
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
@@ -2674,7 +2792,7 @@ describe("WorkspaceMutationsService", () => {
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -2687,7 +2805,7 @@ describe("WorkspaceMutationsService", () => {
               name: "other-pack",
               resolvedVersion: "2.0.0",
               integrity: "sha512-CCCC==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -2737,18 +2855,18 @@ describe("WorkspaceMutationsService", () => {
     it.effect("returns registry extensions path with owner", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getPackDir("starter-pack", handle("@acme"));
+        const result = yield* ws.getPackDir("starter-pack", handle("@acme"), "agentxm");
 
-        expect(result.canonicalPath).toContain("agent_extensions/@acme/packs/starter-pack");
+        expect(result.canonicalPath).toContain("agent_extensions/agentxm/@acme/packs/starter-pack");
       }),
     );
 
     it.effect("handles different namespaces correctly", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getPackDir("my-pack", handle("@community"));
+        const result = yield* ws.getPackDir("my-pack", handle("@community"), "private");
 
-        expect(result.canonicalPath).toContain("agent_extensions/@community/packs/my-pack");
+        expect(result.canonicalPath).toContain("agent_extensions/private/@community/packs/my-pack");
       }),
     );
   });
@@ -2770,7 +2888,7 @@ describe("WorkspaceMutationsService", () => {
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -2796,7 +2914,7 @@ describe("WorkspaceMutationsService", () => {
             name: "code-review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -2822,7 +2940,7 @@ describe("WorkspaceMutationsService", () => {
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -2832,7 +2950,7 @@ describe("WorkspaceMutationsService", () => {
             name: "implicit-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-BBBB==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -2902,7 +3020,7 @@ describe("WorkspaceMutationsService", () => {
             name: "implicit-mcp",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
 
             publisherBindingId: "hbnd_test",
           },
@@ -2947,10 +3065,10 @@ describe("WorkspaceMutationsService", () => {
             "@axm/packs/default": {
               type: "registry",
               owner: "@axm",
-              name: "default",
+              name: "agentxm",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -2983,7 +3101,7 @@ describe("WorkspaceMutationsService", () => {
               name: "my-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -2993,10 +3111,10 @@ describe("WorkspaceMutationsService", () => {
             "@axm/packs/default": {
               type: "registry",
               owner: "@axm",
-              name: "default",
+              name: "agentxm",
               resolvedVersion: "1.0.0",
               integrity: "sha512-BBBB==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -3122,6 +3240,12 @@ describe("WorkspaceMutationsService", () => {
     { readonly type: "github" }
   > => ({
     type: "github",
+    sourceType: "github",
+    sourceName: "github",
+    endpoint: new URL("https://github.com"),
+    extensionType: "mcp-server",
+    workspaceName: extensionName("my-mcp-server"),
+    packageFormat: "agentxm",
     packageOwner: handle("@acme"),
     packageName: extensionName("my-mcp-server"),
     owner: "acme",
@@ -3547,7 +3671,7 @@ describe("WorkspaceMutationsService", () => {
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},
@@ -3603,7 +3727,7 @@ describe("WorkspaceMutationsService", () => {
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
-              sourceName: "default",
+              sourceName: "agentxm",
 
               publisherBindingId: "hbnd_test",
               resolvedSkills: {},

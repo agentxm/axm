@@ -56,12 +56,17 @@ const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredState
 
 const localLock = (baseDir: string, name: string) => ({
   type: "local" as const,
+  sourceType: "local" as const,
+  sourceName: "local" as const,
+  extensionType: "knowledge" as const,
+  workspaceName: extensionName(name),
+  packageFormat: "agentxm" as const,
   packageOwner: handle(OWNER),
   packageName: extensionName(name),
   path: decodeRelativePathSync(`sources/${name}`),
   contentIdentity: TEST_CONTENT_IDENTITY,
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    nodePath.join(baseDir, "agent_extensions", OWNER, "knowledge", name),
+    nodePath.join(baseDir, "agent_extensions", "local", "sources", name),
   ),
 });
 
@@ -77,7 +82,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   });
 
   const writeBundle = (name: string, instructionEntry?: boolean) => {
-    const root = nodePath.join(baseDir, "agent_extensions", OWNER, "knowledge", name);
+    const root = nodePath.join(baseDir, "agent_extensions", "local", "sources", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "knowledge.json"),

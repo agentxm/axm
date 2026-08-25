@@ -100,6 +100,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             publisherBindingId: "hbnd_test",
             source: {
               type: "registry",
+              name: "agentxm",
               location: new URL(liveRegistryUrl),
               owner: Option.none(),
             },

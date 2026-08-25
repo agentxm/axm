@@ -97,7 +97,7 @@ describe("root list", () => {
   ) => {
     const axmDir = path.join(tempDir, ".axm");
     const registryDir = path.join(tempDir, "registry");
-    const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "agent_extensions", "agentxm", "@acme", "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),

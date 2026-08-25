@@ -12,22 +12,20 @@ import {
   computeExtensionPathsForLayout,
   extensionContentFilename,
   extensionContentPath,
+  type ExtensionPathSource,
 } from "../extensions/extension-paths.js";
-import type { Handle } from "../extensions/handle.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural discriminant for determining subagent path layout.
  *
- * Registry refs carry an owner for the canonical path; all other ref types
- * use the shared external extensions directory.
+ * Every acquired ref carries enough source coordinates to derive its
+ * source-qualified canonical path.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SubagentPathSource =
-  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
+export type SubagentPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed subagent directory.
@@ -35,9 +33,8 @@ export type SubagentPathSource =
  * - `canonicalPath`: root of the installed subagent
  * - `subagentSrcPath`: where actual subagent source files live
  *
- * Non-registry: `canonicalPath === subagentSrcPath` = `<base>/.axm/extensions/external/subagents/<sanitized-name>`
- * Registry: `canonicalPath` = `<base>/.axm/extensions/<owner>/subagents/<sanitized-name>`,
- *           `subagentSrcPath` = `<canonicalPath>/src`
+ * Native packages use `<canonicalPath>/src`; portable acquired formats use
+ * the source-qualified package root directly when supported.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -27,6 +27,15 @@ const writeSkill = (dir: string, name: string) => {
   );
 };
 
+const writePortableSkill = (dir: string, name: string) => {
+  fs.mkdirSync(path.join(dir, "references"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "SKILL.md"),
+    `---\nname: "${name}"\ndescription: "A portable skill"\n---\n\n# ${name}\n`,
+  );
+  fs.writeFileSync(path.join(dir, "references", "guide.md"), "# Guide\n");
+};
+
 const writeKnowledge = (dir: string, name: string) => {
   fs.mkdirSync(path.join(dir, "src"), { recursive: true });
   fs.writeFileSync(
@@ -89,6 +98,30 @@ describe("discoverConventionRefs", () => {
       expect(ref?.type).toBe("skill");
       if (ref?.type === "skill") {
         expect(ref.skill.name).toBe("pretty-skill");
+      }
+    }),
+  );
+
+  it.effect("discovers a portable Agent Skill without fabricating package identity", () =>
+    Effect.gen(function* () {
+      const skillDir = path.join(tempDir, ".agents", "skills", "react-router");
+      writePortableSkill(skillDir, "react-router");
+
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "skill",
+        names: ["react-router"],
+        owner: Option.none(),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      expect(ref?.type).toBe("skill");
+      if (ref?.type === "skill" && ref.refType === "local") {
+        expect(ref.owner).toBeUndefined();
+        expect(ref.portable).toBe(true);
+        expect(ref.sourcePath).toBe(path.join(".agents", "skills", "react-router"));
+        expect(ref.location).toContain(".agents/skills/react-router");
       }
     }),
   );

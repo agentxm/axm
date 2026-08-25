@@ -104,7 +104,7 @@ const resolveRegistrySource = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
-    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+    const registrySources = (yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
@@ -113,7 +113,7 @@ const resolveRegistrySource = (
           cause: e,
         }),
       ),
-    );
+    )).filter((source) => source.name === "agentxm");
 
     if (registrySources.length === 0) {
       return yield* makeAppError({
@@ -159,6 +159,7 @@ const resolveRegistrySource = (
         }
         return {
           type: "registry" as const,
+          name: regConfig.name,
           location: regConfig.location,
           owner: Option.some(owner),
         } satisfies RegistrySource;
@@ -211,7 +212,9 @@ const resolveSkillRegistrySourceByName = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
-    const registryHosts = yield* ws.getRegistrySourceHosts();
+    const registryHosts = (yield* ws.getRegistrySourceHosts()).filter(
+      (source) => source.name === "agentxm",
+    );
 
     if (registryHosts.length === 0) {
       return yield* makeAppError({
@@ -230,6 +233,7 @@ const resolveSkillRegistrySourceByName = (
         input: name,
         resourceType: "skill",
         scope: "registry",
+        registrySourceName: "agentxm",
       }),
     ).pipe(
       Effect.mapError((error) => {
@@ -287,6 +291,7 @@ const resolveSkillRegistrySourceByName = (
 
     return {
       type: "registry" as const,
+      name: defaultRegistry.name,
       location: Option.getOrElse(resolved.registryLocation, () => defaultRegistry.location),
       owner: Option.some(resolvedOwner),
     } satisfies RegistrySource;

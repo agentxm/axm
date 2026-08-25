@@ -512,10 +512,16 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 5,
+  lockfileVersion: 6,
   skills: {
     "managed-tool": {
       type: "github",
+      sourceType: "github",
+      sourceName: "github",
+      endpoint: "https://github.com",
+      extensionType: "skill",
+      workspaceName: "managed-tool",
+      packageFormat: "agentxm",
       packageOwner: "@owner",
       packageName: "managed-tool",
       owner: "owner",
@@ -721,7 +727,14 @@ export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): 
       },
     },
     axmExtensions: {
-      "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+      "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+        owner: "@owner",
+        type: "skill",
+        name: "some-skill",
+        version: "1.0.0",
+      }),
+      "agentxm/@owner/skills/some-skill/src/SKILL.md":
+        "---\nname: some-skill\ndescription: Canonical\n---\n# canonical\n",
     },
   },
 });

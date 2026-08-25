@@ -29,9 +29,11 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a local-path content identity.
 
-The current strict version is version 5. Every acquired package row also
+The current strict version is version 6. Every acquired package row records
+the exact source type, source name, endpoint or coordinates, requested intent,
+and immutable resolution. It also
 records `treeIntegrity`, the deterministic integrity of the complete installed
-package tree under `agent_extensions/@owner/<type>/<name>/`. This package-level
+package tree under `agent_extensions/<source-name>/<source-full-name>/`. This package-level
 identity covers every shipped file, including companion files outside the
 extension's primary payload, rather than treating a single manifest or entry
 file as the installed unit.

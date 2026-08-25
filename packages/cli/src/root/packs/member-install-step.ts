@@ -8,14 +8,14 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
   REGISTRY_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
   buildInstallOperation,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
-  targetFromRef,
-  toLabel,
   toLabelWithCompanions,
   type ExtensionRef,
   type ExtensionType,
+  type ExtensionTypePlural,
 } from "@agentxm/client-core/unstable/extensions";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
 import {
@@ -40,7 +40,7 @@ export type PackMemberRef =
   | HookExtensionRef
   | KnowledgeExtensionRef;
 
-const registryPluralSegment = (type: ExtensionType): string => {
+const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural => {
   switch (type) {
     case "skill":
       return "skills";
@@ -66,15 +66,15 @@ const registrySourceArtifact = (args: {
 }): JobStepArtifact => {
   const change =
     args.ref.refType === "workspace" ? "unchanged" : args.installedBefore ? "updated" : "created";
-  const target = targetFromRef(args.ref);
   const sourcePath =
-    args.ref.refType === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${args.ref.owner}/${registryPluralSegment(args.ref.type)}/${
-          args.ref.name
-        }`
-      : args.ref.refType === "workspace"
-        ? args.ref.location
-        : toLabel(target);
+    args.ref.refType === "workspace"
+      ? args.ref.location
+      : acquiredExtensionDisplayPath(
+          args.scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+          args.ref,
+          registryPluralSegment(args.ref.type),
+          args.ref.name,
+        );
   return {
     path: sourcePath,
     scope: args.scope,
@@ -164,6 +164,7 @@ export const buildPackMemberInstallStep = (args: {
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? skillManager.isInstalled({ target: { type: "skill", name: ref.skill.name } })
           : Effect.succeed(false),
@@ -224,6 +225,7 @@ export const buildPackMemberInstallStep = (args: {
         ref,
         versionRange: Option.none(),
         skipSettings: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? subagentManager.isInstalled({
               target: { type: "subagent", name: ref.subagent.name },
@@ -250,6 +252,7 @@ export const buildPackMemberInstallStep = (args: {
         versionRange: Option.none(),
         skipSettings: true,
         skipProjections: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? ruleManager.isInstalled({ target: { type: "rule", name: ref.rule.name } })
           : Effect.succeed(false),
@@ -274,6 +277,7 @@ export const buildPackMemberInstallStep = (args: {
         versionRange: Option.none(),
         skipSettings: true,
         skipProjections: true,
+        deferObservableValidation: true,
         installedBefore: args.graphComplete
           ? hookManager.isInstalled({ target: { type: "hook", name: ref.hook.name } })
           : Effect.succeed(false),
@@ -297,6 +301,7 @@ export const buildPackMemberInstallStep = (args: {
       versionRange: Option.none(),
       skipSettings: true,
       skipProjections: true,
+      deferObservableValidation: true,
       installedBefore: args.graphComplete
         ? knowledgeManager.isInstalled({
             target: { type: "knowledge", name: ref.knowledge.name },

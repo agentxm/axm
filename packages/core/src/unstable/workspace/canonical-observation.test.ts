@@ -33,6 +33,12 @@ const placeholderTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
 );
 const acceptedGit = (treeIntegrity = placeholderTreeIntegrity) => ({
   type: "github" as const,
+  sourceType: "github" as const,
+  sourceName: "github",
+  endpoint: new URL("https://github.com"),
+  extensionType: "skill" as const,
+  workspaceName: extensionName("review"),
+  packageFormat: "agentxm" as const,
   packageOwner: handle("@acme"),
   packageName: extensionName("review"),
   owner: "acme",
@@ -78,7 +84,15 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     () =>
       Effect.gen(function* () {
         const layout = yield* projectLayout(root);
-        const canonical = nodePath.join(root, "agent_extensions", "@acme", "skills", "review");
+        const canonical = nodePath.join(
+          root,
+          "agent_extensions",
+          "github",
+          "acme",
+          "tools",
+          "skills",
+          "review",
+        );
         nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
         nodeFs.writeFileSync(
           nodePath.join(canonical, "skill.json"),
@@ -129,7 +143,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           {
             type: "pack",
             pack: "@acme/packs/platform",
-            manifestPath: `${root}/agent_extensions/@acme/packs/platform/pack.json`,
+            manifestPath: `${root}/agent_extensions/agentxm/@acme/packs/platform/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
             enabled: true,
@@ -141,11 +155,16 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         desired,
         accepted: {
           type: "registry",
+          sourceType: "registry",
+          endpoint: new URL("https://registry.agentxm.ai"),
+          extensionType: "rule",
+          workspaceName: extensionName("release"),
+          packageFormat: "agentxm",
           owner: handle("@acme"),
           name: extensionName("release"),
           resolvedVersion: exactVersion("1.9.0"),
           integrity: "sha512-archive",
-          sourceName: "default",
+          sourceName: "agentxm",
           publisherBindingId: "binding-1",
           treeIntegrity: placeholderTreeIntegrity,
         },

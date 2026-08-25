@@ -72,6 +72,7 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
@@ -127,11 +128,16 @@ const registryHookLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): HookLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "hook",
+  workspaceName: ref.hook.name,
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
 });
@@ -143,6 +149,9 @@ const gitHookLockEntry = (
 ): HookLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
+    "hook",
+    ref.hook.name,
+    Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
     contentIdentity,
@@ -159,6 +168,11 @@ const localHookLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): HookLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "hook",
+  workspaceName: ref.hook.name,
+  packageFormat: "agentxm",
   packageOwner: ref.owner,
   packageName: ref.name,
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
@@ -1011,7 +1025,11 @@ export const HookManagerLive = Layer.effect(
 
       const workspaceRelativeLocalSourcePath =
         ref.refType === "local"
-          ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+          ? makeWorkspaceRelativeSourcePath(
+              path,
+              baseDir,
+              ref.sourcePath ?? stripFileProtocol(ref.location),
+            )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
         return yield* makeAppError({
@@ -1110,6 +1128,15 @@ export const HookManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "hook",
+            name: ref.hook.name,
+            ref,
+          }),
+        ),
       getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredHookEntries();

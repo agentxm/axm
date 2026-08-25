@@ -144,7 +144,7 @@ describe("resolveSkillInstallSource", () => {
     tmpDirs.length = 0;
   });
 
-  it.effect("selects the first registry that contains the requested owner", () => {
+  it.effect("routes an explicitly named alternate registry without registry fallback", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -158,7 +158,7 @@ describe("resolveSkillInstallSource", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(
-        parseInputOrThrow("@acme/skills/my-skill"),
+        parseInputOrThrow("second:@acme/skills/my-skill"),
       ).pipe(Effect.provide(provideTestLayers(sources)));
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -168,34 +168,31 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect(
-    "skips unsupported registries and resolves a namespaced skill from a later registry",
-    () => {
-      const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
-      tmpDirs.push(registryB);
+  it.effect("routes an unqualified namespaced skill only through the agentxm registry", () => {
+    const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+    tmpDirs.push(registryB);
 
-      createSkillIndex(registryB, "@acme", "my-skill");
+    createSkillIndex(registryB, "@acme", "my-skill");
 
-      const sources: ReadonlyArray<SourceHostConfig> = [
-        { name: "remote", type: "registry", location: new URL("http://localhost:4300") },
-        { name: "local", type: "registry", location: new URL(`file://${registryB}`) },
-      ];
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "remote", type: "registry", location: new URL("http://localhost:4300") },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryB}`) },
+    ];
 
-      return Effect.gen(function* () {
-        const fiber = yield* resolveSkillInstallSource(
-          parseInputOrThrow("@acme/skills/my-skill"),
-        ).pipe(Effect.provide(provideTestLayers(sources)), Effect.forkChild);
-        yield* Effect.yieldNow;
-        yield* TestClock.adjust("20 seconds");
-        const resolved = yield* Fiber.join(fiber);
-        expect(resolved.type).toBe("registry");
-        expect("location" in resolved).toBe(true);
-        if ("location" in resolved) {
-          expect(resolved.location.href).toBe(new URL(`file://${registryB}`).href);
-        }
-      });
-    },
-  );
+    return Effect.gen(function* () {
+      const fiber = yield* resolveSkillInstallSource(
+        parseInputOrThrow("@acme/skills/my-skill"),
+      ).pipe(Effect.provide(provideTestLayers(sources)), Effect.forkChild);
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust("20 seconds");
+      const resolved = yield* Fiber.join(fiber);
+      expect(resolved.type).toBe("registry");
+      expect("location" in resolved).toBe(true);
+      if ("location" in resolved) {
+        expect(resolved.location.href).toBe(new URL(`file://${registryB}`).href);
+      }
+    });
+  });
 
   it.effect("reports registry probe outcomes while resolving namespaced skill", () => {
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
@@ -205,7 +202,7 @@ describe("resolveSkillInstallSource", () => {
 
     const sources: ReadonlyArray<SourceHostConfig> = [
       { name: "remote", type: "registry", location: new URL("http://localhost:4300") },
-      { name: "local", type: "registry", location: new URL(`file://${registryB}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryB}`) },
     ];
 
     return Effect.gen(function* () {
@@ -224,12 +221,8 @@ describe("resolveSkillInstallSource", () => {
       const resolved = yield* Fiber.join(fiber);
 
       expect(resolved.type).toBe("registry");
-      expect(probes).toHaveLength(2);
+      expect(probes).toHaveLength(1);
       expect(probes[0]).toMatchObject({
-        location: "http://localhost:4300/",
-        outcome: "error",
-      });
-      expect(probes[1]).toMatchObject({
         location: new URL(`file://${registryB}`).href,
         outcome: "matched",
       });
@@ -245,7 +238,7 @@ describe("resolveSkillInstallSource", () => {
 
     const sources: ReadonlyArray<SourceHostConfig> = [
       { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
-      { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryB}`) },
     ];
 
     return Effect.gen(function* () {
@@ -269,7 +262,7 @@ describe("resolveSkillInstallSource", () => {
 
     const sources: ReadonlyArray<SourceHostConfig> = [
       { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
-      { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryB}`) },
     ];
 
     return Effect.gen(function* () {
@@ -299,7 +292,7 @@ describe("resolveSkillInstallSource", () => {
     tmpDirs.push(registryA, registryB);
 
     const sources: ReadonlyArray<SourceHostConfig> = [
-      { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryA}`) },
       { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
     ];
 
@@ -404,14 +397,14 @@ describe("resolveSkillRegistrySourceByName", () => {
       remoteHttpLayer,
     );
 
-  it.effect("bare name found in first registry returns registry source", () => {
+  it.effect("bare name found in the agentxm registry returns that source", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     tmpDirs.push(registryA);
 
     createSkillIndex(registryA, "@myns", "cool-skill");
 
     const sources: ReadonlyArray<SourceHostConfig> = [
-      { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryA}`) },
     ];
 
     return Effect.gen(function* () {
@@ -426,7 +419,7 @@ describe("resolveSkillRegistrySourceByName", () => {
     });
   });
 
-  it.effect("bare name found in later registry returns the correct registry source", () => {
+  it.effect("bare name uses agentxm regardless of configured source order", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -435,7 +428,7 @@ describe("resolveSkillRegistrySourceByName", () => {
 
     const sources: ReadonlyArray<SourceHostConfig> = [
       { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
-      { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+      { name: "agentxm", type: "registry", location: new URL(`file://${registryB}`) },
     ];
 
     return Effect.gen(function* () {
@@ -458,7 +451,7 @@ describe("resolveSkillRegistrySourceByName", () => {
       tmpDirs.push(registryA, registryB);
 
       const sources: ReadonlyArray<SourceHostConfig> = [
-        { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+        { name: "agentxm", type: "registry", location: new URL(`file://${registryA}`) },
         { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
       ];
 
@@ -479,7 +472,7 @@ describe("resolveSkillRegistrySourceByName", () => {
     "no default owner available fails with REGISTRY_SKILL_NOT_FOUND with no default owner detail",
     () => {
       const sources: ReadonlyArray<SourceHostConfig> = [
-        { name: "first", type: "registry", location: new URL("file:///tmp/reg") },
+        { name: "agentxm", type: "registry", location: new URL("file:///tmp/reg") },
       ];
 
       return Effect.gen(function* () {

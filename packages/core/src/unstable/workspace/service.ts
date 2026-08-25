@@ -42,7 +42,7 @@ import {
   ConfigurableAgentIdSchema,
   decodeExtensionNameSync,
   formatFqn,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
 } from "../extensions/index.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import {
@@ -492,12 +492,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         const skills = settings.skills ?? {};
         const entry = skills[name];
         if (entry !== undefined) {
-          const sourceStr = entry.source;
-          if (sourceStr?.startsWith("registry:")) {
-            const parsed = parseRegistrySourcePatternParts(sourceStr.slice("registry:".length));
-            if (parsed?.name !== undefined) {
-              return parsed.name;
-            }
+          const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
+          if (parsed?.name !== undefined) {
+            return parsed.name;
           }
         }
 
@@ -690,7 +687,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "rule",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    const locator = Option.isSome(versionRange)
+                      ? `${fqn}@${versionRange.value}`
+                      : fqn;
+                    return `${lockEntry.sourceName}:${locator}`;
                   })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -853,7 +853,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "hook",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    const locator = Option.isSome(versionRange)
+                      ? `${fqn}@${versionRange.value}`
+                      : fqn;
+                    return `${lockEntry.sourceName}:${locator}`;
                   })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -1027,7 +1030,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "knowledge",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    const locator = Option.isSome(versionRange)
+                      ? `${fqn}@${versionRange.value}`
+                      : fqn;
+                    return `${lockEntry.sourceName}:${locator}`;
                   })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -1195,12 +1201,68 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }
 
           const entry = lockEntry.value;
-          const entrySource: SkillPathSource =
-            entry.type === "registry"
-              ? { refType: "registry", owner: entry.owner }
-              : entry.type === "local"
-                ? { refType: "local", owner: entry.packageOwner }
-                : { refType: "git-hosted", owner: entry.packageOwner };
+          const entrySource: SkillPathSource = (() => {
+            switch (entry.type) {
+              case "registry":
+                return {
+                  refType: "registry",
+                  owner: entry.owner,
+                  source: {
+                    type: "registry",
+                    name: entry.sourceName,
+                    location: entry.endpoint,
+                    owner: Option.some(entry.owner),
+                  },
+                };
+              case "local":
+                return {
+                  refType: "local",
+                  source: { type: "local", path: entry.path },
+                  sourcePath: entry.path,
+                };
+              case "github":
+              case "gitlab":
+              case "bitbucket":
+                return {
+                  refType: "git-hosted",
+                  source: {
+                    type: entry.type,
+                    name: entry.sourceName,
+                    url: entry.endpoint,
+                    owner: entry.owner,
+                    repo: entry.repo,
+                    ref: Option.fromUndefinedOr(entry.ref),
+                    subPath: Option.fromUndefinedOr(entry.path),
+                  },
+                  ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+                };
+              case "azurerepos":
+                return {
+                  refType: "git-hosted",
+                  source: {
+                    type: "azurerepos",
+                    name: entry.sourceName,
+                    url: entry.endpoint,
+                    organization: entry.organization,
+                    project: entry.project,
+                    repo: entry.repo,
+                    ref: Option.fromUndefinedOr(entry.ref),
+                    subPath: Option.fromUndefinedOr(entry.path),
+                  },
+                  ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+                };
+              case "git":
+                return {
+                  refType: "git-hosted",
+                  source: {
+                    type: "git",
+                    url: new URL(entry.url),
+                    ref: Option.fromUndefinedOr(entry.ref),
+                  },
+                  ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+                };
+            }
+          })();
 
           const dirName = entry.type === "registry" ? entry.name : entry.packageName;
           return computeSkillPathsForLayout(path.join, layout, entrySource, sanitizeName(dirName));
@@ -1219,7 +1281,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "skill",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    const locator = Option.isSome(versionRange)
+                      ? `${fqn}@${versionRange.value}`
+                      : fqn;
+                    return `${lockEntry.sourceName}:${locator}`;
                   })()
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -1421,7 +1486,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               type: "pack",
               name: decodeExtensionNameSync(name),
             });
-            const source = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+            const locator = Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+            const source = `${lockEntry.sourceName}:${locator}`;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
             const enabled = currentPacks[name]?.enabled ?? true;
@@ -1508,8 +1574,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
 
-      getPackDir: (name: string, owner: Handle) =>
-        Effect.succeed(computePackPathsForLayout(path.join, layout, "external", owner, name)),
+      getPackDir: (name: string, owner: Handle, sourceName: string) =>
+        Effect.succeed(computePackPathsForLayout(path.join, layout, sourceName, owner, name)),
 
       // -----------------------------------------------------------------------
       // Subagent methods
@@ -1541,7 +1607,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                       type: "subagent",
                       name: decodeExtensionNameSync(name),
                     });
-                    return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                    const locator = Option.isSome(versionRange)
+                      ? `${fqn}@${versionRange.value}`
+                      : fqn;
+                    return `${lockEntry.sourceName}:${locator}`;
                   })()
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
@@ -1719,7 +1788,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                         type: "mcp-server",
                         name: decodeExtensionNameSync(name),
                       });
-                      return Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn;
+                      const locator = Option.isSome(versionRange)
+                        ? `${fqn}@${versionRange.value}`
+                        : fqn;
+                      return `${lockEntry.sourceName}:${locator}`;
                     })()
                   : printSourceParams(lockEntryToSourceParams(lockEntry)),
               enabled: enabled ?? currentEnabled,

@@ -21,6 +21,15 @@ import type {
   LocalSource,
   WorkspaceSource,
 } from "../sources/types.js";
+import type { Handle } from "../extensions/handle.js";
+
+type ExternalSkillRefDetails<TDetails extends GitHostedRefDetails | LocalRefDetails> = Omit<
+  TDetails,
+  "owner"
+> & {
+  readonly owner?: Handle;
+  readonly portable?: boolean;
+};
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Skill Extension Refs
@@ -28,12 +37,13 @@ import type {
 
 /** @experimental */
 export type GitHostedSkillRef = SkillExtensionRefBase<"git-hosted", GitBasedSource> &
-  GitHostedRefDetails;
+  ExternalSkillRefDetails<GitHostedRefDetails>;
 /** @experimental */
 export type RegistrySkillRef = SkillExtensionRefBase<"registry", RegistrySource> &
   RegistryRefDetails;
 /** @experimental */
-export type LocalSkillRef = SkillExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+export type LocalSkillRef = SkillExtensionRefBase<"local", LocalSource> &
+  ExternalSkillRefDetails<LocalRefDetails>;
 /** @experimental */
 export type WorkspaceSkillRef = SkillExtensionRefBase<"workspace", WorkspaceSource> &
   WorkspaceRefDetails;

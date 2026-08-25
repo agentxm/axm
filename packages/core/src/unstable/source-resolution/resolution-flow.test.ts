@@ -25,7 +25,7 @@ import { at, extensionName, handle } from "../test-helpers.js";
 // -----------------------------------------------------------------------------
 
 const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
-  { name: "default", type: "registry", location: new URL("https://registry.agentxm.ai") },
+  { name: "agentxm", type: "registry", location: new URL("https://registry.agentxm.ai") },
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
@@ -83,7 +83,7 @@ const expectGitHubSource = (source: { readonly type: string }): GitHubSource => 
     throw new Error("Expected GitHub source fields");
   }
 
-  return { type: "github", url, owner, repo, ref, subPath };
+  return { type: "github", name: "github", url, owner, repo, ref, subPath };
 };
 
 /** Create a mock SourceHostProviders that records find() calls. */

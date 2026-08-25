@@ -29,18 +29,18 @@ import { isWorkspaceSourceLocator } from "../sources/workspace.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-const SOURCE_NAME_PATTERN = /^(?!workspace$)[a-z0-9][a-z0-9.-]*$/;
+const SOURCE_NAME_PATTERN = /^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$/;
 
 const SourceNameSchema = Schema.String.check(
   Schema.isPattern(SOURCE_NAME_PATTERN, {
     message:
-      'source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be reserved name "workspace"',
+      'source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be a reserved name: "git", "local", or "workspace"',
   }),
 ).annotate({
   identifier: "SourceName",
   title: "Source Name",
   description:
-    'A source host alias: lowercase letters, numbers, hyphens, and dots. The name "workspace" is reserved.',
+    'A source host alias: lowercase letters, numbers, hyphens, and dots. The names "git", "local", and "workspace" are reserved.',
   examples: ["github", "my-registry.dev"],
 });
 

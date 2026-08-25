@@ -30,7 +30,8 @@ import type {
   RegistrySource,
   Source,
 } from "../sources/index.js";
-import { printSourceParams } from "../sources/index.js";
+import { fileUrlToPath, printSourceParams } from "../sources/index.js";
+import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
@@ -228,6 +229,23 @@ export const SourceHostProvidersLive: Layer.Layer<
       path: path.isAbsolute(source.path) ? source.path : path.resolve(ws.baseDir, source.path),
     });
 
+    const normalizeLocalRefSourcePath = (
+      ref: ExtensionRef,
+    ): Effect.Effect<ExtensionRef, AppError> => {
+      if (ref.refType !== "local") return Effect.succeed(ref);
+      const selectedPath = fileUrlToPath(ref.location);
+      const relative = makeWorkspaceRelativeSourcePath(path, ws.baseDir, selectedPath);
+      if (Option.isNone(relative)) {
+        return Effect.fail(
+          makeAppError({
+            code: "validation",
+            detail: `Local extension source path cannot be represented relative to the workspace: ${selectedPath}`,
+          }),
+        );
+      }
+      return Effect.succeed<ExtensionRef>({ ...ref, sourcePath: relative.value });
+    };
+
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
         case "github":
@@ -236,9 +254,10 @@ export const SourceHostProvidersLive: Layer.Layer<
         case "azurerepos":
           return findGitHosting(source, options);
         case "local":
-          return localProvider
-            .find(localSourceForWorkspace(source), options)
-            .pipe(Effect.provide(depLayer));
+          return localProvider.find(localSourceForWorkspace(source), options).pipe(
+            Effect.provide(depLayer),
+            Effect.flatMap((refs) => Effect.forEach(refs, normalizeLocalRefSourcePath)),
+          );
         case "git":
           return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "registry":

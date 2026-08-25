@@ -34,8 +34,13 @@ const compatibleFixture = WorkspaceReadModelTest({
     },
     lockfile: { _tag: "absent" },
     axmExtensions: {
-      "@agentxm/skills/axm/skill.json": JSON.stringify({ version: VERSION }),
-      "@agentxm/skills/axm/src/SKILL.md": `---\nname: axm\ndescription: AXM workflow guidance\nmetadata:\n  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: ${VERSION}\n  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${RANGE}"\n---\n`,
+      "agentxm/@agentxm/skills/axm/skill.json": JSON.stringify({
+        owner: "@agentxm",
+        type: "skill",
+        name: "axm",
+        version: VERSION,
+      }),
+      "agentxm/@agentxm/skills/axm/src/SKILL.md": `---\nname: axm\ndescription: AXM workflow guidance\nmetadata:\n  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: ${VERSION}\n  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${RANGE}"\n---\n`,
     },
   },
 });

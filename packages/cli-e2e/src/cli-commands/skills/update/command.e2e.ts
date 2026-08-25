@@ -33,10 +33,7 @@ const changeSkillSource = (source: string, name: string): void => {
 };
 
 const installedSkillContent = (cwd: string, name: string): string =>
-  fs.readFileSync(
-    path.join(cwd, "agent_extensions", "@test", "skills", name, "src", "SKILL.md"),
-    "utf-8",
-  );
+  fs.readFileSync(path.join(cwd, ".claude", "skills", name, "SKILL.md"), "utf-8");
 
 describe("axm skills update", () => {
   describe("no installed skills", () => {
@@ -96,7 +93,9 @@ describe("axm skills update", () => {
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
 
         // Verify skill files still exist
-        const skillDir = path.join(temp.path, "agent_extensions", "@test", "skills", "my-skill");
+        const skillDir = path.dirname(
+          fs.realpathSync(path.join(temp.path, ".claude", "skills", "my-skill")),
+        );
         expect(fs.existsSync(skillDir)).toBe(true);
         expect(
           fs.existsSync(path.join(skillDir, "src", "SKILL.md")),
@@ -158,6 +157,11 @@ describe("axm skills update", () => {
           cwd: temp.path,
         });
 
+        const disabledSkillContentPath = path.join(
+          fs.realpathSync(path.join(temp.path, ".claude", "skills", "my-skill")),
+          "SKILL.md",
+        );
+
         // Disable my-skill
         await runCli(["skills", "disable", "my-skill", "--yes"], {
           cwd: temp.path,
@@ -185,7 +189,7 @@ describe("axm skills update", () => {
           lockBefore.skills["another-skill"].contentIdentity,
         );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
-        expect(installedSkillContent(temp.path, "my-skill")).not.toContain(
+        expect(fs.readFileSync(disabledSkillContentPath, "utf-8")).not.toContain(
           "Source update for E2E.",
         );
         expect(installedSkillContent(temp.path, "another-skill")).toContain(

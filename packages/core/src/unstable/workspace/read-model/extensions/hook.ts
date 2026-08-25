@@ -6,7 +6,7 @@
  * `axm-lock.yaml` `hooks`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "hook"`), which enumerates
  * project-authored `hooks/<name>/src`, project-acquired
- * `agent_extensions/<owner>/hooks/<name>/src`, and user-scope packages.
+ * `agent_extensions/<source>/<source-full-name>`, and user-scope packages.
  *
  * The hook installer also writes agent-side derived artifacts — managed hook
  * groups inside agent settings files and the advisory-rule fallback region.

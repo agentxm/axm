@@ -1,4 +1,3 @@
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
@@ -10,7 +9,7 @@ export const packManifestPath = (
 ): string =>
   scope === "project"
     ? `packs/${name}/${PACK_MANIFEST_FILENAME}`
-    : `${REGISTRY_EXTENSIONS_DIR}/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
+    : `.axm/extensions/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
 
 export const packManifestTarget = (
   scope: JobStepArtifact["scope"],

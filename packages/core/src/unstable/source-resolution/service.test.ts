@@ -186,6 +186,7 @@ describe("registry meta-provider owner routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
+            name: "agentxm",
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },
@@ -208,6 +209,7 @@ describe("registry meta-provider owner routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
+            name: "agentxm",
             location: new URL("file:///tmp/registry"),
             owner: Option.none(),
           },
@@ -269,6 +271,7 @@ describe("registry meta-provider owner routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
+            name: "agentxm",
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },
@@ -308,6 +311,7 @@ describe("registry meta-provider owner routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
+            name: "agentxm",
             location: new URL(`file://${registryRoot}`),
             owner: Option.some(handle("@test")),
           },
@@ -374,6 +378,7 @@ describe("SourceHostProviders dispatch", () => {
           .find(
             {
               type: "azurerepos",
+              name: "azurerepos",
               organization: "org",
               project: "proj",
               repo: "repo",
@@ -407,6 +412,7 @@ describe("SourceHostProviders dispatch", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
+            name: "agentxm",
             location: new URL(`file://${registryRoot}`),
             owner: Option.none(),
           },

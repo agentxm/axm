@@ -24,8 +24,8 @@
  * | Surface                                   | `displayRoot`                                 |
  * | ----------------------------------------- | --------------------------------------------- |
  * | Publish                                   | `""`                                          |
- * | Registry-installed native skill           | `.axm/extensions/<@owner>/skills/<name>/src`  |
- * | External skill                            | `.axm/extensions/external/skills/<name>`      |
+ * | Registry-installed native skill           | `.axm/extensions/<source>/<@owner>/skills/<name>/src` |
+ * | Portable acquired skill                   | `.axm/extensions/<source>/<source-full-name>`         |
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

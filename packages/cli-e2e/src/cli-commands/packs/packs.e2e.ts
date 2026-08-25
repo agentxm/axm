@@ -47,7 +47,7 @@ function setupWorkspaceWithRegistry() {
  */
 function configureRegistrySource(settingsPath: string, registryUrl: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry", location: registryUrl }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: registryUrl }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
@@ -773,6 +773,7 @@ describe("axm packs install", () => {
       const directCanonical = path.join(
         temp.path,
         "agent_extensions",
+        "agentxm",
         "@test",
         "skills",
         directSkill,
@@ -860,7 +861,14 @@ describe("axm packs install", () => {
       expect(lock.packs?.[secondPack]).toMatchObject({ type: "registry" });
 
       for (const skill of [directSkill, firstMember, secondMember]) {
-        const canonical = path.join(temp.path, "agent_extensions", "@test", "skills", skill);
+        const canonical = path.join(
+          temp.path,
+          "agent_extensions",
+          "agentxm",
+          "@test",
+          "skills",
+          skill,
+        );
         const projection = path.join(temp.path, ".claude", "skills", skill);
         expect(fs.existsSync(canonical), `${skill} canonical package`).toBe(true);
         expect(fs.lstatSync(projection).isSymbolicLink(), `${skill} Claude projection`).toBe(true);
@@ -940,6 +948,7 @@ describe("axm packs install", () => {
       const packDir = path.join(
         temp.path,
         "agent_extensions",
+        "agentxm",
         "@test",
         "packs",
         "installable-pack",
@@ -1004,7 +1013,14 @@ describe("axm packs install", () => {
       expect(readLock().skills?.["recoverable-member"]).toMatchObject({ type: "registry" });
       expect(
         fs.existsSync(
-          path.join(temp.path, "agent_extensions", "@test", "skills", "recoverable-member"),
+          path.join(
+            temp.path,
+            "agent_extensions",
+            "agentxm",
+            "@test",
+            "skills",
+            "recoverable-member",
+          ),
         ),
       ).toBe(true);
       expect(
@@ -1260,7 +1276,7 @@ describe("axm packs install", () => {
       expect(settings.subagents?.["dep-subagent"]).toBeUndefined();
       expect(
         fs.existsSync(
-          path.join(temp.path, "agent_extensions", "@test", "subagents", "dep-subagent"),
+          path.join(temp.path, "agent_extensions", "agentxm", "@test", "subagents", "dep-subagent"),
         ),
       ).toBe(true);
     } finally {
@@ -1336,6 +1352,7 @@ describe("axm packs install", () => {
       const droppedCanonicalPath = path.join(
         consumer.path,
         "agent_extensions",
+        "agentxm",
         "@test",
         "skills",
         "dropped-skill",
@@ -1344,6 +1361,7 @@ describe("axm packs install", () => {
       const keptCanonicalPath = path.join(
         consumer.path,
         "agent_extensions",
+        "agentxm",
         "@test",
         "skills",
         "kept-skill",

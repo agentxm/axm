@@ -22,20 +22,36 @@ const makeContext = (accepted: boolean) =>
         userHome: "/user",
         project: {
           axmExtensions: {
-            "@acme/knowledge/handbook/src/index.md": "# Handbook\n",
+            "agentxm/@acme/knowledge/handbook/knowledge.json": JSON.stringify({
+              owner: "@acme",
+              type: "knowledge",
+              name: "handbook",
+              version: "1.0.0",
+              format: { name: "okf", version: "0.2" },
+              bundleRoot: "src",
+            }),
+            "agentxm/@acme/knowledge/handbook/src/index.md": "# Handbook\n",
           },
           ...(accepted
             ? {
                 lockfile: {
                   _tag: "valid",
                   contents: {
-                    lockfileVersion: 4,
+                    lockfileVersion: 6,
                     skills: {},
                     knowledge: {
                       handbook: {
                         type: "local",
+                        sourceType: "local",
+                        sourceName: "local",
+                        extensionType: "knowledge",
+                        workspaceName: "handbook",
+                        packageFormat: "agentxm",
+                        packageOwner: "@acme",
+                        packageName: "handbook",
                         path: "knowledge-source",
                         contentIdentity: "accepted-content",
+                        treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
                       },
                     },
                   },

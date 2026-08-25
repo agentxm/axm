@@ -283,7 +283,7 @@ describe("displayPlan", () => {
                         { path: ".axm/axm-lock.yaml", change: "updated" },
                         { path: ".agents/skills/code-review", change: "removed" },
                         {
-                          path: ".axm/extensions/external/skills/code-review",
+                          path: ".axm/extensions/github/acme/extensions/skills/code-review",
                           change: "removed",
                         },
                       ],
@@ -300,7 +300,7 @@ describe("displayPlan", () => {
           expect.arrayContaining([
             "    updated: .axm/axm-lock.yaml",
             "    removed: .agents/skills/code-review",
-            "    removed: .axm/extensions/external/skills/code-review",
+            "    removed: .axm/extensions/github/acme/extensions/skills/code-review",
           ]),
         );
       }),

@@ -127,7 +127,7 @@ const makeRegistryLockEntryYaml = (name = "my-server") => ({
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
 
   publisherBindingId: "hbnd_test",
 });
@@ -166,7 +166,7 @@ describe("uninstallMcpServer", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, "agent_extensions", owner, "mcps", serverName);
+    const canonicalPath = path.join(base, "agent_extensions", "agentxm", owner, "mcps", serverName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");

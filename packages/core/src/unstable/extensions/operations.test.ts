@@ -153,6 +153,7 @@ describe("buildInstallOperation", () => {
       publisherBindingId: "hbnd_test",
       source: {
         type: "registry",
+        name: "agentxm",
         location: new URL("https://registry.agentxm.ai"),
         owner: Option.some(handle("@acme")),
       },
@@ -206,6 +207,7 @@ describe("buildInstallOperation", () => {
         publisherBindingId: "hbnd_test",
         source: {
           type: "registry",
+          name: "agentxm",
           location: new URL("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
@@ -266,6 +268,7 @@ describe("buildInstallOperation", () => {
         publisherBindingId: "hbnd_test",
         source: {
           type: "registry",
+          name: "agentxm",
           location: new URL("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
@@ -619,6 +622,7 @@ describe("buildMaterializeOperation", () => {
         publisherBindingId: "hbnd_test",
         source: {
           type: "registry",
+          name: "agentxm",
           location: new URL("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },

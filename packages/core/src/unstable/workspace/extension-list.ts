@@ -3,12 +3,12 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-import { makeAppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   extensionTypeToPlural,
   installableExtensionTypes,
   parseExtensionFqnParts,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionRef,
   type InstallableExtensionType,
 } from "../extensions/index.js";
@@ -17,10 +17,18 @@ import type { DeprecationView } from "../registry/schema.js";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
-import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import type {
+  HookLockEntry,
+  KnowledgeLockEntry,
+  McpServerLockEntry,
+  PackLockEntry,
+  RuleLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "../lockfile/index.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
-import { WorkspaceMutations } from "./service-interface.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "./service-interface.js";
 import { checkCurrency } from "./version-currency/index.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
@@ -60,7 +68,37 @@ export interface ExtensionListItem {
   readonly assessment: ExtensionAssessment;
 }
 
-type AcceptedEntry = SkillLockEntry | PackLockEntry;
+type AcceptedEntry =
+  | SkillLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry
+  | PackLockEntry;
+
+const getAcceptedEntry = (
+  ws: WorkspaceMutationsService,
+  type: InstallableExtensionType,
+  name: string,
+): Effect.Effect<Option.Option<AcceptedEntry>, AppError> => {
+  switch (type) {
+    case "skill":
+      return ws.getLockedSkill(name);
+    case "mcp-server":
+      return ws.getLockedMcpServer(name);
+    case "subagent":
+      return ws.getLockedSubagent(name);
+    case "rule":
+      return ws.getLockedRuleEntry(name);
+    case "hook":
+      return ws.getLockedHookEntry(name);
+    case "knowledge":
+      return ws.getLockedKnowledgeEntry(name);
+    case "pack":
+      return ws.getLockedPack(name);
+  }
+};
 
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
   if (row === undefined) return undefined;
@@ -175,7 +213,7 @@ const decodeInstalledVersion = (value: string, ref: string) =>
 
 const constraintFromSource = (source: string | undefined) => {
   if (source === undefined) return Option.none<string>();
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   return Option.fromUndefinedOr(parsed?.versionRange);
 };
 
@@ -316,25 +354,7 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
   return yield* Effect.forEach(
     items,
     (item) => {
-      const entry = (() => {
-        switch (item.type) {
-          case "skill":
-            return ws.getLockedSkill(item.name);
-          case "mcp-server":
-            return ws.getLockedMcpServer(item.name);
-          case "subagent":
-            return ws.getLockedSubagent(item.name);
-          case "rule":
-            return ws.getLockedRuleEntry(item.name);
-          case "hook":
-            return ws.getLockedHookEntry(item.name);
-          case "knowledge":
-            return ws.getLockedKnowledgeEntry(item.name);
-          case "pack":
-            return ws.getLockedPack(item.name);
-        }
-      })();
-      return entry.pipe(
+      return getAcceptedEntry(ws, item.type, item.name).pipe(
         Effect.flatMap((accepted) => assessItem(item, filter, Option.getOrUndefined(accepted))),
         Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
       );

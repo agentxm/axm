@@ -17,7 +17,15 @@ import { PackManifestSchema } from "../packs/index.js";
 import { RuleManifestSchema } from "../rules/index.js";
 import { SkillManifestSchema } from "../skills/index.js";
 import { SubagentManifestSchema } from "../subagents/index.js";
-import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import type {
+  HookLockEntry,
+  KnowledgeLockEntry,
+  McpServerLockEntry,
+  PackLockEntry,
+  RuleLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "../lockfile/index.js";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
 import {
   collectDesiredConstraintContributors,
@@ -25,6 +33,10 @@ import {
   type DesiredExtensionNode,
 } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
+import {
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+} from "../extensions/extension-paths.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -71,7 +83,14 @@ interface ObserveCanonicalArgs {
   readonly accepted: AcceptedExtensionResolution | undefined;
 }
 
-export type AcceptedExtensionResolution = SkillLockEntry | PackLockEntry;
+export type AcceptedExtensionResolution =
+  | SkillLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry
+  | PackLockEntry;
 
 const MANIFEST_CONTRACTS = {
   skill: { filename: "skill.json", schema: SkillManifestSchema },
@@ -95,8 +114,8 @@ export const canonicalPathForAcceptedExtension = (
   if (desired.source === "inline") return undefined;
   if (desired.identity.startsWith("bundled:")) {
     return layout.scope === "project"
-      ? path.join(layout.acquiredRoot, "@agentxm", "skills", desired.name)
-      : path.join(layout.canonicalRoot, "@agentxm", "skills", desired.name);
+      ? path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name)
+      : path.join(layout.canonicalRoot, "agentxm", "@agentxm", "skills", desired.name);
   }
   if (desired.identity.startsWith("workspace:")) {
     if (layout.scope === "project")
@@ -112,13 +131,14 @@ export const canonicalPathForAcceptedExtension = (
         );
   }
   if (accepted === undefined) return undefined;
-  const owner = accepted.type === "registry" ? accepted.owner : accepted.packageOwner;
-  const name = accepted.type === "registry" ? accepted.name : accepted.packageName;
-  return layout.scope === "project"
-    ? path.join(layout.acquiredRoot, owner, toExtensionTypePlural(desired.type), name)
-    : accepted.type === "registry"
-      ? path.join(layout.canonicalRoot, owner, toExtensionTypePlural(desired.type), name)
-      : path.join(layout.canonicalRoot, "external", toExtensionTypePlural(desired.type), name);
+  const source = extensionPathSourceFromLockEntry(accepted);
+  return computeExtensionPathsForLayout(
+    path.join,
+    layout,
+    source,
+    toExtensionTypePlural(desired.type),
+    accepted.workspaceName,
+  ).canonicalPath;
 };
 
 const hasRequiredPayload = (

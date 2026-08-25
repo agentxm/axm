@@ -219,7 +219,14 @@ describe("disable.handler", () => {
     it.effect("creates direct entry when disabling implicit skill", () => {
       const { provide, logs } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "code-review");
+      const skillDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "agentxm",
+        "@acme",
+        "skills",
+        "code-review",
+      );
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# code-review");
 
@@ -248,7 +255,7 @@ describe("disable.handler", () => {
             name: "code-review",
             resolvedVersion: "1.2.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             sourceHash: computeSourceHash("SKILL.md\n# code-review"),
             agents: ["claude-code"],

@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import type { SourceHash } from "../extensions/rendered-files.js";
 import type { TreeIntegrity } from "../extensions/materialized-tree.js";
 import type { ExtensionName } from "../extensions/common.js";
+import type { CatalogExtensionType } from "../extension-types/schema.js";
 import type { Handle } from "../extensions/handle.js";
 import type { GitBasedSource } from "../sources/types.js";
 
@@ -22,17 +23,28 @@ export const optionalField = <K extends string, V>(
   return fields;
 };
 
-export const gitSourceLockFields = (
+const gitSourceLockFieldsBase = <
+  TExtensionType extends CatalogExtensionType,
+  TPackageFormat extends "agentxm" | "agent-skill",
+>(
   source: GitBasedSource,
+  extensionType: TExtensionType,
+  workspaceName: ExtensionName,
+  packageFormat: TPackageFormat,
+  selectedPath: Option.Option<string>,
   resolvedCommit: string,
   resolvedTree: string,
   contentIdentity: SourceHash,
-  packageOwner: Handle,
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
 ) => {
+  const path = Option.orElse(selectedPath, () =>
+    source.type === "git" ? Option.none() : source.subPath,
+  );
   const common = {
-    packageOwner,
+    extensionType,
+    workspaceName,
+    packageFormat,
     packageName,
     ...optionalField("ref", source.ref),
     resolvedCommit,
@@ -43,29 +55,108 @@ export const gitSourceLockFields = (
 
   switch (source.type) {
     case "github":
-    case "gitlab":
-    case "bitbucket":
       return {
-        type: source.type,
+        type: "github" as const,
+        sourceType: "github" as const,
+        sourceName: source.name,
+        endpoint: source.url,
         owner: source.owner,
         repo: source.repo,
-        ...optionalField("path", source.subPath),
+        ...optionalField("path", path),
+        ...common,
+      };
+    case "gitlab":
+      return {
+        type: "gitlab" as const,
+        sourceType: "gitlab" as const,
+        sourceName: source.name,
+        endpoint: source.url,
+        owner: source.owner,
+        repo: source.repo,
+        ...optionalField("path", path),
+        ...common,
+      };
+    case "bitbucket":
+      return {
+        type: "bitbucket" as const,
+        sourceType: "bitbucket" as const,
+        sourceName: source.name,
+        endpoint: source.url,
+        owner: source.owner,
+        repo: source.repo,
+        ...optionalField("path", path),
         ...common,
       };
     case "azurerepos":
       return {
         type: source.type,
+        sourceType: source.type,
+        sourceName: source.name,
+        endpoint: source.url,
         organization: source.organization,
         project: source.project,
         repo: source.repo,
-        ...optionalField("path", source.subPath),
+        ...optionalField("path", path),
         ...common,
       };
     case "git":
       return {
         type: source.type,
+        sourceType: source.type,
+        sourceName: "git" as const,
         url: source.url.href,
+        ...optionalField("path", path),
         ...common,
       };
   }
 };
+
+export const gitSourceLockFields = <TExtensionType extends CatalogExtensionType>(
+  source: GitBasedSource,
+  extensionType: TExtensionType,
+  workspaceName: ExtensionName,
+  selectedPath: Option.Option<string>,
+  resolvedCommit: string,
+  resolvedTree: string,
+  contentIdentity: SourceHash,
+  packageOwner: Handle,
+  packageName: ExtensionName,
+  treeIntegrity: TreeIntegrity,
+) => ({
+  ...gitSourceLockFieldsBase(
+    source,
+    extensionType,
+    workspaceName,
+    "agentxm",
+    selectedPath,
+    resolvedCommit,
+    resolvedTree,
+    contentIdentity,
+    packageName,
+    treeIntegrity,
+  ),
+  packageOwner,
+});
+
+export const portableGitSourceLockFields = (
+  source: GitBasedSource,
+  workspaceName: ExtensionName,
+  selectedPath: Option.Option<string>,
+  resolvedCommit: string,
+  resolvedTree: string,
+  contentIdentity: SourceHash,
+  packageName: ExtensionName,
+  treeIntegrity: TreeIntegrity,
+) =>
+  gitSourceLockFieldsBase(
+    source,
+    "skill",
+    workspaceName,
+    "agent-skill",
+    selectedPath,
+    resolvedCommit,
+    resolvedTree,
+    contentIdentity,
+    packageName,
+    treeIntegrity,
+  );

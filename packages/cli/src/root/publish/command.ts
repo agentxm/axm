@@ -50,7 +50,6 @@ import {
   ExtensionMetadataSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
-  EXTERNAL_EXTENSIONS_DIR,
   HandleSchema,
   PublishOptionsSchema,
   extensionTypes,
@@ -59,7 +58,7 @@ import {
   fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type ExtensionType,
   type Handle,
@@ -138,6 +137,7 @@ import {
 } from "@agentxm/client-core/unstable/version-constraints";
 import {
   WorkspaceMutations,
+  acceptedCanonicalObservation,
   configuredRowsByName,
   type WorkspaceScope,
 } from "@agentxm/client-core/unstable/workspace";
@@ -779,7 +779,7 @@ const sourceType = (source: string): SourceType => {
 };
 
 const identityFromSource = (entry: CatalogEntry) => {
-  const parsed = parseRegistrySourcePatternParts(entry.source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
   if (
     parsed === undefined ||
     parsed.name === undefined ||
@@ -807,25 +807,23 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const path = yield* Path.Path;
   const plural = extensionTypeToPlural[entry.type];
   const authored = isWorkspaceSourceLocator(entry.source);
+  const accepted = authored
+    ? Option.none()
+    : yield* acceptedCanonicalObservation({
+        workspace: ws,
+        type: entry.type,
+        name: entry.name,
+      });
   const extensionRoots = authored
     ? ws.layout.scope === "project"
       ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]
       : ws.layout.owner === undefined
         ? []
         : [path.join(ws.layout.canonicalRoot, ws.layout.owner, plural, entry.name)]
-    : [path.join(ws.baseDir, EXTERNAL_EXTENSIONS_DIR, plural, entry.name)];
-  if (!authored) {
-    const canonicalRoot =
-      ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot;
-    const ownerDirs = yield* fs
-      .readDirectory(canonicalRoot)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-    for (const ownerDir of ownerDirs) {
-      if (ownerDir.startsWith("@")) {
-        extensionRoots.push(path.join(canonicalRoot, ownerDir, plural, entry.name));
-      }
-    }
-  }
+    : Option.match(accepted, {
+        onNone: () => [],
+        onSome: ({ observation }) => (observation.path === undefined ? [] : [observation.path]),
+      });
 
   for (const extensionDir of extensionRoots) {
     const manifestPath = path.join(extensionDir, manifestFilename[entry.type]);

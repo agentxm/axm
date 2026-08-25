@@ -6,7 +6,12 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { type ExtensionName, type ExtensionRef, type Handle } from "../../extensions/index.js";
+import {
+  decodeExtensionNameSync,
+  type ExtensionName,
+  type ExtensionRef,
+  type Handle,
+} from "../../extensions/index.js";
 import { discoverManifestPackagesInDir } from "../../extensions/manifest-package-discovery.js";
 import {
   DISCOVERY_MAX_DEPTH,
@@ -24,6 +29,7 @@ import { MANIFEST_FILENAME, SubagentManifestSchema } from "../../subagents/manif
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
+  parseSkillMd,
   SkillManifestSchema,
   type SkillExtensionRef,
 } from "../../skills/index.js";
@@ -99,6 +105,100 @@ const discoverSkillPackagesInDir = discoverManifestPackagesInDir({
   manifestSchema: SkillManifestSchema,
 });
 
+type PortableSkillDiscovery = {
+  readonly type: "skill";
+  readonly name: ExtensionName;
+  readonly skill: SkillExtensionRef["skill"];
+  readonly location: string;
+};
+
+const readPortableSkillDiscovery = (dir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const hasPackageManifest = yield* fs
+      .exists(path.join(dir, SKILL_MANIFEST_FILENAME))
+      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const isAxmPackageContent =
+      path.basename(dir) === "src" &&
+      (yield* fs
+        .exists(path.join(path.dirname(dir), SKILL_MANIFEST_FILENAME))
+        .pipe(Effect.catch(() => Effect.succeed(false))));
+    if (hasPackageManifest || isAxmPackageContent) {
+      return Option.none<PortableSkillDiscovery>();
+    }
+
+    const content = yield* fs.readFileString(path.join(dir, "SKILL.md")).pipe(Effect.option);
+    if (Option.isNone(content)) return Option.none<PortableSkillDiscovery>();
+    const skill = parseSkillMd(content.value, path.basename(dir));
+    if (Option.isNone(skill)) return Option.none<PortableSkillDiscovery>();
+    const name = decodeExtensionNameSync(skill.value.name);
+    return Option.some({
+      type: "skill",
+      name,
+      skill: {
+        name,
+        description: Option.some(skill.value.description),
+        metadata: skill.value.metadata,
+      },
+      location: `file://${dir}`,
+    } satisfies PortableSkillDiscovery);
+  });
+
+const portableSkillDiscoveries = (root: string) =>
+  Effect.gen(function* () {
+    const dirs = yield* manifestDirs(root, "SKILL.md");
+    const discoveries = yield* Effect.forEach(dirs, readPortableSkillDiscovery, {
+      concurrency: FILESYSTEM_DISCOVERY_CONCURRENCY,
+    });
+    return discoveries.flatMap((discovery) => (Option.isSome(discovery) ? [discovery.value] : []));
+  });
+
+const portableSkillRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
+  Effect.gen(function* () {
+    const root = yield* searchRootFor(source, basePath);
+    const discoveries = yield* portableSkillDiscoveries(root);
+    const matching = discoveries.filter((discovery) => matchesIdentity(discovery, options));
+    return yield* Effect.forEach(
+      matching,
+      (discovery) =>
+        Effect.gen(function* () {
+          const sourcePath = yield* relativeDir(basePath, discovery.location);
+          switch (source.type) {
+            case "local":
+              return {
+                type: "skill",
+                refType: "local",
+                name: discovery.name,
+                skill: discovery.skill,
+                source,
+                sourcePath,
+                portable: true,
+                location: discovery.location,
+              } satisfies SkillExtensionRef;
+            case "github":
+            case "gitlab":
+            case "bitbucket":
+            case "azurerepos":
+            case "git":
+              return {
+                type: "skill",
+                refType: "git-hosted",
+                name: discovery.name,
+                skill: discovery.skill,
+                source,
+                sourcePath,
+                portable: true,
+                location: discovery.location,
+                gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
+                gitCommitSha: yield* gitCommitShaFor(basePath),
+              } satisfies SkillExtensionRef;
+          }
+        }),
+      { concurrency: GIT_METADATA_CONCURRENCY },
+    );
+  });
+
 const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
   searchRootFor(source, basePath).pipe(
     Effect.flatMap((root) => discoverSkillPackagesInDir(root, { fullDepth: true })),
@@ -125,6 +225,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                   ...identity,
                   source,
                   location: discovered.location,
+                  sourcePath: yield* relativeDir(basePath, discovered.location),
                 } satisfies SkillExtensionRef;
               case "github":
               case "gitlab":
@@ -276,6 +377,7 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
           ...identity,
           source,
           location: discovery.location,
+          sourcePath: yield* relativeDir(basePath, discovery.location),
         } satisfies SubagentExtensionRef;
       case "github":
       case "gitlab":
@@ -289,6 +391,7 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
           ...identity,
           source,
           location: discovery.location,
+          sourcePath: yield* relativeDir(basePath, discovery.location),
           gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
           gitCommitSha: yield* gitCommitShaFor(basePath),
         } satisfies SubagentExtensionRef;
@@ -308,6 +411,7 @@ const knowledgeRef = (source: ExternalSource, basePath: string, discovery: Knowl
           ...identity,
           source,
           location: discovery.location,
+          sourcePath: yield* relativeDir(basePath, discovery.location),
         } satisfies KnowledgeExtensionRef;
       case "github":
       case "gitlab":
@@ -375,6 +479,7 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 ...identity,
                 source,
                 location: discovery.location,
+                sourcePath: yield* relativeDir(basePath, discovery.location),
               } satisfies RuleExtensionRef;
             case "github":
             case "gitlab":
@@ -388,6 +493,7 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 ...identity,
                 source,
                 location: discovery.location,
+                sourcePath: yield* relativeDir(basePath, discovery.location),
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
                 gitCommitSha: yield* gitCommitShaFor(basePath),
               } satisfies RuleExtensionRef;
@@ -420,6 +526,7 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 ...identity,
                 source,
                 location: discovery.location,
+                sourcePath: yield* relativeDir(basePath, discovery.location),
               } satisfies HookExtensionRef;
             case "github":
             case "gitlab":
@@ -433,6 +540,7 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 ...identity,
                 source,
                 location: discovery.location,
+                sourcePath: yield* relativeDir(basePath, discovery.location),
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
                 gitCommitSha: yield* gitCommitShaFor(basePath),
               } satisfies HookExtensionRef;
@@ -486,7 +594,10 @@ export const discoverConventionRefs = (
   Effect.gen(function* () {
     const refs: ReadonlyArray<ExtensionRef> = [
       ...(options.type === "skill" || options.type === "*"
-        ? yield* skillRefsInDir(source, basePath, options)
+        ? [
+            ...(yield* skillRefsInDir(source, basePath, options)),
+            ...(yield* portableSkillRefsInDir(source, basePath, options)),
+          ]
         : []),
       ...(options.type === "subagent" || options.type === "*"
         ? yield* subagentRefsInDir(source, basePath, options)

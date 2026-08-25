@@ -3,7 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { HOOK_EXTENSION_DIR, HookManager } from "@agentxm/client-core/unstable/hooks";
+import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/client-core/unstable/extensions";
+import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
   operationPresentation,
@@ -22,7 +23,7 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
-  workspaceCanonicalPath,
+  workspaceCanonicalRoot,
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
 
@@ -31,9 +32,7 @@ const hookPackagePath = (
   entry: HookLockEntry,
   name: string,
 ): string =>
-  entry.type === "registry"
-    ? workspaceCanonicalPath(scope, `${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`)
-    : workspaceCanonicalPath(scope, `external/${HOOK_EXTENSION_DIR}/${name}`);
+  acquiredExtensionDisplayPathFromLockEntry(workspaceCanonicalRoot(scope), entry, "hooks", name);
 
 const hookDisableArtifactTargets = (args: {
   readonly lockEntry: HookLockEntry;

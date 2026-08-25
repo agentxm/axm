@@ -31,7 +31,6 @@ import type {
   RegistrySource,
   Source,
   SourceParams,
-  SourceType,
 } from "../sources/index.js";
 import { createRegistryClient } from "../registry/index.js";
 import { decodeHandleSync, type Handle } from "../extensions/handle.js";
@@ -39,6 +38,7 @@ import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../exten
 import {
   decodeExtensionNameSync,
   isExtensionTypePlural,
+  parseRegistrySourcePatternParts,
   toExtensionType,
 } from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
@@ -48,9 +48,6 @@ import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
-
-/** Source types that require a matching config from workspace. */
-const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", "azurerepos"]);
 
 const isGenericGitUrl = (url: URL): boolean =>
   url.protocol === "git:" || url.protocol === "ssh:" || url.pathname.endsWith(".git");
@@ -166,6 +163,19 @@ const parseShorthandForSource = (
       return gitlab.parseShorthand(input);
     case "bitbucket":
       return bitbucket.parseShorthand(input);
+    case "azurerepos":
+      return azurerepos.parseShorthand(input);
+    case "registry": {
+      const parsed = parseRegistrySourcePatternParts(shorthand.remainingInput);
+      return parsed === undefined
+        ? Effect.fail(
+            makeAppError({
+              code: "validation",
+              detail: `Invalid Registry source reference "${input}"`,
+            }),
+          )
+        : Effect.succeed({ type: "registry", owner: Option.some(parsed.owner) });
+    }
     default:
       return Effect.fail(
         makeAppError({
@@ -195,19 +205,25 @@ const configToSource = (
 
   switch (config.type) {
     case "github":
-      return params.type === "github" ? Effect.succeed({ ...params, url: config.url }) : mismatch();
+      return params.type === "github"
+        ? Effect.succeed({ ...params, name: config.name, url: config.url })
+        : mismatch();
     case "gitlab":
-      return params.type === "gitlab" ? Effect.succeed({ ...params, url: config.url }) : mismatch();
+      return params.type === "gitlab"
+        ? Effect.succeed({ ...params, name: config.name, url: config.url })
+        : mismatch();
     case "bitbucket":
       return params.type === "bitbucket"
-        ? Effect.succeed({ ...params, url: config.url })
+        ? Effect.succeed({ ...params, name: config.name, url: config.url })
         : mismatch();
     case "azurerepos":
       return params.type === "azurerepos"
-        ? Effect.succeed({ ...params, url: config.url })
+        ? Effect.succeed({ ...params, name: config.name, url: config.url })
         : mismatch();
     case "registry":
-      return mismatch();
+      return params.type === "registry"
+        ? Effect.succeed({ ...params, name: config.name, location: config.location })
+        : mismatch();
   }
 };
 
@@ -260,11 +276,23 @@ export const routeUrlInput = (url: URL, input: string) =>
       return yield* noMatch;
     }
 
+    const matches: Source[] = [];
     for (const attempt of attempts) {
       const result = yield* Effect.result(attempt);
       if (result._tag === "Success") {
-        return result.success;
+        matches.push(result.success);
       }
+    }
+
+    const [match, ...remainingMatches] = matches;
+    if (match !== undefined && remainingMatches.length === 0) return match;
+    if (match !== undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `URL "${url.href}" matches multiple configured sources: ${matches
+          .flatMap((source) => ("name" in source ? [source.name] : []))
+          .join(", ")}. Select one by source name.`,
+      });
     }
 
     if (isGenericGitUrl(url)) {
@@ -296,7 +324,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
 
     // Check if the scheme matches a config name
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type)) {
+    if (matchedConfig !== undefined) {
       const remainder = input.slice(colonIndex + 1);
       const params = yield* parseShorthandForSource({
         pattern: "shorthand-input",
@@ -366,11 +394,23 @@ export const routeScpInput = (
       return genericGitSourceWithRef;
     }
 
+    const matches: Source[] = [];
     for (const attempt of attempts) {
       const result = yield* Effect.result(attempt);
       if (result._tag === "Success") {
-        return result.success;
+        matches.push(result.success);
       }
+    }
+
+    const [match, ...remainingMatches] = matches;
+    if (match !== undefined && remainingMatches.length === 0) return match;
+    if (match !== undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `SCP address "${scpInput}" matches multiple configured sources: ${matches
+          .flatMap((source) => ("name" in source ? [source.name] : []))
+          .join(", ")}. Select one by source name.`,
+      });
     }
 
     return genericGitSourceWithRef;
@@ -393,26 +433,12 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
     const input = parseResult.originalInput;
     const sources = yield* getConfiguredSources(input);
 
-    // Known source-type prefix → dispatch directly, select first config of that type
-    const isKnownType = prefix === "github" || prefix === "gitlab" || prefix === "bitbucket";
-    if (isKnownType) {
-      const params = yield* parseShorthandForSource(parseResult.pattern);
-      const config = sources.find((s) => s.type === prefix);
-      if (!config) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: `No source config found for source type "${prefix}". Add a source config via settings.`,
-        });
-      }
-      return yield* configToSource(config, params, input);
-    }
-
-    // Config-name prefix → find config, parse with its source type parser
+    // Prefixes always select an exact configured source name.
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type)) {
+    if (matchedConfig === undefined) {
       return yield* makeAppError({
         code: "validation",
-        detail: `Unknown shorthand prefix: "${prefix}"`,
+        detail: `No configured source named "${prefix}"`,
       });
     }
 
@@ -472,32 +498,24 @@ export const routeRegistryInput = (
     const ws = yield* WorkspaceMutations;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
-    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to get registry sources: ${e._tag}`,
-        }),
-      ),
-    );
-
-    if (registrySources.length === 0) {
+    const sources = yield* ws
+      .getConfiguredSources()
+      .pipe(
+        Effect.mapError((e) =>
+          makeAppError({ code: "validation", detail: `Failed to get source agentxm: ${e._tag}` }),
+        ),
+      );
+    const configured = Option.fromUndefinedOr(sources.find((source) => source.name === "agentxm"));
+    if (Option.isNone(configured) || configured.value.type !== "registry") {
       return yield* makeAppError({
         code: "validation",
-        detail: `No registry source configured for owner "${pattern.owner}"`,
-      });
-    }
-
-    const [regConfig] = registrySources;
-    if (regConfig === undefined) {
-      return yield* makeAppError({
-        code: "validation",
-        detail: `No registry source configured for owner "${pattern.owner}"`,
+        detail: 'No Registry source named "agentxm" is configured',
       });
     }
     return {
       type: "registry" as const,
-      location: regConfig.location,
+      name: configured.value.name,
+      location: configured.value.location,
       owner: Option.some(pattern.owner),
     } satisfies RegistrySource;
   });
@@ -542,14 +560,14 @@ export const resolveSlashInputSource = (
             return undefined;
           }
         })();
-        const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+        const registrySources = (yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
             makeAppError({
               code: "validation",
               detail: `Failed to get registry sources: ${e._tag}`,
             }),
           ),
-        );
+        )).filter((source) => source.name === "agentxm");
 
         if (owner !== undefined && extensionName !== undefined) {
           for (const regSource of registrySources) {
@@ -560,6 +578,7 @@ export const resolveSlashInputSource = (
             if (exists) {
               return {
                 type: "registry" as const,
+                name: regSource.name,
                 location: regSource.location,
                 owner: Option.some(owner),
               } satisfies RegistrySource;
@@ -675,4 +694,8 @@ export const resolveSource = (
           name: pattern.name,
         };
     }
+    return yield* makeAppError({
+      code: "validation",
+      detail: "Unable to resolve source pattern",
+    });
   });

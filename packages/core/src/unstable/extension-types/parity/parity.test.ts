@@ -36,16 +36,23 @@ const TIER = "core-test";
  */
 const REGISTRY_LOCK_ENTRY = {
   type: "registry",
+  sourceType: "registry",
+  endpoint: "https://registry.agentxm.ai",
+  workspaceName: "example",
+  packageFormat: "agentxm",
   owner: "@acme",
   name: "example",
   resolvedVersion: "1.0.0",
   integrity: "sha512-abc123",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
 } as const;
 
-const registryLockEntry = (_type: CatalogExtensionType) => REGISTRY_LOCK_ENTRY;
+const registryLockEntry = (type: CatalogExtensionType) => ({
+  ...REGISTRY_LOCK_ENTRY,
+  extensionType: type,
+});
 
 type LockEntrySchema = (typeof LOCK_ENTRY_SCHEMA_BY_TYPE)[CatalogExtensionType];
 
@@ -71,6 +78,12 @@ const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | n
     decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], registryLockEntry(type)) &&
     decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], {
       type: "github",
+      sourceType: "github",
+      sourceName: "github",
+      endpoint: "https://github.com",
+      extensionType: type,
+      workspaceName: "example",
+      packageFormat: "agentxm",
       packageOwner: "@acme",
       packageName: "example",
       owner: "acme",

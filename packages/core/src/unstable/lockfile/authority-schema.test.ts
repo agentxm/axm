@@ -12,10 +12,10 @@ const decodeLockfile = Schema.decodeUnknownSync(LockfileSchema);
 
 describe("authoritative external-resolution lockfile", () => {
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(5);
+    expect(LOCKFILE_VERSION).toBe(6);
     expect(
-      decodeLockfile({ lockfileVersion: 5, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 5, skills: {} });
+      decodeLockfile({ lockfileVersion: 6, skills: {} }, { onExcessProperty: "error" }),
+    ).toEqual({ lockfileVersion: 6, skills: {} });
   });
 
   it("rejects workspace-authored and inline entries", () => {
@@ -51,6 +51,12 @@ describe("authoritative external-resolution lockfile", () => {
   it("requires immutable identities for Git and local-path resolutions", () => {
     const git = {
       type: "github",
+      sourceType: "github",
+      sourceName: "github",
+      endpoint: "https://github.com",
+      extensionType: "skill",
+      workspaceName: "review",
+      packageFormat: "agentxm",
       packageOwner: "@acme",
       packageName: "review",
       owner: "acme",
@@ -63,6 +69,11 @@ describe("authoritative external-resolution lockfile", () => {
     };
     const local = {
       type: "local",
+      sourceType: "local",
+      sourceName: "local",
+      extensionType: "skill",
+      workspaceName: "review",
+      packageFormat: "agentxm",
       packageOwner: "@acme",
       packageName: "review",
       path: "../extension-sources/review",
@@ -74,7 +85,7 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(SkillLockEntrySchema)(git, {
         onExcessProperty: "error",
       }),
-    ).toEqual(git);
+    ).toEqual({ ...git, endpoint: new URL(git.endpoint) });
     expect(
       Schema.decodeUnknownSync(SkillLockEntrySchema)(local, {
         onExcessProperty: "error",
@@ -97,11 +108,16 @@ describe("authoritative external-resolution lockfile", () => {
   it("keeps registry identity and provenance without receipt fields", () => {
     const registry = {
       type: "registry",
+      sourceType: "registry",
+      endpoint: "https://registry.agentxm.ai",
+      extensionType: "skill",
+      workspaceName: "review",
+      packageFormat: "agentxm",
       owner: "@acme",
       name: "review",
       resolvedVersion: "1.2.3",
       integrity: "sha512-archive",
-      sourceName: "default",
+      sourceName: "agentxm",
       publisherBindingId: "hbnd_acme",
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
@@ -110,7 +126,7 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(SkillLockEntrySchema)(registry, {
         onExcessProperty: "error",
       }),
-    ).toEqual(registry);
+    ).toEqual({ ...registry, endpoint: new URL(registry.endpoint) });
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
         {
@@ -127,12 +143,17 @@ describe("authoritative external-resolution lockfile", () => {
   it("stores Registry Pack manifest identity without receipt-derived member maps", () => {
     const pack = {
       type: "registry",
+      sourceType: "registry",
+      endpoint: "https://registry.agentxm.ai",
+      extensionType: "pack",
+      workspaceName: "toolkit",
+      packageFormat: "agentxm",
       owner: "@acme",
       name: "toolkit",
       resolvedVersion: "2.0.0",
       integrity: "sha512-pack-archive",
       manifestContentIdentity: "sha256-pack-manifest",
-      sourceName: "default",
+      sourceName: "agentxm",
       publisherBindingId: "hbnd_acme",
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
@@ -141,7 +162,7 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
         onExcessProperty: "error",
       }),
-    ).toEqual(pack);
+    ).toEqual({ ...pack, endpoint: new URL(pack.endpoint) });
     expect(() =>
       Schema.decodeUnknownSync(PackLockEntrySchema)(
         { ...pack, resolvedSkills: {} },
@@ -156,7 +177,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 5, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 6, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

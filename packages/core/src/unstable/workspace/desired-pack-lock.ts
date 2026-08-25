@@ -96,10 +96,14 @@ export const validateDesiredPackLock = ({
 
       const identity = parseExtensionFqnParts(node.identity);
       const entry = lockfile.packs?.[node.name];
+      const configuredSourceName = node.source.startsWith("@")
+        ? "agentxm"
+        : node.source.slice(0, node.source.indexOf(":"));
       if (
         identity === undefined ||
         identity.type !== "pack" ||
         entry === undefined ||
+        entry.sourceName !== configuredSourceName ||
         entry.owner !== identity.owner ||
         entry.name !== identity.name ||
         !node.constraints.every((constraint) => semver.satisfies(entry.resolvedVersion, constraint))
@@ -115,9 +119,15 @@ export const validateDesiredPackLock = ({
 
       const manifestPath = path.join(
         layout === undefined
-          ? computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath
-          : computePackPathsForLayout(path.join, layout, "external", identity.owner, identity.name)
-              .canonicalPath,
+          ? computePackPaths(path.join, baseDir, entry.sourceName, identity.owner, identity.name)
+              .canonicalPath
+          : computePackPathsForLayout(
+              path.join,
+              layout,
+              entry.sourceName,
+              identity.owner,
+              identity.name,
+            ).canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
       const readResult = yield* Effect.result(fs.readFileString(manifestPath));

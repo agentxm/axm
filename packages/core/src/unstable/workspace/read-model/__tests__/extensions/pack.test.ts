@@ -51,17 +51,22 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 5,
+    lockfileVersion: 6,
     skills: {},
     packs: {
       [packName]: {
         type: "registry",
+        sourceType: "registry",
+        endpoint: "https://registry.agentxm.ai",
+        extensionType: "pack",
+        workspaceName: packName,
+        packageFormat: "agentxm",
         owner: "@team",
         name: packName,
         resolvedVersion: "1.0.0",
         integrity: "sha256-abc",
         manifestContentIdentity: "sha256-manifest",
-        sourceName: "registry",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
       },

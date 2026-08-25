@@ -9,7 +9,10 @@ import {
   ExtensionInventorySchema,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
-import { parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
+import {
+  parseExtensionFqnParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+} from "@agentxm/client-core/unstable/extensions";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
@@ -61,16 +64,14 @@ export const handleList = Effect.fn("PacksList.handle")(function* () {
   const items: ReadonlyArray<PackListItem> = inventory.items.map((row) => {
     const entry = packs[row.name];
     const configuredSource = row.source ?? row.origins.join(", ");
-    const parsed = parseExtensionFqnParts(
-      configuredSource
-        .replace(/^workspace:/u, "")
-        .replace(/^registry:/u, "")
-        .replace(/@[^@/]+$/u, ""),
+    const parsedRegistrySource = parseSourceQualifiedRegistrySourcePatternParts(configuredSource);
+    const parsedWorkspaceSource = parseExtensionFqnParts(
+      configuredSource.replace(/^workspace:/u, "").replace(/@[^@/]+$/u, ""),
     );
     return {
       name: row.name,
       state: inventoryState(row),
-      owner: entry?.owner ?? parsed?.owner ?? "n/a",
+      owner: entry?.owner ?? parsedRegistrySource?.owner ?? parsedWorkspaceSource?.owner ?? "n/a",
       version: entry?.resolvedVersion ?? "n/a",
       source: configuredSource.startsWith("workspace:")
         ? "workspace"

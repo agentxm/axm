@@ -6,7 +6,10 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { parseRegistrySourcePatternParts, parseRegistrySourceRef } from "../../extensions/index.js";
+import {
+  parseRegistrySourceRef,
+  parseSourceQualifiedRegistrySourcePatternParts,
+} from "../../extensions/index.js";
 import type { HookExtensionRef } from "../../hooks/index.js";
 import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
 import type { McpServerExtensionRef } from "../../mcps/index.js";
@@ -177,7 +180,7 @@ export const resolveConfiguredRegistryEntry = (
     );
     if (resolvedSource.type !== "registry") return Option.none();
 
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const pluralType = parsedPattern?.type;
     const expectedPlural =
       expectedType === "mcp-server"
@@ -288,7 +291,7 @@ export const resolveConfiguredSkill = (
       ),
     );
 
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const requestedOwner =
       parsedPattern?.type === "skills"
         ? Option.some(parsedPattern.owner)
@@ -392,7 +395,7 @@ export const resolveConfiguredSubagent = (
       ),
     );
 
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const requestedOwner =
       parsedPattern?.type === "subagents"
         ? Option.some(parsedPattern.owner)
@@ -493,7 +496,7 @@ export const resolveConfiguredRule = (
       ),
     );
 
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const requestedOwner =
       parsedPattern?.type === "rules"
         ? Option.some(parsedPattern.owner)
@@ -596,7 +599,7 @@ export const resolveConfiguredHook = (
       ),
     );
 
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const requestedOwner =
       parsedPattern?.type === "hooks"
         ? Option.some(parsedPattern.owner)
@@ -701,7 +704,7 @@ export const resolveConfiguredKnowledge = (
         }),
       ),
     );
-    const parsedPattern = parseRegistrySourcePatternParts(source);
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const requestedOwner =
       parsedPattern?.type === "knowledge"
         ? Option.some(parsedPattern.owner)
@@ -924,6 +927,7 @@ export const resolveConfiguredPack = (
                 .filter((host) => host.location.protocol === "file:")
                 .map((host) => ({
                   type: "registry" as const,
+                  name: host.name,
                   location: host.location,
                   owner: Option.some(parsed.owner),
                 }));

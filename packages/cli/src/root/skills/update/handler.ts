@@ -33,7 +33,7 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import {
   decodeExtensionNameSync,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
@@ -145,7 +145,7 @@ const appendWarningsToResult =
   };
 
 const toRegistrySkillPattern = (source: string) => {
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parsed === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== "skills") {
     return Option.none();

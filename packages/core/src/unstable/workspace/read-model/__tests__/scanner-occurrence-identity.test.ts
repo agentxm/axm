@@ -195,7 +195,13 @@ describe("scanner occurrence identity", () => {
                 },
               },
               axmExtensions: {
-                "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+                "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+                  owner: "@owner",
+                  type: "skill",
+                  name: "some-skill",
+                  version: "1.0.0",
+                }),
+                "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
               },
             },
           });
@@ -255,7 +261,8 @@ describe("scanner occurrence identity", () => {
                 },
               },
               axmExtensions: {
-                "external/skills/some-skill/SKILL.md": "# external\n",
+                "github/acme/toolkit/.agents/skills/some-skill/SKILL.md":
+                  "---\nname: some-skill\ndescription: External\n---\n# external\n",
               },
             },
           });

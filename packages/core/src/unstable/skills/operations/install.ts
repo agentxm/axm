@@ -254,25 +254,16 @@ const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
     const ws = yield* WorkspaceMutations;
     switch (ref.refType) {
       case "registry": {
-        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-          refType: "registry",
-          owner: ref.owner,
-        });
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
         return skillSrcPath;
       }
       case "workspace": {
-        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-          refType: "workspace",
-          owner: ref.owner,
-        });
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
         return skillSrcPath;
       }
       case "git-hosted":
       case "local": {
-        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-          refType: ref.refType,
-          owner: ref.owner,
-        });
+        const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
         return skillSrcPath;
       }
     }
@@ -419,22 +410,17 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-      refType: ref.refType,
-      owner: ref.owner,
-    });
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
     yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
     const packageRoot = stripFileProtocol(ref.location);
-    const sourceSkillPath = path.join(packageRoot, "src");
+    const sourceSkillPath = ref.portable === true ? packageRoot : path.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
       ref,
       packageRoot,
       skillSourcePath: sourceSkillPath,
     });
-    const sourcePath = canonicalPath === skillSrcPath ? sourceSkillPath : packageRoot;
-    const copyTarget = canonicalPath === skillSrcPath ? skillSrcPath : canonicalPath;
-    yield* preCleanAndCopy(sanitizedName, sourcePath, copyTarget);
+    yield* preCleanAndCopy(sanitizedName, packageRoot, canonicalPath);
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
@@ -444,24 +430,19 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-      refType: ref.refType,
-      owner: ref.owner,
-    });
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
     yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
     const packageRoot = stripFileProtocol(ref.location);
-    const sourceSkillPath = path.join(packageRoot, "src");
+    const sourceSkillPath = ref.portable === true ? packageRoot : path.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
       ref,
       packageRoot,
       skillSourcePath: sourceSkillPath,
     });
-    const sourcePath = canonicalPath === skillSrcPath ? sourceSkillPath : packageRoot;
-    const copyTarget = canonicalPath === skillSrcPath ? skillSrcPath : canonicalPath;
-    const isSelfCopy = path.resolve(sourcePath) === path.resolve(copyTarget);
+    const isSelfCopy = path.resolve(packageRoot) === path.resolve(canonicalPath);
     if (!isSelfCopy) {
-      yield* preCleanAndCopy(sanitizedName, sourcePath, copyTarget);
+      yield* preCleanAndCopy(sanitizedName, packageRoot, canonicalPath);
     }
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
@@ -477,10 +458,7 @@ const installFromRegistry = (
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
-      refType: "registry",
-      owner: ref.owner,
-    });
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, ref);
     yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
     const useExisting = yield* canReuseInstalledPackage({
@@ -817,7 +795,11 @@ export const installSkill: OperationHandler<
     // ── Shared: update lockfile + settings ──────────────────────────
     const workspaceRelativeLocalSourcePath =
       ref.refType === "local"
-        ? makeWorkspaceRelativeSourcePath(path, ws.baseDir, ref.source.path)
+        ? makeWorkspaceRelativeSourcePath(
+            path,
+            ws.baseDir,
+            ref.sourcePath ?? stripFileProtocol(ref.location),
+          )
         : Option.none();
     if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
       return yield* makeAppError({
@@ -830,10 +812,7 @@ export const installSkill: OperationHandler<
       sourceName: op.args.sourceName,
       contentIdentity: sourceHash,
       treeIntegrity: yield* computeMaterializedTreeIntegrity(
-        (yield* ws.getSkillDir(ref.skill.name, {
-          refType: ref.refType,
-          owner: ref.owner,
-        })).canonicalPath,
+        (yield* ws.getSkillDir(ref.skill.name, ref)).canonicalPath,
       ),
       workspaceRelativeLocalSourcePath,
     });

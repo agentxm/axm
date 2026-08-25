@@ -101,7 +101,7 @@ const resolveTargetRegistry = (registry: Option.Option<string>) =>
     if (Option.isNone(registry)) {
       const registryUrl = yield* RegistryUrl;
       return {
-        registryName: "default",
+        registryName: "agentxm",
         registryUrl,
       } satisfies TargetRegistry;
     }
@@ -162,6 +162,7 @@ const parseHandle = (handle: string, type: Option.Option<IdentifierResourceType>
           input: handle,
           resourceType: type.value,
           scope: "both",
+          registrySourceName: "agentxm",
         }),
       );
       const owner = Option.getOrUndefined(resolved.owner);
@@ -210,6 +211,7 @@ const resolveBareViewHandle = (handle: string) =>
             input: handle,
             resourceType,
             scope: "both",
+            registrySourceName: "agentxm",
           }),
         ).pipe(Effect.result),
       { concurrency: "unbounded" },
@@ -335,7 +337,7 @@ export const handleDefaultRegistryFqnView = (args: {
       handle: args.handle,
       field: args.field,
       targetRegistry: {
-        registryName: "default",
+        registryName: "agentxm",
         registryUrl,
       },
       parts: args.parts,

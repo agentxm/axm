@@ -77,11 +77,16 @@ const createPackManifest = (
     if (owner === undefined || skillName === undefined) continue;
     updatedSkills[skillName] = {
       type: "registry",
+      sourceType: "registry",
+      endpoint: "https://registry.agentxm.ai",
+      extensionType: "skill",
+      workspaceName: skillName,
+      packageFormat: "agentxm",
       owner,
       name: skillName,
       resolvedVersion: version,
       integrity: `sha512-${skillName}`,
-      sourceName: "default",
+      sourceName: "agentxm",
       publisherBindingId: `hbnd_${skillName}`,
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
       installedAt: "2025-01-01T00:00:00.000Z",

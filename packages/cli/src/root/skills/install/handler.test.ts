@@ -299,7 +299,7 @@ describe("skills install handler — error propagation", () => {
       const { provide } = makeLayers();
       // WorkspaceMutations has a default owner but no registries contain the skill
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/empty-reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/empty-reg" }],
         owner: "@myorg",
       });
 
@@ -354,7 +354,7 @@ describe("skills install handler — error propagation", () => {
         owner: "@myorg",
         sources: [
           { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
-          { type: "registry", name: "local", location: `file://${registryDir}` },
+          { type: "registry", name: "agentxm", location: `file://${registryDir}` },
         ],
       });
 
@@ -381,7 +381,7 @@ describe("skills install handler — error propagation", () => {
       owner: "@myorg",
       sources: [
         { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
-        { type: "registry", name: "local", location: `file://${registryDir}` },
+        { type: "registry", name: "agentxm", location: `file://${registryDir}` },
       ],
     });
 
@@ -413,7 +413,7 @@ describe("skills install handler — error propagation", () => {
       owner: "@myorg",
       sources: [
         { type: "registry", name: "remote", location: getUnavailableRegistryLocation() },
-        { type: "registry", name: "local", location: `file://${registryDir}` },
+        { type: "registry", name: "agentxm", location: `file://${registryDir}` },
       ],
     });
 
@@ -444,7 +444,7 @@ describe("skills install handler — error propagation", () => {
     });
     initWorkspace(path.join(tempDir, ".axm"), {
       owner: "@myorg",
-      sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+      sources: [{ type: "registry", name: "agentxm", location: `file://${registryDir}` }],
     });
 
     return provide(
@@ -474,7 +474,7 @@ describe("skills install handler — error propagation", () => {
     initWorkspace(path.join(tempDir, ".axm"), {
       owner: "@myorg",
       minimumReleaseAgeExclude: ["@myorg/skills/effect-basics"],
-      sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+      sources: [{ type: "registry", name: "agentxm", location: `file://${registryDir}` }],
     });
 
     return provide(
@@ -661,7 +661,16 @@ describe("skills install handler — error propagation", () => {
         });
         expect(
           fs.existsSync(
-            path.join(tempDir, "agent_extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
+            path.join(
+              tempDir,
+              "agent_extensions",
+              "agentxm",
+              "@agentxm",
+              "skills",
+              "axm",
+              "src",
+              "SKILL.md",
+            ),
           ),
         ).toBe(true);
       }),

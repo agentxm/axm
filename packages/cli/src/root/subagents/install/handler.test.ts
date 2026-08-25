@@ -50,7 +50,7 @@ const initWorkspace = (
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 4, skills: {}, subagents: {} }),
+    YAML.stringify({ lockfileVersion: 6, skills: {}, subagents: {} }),
   );
 };
 
@@ -243,7 +243,7 @@ describe("subagents install handler — error propagation", () => {
     () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/empty-reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/empty-reg" }],
         owner: "@myorg",
       });
 

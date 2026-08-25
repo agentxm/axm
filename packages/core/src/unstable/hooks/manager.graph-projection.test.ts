@@ -42,14 +42,19 @@ const decodeLockMap = Schema.decodeUnknownSync(HooksLockMapSchema);
 
 const registryLock = (baseDir: string, name: string) => ({
   type: "registry",
+  sourceType: "registry",
+  endpoint: "https://registry.agentxm.ai",
+  extensionType: "hook",
+  workspaceName: name,
+  packageFormat: "agentxm",
   owner: OWNER,
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-stub",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    nodePath.join(baseDir, "agent_extensions", OWNER, "hooks", name),
+    nodePath.join(baseDir, "agent_extensions", "agentxm", OWNER, "hooks", name),
   ),
 });
 
@@ -64,7 +69,7 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
     {
       type: "pack",
       pack: `${OWNER}/packs/${pack}`,
-      manifestPath: `/workspace/agent_extensions/${OWNER}/packs/${pack}/pack.json`,
+      manifestPath: `/workspace/agent_extensions/agentxm/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/hooks/${name}`,
       constraint: "^1.0.0",
       enabled: true,
@@ -90,7 +95,7 @@ describe("HookManager graph-derived unit projection", () => {
   });
 
   const writeHookPackage = (name: string) => {
-    const root = nodePath.join(baseDir, "agent_extensions", OWNER, "hooks", name);
+    const root = nodePath.join(baseDir, "agent_extensions", "agentxm", OWNER, "hooks", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "hook.json"),
@@ -214,7 +219,7 @@ describe("HookManager graph-derived unit projection", () => {
         settingsPath,
         edited.replace(
           /\}\s*$/u,
-          ',\n  "note": "bash agent_extensions/@acme/hooks/pack-b-hook/src/hook.sh"\n}\n',
+          ',\n  "note": "bash agent_extensions/agentxm/@acme/hooks/pack-b-hook/src/hook.sh"\n}\n',
         ),
       );
 

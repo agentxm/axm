@@ -20,7 +20,12 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
+import { removeIfExists } from "../../utils/index.js";
+import {
+  acceptedCanonicalObservation,
+  acceptedLockedCanonicalPath,
+  removableAcceptedCanonicalPath,
+} from "../../workspace/accepted-canonical-ref.js";
 import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 
 // -----------------------------------------------------------------------------
@@ -212,10 +217,8 @@ export const uninstallMcpServer: (
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
-    const base = ws.baseDir;
 
     const desired = yield* ws.getDesiredStateGraph();
     if (!desired.complete) {
@@ -228,7 +231,25 @@ export const uninstallMcpServer: (
     const desiredNode = desired.nodes.find(
       (node) => node.type === "mcp-server" && node.name === op.args.serverName,
     );
-    const installedOnDisk = yield* checkInstalledOnDisk(fs, path, base, op.args.serverName);
+    const acceptedCanonical = yield* acceptedCanonicalObservation({
+      workspace: ws,
+      type: "mcp-server",
+      name: op.args.serverName,
+    });
+    const lockedCanonical = yield* acceptedLockedCanonicalPath({
+      workspace: ws,
+      type: "mcp-server",
+      name: op.args.serverName,
+    });
+    const removableCanonical = Option.orElse(
+      removableAcceptedCanonicalPath(acceptedCanonical),
+      () => lockedCanonical,
+    );
+    const installedOnDisk = yield* Option.match(removableCanonical, {
+      onNone: () => Effect.succeed(false),
+      onSome: (canonicalPath) =>
+        fs.exists(canonicalPath).pipe(Effect.catch(() => Effect.succeed(false))),
+    });
 
     if (desiredNode === undefined && !installedOnDisk) {
       return { result: "success", message: "not installed" } satisfies JobStepResult;
@@ -241,9 +262,7 @@ export const uninstallMcpServer: (
       } satisfies JobStepResult;
     }
 
-    if (installedOnDisk) {
-      yield* removeFromAllMcpServerLocations(fs, path, base, op.args.serverName);
-    }
+    if (Option.isSome(removableCanonical)) yield* removeIfExists(fs, removableCanonical.value);
 
     // Remove from settings + lockfile (best-effort; preserve warning in result).
     const removeWarning = yield* ws.removeMcpServer(op.args.serverName).pipe(
@@ -281,70 +300,4 @@ export const uninstallMcpServer: (
         ],
       }),
     } satisfies JobStepResult;
-  });
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const checkInstalledOnDisk = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  base: string,
-  serverName: string,
-) =>
-  Effect.gen(function* () {
-    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-
-    if (!extensionsDirExists) return false;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
-        return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  });
-
-const removeFromAllMcpServerLocations = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  base: string,
-  serverName: string,
-) =>
-  Effect.gen(function* () {
-    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-
-    if (!extensionsDirExists) return;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.void;
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
-        return fsService
-          .remove(serverPath, { recursive: true })
-          .pipe(Effect.catch(() => Effect.void));
-      },
-      { concurrency: "unbounded" },
-    );
   });

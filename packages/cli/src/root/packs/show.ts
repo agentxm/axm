@@ -6,7 +6,12 @@ import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
-import { formatFqn, parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
+import {
+  formatFqn,
+  parseExtensionFqnParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionType,
+} from "@agentxm/client-core/unstable/extensions";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import {
@@ -84,24 +89,33 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     });
   }
   const source = configuredSource(entry);
-  const sourceFqn = isWorkspaceSourceLocator(source)
+  const parsedRegistrySource = isWorkspaceSourceLocator(source)
+    ? undefined
+    : parseSourceQualifiedRegistrySourcePatternParts(source);
+  const parsedSource = isWorkspaceSourceLocator(source)
     ? ws.layout.owner === undefined
       ? undefined
-      : `${ws.layout.owner}/packs/${name}`
-    : source.replace(/^registry:/, "").replace(/@[^@/]+$/, "");
-  if (sourceFqn === undefined) {
+      : parseExtensionFqnParts(`${ws.layout.owner}/packs/${name}`)
+    : parsedRegistrySource?.type === "packs" && parsedRegistrySource.name !== undefined
+      ? {
+          owner: parsedRegistrySource.owner,
+          type: toExtensionType(parsedRegistrySource.type),
+          name: parsedRegistrySource.name,
+        }
+      : undefined;
+  if (parsedSource === undefined && isWorkspaceSourceLocator(source)) {
     return yield* makeAppError({
       code: "validation",
       detail: `Configured workspace pack "${name}" requires a workspace owner`,
     });
   }
-  const parsedSource = parseExtensionFqnParts(sourceFqn);
-  if (parsedSource === undefined || parsedSource.type !== "pack") {
+  if (parsedSource === undefined) {
     return yield* makeAppError({
       code: "validation",
       detail: `Configured pack source is not a valid pack identity: ${source}`,
     });
   }
+  const sourceFqn = formatFqn(parsedSource);
   if (
     requested !== undefined &&
     (requested.owner !== parsedSource.owner || requested.name !== parsedSource.name)
@@ -150,7 +164,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     ),
   );
   const locked = yield* ws.getLockedPack(name);
-  const packFqn = formatFqn({ owner: parsedSource.owner, type: "pack", name: parsedSource.name });
+  const packFqn = sourceFqn;
   const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
   const graph = yield* ws.getDesiredStateGraph();
   const normalizedPackFqn = packFqn.replace(/^workspace:/u, "");

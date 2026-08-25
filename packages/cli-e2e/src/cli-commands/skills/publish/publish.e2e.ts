@@ -28,7 +28,7 @@ describe("axm skills publish", () => {
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
-          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
         settings.skills = {
@@ -146,7 +146,7 @@ describe("axm skills publish", () => {
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
-          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@myorg";
         settings.skills = {
@@ -215,7 +215,7 @@ describe("axm skills publish", () => {
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
-          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -278,7 +278,9 @@ describe("axm skills publish", () => {
       );
       const settingsPath = path.join(tempPath, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+      settings.sources = [
+        { name: "agentxm", type: "registry", location: `file://${registryPath}` },
+      ];
       settings.owner = owner;
       if (skills) settings.skills = skills;
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));

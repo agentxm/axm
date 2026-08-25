@@ -33,6 +33,7 @@ const makeRegistrySkillRef = (
   },
   source: {
     type: "registry",
+    name: "agentxm",
     location: new URL("https://registry.example.com"),
     owner: Option.none(),
   },

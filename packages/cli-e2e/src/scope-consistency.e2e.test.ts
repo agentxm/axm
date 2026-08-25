@@ -10,12 +10,12 @@ const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
-const CANONICAL_REFERENCE = `agent_extensions/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
+const CANONICAL_REFERENCE = `agent_extensions/agentxm/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
 
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.owner = OWNER;
-  settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 };
 
@@ -166,7 +166,16 @@ describe("installed-state scope consistency", () => {
       ).toBe(0);
       expect(
         fs.readFileSync(
-          path.join(consumer.path, "agent_extensions", OWNER, "skills", SKILL, "src", "SKILL.md"),
+          path.join(
+            consumer.path,
+            "agent_extensions",
+            "agentxm",
+            OWNER,
+            "skills",
+            SKILL,
+            "src",
+            "SKILL.md",
+          ),
           "utf-8",
         ),
       ).toContain(CANONICAL_REFERENCE);
@@ -201,7 +210,9 @@ describe("installed-state scope consistency", () => {
       );
       expect(fs.readFileSync(userSettingsPath, "utf-8")).toBe(userSettingsBeforeRefusal);
       expect(
-        fs.existsSync(path.join(userHome.path, ".axm", "extensions", OWNER, "subagents", SUBAGENT)),
+        fs.existsSync(
+          path.join(userHome.path, ".axm", "extensions", "agentxm", OWNER, "subagents", SUBAGENT),
+        ),
       ).toBe(false);
 
       const installed = await runCli(
@@ -212,7 +223,17 @@ describe("installed-state scope consistency", () => {
       expect(`${installed.stderr}\n${installed.stdout}`).toContain("axm packs list --scope user");
       expect(
         fs.readFileSync(
-          path.join(userHome.path, ".axm", "extensions", OWNER, "skills", SKILL, "src", "SKILL.md"),
+          path.join(
+            userHome.path,
+            ".axm",
+            "extensions",
+            "agentxm",
+            OWNER,
+            "skills",
+            SKILL,
+            "src",
+            "SKILL.md",
+          ),
           "utf-8",
         ),
       ).toContain(CANONICAL_REFERENCE);
@@ -222,6 +243,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "extensions",
+            "agentxm",
             OWNER,
             "knowledge",
             KNOWLEDGE,
@@ -264,6 +286,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "extensions",
+            "agentxm",
             OWNER,
             "knowledge",
             KNOWLEDGE,

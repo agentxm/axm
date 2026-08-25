@@ -10,20 +10,20 @@
   "skills": {
     "code-review": "workspace",
     "axm": "workspace",
-    "improve-whatever": "@craigsmitham/skills/improve-whatever",
-    "author-okf": "@craigsmitham/skills/author-okf"
+    "improve-whatever": "agentxm:@craigsmitham/skills/improve-whatever",
+    "author-okf": "agentxm:@craigsmitham/skills/author-okf"
   },
   "knowledge": {
-    "agentxm": "@agentxm/knowledge/agentxm",
-    "workflow-automation": "@craigsmitham/knowledge/workflow-automation"
+    "agentxm": "agentxm:@agentxm/knowledge/agentxm",
+    "workflow-automation": "agentxm:@craigsmitham/knowledge/workflow-automation"
   },
   "packs": {
-    "field-notes": "@craigsmitham/packs/field-notes",
-    "effect-v4": "@craigsmitham/packs/effect-v4",
-    "agent-engineering": "@agentxm/packs/agent-engineering",
-    "software-engineering": "@craigsmitham/packs/software-engineering",
-    "docs": "@craigsmitham/packs/docs",
-    "software-architecture": "@craigsmitham/packs/software-architecture",
-    "qrspi": "@craigsmitham/packs/qrspi"
+    "field-notes": "agentxm:@craigsmitham/packs/field-notes",
+    "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
+    "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
+    "software-engineering": "agentxm:@craigsmitham/packs/software-engineering",
+    "docs": "agentxm:@craigsmitham/packs/docs",
+    "software-architecture": "agentxm:@craigsmitham/packs/software-architecture",
+    "qrspi": "agentxm:@craigsmitham/packs/qrspi"
   }
 }

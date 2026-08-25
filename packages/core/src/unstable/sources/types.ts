@@ -130,6 +130,7 @@ export const SourceSubPathSchema = Schema.NonEmptyString.pipe(
 });
 
 const GitHostedSourceParamFields = {
+  sourceName: Schema.optional(Schema.String),
   owner: SourceNamespaceSchema,
   repo: SourceSegmentSchema,
   ref: Schema.OptionFromOptionalKey(SourceRefSchema),
@@ -145,6 +146,7 @@ export const GitHostedSourceParamPartsSchema = Schema.Struct(GitHostedSourcePara
 export type GitHostedSourceParamParts = Schema.Schema.Type<typeof GitHostedSourceParamPartsSchema>;
 
 const AzureReposSourceParamFields = {
+  sourceName: Schema.optional(Schema.String),
   organization: SourceSegmentSchema,
   project: SourceSegmentSchema,
   repo: SourceSegmentSchema,
@@ -196,24 +198,28 @@ export const AzureReposSourceParamsSchema = Schema.Struct({
 /** @experimental */
 export interface GitHubSourceHost {
   readonly type: "github";
+  readonly name: string;
   readonly url: URL;
 }
 
 /** @experimental */
 export interface GitLabSourceHost {
   readonly type: "gitlab";
+  readonly name: string;
   readonly url: URL;
 }
 
 /** @experimental */
 export interface BitbucketSourceHost {
   readonly type: "bitbucket";
+  readonly name: string;
   readonly url: URL;
 }
 
 /** @experimental */
 export interface AzureReposSourceHost {
   readonly type: "azurerepos";
+  readonly name: string;
   readonly url: URL;
 }
 
@@ -228,6 +234,7 @@ export interface GitSourceHost {
  */
 export interface RegistrySourceHost {
   readonly type: "registry";
+  readonly name: string;
   readonly location: URL;
 }
 
@@ -265,6 +272,7 @@ export type SourceHost =
 /** @experimental */
 export interface GitHubSourceParams {
   readonly type: "github";
+  readonly sourceName?: string | undefined;
   readonly owner: string;
   readonly repo: string;
   readonly ref: Option.Option<string>;
@@ -275,6 +283,7 @@ export interface GitHubSourceParams {
 /** @experimental */
 export interface GitLabSourceParams {
   readonly type: "gitlab";
+  readonly sourceName?: string | undefined;
   readonly owner: string;
   readonly repo: string;
   readonly ref: Option.Option<string>;
@@ -285,6 +294,7 @@ export interface GitLabSourceParams {
 /** @experimental */
 export interface BitbucketSourceParams {
   readonly type: "bitbucket";
+  readonly sourceName?: string | undefined;
   readonly owner: string;
   readonly repo: string;
   readonly ref: Option.Option<string>;
@@ -295,6 +305,7 @@ export interface BitbucketSourceParams {
 /** @experimental */
 export interface AzureReposSourceParams {
   readonly type: "azurerepos";
+  readonly sourceName?: string | undefined;
   readonly organization: string;
   readonly project: string;
   readonly repo: string;
@@ -313,6 +324,7 @@ export interface GitSourceParams {
 /** @experimental */
 export interface RegistrySourceParams {
   readonly type: "registry";
+  readonly sourceName?: string | undefined;
   readonly owner: Option.Option<Handle>;
 }
 

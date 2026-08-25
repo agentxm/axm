@@ -4,7 +4,8 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored hook packages live in `./hooks/<hook-name>`; acquired hooks
-live in `./agent_extensions/<@owner>/hooks/<hook-name>`.
+use the source-qualified canonical scheme. For example, an AgentXM Registry
+hook lives in `./agent_extensions/agentxm/<@owner>/hooks/<hook-name>`.
 
 A hook extension runs your code on an agent lifecycle event such as a tool
 pre-call, tool post-call, prompt submission, or session start. It is a portable
@@ -92,7 +93,8 @@ that requirement.
 
 `axm hooks install` (or the generic `axm install`):
 
-1. Materializes the package into `agent_extensions/<owner>/hooks/<name>/`.
+1. Materializes the package into
+   `agent_extensions/agentxm/<owner>/hooks/<name>/`.
 2. Records the resolved hook in `axm-lock.yaml`.
 3. Merges a generated command into the target agent's settings through the
    JSONC-aware writer.
@@ -117,7 +119,7 @@ For the generated command, AXM joins the runtime and the materialized
 entrypoint:
 
 ```text
-bash agent_extensions/@acme/hooks/block-secrets/src/hook.sh
+bash agent_extensions/agentxm/@acme/hooks/block-secrets/src/hook.sh
 ```
 
 Claude Code uses the catalog-driven `command-stdin` serializer: a `tool.pre`

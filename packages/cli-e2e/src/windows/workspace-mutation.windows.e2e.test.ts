@@ -159,17 +159,11 @@ describe("Windows workspace mutation contract", () => {
         ),
       );
       expect(JSON.parse(install.stdout)).toMatchObject({ ok: true });
-      const canonicalSkill = path.join(
-        workspace.path,
-        "agent_extensions",
-        "@test",
-        "skills",
-        "my-skill",
-      );
-      const canonicalSkillMd = path.join(canonicalSkill, "src", "SKILL.md");
       const claudeSkill = path.join(workspace.path, ".claude", "skills", "my-skill");
       const codexSkill = path.join(workspace.path, ".agents", "skills", "my-skill");
       const codeartsSkill = path.join(workspace.path, ".codeartsdoer", "skills", "my-skill");
+      const canonicalSkill = path.dirname(fs.realpathSync(claudeSkill));
+      const canonicalSkillMd = path.join(canonicalSkill, "src", "SKILL.md");
       expect(fs.existsSync(canonicalSkill)).toBe(true);
       expect(fs.existsSync(claudeSkill)).toBe(true);
       expect(fs.existsSync(codexSkill)).toBe(true);

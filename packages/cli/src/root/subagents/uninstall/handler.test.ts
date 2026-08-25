@@ -27,6 +27,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -39,47 +40,36 @@ const initWorkspace = (
   agents: string[] = ["claude-code"],
   lockfilePacks: Record<string, unknown> = {},
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settingsSubagents: Record<string, string> = {};
-  for (const name of Object.keys(lockfileSubagents)) {
-    const entry = lockfileSubagents[name];
-    const entryType =
-      typeof entry === "object" &&
-      entry !== null &&
-      "type" in entry &&
-      typeof entry.type === "string"
-        ? entry.type
-        : undefined;
-    settingsSubagents[name] = entryType ?? "local";
-  }
-  const settings: Record<string, unknown> = { agents };
-  if (Object.keys(settingsSubagents).length > 0) {
-    settings["subagents"] = settingsSubagents;
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
-    skills: {},
-    subagents: lockfileSubagents,
-  };
-  if (Object.keys(lockfilePacks).length > 0) {
-    lockfile["packs"] = lockfilePacks;
-  }
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  writeWorkspaceFiles(axmDir, {
+    agents,
+    subagents: Object.fromEntries(
+      Object.keys(lockfileSubagents).map((name) => [name, "./installed"]),
+    ),
+    lockfileSubagents,
+    lockfilePacks,
+  });
 };
 
 /** Create a canonical subagent directory with <name>.md. */
 const createCanonicalSubagent = (base: string, name: string) => {
-  const dir = path.join(base, ".axm", "extensions", "external", "subagents", name);
+  const dir = path.join(base, "agent_extensions", "local", "installed");
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${name}.md`), `# ${name}`);
   return dir;
 };
 
-const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({
+const makeLockEntry = (name: string) => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "subagent",
+  workspaceName: name,
+  packageFormat: "agentxm",
+  packageOwner: "@acme",
+  packageName: name,
   path: "installed",
   contentIdentity: "test-content",
+  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
 });
 
 const defaultArgs = (
@@ -172,7 +162,7 @@ describe("uninstall.handler (subagents)", () => {
     it.effect("reports no-op when glob matches no subagents", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-subagent": makeLockEntry(),
+        "my-subagent": makeLockEntry("my-subagent"),
       });
 
       return provide(
@@ -191,7 +181,7 @@ describe("uninstall.handler (subagents)", () => {
     it.effect("emits JSON no-op when glob matches no subagents in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-subagent": makeLockEntry(),
+        "my-subagent": makeLockEntry("my-subagent"),
       });
 
       return provide(
@@ -219,7 +209,7 @@ describe("uninstall.handler (subagents)", () => {
     it.effect("uninstalls a subagent from lockfile and settings", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-subagent": makeLockEntry(),
+        "my-subagent": makeLockEntry("my-subagent"),
       });
       createCanonicalSubagent(tempDir, "my-subagent");
 
@@ -246,7 +236,7 @@ describe("uninstall.handler (subagents)", () => {
     it.effect("emits removed artifact targets in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"), {
-        "my-subagent": makeLockEntry(),
+        "my-subagent": makeLockEntry("my-subagent"),
       });
       createCanonicalSubagent(tempDir, "my-subagent");
       const renderedDir = path.join(tempDir, ".claude", "agents");
@@ -284,7 +274,7 @@ describe("uninstall.handler (subagents)", () => {
                       change: "updated",
                     },
                     {
-                      path: "agent_extensions/external/subagents/my-subagent",
+                      path: "agent_extensions/local/installed",
                       change: "removed",
                     },
                     {

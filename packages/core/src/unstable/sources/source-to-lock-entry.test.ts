@@ -32,6 +32,7 @@ describe("sourceToLockEntry", () => {
       skill,
       source: {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "acme",
         repo: "extensions",
@@ -48,6 +49,12 @@ describe("sourceToLockEntry", () => {
       sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity, treeIntegrity }),
     ).toEqual({
       type: "github",
+      sourceType: "github",
+      sourceName: "github",
+      endpoint: new URL("https://github.com"),
+      extensionType: "skill",
+      workspaceName: extensionName("review"),
+      packageFormat: "agentxm",
       packageOwner: handle("@acme"),
       packageName: extensionName("review"),
       owner: "acme",
@@ -82,6 +89,11 @@ describe("sourceToLockEntry", () => {
       }),
     ).toEqual({
       type: "local",
+      sourceType: "local",
+      sourceName: "local",
+      extensionType: "skill",
+      workspaceName: extensionName("review"),
+      packageFormat: "agentxm",
       packageOwner: handle("@acme"),
       packageName: extensionName("review"),
       path: "../sources/review",
@@ -97,6 +109,7 @@ describe("sourceToLockEntry", () => {
       skill,
       source: {
         type: "registry",
+        name: "enterprise",
         location: new URL("https://registry.example"),
         owner: Option.some(handle("@acme")),
       },
@@ -117,6 +130,11 @@ describe("sourceToLockEntry", () => {
       }),
     ).toEqual({
       type: "registry",
+      sourceType: "registry",
+      endpoint: new URL("https://registry.example"),
+      extensionType: "skill",
+      workspaceName: extensionName("review"),
+      packageFormat: "agentxm",
       owner: handle("@acme"),
       name: extensionName("review"),
       resolvedVersion: exactVersion("1.2.3"),

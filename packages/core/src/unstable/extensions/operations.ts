@@ -155,6 +155,13 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
    * dependency steps, whose closure runs one projection write at the end).
    */
   readonly skipProjections?: boolean;
+  /**
+   * Defer the manager-wide observable check to an enclosing semantic closure.
+   * Pack member transitions use this while other configured Packs are still
+   * incomplete; the enclosing Pack graph validates every accepted canonical
+   * package and its scoped desired-state postcondition before committing.
+   */
+  readonly deferObservableValidation?: boolean;
   /** Optional pre-install state probe for artifact change labels. */
   readonly installedBefore?: Effect.Effect<boolean, AppError, never>;
   /** Optional presenter metadata computed after materialization/settings writes. */
@@ -256,6 +263,10 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     yield* manager
       .runTransaction({
         transition: Effect.gen(function* () {
+          const cleanupSupersededCanonical =
+            manager.prepareSourceTransition === undefined
+              ? Effect.void
+              : yield* manager.prepareSourceTransition({ ref: args.ref });
           yield* manager.materializeInstall({
             ref: args.ref,
             ...(args.force === undefined ? {} : { force: args.force }),
@@ -267,6 +278,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
             });
           }
           yield* manager.upsertLockfileEntry({ ref: args.ref });
+          yield* cleanupSupersededCanonical;
           // Desired state and canonical content are committed; render every
           // shared aggregate unit once from the complete contributor set.
           if (args.skipProjections !== true) yield* applyManagerProjectionPlans(manager);
@@ -274,12 +286,14 @@ const runInstallOperation = <TRef extends ExtensionRef>(
         }),
         validate: () =>
           Effect.gen(function* () {
-            const installed = yield* manager.isInstalled({ target });
-            if (!installed) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
-              });
+            if (args.deferObservableValidation !== true) {
+              const installed = yield* manager.isInstalled({ target });
+              if (!installed) {
+                return yield* makeAppError({
+                  code: "internal",
+                  detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
+                });
+              }
             }
             if (args.skipSettings !== true && manager.getConfiguredSource !== undefined) {
               const configured = yield* manager.getConfiguredSource({ target });

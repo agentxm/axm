@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import type { SourceHash } from "../extensions/rendered-files.js";
 import type { TreeIntegrity } from "../extensions/materialized-tree.js";
-import { gitSourceLockFields } from "../lockfile/entry-fields.js";
+import { gitSourceLockFields, portableGitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 
 // -----------------------------------------------------------------------------
@@ -53,21 +53,40 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitSourceLockFields(
-          ref.source,
-          ref.gitCommitSha,
-          ref.gitTreeSha,
-          input.contentIdentity,
-          ref.owner,
-          ref.name,
-          input.treeIntegrity,
-        ),
+        ...(ref.owner === undefined
+          ? portableGitSourceLockFields(
+              ref.source,
+              ref.skill.name,
+              Option.fromUndefinedOr(ref.sourcePath),
+              ref.gitCommitSha,
+              ref.gitTreeSha,
+              input.contentIdentity,
+              ref.name,
+              input.treeIntegrity,
+            )
+          : gitSourceLockFields(
+              ref.source,
+              "skill",
+              ref.skill.name,
+              Option.fromUndefinedOr(ref.sourcePath),
+              ref.gitCommitSha,
+              ref.gitTreeSha,
+              input.contentIdentity,
+              ref.owner,
+              ref.name,
+              input.treeIntegrity,
+            )),
       };
 
     case "local":
       return {
         type: "local",
-        packageOwner: ref.owner,
+        sourceType: "local",
+        sourceName: "local",
+        extensionType: "skill",
+        workspaceName: ref.skill.name,
+        packageFormat: ref.portable === true ? "agent-skill" : "agentxm",
+        ...(ref.owner === undefined ? {} : { packageOwner: ref.owner }),
         packageName: ref.name,
         path: localSourceLockPath(input, ref.source.path),
         contentIdentity: input.contentIdentity,
@@ -77,11 +96,16 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "registry":
       return {
         type: "registry",
+        sourceType: "registry",
+        packageFormat: "agentxm",
+        endpoint: ref.source.location,
+        extensionType: "skill",
+        workspaceName: ref.skill.name,
         owner: ref.owner,
         name: ref.skill.name,
         resolvedVersion: ref.version,
         integrity: Option.getOrElse(ref.integrity, () => ""),
-        sourceName: Option.getOrElse(input.sourceName, () => "default"),
+        sourceName: ref.source.name,
         publisherBindingId: ref.publisherBindingId,
         treeIntegrity: input.treeIntegrity,
       };

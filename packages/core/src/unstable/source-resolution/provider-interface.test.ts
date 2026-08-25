@@ -88,6 +88,7 @@ describe("SourceHostProvider", () => {
       const provider = makeGitHubProvider();
       const source: GitHubSource = {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "test",
         repo: "repo",
@@ -110,6 +111,7 @@ describe("SourceHostProvider", () => {
       const provider = makeGitHubProvider();
       const source: GitHubSource = {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "test",
         repo: "repo",

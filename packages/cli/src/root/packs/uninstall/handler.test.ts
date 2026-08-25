@@ -98,7 +98,7 @@ const initWorkspace = (
     const packDir =
       Reflect.get(value, "type") === "workspace"
         ? path.join(projectRoot, "packs", name)
-        : path.join(projectRoot, "agent_extensions", owner, "packs", name);
+        : path.join(projectRoot, "agent_extensions", "agentxm", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const manifest = { owner, type: "pack" as const, name, version, dependencies };
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
@@ -158,7 +158,7 @@ const makePackLockEntry = (
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

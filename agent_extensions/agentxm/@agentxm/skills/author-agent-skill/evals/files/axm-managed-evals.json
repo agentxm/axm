@@ -1,0 +1,21 @@
+{
+  "skill_name": "review-release",
+  "suite_version": "0.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": "routing-review",
+      "stage": "routing",
+      "prompt": "Review these release notes for missing sections.",
+      "expected_selection": "review-release",
+      "catalog_neighbors": [],
+      "assertions": ["The review request selects review-release."]
+    },
+    {
+      "id": "execution-review",
+      "stage": "execution",
+      "prompt": "Review the supplied release notes.",
+      "assertions": ["The response reports structural findings without modifying or publishing the release."]
+    }
+  ]
+}

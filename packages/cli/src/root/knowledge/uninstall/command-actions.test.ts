@@ -52,7 +52,7 @@ const registryLock = (owner: string, name: string) => ({
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
 });
 
@@ -91,7 +91,7 @@ describe("Knowledge uninstall ownership", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir);
     writeKnowledgePackage(
-      path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook"),
+      path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
       "@acme",
       "handbook",
     );
@@ -149,7 +149,7 @@ describe("Knowledge uninstall ownership", () => {
       knowledge: { handbook: "@acme/knowledge/handbook" },
     });
     writeKnowledgePackage(
-      path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook"),
+      path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
       "@acme",
       "handbook",
     );
@@ -171,7 +171,14 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes a lock-only accepted package", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const canonicalRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
+    const canonicalRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
     writeWorkspaceFiles(axmDir, {
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
     });
@@ -198,7 +205,14 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes every owned surface for an accepted package", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const canonicalRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
+    const canonicalRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
     writeWorkspaceFiles(axmDir, {
       knowledge: { handbook: "@acme/knowledge/handbook" },
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
@@ -208,7 +222,7 @@ describe("Knowledge uninstall ownership", () => {
     const instructionsPath = path.join(tempDir, "AGENTS.md");
     fs.writeFileSync(
       instructionsPath,
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/agentxm/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 
@@ -234,8 +248,22 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes only the accepted canonical package when an unowned namesake exists", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const ownedRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
-    const unownedRoot = path.join(tempDir, "agent_extensions", "@other", "knowledge", "handbook");
+    const ownedRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
+    const unownedRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@other",
+      "knowledge",
+      "handbook",
+    );
     writeWorkspaceFiles(axmDir, {
       knowledge: { handbook: "@acme/knowledge/handbook" },
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
@@ -245,7 +273,7 @@ describe("Knowledge uninstall ownership", () => {
     enableManagedInstructions(axmDir);
     fs.writeFileSync(
       path.join(tempDir, "AGENTS.md"),
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/agentxm/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 
@@ -272,8 +300,22 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("rolls back canonical, settings, lock, and instructions when projection fails", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const targetRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
-    const siblingRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "sibling");
+    const targetRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "handbook",
+    );
+    const siblingRoot = path.join(
+      tempDir,
+      "agent_extensions",
+      "agentxm",
+      "@acme",
+      "knowledge",
+      "sibling",
+    );
     writeWorkspaceFiles(axmDir, {
       knowledge: {
         handbook: "@acme/knowledge/handbook",

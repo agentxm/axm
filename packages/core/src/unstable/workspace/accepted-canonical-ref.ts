@@ -20,6 +20,12 @@ import {
   type AcceptedExtensionResolution,
   type CanonicalObservation,
 } from "./canonical-observation.js";
+import {
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+} from "../extensions/extension-paths.js";
+import { toExtensionTypePlural } from "../extensions/common.js";
+import { protectWorkspacePath } from "./transaction.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceMutationsService } from "./service-interface.js";
@@ -77,11 +83,90 @@ const getAcceptedResolution = (
   }
 };
 
+/** Exact acquired canonical path reconstructed directly from accepted lock authority. */
+export const acceptedLockedCanonicalPath = (
+  args: AcceptedCanonicalRefArgs,
+): Effect.Effect<Option.Option<string>, AppError, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const accepted = yield* getAcceptedResolution(args.workspace, args.type, args.name);
+    return Option.map(
+      accepted,
+      (entry) =>
+        computeExtensionPathsForLayout(
+          path.join,
+          args.workspace.layout,
+          extensionPathSourceFromLockEntry(entry),
+          toExtensionTypePlural(args.type),
+          entry.workspaceName,
+        ).canonicalPath,
+    );
+  });
+
+const workspaceNameFromRef = (ref: ExtensionRef): string => {
+  switch (ref.type) {
+    case "skill":
+      return ref.skill.name;
+    case "mcp-server":
+      return ref.server.name;
+    case "subagent":
+      return ref.subagent.name;
+    case "rule":
+      return ref.rule.name;
+    case "hook":
+      return ref.hook.name;
+    case "knowledge":
+      return ref.knowledge.name;
+    case "pack":
+      return ref.pack.name;
+  }
+};
+
+/**
+ * Capture exact cleanup for a superseded accepted package. The old path is
+ * read before the lock transition; the returned effect runs afterward and
+ * removes only that path when the replacement canonical path differs.
+ */
+export const prepareAcceptedCanonicalTransition = (
+  args: AcceptedCanonicalRefArgs & { readonly ref: ExtensionRef },
+): Effect.Effect<Effect.Effect<void, AppError>, AppError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const previous = yield* acceptedLockedCanonicalPath(args);
+    if (Option.isNone(previous)) return yield* Effect.succeed(Effect.void);
+
+    const next = computeExtensionPathsForLayout(
+      path.join,
+      args.workspace.layout,
+      args.ref,
+      toExtensionTypePlural(args.ref.type),
+      workspaceNameFromRef(args.ref),
+    ).canonicalPath;
+    if (path.resolve(previous.value) === path.resolve(next)) {
+      return yield* Effect.succeed(Effect.void);
+    }
+
+    return yield* Effect.succeed(
+      Effect.gen(function* () {
+        yield* protectWorkspacePath(previous.value);
+        yield* fs.remove(previous.value, { recursive: true, force: true }).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to remove superseded canonical package: ${previous.value}`,
+              cause,
+            }),
+          ),
+        );
+      }),
+    );
+  });
+
 const lockRefDeps = (workspace: WorkspaceMutationsService, path: Path.Path) => ({
   baseDir: workspace.baseDir,
   path,
   scope: workspace.scope,
-  getConfiguredSources: workspace.getConfiguredSources,
   getConfiguredSourceByName: workspace.getConfiguredSourceByName,
 });
 
@@ -180,8 +265,20 @@ const refForDesired = (
           name: decodeExtensionNameSync(desired.name),
           root:
             workspace.layout.scope === "project"
-              ? path.join(workspace.layout.acquiredRoot, "@agentxm", "skills", desired.name)
-              : path.join(workspace.layout.canonicalRoot, "@agentxm", "skills", desired.name),
+              ? path.join(
+                  workspace.layout.acquiredRoot,
+                  "agentxm",
+                  "@agentxm",
+                  "skills",
+                  desired.name,
+                )
+              : path.join(
+                  workspace.layout.canonicalRoot,
+                  "agentxm",
+                  "@agentxm",
+                  "skills",
+                  desired.name,
+                ),
         },
       });
     }

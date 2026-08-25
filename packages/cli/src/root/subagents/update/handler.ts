@@ -21,7 +21,7 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
 import { decodeExtensionNameSync, type Handle } from "@agentxm/client-core/unstable/extensions";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
@@ -103,7 +103,7 @@ const skippedSubagentStep = (
 });
 
 const toRegistrySubagentPattern = (source: string) => {
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parsed === undefined) return Option.none();
   if (parsed.type !== undefined && parsed.type !== "subagents") {
     return Option.none();

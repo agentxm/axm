@@ -158,11 +158,21 @@ const countFiles = (
 const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
   switch (ref.refType) {
     case "registry":
-      return { refType: "registry", owner: ref.owner };
+      return { refType: "registry", owner: ref.owner, source: ref.source };
     case "git-hosted":
-      return { refType: "git-hosted", owner: ref.owner };
+      return {
+        refType: "git-hosted",
+        source: ref.source,
+        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
+        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
+      };
     case "local":
-      return { refType: "local", owner: ref.owner };
+      return {
+        refType: "local",
+        source: ref.source,
+        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
+        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
+      };
     case "workspace":
       return { refType: "workspace", owner: ref.owner };
   }

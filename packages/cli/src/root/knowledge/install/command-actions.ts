@@ -10,7 +10,7 @@ import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-e
 import {
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
@@ -80,7 +80,7 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
     provide(
       Effect.gen(function* () {
         const input = args.source.trim();
-        const parsed = parseRegistrySourcePatternParts(input);
+        const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
         const source = yield* resolveSource(input).pipe(
           Effect.mapError((cause) =>
             makeAppError({

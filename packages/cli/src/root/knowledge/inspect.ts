@@ -6,6 +6,10 @@ import * as Schema from "effect/Schema";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+} from "@agentxm/client-core/unstable/extensions";
+import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeBundleFqnSchema,
@@ -21,21 +25,20 @@ export { inspectKnowledgePackage } from "@agentxm/client-core/unstable/knowledge
 
 export const bundleRoot = (
   layout: WorkspaceLayout,
-  name: string,
+  _name: string,
   entry: KnowledgeLockEntry,
   path: Path.Path,
-): string => {
-  const root = layout.scope === "project" ? layout.acquiredRoot : layout.canonicalRoot;
-  const owner =
-    entry.type === "registry"
-      ? entry.owner
-      : layout.scope === "project"
-        ? entry.packageOwner
-        : "external";
-  const packageName =
-    entry.type === "registry" ? entry.name : layout.scope === "project" ? entry.packageName : name;
-  return path.join(root, owner, KNOWLEDGE_EXTENSION_DIR, packageName, KNOWLEDGE_SOURCE_DIR);
-};
+): string =>
+  path.join(
+    computeExtensionPathsForLayout(
+      path.join,
+      layout,
+      extensionPathSourceFromLockEntry(entry),
+      KNOWLEDGE_EXTENSION_DIR,
+      entry.workspaceName,
+    ).canonicalPath,
+    KNOWLEDGE_SOURCE_DIR,
+  );
 
 const desiredBundleRoot = (
   layout: WorkspaceLayout,

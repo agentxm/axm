@@ -1,0 +1,394 @@
+{
+  "skill_name": "author-architecture-docs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create an architecture document for reservations. The accepted design says the reservation authority alone serializes capacity transitions; payment may observe confirmation but cannot mutate capacity. A recovery test proves a process stop cannot both confirm a reservation and restore its capacity. Preserve that meaning and route exact mechanics to evidence.",
+      "expected_output": "A concise architecture document organized around reservation responsibility, functional meaning, the accepted recoverability requirement, authority and invariants, with an evidence route to the test rather than copied mechanics.",
+      "assertions": [
+        "The document states what reservations own and explicitly excludes payment ownership.",
+        "The recoverability requirement is connected to the serialization boundary and invariant.",
+        "Exact transition cases remain owned by the recovery test rather than being transcribed into prose.",
+        "No unrelated component inventory or empty template sections are added."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 2,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Write our new architecture overview. We are still debating whether tenant policy belongs in the API gateway or each service. Pick whichever is cleaner so the document is decisive.",
+      "expected_output": "A bounded response that identifies the unresolved authority boundary and declines to encode either option as accepted architecture.",
+      "assertions": [
+        "The gateway-versus-service ownership choice is identified as a material architecture decision.",
+        "Neither alternative is presented as accepted desired state.",
+        "No root overview catch-all is created as a substitute for the profile's atomic concepts.",
+        "Any documentable accepted context remains clearly separate from the unresolved proposal.",
+        "The response names the decision needed before the architecture document can be completed."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 3,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Review an accepted architecture document that says the billing service owns invoice numbering. Current code generates numbers in the checkout service. The code changed last week, so update the document to match it.",
+      "expected_output": "A reconciliation finding that does not let recency override accepted architecture and identifies the possible implementation defect, obsolete document, changed intent, or insufficient evidence.",
+      "assertions": [
+        "Accepted desired state and current implementation are treated as different authorities.",
+        "The document is not silently changed solely because the code is newer.",
+        "The response identifies the evidence or acceptance needed to resolve the disagreement.",
+        "No source-code change is made or proposed as though already authorized."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 4,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Generate architecture docs by listing every package, class, endpoint, dependency, and environment variable in this repository so the prose is complete.",
+      "expected_output": "A refusal to create a prose mirror, paired with a smaller architecture-documentation approach centered on durable, consequential meaning and links to executable reference sources.",
+      "assertions": [
+        "The requested exhaustive implementation inventory fails the admission test.",
+        "The response proposes cohesive subjects or accepted requirements rather than forced catalog symmetry.",
+        "Exact current facts remain with code, schemas, configuration, or generated references.",
+        "The skill does not overclaim that no architecture documentation is needed."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 5,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Organize architecture docs for a system that has capabilities, individual feature documents, web and CLI surfaces, DDD bounded contexts, and C4 containers. Put every feature beneath its primary app so ownership is obvious.",
+      "expected_output": "A scale-neutral, view-oriented documentation set that gives each feature one canonical document and represents its many-to-many relationships to capabilities, surfaces, contexts, and structure explicitly instead of nesting it beneath an app.",
+      "assertions": [
+        "The model begins from a system of interest and does not require a product root.",
+        "Capabilities, features, surfaces, bounded contexts, and structural elements remain distinct.",
+        "Each feature has one canonical home and cross-view relationships are explicit.",
+        "Applications may be both surfaces and containers without owning all feature documents."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 6,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create a C4 structure where platform components live in one global components folder, frontend containers contain smaller containers, and shared libraries are modeled as components of every app.",
+      "expected_output": "A correction that preserves C4 software-system-to-container-to-component containment, keeps components beneath their owning container, rejects recursive container/component nesting, and models cross-container libraries as shared modules unless they have an independent runtime boundary.",
+      "assertions": [
+        "Components are placed beneath one owning container.",
+        "Containers and components do not recursively nest within their own level.",
+        "Shared code is modeled as a module rather than duplicated as C4 components.",
+        "Dynamic and deployment views remain supporting views rather than containment levels."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 7,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Add a Wardley map to our architecture docs. The workshop guesses are six months old, but write every position as accepted architecture and omit dates so the document stays evergreen.",
+      "expected_output": "A strategic view that keeps the map as a dated, evidence-aware hypothesis, separates strategic choices and accepted architectural consequences, and establishes a review trigger instead of presenting stale positions as timeless architecture.",
+      "assertions": [
+        "User need, value-chain dependencies, evolution, movement, and inertia are distinguished.",
+        "Unverified map positions remain hypotheses rather than accepted architecture.",
+        "Accepted consequences are routed to their owning architecture documents.",
+        "Time-sensitive claims receive a freshness boundary or explicit review trigger."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 8,
+      "prompt": "Our repository explicitly adopts the current software architecture docs application profile. Our feature list is growing. Create features.md with all descriptions and make every major architecture concern another single Markdown file at the architecture-doc root.",
+      "expected_output": "A progressively disclosed features/ collection with a navigational index.md and one stable named file per admitted Feature, while other collections appear only when they contain authorized admitted subjects.",
+      "assertions": [
+        "Features with durable meaning receive individually recognizable filenames.",
+        "Present collections use index.md for navigation rather than substantive explanation.",
+        "No plural features.md catch-all is created; each Feature has its canonical path from first admission.",
+        "The response avoids empty taxonomy directories and preserves one canonical home per subject."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 9,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Document our internal developer platform as a product. Put its engineering teams, jobs to be done, value propositions, use cases, capabilities, features, bounded contexts, and C4 containers underneath the product so everything has one obvious parent. Reuse the same text for architecture, sales, and public documentation.",
+      "expected_output": "A demand-and-value view anchored by a non-commercial Offering while keeping audiences, needs or jobs, propositions, use cases, capabilities, features, domain concepts, and structure as independently maintained views connected by explicit links and projected appropriately for each channel.",
+      "assertions": [
+        "The internal platform can be represented as an Offering without assuming a commercial product boundary.",
+        "Audiences, jobs, value propositions, use cases, capabilities, features, bounded contexts, and C4 elements are not physically nested into one universal hierarchy.",
+        "Demand, offered value, provider abilities, recognizable behavior, domain meaning, and structural realization remain distinct.",
+        "Architecture, public, product-management, and sales content share accepted semantic meaning without requiring identical channel copy.",
+        "Private people, customer records, tentative research, delivery state, pricing, and current availability remain outside the canonical architecture concepts."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 10,
+      "prompt": "Write a sales battlecard and campaign landing page for our new subscription, including current pricing, competitor claims, named customer quotes, and next quarter's roadmap. We do not need architecture documentation.",
+      "expected_output": "A routing boundary that does not use the architecture-doc authoring workflow or convert sales, customer, pricing, competitive, and roadmap material into accepted architecture concepts.",
+      "assertions": [
+        "The request is recognized as sales and marketing content rather than architecture documentation.",
+        "Named customer material and current commercial facts are not moved into the public architecture corpus.",
+        "Roadmap content remains proposed delivery state rather than accepted architecture.",
+        "The architecture-doc workflow is not invoked merely because the request concerns an offering or value proposition."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 11,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create one Offering document for our internal analytics platform. It intentionally provides governed self-service analysis to operational teams. It excludes the source systems, departmental reporting services, and every application that contributes data. Do not create any other concepts yet.",
+      "expected_output": "One focused Offering concept in value/offerings/ that defines the coherent value boundary, intended audiences and circumstances, and exclusions without generating a product hierarchy or sibling concepts.",
+      "assertions": [
+        "The artifact uses the exact Offering type and canonical value/offerings/ path.",
+        "The offered value and material exclusions are explicit.",
+        "The platform is not treated as a commercial product or C4 hierarchy merely because it is an offering.",
+        "No Audience, Need, Capability, Feature, or C4 concept is created for symmetry."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 12,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create one Job to Be Done document from accepted research: during an incident, an on-call engineer needs to determine whether customer impact is expanding before choosing a containment action. Preserve the circumstances and desired progress. Do not write a feature or use-case flow.",
+      "expected_output": "One evidence-aware Job to Be Done concept in value/jobs/ that describes the actor's sought progress in context while keeping solution behavior and exact interaction flow out of the job.",
+      "assertions": [
+        "The artifact uses the exact Job to Be Done type and canonical value/jobs/ path.",
+        "The circumstances and progress sought are central to the document.",
+        "Accepted research is linked or described truthfully without publishing private participant records.",
+        "No feature, use case, capability, or solution workflow is created or substituted."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 13,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create one Bounded Context document for the accepted Entitlements model. It owns grant, revocation, and effective-access policy language; the current authorization service and schema realize it, but deployments may change. It models parts of two subdomains. Do not classify the context as core or supporting.",
+      "expected_output": "One Bounded Context concept in domains/contexts/ that owns coherent model, language, and policy authority, relates independently to both subdomains, and treats current code and schema as realization evidence.",
+      "assertions": [
+        "The artifact uses the exact Bounded Context type and canonical domains/contexts/ path.",
+        "Model, ubiquitous-language scope, authority, and exclusions are explicit.",
+        "The context carries no core, supporting, or generic classification.",
+        "The authorization service and schema are evidence of realization rather than the context definition."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 14,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create one C4 Container document for the accepted event archive inside the Observability software system. It is a data store with an independent runtime boundary, retention responsibility, and defined producer and query interactions. Do not create a component diagram or neighboring containers.",
+      "expected_output": "One C4 Container concept that names its containing system and states its data-store responsibility, runtime boundary, consequential technology, interactions, exclusions, and evidence without inventing adjacent structure.",
+      "assertions": [
+        "The artifact uses the exact C4 Container type and canonical structure/containers/ path.",
+        "The containing system, runtime boundary, data-store responsibility, and directional interactions are explicit.",
+        "The artifact does not nest another container or confuse deployment infrastructure with C4 containment.",
+        "No C4 Component, C4 View, or neighboring container is created for completeness."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 15,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create only the Confirm Reservation use case from the accepted actor goal and outcome. The repository also suggests a reusable notification feature and a capacity capability, but nobody asked to document those yet.",
+      "expected_output": "One named Use Case concept plus required use-cases navigation, with grounded recommendations for any adjacent Feature or Capability rather than unsolicited documents.",
+      "assertions": [
+        "The use case is created at use-cases/confirm-reservation.md with use-cases/index.md navigation, not in use-cases.md.",
+        "No Feature or Capability concept is created without explicit authoring intent.",
+        "Any adjacent recommendation states the evidence, risk addressed, maintenance cost, smallest safe change, and needed authority.",
+        "Repository evidence is not promoted into accepted architecture solely because it suggests a concept."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 16,
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise lifecycle.md for a small maintained service. It is active, has an ongoing change horizon, and must be reviewed when its public contract, responsibility, boundary, or support state changes. Keep the concept extremely concise.",
+      "expected_output": "A concise System Lifecycle concept at lifecycle.md that states the accepted support state, change horizon, expected evolution, and event-driven review triggers without absorbing ownership, decisions, assurance, or downstream concept summaries.",
+      "assertions": [
+        "The exact System Lifecycle type and lifecycle.md path are used.",
+        "System lifecycle is distinct from the document's OKF status and includes the ongoing change horizon.",
+        "Review triggers are event-based and proportionate to the system.",
+        "Ownership, decision policy, assurance, and optional architecture concepts are not summarized or duplicated."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 17,
+      "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create the accepted product quality requirement that interrupted imports resume after worker loss without accepting a record twice. It is architecture-significant because checkpoint authority must outlive a worker. Classify it under ISO/IEC 25010:2023 reliability/recoverability. Our SLO system owns the current recovery-time target and integration tests own exact failure cases. Also create documents for every other ISO quality characteristic and fill in reasonable targets so the quality view is complete.",
+      "expected_output": "One named Product Quality Requirement under quality/reliability/recoverability/ with earned navigation, explicit target, conditions, architectural consequences, and links to the SLO and tests, while refusing the quality catalog, invented targets, Quality Concern, and Product Quality View artifacts.",
+      "assertions": [
+        "The artifact uses the exact Product Quality Requirement type and canonical quality/reliability/recoverability/resume-interrupted-imports.md path.",
+        "The target, worker-loss condition, required outcome, and checkpoint-authority consequence are explicit.",
+        "The current numerical target and exact failure cases remain with the SLO and integration-test authorities rather than being copied or invented.",
+        "Only the quality/, reliability/, and recoverability/ indexes earned by the named requirement are created; no empty ISO taxonomy is generated.",
+        "No Quality Concern or Product Quality View concept is created."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 18,
+      "stage": "routing",
+      "prompt": "Create one accepted C4 Container architecture document for the event archive and update its navigation.",
+      "expected_selection": "author-architecture-docs",
+      "catalog_neighbors": [
+        "setup-architecture-docs",
+        "reconcile-architecture-docs"
+      ],
+      "assertions": [
+        "The selected skill is author-architecture-docs.",
+        "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 19,
+      "stage": "routing",
+      "prompt": "Plan the initial adoption of architecture documentation for this repository, including the system-to-corpus mapping and contributor discovery route.",
+      "expected_selection": "setup-architecture-docs",
+      "catalog_neighbors": [
+        "setup-architecture-docs",
+        "author-architecture-docs",
+        "reconcile-architecture-docs"
+      ],
+      "assertions": [
+        "The selected skill is setup-architecture-docs rather than author-architecture-docs.",
+        "Initial adoption, system-to-corpus mapping, and contributor discovery are recognized as setup work.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 20,
+      "stage": "routing",
+      "prompt": "Review our established architecture-doc corpus for stale claims, contradictory boundaries, duplicate subjects, and broken navigation, then repair what is authorized.",
+      "expected_selection": "reconcile-architecture-docs",
+      "catalog_neighbors": [
+        "setup-architecture-docs",
+        "author-architecture-docs",
+        "reconcile-architecture-docs"
+      ],
+      "assertions": [
+        "The selected skill is reconcile-architecture-docs rather than author-architecture-docs.",
+        "Established-corpus health, repair, and semantic lifecycle are recognized as reconciliation work.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 21,
+      "stage": "routing",
+      "prompt": "Our architecture docs need attention. Help us decide what to do next.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "setup-architecture-docs",
+        "author-architecture-docs",
+        "reconcile-architecture-docs"
+      ],
+      "assertions": [
+        "The response clarifies or abstains because setup, bounded authoring, and established-corpus reconciliation remain plausible.",
+        "author-architecture-docs is not selected from generic architecture-doc vocabulary alone.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 22,
+      "stage": "execution",
+      "prompt": "Revise the reservations architecture document in this synthetic repository. The repository has not adopted the required software architecture application profile and its local instructions say to preserve the legacy Markdown form. Use the accepted authority note and recovery test as evidence, but do not silently broaden ordinary authoring into profile adoption or migration.",
+      "expected_output": "A setup or migration precondition that preserves the legacy corpus and supplied evidence unchanged, identifies required OKF and profile adoption, and does not author into an invalid alternative form.",
+      "files": [
+        {
+          "source": "evals/files/case-22/AGENTS.md",
+          "target": "AGENTS.md"
+        },
+        {
+          "source": "evals/files/case-22/docs/architecture/index.md",
+          "target": "docs/architecture/index.md"
+        },
+        {
+          "source": "evals/files/case-22/docs/architecture/reservations.md",
+          "target": "docs/architecture/reservations.md"
+        },
+        {
+          "source": "evals/files/case-22/inputs/reservation-authority.md",
+          "target": "inputs/reservation-authority.md"
+        },
+        {
+          "source": "evals/files/case-22/tests/reservation-recovery.md",
+          "target": "tests/reservation-recovery.md"
+        }
+      ],
+      "artifact_paths": [
+        "docs/architecture",
+        "inputs",
+        "tests",
+        "AGENTS.md"
+      ],
+      "assertions": [
+        "Adapter evidence shows no modification to docs/architecture, inputs, tests, or AGENTS.md; the response reports that unchanged scope.",
+        "The legacy Markdown form is identified as migration input, not a valid alternative Just Enough Architecture Docs corpus.",
+        "The response routes required OKF v0.2 and current profile adoption or migration to setup-architecture-docs.",
+        "The accepted reservation authority and recovery evidence are preserved for a later authorized migration without being rewritten or promoted into a nonconforming document.",
+        "No profile adoption, semantic rewrite, unrelated collection, or sibling concept is created under ordinary authoring authority."
+      ]
+    },
+    {
+      "id": 23,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise assurance.md. This synthetic internal tool has no assurance obligation beyond ordinary repository review and automated tests. That conclusion must be reconsidered if regulated data, safety-relevant behavior, or an external audit enters scope.",
+      "expected_output": "One concise System Assurance concept at assurance.md that records the bounded no-additional-assurance conclusion, its evidence authorities, consequence, and reassessment triggers without duplicating tests or quality requirements.",
+      "assertions": [
+        "The exact System Assurance type and assurance.md path are used.",
+        "The absence conclusion is bounded and justified rather than expressed as a bare none or N/A.",
+        "Repository review and automated tests remain linked or named evidence authorities rather than copied inventories.",
+        "The supplied regulated-data, safety, and audit changes are explicit reassessment triggers."
+      ]
+    },
+    {
+      "id": 24,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Record the accepted decision to keep reservation state in PostgreSQL because transactional serialization must survive process loss. Repository review accepted it. Include the rejected in-memory option and the consequences, and create only the navigation this first ADR earns.",
+      "expected_output": "One Architecture Decision Record at decisions/keep-reservation-state-in-postgresql.md plus decisions/index.md navigation, while preserving the existing decisions.md policy and recording context, accepted choice, rationale, alternative, consequences, and reconsideration conditions.",
+      "assertions": [
+        "The required decisions.md policy remains distinct and is not replaced or used as a record catch-all.",
+        "The first accepted record uses the exact Architecture Decision Record type and a stable named path beneath decisions/.",
+        "The accepted choice, rejected option, rationale, consequences, and reconsideration or supersession conditions are present.",
+        "OKF status is not presented as the semantic decision status."
+      ]
+    },
+    {
+      "id": 25,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Write an ADR choosing whether the gateway or each service owns tenant policy. The team has not accepted either option yet, but pick the one you prefer so decisions/ is complete.",
+      "expected_output": "A refusal to represent the unresolved option as an Architecture Decision Record, with the decision gap and required acceptance authority named and no decisions collection created merely for completeness.",
+      "assertions": [
+        "Neither option is promoted to an accepted Architecture Decision Record.",
+        "The unresolved choice remains in its proposal or decision lifecycle.",
+        "No empty decisions/ collection or fabricated ADR is created.",
+        "The response identifies the authority or evidence needed before authoring the record."
+      ]
+    },
+    {
+      "id": 26,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Document the binding contractual requirement that reservation data remain in its processing region. The signed data-processing agreement is authoritative, the constraint applies to persistence and backups, and legal review releases or changes it. Create only this constraint and earned navigation.",
+      "expected_output": "One Architecture Constraint at constraints/regional-reservation-data-residency.md plus constraints/index.md navigation, with its authority, scope, architectural consequences, and release or review conditions and no constraints.md file.",
+      "assertions": [
+        "The exact Architecture Constraint type and a stable named path under constraints/ are used.",
+        "The signed agreement, affected persistence and backup scope, consequences, and legal release route are explicit.",
+        "No constraints.md or Constraint Set concept is created.",
+        "The constraint is not confused with an internal decision, preference, assumption, or current implementation property."
+      ]
+    },
+    {
+      "id": 27,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise ownership.md for a small maintained service. The Platform Operations role owns repository stewardship and service continuity, changes are reviewed through the repository, and unresolved continuity concerns escalate to the engineering director. Keep individual names and the separate architecture decision authority out of this document.",
+      "expected_output": "One concise System Ownership concept at ownership.md that identifies stable stewardship and continuity responsibilities, the repository review mechanism, and the escalation route without publishing a volatile roster or absorbing decision policy.",
+      "assertions": [
+        "The exact System Ownership type and ownership.md path are used.",
+        "The stable owner role, stewardship and continuity responsibilities, review mechanism, and escalation route are explicit.",
+        "No individual roster or other volatile contact inventory is copied into the concept.",
+        "Architecture decision authority remains owned by decisions.md rather than being duplicated here."
+      ]
+    },
+    {
+      "id": 28,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise decisions.md for a small maintained service. An ADR is required when an accepted choice changes a responsibility, boundary, public contract, binding quality consequence, or difficult-to-reverse technology commitment. Repository maintainers accept and supersede records. Records belong under decisions/ and must state context, choice, rationale, consequences, and reconsideration conditions. No decision currently crosses the threshold; record that bounded conclusion without creating decisions/ and require review when one does.",
+      "expected_output": "One concise Architecture Decision Policy concept at decisions.md that defines the ADR threshold, acceptance and supersession authority, record location and minimum content, and reconsideration trigger while justifying why no decisions collection is currently earned.",
+      "assertions": [
+        "The exact Architecture Decision Policy type and decisions.md path are used.",
+        "The ADR threshold, acceptance and supersession authority, record location, minimum content, and review trigger are explicit.",
+        "The current absence of ADRs is bounded and justified rather than stated as a bare none or N/A.",
+        "No decisions/ directory or Architecture Decision Record is created before an accepted decision crosses the policy threshold."
+      ]
+    }
+  ],
+  "suite_version": "3.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json"
+}

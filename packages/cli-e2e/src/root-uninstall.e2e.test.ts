@@ -39,7 +39,7 @@ const registryFqn = (surface: UninstallSurface, name: string, version?: string) 
   version === undefined ? `${OWNER}/${surface}/${name}` : `${OWNER}/${surface}/${name}@${version}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: UninstallSurface, name: string) =>
-  path.join(workspacePath, "agent_extensions", OWNER, surface, name);
+  path.join(workspacePath, "agent_extensions", "agentxm", OWNER, surface, name);
 
 const renderedSkillDir = (workspacePath: string, name: string) =>
   path.join(workspacePath, ".claude", "skills", name);
@@ -55,7 +55,7 @@ const configureWorkspaceRegistry = (
       : path.join(workspacePath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-  settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
 
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));

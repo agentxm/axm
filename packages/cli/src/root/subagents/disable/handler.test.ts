@@ -195,6 +195,7 @@ describe("subagents disable.handler", () => {
     const subagentDir = path.join(
       tempDir,
       "agent_extensions",
+      "agentxm",
       "@acme",
       "subagents",
       "pack-subagent",
@@ -239,7 +240,7 @@ describe("subagents disable.handler", () => {
           name: "pack-subagent",
           resolvedVersion: "1.0.0",
           integrity: "sha512-AAAA==",
-          sourceName: "default",
+          sourceName: "agentxm",
           publisherBindingId: "hbnd_test",
           sourceHash: computeSourceHash("# pack-subagent"),
         },

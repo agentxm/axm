@@ -56,6 +56,26 @@ describe("workspace transition lock", () => {
     }).pipe(Effect.provide(services)),
   );
 
+  it.live("C-20: holder metadata preserves ownership through the first refresh", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "install", pid: process.pid },
+            timingMillis: { stale: 2000, update: 1000 },
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          const held = heldWorkspaceTransition(path.resolve(workspaceDir));
+          expect(held).toBeDefined();
+          yield* Effect.sleep("1500 millis");
+          expect(held?.isCompromised()).toBe(false);
+        }),
+      );
+    }).pipe(Effect.provide(services)),
+  );
+
   it.live(
     "C-20: a contender waits with a visible reason and times out with the holder reference",
     () =>

@@ -72,16 +72,20 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 5,
+  lockfileVersion: 6,
   skills: {
     "bad-skill": {
       type: "registry",
+      sourceType: "registry",
+      sourceName: "agentxm",
+      endpoint: "https://registry.agentxm.ai",
+      extensionType: "skill",
+      workspaceName: "bad-skill",
+      packageFormat: "agentxm",
       owner: "@acme",
       name: "bad-skill",
       resolvedVersion: "1.0.0",
       integrity: "sha256-test",
-      sourceName: "default",
-
       publisherBindingId: "hbnd_test",
       treeIntegrity,
       installedAt,
@@ -92,12 +96,16 @@ const lockfile = {
   mcpServers: {
     "bad-mcp": {
       type: "registry",
+      sourceType: "registry",
+      sourceName: "agentxm",
+      endpoint: "https://registry.agentxm.ai",
+      extensionType: "mcp-server",
+      workspaceName: "bad-mcp",
+      packageFormat: "agentxm",
       owner: "@acme",
       name: "bad-mcp",
       resolvedVersion: "1.0.0",
       integrity: "sha256-test",
-      sourceName: "default",
-
       publisherBindingId: "hbnd_test",
       treeIntegrity,
       installedAt,
@@ -113,21 +121,22 @@ const fixture = (packJson: object | string): FixtureSpec => ({
     settings: { _tag: "valid", contents: settings },
     lockfile: { _tag: "valid", contents: lockfile },
     axmExtensions: {
-      "@acme/skills/bad-skill/src/SKILL.md": "---\ndescription: Bad skill\n---\n",
-      "@acme/skills/bad-skill/skill.json": {
+      "agentxm/@acme/skills/bad-skill/src/SKILL.md":
+        "---\nname: bad-skill\ndescription: Bad skill\n---\n",
+      "agentxm/@acme/skills/bad-skill/skill.json": {
         _tag: "valid",
         contents: manifestFixtures.skill,
       },
-      "@acme/subagents/bad-subagent/subagent.json": {
+      "agentxm/@acme/subagents/bad-subagent/subagent.json": {
         _tag: "valid",
         contents: manifestFixtures.subagent,
       },
-      "@acme/subagents/bad-subagent/src/bad-subagent.md": "# Bad subagent\n",
-      "@acme/mcps/bad-mcp/mcp.json": {
+      "agentxm/@acme/subagents/bad-subagent/src/bad-subagent.md": "# Bad subagent\n",
+      "agentxm/@acme/mcps/bad-mcp/mcp.json": {
         _tag: "valid",
         contents: manifestFixtures.mcpServer,
       },
-      "@acme/packs/bad-pack/pack.json":
+      "agentxm/@acme/packs/bad-pack/pack.json":
         typeof packJson === "string"
           ? { _tag: "byteCorrupt", bytes: packJson }
           : { _tag: "valid", contents: packJson },
@@ -150,7 +159,7 @@ const fixtureWithKnowledge = (): FixtureSpec => {
       },
       axmExtensions: {
         ...spec.project?.axmExtensions,
-        "@acme/knowledge/handbook/knowledge.json": {
+        "agentxm/@acme/knowledge/handbook/knowledge.json": {
           _tag: "valid",
           contents: {
             owner: "@acme",
@@ -162,7 +171,8 @@ const fixtureWithKnowledge = (): FixtureSpec => {
             bundleRoot: "src",
           },
         },
-        "@acme/knowledge/handbook/src/index.md": '---\nokf_version: "0.2"\n---\n# Handbook\n',
+        "agentxm/@acme/knowledge/handbook/src/index.md":
+          '---\nokf_version: "0.2"\n---\n# Handbook\n',
       },
     },
   };

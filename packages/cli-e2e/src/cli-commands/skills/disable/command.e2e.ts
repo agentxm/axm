@@ -25,16 +25,9 @@ describe("axm skills disable", () => {
         cwd: temp.path,
       });
 
-      // Verify skill is installed
-      const canonicalSkillDir = path.join(
-        temp.path,
-        "agent_extensions",
-        "@test",
-        "skills",
-        "my-skill",
-      );
-      expect(fs.existsSync(canonicalSkillDir)).toBe(true);
       const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+      const canonicalSkillDir = path.dirname(fs.realpathSync(agentSkillDir));
+      expect(fs.existsSync(canonicalSkillDir)).toBe(true);
       expect(fs.existsSync(agentSkillDir)).toBe(true);
 
       // Disable the skill

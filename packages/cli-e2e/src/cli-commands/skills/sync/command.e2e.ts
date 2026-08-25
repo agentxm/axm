@@ -18,8 +18,8 @@ describe("axm sync configured skills", () => {
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
 
       const settingsPath = path.join(temp.path, "axm.json");
-      const canonicalDir = path.join(temp.path, "agent_extensions", "@test", "skills", "my-skill");
       const projection = path.join(temp.path, ".agents", "skills", "my-skill");
+      const canonicalDir = path.dirname(fs.realpathSync(projection));
       fs.rmSync(projection, { recursive: true, force: true });
       expect(fs.existsSync(projection)).toBe(false);
 

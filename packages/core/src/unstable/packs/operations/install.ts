@@ -109,7 +109,7 @@ const collectMissingResolvedDependencies = (
  * Install pack operation handler.
  *
  * Fetches the pack archive via sources.fetch(), extracts to the managed
- * pack location (.axm/extensions/@owner/packs/pack-name/), then records
+ * source-qualified acquired pack location, then records
  * the pack in settings and lockfile.
  */
 export const installPack: OperationHandler<
@@ -155,7 +155,7 @@ export const installPack: OperationHandler<
     const packDir = computePackPathsForLayout(
       path.join,
       ws.layout,
-      "external",
+      op.args.sourceName,
       op.args.owner,
       op.args.packName,
     ).canonicalPath;
@@ -238,11 +238,22 @@ export const installPack: OperationHandler<
       }),
     );
     const treeIntegrity = yield* computeMaterializedTreeIntegrity(packDir);
+    if (op.args.ref.source.type !== "registry") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Pack ${op.args.packName} does not resolve to a Registry source`,
+      });
+    }
 
     // Write lockfile + settings
     const metadataWarning = yield* ws
       .setPack({
         type: "registry",
+        sourceType: "registry",
+        packageFormat: "agentxm",
+        endpoint: op.args.ref.source.location,
+        extensionType: "pack",
+        workspaceName: decodeExtensionNameSync(op.args.packName),
         owner: op.args.owner,
         name: decodeExtensionNameSync(op.args.packName),
         resolvedVersion: op.args.resolvedVersion,

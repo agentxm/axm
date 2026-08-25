@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "author-docs",
+  "version": "0.3.3",
+  "description": "Create, name, organize, review, and remediate repository documentation using portable craft, principles, and reusable patterns",
+  "keywords": [
+    "docs",
+    "documentation",
+    "authoring",
+    "review",
+    "organization",
+    "naming",
+    "information-architecture",
+    "remediation",
+    "diataxis",
+    "principles",
+    "patterns"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/docs"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/author-docs"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "CC-BY-SA-4.0"
+}

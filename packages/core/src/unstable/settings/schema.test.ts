@@ -446,13 +446,13 @@ describe("Settings schema", () => {
 
       it("accepts registry source", () => {
         const input = {
-          name: "local",
+          name: "local-registry",
           type: "registry",
           location: "file:///usr/local/axm/registry",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.name).toBe("local");
+        expect(result.name).toBe("local-registry");
         expect(result.type).toBe("registry");
         expect(getSourceLocation(result)).toEqual(new URL("file:///usr/local/axm/registry"));
       });
@@ -460,10 +460,10 @@ describe("Settings schema", () => {
 
     describe("name validation", () => {
       it("accepts lowercase alphanumeric name", () => {
-        const input = { name: "local", type: "github", url: "https://github.com" };
+        const input = { name: "source1", type: "github", url: "https://github.com" };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.name).toBe("local");
+        expect(result.name).toBe("source1");
       });
 
       it("accepts name with dots", () => {

@@ -25,6 +25,7 @@ const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => 
   subagent: { name: extensionName(name), description: Option.none() },
   source: {
     type: "registry",
+    name: "agentxm",
     location: new URL("file:///test-registry"),
     owner: Option.some(handle("@test")),
   },
@@ -33,11 +34,16 @@ const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => 
 const acceptedRegistry = (version: string): SubagentsLockMap => ({
   researcher: {
     type: "registry",
+    sourceType: "registry",
+    endpoint: new URL("file:///test-registry"),
+    extensionType: "subagent",
+    workspaceName: extensionName("researcher"),
+    packageFormat: "agentxm",
     owner: handle("@test"),
     name: extensionName("researcher"),
     resolvedVersion: exactVersion(version),
     integrity: "sha512-AAAA==",
-    sourceName: "default",
+    sourceName: "agentxm",
     publisherBindingId: "hbnd_test",
     treeIntegrity,
   },

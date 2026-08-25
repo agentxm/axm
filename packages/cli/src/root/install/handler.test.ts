@@ -23,6 +23,7 @@ import {
   InstallPackCommandWorkflowActions,
   type InstallPackHandlerArgs,
 } from "../packs/install/command-actions.js";
+import type { InstallPackCommandIntent } from "../packs/install/intent.js";
 import {
   InstallRuleCommandWorkflowActions,
   type InstallRuleHandlerArgs,
@@ -38,13 +39,16 @@ import {
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
+  expectPreviewedPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 
 import { handleInstall, type RootInstallFlags } from "./handler.js";
 
@@ -97,6 +101,7 @@ describe("root install handler", () => {
       flags: { nonInteractive: true },
       machine: opts?.machine,
     });
+    const packIntents: Array<InstallPackCommandIntent> = [];
 
     const skillActions = {
       parseArgs: (args: InstallSkillSourceHandlerArgs) =>
@@ -185,7 +190,11 @@ describe("root install handler", () => {
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("pack")),
+      buildPlan: (intent: InstallPackCommandIntent) =>
+        Effect.sync(() => {
+          packIntents.push(intent);
+          return makePlan("pack");
+        }),
     };
 
     const knowledgeActions = {
@@ -283,11 +292,15 @@ describe("root install handler", () => {
         >,
       ),
     );
-    const layerWithManagers = Layer.provideMerge(KnowledgeManagerLive, fullLayer);
+    const layerWithManagers = Layer.provideMerge(
+      Layer.mergeAll(HookManagerLive, KnowledgeManagerLive, RuleManagerLive),
+      fullLayer,
+    );
 
     return {
       provide: makeEffectProvide(layerWithManagers),
       logs: ctx.logs,
+      packIntents,
       rendererState: ctx.rendererState,
     };
   };
@@ -389,6 +402,103 @@ describe("root install handler", () => {
       });
       expect(planResultUnits(result)).toMatchObject([
         { id: "knowledge", label: "knowledge", state: "committed" },
+        {
+          id: "projection:aggregate-units",
+          label: "shared projections",
+          state: "committed",
+        },
+      ]);
+    }),
+  );
+
+  it.effect("defers Pack projections to the configured workspace aggregate step", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, packIntents, rendererState } = makeLayers(calls, { machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        packs: { toolkit: "workspace" },
+      });
+      const packDir = path.join(tempDir, "packs", "toolkit");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@axm",
+          type: "pack",
+          name: "toolkit",
+          version: "1.0.0",
+          dependencies: {},
+        }),
+      );
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: true,
+        }),
+      );
+
+      expect(packIntents).toHaveLength(1);
+      expect(packIntents[0]?.deferProjections).toBe(true);
+      const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+        totalSteps: 2,
+      });
+      expect(planResultUnits(result)).toMatchObject([
+        { id: "pack", label: "pack", state: "ready" },
+        {
+          id: "projection:aggregate-units",
+          label: "shared projections",
+          state: "ready",
+        },
+      ]);
+    }),
+  );
+
+  it.effect("replans a configured Pack immediately before applying it", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, packIntents, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        packs: { toolkit: "workspace" },
+      });
+      const packDir = path.join(tempDir, "packs", "toolkit");
+      fs.mkdirSync(packDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(packDir, "pack.json"),
+        JSON.stringify({
+          owner: "@axm",
+          type: "pack",
+          name: "toolkit",
+          version: "1.0.0",
+          dependencies: {},
+        }),
+      );
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(packIntents).toHaveLength(2);
+      expect(packIntents.every((intent) => intent.deferProjections === true)).toBe(true);
+      const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+        totalSteps: 2,
+      });
+      expect(planResultUnits(result)).toMatchObject([
+        { id: "pack", label: "pack", state: "committed" },
         {
           id: "projection:aggregate-units",
           label: "shared projections",

@@ -73,6 +73,8 @@ export interface LocalRefDetails {
   readonly name: ExtensionName;
   /** file:// URL to local directory */
   readonly location: string;
+  /** Workspace-relative selected package directory when known. */
+  readonly sourcePath?: string;
 }
 
 /** Ref details for intrinsic workspace sources. @experimental */

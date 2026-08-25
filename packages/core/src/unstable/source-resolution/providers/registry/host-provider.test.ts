@@ -81,13 +81,19 @@ const makeTestRegistry = (
     mkdirSync(nodePath.join(dir, "extensions", owner), { recursive: true });
   }
   return {
-    source: { type: "registry", location: new URL(`file://${dir}`), owner: Option.none() },
+    source: {
+      type: "registry",
+      name: "agentxm",
+      location: new URL(`file://${dir}`),
+      owner: Option.none(),
+    },
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
 };
 
 const testSource: RegistrySource = {
   type: "registry",
+  name: "agentxm",
   location: new URL("file:///tmp/test-registry"),
   owner: Option.none(),
 };

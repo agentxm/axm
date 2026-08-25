@@ -10,7 +10,7 @@ depends-on:
 # Effect Errors in AXM
 
 Portable error modeling belongs to the Effect v4 Knowledge guide for
-[error modeling](../../agent_extensions/@craigsmitham/knowledge/effect-v4/src/error-modeling.md),
+[error modeling](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/error-modeling.md),
 routed by the installed `craft-effect-v4` skill.
 This guide defines AXM's application boundary.
 
@@ -57,7 +57,7 @@ HTTP status switches. Keep RFC 9457 response bodies opaque in
 `metadata.response`; decode a focused schema next to a use case that needs a
 specific field. Configure transport, transient retry, and client provision at
 the shared boundary described by the Effect v4
-[HTTP client](../../agent_extensions/@craigsmitham/knowledge/effect-v4/src/http-client.md)
+[HTTP client](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/http-client.md)
 guide.
 
 ## Cancellation and interruption

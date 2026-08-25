@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeAppError } from "../../app-error/index.js";
+import { acquiredExtensionDisplayPathFromLockEntry } from "../../extensions/index.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import {
@@ -86,19 +87,22 @@ const makeWorkspaceMock = (
           }),
         );
       }
-      if (lockEntry.type === "registry") {
-        const owner = lockEntry.owner;
-        const canonicalPath = path.join(base, "agent_extensions", owner, "skills", sanitized);
-        return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
-      }
       const canonicalPath = path.join(
         base,
-        "agent_extensions",
-        lockEntry.packageOwner,
-        "skills",
-        lockEntry.packageName,
+        acquiredExtensionDisplayPathFromLockEntry(
+          "agent_extensions",
+          lockEntry,
+          "skills",
+          sanitized,
+        ),
       );
-      return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
+      return Effect.succeed({
+        canonicalPath,
+        skillSrcPath:
+          lockEntry.packageFormat === "agent-skill"
+            ? canonicalPath
+            : path.join(canonicalPath, "src"),
+      });
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
@@ -125,6 +129,11 @@ const makeLocalLockEntry = (
   contentIdentity: SourceHash = TEST_CONTENT_IDENTITY,
 ): SkillLockEntry => ({
   type: "local" as const,
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: extensionName("my-skill"),
+  packageFormat: "agentxm",
   packageOwner: handle("@community"),
   packageName: extensionName("my-skill"),
   path: decodeRelativePathSync(sourcePath),
@@ -140,7 +149,7 @@ const makeRegistryLockEntry = (packageRoot: string): SkillLockEntry => ({
   ...makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
-    sourceName: "local",
+    sourceName: "agentxm",
     publisherBindingId: "hbnd_test",
   }),
   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
@@ -174,7 +183,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalDir = path.join(base, "agent_extensions", "@community", "skills", skillName);
+    const canonicalDir = path.join(base, "agent_extensions", "local", "tmp", "source");
     fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(canonicalDir, "skill.json"),
@@ -339,6 +348,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
         const registryCanonical = path.join(
           base,
           "agent_extensions",
+          "agentxm",
           "@community",
           "skills",
           "my-skill",

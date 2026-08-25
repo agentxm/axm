@@ -74,10 +74,16 @@ const authoredPackFiles = (
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 5,
+  lockfileVersion: 6,
   skills: {
     [skillName]: {
       type: "github",
+      sourceType: "github",
+      sourceName: "github",
+      endpoint: "https://github.com",
+      extensionType: "skill",
+      workspaceName: skillName,
+      packageFormat: "agentxm",
       packageOwner: "@owner",
       packageName: skillName,
       owner: "owner",
@@ -389,18 +395,23 @@ describe("projection: packs are not installed as pack members", () => {
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 5,
+              lockfileVersion: 6,
               skills: {},
               packs: {
                 // nested-pack is in the lockfile but not declared in settings;
                 // it must not appear in `packs.installed` as a pack member.
                 "nested-pack": {
                   type: "registry",
+                  sourceType: "registry",
+                  sourceName: "agentxm",
+                  endpoint: "https://registry.agentxm.ai",
+                  extensionType: "pack",
+                  workspaceName: "nested-pack",
+                  packageFormat: "agentxm",
                   owner: "@team",
                   name: "nested-pack",
                   resolvedVersion: "1.0.0",
                   integrity: "sha256-nested",
-                  sourceName: "registry",
                   publisherBindingId: "hbnd_test",
                   manifestContentIdentity: "nested-content",
                   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,

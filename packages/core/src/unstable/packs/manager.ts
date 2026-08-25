@@ -36,6 +36,7 @@ import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import { computePackManifestContentIdentity } from "./manifest-content-identity.js";
@@ -59,11 +60,16 @@ const buildSetPackArgs = (
   treeIntegrity: TreeIntegrity,
 ): SetPackArgs => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "pack",
+  workspaceName: ref.pack.name,
   owner: ref.owner,
   name: ref.pack.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
   manifestContentIdentity: computePackManifestContentIdentity({
@@ -109,7 +115,7 @@ export const PackManagerLive = Layer.effect(
       const packDir = computePackPathsForLayout(
         path.join,
         ws.layout,
-        ref.refType === "workspace" ? "workspace" : "external",
+        ref.refType === "workspace" ? "workspace" : ref.source.name,
         ref.owner,
         ref.pack.name,
       ).canonicalPath;
@@ -224,6 +230,15 @@ export const PackManagerLive = Layer.effect(
         return yield* isObservedInstalled(ws, "pack", target.name);
       }),
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "pack",
+            name: ref.pack.name,
+            ref,
+          }),
+        ),
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
         const configured = yield* ws.getConfiguredPackEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);

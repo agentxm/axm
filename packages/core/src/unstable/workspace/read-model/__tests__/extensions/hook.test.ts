@@ -28,18 +28,23 @@ const settingsWithHooks = (
 
 const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
   decodedLockfile({
-    lockfileVersion: 5,
+    lockfileVersion: 6,
     skills: {},
     hooks: Object.fromEntries(
       names.map((name) => [
         name,
         {
           type: "registry",
+          sourceType: "registry",
+          endpoint: "https://registry.agentxm.ai",
+          extensionType: "hook",
+          workspaceName: name,
+          packageFormat: "agentxm",
           owner: "@acme",
           name,
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc",
-          sourceName: "registry",
+          sourceName: "agentxm",
           publisherBindingId: "hbnd_test",
           treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
         },

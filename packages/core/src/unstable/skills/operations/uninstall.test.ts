@@ -134,7 +134,8 @@ const makeWorkspaceMock = (
                     {
                       type: "pack" as const,
                       pack: "@acme/packs/starter-pack",
-                      manifestPath: "/project/agent_extensions/@acme/packs/starter-pack/pack.json",
+                      manifestPath:
+                        "/project/agent_extensions/agentxm/@acme/packs/starter-pack/pack.json",
                       source: "@acme/skills/my-skill",
                       constraint: "^1.0.0",
                       enabled: true,
@@ -193,21 +194,39 @@ const readLockfileYaml = (axmDir: string) => {
 };
 
 /** Creates a local source accepted-resolution entry for the in-memory mock. */
-const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
+const makeLocalLockEntry = (
+  _agents: string[],
+  sourcePath = "skills/my-skill",
+  workspaceName = "my-skill",
+): SkillLockEntry => ({
   type: "local" as const,
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName: extensionName(workspaceName),
+  packageFormat: "agentxm",
   packageOwner: handle("@local"),
-  packageName: extensionName("my-skill"),
-  path: decodeRelativePathSync("tmp/source"),
+  packageName: extensionName(workspaceName),
+  path: decodeRelativePathSync(sourcePath),
   contentIdentity: TEST_CONTENT_IDENTITY,
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
-const makeLocalLockEntryYaml = (_agents: string[]) => ({
+const makeLocalLockEntryYaml = (
+  _agents: string[],
+  sourcePath = "skills/my-skill",
+  workspaceName = "my-skill",
+) => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "skill",
+  workspaceName,
+  packageFormat: "agentxm",
   packageOwner: "@local",
-  packageName: "my-skill",
-  path: "tmp/source",
+  packageName: workspaceName,
+  path: sourcePath,
   contentIdentity: TEST_CONTENT_IDENTITY,
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
@@ -217,7 +236,7 @@ const makeRegistryLockEntry = (agents: string[]) =>
   makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
-    sourceName: "local",
+    sourceName: "agentxm",
 
     publisherBindingId: "hbnd_test",
     agents,
@@ -230,7 +249,7 @@ const makeRegistryLockEntryYaml = (_agents: string[]) => ({
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "local",
+  sourceName: "agentxm",
 
   publisherBindingId: "hbnd_test",
 });
@@ -282,8 +301,8 @@ describe("uninstallSkill", () => {
     fs.mkdirSync(axmDir, { recursive: true });
     configuredAgentsByWorkspace.set(axmDir, agents);
 
-    // Create canonical skill dir (unified: agent_extensions/@local/skills/<name>)
-    const canonicalPath = path.join(base, "agent_extensions", "@local", "skills", skillName);
+    // Local acquisitions retain their workspace-relative selected path.
+    const canonicalPath = path.join(base, "agent_extensions", "local", "skills", skillName);
     if (createCanonical) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
@@ -307,10 +326,12 @@ describe("uninstallSkill", () => {
     }
 
     // In-memory mock (DateTime.Utc values) for withServices
-    const lockfileSkills = opts.lockfileSkills ?? { [skillName]: makeLocalLockEntry(agents) };
+    const lockfileSkills = opts.lockfileSkills ?? {
+      [skillName]: makeLocalLockEntry(agents, `skills/${skillName}`, skillName),
+    };
     // On-disk YAML (ISO strings) for lockfile read/write operations
     const lockfileSkillsYaml = opts.lockfileSkillsYaml ?? {
-      [skillName]: makeLocalLockEntryYaml(agents),
+      [skillName]: makeLocalLockEntryYaml(agents, `skills/${skillName}`, skillName),
     };
     writeLockfileYaml(axmDir, lockfileSkillsYaml);
 
@@ -400,7 +421,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("skill not in lockfile but exists on disk", () => {
-    it.effect("removes canonical dir and returns success", () =>
+    it.effect("preserves unowned canonical content", () =>
       Effect.gen(function* () {
         const { axmDir, canonicalPath } = setupWorkspace({
           createSymlinks: false,
@@ -412,8 +433,8 @@ describe("uninstallSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-skill");
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        expect(result.message).toBe("not installed");
+        expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
     );
   });
@@ -458,7 +479,7 @@ describe("uninstallSkill", () => {
 
         // Canonical dir should still exist
         expect(
-          fs.existsSync(path.join(base, "agent_extensions", "@local", "skills", "my-skill")),
+          fs.existsSync(path.join(base, "agent_extensions", "local", "skills", "my-skill")),
         ).toBe(true);
 
         // Partial materialization changes do not rewrite shared resolution state.
@@ -587,17 +608,29 @@ describe("uninstallSkill", () => {
           skillName: sanitizedName,
           agents: ["claude-code"],
           lockfileSkills: {
-            [displayName]: makeLocalLockEntry(["claude-code"]),
+            [displayName]: makeLocalLockEntry(
+              ["claude-code"],
+              `skills/${sanitizedName}`,
+              "my-skill",
+            ),
           },
           lockfileSkillsYaml: {
-            [displayName]: makeLocalLockEntryYaml(["claude-code"]),
+            [displayName]: makeLocalLockEntryYaml(
+              ["claude-code"],
+              `skills/${sanitizedName}`,
+              "my-skill",
+            ),
           },
         });
 
         const result = yield* uninstallSkill(makeOp({ skillName: displayName })).pipe(
           Effect.provide(
             withServices(axmDir, {
-              [displayName]: makeLocalLockEntry(["claude-code"]),
+              [displayName]: makeLocalLockEntry(
+                ["claude-code"],
+                `skills/${sanitizedName}`,
+                "my-skill",
+              ),
             }),
           ),
         );
@@ -607,7 +640,7 @@ describe("uninstallSkill", () => {
 
         // The sanitized path should be removed from canonical location
         expect(
-          fs.existsSync(path.join(base, "agent_extensions", "@local", "skills", sanitizedName)),
+          fs.existsSync(path.join(base, "agent_extensions", "local", "skills", sanitizedName)),
         ).toBe(false);
       }),
     );
@@ -619,8 +652,8 @@ describe("uninstallSkill", () => {
         const firstSanitized = sanitizeName(firstName);
         const secondSanitized = sanitizeName(secondName);
         const lockfileSkills = {
-          [firstName]: makeLocalLockEntry([]),
-          [secondName]: makeLocalLockEntry([]),
+          [firstName]: makeLocalLockEntry([], `skills/${firstSanitized}`),
+          [secondName]: makeLocalLockEntry([], `skills/${secondSanitized}`),
         };
         const { axmDir, base } = setupWorkspace({
           skillName: firstSanitized,
@@ -628,11 +661,11 @@ describe("uninstallSkill", () => {
           createSymlinks: false,
           lockfileSkills,
           lockfileSkillsYaml: {
-            [firstName]: makeLocalLockEntryYaml([]),
-            [secondName]: makeLocalLockEntryYaml([]),
+            [firstName]: makeLocalLockEntryYaml([], `skills/${firstSanitized}`),
+            [secondName]: makeLocalLockEntryYaml([], `skills/${secondSanitized}`),
           },
         });
-        const secondPath = path.join(base, "agent_extensions", "@local", "skills", secondSanitized);
+        const secondPath = path.join(base, "agent_extensions", "local", "skills", secondSanitized);
         fs.mkdirSync(secondPath, { recursive: true });
         fs.writeFileSync(path.join(secondPath, "SKILL.md"), `# ${secondName}`);
 
@@ -644,7 +677,7 @@ describe("uninstallSkill", () => {
 
         expect(result.result).toBe("success");
         expect(
-          fs.existsSync(path.join(base, "agent_extensions", "@local", "skills", firstSanitized)),
+          fs.existsSync(path.join(base, "agent_extensions", "local", "skills", firstSanitized)),
         ).toBe(false);
         expect(fs.existsSync(secondPath)).toBe(true);
       }),
@@ -652,11 +685,11 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile read error handling", () => {
-    it.effect("uninstalls observed content without reading the receipt", () =>
+    it.effect("preserves content when accepted ownership cannot be read", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
-        const result = yield* uninstallSkill(makeOp()).pipe(
+        const error = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
             withServices(
               axmDir,
@@ -672,11 +705,12 @@ describe("uninstallSkill", () => {
               },
             ),
           ),
+          Effect.flip,
         );
 
-        expect(result.result).toBe("success");
-        expect(fs.existsSync(canonicalPath)).toBe(false);
-        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+        expect(error.code).toBe("validation");
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);
       }),
     );
   });
@@ -748,7 +782,7 @@ describe("uninstallSkill", () => {
           },
         });
 
-        // amp uses .agents/skills — separate from canonical (agent_extensions/@local/skills)
+        // amp uses .agents/skills — separate from canonical (agent_extensions/local/...)
         // Both agent symlinks and canonical dir should be removed in full uninstall
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
@@ -1000,8 +1034,15 @@ describe("uninstallSkill", () => {
       fs.mkdirSync(axmDir, { recursive: true });
       configuredAgentsByWorkspace.set(axmDir, agents);
 
-      // Create registry canonical dir: agent_extensions/@owner/skills/<name>/
-      const registryPath = path.join(base, "agent_extensions", owner, "skills", skillName);
+      // Create Registry canonical dir: agent_extensions/agentxm/@owner/skills/<name>/
+      const registryPath = path.join(
+        base,
+        "agent_extensions",
+        "agentxm",
+        owner,
+        "skills",
+        skillName,
+      );
       fs.mkdirSync(registryPath, { recursive: true });
       fs.writeFileSync(path.join(registryPath, "SKILL.md"), `# ${skillName}`);
 
@@ -1057,7 +1098,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("removes skill from both external and registry locations during uninstall", () =>
+    it.effect("removes only the accepted package and preserves an unowned namesake", () =>
       Effect.gen(function* () {
         // Setup: skill exists in BOTH locations (e.g., after a source type change)
         const { axmDir, base, registryPath, lockfileSkills } = setupRegistryWorkspace({
@@ -1065,7 +1106,7 @@ describe("uninstallSkill", () => {
         });
 
         // Also create the non-registry canonical location
-        const externalPath = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        const externalPath = path.join(base, "agent_extensions", "local", "skills", "my-skill");
         fs.mkdirSync(externalPath, { recursive: true });
         fs.writeFileSync(path.join(externalPath, "SKILL.md"), "# my-skill");
 
@@ -1075,9 +1116,9 @@ describe("uninstallSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Both locations should be removed
+        // Accepted authority is path-specific; the namesake is not owned by this resolution.
         expect(fs.existsSync(registryPath)).toBe(false);
-        expect(fs.existsSync(externalPath)).toBe(false);
+        expect(fs.existsSync(externalPath)).toBe(true);
       }),
     );
 
@@ -1110,7 +1151,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("detects registry-sourced skill on disk even without lockfile entry", () =>
+    it.effect("preserves registry-shaped content without accepted lock authority", () =>
       Effect.gen(function* () {
         // Setup: skill in registry location but no lockfile entry
         const base = path.join(tmpDir, "project");
@@ -1120,6 +1161,7 @@ describe("uninstallSkill", () => {
         const registryPath = path.join(
           base,
           "agent_extensions",
+          "agentxm",
           "@community",
           "skills",
           "my-skill",
@@ -1133,10 +1175,9 @@ describe("uninstallSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("Uninstalled my-skill");
+        expect(result.message).toBe("not installed");
 
-        // Registry path should be removed
-        expect(fs.existsSync(registryPath)).toBe(false);
+        expect(fs.existsSync(registryPath)).toBe(true);
       }),
     );
   });
@@ -1154,7 +1195,7 @@ describe("uninstallSkill", () => {
         fs.writeFileSync(path.join(renderedPath, "SKILL.md"), "# my-skill");
 
         // Create canonical path so existsInAnyCanonicalLocation resolves true
-        const canonicalPath = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        const canonicalPath = path.join(base, "agent_extensions", "local", "skills", "my-skill");
         fs.mkdirSync(canonicalPath, { recursive: true });
         fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), "# my-skill");
 

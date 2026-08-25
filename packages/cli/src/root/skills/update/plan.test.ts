@@ -49,6 +49,7 @@ const makeOp = (
       name: extensionName(name),
       source: {
         type: "github",
+        name: "github",
         url: new URL("https://github.com"),
         owner: "owner",
         repo: "repo",
@@ -65,6 +66,7 @@ const makeOp = (
       refType: "registry",
       source: {
         type: "registry",
+        name: "agentxm",
         location: new URL("http://localhost:3000"),
         owner: Option.none(),
       },
@@ -99,10 +101,16 @@ const makeOp = (
   };
 };
 
-const githubLock = (tree: string): SkillLockEntry => ({
+const githubLock = (name: string, tree: string): SkillLockEntry => ({
   type: "github",
+  sourceType: "github",
+  sourceName: "github",
+  endpoint: new URL("https://github.com"),
+  extensionType: "skill",
+  workspaceName: extensionName(name),
+  packageFormat: "agentxm",
   packageOwner: AXM,
-  packageName: extensionName("skill"),
+  packageName: extensionName(name),
   owner: "owner",
   repo: "repo",
   resolvedCommit: "commit",
@@ -113,11 +121,16 @@ const githubLock = (tree: string): SkillLockEntry => ({
 
 const registryLock = (version: Version): SkillLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  endpoint: new URL("http://localhost:3000"),
+  extensionType: "skill",
+  workspaceName: extensionName("skill"),
+  packageFormat: "agentxm",
   owner: AXM,
   name: extensionName("skill"),
   resolvedVersion: version,
   integrity: "sha512-AAAA==",
-  sourceName: "default",
+  sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   treeIntegrity: TREE_INTEGRITY,
 });
@@ -147,7 +160,7 @@ describe("buildUpdatePlan", () => {
   it.effect("skips a Git resolution with the same accepted tree", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(makeOp("commit", { type: "github", tree: "same-tree" }), {
-        commit: githubLock("same-tree"),
+        commit: githubLock("commit", "same-tree"),
       });
       expect(message).toBe("already up to date");
     }),
@@ -156,7 +169,7 @@ describe("buildUpdatePlan", () => {
   it.effect("dispatches a Git resolution whose accepted tree changed", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(makeOp("commit", { type: "github", tree: "new-tree" }), {
-        commit: githubLock("old-tree"),
+        commit: githubLock("commit", "old-tree"),
       });
       expect(message).toBe("executed install-skill");
     }),
@@ -182,6 +195,11 @@ describe("buildUpdatePlan", () => {
       const local = yield* firstMessage(makeOp("local", { type: "local" }), {
         local: {
           type: "local",
+          sourceType: "local",
+          sourceName: "local",
+          extensionType: "skill",
+          workspaceName: extensionName("local"),
+          packageFormat: "agentxm",
           packageOwner: AXM,
           packageName: extensionName("local"),
           path: "source",
@@ -191,7 +209,7 @@ describe("buildUpdatePlan", () => {
       });
       const missing = yield* firstMessage(makeOp("missing", { type: "github", tree: "tree" }), {});
       const forced = yield* firstMessage(makeOp("forced", { type: "github", tree: "tree" }, true), {
-        forced: githubLock("tree"),
+        forced: githubLock("forced", "tree"),
       });
       expect([local, missing, forced]).toEqual([
         "executed install-skill",

@@ -229,6 +229,7 @@ const makePackRollbackFixture = (
   const withMemberDependency = options.withMemberDependency !== false;
   const registrySource = {
     type: "registry",
+    name: "agentxm",
     location: new URL("file:///tmp/test-registry"),
     owner: Option.none(),
   } satisfies PackRef["source"];
@@ -326,8 +327,8 @@ const makePackRollbackFixture = (
   const axmDir = path.join(baseDir, ".axm");
   writeWorkspaceFiles(axmDir, {
     agents: ["claude-code"],
-    packs: { toolkit: "@acme/packs/toolkit" },
-    sources: [{ type: "registry", name: "default", location: registrySource.location.href }],
+    packs: { toolkit: "agentxm:@acme/packs/toolkit" },
+    sources: [{ type: "registry", name: "agentxm", location: registrySource.location.href }],
     lockfilePacks: {
       toolkit: {
         type: "registry",
@@ -335,7 +336,7 @@ const makePackRollbackFixture = (
         name: "toolkit",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedPackSource),
@@ -348,15 +349,29 @@ const makePackRollbackFixture = (
         name: "review",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedSkillSource),
       },
     },
   });
 
-  const canonicalSkill = path.join(baseDir, "agent_extensions", "@acme", "skills", "review");
-  const canonicalPack = path.join(baseDir, "agent_extensions", "@acme", "packs", "toolkit");
+  const canonicalSkill = path.join(
+    baseDir,
+    "agent_extensions",
+    "agentxm",
+    "@acme",
+    "skills",
+    "review",
+  );
+  const canonicalPack = path.join(
+    baseDir,
+    "agent_extensions",
+    "agentxm",
+    "@acme",
+    "packs",
+    "toolkit",
+  );
   if (options.canonicalPackState === "changed") {
     writePackPackage(canonicalPack, divergentPackManifest);
   }
@@ -425,6 +440,7 @@ const makeConstraintMismatchFixture = (
   const registryRoot = path.join(baseDir, "registry");
   const registrySource = {
     type: "registry",
+    name: "agentxm",
     location: new URL(`file://${registryRoot}`),
     owner: Option.none(),
   } satisfies SkillExtensionRef["source"];
@@ -491,7 +507,7 @@ const makeConstraintMismatchFixture = (
       alpha: "@acme/packs/alpha",
       beta: "@acme/packs/beta",
     },
-    sources: [{ type: "registry", name: "default", location: registrySource.location.href }],
+    sources: [{ type: "registry", name: "agentxm", location: registrySource.location.href }],
     lockfilePacks: {
       alpha: {
         type: "registry",
@@ -499,7 +515,7 @@ const makeConstraintMismatchFixture = (
         name: "alpha",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
       },
@@ -509,7 +525,7 @@ const makeConstraintMismatchFixture = (
         name: "beta",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
       },
@@ -521,19 +537,19 @@ const makeConstraintMismatchFixture = (
         name: "review",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
       },
     },
   });
   for (const manifest of manifests) {
     writePackPackage(
-      path.join(baseDir, "agent_extensions", "@acme", "packs", manifest.name),
+      path.join(baseDir, "agent_extensions", "agentxm", "@acme", "packs", manifest.name),
       manifest,
     );
   }
   writeSkillPackage(
-    path.join(baseDir, "agent_extensions", "@acme", "skills", "review"),
+    path.join(baseDir, "agent_extensions", "agentxm", "@acme", "skills", "review"),
     "review",
     "1.0.0",
   );
@@ -547,6 +563,7 @@ const makeConstraintMismatchFixture = (
       canonicalSkill: path.join(
         baseDir,
         "agent_extensions",
+        "agentxm",
         "@acme",
         "skills",
         "review",
@@ -784,7 +801,7 @@ describe("root sync handler", () => {
       writeSettings(tempDir, {
         agents: [],
         minimumReleaseAge: "24h",
-        sources: [{ type: "registry", name: "local", location: `file://${registryDir}` }],
+        sources: [{ type: "registry", name: "agentxm", location: `file://${registryDir}` }],
         skills: { review: "@acme/skills/review" },
       });
 
@@ -819,7 +836,7 @@ describe("root sync handler", () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -844,7 +861,7 @@ describe("root sync handler", () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -1707,7 +1724,7 @@ describe("root sync handler", () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "local",
+            sourceName: "test-registry",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -1743,7 +1760,14 @@ describe("root sync handler", () => {
     Effect.gen(function* () {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "review");
+      const skillDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "agentxm",
+        "@acme",
+        "skills",
+        "review",
+      );
       writeSkillPackage(skillDir, "review", "1.0.0");
       const sourceHash = computePackageContentHashSync(skillDir);
       const treeIntegrity = computeMaterializedTreeIntegritySync(skillDir);
@@ -1754,7 +1778,7 @@ describe("root sync handler", () => {
         },
         sources: [
           {
-            name: "default",
+            name: "agentxm",
             type: "registry",
             location: "file:///tmp/registry-version-does-not-exist",
           },
@@ -1766,7 +1790,7 @@ describe("root sync handler", () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: "2026-08-01T00:00:00.000Z",
             updatedAt: "2026-08-01T00:00:00.000Z",
@@ -1993,32 +2017,15 @@ describe("root sync handler", () => {
 
       expect(
         fs.readFileSync(
-          path.join(
-            tempDir,
-            "agent_extensions",
-            "@acme",
-            "knowledge",
-            "handbook",
-            "src",
-            "concept.md",
-          ),
+          path.join(tempDir, "agent_extensions", "local", "locked-source", "src", "concept.md"),
           "utf8",
         ),
       ).toContain("# Locked");
       expect(
-        fs.readFileSync(
-          path.join(
-            tempDir,
-            "agent_extensions",
-            "@acme",
-            "knowledge",
-            "handbook",
-            "src",
-            "concept.md",
-          ),
-          "utf8",
+        fs.existsSync(
+          path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
         ),
-      ).not.toContain("# Newer");
+      ).toBe(false);
       expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
     }),

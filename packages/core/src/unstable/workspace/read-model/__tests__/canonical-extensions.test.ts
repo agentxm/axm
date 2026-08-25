@@ -1,7 +1,7 @@
 /**
  * Canonical-extensions scanner: covers canonical AXM
  * (`.axm/extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
- * (`.axm/extensions/external/<type-plural>/<name>/`) materializations across
+ * (`.axm/extensions/<source>/<source-full-name>/`) materializations across
  * all extension types.
  *
  * Each occurrence carries the scanner-tier origin (`canonical-axm` |
@@ -19,8 +19,8 @@ import {
   EXTENSION_TYPE_TABLE,
   extensionTypes,
   toExtensionTypePlural,
-  type ExtensionType,
 } from "../../../extensions/common.js";
+import { MANIFEST_FILENAME_BY_TYPE } from "../../../publish/manifest-policy.js";
 import {
   buildFixture,
   resolveFixtureProjectLayout,
@@ -71,15 +71,27 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
     }),
   );
 
-  it.effect("emits one canonical-axm occurrence per <owner>/<type>/<name>/src", () =>
+  it.effect("emits native occurrences beneath a source-qualified Registry root", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "@owner/hooks/some-hook/src/hook.sh": "#!/bin/sh\n",
+            "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+              owner: "@owner",
+              type: "skill",
+              name: "some-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "agentxm/@owner/hooks/some-hook/hook.json": JSON.stringify({
+              owner: "@owner",
+              type: "hook",
+              name: "some-hook",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/hooks/some-hook/src/hook.sh": "#!/bin/sh\n",
           },
         },
       });
@@ -95,7 +107,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-hook",
         owner: "@owner",
-        contentLocation: "/ws/agent_extensions/@owner/hooks/some-hook/src",
+        contentLocation: "/ws/agent_extensions/agentxm/@owner/hooks/some-hook/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",
@@ -104,7 +116,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/agent_extensions/@owner/skills/some-skill/src",
+        contentLocation: "/ws/agent_extensions/agentxm/@owner/skills/some-skill/src",
       });
     }),
   );
@@ -116,7 +128,12 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/mcps/tools/mcp.json": "{}\n",
+            "agentxm/@owner/mcps/tools/mcp.json": JSON.stringify({
+              owner: "@owner",
+              type: "mcp-server",
+              name: "tools",
+              version: "1.0.0",
+            }),
           },
         },
       });
@@ -125,30 +142,31 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       expect(occurrences[0]).toMatchObject({
         type: "mcp-server",
         name: "tools",
-        contentLocation: "/ws/agent_extensions/@owner/mcps/tools",
+        contentLocation: "/ws/agent_extensions/agentxm/@owner/mcps/tools",
       });
     }),
   );
 
-  it.effect("emits one external-axm occurrence per external/<type>/<name>", () =>
+  it.effect("emits a portable skill without fabricating native package identity", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "external/skills/external-skill/SKILL.md": "# external\n",
-            "external/mcps/external-mcp/server.json": "{}",
+            "github/acme/toolkit/.agents/skills/external-skill/SKILL.md":
+              "---\nname: external-skill\ndescription: External\n---\n# external\n",
           },
         },
       });
       const sorted = sortByContent(occurrences);
-      expect(sorted).toHaveLength(2);
-      expect(sorted.map((o) => o.origin)).toEqual(["external-axm", "external-axm"]);
-      expect(sorted.map((o) => ({ type: o.type, name: o.name, owner: o.owner }))).toEqual([
-        { type: "mcp-server", name: "external-mcp", owner: null },
-        { type: "skill", name: "external-skill", owner: null },
-      ]);
+      expect(sorted).toHaveLength(1);
+      expect(sorted[0]).toMatchObject({
+        origin: "external-axm",
+        type: "skill",
+        name: "external-skill",
+        owner: null,
+      });
     }),
   );
 
@@ -159,8 +177,15 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "external/skills/some-skill/SKILL.md": "# external\n",
+            "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+              owner: "@owner",
+              type: "skill",
+              name: "some-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "github/acme/toolkit/.agents/skills/some-skill/SKILL.md":
+              "---\nname: some-skill\ndescription: External\n---\n# external\n",
           },
         },
       });
@@ -179,7 +204,13 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "@owner/skills/some-skill/src/SKILL.md": "# ok\n",
+            "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+              owner: "@owner",
+              type: "skill",
+              name: "some-skill",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# ok\n",
             // "stuff" is not a local extension type directory; the scanner should skip it.
             "@owner/stuff/src/junk/file.txt": "junk",
           },
@@ -195,13 +226,19 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       // Container types hold their members directly; every other type nests its
       // content under `src/`. Both the set of types and that distinction come
       // from the catalog, so a new type joins this case without an edit here.
-      const markerFor = (type: ExtensionType) =>
-        EXTENSION_TYPE_TABLE[type].placement === "container"
-          ? `@owner/${toExtensionTypePlural(type)}/sample/marker`
-          : `@owner/${toExtensionTypePlural(type)}/sample/src/marker`;
-
       const project: FixtureSpec["project"] = {
-        axmExtensions: Object.fromEntries(extensionTypes.map((type) => [markerFor(type), "ok\n"])),
+        axmExtensions: Object.fromEntries(
+          extensionTypes.flatMap((type) => {
+            const root = `agentxm/@owner/${toExtensionTypePlural(type)}/sample`;
+            const manifest = [
+              `${root}/${MANIFEST_FILENAME_BY_TYPE[type]}`,
+              JSON.stringify({ owner: "@owner", type, name: "sample", version: "1.0.0" }),
+            ] as const;
+            return EXTENSION_TYPE_TABLE[type].placement === "container"
+              ? [manifest]
+              : [manifest, [`${root}/src/marker`, "ok\n"] as const];
+          }),
+        ),
       };
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
@@ -228,7 +265,15 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
-          axmExtensions: { "@x/skills/y/src/SKILL.md": "ok\n" },
+          axmExtensions: {
+            "agentxm/@x/skills/y/skill.json": JSON.stringify({
+              owner: "@x",
+              type: "skill",
+              name: "y",
+              version: "1.0.0",
+            }),
+            "agentxm/@x/skills/y/src/SKILL.md": "ok\n",
+          },
         },
       });
       const layout = yield* resolveFixtureProjectLayout(deps);
@@ -252,7 +297,15 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         user: {
-          axmExtensions: { "@owner/skills/sample/src/SKILL.md": "ok\n" },
+          axmExtensions: {
+            "agentxm/@owner/skills/sample/skill.json": JSON.stringify({
+              owner: "@owner",
+              type: "skill",
+              name: "sample",
+              version: "1.0.0",
+            }),
+            "agentxm/@owner/skills/sample/src/SKILL.md": "ok\n",
+          },
         },
       });
       const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
@@ -265,6 +318,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         diagnostics: makeDiagnostics(ref),
       });
       // The workspace layout is the scope authority for every occurrence.
+      expect(occurrences).toHaveLength(1);
       expect(occurrences.every((o) => o.scope === "user")).toBe(true);
     }),
   );

@@ -36,7 +36,7 @@ const initializePack = (root: string) => {
   writeWorkspaceFiles(axmDir, {
     owner: "@acme",
     agents: ["claude-code"],
-    sources: [{ type: "registry", name: "default", location: "file:///tmp/test-registry" }],
+    sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
     packs: { toolkit: "workspace" },
   });
   const packDir = path.join(root, "packs", "toolkit");
@@ -57,7 +57,7 @@ const initializePack = (root: string) => {
 
 const initializePackWithSkill = (root: string) => {
   const { axmDir, packDir, lockPath } = initializePack(root);
-  const skillDir = path.join(root, "agent_extensions", "@acme", "skills", "review");
+  const skillDir = path.join(root, "agent_extensions", "agentxm", "@acme", "skills", "review");
   fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "skill.json"),
@@ -86,11 +86,16 @@ const initializePackWithSkill = (root: string) => {
       skills: {
         review: {
           type: "registry",
+          sourceType: "registry",
+          endpoint: "file:///tmp/test-registry",
+          extensionType: "skill",
+          workspaceName: "review",
+          packageFormat: "agentxm",
           owner: "@acme",
           name: "review",
           resolvedVersion: "1.0.0",
           integrity: "sha512-AAAA==",
-          sourceName: "default",
+          sourceName: "agentxm",
           publisherBindingId: "hbnd_test",
           treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
         },

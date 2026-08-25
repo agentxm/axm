@@ -386,7 +386,7 @@ describe("subagents-update.handler", () => {
         ),
       );
       initWorkspace(path.join(tempDir, ".axm"), {
-        subagents: { researcher: "@acme/subagents/researcher" },
+        subagents: { researcher: "test:@acme/subagents/researcher" },
         sources: [
           {
             name: "test",

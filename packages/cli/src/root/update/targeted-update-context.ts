@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { parseRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
@@ -106,7 +106,7 @@ const configuredPackFqn = (
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
   const source = normalizedIdentity(entry.source);
-  const parsed = parseRegistrySourcePatternParts(source);
+  const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;

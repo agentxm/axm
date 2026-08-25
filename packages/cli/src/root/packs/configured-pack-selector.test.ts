@@ -17,7 +17,7 @@ const pack = (name: string, source: string): ConfiguredRecordRow => ({
 describe("resolveConfiguredPackSelector", () => {
   const configured = [
     pack("toolkit", "workspace"),
-    pack("reviewers", "@acme/packs/reviewers@^1.0.0"),
+    pack("reviewers", "agentxm:@acme/packs/reviewers@^1.0.0"),
   ];
 
   it.effect("prefers an exact configured local name", () =>
@@ -50,6 +50,18 @@ describe("resolveConfiguredPackSelector", () => {
     Effect.gen(function* () {
       const selected = yield* resolveConfiguredPackSelector({
         configured,
+        selector: "@acme/packs/reviewers",
+      });
+
+      expect(selected.configuredName).toBe("reviewers");
+      expect(selected.match).toBe("fqn");
+    }),
+  );
+
+  it.effect("matches a source-qualified configured Registry pack by its FQN", () =>
+    Effect.gen(function* () {
+      const selected = yield* resolveConfiguredPackSelector({
+        configured: [pack("reviewers", "internal:@acme/packs/reviewers@^1.0.0")],
         selector: "@acme/packs/reviewers",
       });
 

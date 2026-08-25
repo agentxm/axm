@@ -10,20 +10,18 @@
 import {
   computeExtensionPaths,
   computeExtensionPathsForLayout,
+  type ExtensionPathSource,
 } from "../extensions/extension-paths.js";
-import type { Handle } from "../extensions/handle.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
  *
- * Registry refs carry an owner for the canonical path; all other ref types
- * use the shared external extensions directory.
+ * Every acquired ref carries enough source coordinates to derive its
+ * source-qualified canonical path.
  */
-export type SkillPathSource =
-  | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
+export type SkillPathSource = ExtensionPathSource;
 
 /**
  * Computed paths for an installed skill directory.
@@ -31,9 +29,8 @@ export type SkillPathSource =
  * - `canonicalPath`: root of the installed skill
  * - `skillSrcPath`: where actual skill source files live
  *
- * Non-registry: `canonicalPath === skillSrcPath` = `<base>/.axm/extensions/external/skills/<sanitized-name>`
- * Registry: `canonicalPath` = `<base>/.axm/extensions/<owner>/skills/<sanitized-name>`,
- *           `skillSrcPath` = `<canonicalPath>/src`
+ * Native packages use `<canonicalPath>/src`; portable Agent Skills use the
+ * source-qualified package root directly.
  */
 export interface SkillDirPaths {
   readonly canonicalPath: AbsolutePath;

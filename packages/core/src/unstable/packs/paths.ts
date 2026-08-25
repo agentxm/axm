@@ -2,7 +2,8 @@
  * Centralized pack path computation.
  *
  * Provides types and a pure function for computing pack directory paths.
- * Packs are always registry-sourced, so there is no non-registry branch.
+ * Packs are either workspace-authored or Registry-sourced. Acquired packs
+ * retain the exact Registry source name in their canonical path.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,7 +16,7 @@ import type { WorkspaceLayout } from "../workspace/layout.js";
 /**
  * Computed path for an installed pack directory.
  *
- * `canonicalPath` = `<base>/.axm/extensions/<owner>/packs/<name>/`
+ * `canonicalPath` = `<base>/agent_extensions/<source-name>/<owner>/packs/<name>/`
  *
  * No `src/` subdirectory for packs.
  */
@@ -34,10 +35,11 @@ export interface PackDirPath {
 export const computePackPaths = (
   join: (...paths: string[]) => string,
   base: string,
+  sourceName: string,
   owner: Handle,
   name: string,
 ): PackDirPath => {
-  const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
+  const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, sourceName, owner, "packs", name);
   return { canonicalPath: decodeAbsolutePathSync(canonicalPath) };
 };
 
@@ -53,14 +55,14 @@ export const computeAuthoredPackPaths = (
 export const computePackPathsForLayout = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,
-  source: "workspace" | "external",
+  sourceName: "workspace" | string,
   owner: Handle,
   name: string,
 ): PackDirPath => ({
   canonicalPath:
-    layout.scope === "project" && source === "workspace"
+    layout.scope === "project" && sourceName === "workspace"
       ? decodeAbsolutePathSync(join(layout.authoredRoot("pack"), name))
       : layout.scope === "project"
-        ? decodeAbsolutePathSync(join(layout.acquiredRoot, owner, "packs", name))
-        : decodeAbsolutePathSync(join(layout.canonicalRoot, owner, "packs", name)),
+        ? decodeAbsolutePathSync(join(layout.acquiredRoot, sourceName, owner, "packs", name))
+        : decodeAbsolutePathSync(join(layout.canonicalRoot, sourceName, owner, "packs", name)),
 });

@@ -19,7 +19,10 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionRef, ExtensionType } from "../../extensions/index.js";
-import { parseRegistrySourcePatternParts, toExtensionTypePlural } from "../../extensions/index.js";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionTypePlural,
+} from "../../extensions/index.js";
 import type { RegistryClient } from "../../registry/client.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
 import {
@@ -92,7 +95,7 @@ export type ExtensionUpdateEntry = ExtensionCurrencyEntry | ExtensionSourceFresh
  * Parse a version constraint from a settings source string like `@acme/skills/code-review@^1.0.0`.
  */
 const parseConstraintFromSource = (source: string): Option.Option<VersionRange> => {
-  const parts = parseRegistrySourcePatternParts(source);
+  const parts = parseSourceQualifiedRegistrySourcePatternParts(source);
   if (parts === undefined) return Option.none();
   return Option.fromUndefinedOr(parts.versionRange);
 };

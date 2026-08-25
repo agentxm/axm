@@ -259,7 +259,7 @@ describe("packs install handler", () => {
     it.effect("accepts @owner/packs/pack-name format", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       return provide(
@@ -276,7 +276,7 @@ describe("packs install handler", () => {
     it.effect("accepts @owner/packs/pack-name@^2.0.0 with version constraint", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       return provide(
@@ -293,7 +293,7 @@ describe("packs install handler", () => {
     it.effect("resolves bare pack-name to @defaultScope/packs/pack-name", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         owner: MYORG,
       });
 
@@ -311,7 +311,7 @@ describe("packs install handler", () => {
     it.effect("resolves bare pack-name@version with default owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         owner: MYORG,
       });
 
@@ -330,7 +330,7 @@ describe("packs install handler", () => {
     it.effect("rejects @owner/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       return provide(
@@ -419,7 +419,7 @@ describe("packs install handler", () => {
     it.effect("rejects @owner/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       return provide(
@@ -452,6 +452,7 @@ describe("packs install handler", () => {
         },
         source: {
           type: "registry",
+          name: "agentxm",
           location: new URL("file:///tmp/reg"),
           owner: Option.none(),
         },
@@ -475,7 +476,7 @@ describe("packs install handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
-            name: "default",
+            name: "agentxm",
             type: "registry",
             location: "file:///tmp/reg",
           },
@@ -487,7 +488,7 @@ describe("packs install handler", () => {
             name: "my-pack",
             resolvedVersion: "1.0.0",
             integrity: "abc",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -557,7 +558,12 @@ describe("packs install handler", () => {
           name: extensionName("frontend"),
           dependencies: constraints({ "@acme/skills/react-testing": "^1.0.0" }),
         },
-        source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+        source: {
+          type: "registry",
+          name: "agentxm",
+          location: new URL("file:///tmp/reg"),
+          owner: Option.none(),
+        },
         owner: ACME,
         name: extensionName("frontend"),
         version: exactVersion("1.0.0"),
@@ -582,6 +588,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry" as const,
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -599,7 +606,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide, logs } = makeLayersWithMockSources(mockService, {
@@ -628,7 +635,12 @@ describe("packs install handler", () => {
           name: extensionName("basic-pack"),
           dependencies: constraints({ "@acme/skills/plain-skill": "^1.0.0" }),
         },
-        source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+        source: {
+          type: "registry",
+          name: "agentxm",
+          location: new URL("file:///tmp/reg"),
+          owner: Option.none(),
+        },
         owner: ACME,
         name: extensionName("basic-pack"),
         version: exactVersion("1.0.0"),
@@ -653,6 +665,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry" as const,
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -670,7 +683,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide, logs } = makeLayersWithMockSources(mockService, {
@@ -717,7 +730,12 @@ describe("packs install handler", () => {
           ...(opts?.mcpServers ?? {}),
         },
       },
-      source: { type: "registry", location: new URL("file:///tmp/reg"), owner: Option.none() },
+      source: {
+        type: "registry",
+        name: "agentxm",
+        location: new URL("file:///tmp/reg"),
+        owner: Option.none(),
+      },
       owner: ACME,
       name: extensionName(name),
       version: exactVersion("1.0.0"),
@@ -898,7 +916,7 @@ describe("packs install handler", () => {
             }),
         };
         initWorkspace(path.join(tempDir, ".axm"), {
-          sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+          sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         });
         const { provide } = makeLayersWithMockSources(mockService);
         const releaseAgeEvaluation = {
@@ -964,6 +982,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -981,7 +1000,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide, logs } = makeLayersWithMockSources(mockService, { verbose: true });
@@ -1045,7 +1064,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide } = makeLayersWithMockSources(mockService);
@@ -1060,7 +1079,7 @@ describe("packs install handler", () => {
 
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settingsJson: { packs?: Record<string, string> } = JSON.parse(settingsContent);
-          expect(settingsJson.packs?.["test-pack"]).toBe("@acme/packs/test-pack@^2.0.0");
+          expect(settingsJson.packs?.["test-pack"]).toBe("agentxm:@acme/packs/test-pack@^2.0.0");
         }),
       );
     });
@@ -1084,6 +1103,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1104,6 +1124,7 @@ describe("packs install handler", () => {
                 hook: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1121,7 +1142,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         lockfilePacks: {
           "test-pack": {
             type: "registry",
@@ -1129,7 +1150,7 @@ describe("packs install handler", () => {
             name: "test-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -1175,7 +1196,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide } = makeLayersWithMockSources(mockService);
@@ -1194,7 +1215,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("falls back to file registry when remote registry discovery is unsupported", () => {
+    it.effect("routes unqualified pack input only through the agentxm registry", () => {
       const packRef = makePackRef("effect");
       let attemptedRemote = false;
       let attemptedFile = false;
@@ -1228,7 +1249,7 @@ describe("packs install handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           { type: "registry", name: "remote", location: "http://localhost:4300" },
-          { type: "registry", name: "local", location: "file:///tmp/reg" },
+          { type: "registry", name: "agentxm", location: "file:///tmp/reg" },
         ],
       });
 
@@ -1241,10 +1262,10 @@ describe("packs install handler", () => {
             force: false,
             preview: false,
           });
-          expect(attemptedRemote).toBe(true);
+          expect(attemptedRemote).toBe(false);
           expect(attemptedFile).toBe(true);
           expect(
-            logs.info.some((line) => line.includes("Registry source: local (file:///tmp/reg)")),
+            logs.info.some((line) => line.includes("Registry source: agentxm (file:///tmp/reg)")),
           ).toBe(true);
         }),
       );
@@ -1281,7 +1302,7 @@ describe("packs install handler", () => {
         owner: AXM,
         sources: [
           { type: "registry", name: "remote", location: "http://localhost:4300" },
-          { type: "registry", name: "local", location: "file:///tmp/reg" },
+          { type: "registry", name: "agentxm", location: "file:///tmp/reg" },
         ],
       });
 
@@ -1304,7 +1325,7 @@ describe("packs install handler", () => {
             logs.info.some(
               (line) =>
                 line.includes("Host resolution:") &&
-                line.includes("http://localhost:4300/") &&
+                !line.includes("http://localhost:4300/") &&
                 line.includes("file:///tmp/reg") &&
                 line.includes("matched"),
             ),
@@ -1336,6 +1357,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1356,6 +1378,7 @@ describe("packs install handler", () => {
                 hook: { name: extensionName("lint") },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1376,6 +1399,7 @@ describe("packs install handler", () => {
                 server: { name: extensionName("analytics") },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1393,7 +1417,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
       });
 
       const { provide, logs, rendererState } = makeLayersWithMockSources(mockService);
@@ -1446,6 +1470,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1466,6 +1491,7 @@ describe("packs install handler", () => {
                 hook: { name: extensionName("existing-cmd") },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1483,7 +1509,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         lockfileSkills: {
           "existing-skill": {
             type: "registry",
@@ -1491,7 +1517,7 @@ describe("packs install handler", () => {
             name: "existing-skill",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -1547,6 +1573,7 @@ describe("packs install handler", () => {
                 },
                 source: {
                   type: "registry",
+                  name: "agentxm",
                   location: new URL("file:///tmp/reg"),
                   owner: Option.none(),
                 },
@@ -1563,7 +1590,14 @@ describe("packs install handler", () => {
         },
       };
 
-      const packDir = path.join(tempDir, "agent_extensions", "@acme", "packs", "prune-pack");
+      const packDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "agentxm",
+        "@acme",
+        "packs",
+        "prune-pack",
+      );
       fs.mkdirSync(packDir, { recursive: true });
       const currentManifest = {
         owner: "@acme",
@@ -1578,8 +1612,21 @@ describe("packs install handler", () => {
       fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(currentManifest));
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         settingsPacks: { "prune-pack": "@acme/packs/prune-pack" },
+        lockfileSkills: {
+          "dropped-skill": {
+            type: "registry",
+            owner: ACME,
+            name: "dropped-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "agentxm",
+            publisherBindingId: "hbnd_test",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
         lockfilePacks: {
           "prune-pack": {
             type: "registry",
@@ -1587,7 +1634,7 @@ describe("packs install handler", () => {
             name: "prune-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
             installedAt: new Date().toISOString(),
@@ -1626,15 +1673,15 @@ describe("packs install handler", () => {
           expect(steps.map((step) => step.label)).toEqual(["@acme/packs/prune-pack"]);
           expect(steps[0]?.artifact?.targets).toEqual([
             {
-              path: "agent_extensions/@acme/packs/prune-pack",
+              path: "agent_extensions/agentxm/@acme/packs/prune-pack",
               change: "updated",
             },
             {
-              path: "agent_extensions/@acme/skills/kept-skill",
+              path: "agent_extensions/agentxm/@acme/skills/kept-skill",
               change: "updated",
             },
             {
-              path: "agent_extensions/@acme/skills/dropped-skill",
+              path: "agent_extensions/agentxm/@acme/skills/dropped-skill",
               change: "removed",
             },
           ]);
@@ -1663,6 +1710,7 @@ describe("packs install handler", () => {
       const currentPackDir = path.join(
         tempDir,
         "agent_extensions",
+        "agentxm",
         "@acme",
         "packs",
         "disabled-pack",
@@ -1693,7 +1741,7 @@ describe("packs install handler", () => {
             : Effect.fail(makeAppError({ code: "internal", detail: "Unexpected Pack member" })),
       };
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         settingsPacks: {
           "disabled-pack": { source: "@acme/packs/disabled-pack", enabled: false },
         },
@@ -1710,7 +1758,7 @@ describe("packs install handler", () => {
             name: "disabled-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
             resolvedSkills: {
@@ -1764,7 +1812,14 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const packDir = path.join(tempDir, "agent_extensions", "@acme", "packs", "prune-pack");
+      const packDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "agentxm",
+        "@acme",
+        "packs",
+        "prune-pack",
+      );
       fs.mkdirSync(packDir, { recursive: true });
       const currentManifest = {
         owner: "@acme",
@@ -1776,7 +1831,7 @@ describe("packs install handler", () => {
       fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(currentManifest));
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],
         settingsPacks: { "prune-pack": "@acme/packs/prune-pack" },
         settingsSkills: {
           "dropped-skill": "@acme/skills/dropped-skill",
@@ -1788,7 +1843,7 @@ describe("packs install handler", () => {
             name: "prune-pack",
             resolvedVersion: "1.0.0",
             integrity: "",
-            sourceName: "default",
+            sourceName: "agentxm",
             publisherBindingId: "hbnd_test",
             manifestContentIdentity: computePackManifestContentIdentity(currentManifest),
             installedAt: new Date().toISOString(),

@@ -71,6 +71,7 @@ import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "./workspace/hook-ownership-ambiguous.js";
 import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
+import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
 
 /**
  * Ordered v1 `workspace/*` rule catalog. Declaration order is the evaluation
@@ -89,6 +90,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
   lockfileValidRule,
+  sourceEndpointsAlignedRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,
@@ -133,6 +135,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   settingsSchemaValidRule,
   settingsKeysRecognizedRule,
   lockfileValidRule,
+  sourceEndpointsAlignedRule,
   desiredStateReconcilableRule,
   axmSkillCompatibleRule,
   agentsRecognizedRule,

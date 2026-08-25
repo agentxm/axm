@@ -29,7 +29,7 @@ import {
 import {
   decodeExtensionNameSync,
   extensionTypes,
-  parseRegistrySourcePatternParts,
+  parseSourceQualifiedRegistrySourcePatternParts,
   SourceHashSchema,
   TreeIntegritySchema,
   decodeHandleSync,
@@ -248,7 +248,7 @@ export const makeBaseWorkspaceMock = (
       const nodes = rowsByType.flatMap(({ type, entries }) =>
         entries.map((entry) => {
           const source = entry.source;
-          const parsed = parseRegistrySourcePatternParts(source);
+          const parsed = parseSourceQualifiedRegistrySourcePatternParts(source);
           const identity =
             parsed === undefined ? source : `${parsed.owner}/${parsed.type}/${parsed.name}`;
           return {
@@ -360,8 +360,8 @@ export const makeBaseWorkspaceMock = (
     getLockedSkill: entryFrom(lockedSkills),
     getSkillDir: () =>
       Effect.succeed({
-        canonicalPath: `${axmDir}/extensions/external/skills/test`,
-        skillSrcPath: `${axmDir}/extensions/external/skills/test`,
+        canonicalPath: `${axmDir}/extensions/agentxm/@test/skills/test`,
+        skillSrcPath: `${axmDir}/extensions/agentxm/@test/skills/test/src`,
       }),
     setSkill: () => Effect.void,
     setSkillLock: () => Effect.void,
@@ -377,7 +377,8 @@ export const makeBaseWorkspaceMock = (
     setPackLock: () => Effect.void,
     setPackEntry: () => Effect.void,
     removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
+    getPackDir: () =>
+      Effect.succeed({ canonicalPath: `${axmDir}/extensions/agentxm/@test/packs/test` }),
     getLockedSubagents: lockedSubagents,
     getLockedSubagent: entryFrom(lockedSubagents),
     getConfiguredSubagentEntries: () => Effect.succeed({}),
@@ -447,7 +448,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 5,
+    lockfileVersion: 6,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
@@ -467,6 +468,11 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  packageFormat: "agentxm",
+  extensionType: "skill",
+  workspaceName: decodeExtensionNameSync("installed"),
   packageOwner: decodeHandleSync("@test"),
   packageName: decodeExtensionNameSync("installed"),
   path: decodeRelativePathSync(opts?.path ?? "installed"),
@@ -480,17 +486,23 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  extensionType: "skill",
+  workspaceName: decodeExtensionNameSync(opts.name),
   owner: opts.owner,
   name: decodeExtensionNameSync(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
+  sourceName: opts.sourceName ?? "agentxm",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
@@ -501,16 +513,22 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): McpServerLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  extensionType: "mcp-server",
+  workspaceName: decodeExtensionNameSync(opts.name),
   owner: opts.owner,
   name: decodeExtensionNameSync(opts.name),
   resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "default",
+  sourceName: opts.sourceName ?? "agentxm",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
@@ -521,6 +539,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
+  readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly resolvedSkills?: Readonly<Record<string, unknown>>;
@@ -530,11 +549,16 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
+    sourceType: "registry",
+    packageFormat: "agentxm",
+    endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    extensionType: "pack",
+    workspaceName: decodeExtensionNameSync(opts.name),
     owner: opts.owner,
     name: decodeExtensionNameSync(opts.name),
     resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
-    sourceName: opts.sourceName ?? "default",
+    sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
     manifestContentIdentity:
       opts.sourceHash === undefined

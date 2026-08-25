@@ -36,6 +36,7 @@ import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
@@ -60,11 +61,16 @@ const buildMcpServerLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): McpServerLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "mcp-server",
+  workspaceName: ref.server.name,
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
 });
@@ -228,6 +234,15 @@ export const McpServerManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "mcp-server",
+            name: ref.server.name,
+            ref,
+          }),
+        ),
       getConfiguredSource: Effect.fn("McpServerManager.getConfiguredSource")(function* ({
         target,
       }) {

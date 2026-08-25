@@ -30,8 +30,20 @@ const makeEnv = (fs: FileSystem.FileSystem, path: Path.Path, baseDir: string) =>
   layout: makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm")).layout,
 });
 
+const githubHost = {
+  name: "github",
+  type: "github" as const,
+  url: new URL("https://github.com"),
+};
+
 const writeAcquiredSkill = (baseDir: string) => {
-  const packageRoot = nodePath.join(baseDir, "agent_extensions", "@acme", "skills", "quality");
+  const packageRoot = nodePath.join(
+    baseDir,
+    "agent_extensions",
+    "github",
+    "qualitymd",
+    "quality.md",
+  );
   writeJson(nodePath.join(packageRoot, "skill.json"), {
     owner: "@acme",
     type: "skill",
@@ -153,6 +165,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               lockEntries: {
                 quality: {
                   type: "github",
+                  sourceType: "github",
+                  sourceName: "github",
+                  endpoint: new URL("https://github.com"),
+                  extensionType: "skill",
+                  workspaceName: extensionName("quality"),
+                  packageFormat: "agentxm",
                   packageOwner: handle("@acme"),
                   packageName: extensionName("quality"),
                   owner: "qualitymd",
@@ -163,15 +181,9 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
-              getConfiguredSources: () =>
-                Effect.succeed([
-                  {
-                    name: "github",
-                    type: "github",
-                    url: new URL("https://github.com"),
-                  },
-                ]),
-              getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+              getConfiguredSources: () => Effect.succeed([githubHost]),
+              getConfiguredSourceByName: (name) =>
+                Effect.succeed(name === "github" ? Option.some(githubHost) : Option.none()),
             },
           );
 
@@ -209,6 +221,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               lockEntries: {
                 quality: {
                   type: "github",
+                  sourceType: "github",
+                  sourceName: "github",
+                  endpoint: new URL("https://github.com"),
+                  extensionType: "skill",
+                  workspaceName: extensionName("quality"),
+                  packageFormat: "agentxm",
                   packageOwner: handle("@acme"),
                   packageName: extensionName("quality"),
                   owner: "qualitymd",
@@ -219,15 +237,9 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
-              getConfiguredSources: () =>
-                Effect.succeed([
-                  {
-                    name: "github",
-                    type: "github",
-                    url: new URL("https://github.com"),
-                  },
-                ]),
-              getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+              getConfiguredSources: () => Effect.succeed([githubHost]),
+              getConfiguredSourceByName: (name) =>
+                Effect.succeed(name === "github" ? Option.some(githubHost) : Option.none()),
             },
           );
 

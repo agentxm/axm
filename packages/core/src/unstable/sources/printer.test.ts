@@ -20,6 +20,7 @@ describe("source printers", () => {
     expect(
       printSourceParams({
         type: "github",
+        sourceName: "github",
         owner: "acme",
         repo: "widgets",
         ref: Option.some("main"),
@@ -41,6 +42,12 @@ describe("source printers", () => {
     expect(
       lockEntryToSourceParams({
         type: "github",
+        sourceType: "github",
+        sourceName: "github",
+        endpoint: new URL("https://github.com"),
+        extensionType: "skill",
+        workspaceName: extensionName("review"),
+        packageFormat: "agentxm",
         packageOwner: handle("@acme"),
         packageName: extensionName("review"),
         owner: "acme",
@@ -54,6 +61,7 @@ describe("source printers", () => {
       }),
     ).toEqual({
       type: "github",
+      sourceName: "github",
       owner: "acme",
       repo: "extensions",
       ref: Option.some("main"),
@@ -62,6 +70,11 @@ describe("source printers", () => {
     expect(
       lockEntryToSourceParams({
         type: "local",
+        sourceType: "local",
+        sourceName: "local",
+        extensionType: "skill",
+        workspaceName: extensionName("review"),
+        packageFormat: "agentxm",
         packageOwner: handle("@acme"),
         packageName: extensionName("review"),
         path: "../review",
@@ -75,14 +88,19 @@ describe("source printers", () => {
     expect(
       printSkillLockSourceLocator("ignored", {
         type: "registry",
+        sourceType: "registry",
+        endpoint: new URL("https://registry.agentxm.ai"),
+        extensionType: "skill",
+        workspaceName: extensionName("review"),
+        packageFormat: "agentxm",
         owner: handle("@acme"),
         name: extensionName("review"),
         resolvedVersion: exactVersion("1.2.3"),
         integrity: "sha512-archive",
-        sourceName: "default",
+        sourceName: "agentxm",
         publisherBindingId: "binding-1",
         treeIntegrity,
       }),
-    ).toBe("@acme/skills/review@1.2.3");
+    ).toBe("agentxm:@acme/skills/review@1.2.3");
   });
 });

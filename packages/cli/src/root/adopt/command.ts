@@ -54,6 +54,7 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   const fqn = formatFqn(parsed);
   const sourceDir = path.join(
     ws.layout.acquiredRoot,
+    "agentxm",
     parsed.owner,
     extensionTypeToPlural[parsed.type],
     parsed.name,

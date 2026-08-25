@@ -33,11 +33,8 @@ import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
 } from "../../projection/planning.js";
-import {
-  REGISTRY_EXTENSIONS_DIR,
-  canReuseInstalledPackage,
-  materializeRegistryPackage,
-} from "../../extensions/index.js";
+import { canReuseInstalledPackage, materializeRegistryPackage } from "../../extensions/index.js";
+import { computeExtensionPathsForLayout } from "../../extensions/extension-paths.js";
 import { printSourceParams } from "../../sources/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
@@ -108,11 +105,16 @@ const buildLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): McpServerLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "mcp-server",
+  workspaceName: ref.server.name,
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
 });
@@ -252,13 +254,13 @@ const installFromRegistry = (
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const canonicalPath = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      ref.owner,
+    const canonicalPath = computeExtensionPathsForLayout(
+      path.join,
+      ws.layout,
+      ref,
       "mcps",
       ref.name,
-    );
+    ).canonicalPath;
 
     if (!isPathSafe(path, ws.baseDir, canonicalPath)) {
       return yield* makeAppError({

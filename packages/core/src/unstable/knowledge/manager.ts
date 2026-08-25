@@ -19,7 +19,10 @@ import {
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
+import {
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+} from "../extensions/extension-paths.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
 import {
   computeMaterializedTreeIntegrity,
@@ -32,7 +35,7 @@ import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { KnowledgeMap } from "../settings/index.js";
 import { knowledgeLockEntryToRef, printSourceParams } from "../sources/index.js";
-import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
@@ -48,6 +51,7 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,
+  prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
@@ -122,11 +126,16 @@ const registryLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): KnowledgeLockEntry => ({
   type: "registry",
+  sourceType: "registry",
+  packageFormat: "agentxm",
+  endpoint: ref.source.location,
+  extensionType: "knowledge",
+  workspaceName: ref.knowledge.name,
   owner: ref.owner,
   name: ref.name,
   resolvedVersion: decodeVersionSync(ref.version),
   integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: "default",
+  sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
 });
@@ -138,6 +147,9 @@ const gitLockEntry = (
 ): KnowledgeLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
+    "knowledge",
+    ref.knowledge.name,
+    Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
     contentIdentity,
@@ -154,6 +166,11 @@ const localLockEntry = (
   treeIntegrity: TreeIntegrity,
 ): KnowledgeLockEntry => ({
   type: "local",
+  sourceType: "local",
+  sourceName: "local",
+  extensionType: "knowledge",
+  workspaceName: ref.knowledge.name,
+  packageFormat: "agentxm",
   packageOwner: ref.owner,
   packageName: ref.name,
   path: Option.getOrElse(relativePath, () => ref.source.path),
@@ -472,20 +489,14 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       });
 
-    const canonicalRoot = (name: string, locked: KnowledgeLockEntry): string =>
-      locked.type === "registry"
-        ? path.join(
-            ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
-            locked.owner,
-            KNOWLEDGE_EXTENSION_DIR,
-            locked.name,
-          )
-        : path.join(
-            ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
-            ws.layout.scope === "project" ? locked.packageOwner : "external",
-            KNOWLEDGE_EXTENSION_DIR,
-            ws.layout.scope === "project" ? locked.packageName : name,
-          );
+    const canonicalRoot = (_name: string, locked: KnowledgeLockEntry): string =>
+      computeExtensionPathsForLayout(
+        path.join,
+        ws.layout,
+        extensionPathSourceFromLockEntry(locked),
+        KNOWLEDGE_EXTENSION_DIR,
+        locked.workspaceName,
+      ).canonicalPath;
 
     const desiredCanonicalRoot = (
       node: { readonly name: string; readonly identity: string },
@@ -735,7 +746,6 @@ export const KnowledgeManagerLive = Layer.effect(
           baseDir,
           path,
           scope: ws.scope,
-          getConfiguredSources: ws.getConfiguredSources,
           getConfiguredSourceByName: ws.getConfiguredSourceByName,
         });
         if (ref.refType === "registry" && Option.isNone(ref.integrity)) {
@@ -840,7 +850,11 @@ export const KnowledgeManagerLive = Layer.effect(
             const name = args.ref.knowledge.name;
             const relativeLocalSource =
               args.ref.refType === "local"
-                ? makeWorkspaceRelativeSourcePath(path, baseDir, args.ref.source.path)
+                ? makeWorkspaceRelativeSourcePath(
+                    path,
+                    baseDir,
+                    args.ref.sourcePath ?? stripFileProtocol(args.ref.location),
+                  )
                 : Option.none<string>();
             if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
               return yield* makeAppError({
@@ -848,6 +862,14 @@ export const KnowledgeManagerLive = Layer.effect(
                 detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
               });
             }
+            const cleanupSupersededCanonical = yield* provide(
+              prepareAcceptedCanonicalTransition({
+                workspace: ws,
+                type: "knowledge",
+                name,
+                ref: args.ref,
+              }),
+            );
             const prepared = yield* preparePackage(args.ref);
             const committed = yield* Effect.gen(function* () {
               lastInstallState.set(name, {
@@ -873,6 +895,7 @@ export const KnowledgeManagerLive = Layer.effect(
               } else {
                 yield* setKnowledgeSourceEntry(name, printSourceParams(args.ref.source));
               }
+              yield* cleanupSupersededCanonical;
               return { name };
             });
             if (args.deferProjection !== true) yield* applyKnowledgeProjection;
@@ -969,7 +992,11 @@ export const KnowledgeManagerLive = Layer.effect(
         function* ({ ref, force }) {
           const relativeLocalSource =
             ref.refType === "local"
-              ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
+              ? makeWorkspaceRelativeSourcePath(
+                  path,
+                  baseDir,
+                  ref.sourcePath ?? stripFileProtocol(ref.location),
+                )
               : Option.none<string>();
           if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
             return yield* makeAppError({
@@ -990,6 +1017,15 @@ export const KnowledgeManagerLive = Layer.effect(
         Effect.asVoid,
         Effect.scoped,
       ),
+      prepareSourceTransition: ({ ref }) =>
+        provide(
+          prepareAcceptedCanonicalTransition({
+            workspace: ws,
+            type: "knowledge",
+            name: ref.knowledge.name,
+            ref,
+          }),
+        ),
       getConfiguredSource: ({ target }) =>
         ws
           .getConfiguredKnowledgeEntries()

@@ -1,5 +1,12 @@
 # Software engineering update log
 
+## 2026-08-24
+
+- **Originating evidence**: Strengthened defect-report provenance so multiple
+  occurrences remain individually traceable and monitoring-sourced reports
+  retain canonical occurrence identifiers and controlled-access links without
+  copying unsafe raw evidence.
+
 ## 2026-08-21
 
 - **Operational incidents**: Distinguished impact, service, response,

@@ -60,10 +60,21 @@ and minimum content, not a body ceiling.
    accepted expectation, desired change, and operational impact—not from the
    caller's preferred label. Preserve ambiguous or disputed classification for
    triage rather than fabricating authority.
-3. **Establish the evidence.** Use only supplied or discoverable facts. Do not
-   invent affected users, demand, expected behavior, reproduction, timestamps,
-   severity, priority, ownership, environment, or success measures. Mark an
-   important unknown explicitly and say what would establish it.
+3. **Inventory originating evidence before synthesis.** For every initiating
+   occurrence or other material source, record the source system or type, its
+   stable identifier and controlled-access URL, observation time, relevant
+   project or environment, and safe correlation identifiers when they
+   materially aid retrieval, applying only fields relevant to that source type.
+   Do not add monitoring-specific or tracker-specific fields to an unrelated
+   source. Mark important applicable evidence unavailable when it cannot be
+   recovered; omit inapplicable source-specific fields instead of adding
+   "not applicable" placeholders. Treat an intervening research summary as
+   derived context, not as a replacement for the authoritative source pointer.
+   When creation or revision
+   follows earlier research or a delayed handoff, reopen or re-query each
+   available authoritative source and refresh the inventory before writing.
+   Mark important applicable unavailable fields or sources explicitly; never
+   invent identifiers, timestamps, counts, environments, or links.
 4. **Preserve before prescribing.** When the source already contains findings,
    constraints, decisions or proposals, architecture or code sketches,
    implementation sequence, testing strategy, tradeoffs, or open questions,
@@ -81,16 +92,30 @@ and minimum content, not a body ceiling.
    limits the body. Re-derive an incident brief at every material state change.
 7. **Apply only the authorized external change.** Before filing or updating,
    verify the exact tracker, repository or project, item, fields, and content.
-   Do not assign, prioritize, label, close, comment, or change workflow state
-   unless requested or required by an established local process in scope.
-8. **Verify and hand off.** Compare the final item with all source material.
-   Confirm the guide's final check, an accurate brief, attributed evidence,
+   Carry forward any source-specific handoff requirements discovered while
+   building the inventory even when a generic or tracker-specific workflow
+   performs the write. Do not assign, prioritize, label, close, comment, or
+   change workflow state unless requested or required by an established local
+   process in scope.
+8. **Read back external writes.** After a create or update, retrieve the
+   persisted item through the tracker and treat that readback—not the submitted
+   draft or mutation response—as the verification surface. If readback is
+   unavailable, say so and do not claim persistence was verified.
+9. **Verify and hand off.** Compare the final draft, or the persisted readback
+   after an external write, with the source inventory and all other source
+   material. Every material source must remain individually traceable by its
+   identifier and link or be explicitly marked unavailable. Confirm the
+   selected guide's final check, an accurate brief, attributed evidence,
    visible unknowns and authority states, preserved or linked technical
-   context, and distinct verification conditions and testing strategy. Return
-   the final content or external item identity and name any material the host
-   could not represent.
+   context, and distinct verification conditions and testing strategy. Correct
+   an authorized external item and read it back again when a source identifier
+   or link did not persist. When correction is not authorized, name the needed
+   authorization, the exact persistence correction, and a fresh readback as
+   the remaining sequence. Return the final content or external item identity
+   and name any material the host could not represent.
 
 Completion means the requested draft or external item exists in the right
 artifact class, another reader can understand and act on its evidence without
-interviewing the author, supplied context has not been lost, and no unaccepted
+interviewing the author, every material originating source remains traceable or
+explicitly unavailable, supplied context has not been lost, and no unaccepted
 product, design, delivery, or priority decision has been smuggled into it.

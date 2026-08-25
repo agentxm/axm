@@ -18,23 +18,23 @@ tags:
 status: stable
 sources:
   - id: docs-service
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/03_services/01_service.ts
-    title: Official Effect docs — defining services (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/03_services/01_service.ts
+    title: Official Effect docs — defining services (effect 4.0.0-rc.111)
   - id: docs-layer-composition
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/03_services/20_layer-composition.ts
-    title: Official Effect docs — Layer.provide vs provideMerge (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/03_services/20_layer-composition.ts
+    title: Official Effect docs — Layer.provide vs provideMerge (effect 4.0.0-rc.111)
   - id: docs-layer-unwrap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/03_services/20_layer-unwrap.ts
-    title: Official Effect docs — choosing an implementation with Layer.unwrap (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/03_services/20_layer-unwrap.ts
+    title: Official Effect docs — choosing an implementation with Layer.unwrap (effect 4.0.0-rc.111)
   - id: docs-run-main
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/06_running/10_run-main.ts
-    title: Official Effect docs — running programs with runMain and Layer.launch (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/06_running/10_run-main.ts
+    title: Official Effect docs — running programs with runMain and Layer.launch (effect 4.0.0-rc.111)
   - id: src-layer
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Layer.ts
-    title: Layer module source — memoization, fresh, provide, launch (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Layer.ts
+    title: Layer module source — memoization, fresh, provide, launch (effect 4.0.0-rc.111)
   - id: src-context
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Context.ts
-    title: Context module source — Service, Reference, key identity (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Context.ts
+    title: Context module source — Service, Reference, key identity (effect 4.0.0-rc.111)
   - id: applied-effect-http-recorder
     resource: https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/cassette/store.ts
     title: effect-http-recorder@89e1b85 — one service key with filesystem and in-memory layers
@@ -45,20 +45,20 @@ sources:
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/opencode/src/effect/app-runtime.ts
     title: opencode@2cba7e2 — composition root handed to ManagedRuntime
   - id: src-internal-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/internal/effect.ts
-    title: Effect runtime internals — runPromise throws causeSquash, and causeSquash's Fail/Die/Interrupt precedence (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/internal/effect.ts
+    title: Effect runtime internals — runPromise throws causeSquash, and causeSquash's Fail/Die/Interrupt precedence (effect 4.0.0-rc.111)
   - id: src-cause
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Cause.ts
-    title: Cause module source — squash as the lossy destructor the runners use (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Cause.ts
+    title: Cause module source — squash as the lossy destructor the runners use (effect 4.0.0-rc.111)
   - id: src-runtime
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Runtime.ts
-    title: Runtime module source — makeRunMain accepts any E and is built to report it (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Runtime.ts
+    title: Runtime module source — makeRunMain accepts any E and is built to report it (effect 4.0.0-rc.111)
   - id: src-http-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpEffect.ts
-    title: HttpEffect source — toHandled drives E to never before runForkWith (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpEffect.ts
+    title: HttpEffect source — toHandled drives E to never before runForkWith (effect 4.0.0-rc.111)
   - id: src-http-server-error
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpServerError.ts
-    title: HttpServerError source — causeResponse handles Fail, Die, and Interrupt separately, 499 versus 503 (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpServerError.ts
+    title: HttpServerError source — causeResponse handles Fail, Die, and Interrupt separately, 499 versus 503 (effect 4.0.0-rc.111)
   - id: applied-opencode-bridge
     resource: https://github.com/anomalyco/opencode/blob/65c35977bd564e23c0e9cf124b3e3e3b9308e9e8/packages/opencode/src/effect/bridge.ts
     title: opencode@65c3597 — a generic runPromise over arbitrary E beside a runPromiseExit sibling in the same object
@@ -77,13 +77,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-services-and-layers/src/SKILL.md
     title: effect-v4-services-and-layers skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:10:36Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:10:36Z
   - by: claude/opus-5
     at: 2026-08-17T22:10:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Services and layers
@@ -162,7 +164,7 @@ const UsersLive = Layer.effect(
 
 - Use scoped construction for clients, pools, servers, subscriptions, and
   other acquired resources: acquire with `Effect.acquireRelease` inside
-  `Layer.effect`, whose scope owns the finalizer. rc.110 has no separate
+  `Layer.effect`, whose scope owns the finalizer. rc.111 has no separate
   `Layer.scoped` constructor.[^src-layer]
 - Rely on layer memoization for shared instances: reusing the same layer value
   shares one acquisition. Use `Layer.fresh` only when independent acquisition
@@ -253,31 +255,31 @@ serialized `Exit` — is owned by [Wrapping](wrapping.md).
   real error type.
 - Production and test implementations substitute through the same service key.
 
-[^src-context]: `Context.Service`, `Context.Reference`, and key identity: `packages/effect/src/Context.ts` at `effect@4.0.0-rc.110`.
+[^src-context]: `Context.Service`, `Context.Reference`, and key identity: `packages/effect/src/Context.ts` at `effect@4.0.0-rc.111`.
 
-[^src-layer]: Scoped construction, memoization, and `Layer.fresh`: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.110`; `Layer.effect` erases `Scope` from the construction effect's requirements and runs it in the layer scope.
+[^src-layer]: Scoped construction, memoization, and `Layer.fresh`: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.111`; `Layer.effect` erases `Scope` from the construction effect's requirements and runs it in the layer scope.
 
-[^docs-service]: `ai-docs/src/01_effect/03_services/01_service.ts` at `effect@4.0.0-rc.110`.
+[^docs-service]: `ai-docs/src/01_effect/03_services/01_service.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-layer-composition]: `ai-docs/src/01_effect/03_services/20_layer-composition.ts` at `effect@4.0.0-rc.110`.
+[^docs-layer-composition]: `ai-docs/src/01_effect/03_services/20_layer-composition.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.110`.
+[^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-run-main]: `ai-docs/src/01_effect/06_running/10_run-main.ts` at `effect@4.0.0-rc.110`; `Layer.launch` at `packages/effect/src/Layer.ts`.
+[^docs-run-main]: `ai-docs/src/01_effect/06_running/10_run-main.ts` at `effect@4.0.0-rc.111`; `Layer.launch` at `packages/effect/src/Layer.ts`.
 
 [^applied-effect-http-recorder]: Observed in effect-http-recorder@89e1b85 `src/cassette/store.ts` (effect 4.0.0-beta.83).
 
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/opencode/src/effect/app-runtime.ts` (effect 4.0.0-beta.83).
 
-[^src-internal-effect]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `runPromiseWith` resolves the exit and, on `Failure`, `throw causeSquash(exit.cause)` (:5475-5488); `causeSquash` (:299-308) partitions the cause and returns `Fail[0].error`, else `Die[0].defect`, else `new Error("All fibers interrupted without error")`, else `new Error("Empty cause")`. Its return type is `unknown`.
+[^src-internal-effect]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.111` — `runPromiseWith` resolves the exit and, on `Failure`, `throw causeSquash(exit.cause)` (:5475-5488); `causeSquash` (:299-308) partitions the cause and returns `Fail[0].error`, else `Die[0].defect`, else `new Error("All fibers interrupted without error")`, else `new Error("Empty cause")`. Its return type is `unknown`.
 
-[^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.110` — `squash` (:736) is `effect.causeSquash`; its own docstring points at `prettyErrors` as the "non-lossy conversion".
+[^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.111` — `squash` (:736) is `effect.causeSquash`; its own docstring points at `prettyErrors` as the "non-lossy conversion".
 
-[^src-runtime]: `packages/effect/src/Runtime.ts` at `effect@4.0.0-rc.110` — `makeRunMain` (:181) is generic in `<E, A>` and returns a function accepting `Effect<A, E>`; error reporting is on by default and suppressed only with `disableErrorReporting`.
+[^src-runtime]: `packages/effect/src/Runtime.ts` at `effect@4.0.0-rc.111` — `makeRunMain` (:181) is generic in `<E, A>` and returns a function accepting `Effect<A, E>`; error reporting is on by default and suppressed only with `disableErrorReporting`.
 
-[^src-http-effect]: `packages/effect/src/unstable/http/HttpEffect.ts` at `effect@4.0.0-rc.110` — `toHandled` (:36) returns `Effect<void, never, Exclude<R | RH | HttpServerRequest, Scope>>` (:43) after `Effect.matchCauseEffect` (:68) routes every cause through `causeResponse`; the web handler forks the already-exhausted app with `Effect.runForkWith(reqContext)(httpApp)` (:261).
+[^src-http-effect]: `packages/effect/src/unstable/http/HttpEffect.ts` at `effect@4.0.0-rc.111` — `toHandled` (:36) returns `Effect<void, never, Exclude<R | RH | HttpServerRequest, Scope>>` (:43) after `Effect.matchCauseEffect` (:68) routes every cause through `causeResponse`; the web handler forks the already-exhausted app with `Effect.runForkWith(reqContext)(httpApp)` (:261).
 
-[^src-http-server-error]: `packages/effect/src/unstable/http/HttpServerError.ts` at `effect@4.0.0-rc.110` — `causeResponse` (:283) switches over `reason._tag` for `Fail`, `Die` (with a special case for a `HttpServerResponse` thrown as a defect), and `Interrupt`, and maps a pure interrupt to `clientAbortError` (499) or `serverAbortError` (503) depending on the `ClientAbort` annotation (:320, :359-360).
+[^src-http-server-error]: `packages/effect/src/unstable/http/HttpServerError.ts` at `effect@4.0.0-rc.111` — `causeResponse` (:283) switches over `reason._tag` for `Fail`, `Die` (with a special case for a `HttpServerResponse` thrown as a defect), and `Interrupt`, and maps a pure interrupt to `clientAbortError` (499) or `serverAbortError` (503) depending on the `ClientAbort` annotation (:320, :359-360).
 
 [^applied-opencode-bridge]: Observed in opencode@65c3597 `packages/opencode/src/effect/bridge.ts` (effect 4.0.0-beta.83) — `promise: <A, E, R>(effect) => … Effect.runPromise(wrap(effect))` (:65) squashes arbitrary `E` for every caller, while the sibling `run` (:68-76) uses `Effect.runPromiseExit` and resumes with `Effect.failCause(exit.cause)`.
 

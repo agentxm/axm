@@ -51,7 +51,7 @@ sources:
     title: Khatib et al. — What Makes a Good Bug Report for an AI Agent?
 generated:
   by: codex/gpt-5
-  at: 2026-08-21T21:48:03Z
+  at: 2026-08-24T17:13:27Z
 ---
 
 # Recording defect reports
@@ -108,13 +108,23 @@ of asserting that two reports are identical.
 
 Record what the host does not already preserve reliably:
 
-- source type and observation or discovery time;
+- source system or type and observation or discovery time;
+- stable source or occurrence identifier and controlled-access URL;
 - reporter or issuing role when relevant;
 - discovery activity, such as production use, support, monitoring, dynamic
   test, static analysis, inspection, or review;
 - authoritative source or occurrence link; and
 - whether each important statement was observed, reported, measured,
   inferred, or hypothesized.
+
+Keep each material occurrence individually traceable when several observations
+support one defect report. For monitoring-sourced defects, retain the canonical
+occurrence identifier and link, relevant project and environment, and only the
+safe correlation identifiers that materially help retrieval. If an important
+field or source that applies to the defect cannot be recovered, mark it
+unavailable rather than inventing or silently omitting it. Omit fields that do
+not apply to the source type instead of adding source-specific "not
+applicable" placeholders.
 
 ISTQB's typical defect-report contents include the observation date, author or
 issuing organization, test object, environment, context, status, and related
@@ -233,6 +243,10 @@ Attach or link the smallest useful evidence. Redact secrets, personal data,
 private customer content, and unrelated records before sharing. Preserve raw
 restricted evidence only in an approved controlled location.
 
+Prefer a stable controlled-access source link over copying raw logs, request
+bodies, event content, or other evidence whose sensitivity and relevance are
+harder to preserve safely.
+
 When a person or authorized coding agent can execute the evidence, prefer:
 
 - a minimal reproducer, runnable command, or failing test;
@@ -319,7 +333,10 @@ One or two sentences: what differs from the expectation and why it matters.
 ### Source and provenance
 
 - Observed or discovered:
-- Source or discovery activity:
+- Source system or discovery activity:
+- Stable source or occurrence identifier and URL:
+- Relevant project or environment:
+- Safe correlation identifiers, when materially useful:
 - Reporter or issuing role:
 - Authoritative occurrence or evidence link:
 
@@ -425,6 +442,8 @@ behavioral conditions above.
 - The artifact uses the correct public, private, or incident-response channel.
 - The report is visibly an occurrence, canonical defect report, duplicate, or
   related regression; source evidence remains traceable.
+- For a monitoring-sourced defect, each material occurrence's canonical
+  identifier and link are present, or their unavailability is explicit.
 - The title and summary say what differs and why it matters without asserting
   an unconfirmed cause.
 - The expectation has a stated basis or visible uncertainty.

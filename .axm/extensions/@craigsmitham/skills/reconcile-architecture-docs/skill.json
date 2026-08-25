@@ -2,19 +2,23 @@
   "$schema": "https://axm.sh/schemas/skill.schema.json",
   "owner": "@craigsmitham",
   "type": "skill",
-  "name": "maintain-architecture-docs",
-  "version": "0.2.0",
-  "description": "Review and maintain architecture docs through evidence-aware repair and user-authorized semantic lifecycle decisions",
+  "name": "reconcile-architecture-docs",
+  "version": "0.3.0",
+  "description": "Assess and reconcile profile-conforming architecture docs, required system context, ADRs, and constraints through evidence-aware repair and authorized semantic changes",
   "keywords": [
     "software-architecture",
     "architecture-docs",
     "architecture-documentation",
+    "reconciliation",
     "maintenance",
     "review",
-    "reconciliation",
     "drift",
     "pruning",
     "lifecycle",
+    "ownership",
+    "architecture-decisions",
+    "assurance",
+    "architecture-constraints",
     "semantic-delta",
     "stable-identity",
     "documentation"
@@ -22,7 +26,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/maintain-architecture-docs"
+    "directory": ".axm/extensions/@craigsmitham/skills/reconcile-architecture-docs"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",

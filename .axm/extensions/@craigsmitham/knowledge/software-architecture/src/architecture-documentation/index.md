@@ -1,7 +1,8 @@
 # Architecture documentation
 
-A human-first pattern and application profile for maintaining a concise
-semantic delta over authoritative repository and live sources.
+A human-first pattern and strict application profile for maintaining a concise
+semantic delta with required system context and conditionally admitted atomic
+architecture concepts over authoritative repository and live sources.
 
 ## Understand the approach
 
@@ -17,5 +18,5 @@ semantic delta over authoritative repository and live sources.
 
 ## Apply the OKF application profile
 
-- [Software architecture docs application profile for OKF v0.2](software-architecture-application-profile.md) - The application profile for representing demand and value, goal-oriented behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in a set of OKF v0.2 software architecture docs.
+- [Software architecture docs application profile for OKF v0.2](software-architecture-application-profile.md) - The application profile for representing required system context, decisions, constraints, demand and value, behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in OKF v0.2 software architecture docs.
 - [Minimal conforming architecture corpus](minimal-conforming-architecture-corpus.md) - A complete synthetic OKF corpus and dated manual report demonstrating the smallest nontrivial adoption of the software architecture docs profile.

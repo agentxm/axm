@@ -10,7 +10,7 @@ verify the result. Each guide opens with the conditions it applies to and what
 it deliberately leaves alone, so you can route from a symptom rather than a
 topic.
 
-Guidance targets **Effect 4.0.0-rc.110**. Guides that make version-specific API
+Guidance targets **Effect 4.0.0-rc.111**. Guides that make version-specific API
 claims mark them inline; the rest describe design decisions that outlast a
 prerelease. Effect v3 conventions do not carry forward and are not documented
 here.
@@ -23,7 +23,7 @@ this bundle does not yet contain.
 
 Every per-claim footnote resolves to the most pinned form that exists, in this
 order: an immutable permalink carrying a tag or commit (Effect source at
-`effect@4.0.0-rc.110`, applied references at a revision); a versioned publisher
+`effect@4.0.0-rc.111`, applied references at a revision); a versioned publisher
 doc URL where the publisher versions its docs; and only where neither exists, a
 live URL. Live entries additionally carry `author` and `last_modified` so their
 recency is visible — for pinned entries the tag or version is that signal. The
@@ -31,6 +31,20 @@ Effect v4 API reference is not version-pinned, so guides link it once as a
 browsable route rather than citing it per claim.
 
 The `craft-effect-v4` skill routes work through these guides.
+
+## Evidence ceiling and refresh policy
+
+A machine `verified` event means the guide's claims were checked against its
+cited sources at the recorded time. It is not independent behavioral evidence,
+an audit or release approval, or a compatibility promise for another Effect
+version. Applied-project citations show that a pattern was observed in that
+revision; they do not make the pattern universal.
+
+When the target Effect tag changes, compare the upstream tags before repinning.
+Re-review every guide that cites a changed source or test, spot-check unchanged
+pins, record material deltas in [the update log](log.md), and rerun the routing
+skill's exact-target evaluation suite. A newer prerelease existing by itself is
+a review trigger, not permission to rename evidence mechanically.
 
 ## Model data
 
@@ -46,9 +60,10 @@ The `craft-effect-v4` skill routes work through these guides.
   or schemas encode nullish fields.
 - [Collections](collections.md) - Choosing among Array, Chunk, Record, and
   HashMap; use for unsafe indexing, value-based keys, or multi-pass array code.
-- [Date and time](date-and-time.md) - Choosing the instant carrier, the boundary
-  transform, and where "now" comes from; use when Date leaks through the domain,
-  timestamps decode inconsistently per driver, or tests cannot control time.
+- [Date and time](date-and-time.md) - Choosing scoped date/time representations,
+  boundary transforms, and where "now" comes from; use when Date leaks through
+  an Effect domain, timestamps decode inconsistently, or tests cannot control
+  time.
 - [Optics](optics.md) - Reusable immutable reads and updates; use when nested
   paths repeat, updates target optional data or union variants, or focus logic
   should compose across modules.

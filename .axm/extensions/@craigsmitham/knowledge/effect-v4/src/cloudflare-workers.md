@@ -20,35 +20,35 @@ tags:
 status: stable
 sources:
   - id: src-sql-d1
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/d1/src/D1Client.ts
-    title: "@effect/sql-d1 source — D1 binding object adapted into SqlClient layers (4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/d1/src/D1Client.ts
+    title: "@effect/sql-d1 source — D1 binding object adapted into SqlClient layers (4.0.0-rc.111)"
   - id: src-sql-sqlite-do
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/sqlite-do/src/SqliteClient.ts
-    title: "@effect/sql-sqlite-do source — Durable Object SQLite integration (4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/sqlite-do/src/SqliteClient.ts
+    title: "@effect/sql-sqlite-do source — Durable Object SQLite integration (4.0.0-rc.111)"
   - id: docs-managed-runtime
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/04_integration/10_managed-runtime.ts
-    title: Official Effect docs — ManagedRuntime with a shared memo map from a foreign host (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/04_integration/10_managed-runtime.ts
+    title: Official Effect docs — ManagedRuntime with a shared memo map from a foreign host (effect 4.0.0-rc.111)
   - id: src-effect-trypromise
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — Effect.tryPromise with AbortSignal (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — Effect.tryPromise with AbortSignal (effect 4.0.0-rc.111)
   - id: src-otlp-exporter
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/observability/OtlpExporter.ts
-    title: OtlpExporter source — scope finalizer performs the final export; Flusher registry is deregistered on close (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/observability/OtlpExporter.ts
+    title: OtlpExporter source — scope finalizer performs the final export; Flusher registry is deregistered on close (effect 4.0.0-rc.111)
   - id: src-otlp-tracer
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/observability/OtlpTracer.ts
-    title: OtlpTracer source — default shutdownTimeout of 3 seconds (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/observability/OtlpTracer.ts
+    title: OtlpTracer source — default shutdownTimeout of 3 seconds (effect 4.0.0-rc.111)
   - id: src-otlp-layers
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/observability/Otlp.ts
-    title: Otlp source — combined layers annotated Layer.Layer<never, …> (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/observability/Otlp.ts
+    title: Otlp source — combined layers annotated Layer.Layer<never, …> (effect 4.0.0-rc.111)
   - id: src-layer-variance
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Layer.ts
-    title: Layer source — Layer is contravariant in ROut (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Layer.ts
+    title: Layer source — Layer is contravariant in ROut (effect 4.0.0-rc.111)
   - id: src-scope-close
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/internal/effect.ts
-    title: Scope internals — scopeCloseUnsafe returns early once the scope is Closed (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/internal/effect.ts
+    title: Scope internals — scopeCloseUnsafe returns early once the scope is Closed (effect 4.0.0-rc.111)
   - id: test-otlp-exporter
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/unstable/observability/OtlpExporter.test.ts
-    title: OtlpExporter tests — scope close exports once, and a later flush is a no-op (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/unstable/observability/OtlpExporter.test.ts
+    title: OtlpExporter tests — scope close exports once, and a later flush is a no-op (effect 4.0.0-rc.111)
   - id: cf-docs-waituntil
     resource: https://developers.cloudflare.com/workers/runtime-apis/context/
     title: Cloudflare Workers docs — ExecutionContext.waitUntil semantics
@@ -97,13 +97,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-cloudflare-workers/src/SKILL.md
     title: effect-v4-cloudflare-workers skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:10:36Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:10:36Z
   - by: claude/fable-5
     at: 2026-08-17T20:05:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Cloudflare Workers
@@ -199,11 +201,15 @@ drive a deployment decision.
 - Build exporters into the request scope, never the isolate scope. A Worker's
   module scope is never finalized, so batching fibers and flush finalizers
   attached there never run.[^applied-alchemy-telemetry]
-- Yield one macrotask before closing. HTTP middleware ends the request's root
-  span in a dispatcher task scheduled _after_ the handler effect resolves; close
-  immediately and that span never reaches the exporter's buffer. The same
-  build → run → yield → close ordering holds on platforms with no `waitUntil` at
-  all.[^applied-alchemy-worker-bridge] [^applied-alchemy-do-bridge] [^applied-alchemy-lambda]
+- If the selected HTTP or telemetry stack ends the request's root span in a
+  dispatcher task scheduled after the handler effect resolves, yield one
+  macrotask before closing the request scope; otherwise the span may miss the
+  exporter's buffer. Verify this scheduling behavior in the installed stack.
+  The build → run → yield → close ordering is observed in one shared Alchemy
+  implementation lineage across Workers, Durable Objects, and Lambda; that is
+  evidence for the conditional, not a universal platform rule.
+  [^applied-alchemy-worker-bridge] [^applied-alchemy-do-bridge]
+  [^applied-alchemy-lambda]
 - Effectively disable periodic export per event — set the interval far beyond any
   plausible invocation. An interval export firing mid-event races the close: the
   batch is already spliced out of the buffer when the close interrupts it, so it
@@ -259,31 +265,32 @@ drive a deployment decision.
 - Post-response work — including an awaited isolate-level build — is pinned to
   the invocation's own `ExecutionContext`.
 - Telemetry is built into the request scope, and that scope is closed exactly
-  once from post-response work, after one macrotask, unless it was ejected.
+  once from post-response work unless it was ejected; a pre-close macrotask
+  yield is included only when verified scheduling requires it.
 - Periodic export intervals are effectively disabled per event.
 - `waitUntil` is bounded, observed, and not treated as durable execution.
 - Compatibility flags, startup work, bundle size, and provider capacity are
   verified against current Cloudflare behavior.
 
-[^src-sql-d1]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.110` — the official layer takes the `D1Database` binding object directly.
+[^src-sql-d1]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.111` — the official layer takes the `D1Database` binding object directly.
 
-[^src-sql-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.110`.
+[^src-sql-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.111`.
 
-[^src-effect-trypromise]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `tryPromise`'s callback receives an `AbortSignal`.
+[^src-effect-trypromise]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `tryPromise`'s callback receives an `AbortSignal`.
 
-[^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.110`.
+[^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.111`.
 
-[^src-otlp-exporter]: `packages/effect/src/unstable/observability/OtlpExporter.ts` at `effect@4.0.0-rc.110` — `make` registers a `Scope.addFinalizer` (line 238) that forks a final `runExport` and awaits it under `Effect.timeoutOption(shutdownTimeout)`; `layerFlusher.register` (line 142) adds a finalizer deleting the exporter from the flush registry; `runExport` splices `buffer` before the HTTP call, so an interrupted in-flight batch is unrecoverable.
+[^src-otlp-exporter]: `packages/effect/src/unstable/observability/OtlpExporter.ts` at `effect@4.0.0-rc.111` — `make` registers a `Scope.addFinalizer` (line 238) that forks a final `runExport` and awaits it under `Effect.timeoutOption(shutdownTimeout)`; `layerFlusher.register` (line 142) adds a finalizer deleting the exporter from the flush registry; `runExport` splices `buffer` before the HTTP call, so an interrupted in-flight batch is unrecoverable.
 
-[^src-otlp-tracer]: `packages/effect/src/unstable/observability/OtlpTracer.ts` at `effect@4.0.0-rc.110` — `shutdownTimeout: options.shutdownTimeout ?? Duration.seconds(3)` (line 89).
+[^src-otlp-tracer]: `packages/effect/src/unstable/observability/OtlpTracer.ts` at `effect@4.0.0-rc.111` — `shutdownTimeout: options.shutdownTimeout ?? Duration.seconds(3)` (line 89).
 
-[^src-otlp-layers]: `packages/effect/src/unstable/observability/Otlp.ts` at `effect@4.0.0-rc.110` — `layer` (line 52), `layerJson` (146), and `layerProtobuf` (172) each return `Layer.Layer<never, never, …>`.
+[^src-otlp-layers]: `packages/effect/src/unstable/observability/Otlp.ts` at `effect@4.0.0-rc.111` — `layer` (line 52), `layerJson` (146), and `layerProtobuf` (172) each return `Layer.Layer<never, never, …>`.
 
-[^src-layer-variance]: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.110` — `interface Layer<in ROut, out E = never, out RIn = never>` (line 54); `ROut` is contravariant, so a `never` annotation is a legal widening that erases the services actually provided.
+[^src-layer-variance]: `packages/effect/src/Layer.ts` at `effect@4.0.0-rc.111` — `interface Layer<in ROut, out E = never, out RIn = never>` (line 54); `ROut` is contravariant, so a `never` annotation is a legal widening that erases the services actually provided.
 
-[^src-scope-close]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `scopeCloseUnsafe` returns immediately when `state._tag === "Closed"`, and finalizers run LIFO.
+[^src-scope-close]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.111` — `scopeCloseUnsafe` returns immediately when `state._tag === "Closed"`, and finalizers run LIFO.
 
-[^test-otlp-exporter]: `packages/effect/test/unstable/observability/OtlpExporter.test.ts` at `effect@4.0.0-rc.110` — "deregisters an exporter when its scope closes" (line 418): `Scope.close` produces exactly one export attempt, and a subsequent `flusher.flush` leaves the count unchanged.
+[^test-otlp-exporter]: `packages/effect/test/unstable/observability/OtlpExporter.test.ts` at `effect@4.0.0-rc.111` — "deregisters an exporter when its scope closes" (line 418): `Scope.close` produces exactly one export attempt, and a subsequent `flusher.flush` leaves the count unchanged.
 
 [^cf-docs-waituntil]: Cloudflare Workers ExecutionContext documentation.
 
@@ -299,7 +306,7 @@ drive a deployment decision.
 
 [^applied-alchemy-do-bridge]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/DurableObjectBridge.ts` (effect 4.0.0-rc.110) — same ordering at lines 149 and 166-173, with `state.waitUntil` as the pin.
 
-[^applied-alchemy-lambda]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/AWS/Lambda/Function.ts` (effect 4.0.0-rc.110) — identical macrotask-then-close ordering at lines 883-900 on a platform with no `waitUntil`, which is what shows the ordering is about exporter buffers, not about Cloudflare.
+[^applied-alchemy-lambda]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/AWS/Lambda/Function.ts` (effect 4.0.0-rc.110) — identical macrotask-then-close ordering at lines 883-900 on a platform with no `waitUntil`; this supports that implementation lineage's exporter-buffer rationale but is not independent evidence of a universal ordering rule.
 
 [^applied-alchemy-telemetry]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Telemetry.ts` (effect 4.0.0-rc.110) — the per-event exporter layer sets `exportInterval: "1 hour"` (lines 384-395) with the race written out in the comment, and `buildEventTelemetry` (line 686) builds into the request scope rather than the never-finalized isolate scope.
 

@@ -6,23 +6,23 @@ tags: [effect, effect-v4, http-client, fetch, requests, retry, decoding, outboun
 status: stable
 sources:
   - id: docs-http-client-basics
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/50_http-client/10_basics.ts
-    title: Official Effect docs — HttpClient service with mapRequest, filterStatusOk, retryTransient, schema decode (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/50_http-client/10_basics.ts
+    title: Official Effect docs — HttpClient service with mapRequest, filterStatusOk, retryTransient, schema decode (effect 4.0.0-rc.111)
   - id: src-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpClient.ts
-    title: HttpClient source — service key, transforms, retryTransient transient set, make (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpClient.ts
+    title: HttpClient source — service key, transforms, retryTransient transient set, make (effect 4.0.0-rc.111)
   - id: src-http-client-request
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpClientRequest.ts
-    title: HttpClientRequest source — constructors, prependUrl, auth, body encoders (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpClientRequest.ts
+    title: HttpClientRequest source — constructors, prependUrl, auth, body encoders (effect 4.0.0-rc.111)
   - id: src-fetch-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/FetchHttpClient.ts
-    title: FetchHttpClient source — layer, Fetch reference, RequestInit service (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/FetchHttpClient.ts
+    title: FetchHttpClient source — layer, Fetch reference, RequestInit service (effect 4.0.0-rc.111)
   - id: src-http-client-error
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpClientError.ts
-    title: HttpClientError source — one tagged error with a reason union (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpClientError.ts
+    title: HttpClientError source — one tagged error with a reason union (effect 4.0.0-rc.111)
   - id: src-node-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/platform/node/src/NodeHttpClient.ts
-    title: NodeHttpClient source — layerUndici and layerNodeHttp platform layers (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/platform/node/src/NodeHttpClient.ts
+    title: NodeHttpClient source — layerUndici and layerNodeHttp platform layers (effect 4.0.0-rc.111)
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/core/src/effect/app-node-platform.ts
     title: opencode@2cba7e2 — one shared HttpClient service provided once in the core layer group
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/http/recorder.ts
     title: effect-http-recorder@89e1b85 — record/replay layer substituting the HttpClient service key
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:20:51Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:20:51Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # HTTP client
@@ -192,17 +194,17 @@ class Todos extends Context.Service<
   `fetch` or hitting the network.
 - API names have been verified against the installed `unstable/http` version.
 
-[^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.110` — `HttpClient` service key, `mapRequest`, `filterStatusOk`, `retryTransient` (transient = timeout, `TransportError`, status 408/429/500/502/503/504), `make`.
+[^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.111` — `HttpClient` service key, `mapRequest`, `filterStatusOk`, `retryTransient` (transient = timeout, `TransportError`, status 408/429/500/502/503/504), `make`.
 
-[^src-fetch-http-client]: `packages/effect/src/unstable/http/FetchHttpClient.ts` at `effect@4.0.0-rc.110`; `@effect/platform-bun` `BunHttpClient.ts` re-exports this module.
+[^src-fetch-http-client]: `packages/effect/src/unstable/http/FetchHttpClient.ts` at `effect@4.0.0-rc.111`; `@effect/platform-bun` `BunHttpClient.ts` re-exports this module.
 
-[^src-node-http-client]: `packages/platform/node/src/NodeHttpClient.ts` at `effect@4.0.0-rc.110` — `layerUndici`/`layerDispatcher`, `layerNodeHttp`/`layerAgent`.
+[^src-node-http-client]: `packages/platform/node/src/NodeHttpClient.ts` at `effect@4.0.0-rc.111` — `layerUndici`/`layerDispatcher`, `layerNodeHttp`/`layerAgent`.
 
-[^src-http-client-error]: `packages/effect/src/unstable/http/HttpClientError.ts` at `effect@4.0.0-rc.110` — `HttpClientError` with `reason: HttpClientErrorReason` (`TransportError`, `EncodeError`, `InvalidUrlError`, `StatusCodeError`, `DecodeError`, `EmptyBodyError`).
+[^src-http-client-error]: `packages/effect/src/unstable/http/HttpClientError.ts` at `effect@4.0.0-rc.111` — `HttpClientError` with `reason: HttpClientErrorReason` (`TransportError`, `EncodeError`, `InvalidUrlError`, `StatusCodeError`, `DecodeError`, `EmptyBodyError`).
 
-[^docs-http-client-basics]: `ai-docs/src/50_http-client/10_basics.ts` at `effect@4.0.0-rc.110`.
+[^docs-http-client-basics]: `ai-docs/src/50_http-client/10_basics.ts` at `effect@4.0.0-rc.111`.
 
-[^src-http-client-request]: `packages/effect/src/unstable/http/HttpClientRequest.ts` at `effect@4.0.0-rc.110` — `bodyJson`, `bodyJsonUnsafe`, `schemaBodyJson`, `basicAuth`, `bearerToken`.
+[^src-http-client-request]: `packages/effect/src/unstable/http/HttpClientRequest.ts` at `effect@4.0.0-rc.111` — `bodyJson`, `bodyJsonUnsafe`, `schemaBodyJson`, `basicAuth`, `bearerToken`.
 
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/effect/app-node-platform.ts` (effect 4.0.0-beta.83).
 

@@ -10,7 +10,8 @@
         "Expected and actual behavior are stated separately and the expectation cites the supplied specification.",
         "Build and browser evidence are preserved without invented environment details or impact.",
         "The serializer cause remains explicitly unconfirmed and the brief reflects the discrepancy."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 2,
@@ -21,7 +22,8 @@
         "CSV is visibly optional unless the supplied need makes that format mandatory.",
         "Demand is not generalized beyond the single customer note.",
         "The item does not imply accepted requirements, priority, design, or implementation authorization."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 3,
@@ -32,7 +34,8 @@
         "14:32 UTC mitigation and restoration evidence are distinguished from unknown root cause.",
         "The 14:10 hypothesis remains in the timeline and is not rewritten as fact or deleted.",
         "Permanent correction and post-incident work remain separate follow-up artifacts."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 4,
@@ -43,7 +46,8 @@
         "The summary says what is wrong and why it matters without adding unsupported facts.",
         "No scope, priority, owner, acceptance criterion, status, or proposed fix is introduced.",
         "The response makes clear that only the brief changed."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 5,
@@ -54,7 +58,8 @@
         "Missing accepted behavior, performance threshold, and design are named.",
         "No file-by-file tasks, estimates, priority, or implementation authorization are produced.",
         "The response identifies the next decision or workflow needed without inventing it."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 6,
@@ -65,7 +70,8 @@
         "The accepted transport and command adapter responsibilities, illustrative interface sketch, and three-step sequence are all preserved rather than compressed into a generic proposed fix.",
         "The four testing layers remain distinct from the behavioral verification conditions.",
         "The logging question remains unresolved, and no supplied design detail is treated as authorization to implement or create child tasks."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 7,
@@ -76,7 +82,8 @@
         "No root cause, architecture, code sketch, implementation sequence, testing strategy, tradeoff, or decision is invented.",
         "The report does not add empty technical-context headings merely because the guide permits them.",
         "Behavioral verification conditions cover the original failing case without prescribing a mechanism."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 8,
@@ -87,7 +94,8 @@
         "The issue contains a concise design-status synopsis and the authoritative document link rather than a divergent copy.",
         "Both options and tradeoffs are retained, option B remains a recommendation, and no accepted decision is claimed.",
         "The presence of a detailed external design does not silently create implementation tasks or delivery approval."
-      ]
+      ],
+      "stage": "execution"
     },
     {
       "id": 9,
@@ -98,7 +106,131 @@
         "The unchanged v1 ownership region, versionless contained marker, implicit extent, exact TypeScript sketch, and region-first parser flow are all preserved rather than compressed into generic prose.",
         "Every named removal, non-goal, implementation surface, behavioral verification condition, and testing layer remains present and distinct.",
         "The marker-local-version question remains unresolved, and no compatibility path, generic abstraction, paired fence, priority, estimate, or additional implementation decision is invented."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 10,
+      "stage": "routing",
+      "prompt": "Draft a tracker-ready defect report from these observed and expected behaviors without inventing severity or root cause.",
+      "expected_selection": "author-software-work-items",
+      "catalog_neighbors": ["author-docs", "research"],
+      "assertions": [
+        "The selected skill is author-software-work-items.",
+        "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "Three days after a Sentry investigation and root-cause research, prepare the exact Linear defect issue body for creation. The derived research summary is at docs/research-summary.md. Before synthesis, reopen the authoritative current Sentry family at evidence/sentry-family.json rather than relying only on that summary. Preserve the accepted diagnosis and correction, keep the source safe, and state what the tracker readback must verify after creation.",
+      "expected_output": "A Linear-ready defect report that carries the accepted root-cause research while retaining the initiating Sentry short ID and controlled-access URL from the refreshed authoritative family, followed by a post-write readback check against that source inventory.",
+      "files": [
+        {
+          "source": "evals/files/case-11-research-summary.md",
+          "target": "docs/research-summary.md"
+        },
+        {
+          "source": "evals/files/case-11-sentry-family.json",
+          "target": "evidence/sentry-family.json"
+        }
+      ],
+      "assertions": [
+        "The issue includes the Sentry short ID CHECKOUT-WEB-482 and its exact controlled-access URL.",
+        "The current Sentry family supplies provenance instead of the derived research summary being treated as the authoritative source.",
+        "The supplied observation time, project, and production environment are preserved without invented counts or event content.",
+        "The final verification requires Linear readback to retain the Sentry identifier and link."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "execution",
+      "prompt": "Draft one defect report from the two material monitoring occurrences in evidence/occurrences.json. They support the same diagnosed billing defect. Keep the report concise, but make each initiating occurrence independently recoverable.",
+      "expected_output": "One defect report whose source inventory preserves both monitoring occurrences as separate identifier-and-link entries with their supplied observation times and shared project and environment.",
+      "files": [
+        {
+          "source": "evals/files/case-12-occurrences.json",
+          "target": "evidence/occurrences.json"
+        }
+      ],
+      "assertions": [
+        "BILLING-201 appears with https://monitor.example.test/issues/BILLING-201 and 2026-08-20T11:03:00Z, and BILLING-233 appears with https://monitor.example.test/issues/BILLING-233 and 2026-08-22T18:41:00Z.",
+        "The two occurrences are not collapsed into an untraceable count or one representative link.",
+        "The shared billing-api project and production environment remain associated with both occurrences.",
+        "No event IDs, raw logs, request bodies, or unrelated source fields are invented."
+      ]
+    },
+    {
+      "id": 13,
+      "stage": "execution",
+      "prompt": "Write a defect report from an AlertWatch notification that checkout failed in production. The authoritative occurrence was deleted before handoff, so its stable identifier, URL, and observation time cannot be recovered. The environment is known to be production; no counts or correlation IDs are available. Do not omit the missing provenance and do not guess it.",
+      "expected_output": "A defect report that identifies AlertWatch and production while explicitly marking the authoritative occurrence identifier, URL, observation time, counts, and correlation identifiers unavailable rather than fabricating or silently dropping them.",
+      "assertions": [
+        "AlertWatch is retained as the source system and production as the known environment.",
+        "The stable identifier, URL, and observation time are explicitly marked unavailable.",
+        "No identifier, timestamp, count, project, correlation value, or link is invented.",
+        "The report remains actionable about the observed checkout failure without disguising the provenance gap."
+      ]
+    },
+    {
+      "id": 14,
+      "stage": "execution",
+      "prompt": "Draft a defect report from manual QA. On build 211 in the staging environment, a tester observed that saving an empty optional nickname clears the account display name. The accepted profile contract says the display name must remain unchanged. No tracker or source link was supplied.",
+      "expected_output": "An ordinary manual-QA defect report with the supplied build, staging environment, expected and actual behavior, and honest absence of a source link, without irrelevant Sentry or monitoring fields.",
+      "assertions": [
+        "Manual QA is identified as the discovery activity and the supplied build and staging environment are preserved.",
+        "Expected and actual behavior remain separate and cite the supplied profile contract.",
+        "No Sentry identifier, Sentry URL, monitoring event ID, explicit monitoring classification, or monitoring-specific placeholder is added. A generic occurrence count or an honest generic source-unavailable note is not a monitoring field.",
+        "The absent source link is not replaced with an invented tracker or monitoring URL."
+      ]
+    },
+    {
+      "id": 15,
+      "stage": "execution",
+      "prompt": "A Linear create returned ENG-704. Perform the final verification using the source inventory at evidence/source-inventory.md and the persisted Linear readback at evidence/persisted-linear.md. Do not verify against the submitted draft. You are not authorized to mutate the issue again in this exercise.",
+      "expected_output": "A failed persistence-verification result that identifies the missing MonitorCo source URL, does not claim the issue is complete, and names an authorized correction plus another readback as the required next step.",
+      "files": [
+        {
+          "source": "evals/files/case-15-source-inventory.md",
+          "target": "evidence/source-inventory.md"
+        },
+        {
+          "source": "evals/files/case-15-persisted-linear.md",
+          "target": "evidence/persisted-linear.md"
+        }
+      ],
+      "assertions": [
+        "Verification fails because the persisted item omitted the inventory's authoritative source link.",
+        "The response distinguishes the persisted readback from the submitted draft or create result.",
+        "ENG-704 is not reported as fully verified or provenance-complete.",
+        "The required next step is an authorized correction followed by another tracker readback."
+      ]
+    },
+    {
+      "id": 16,
+      "stage": "execution",
+      "prompt": "Revise a defect report after research. Use docs/research-summary.md for the diagnosis, but use evidence/sentry-family.json for originating provenance. The summary is concise and intentionally omits the Sentry pointer. Preserve the authoritative pointer without copying raw event content.",
+      "expected_output": "A revised defect report that keeps the research diagnosis and the authoritative Sentry short ID and link, making clear that the summary is derived context rather than the source of the occurrence.",
+      "files": [
+        {
+          "source": "evals/files/case-11-research-summary.md",
+          "target": "docs/research-summary.md"
+        },
+        {
+          "source": "evals/files/case-11-sentry-family.json",
+          "target": "evidence/sentry-family.json"
+        }
+      ],
+      "assertions": [
+        "The research summary contributes the diagnosis but does not replace the originating source pointer.",
+        "CHECKOUT-WEB-482 and https://example-org.sentry.io/issues/CHECKOUT-WEB-482/ remain in the revised report.",
+        "The source is attributed to the authoritative Sentry family rather than to the derived summary.",
+        "No raw event body, stack trace, secret, or personal data is copied."
       ]
     }
-  ]
+  ],
+  "suite_version": "0.1.7",
+  "evaluation_contract": "evals/evaluation-contract.json"
 }

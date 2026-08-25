@@ -1,12 +1,17 @@
 ---
 type: Standard
 title: Software architecture docs application profile for OKF v0.2
-description: The application profile for representing demand and value, goal-oriented behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in a set of OKF v0.2 software architecture docs.
+description: The application profile for representing required system context, decisions, constraints, demand and value, behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in OKF v0.2 software architecture docs.
 tags:
   [
     architecture,
     okf,
     application-profile,
+    lifecycle,
+    ownership,
+    decisions,
+    assurance,
+    constraints,
     offerings,
     audiences,
     jobs-to-be-done,
@@ -66,32 +71,33 @@ sources:
     title: C4 model
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-22T00:17:07Z
+  at: 2026-08-23T02:10:17Z
 ---
 
 # Software architecture docs application profile for OKF v0.2
 
 ## Profile identity
 
-| Property           | Value                                                                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Profile identity   | `software-architecture-docs`                                                                                                       |
-| Profile version    | `0.7.0`                                                                                                                            |
-| Base specification | OKF v0.2                                                                                                                           |
-| Status             | Draft                                                                                                                              |
-| Applies to         | Primary concepts under `value/`, `use-cases/`, `quality/`, `capabilities/`, `features/`, `surfaces/`, `domains/`, and `structure/` |
-| Audience           | Architecture authors, maintainers, reviewers, and profile validators                                                               |
+| Property           | Value                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profile identity   | `software-architecture-docs`                                                                                                                                                                        |
+| Profile version    | `0.9.0`                                                                                                                                                                                             |
+| Base specification | OKF v0.2                                                                                                                                                                                            |
+| Status             | Draft                                                                                                                                                                                               |
+| Applies to         | Required root context concepts and primary concepts under `decisions/`, `constraints/`, `value/`, `use-cases/`, `quality/`, `capabilities/`, `features/`, `surfaces/`, `domains/`, and `structure/` |
+| Audience           | Architecture authors, maintainers, reviewers, and profile validators                                                                                                                                |
 
 ## Purpose and scope
 
 Using the DCMI sense of an application profile,[^dcmi-application-profile] this
 document defines how one set of software architecture docs represents accepted,
-durable demand, value, behavior, product quality, capability, interaction,
-domain, and structural knowledge using Open Knowledge Format (OKF) v0.2. OKF defines the
+durable system context, decisions, constraints, demand, value, behavior,
+product quality, capability, interaction, domain, and structural knowledge
+using Open Knowledge Format (OKF) v0.2. OKF defines the
 document envelope, path-based concept identity, provenance, trust, and
 lifecycle fields.[^okf-v0.2] This profile adds one coherent vocabulary of concept types,
 frontmatter, paths, containment rules, and validation checks for the
-architecture views that currently need repeatable authoring rules.
+architecture concepts that currently need repeatable authoring rules.
 
 The profile applies the [Just Enough Architecture
 Docs](just-enough-architecture-docs.md) pattern[^just-enough-architecture-docs]
@@ -108,16 +114,29 @@ complementary; this profile gives them one metadata and documentation contract
 rather than treating them as one hierarchy.[^architecture-docs-organization]
 
 The upstream OKF profile proposal remains open. This document therefore does
-not claim a standardized OKF declaration field, registry, or executable
-descriptor.[^okf-profile-proposal] An architecture documentation set adopts
-this profile only when its root `index.md` contains an explicit sentence such
-as: “This documentation set adopts the `software-architecture-docs` profile at
-the linked profile location, version 0.7.0.” The sentence MUST link the profile
-location. A link without explicit adoption language is informative and MUST
-NOT establish adoption.
+not claim a standardized OKF declaration field or registry.[^okf-profile-proposal]
+A documentation set managed as Just Enough Architecture Docs by the
+software-architecture pack MUST be an OKF v0.2 bundle and MUST adopt this
+profile. Its root `index.md` MUST contain an explicit sentence such as: “This
+documentation set adopts the `software-architecture-docs` profile at the linked
+profile location, version 0.9.0.” The sentence MUST link the profile location.
+A link without explicit adoption language is informative and MUST NOT establish
+adoption. Unprofiled architecture material may be used as migration input, but
+MUST NOT be presented as a conforming Just Enough Architecture Docs corpus.
+
+Just Enough Architecture Docs defines the philosophy, admission test,
+authority model, and maintenance discipline that this profile operationalizes.
+It is not an alternative documentation format. This profile is the normative
+authority for exact OKF types, metadata, paths, containment, corpus-wide rules,
+and permitted representation variance. Supporting foundations and guides
+explain the meaning and application of those requirements; when their
+representation guidance conflicts with this profile, this profile controls and
+the conflicting guidance requires repair.
 
 This version covers:
 
+- system lifecycle, ownership, architecture decision policy, and assurance;
+- accepted architecture decision records and binding architecture constraints;
 - offerings, audiences, needs, jobs to be done, and value propositions;
 - goal-oriented use cases;
 - architecture-significant product quality requirements classified by
@@ -133,6 +152,13 @@ under base OKF rules until a present authoring or consumer need justifies
 additional profile requirements. The profile does not require a document for
 every possible element or prescribe source-code structure.
 
+Open-world does not permit a local waiver from this profile. A local convention
+conforms only when a `MAY` or `SHOULD` rule permits the choice, the concept is an
+open-world addition governed by base OKF without being represented as a
+profile-defined type, or this profile defines an applicable extension point.
+Every other variance from a `MUST` or `MUST NOT` requirement is profile
+nonconformance until a later profile version permits it.
+
 Actor, Goal, Scenario, Extension, Responsibility, Collaborator, User Story,
 Epic, Story Map, CRC Card, Walking Skeleton, Spike, Port, and Adapter are not
 primary concept types in this profile. They are contextual roles, use-case
@@ -143,11 +169,20 @@ authority or consumer needs it, but MUST NOT present that local type as part of
 this profile.
 
 Product Quality View and Quality Concern are also not primary concept types.
-System-level product-quality priorities and tradeoffs belong in the existing
-architecture overview or canonical C4 Software System concept. A stakeholder
+System-level product-quality priorities and tradeoffs belong in the accepted
+decisions and affected requirement or architecture concepts that own them, not
+in a generic quality summary. A stakeholder
 quality need, risk, or concern remains with its owning discovery, requirement,
 risk, or proposal authority until accepted meaning independently qualifies as
 a Product Quality Requirement.
+
+Risk Driver, Risk Driver Set, Architecture Overview, and Constraint Set are
+not primary concept types. Risk is the selection lens used to admit and
+prioritize concepts, not a parallel summary of lifecycle, ownership,
+decisions, assurance, constraints, or quality. A conforming corpus MUST NOT use
+these four generic names as local concept types. A root `overview.md` MUST NOT
+be used as a catch-all for “major” instances of concepts that have their own
+profile identities and paths.
 
 ## Conformance
 
@@ -160,6 +195,12 @@ Assess and report two independent results:
 A bundle may conform to OKF while failing this profile. A profile-only failure
 MUST NOT be reported as an OKF specification violation.
 
+A conforming Just Enough Architecture Docs corpus MUST pass both results.
+Missing, incomplete, or unavailable evidence produces an `unknown` result for
+the affected layer and MUST NOT be reported as conformance. A review or repair
+workflow may finish after truthfully classifying an unresolved failure or
+unknown, but it MUST NOT describe the corpus itself as conforming.
+
 For profile conformance, the documentation set MUST:
 
 1. use the defined concept types and paths for applicable primary concepts;
@@ -167,7 +208,7 @@ For profile conformance, the documentation set MUST:
 3. preserve DDD distinctions and C4 containment where those models define
    them;
 4. keep every maintained concept reachable from the root `index.md`;
-5. expose the system-level lifecycle and stewardship context defined below;
+5. contain the required system-level context kernel defined below;
    and
 6. pass the profile validation rules.
 
@@ -209,26 +250,177 @@ the same facts reliably enough. The concept SHOULD link that evidence and own
 only the durable interpretation, boundary, rationale, or consequence that the
 evidence does not explain.
 
-The architecture overview or canonical system-of-interest `C4 Software System`
-concept MUST make these discoverable, directly or by links to their stable
-authorities:
-
-- the system lifecycle or support state using locally accepted terminology;
-- the person, role, team, or mechanism responsible for maintenance and
-  architecture decisions; and
-- the events or changes that trigger architecture-documentation review.
+The documentation root MUST contain `lifecycle.md`, `ownership.md`,
+`decisions.md`, and `assurance.md` with the exact profile types and semantic
+contracts defined below. An overview, C4 Software System concept, external
+authority, or local convention MUST NOT substitute for any required file. A
+required concept MAY link a stable external authority for current detail, but
+it still owns the durable system-level conclusion and its consequences.
 
 The documentation set MUST NOT overload OKF `status` with system lifecycle or
 copy volatile team rosters, on-call schedules, or service-catalog records.
-Containers and components inherit system-level lifecycle and stewardship
-context. Their concepts SHOULD state only a consequential exception, such as a
-distinct owner, lifecycle, support policy, criticality, or retirement path.
+Containers and components inherit the root lifecycle and ownership context.
+Their concepts SHOULD state only a consequential exception, such as a distinct
+owner, lifecycle, support policy, criticality, or retirement path.
 
 A diagram or table SHOULD be used when it materially improves comprehension of
 several relationships, mappings, containment levels, or an interaction
 sequence. A maintained visual MUST state its scope or question and MUST NOT
 become a manually duplicated realization inventory when generation is
 practical.
+
+## Required system context types
+
+These four singleton concepts form the mandatory system-context kernel. They
+are required because their accepted state materially changes which optional
+architecture concepts and evidence justify their maintenance. Their bodies
+MUST state the required meaning directly or through explicit, meaningful links;
+the profile does not require fixed headings.
+
+A required concept MAY state that no additional provision is required only
+when it gives the bounded conclusion, rationale or authority, consequence, and
+condition that would require reassessment. An empty body, placeholder, TODO, or
+unexplained `none` or `not applicable` MUST NOT satisfy the semantic contract.
+When accepted meaning or supporting evidence cannot establish the required
+state, the semantic profile result is `unknown`, not pass.
+
+### System Lifecycle
+
+```yaml
+---
+type: System Lifecycle
+title: System lifecycle
+description: The accepted support state, change horizon, expected evolution, and review triggers for the documented system.
+tags: [system-lifecycle, support, change-horizon]
+status: stable
+---
+```
+
+System Lifecycle MUST identify the system's accepted lifecycle or support
+state, its material change horizon or expected evolution, and the events that
+trigger review of this context and the architecture corpus. It MUST NOT use
+OKF `status` as the system lifecycle.
+
+For a focused procedure, see [Documenting system
+lifecycle](../guides/documenting-system-lifecycle.md).
+
+### System Ownership
+
+```yaml
+---
+type: System Ownership
+title: System ownership
+description: The stable accountability and maintenance routes for the documented system.
+tags: [system-ownership, maintenance, stewardship]
+status: stable
+---
+```
+
+System Ownership MUST identify the stable role, team, or mechanism accountable
+for maintenance; the material stewardship boundary; the continuity, transfer,
+or escalation route; and consequential ownership conditions that affect safe
+change. It MUST NOT copy a volatile team roster, on-call schedule, or named
+individual when a stable authority route owns that detail.
+
+For a focused procedure, see [Documenting system
+ownership](../guides/documenting-system-ownership.md).
+
+### Architecture Decision Policy
+
+```yaml
+---
+type: Architecture Decision Policy
+title: Architecture decision policy
+description: The policy governing which architecture decisions are recorded, accepted, superseded, and reconsidered.
+tags: [architecture-decisions, decision-policy, adr]
+status: stable
+---
+```
+
+Architecture Decision Policy MUST identify what makes a choice
+architecture-decision-record-worthy, who or what authority accepts and may
+supersede such decisions, where accepted decisions are recorded, their minimum
+content, and the events that require reconsideration. A policy MAY conclude
+that no local Architecture Decision Records are justified only when it states
+the rationale, the alternative decision authority, and the condition that
+would require local records. A system may have no local records; it MUST NOT
+omit its decision policy.
+
+For a focused procedure, see [Documenting architecture decision
+policies](../guides/documenting-architecture-decision-policies.md).
+
+### System Assurance
+
+```yaml
+---
+type: System Assurance
+title: System assurance
+description: The confidence, evidence, review, and approval obligations accepted for the documented system.
+tags: [system-assurance, evidence, review]
+status: stable
+---
+```
+
+System Assurance MUST identify the confidence that must be established for
+architecture-significant change, the evidence authorities used to establish
+it, any required review or approval obligations, and reassessment triggers. It
+MAY establish that ordinary repository review is sufficient when the bounded
+rationale and triggers are explicit. It MUST link rather than duplicate
+Product Quality Requirements, tests, evaluations, compliance records, or live
+evidence owned elsewhere.
+
+For a focused procedure, see [Documenting system
+assurance](../guides/documenting-system-assurance.md).
+
+## Decision and constraint types
+
+These types are conditional, independently addressable concepts. Their
+collections appear only with the first admitted concept.
+
+### Architecture Decision Record
+
+```yaml
+---
+type: Architecture Decision Record
+title: Preserve reservation state in PostgreSQL
+description: The accepted choice to use PostgreSQL as the reservation system of record and the consequences of that choice.
+tags: [architecture-decision, adr, reservations, persistence]
+status: stable
+---
+```
+
+An Architecture Decision Record MUST represent one accepted, durable
+architecture choice and identify its context, accepted choice, rationale,
+material alternatives when they explain the decision, consequences, and
+supersession or reconsideration conditions. Proposed or unresolved choices
+MUST remain in their proposal or work lifecycle and MUST NOT be represented as
+Architecture Decision Records. A superseded record MUST remain reachable and
+link its replacement. OKF `status` describes the knowledge document lifecycle
+and MUST NOT be presented as the decision's semantic status.
+
+For a focused procedure, see [Documenting architecture decision
+records](../guides/documenting-architecture-decision-records.md).
+
+### Architecture Constraint
+
+```yaml
+---
+type: Architecture Constraint
+title: Regional reservation-data residency
+description: The binding requirement that reservation data remain within its accepted processing region.
+tags: [architecture-constraint, data-residency, reservations]
+status: stable
+---
+```
+
+An Architecture Constraint MUST represent one externally imposed, binding,
+architecture-significant limitation and identify its authority, affected
+scope, architectural consequences, and release or review conditions. A current
+implementation property, preferred option, internal architecture decision, or
+unaccepted assumption MUST NOT be represented as an Architecture Constraint.
+
+For a focused procedure, see [Documenting architecture
+constraints](../guides/documenting-architecture-constraints.md).
 
 ## Demand and value types
 
@@ -692,13 +884,12 @@ status: stable
 
 A C4 Software System SHOULD explain the value it delivers, its responsibility,
 boundary, material exclusions, whether it is the system of interest or an
-external system, its interactors, lifecycle or support state, stewardship and
-decision-authority route, review triggers, and relevant evidence. State
+external system, its interactors, and relevant evidence. State
 responsibility as a concise active outcome, policy, state, or invariant the
-system owns rather than a list of functions. The architecture overview MAY own
-this system-of-interest meaning when a separate concept would duplicate it;
-the software-system concept then SHOULD link to that authority instead of
-repeating it.
+system owns rather than a list of functions. A system-of-interest concept
+SHOULD link the required root lifecycle, ownership, decision-policy, and
+assurance concepts without repeating them. External systems MAY link their own
+stable authorities when consequential context is available.
 
 For a focused procedure, see [Documenting C4 software
 systems](../guides/documenting-c4-software-systems.md).
@@ -800,6 +991,16 @@ views](../guides/documenting-c4-views.md).
 Applicable concepts MUST use these bundle-relative paths:
 
 ```text
+lifecycle.md
+ownership.md
+decisions.md
+assurance.md
+decisions/
+├── index.md
+└── <architecture-decision>.md
+constraints/
+├── index.md
+└── <architecture-constraint>.md
 value/
 ├── index.md
 ├── offerings/
@@ -885,9 +1086,12 @@ structure/
         └── <component>.md
 ```
 
-Omit collections and views that have no admitted content. The tree defines
-placement when a concept exists; it does not require empty directories,
-complete catalogs, or all C4 view types.
+`lifecycle.md`, `ownership.md`, `decisions.md`, and `assurance.md` are required
+singleton concepts at the documentation root. They MUST NOT be moved into
+collections or replaced by links alone. Omit every collection and view that
+has no admitted content. The tree defines placement when a conditional concept
+exists; it does not require empty directories, complete catalogs, or all C4
+view types.
 
 When the first concept of a type is admitted, create its canonical collection,
 navigational `index.md`, and named `<concept>.md` file immediately. A
@@ -895,6 +1099,21 @@ documentation set MUST NOT place several independently addressable peer
 concepts in a plural catch-all file such as `use-cases.md`, `capabilities.md`,
 or `features.md` for later splitting. Collection existence is conditional;
 concept identity is stable from first admission.
+
+Architecture Decision Records MUST use `decisions/<architecture-decision>.md`.
+The adjacent `decisions.md` remains the required Architecture Decision Policy;
+the directory contains the records governed by that policy and does not change
+the policy concept's path-based identity. Create `decisions/` and its
+navigational `index.md` only with the first admitted record. A documentation
+set MUST NOT use `decisions/index.md` as a policy or decision record, maintain
+an empty `decisions/` collection, or place several records in `decisions.md`.
+
+Architecture Constraints MUST use
+`constraints/<architecture-constraint>.md`. Create `constraints/` and its
+navigational `index.md` only with the first admitted constraint. A
+documentation set MUST NOT create `constraints.md`, represent a constraint set
+as one concept, maintain an empty `constraints/` collection, or place several
+constraints in one plural catch-all document.
 
 Offerings, audiences, needs, jobs to be done, and value propositions MUST use
 their sibling collections under `value/`. Use Cases MUST use the top-level
@@ -910,7 +1129,8 @@ classify requirements; their `index.md` files remain navigational and MUST NOT
 serve as characteristic definitions, quality summaries, or plural requirement
 documents. `quality/index.md` MUST NOT be presented as a mandatory Product
 Quality View. System-level prioritization and cross-requirement tradeoffs
-belong in the architecture overview or canonical C4 Software System concept.
+belong in the accepted decisions and affected requirements or architecture
+concepts that own them.
 
 The characteristic path segment MUST be exactly one of:
 
@@ -957,6 +1177,10 @@ meaning in prose around an ordinary Markdown link:
 
 | Relationship                                                                                                       | Meaning                                                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture Decision Policy **governs** Architecture Decision Record                                              | The policy establishes which accepted choices require records, their authority, minimum content, and reconsideration lifecycle.               |
+| Architecture Constraint **constrains** architecture concept or decision                                            | The external authority limits the acceptable design space for the named scope.                                                                |
+| Architecture Decision Record **responds to** Architecture Constraint or Product Quality Requirement                | The accepted choice explains how the architecture accommodates the binding limitation or required outcome.                                    |
+| System Assurance **relies on evidence from** requirement, test, evaluation, compliance, or operational authority   | The assurance concept identifies the confidence route while the linked authority owns exact criteria or current evidence.                     |
 | audience or external participant **plays actor role in** use case                                                  | The participant acts from outside the subject boundary in this behavioral context. Primary or supporting role is contextual to the use case.  |
 | use case **has subject** offering or C4 software system                                                            | The named subject owns the behavior offered to its actors.                                                                                    |
 | use case **refines** or **uses subgoal** use case                                                                  | A summary or user goal depends on a narrower goal. This relationship forms a graph, not physical containment.                                 |
@@ -972,7 +1196,7 @@ meaning in prose around an ordinary Markdown link:
 | test, measure, objective, evaluation, telemetry, contract, or executable example **provides evidence for** concept | The linked authority owns exact criteria, cases, observations, or current facts that the architecture concept should not copy.                |
 
 The phrases above define author-facing meaning, not relationship identifiers.
-Profile version 0.7.0 does not define relationship frontmatter, permitted
+Profile version 0.9.0 does not define relationship frontmatter, permitted
 source and target fields, reciprocity rules, or canonical machine-readable
 direction. No custom relationship field is required for conformance, and a
 producer-defined field MUST NOT be presented as standardized by OKF or by this
@@ -1018,6 +1242,50 @@ independently maintained copies.
 This software architecture knowledge bundle owns the profile. Increment the
 profile version whenever a normative requirement changes and document any
 migration required of conforming documentation sets.
+
+Version 0.9.0 adds the mandatory system-context kernel and conditional atomic
+decision and constraint collections. A set migrating from version 0.8.0 MUST:
+
+1. update its explicit root-index adoption sentence to profile version `0.9.0`;
+2. create `lifecycle.md`, `ownership.md`, `decisions.md`, and `assurance.md`
+   with their exact profile types and accepted meaning, preserving `unknown`
+   rather than inventing any missing lifecycle, ownership, decision, or
+   assurance state;
+3. move system-context meaning previously owned by an overview or canonical
+   C4 Software System concept to the responsible root concept, replace the old
+   prose with meaningful links where useful, and retain one semantic owner;
+4. migrate each accepted local architecture decision to one
+   `decisions/<architecture-decision>.md` concept governed by `decisions.md`,
+   while leaving proposals and unresolved options in their existing
+   lifecycles;
+5. migrate each admitted binding architecture constraint to one
+   `constraints/<architecture-constraint>.md` concept and remove any
+   `constraints.md` or constraint-set catch-all without creating an empty
+   collection; and
+6. remove or relocate generic risk-driver, architecture-overview, and “major”
+   concept summaries that duplicate independently addressable profile
+   concepts.
+
+Migration that changes semantic ownership, splits a document, accepts an
+absence conclusion, or converts existing material into an Architecture
+Decision Record or Architecture Constraint requires the authority applicable
+to that semantic change. Mechanical profile adoption MUST NOT manufacture the
+missing meaning.
+
+Version 0.8.0 makes this profile the required representation and conformance
+contract for every Just Enough Architecture Docs corpus managed by the
+software-architecture pack. A set migrating from version 0.7.0 MUST:
+
+1. update its explicit root-index adoption sentence to profile version `0.8.0`;
+2. remove or resolve any repository-local waiver from a profile `MUST` or
+   `MUST NOT`, retaining only choices the profile expressly permits; and
+3. report OKF and profile conformance separately, preserving `unknown` when
+   either result lacks sufficient evidence.
+
+No complete taxonomy or new substantive architecture concept is required by
+this migration. An unprofiled architecture collection is migration input, not
+a version 0.7.0 corpus, and requires initial profile adoption through the setup
+workflow before ordinary profile-version migration applies.
 
 Version 0.7.0 makes profile adoption explicit, requires each C4 Container to
 identify exactly one containing C4 Software System, and states the source
@@ -1086,16 +1354,58 @@ rather than maintaining compatibility copies.
 
 ## Validation
 
-No executable profile validator is currently defined. Until one exists,
-profile validation is manual and MUST name the rules examined. An applicable
-OKF v0.2 validator SHOULD establish the separate base-conformance result.
+The extension-relative
+`scripts/validate-software-architecture-profile.py` checker validates the
+mechanically decidable profile rules for adoption, common metadata, canonical
+paths, collection indexes, and reachability. Run it from the installed
+software-architecture knowledge package:
+
+```bash
+python3 scripts/validate-software-architecture-profile.py <architecture-root>
+```
+
+The human-readable profile remains normative. Executable validation is a
+partial representation of it and MUST NOT be treated as complete profile
+conformance. Profile validation MUST combine the structural result with a
+manual semantic review that names the rules examined. An applicable OKF v0.2
+validator MUST establish the separate base-conformance result. If either check
+cannot run or cannot decide an applicable rule, report that result as
+`unknown`, not pass.
 
 Profile validation MUST check:
 
 - an explicit root-index adoption sentence naming the
   `software-architecture-docs` profile identity and adopted version;
-- exact use of the seventeen concept types defined here;
+- exact use of the twenty-three concept types defined here;
 - required common fields;
+- presence of the four required root concepts at `lifecycle.md`,
+  `ownership.md`, `decisions.md`, and `assurance.md`, with their exact types,
+  root-index reachability, and no substitution through an overview, C4 system,
+  external authority, or local convention;
+- presence in System Lifecycle of the accepted lifecycle or support state,
+  change horizon or expected evolution, and review triggers;
+- presence in System Ownership of stable maintenance accountability,
+  stewardship boundary, and continuity, transfer, or escalation route;
+- presence in Architecture Decision Policy of the record threshold, acceptance
+  and supersession authority, recording location, minimum record content, and
+  reconsideration triggers, including justified alternative authority when no
+  local records are required;
+- presence in System Assurance of the required confidence, evidence
+  authorities, review or approval obligations, and reassessment triggers;
+- absence of empty, placeholder, TODO, or unexplained `none` or `not
+applicable` bodies in the required root concepts;
+- placement of each Architecture Decision Record beneath `decisions/`,
+  presence of context, accepted choice, rationale, consequences, and
+  supersession or reconsideration conditions, and absence of proposals or
+  unresolved options represented as records;
+- conditional creation of `decisions/` only with an admitted record, with
+  `decisions.md` retained as the policy rather than a record catch-all;
+- placement of each Architecture Constraint beneath `constraints/`, presence
+  of binding authority, affected scope, architectural consequences, and
+  release or review conditions, and absence of decisions, preferences,
+  assumptions, or current implementation represented as constraints;
+- absence of `constraints.md`, constraint-set concepts, and empty constraint
+  collections;
 - canonical placement of each applicable concept;
 - a named canonical file from first admission for each independently
   addressable concept and absence of plural catch-all concept inventories;
@@ -1130,10 +1440,11 @@ Profile validation MUST check:
 - no recursive C4 Container or C4 Component containment;
 - absence of C4 Component typing on shared modules without one owning
   container;
-- discoverable system lifecycle or support state, maintenance and
-  decision-authority route, and architecture-documentation review triggers;
 - absence of copied volatile stewardship records and repeated container or
   component lifecycle context without a consequential exception;
+- absence of generic Risk Driver, Risk Driver Set, Architecture Overview, and
+  Constraint Set concept types and root overview catch-alls that duplicate
+  independently addressable concepts;
 - evidence links or generated routes, rather than manually duplicated current
   realization inventories; and
 - reachability from the root index.
@@ -1141,7 +1452,7 @@ Profile validation MUST check:
 Profile validation SHOULD also check that consequential cross-view links state
 an author-facing relationship meaning defined above. Relationship frontmatter,
 identifiers, machine-readable source and target constraints, direction, and
-reciprocity remain outside profile validation in version 0.7.0.
+reciprocity remain outside profile validation in version 0.9.0.
 
 The [minimal conforming architecture corpus](minimal-conforming-architecture-corpus.md)
 provides a complete synthetic example and a dated manual conformance report

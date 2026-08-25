@@ -1,18 +1,19 @@
 ---
 name: craft-effect-v4
 description: >
-  Routes Effect v4 TypeScript work to opinionated guides on data modeling,
-  services and layers, errors, schemas, configuration, resource safety,
-  concurrency, streams, platform integration, testing, and observability. Use
-  when designing TypeScript architecture or writing or reviewing TypeScript in
-  an Effect codebase, and when designs or code involve service boundaries, raw
-  `process.env` reads, thrown or `unknown` errors, unvalidated JSON casts,
-  `Promise.all`, detached promises, `try/finally` cleanup, homemade caches,
-  per-key client or connection maps, scattered `fetch` calls, `console.log`
-  telemetry, or direct `node:fs` use — even where Effect is absent but
-  warranted. Not for Effect v3 conventions or codebases that deliberately use
-  another runtime model.
-compatibility: Effect 4.0.0-rc.110
+  Routes Effect v4 TypeScript architecture, implementation, and review to
+  opinionated guides on modeling, services, errors, schemas, resources,
+  concurrency, streams, DateTime, Duration, Clock, platforms, testing, and
+  observability. Use in Effect v4 codebases, or for authorized adoption
+  assessment, when work involves service boundaries, raw `process.env`,
+  unvalidated JSON, thrown or `unknown` errors, `Promise.all`, detached work,
+  `try/finally` cleanup, caches, client maps, `fetch`, `node:fs`, or console
+  telemetry. Not for Effect v3, introducing Effect where another runtime is
+  authoritative, local work that forbids dependency or architecture changes,
+  or unresolved adoption authority. A scoped Temporal or native Date
+  instruction governs that representation without excluding Effect guidance
+  for other concerns.
+compatibility: Effect v4; guides target 4.0.0-rc.111, with installed APIs controlling when a consequential claim conflicts
 ---
 
 # Craft Effect v4
@@ -20,43 +21,45 @@ compatibility: Effect 4.0.0-rc.110
 Route Effect v4 work to the smallest relevant part of
 `@craigsmitham/knowledge/effect-v4`.
 
-1. Confirm the codebase targets Effect v4. v3 conventions do not carry
-   forward, and these guides do not describe them.
-2. Read
+## Runtime and version gate
+
+Apply this gate before opening the v4 knowledge bundle or proposing a runtime
+change. Inspect repository metadata only as needed to establish these facts.
+
+1. Resolve runtime authority.
+   - If the codebase deliberately uses Effect v3 and migration is not
+     authorized, do not apply or offer v4 APIs. Name the v3/v4 boundary, keep
+     migration out of scope, and stop.
+   - If the codebase deliberately uses another runtime model, or the task
+     forbids runtime or dependency changes, do not introduce Effect. Keep any
+     useful review local to the existing model or abstain.
+   - If an Effect codebase or module selects Temporal, native `Date`, or another
+     date representation for a bounded concern, do not treat the whole module
+     as a different runtime model. Preserve that representation and apply
+     Effect guidance only to the remaining Effect concerns.
+   - If authority to consider Effect or change the runtime architecture is
+     unresolved, ask for that decision or abstain before applying the guides.
+   - If Effect is absent but adoption is allowed, use the guides to assess it
+     as an option. Do not add the dependency or choose the runtime for the
+     developer without authority.
+2. When the codebase uses Effect, confirm that it targets major version 4 and
+   inspect the installed version to learn the available API surface. The bundle
+   targets `4.0.0-rc.111`; another v4 release candidate is compatible territory
+   and does not by itself require upstream source research.
+3. Read
    `.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md` and open
-   only the guides the work needs.
-
-| Symptom or request                                                                                                             | Start with                                                     |
-| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Service ownership, dependency boundaries, layer composition, or dependencies hard to fake in tests                             | `services-and-layers.md`                                       |
-| Choosing how to run the composed graph: `runMain`, `Layer.launch`, or `ManagedRuntime`                                         | `services-and-layers.md`                                       |
-| Primitives conflated, unvalidated input, nullish boundaries                                                                    | `schema-boundaries.md`, then `branded-types.md` or `option.md` |
-| External JSON cast into a domain type, duplicated ad-hoc validation, or an unclear Struct-vs-Class domain carrier              | `schema-boundaries.md`                                         |
-| Same-representation IDs or units getting swapped, or a scalar invariant re-checked at every call site                          | `branded-types.md`                                             |
-| Repeated null checks, lookups that miss without failing, or nullable wire fields leaking into the domain                       | `option.md`                                                    |
-| Unsafe indexing, value-based keys, multi-pass array code                                                                       | `collections.md`                                               |
-| Timestamps in the domain or on the wire, instants versus spans, clock reads, time-dependent tests                              | `date-and-time.md`                                             |
-| Nested path updates repeated across modules, or focusing optional data and union variants immutably                            | `optics.md`                                                    |
-| `process.env` reads, repeated parsing or defaults, leaked secrets, startup before validation                                   | `config.md`                                                    |
-| Throws, `catch (unknown)`, stringified failures, broad recovery, blind retries                                                 | `error-modeling.md`                                            |
-| Raw promises, callback registration, or a vendor SDK leaking into Effect code                                                  | `wrapping.md`                                                  |
-| `try/finally`, open/close pairs, leaked handles, unclear cleanup on interruption                                               | `resource-safety.md`                                           |
-| `Promise.all`, detached promises, `AbortController`, manual races, orphaned background fibers                                  | `structured-concurrency.md`, then `iteration.md`               |
-| Async loops, polling with sleep flags, manual retry/backoff, or choosing a traversal's concurrency bound                       | `iteration.md`                                                 |
-| Homegrown locks, shared mutable state, event emitters, polling flags, admission control                                        | `async-coordination.md`                                        |
-| Unbounded, paginated, or event-driven input; multi-value workflows                                                             | `streams.md`                                                   |
-| N+1 access, duplicate in-flight lookups, homemade `Map` caches of values                                                       | `request-batching-and-cache.md`                                |
-| A per-key client, connection, or runtime rebuilt per use, leaked in a `Map`, or torn down while another consumer still uses it | `keyed-resource-sharing.md`                                    |
-| `console.log`, manual timing, no request correlation, exporter wiring                                                          | `observability.md`                                             |
-| Real-time sleeps, mocked internals, leaked fibers, flaky tests                                                                 | `testing.md`                                                   |
-| `node:fs` or `node:path` in production code                                                                                    | `filesystem.md`                                                |
-| Declarative HTTP endpoints, OpenAPI, middleware, clients derived from your own contract                                        | `http-api.md`                                                  |
-| Outbound calls to a third-party HTTP API, scattered `fetch`, per-call URL and auth assembly                                    | `http-client.md`                                               |
-| Worker bindings, `waitUntil`, isolate reuse, Hyperdrive                                                                        | `cloudflare-workers.md`                                        |
-| Relational access, transaction ownership, dialect client wiring, constraint-violation errors                                   | `sql.md`                                                       |
-
-3. Follow the selected guides and repository-local requirements. Open the
+   only the guides its symptom map routes to. The index is the canonical route;
+   do not recreate that map in this skill or load the whole bundle.
+4. Follow the selected guides and repository-local requirements. Open the
    guides they cross-link only when the requested scope needs them.
+
+For date and time, resolve representation, current-time access, and effectful
+timing separately. A scoped representation instruction controls domain values.
+Inside an Effect computation, keep current-time access in `Clock`/`TestClock`
+and keep `Duration`, `Schedule`, timeouts, and caches responsible for effectful
+timing unless effective instructions explicitly change those concerns. Convert
+at their boundary instead of replacing a scoped Temporal or native `Date`
+model with `DateTime` merely because the file uses Effect.
 
 During a design or architecture workflow, use the guides to establish
 version-matched capability semantics, constraints, and feasibility evidence for
@@ -64,6 +67,10 @@ the options under consideration. Supply that evidence to the active workflow;
 do not choose consequential alternatives for the developer. Do not infer that
 Effect availability alone makes its use a binding architectural rule.
 
-When feasibility depends on a guide's API claim, or that claim conflicts with
-the installed Effect version, inspect current public Effect v4 source and tests
-before acting, and report the drift.
+When installed types or source conflict with a guide's consequential API claim,
+or the claim remains consequentially uncertain, inspect the installed Effect v4
+public source and tests before modifying code. Installed v4 evidence controls
+the implementation: never apply a conflicting guide shape merely because the
+request asks you to. Report the verified guide/API drift and any uncertainty
+that remains before acting. Do not launch that investigation merely because the
+installed v4 release number differs from the guide baseline.

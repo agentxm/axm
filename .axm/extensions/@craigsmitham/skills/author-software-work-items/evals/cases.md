@@ -11,9 +11,14 @@ supplied design and delivery context, absence of invented context, and linked
 cross-cutting design. It also covers faithful transfer of an accepted delivery
 item with exact code sketches, containment semantics, implementation surfaces,
 non-goals, verification conditions, testing strategy, and an unresolved design
-question.
+question. Provenance cases cover a delayed Sentry investigation-to-Linear
+handoff, individually traceable source occurrences, explicit unavailable
+evidence, a non-monitoring defect without irrelevant monitoring fields,
+persisted-item readback that lost a source link, and a research summary that
+must not replace the authoritative source pointer.
 
 The suite passes when the selected artifact matches its lifecycle, facts and
 unknowns remain honest, supplied context is retained at its actual authority
-state, the brief is derived from the body, and no product, design, priority, or
-delivery decision is invented.
+state, the brief is derived from the body, every material source remains
+traceable or explicitly unavailable, persisted readback is checked, and no
+product, design, priority, or delivery decision is invented.

@@ -9,7 +9,10 @@ host is available, to file or update the item. It preserves the boundary
 between request intake, accepted expectations, live incident response, and
 delivery work. It faithfully carries supplied findings, architecture and code
 sketches, implementation plans, and testing strategies without inventing or
-approving missing design. It does not manage backlogs or implement the change.
+approving missing design. It inventories originating evidence before synthesis
+and checks persisted tracker readback so delayed handoffs do not lose material
+source identifiers or links. It does not manage backlogs or implement the
+change.
 
 This skill is a non-standalone member of the software-engineering pack because
 it loads that pack's software-work-item knowledge.

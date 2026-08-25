@@ -6,23 +6,23 @@ tags: [effect, effect-v4, testing, testclock, vitest, determinism, fakes, layers
 status: stable
 sources:
   - id: docs-effect-tests
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/09_testing/10_effect-tests.ts
-    title: Official Effect docs — it.effect, it.live, each/prop, and the TestClock pattern (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/09_testing/10_effect-tests.ts
+    title: Official Effect docs — it.effect, it.live, each/prop, and the TestClock pattern (effect 4.0.0-rc.111)
   - id: docs-layer-tests
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/09_testing/20_layer-tests.ts
-    title: Official Effect docs — suite-shared layers and Ref-backed test fakes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/09_testing/20_layer-tests.ts
+    title: Official Effect docs — suite-shared layers and Ref-backed test fakes (effect 4.0.0-rc.111)
   - id: src-vitest
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/vitest/src/index.ts
-    title: "@effect/vitest source — the complete tester surface: effect, live, layer, prop, flakyTest (4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/vitest/src/index.ts
+    title: "@effect/vitest source — the complete tester surface: effect, live, layer, prop, flakyTest (4.0.0-rc.111)"
   - id: src-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/testing/TestClock.ts
-    title: TestClock source — adjust and setTime under effect/testing (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/testing/TestClock.ts
+    title: TestClock source — adjust and setTime under effect/testing (effect 4.0.0-rc.111)
   - id: test-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/TestClock.test.ts
-    title: TestClock tests — fork the waiting effect, adjust, then assert (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/TestClock.test.ts
+    title: TestClock tests — fork the waiting effect, adjust, then assert (effect 4.0.0-rc.111)
   - id: src-random
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Random.ts
-    title: Random module source — Random.withSeed for deterministic randomness (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Random.ts
+    title: Random module source — Random.withSeed for deterministic randomness (effect 4.0.0-rc.111)
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local-rpc/test/SyncClient.test.ts
     title: effect-local@faa52d9 — fake at the real service key, Deferred coordination, TestClock boundary pinning
@@ -33,11 +33,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-testing/src/SKILL.md
     title: effect-v4-testing skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:49Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Testing
@@ -65,7 +67,7 @@ forked test fibers.
 - Capture console, clock, and other environmental behavior with their test
   services under `effect/testing`.
 - Seed randomness through `Random.withSeed` when outcomes depend on random
-  values; rc.110 has no TestRandom service.[^src-random]
+  values; rc.111 has no TestRandom service.[^src-random]
 - Keep one clear runtime boundary per test instead of scattering `runPromise`.
 
 ## Make time deterministic
@@ -108,7 +110,7 @@ describe("lookup", () => {
 
 - Use `it.effect` for ordinary Effect tests and `it.live` when the real clock
   and services are required; both already provide `Scope` to the test body.
-  There is no Effect `it.scoped` tester in rc.110 — `it.scoped` resolves to
+  There is no Effect `it.scoped` tester in rc.111 — `it.scoped` resolves to
   vitest's own fixture API and rejects an Effect test function.[^src-vitest]
 - Use `it.layer` to share an expensive suite-owned layer with the lifecycle
   the suite declares.[^docs-layer-tests]
@@ -133,17 +135,17 @@ describe("lookup", () => {
 - Shared suite layers have explicit ownership and do not leak mutable state
   between tests.
 
-[^src-vitest]: `packages/vitest/src/index.ts` at `effect@4.0.0-rc.110` — exported testers are `effect`, `live`, `layer`, `prop`, and `flakyTest`; the internal tester wraps every `it.effect`/`it.live` body in `Effect.scoped`.
+[^src-vitest]: `packages/vitest/src/index.ts` at `effect@4.0.0-rc.111` — exported testers are `effect`, `live`, `layer`, `prop`, and `flakyTest`; the internal tester wraps every `it.effect`/`it.live` body in `Effect.scoped`.
 
-[^docs-effect-tests]: `ai-docs/src/09_testing/10_effect-tests.ts` at `effect@4.0.0-rc.110`.
+[^docs-effect-tests]: `ai-docs/src/09_testing/10_effect-tests.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-layer-tests]: `ai-docs/src/09_testing/20_layer-tests.ts` at `effect@4.0.0-rc.110`.
+[^docs-layer-tests]: `ai-docs/src/09_testing/20_layer-tests.ts` at `effect@4.0.0-rc.111`.
 
-[^src-testclock]: `packages/effect/src/testing/TestClock.ts` at `effect@4.0.0-rc.110` — `adjust`, `setTime`.
+[^src-testclock]: `packages/effect/src/testing/TestClock.ts` at `effect@4.0.0-rc.111` — `adjust`, `setTime`.
 
-[^test-testclock]: `packages/effect/test/TestClock.test.ts` at `effect@4.0.0-rc.110` — fork the waiting effect, adjust, then assert.
+[^test-testclock]: `packages/effect/test/TestClock.test.ts` at `effect@4.0.0-rc.111` — fork the waiting effect, adjust, then assert.
 
-[^src-random]: `packages/effect/src/Random.ts` at `effect@4.0.0-rc.110` — `Random.withSeed`; `effect/testing` contains no TestRandom service.
+[^src-random]: `packages/effect/src/Random.ts` at `effect@4.0.0-rc.111` — `Random.withSeed`; `effect/testing` contains no TestRandom service.
 
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/test/SyncClient.test.ts` (effect 4.0.0-beta.103) — retry boundaries pinned by adjusting to 4999 ms then 1 ms more.
 

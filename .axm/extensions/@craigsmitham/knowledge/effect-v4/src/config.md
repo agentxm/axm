@@ -6,23 +6,23 @@ tags: [effect, effect-v4, config, environment, secrets, redaction, startup-valid
 status: stable
 sources:
   - id: src-config
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Config.ts
-    title: Config module source — descriptors, Config.schema, ConfigError, absence-only fallbacks, redacted (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Config.ts
+    title: Config module source — descriptors, Config.schema, ConfigError, absence-only fallbacks, redacted (effect 4.0.0-rc.111)
   - id: src-config-provider
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/ConfigProvider.ts
-    title: ConfigProvider module source — value sources, layer and layerAdd overrides, provider-edge naming (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/ConfigProvider.ts
+    title: ConfigProvider module source — value sources, layer and layerAdd overrides, provider-edge naming (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — SchemaError, Schema.Literals, check + makeFilter cross-field filters with per-field paths (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — SchemaError, Schema.Literals, check + makeFilter cross-field filters with per-field paths (effect 4.0.0-rc.111)
   - id: test-config
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Config.test.ts
-    title: Config tests — defaults apply only to wholly absent input; canonical Config.mapOrFail failure construction (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Config.test.ts
+    title: Config tests — defaults apply only to wholly absent input; canonical Config.mapOrFail failure construction (effect 4.0.0-rc.111)
   - id: docs-layer-unwrap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/03_services/20_layer-unwrap.ts
-    title: Official Effect docs — a config flag selecting between two concrete layers via Layer.unwrap (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/03_services/20_layer-unwrap.ts
+    title: Official Effect docs — a config flag selecting between two concrete layers via Layer.unwrap (effect 4.0.0-rc.111)
   - id: docs-acquire-release
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
-    title: Official Effect docs — Config and Config.redacted yielded during Layer.effect construction (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
+    title: Official Effect docs — Config and Config.redacted yielded during Layer.effect construction (effect 4.0.0-rc.111)
   - id: applied-browser-control
     resource: https://github.com/anomalyco/browser-control/blob/0110939f584362df2cba1f4f167dc5867c7f6e27/src/session-store.ts
     title: browser-control@0110939 — shared Config descriptor consumed at construction, ConfigError mapped to a typed domain error
@@ -41,13 +41,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-config/src/SKILL.md
     title: effect-v4-config skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:06Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:06Z
   - by: claude/opus-5
     at: 2026-08-17T22:30:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Config
@@ -75,7 +77,7 @@ browsing the `Config` and `ConfigProvider` surfaces.
   transformations; named constructors such as `Config.port` and
   `Config.redacted` are themselves defined through it.[^src-config]
 - Give a closed set of allowed values a literal union with
-  `Config.literals(literals, name?)` — the rc.110 shortcut defined as exactly
+  `Config.literals(literals, name?)` — the rc.111 shortcut defined as exactly
   `schema(Schema.Literals(literals), name)`. The payoff is type-level: the
   decoded value is `L[number]`, not a widened `string`, so an unlisted value
   fails at load and downstream matching stays exhaustive. Spell out
@@ -225,17 +227,17 @@ state.
   integration.
 - No configuration value carries per-request or mutable domain state.
 
-[^src-config]: `packages/effect/src/Config.ts` at `effect@4.0.0-rc.110` — `Config<T> extends Effect<T, ConfigError>`; `ConfigError` wraps `SourceError` or `Schema.SchemaError` (`:72`); `withDefault`/`option` gotchas state that validation errors and partially supplied groups still propagate; `orElse` handles all `ConfigError`s; `redacted` is `schema(Schema.Redacted(Schema.String))` (`:1498`); `mapOrFail` takes `(a: A) => Effect<B, ConfigError>` (`:289`); `literals(literals, name?)` is defined as `schema(Schema.Literals(literals), name)` (`:1295`), the shape Effect uses for its own `Config.LogLevel` (`:975`). There is no exported `Config.flatMap`. The closed-set claim rests on this first-party source alone — no `Config.literals`, `Config.literal`, or `Config.schema(Schema.Literals(…))` use appears in the surveyed applied corpus.
+[^src-config]: `packages/effect/src/Config.ts` at `effect@4.0.0-rc.111` — `Config<T> extends Effect<T, ConfigError>`; `ConfigError` wraps `SourceError` or `Schema.SchemaError` (`:72`); `withDefault`/`option` gotchas state that validation errors and partially supplied groups still propagate; `orElse` handles all `ConfigError`s; `redacted` is `schema(Schema.Redacted(Schema.String))` (`:1498`); `mapOrFail` takes `(a: A) => Effect<B, ConfigError>` (`:289`); `literals(literals, name?)` is defined as `schema(Schema.Literals(literals), name)` (`:1295`), the shape Effect uses for its own `Config.LogLevel` (`:975`). There is no exported `Config.flatMap`. The closed-set claim rests on this first-party source alone — no `Config.literals`, `Config.literal`, or `Config.schema(Schema.Literals(…))` use appears in the surveyed applied corpus.
 
-[^src-config-provider]: `packages/effect/src/ConfigProvider.ts` at `effect@4.0.0-rc.110` — `fromEnv`, `fromEnvRecord`, `fromDotEnv`, `fromDir`, `fromUnknown`; `ConfigProvider` is a `Context.Reference` with a `fromEnv()` default; `layer`, `layerAdd`, `mapInput`, `constantCase`, `nested`.
+[^src-config-provider]: `packages/effect/src/ConfigProvider.ts` at `effect@4.0.0-rc.111` — `fromEnv`, `fromEnvRecord`, `fromDotEnv`, `fromDir`, `fromUnknown`; `ConfigProvider` is a `Context.Reference` with a `fromEnv()` default; `layer`, `layerAdd`, `mapInput`, `constantCase`, `nested`.
 
-[^test-config]: `packages/effect/test/Config.test.ts` at `effect@4.0.0-rc.110` — "defaults wholly absent products and rejects partial products"; "validates empty env numbers when they are preserved"; "mapOrFail supports effectful validation" (`:231-252`) constructs the failure as `new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })))`.
+[^test-config]: `packages/effect/test/Config.test.ts` at `effect@4.0.0-rc.111` — "defaults wholly absent products and rejects partial products"; "validates empty env numbers when they are preserved"; "mapOrFail supports effectful validation" (`:231-252`) constructs the failure as `new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })))`.
 
-[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `SchemaError` takes a `SchemaIssue.Issue` (`:1178`); `Schema.makeFilter` examples on `.check` return `{ path, issue }` for one field and an array of them for several (`:6546`, `:6561`).
+[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.111` — `SchemaError` takes a `SchemaIssue.Issue` (`:1178`); `Schema.makeFilter` examples on `.check` return `{ path, issue }` for one field and an array of them for several (`:6546`, `:6561`).
 
-[^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.110` — `Layer.unwrap` reads `Config.boolean("MESSAGE_STORE_IN_MEMORY")` and returns one of two concrete layers (`:51-64`).
+[^docs-layer-unwrap]: `ai-docs/src/01_effect/03_services/20_layer-unwrap.ts` at `effect@4.0.0-rc.111` — `Layer.unwrap` reads `Config.boolean("MESSAGE_STORE_IN_MEMORY")` and returns one of two concrete layers (`:51-64`).
 
-[^docs-acquire-release]: `ai-docs/src/01_effect/05_resources/10_acquire-release.ts` at `effect@4.0.0-rc.110` — `Config.string`/`Config.redacted` yielded in `Layer.effect`; `Redacted.value` unwrapped only inside the SMTP transport.
+[^docs-acquire-release]: `ai-docs/src/01_effect/05_resources/10_acquire-release.ts` at `effect@4.0.0-rc.111` — `Config.string`/`Config.redacted` yielded in `Layer.effect`; `Redacted.value` unwrapped only inside the SMTP transport.
 
 [^applied-browser-control]: Observed in browser-control@0110939 `src/session-store.ts` (effect 4.0.0-beta.97).
 

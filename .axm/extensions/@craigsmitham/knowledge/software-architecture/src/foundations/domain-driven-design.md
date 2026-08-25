@@ -35,7 +35,7 @@ sources:
     title: Context Mapper — Validating the Implementation against the Model
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:46:55Z
+  at: 2026-08-23T01:30:58Z
 ---
 
 # Domain-driven design
@@ -175,10 +175,10 @@ them from folder or code ancestry.[^context-mapper-subdomains][^context-mapper-b
 
 Make a material bounded context visible in durable architecture documentation
 and its context map. That documentation owns the context's purpose, model and
-language scope, authority, exclusions, and major relationships. Code, schemas,
-configuration, and tests own its exact current realization and should be linked
-as evidence; structural checks can detect drift between the declared boundary
-and implementation.[^context-mapper-architecture-validation]
+language scope, authority, exclusions, and consequential relationships. Code,
+schemas, configuration, and tests own its exact current realization and should
+be linked as evidence; structural checks can detect drift between the declared
+boundary and implementation.[^context-mapper-architecture-validation]
 
 ### Context maps
 

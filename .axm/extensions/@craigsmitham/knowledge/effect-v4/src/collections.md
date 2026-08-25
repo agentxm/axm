@@ -6,20 +6,20 @@ tags: [effect, effect-v4, array, chunk, record, hashmap, collections, immutabili
 status: stable
 sources:
   - id: src-array
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Array.ts
-    title: Array module source — Option accessors, Result-based filterMap/partition/separate, getSomes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Array.ts
+    title: Array module source — Option accessors, Result-based filterMap/partition/separate, getSomes (effect 4.0.0-rc.111)
   - id: src-record
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Record.ts
-    title: Record module source — Result-based partition and separate (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Record.ts
+    title: Record module source — Result-based partition and separate (effect 4.0.0-rc.111)
   - id: src-chunk
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Chunk.ts
-    title: Chunk module source — efficient append, prepend, and concatenation rationale (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Chunk.ts
+    title: Chunk module source — efficient append, prepend, and concatenation rationale (effect 4.0.0-rc.111)
   - id: src-hashmap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/HashMap.ts
-    title: HashMap module source — structural-equality keys, HAMT structural sharing (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/HashMap.ts
+    title: HashMap module source — structural-equality keys, HAMT structural sharing (effect 4.0.0-rc.111)
   - id: src-stream
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Stream.ts
-    title: Stream module source — plain-array chunking, fromArray, runCollect (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Stream.ts
+    title: Stream module source — plain-array chunking, fromArray, runCollect (effect 4.0.0-rc.111)
   - id: applied-dfx
     resource: https://github.com/tim-smart/dfx/blob/23988a4f182eb5cebc6c3bbac3f3c35fd303168f/src/Interactions/builder.ts
     title: dfx@23988a4 — Chunk accumulation in a builder, converted once at the boundary
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-collections/src/SKILL.md
     title: effect-v4-collections skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:38Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:38Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Collections
@@ -60,7 +62,7 @@ Related: [Streams](streams.md) when delivery is incremental,
   persistent representation useful — a builder accumulating definitions, for
   example — and convert once at the consumption boundary with
   `Chunk.toReadonlyArray`.[^src-chunk] [^applied-dfx] No Stream API requires
-  Chunk: rc.110 streams chunk with plain arrays (`Stream.fromArray`,
+  Chunk: rc.111 streams chunk with plain arrays (`Stream.fromArray`,
   `runCollect` returning `Array`).[^src-stream] Convert at external JSON and
   API edges.
 - Use `HashMap` when keys need Effect's `Equal` and `Hash` structural
@@ -81,7 +83,7 @@ Related: [Streams](streams.md) when delivery is incremental,
   sides. An Option-returning callback does not type-check in `filterMap`;
   `Record.partitionMap` does not exist.[^src-array] [^src-record]
 - Use `Array.getSomes` to remove `Option` in one pass; Option removal is not
-  `filterMap`'s job in rc.110.[^src-array]
+  `filterMap`'s job in rc.111.[^src-array]
 - Preserve order deliberately. When order is irrelevant, say so before choosing
   a keyed structure or concurrent traversal.
 - Convert a collection once at a boundary instead of repeatedly translating
@@ -124,15 +126,15 @@ const found = Array.getSomes(lookups); // Option removal is getSomes, not filter
 - External boundaries use ordinary serializable values.
 - Finite collection work has not been over-modeled as a Stream.
 
-[^src-array]: `packages/effect/src/Array.ts` at `effect@4.0.0-rc.110` — `get`/`head`/`findFirst` return `Option`, `getUnsafe` is the unsafe alternative, `filterMap` and `partition` take `(a, i) => Result<B, X>`, `separate` is `partition(identity)`, `getSomes` extracts present Option values.
+[^src-array]: `packages/effect/src/Array.ts` at `effect@4.0.0-rc.111` — `get`/`head`/`findFirst` return `Option`, `getUnsafe` is the unsafe alternative, `filterMap` and `partition` take `(a, i) => Result<B, X>`, `separate` is `partition(identity)`, `getSomes` extracts present Option values.
 
-[^src-record]: `packages/effect/src/Record.ts` at `effect@4.0.0-rc.110` — `Record.partition` takes a Result-returning function and preserves keys; `Record.separate` splits a record of Results; no `partitionMap` export exists.
+[^src-record]: `packages/effect/src/Record.ts` at `effect@4.0.0-rc.111` — `Record.partition` takes a Result-returning function and preserves keys; `Record.separate` splits a record of Results; no `partitionMap` export exists.
 
-[^src-chunk]: `packages/effect/src/Chunk.ts` at `effect@4.0.0-rc.110` — module header: "designed for efficient append, prepend, and concatenation", plus slicing and array conversion.
+[^src-chunk]: `packages/effect/src/Chunk.ts` at `effect@4.0.0-rc.111` — module header: "designed for efficient append, prepend, and concatenation", plus slicing and array conversion.
 
-[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — no Chunk import; `fromArray`/`fromArrays` constructors and `runCollect` returning `Effect<Array<A>, E, R>`.
+[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.111` — no Chunk import; `fromArray`/`fromArrays` constructors and `runCollect` returning `Effect<Array<A>, E, R>`.
 
-[^src-hashmap]: `packages/effect/src/HashMap.ts` at `effect@4.0.0-rc.110` — keys hashed and matched with Effect's structural equality rules; HAMT structural sharing.
+[^src-hashmap]: `packages/effect/src/HashMap.ts` at `effect@4.0.0-rc.111` — keys hashed and matched with Effect's structural equality rules; HAMT structural sharing.
 
 [^applied-dfx]: Observed in dfx@23988a4 `src/Interactions/builder.ts` (effect peer `>=4.0.0-beta.101`) — `Chunk.append`/`appendAll`/`map` accumulation, `Chunk.toReadonlyArray` at consumption.
 

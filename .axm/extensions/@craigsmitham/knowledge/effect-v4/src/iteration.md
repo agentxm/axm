@@ -19,20 +19,20 @@ tags:
 status: stable
 sources:
   - id: src-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — forEach, all, whileLoop, retry, repeat, discard (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — forEach, all, whileLoop, retry, repeat, discard (effect 4.0.0-rc.111)
   - id: src-types
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Types.ts
-    title: Types module source — Concurrency as number or "unbounded" (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Types.ts
+    title: Types module source — Concurrency as number or "unbounded" (effect 4.0.0-rc.111)
   - id: docs-schedule
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/06_schedule/10_schedules.ts
-    title: Official Effect docs — composed retry/repeat schedules with backoff, cap, jitter (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/06_schedule/10_schedules.ts
+    title: Official Effect docs — composed retry/repeat schedules with backoff, cap, jitter (effect 4.0.0-rc.111)
   - id: docs-streams
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/03_stream/10_creating-streams.ts
-    title: Official Effect docs — Stream for lazy or unbounded production (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/03_stream/10_creating-streams.ts
+    title: Official Effect docs — Stream for lazy or unbounded production (effect 4.0.0-rc.111)
   - id: test-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Effect.test.ts
-    title: Effect tests — forEach sequential default, numeric and unbounded concurrency (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Effect.test.ts
+    title: Effect tests — forEach sequential default, numeric and unbounded concurrency (effect 4.0.0-rc.111)
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/core/src/git.ts
     title: opencode@2cba7e2 — capacity-bounded forEach with per-item failures kept as data
@@ -49,11 +49,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-iteration/src/SKILL.md
     title: effect-v4-iteration skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:20:34Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:20:34Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Iteration
@@ -143,15 +145,15 @@ const pair = Effect.all(
 - The selected primitive exists in v4 and preserves the required result shape
   and cardinality.
 
-[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `forEach` ("By default, the operations are performed sequentially", short-circuit, `discard`), `Effect.all` shape preservation and `mode: "result"`, `whileLoop`, `retry` ("Defects and interruptions are not retried"), `repeat`; no `iterate` or `loop` export. `Stream.iterate`: `packages/effect/src/Stream.ts`.
+[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `forEach` ("By default, the operations are performed sequentially", short-circuit, `discard`), `Effect.all` shape preservation and `mode: "result"`, `whileLoop`, `retry` ("Defects and interruptions are not retried"), `repeat`; no `iterate` or `loop` export. `Stream.iterate`: `packages/effect/src/Stream.ts`.
 
-[^src-types]: `packages/effect/src/Types.ts` at `effect@4.0.0-rc.110` — `Concurrency = number | "unbounded"`.
+[^src-types]: `packages/effect/src/Types.ts` at `effect@4.0.0-rc.111` — `Concurrency = number | "unbounded"`.
 
-[^docs-schedule]: `ai-docs/src/06_schedule/10_schedules.ts` at `effect@4.0.0-rc.110`.
+[^docs-schedule]: `ai-docs/src/06_schedule/10_schedules.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-streams]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.110`.
+[^docs-streams]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.111`.
 
-[^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.110` — forEach sequential default and bounded/unbounded concurrency behavior.
+[^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.111` — forEach sequential default and bounded/unbounded concurrency behavior.
 
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/git.ts` (effect 4.0.0-beta.83) — `Effect.all` at `concurrency: 2` for a fixed pair, `forEach` at `concurrency: 8` for a variable file list, per-item stat failures converted to data.
 

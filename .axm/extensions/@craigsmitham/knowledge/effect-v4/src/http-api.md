@@ -6,23 +6,23 @@ tags: [effect, effect-v4, httpapi, http, openapi, middleware, security, fetch, a
 status: stable
 sources:
   - id: docs-http-server
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/10_basics.ts
-    title: Official Effect docs — HttpApi server wiring and toWebHandler (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/51_http-server/10_basics.ts
+    title: Official Effect docs — HttpApi server wiring and toWebHandler (effect 4.0.0-rc.111)
   - id: docs-http-endpoints
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/fixtures/api/Users.ts
-    title: Official Effect docs — endpoint options, response alternatives, status annotations (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/51_http-server/fixtures/api/Users.ts
+    title: Official Effect docs — endpoint options, response alternatives, status annotations (effect 4.0.0-rc.111)
   - id: docs-http-testing
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/51_http-server/20_testing.ts
-    title: Official Effect docs — HttpApiTest in-memory typed-client testing (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/51_http-server/20_testing.ts
+    title: Official Effect docs — HttpApiTest in-memory typed-client testing (effect 4.0.0-rc.111)
   - id: src-httpapi-endpoint
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts
-    title: HttpApiEndpoint source — constructor options, delete alias, client response modes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts
+    title: HttpApiEndpoint source — constructor options, delete alias, client response modes (effect 4.0.0-rc.111)
   - id: src-httpapi-middleware
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts
-    title: HttpApiMiddleware source — middleware config, layerSchemaErrorTransform (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts
+    title: HttpApiMiddleware source — middleware config, layerSchemaErrorTransform (effect 4.0.0-rc.111)
   - id: src-httpapi-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/httpapi/HttpApiSchema.ts
-    title: HttpApiSchema source — NoContent, status defaults, WithHeaders, StreamSse (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/httpapi/HttpApiSchema.ts
+    title: HttpApiSchema source — NoContent, status defaults, WithHeaders, StreamSse (effect 4.0.0-rc.111)
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/server/src/routes.ts
     title: opencode@2cba7e2 — production HttpApi server, schema-error transform, OpenAPI route
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-http-api/src/SKILL.md
     title: effect-v4-http-api skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:10:36Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:10:36Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # HTTP API
@@ -166,14 +168,14 @@ headerFields)` for declared responses, or pipe a schema through
 - API names have been verified against the installed `unstable/httpapi`
   version.
 
-[^src-httpapi-endpoint]: `packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts` at `effect@4.0.0-rc.110`; no `addError`/`addSuccess` exists anywhere under `unstable/httpapi`.
+[^src-httpapi-endpoint]: `packages/effect/src/unstable/httpapi/HttpApiEndpoint.ts` at `effect@4.0.0-rc.111`; no `addError`/`addSuccess` exists anywhere under `unstable/httpapi`.
 
-[^src-httpapi-schema]: `packages/effect/src/unstable/httpapi/HttpApiSchema.ts` at `effect@4.0.0-rc.110` — `NoContent` (204), success default 200, `WithHeaders`/`encodeToWithHeaders`, `StreamSse`, `StreamUint8Array`.
+[^src-httpapi-schema]: `packages/effect/src/unstable/httpapi/HttpApiSchema.ts` at `effect@4.0.0-rc.111` — `NoContent` (204), success default 200, `WithHeaders`/`encodeToWithHeaders`, `StreamSse`, `StreamUint8Array`.
 
-[^src-httpapi-middleware]: `packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts` at `effect@4.0.0-rc.110`; applied in opencode@2cba7e2 `packages/server/src/middleware/schema-error.ts`.
+[^src-httpapi-middleware]: `packages/effect/src/unstable/httpapi/HttpApiMiddleware.ts` at `effect@4.0.0-rc.111`; applied in opencode@2cba7e2 `packages/server/src/middleware/schema-error.ts`.
 
-[^docs-http-endpoints]: `ai-docs/src/51_http-server/fixtures/api/Users.ts` at `effect@4.0.0-rc.110`.
+[^docs-http-endpoints]: `ai-docs/src/51_http-server/fixtures/api/Users.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-http-server]: `ai-docs/src/51_http-server/10_basics.ts` at `effect@4.0.0-rc.110`; `HttpRouter.toWebHandler` at `packages/effect/src/unstable/http/HttpRouter.ts`.
+[^docs-http-server]: `ai-docs/src/51_http-server/10_basics.ts` at `effect@4.0.0-rc.111`; `HttpRouter.toWebHandler` at `packages/effect/src/unstable/http/HttpRouter.ts`.
 
-[^docs-http-testing]: `ai-docs/src/51_http-server/20_testing.ts` and `packages/effect/src/unstable/httpapi/HttpApiTest.ts` at `effect@4.0.0-rc.110`.
+[^docs-http-testing]: `ai-docs/src/51_http-server/20_testing.ts` and `packages/effect/src/unstable/httpapi/HttpApiTest.ts` at `effect@4.0.0-rc.111`.

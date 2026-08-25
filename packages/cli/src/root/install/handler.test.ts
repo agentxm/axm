@@ -375,6 +375,38 @@ describe("root install handler", () => {
     }),
   );
 
+  it.effect("ignores configured inline MCP servers during workspace install", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        mcps: {
+          linear: {
+            command: "npx",
+            args: ["-y", "linear-mcp-server"],
+          },
+        },
+      });
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(calls).toEqual([]);
+      expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Install configured extensions",
+        message: "No configured extensions.",
+      });
+    }),
+  );
+
   it.effect("installs configured knowledge bundles on workspace install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];

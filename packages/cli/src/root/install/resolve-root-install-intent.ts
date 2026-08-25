@@ -7,6 +7,7 @@ import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
   isInstallableExtensionTypePlural,
+  parseSourceQualifiedRegistrySourcePatternParts,
   RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
@@ -60,8 +61,9 @@ export const resolveRootInstallIntent = (input: string) =>
     const source = input.trim();
     const segments = source.split("/");
     const pluralType = segments.length === 3 ? segments[1] : undefined;
+    const sourceQualifiedRegistry = parseSourceQualifiedRegistrySourcePatternParts(source);
 
-    if (!source.startsWith("@")) {
+    if (!source.startsWith("@") && sourceQualifiedRegistry === undefined) {
       const parsedInput = parseInputPattern(source);
       if (Option.isSome(parsedInput)) {
         switch (parsedInput.value.pattern.pattern) {

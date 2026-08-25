@@ -9,6 +9,8 @@ describe("resolveRootInstallIntent", () => {
     Effect.gen(function* () {
       const cases = [
         { source: "@acme/skills/code-review", type: "skill" },
+        { source: "agentxm:@acme/skills/code-review", type: "skill" },
+        { source: "internal:@acme/skills/code-review", type: "skill" },
         { source: "@acme/mcps/dev-server", type: "mcp-server" },
         { source: "@acme/subagents/researcher", type: "subagent" },
         { source: "@acme/packs/frontend-tools", type: "pack" },

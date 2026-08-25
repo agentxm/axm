@@ -621,7 +621,9 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.getConfiguredMcpServerEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = enabledConfiguredEntries(configured).filter(
+      ([, entry]) => entry.source !== "inline",
+    );
 
     const plans = yield* Effect.forEach(
       entries,

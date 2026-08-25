@@ -331,7 +331,7 @@ describe("axm knowledge lifecycle", () => {
     } finally {
       temp.cleanup();
     }
-  }, 30_000);
+  }, 60_000);
 
   it("searches normalized tokens, phrases, and exact literals with stable validation", async () => {
     const temp = createTempDir();

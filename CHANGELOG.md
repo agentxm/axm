@@ -1,3 +1,13 @@
+## 0.28.0 (2026-08-25)
+
+### ⚠️ Breaking Changes
+
+- Qualify acquired extension storage by source and preserve source identity. ([0ee512d45](https://github.com/agentxm/axm/commit/0ee512d45))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.18 (2026-08-25)
 
 ### 🚀 Features

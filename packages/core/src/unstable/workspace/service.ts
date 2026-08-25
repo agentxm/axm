@@ -293,18 +293,25 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
     );
 
-    const scopeForDir = (dir: string): "project" | "user" =>
-      dir === globalDir ? "user" : "project";
+    const scopeForDir = (
+      dir: string,
+      sharedScope: "project" | "user" = options.scope,
+    ): "project" | "user" =>
+      dir === globalDir && dir === localRuntimeDir
+        ? sharedScope
+        : dir === globalDir
+          ? "user"
+          : "project";
 
-    const readSettingsCell = (dir: string) =>
-      makeWorkspaceReadModel(scopeForDir(dir)).pipe(
+    const readSettingsCell = (dir: string, sharedScope?: "project" | "user") =>
+      makeWorkspaceReadModel(scopeForDir(dir, sharedScope)).pipe(
         Effect.flatMap((readModel) => readModel.state.settings),
         Effect.provide(contextEnv),
         Effect.mapError((error) => contextReadErrorToAppError("settings", error)),
       );
 
-    const readLockfileCell = (dir: string) =>
-      makeWorkspaceReadModel(scopeForDir(dir)).pipe(
+    const readLockfileCell = (dir: string, sharedScope?: "project" | "user") =>
+      makeWorkspaceReadModel(scopeForDir(dir, sharedScope)).pipe(
         Effect.flatMap((readModel) => readModel.state.lockfile),
         Effect.map(Option.getOrElse(createEmptyLockfile)),
         Effect.provide(contextEnv),
@@ -315,10 +322,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
     }
 
-    const projectSettings = yield* readSettingsCell(localRuntimeDir).pipe(
+    const projectSettings = yield* readSettingsCell(localRuntimeDir, "project").pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
-    const userSettings = yield* readSettingsCell(globalDir).pipe(
+    const userSettings = yield* readSettingsCell(globalDir, "user").pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
     const projectLayout = yield* resolveProjectWorkspaceLayout(
@@ -343,8 +350,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     /**
      * Read settings from a directory, returning default settings if not found.
      */
-    const readSettingsSafe = (dir: string) =>
-      readSettingsCell(dir).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
+    const readSettingsSafe = (dir: string, sharedScope?: "project" | "user") =>
+      readSettingsCell(dir, sharedScope).pipe(
+        Effect.map(Option.getOrElse(() => createDefaultSettings())),
+      );
 
     /**
      * Read lockfile from a directory, returning empty lockfile if not found.
@@ -504,8 +513,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
-        const projectSettings = yield* readSettingsSafe(localRuntimeDir);
-        const globalSettings = yield* readSettingsSafe(globalDir);
+        const projectSettings = yield* readSettingsSafe(localRuntimeDir, "project");
+        const globalSettings = yield* readSettingsSafe(globalDir, "user");
 
         const projectSources: ReadonlyArray<SourceHostConfig> = projectSettings.sources ?? [];
         const globalSources: ReadonlyArray<SourceHostConfig> = globalSettings.sources ?? [];
@@ -560,9 +569,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getConfiguredOwner: () =>
         Effect.gen(function* () {
-          const projectSettings = yield* readSettingsSafe(localRuntimeDir);
+          const projectSettings = yield* readSettingsSafe(localRuntimeDir, "project");
           if (projectSettings.owner) return Option.some(projectSettings.owner);
-          const globalSettings = yield* readSettingsSafe(globalDir);
+          const globalSettings = yield* readSettingsSafe(globalDir, "user");
           if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
@@ -579,7 +588,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         }
 
         if (options.scope === "project") {
-          const globalSettings = yield* readSettingsSafe(globalDir);
+          const globalSettings = yield* readSettingsSafe(globalDir, "user");
           if (globalSettings.minimumReleaseAge !== undefined) {
             return globalSettings.minimumReleaseAge;
           }
@@ -598,7 +607,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }
 
           if (options.scope === "project") {
-            const globalSettings = yield* readSettingsSafe(globalDir);
+            const globalSettings = yield* readSettingsSafe(globalDir, "user");
             if (globalSettings.minimumReleaseAgeExclude !== undefined) {
               return globalSettings.minimumReleaseAgeExclude.map(
                 (pattern): ScopedReleaseAgeExcludePattern => ({ pattern, scope: "user" }),

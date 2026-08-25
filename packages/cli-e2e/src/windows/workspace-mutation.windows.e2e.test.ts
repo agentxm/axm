@@ -161,12 +161,12 @@ describe("Windows workspace mutation contract", () => {
       expect(JSON.parse(install.stdout)).toMatchObject({ ok: true });
       const canonicalSkill = path.join(
         workspace.path,
-        ".axm",
-        "extensions",
-        "external",
+        "agent_extensions",
+        "@test",
         "skills",
         "my-skill",
       );
+      const canonicalSkillMd = path.join(canonicalSkill, "src", "SKILL.md");
       const claudeSkill = path.join(workspace.path, ".claude", "skills", "my-skill");
       const codexSkill = path.join(workspace.path, ".agents", "skills", "my-skill");
       const codeartsSkill = path.join(workspace.path, ".codeartsdoer", "skills", "my-skill");
@@ -178,8 +178,8 @@ describe("Windows workspace mutation contract", () => {
       const lockPath = path.join(workspace.path, "axm-lock.yaml");
       const lockBytesBefore = fs.readFileSync(lockPath, "utf8");
       const lockBefore = YAML.parse(lockBytesBefore);
-      const canonicalBytesBefore = fs.readFileSync(path.join(canonicalSkill, "SKILL.md"), "utf8");
-      fs.appendFileSync(path.join(source, "my-skill", "SKILL.md"), "\nWindows refresh.\n");
+      const canonicalBytesBefore = fs.readFileSync(canonicalSkillMd, "utf8");
+      fs.appendFileSync(path.join(source, "my-skill", "src", "SKILL.md"), "\nWindows refresh.\n");
 
       const blockedProjectionRoot = path.dirname(codeartsSkill);
       fs.rmSync(blockedProjectionRoot, { recursive: true, force: true });
@@ -189,9 +189,7 @@ describe("Windows workspace mutation contract", () => {
         { cwd: workspace.path, env },
       );
       expect(failedUpdate.exitCode).not.toBe(0);
-      expect(fs.readFileSync(path.join(canonicalSkill, "SKILL.md"), "utf8")).toBe(
-        canonicalBytesBefore,
-      );
+      expect(fs.readFileSync(canonicalSkillMd, "utf8")).toBe(canonicalBytesBefore);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBytesBefore);
       expect(fs.readFileSync(blockedProjectionRoot, "utf8")).toBe("injected projection failure\n");
 
@@ -207,9 +205,7 @@ describe("Windows workspace mutation contract", () => {
       expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
         lockBefore.skills["my-skill"].contentIdentity,
       );
-      expect(fs.readFileSync(path.join(canonicalSkill, "SKILL.md"), "utf8")).toContain(
-        "Windows refresh.",
-      );
+      expect(fs.readFileSync(canonicalSkillMd, "utf8")).toContain("Windows refresh.");
 
       expectSuccess(
         await runCli(["skills", "disable", "my-skill", "--yes", "--json", "--non-interactive"], {
@@ -310,7 +306,7 @@ describe("Windows workspace mutation contract", () => {
       );
       expect(JSON.parse(converged.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "no-op", reconciliationRequired: false },
+        result: { outcome: "no-op" },
       });
     } finally {
       workspace.cleanup();

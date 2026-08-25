@@ -1,3 +1,13 @@
+## 0.27.18 (2026-08-25)
+
+### 🚀 Features
+
+- Adopt authored and acquired workspace layout (AXM-1588), align operation lifecycle guidance, and upgrade Effect to 4.0.0-rc.112. ([07bd016f8](https://github.com/agentxm/axm/commit/07bd016f8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.27.17 (2026-08-23)
 
 ### 🚀 Features

@@ -17,17 +17,17 @@ sources:
 Skill engineering continues after a package validates. Each stage consumes
 evidence and creates obligations for later stages.
 
-| Stage      | Entry evidence                                             | Main decision or work                     | Exit evidence                             |
-| ---------- | ---------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| Observe    | Repeated work, friction, failures, successful trajectories | Is a reusable pattern present?            | Concrete positive and negative examples   |
-| Select     | Examples and neighboring capabilities                      | Does this warrant a skill?                | Bounded candidate or rejection rationale  |
-| Design     | Candidate, hosts, authority, outcomes                      | Which contracts and resources are needed? | Skill design and case matrix              |
-| Author     | Accepted boundaries and local package rules                | Encode the portable workflow              | Canonical package and smoke evidence      |
-| Validate   | Package bytes and host rules                               | Is the package structurally usable?       | Validator and helper results              |
-| Evaluate   | Target identity, cases, graders, baselines                 | Does routing and execution work?          | Behavioral report and raw evidence        |
-| Audit      | Exact bytes, provenance, intended trust scope              | Is installation or release acceptable?    | Findings and recommendation               |
-| Distribute | Accepted package, metadata, license, integrity             | Who can install which version?            | Published immutable identity              |
-| Operate    | Usage, failures, drift, dependency changes                 | Maintain, evolve, constrain, or retire?   | Revised evidence, deprecation, or removal |
+| Stage | Entry evidence | Main decision or work | Exit evidence |
+| --- | --- | --- | --- |
+| Observe | Repeated work, friction, failures, successful trajectories | Is a reusable pattern present? | Concrete positive and negative examples |
+| Select | Examples and neighboring capabilities | Does this warrant a skill? | Bounded candidate or rejection rationale |
+| Design | Candidate, hosts, authority, outcomes | Which contracts and resources are needed? | Skill design and case matrix |
+| Author | Accepted boundaries and local package rules | Encode the portable workflow | Canonical package and smoke evidence |
+| Validate | Package bytes and host rules | Is the package structurally usable? | Validator and helper results |
+| Evaluate | Target identity, cases, graders, baselines | Does routing and execution work? | Behavioral report and raw evidence |
+| Audit | Exact bytes, provenance, intended trust scope | Is installation or release acceptable? | Findings and recommendation |
+| Distribute | Accepted package, metadata, license, integrity | Who can install which version? | Published immutable identity |
+| Operate | Usage, failures, drift, dependency changes | Maintain, evolve, constrain, or retire? | Revised evidence, deprecation, or removal |
 
 The table describes available lifecycle responsibilities, not mandatory
 ceremony for every edit. Match depth to the requested outcome, changed

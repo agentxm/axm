@@ -25,15 +25,15 @@ Classify the deployed configuration across independent axes; empirical autonomy
 measurement likewise separates action patterns, human intervention, and task
 duration instead of relying on stated product capability.[^anthropic-autonomy]
 
-| Axis                     | Question                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| Decision freedom         | Which goals, plans, tools, parameters, and next steps may the model choose?                 |
-| Environment reach        | Which data, people, systems, and resources can it observe or affect?                        |
-| Duration and persistence | How long can it continue, resume, or retain influence?                                      |
-| Supervision              | Which actions are observed, reviewed, approved, interruptible, or unsupervised?             |
-| Reversibility            | Can effects be previewed, staged, rolled back, compensated, or only remediated?             |
-| Consequence              | What financial, legal, safety, privacy, security, social, or operational harm is plausible? |
-| Propagation              | Can one decision delegate, replicate, trigger workflows, or affect other agents?            |
+| Axis | Question |
+| --- | --- |
+| Decision freedom | Which goals, plans, tools, parameters, and next steps may the model choose? |
+| Environment reach | Which data, people, systems, and resources can it observe or affect? |
+| Duration and persistence | How long can it continue, resume, or retain influence? |
+| Supervision | Which actions are observed, reviewed, approved, interruptible, or unsupervised? |
+| Reversibility | Can effects be previewed, staged, rolled back, compensated, or only remediated? |
+| Consequence | What financial, legal, safety, privacy, security, social, or operational harm is plausible? |
+| Propagation | Can one decision delegate, replicate, trigger workflows, or affect other agents? |
 
 Risk rises through combinations. A narrow but irreversible action may deserve
 more control than broad read-only exploration. A short run can still be
@@ -61,7 +61,5 @@ process to map context, measure risks, govern controls, and revisit the deployed
 configuration as it changes.[^nist-rmf]
 
 [^anthropic-autonomy]: Anthropic — Measuring agent autonomy in practice
-
 [^nist-agent-standards]: NIST — AI Agent Standards Initiative
-
 [^nist-rmf]: NIST — AI Risk Management Framework

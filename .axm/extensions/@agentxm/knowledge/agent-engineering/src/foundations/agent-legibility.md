@@ -51,15 +51,15 @@ opaque for another.
 
 ## Dimensions of legibility
 
-| Dimension        | Question                                                                  |
-| ---------------- | ------------------------------------------------------------------------- |
-| Discoverability  | Can the agent find the relevant source, capability, or state?             |
-| Interpretability | Does its representation expose meaningful structure and distinctions?     |
-| Actionability    | Can the agent use what it learned through an available interface?         |
-| Feedback         | Are the consequences of action returned compactly and specifically?       |
-| Verifiability    | Can the agent establish whether the intended outcome now holds?           |
-| Continuity       | Can another turn, session, or worker recover what remains current?        |
-| Authority        | Are permissions, limits, and escalation boundaries visible before action? |
+| Dimension | Question |
+| --- | --- |
+| Discoverability | Can the agent find the relevant source, capability, or state? |
+| Interpretability | Does its representation expose meaningful structure and distinctions? |
+| Actionability | Can the agent use what it learned through an available interface? |
+| Feedback | Are the consequences of action returned compactly and specifically? |
+| Verifiability | Can the agent establish whether the intended outcome now holds? |
+| Continuity | Can another turn, session, or worker recover what remains current? |
+| Authority | Are permissions, limits, and escalation boundaries visible before action? |
 
 These dimensions reinforce one another. Discoverable documentation without an
 action interface may explain a system the agent cannot affect. An action
@@ -68,16 +68,16 @@ intent reports events without saying whether they matter.
 
 ## What a harness makes legible
 
-| Concern              | Possible representations                                          |
-| -------------------- | ----------------------------------------------------------------- |
-| Intent               | Task specification, acceptance criteria, examples, plan           |
-| Domain and structure | Vocabulary, schemas, architecture maps, dependency graphs         |
-| Capabilities         | Tool summaries, help, skills, supported operations                |
-| Environment state    | Files, structured queries, snapshots, resource inventories        |
-| Effects              | Diffs, receipts, events, test results, screenshots                |
-| Runtime behavior     | Logs, metrics, traces, timelines                                  |
-| Constraints          | Scoped instructions, schemas, policies, actionable check failures |
-| Continuity           | Checkpoints, decision logs, task records, execution state         |
+| Concern | Possible representations |
+| --- | --- |
+| Intent | Task specification, acceptance criteria, examples, plan |
+| Domain and structure | Vocabulary, schemas, architecture maps, dependency graphs |
+| Capabilities | Tool summaries, help, skills, supported operations |
+| Environment state | Files, structured queries, snapshots, resource inventories |
+| Effects | Diffs, receipts, events, test results, screenshots |
+| Runtime behavior | Logs, metrics, traces, timelines |
+| Constraints | Scoped instructions, schemas, policies, actionable check failures |
+| Continuity | Checkpoints, decision logs, task records, execution state |
 
 The runtime substrate proposed in recent harness-engineering research similarly
 joins context, tools, state, observability, verification, and permissions
@@ -180,5 +180,4 @@ mistaking their preferred representations for universal harness elements.
 - [Glossary](../glossary.md)
 
 [^openai-harness-engineering]: OpenAI — Harness engineering
-
 [^ai-harness-runtime]: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents

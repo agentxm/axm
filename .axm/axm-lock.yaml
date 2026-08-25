@@ -28,8 +28,8 @@ skills:
     type: registry
     owner: "@agentxm"
     name: audit-agent-skill
-    resolvedVersion: 0.7.3
-    integrity: sha512-6xvuaVzrJXVkuqOxLJ34+fiWX6RRBzjHBuSKwNUWAfHpAG8H2sjpX1goB6dx0YdkXq2S+68H5yYJi44S2PRHig==
+    resolvedVersion: 0.7.4
+    integrity: sha512-koKf4qZrgO7lt32ShwmJC5cJgI7KuBhFXkRSGCXNE3+alcOSE8WtbuEm1+VbqdNMPbcKmwTlJ2EzRhd2+HvAVg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   author-agent-skill:
@@ -44,16 +44,16 @@ skills:
     type: registry
     owner: "@agentxm"
     name: audit-agent-instructions
-    resolvedVersion: 0.1.5
-    integrity: sha512-x7xlsghXi98fet0s3ejKOhVwH+5P4P9Wsl9joV2EUMLNTwdZ8C6VmnlXwM87jXBl/UX7OlxaheShzSMMjs62SQ==
+    resolvedVersion: 0.1.6
+    integrity: sha512-a1oWBs+sMcxGTHMs/T1u8waj98y8gfDyvglOhTAL1JIinwSRKncW8PU9sh94Za9GBvYkyyVSt69dzVgIpWjQLQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   author-agent-instructions:
     type: registry
     owner: "@agentxm"
     name: author-agent-instructions
-    resolvedVersion: 0.1.5
-    integrity: sha512-GIhWOMvUr4GfJtcxNlqMBOUpMny+RAtorkNvMz/WDUVzynMqOnYIhC2aDLf0IPu+H884fs8RlLJfGoVyUqy2YA==
+    resolvedVersion: 0.1.6
+    integrity: sha512-FW3ryW+R5tgi3G9OeZkLLUvMK+PNamwJhPlhY9eHu77rujzH+4dhshV0jnBDK516xXz73tjXzuQnFZzVqfcX5w==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   author-software-work-items:
@@ -198,8 +198,8 @@ knowledge:
     type: registry
     owner: "@agentxm"
     name: agent-engineering
-    resolvedVersion: 0.9.0
-    integrity: sha512-TUCVk1oVvenoU/nAWa7uHGmprFNuqmGfGs0+bs9z6mTS7QVtgC42numpShWQKrAvpZ+YHhNPI1eQgT/AIaGsBA==
+    resolvedVersion: 0.9.2
+    integrity: sha512-AGnQ2updX0VzdtLX3MiJx2F6Ocjl+v0YoN6VRt0K5wBnhst+13UvFRg03EPc1osWk5f9zmsS7dZJlshgJCu1uw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   software-engineering:
@@ -249,9 +249,9 @@ packs:
     type: registry
     owner: "@agentxm"
     name: agent-engineering
-    resolvedVersion: 0.10.4
-    integrity: sha512-bkdFSOh2qC+Y9k4MZqTB132stPJpGOZcqVnAcVLomr2kG1T8ypJGXOMPVBmz3SZaqRosoclOxCtzi1W+NMclSg==
-    manifestContentIdentity: 36cec6cee1c2f3607ff2ca04d3fc166e5930e93acc8389ad65180306e45a7d51
+    resolvedVersion: 0.10.6
+    integrity: sha512-3fQOP6luNs/1kSIDcHbMC3KachsrWxtOiW9525+fKBew5KyhSzZtcJ6JoMTRVB46OilI0ZY6cgFjHnpSHcFU8w==
+    manifestContentIdentity: 1f759742dd28ed6b64c68f45a3d19207622f452c7a3ada38c468d6327778ee9b
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
   software-engineering:

@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "audit-agent-skill",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Audits exact Agent Skill revisions and their behavioral evidence against skill-engineering, trust, packaging, and lifecycle guidance",
   "keywords": [
     "agent-skills",
@@ -21,6 +21,8 @@
   },
   "homepage": "https://github.com/agentxm/agent-extensions",
   "license": "MIT",
-  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
+  "recommendedPacks": [
+    "@agentxm/packs/agent-engineering"
+  ],
   "standalone": false
 }

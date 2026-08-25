@@ -51,13 +51,13 @@ A measure earns its place by separating the configurations under comparison.
 Before reading any pass rate, classify each assertion, check, or rubric
 dimension by its pattern across those configurations:
 
-| Pattern across configurations               | Reading                                                     | Action                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Passes everywhere                           | The baseline already satisfies it                           | Retire it, or keep it explicitly as a guardrail rather than as evidence of value |
-| Fails everywhere                            | Broken, unobservable, or beyond current capability          | Repair the case or withdraw the claim it was meant to support                    |
-| Passes with the intervention, fails without | Attributable value                                          | Keep as primary evidence                                                         |
-| Fails with the intervention, passes without | A regression an aggregate can absorb                        | Gate it independently                                                            |
-| Alternates across trials                    | Flaky case, unstable grader, or genuinely variable behavior | Add trials before reading a mean                                                 |
+| Pattern across configurations | Reading | Action |
+| --- | --- | --- |
+| Passes everywhere | The baseline already satisfies it | Retire it, or keep it explicitly as a guardrail rather than as evidence of value |
+| Fails everywhere | Broken, unobservable, or beyond current capability | Repair the case or withdraw the claim it was meant to support |
+| Passes with the intervention, fails without | Attributable value | Keep as primary evidence |
+| Fails with the intervention, passes without | A regression an aggregate can absorb | Gate it independently |
+| Alternates across trials | Flaky case, unstable grader, or genuinely variable behavior | Add trials before reading a mean |
 
 A suite whose measures nearly all pass everywhere reports a high score while
 establishing very little: the aggregate then describes the task rather than the
@@ -70,7 +70,5 @@ fails this check is a finding against the suite's author, and repairing it
 during a controlled run invalidates the comparison it was meant to inform.
 
 [^openai-evals]: OpenAI — Evaluation best practices
-
 [^nist-rmf]: NIST — AI RMF Core
-
 [^anthropic-skill-creator-analyzer]: Anthropic — Skill Creator benchmark analyzer

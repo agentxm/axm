@@ -27,6 +27,27 @@ axm install @agentxm/packs/agent-engineering
 > preserve useful discovery routes, and verify the effective context from the
 > root and package working directories.
 
+## Revision 0.1.6
+
+- Previous version: `0.1.5`
+- Contract delta: separates effective-surface validation from demonstrated
+  behavioral value and requires explicit baselines, held-out cases, ablations,
+  and distinct outcome, adherence, trajectory, economy, safety, and unnecessary-
+  work measures when improvement is claimed
+- Compatibility and cohort: existing authoring requests remain supported;
+  suite `0.3.0` adds one execution case for evidence-calibrated revision
+- Risk delta: commands must remain conditional and personas or speculative
+  examples cannot substitute for observed repository needs
+- Migration: update the agent-engineering pack to `0.10.6`
+- Rollback: restore skill `0.1.5`, suite `0.2.2`, and its fixtures together
+- Evidence: all workspace suites validate; the new case passes one of one
+  same-author smoke trial after an earlier trial exposed and prompted correction
+  of an omitted trajectory measure; no release-tier or independent approval is
+  claimed
+- Bound identities: package
+  `sha256:2cbfaaae5387386c45e1af28e6bc131260a0952d0413def4ff582254e491843a`
+  and suite `sha256:69a03c419f6210196c60a4d52ae583d4c6462cbd1ff21a216474e409f1b34289`
+
 ## Revision 0.1.5
 
 - Previous version: `0.1.4`

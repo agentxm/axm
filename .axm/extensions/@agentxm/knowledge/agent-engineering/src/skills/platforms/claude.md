@@ -56,7 +56,6 @@ for network access, credentials, data handling, dependencies, update paths, and
 the consequences of automatic selection.[^anthropic-enterprise]
 
 [^anthropic-best-practices]: Anthropic — Skill authoring best practices
-
 [^anthropic-enterprise]: Anthropic — Enterprise skill security
-
 [^anthropic-skill-creator]: Anthropic — Skill Creator
+

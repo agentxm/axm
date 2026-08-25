@@ -63,7 +63,6 @@ Current lifecycle research treats verification and admission as distinct
 stages whose quality determines library quality.[^dynamic-agent-skills]
 
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-
 [^github-codeowners]: GitHub — About code owners
-
 [^dynamic-agent-skills]: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
+

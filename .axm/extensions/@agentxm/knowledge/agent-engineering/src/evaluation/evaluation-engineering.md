@@ -24,14 +24,14 @@ distribution of tasks and conditions in support of a named decision.
 It is an assurance plane across construction disciplines, not a child of any
 one target:
 
-| Target discipline     | Supplies to evaluation                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Prompt engineering    | Prompt identity, direct behavior, response contracts                                                          |
-| Context engineering   | Selection, authority, freshness, use, and economy                                                             |
-| Agent engineering     | Goal contract, model, tools, memory policy, topology, autonomy, termination, recovery, trajectories, outcomes |
-| Harness engineering   | Runtime identity, environments, authority, traces, state                                                      |
-| Skill engineering     | Routing, activated execution, coexistence, packaged resources                                                 |
-| Application or domain | User value, harm, quality, and acceptable tradeoffs                                                           |
+| Target discipline | Supplies to evaluation |
+| --- | --- |
+| Prompt engineering | Prompt identity, direct behavior, response contracts |
+| Context engineering | Selection, authority, freshness, use, and economy |
+| Agent engineering | Goal contract, model, tools, memory policy, topology, autonomy, termination, recovery, trajectories, outcomes |
+| Harness engineering | Runtime identity, environments, authority, traces, state |
+| Skill engineering | Routing, activated execution, coexistence, packaged resources |
+| Application or domain | User value, harm, quality, and acceptable tradeoffs |
 
 Evaluation engineering owns the shared method: objectives, task distributions,
 trials, evidence, graders, baselines, uncertainty, aggregation, validity, and
@@ -49,5 +49,4 @@ context mapping and requires uncertainty, documented methods, deployment-like
 conditions, and regular reassessment.[^nist-rmf]
 
 [^openai-evals]: OpenAI — Evaluation best practices
-
 [^nist-rmf]: NIST — AI RMF Core

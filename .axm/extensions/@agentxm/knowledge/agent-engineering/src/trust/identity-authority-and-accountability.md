@@ -53,7 +53,5 @@ similarly treats human control, alignment, secure interaction, transparency,
 and privacy as separate properties.[^anthropic-trust]
 
 [^fipa-management]: FIPA Agent Management Specification
-
 [^nist-agent-standards]: NIST — AI Agent Standards Initiative
-
 [^anthropic-trust]: Anthropic — Building and evaluating trustworthy agents

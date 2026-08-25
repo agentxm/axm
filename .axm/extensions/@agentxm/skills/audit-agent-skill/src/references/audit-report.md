@@ -6,7 +6,10 @@
 - Canonical source and acquisition path:
 - Revision, tree, archive integrity, or content identity:
 - Inspected path and time:
-- Intended use, hosts, and active cohort:
+- Intended use and hosts:
+- Declared package relationships:
+- Supported cohort or host contract:
+- Observed active catalog:
 - Audit mode and exclusions:
 - Guidance bundle, version, and content revision:
 - Previous accepted identity, when applicable:
@@ -14,12 +17,16 @@
 ## Package inventory
 
 | Surface | Present | Capability or purpose | Evidence or trust notes |
-| ------- | ------- | --------------------- | ----------------------- |
+| --- | --- | --- | --- |
+
+- Relationship authority:
+- Declared direct pack siblings or supported collaborators:
+- Incidental active neighbors:
 
 ## Conformity matrix
 
 | Expectation or guide location | Applicability | Evidence | Result |
-| ----------------------------- | ------------- | -------- | ------ |
+| --- | --- | --- | --- |
 
 ## Findings
 
@@ -34,8 +41,13 @@ Use these severity labels:
 - `Low` — a bounded defect has limited consequence and does not invalidate the
   central result.
 
-| ID  | Applicability | Severity | Expectation or guide location | Evidence | Consequence | Responsible surface | Required action or condition |
-| --- | ------------- | -------- | ----------------------------- | -------- | ----------- | ------------------- | ---------------------------- |
+| ID | Applicability | Severity | Expectation or guide location | Evidence | Consequence | Responsible surface | Required action or condition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+
+## External conditions and referrals
+
+| Condition | Evidence | Owning surface | Effect on this audit | Required external action or evidence |
+| --- | --- | --- | --- | --- |
 
 ## Behavioral evidence
 
@@ -47,7 +59,7 @@ Use these severity labels:
 ## Evaluation artifact lifecycle
 
 | Artifact | Class | Authority and storage | Identity or locator | Claim ceiling and retention |
-| -------- | ----- | --------------------- | ------------------- | --------------------------- |
+| --- | --- | --- | --- | --- |
 
 - Runtime payload boundary:
 - Versioned evaluation-source boundary:
@@ -72,7 +84,7 @@ Use these severity labels:
 ## Remediation and closure
 
 | Finding | Authoring disposition | Revised evidence | Closure status |
-| ------- | --------------------- | ---------------- | -------------- |
+| --- | --- | --- | --- |
 
 - Pre-change identity:
 - Post-change identity:

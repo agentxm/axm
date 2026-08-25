@@ -2,19 +2,10 @@
 type: How-to guide
 title: How to author agent instruction files
 description: How to create or revise a scoped agent instruction system such as AGENTS.md or CLAUDE.md without assuming one coding agent's loading or precedence behavior.
-tags:
-  [
-    agent-instructions,
-    instruction-files,
-    authoring,
-    agents.md,
-    claude.md,
-    scope,
-    progressive-disclosure,
-  ]
+tags: [agent-instructions, instruction-files, authoring, agents.md, claude.md, scope, progressive-disclosure]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-15T20:45:15Z }
-stale_after: 2027-02-15
+generated: { by: "codex/gpt-5.6", at: 2026-08-24T13:32:38Z }
+stale_after: 2027-02-24
 sources:
   - id: agent-instruction-files
     resource: agent-instruction-files.md
@@ -22,6 +13,9 @@ sources:
   - id: progressive-disclosure
     resource: ../../context/progressive-disclosure.md
     title: Progressive disclosure
+  - id: context-evaluation
+    resource: ../../evaluation/context-evaluation.md
+    title: How to evaluate a context system
 ---
 
 # How to author agent instruction files
@@ -80,7 +74,9 @@ Select a small set of tasks that exercise the repository's meaningful scopes:
 - adjacent work that must not receive those local instructions.
 
 Include the working locations or target paths from which each task begins.
-These cases will drive placement and later verify applicability.
+Preserve a smaller or absent-guidance baseline where practical. These cases
+will drive placement, verify applicability, and test whether the surface is
+actually useful.
 
 ## 4. Inventory the current surface
 
@@ -97,16 +93,23 @@ to keep findings consistent and evidence-backed.
 
 Keep content that performs one of four jobs:
 
-| Job              | Keep when                                                         |
-| ---------------- | ----------------------------------------------------------------- |
-| Invariant        | A stable constraint must shape work throughout its scope          |
-| Working command  | A non-obvious command materially improves execution or validation |
-| Discovery route  | A recognizable condition should load a deeper owner               |
-| Environment fact | A stable, non-obvious fact changes the next action                |
+| Job | Keep when |
+| --- | --- |
+| Invariant | A stable constraint must shape work throughout its scope |
+| Working command | A non-obvious command materially improves execution or validation |
+| Discovery route | A recognizable condition should load a deeper owner |
+| Environment fact | A stable, non-obvious fact changes the next action |
 
 Exclude background essays, exhaustive reference, task backlogs, long reusable
 procedures, and facts the agent can cheaply and reliably discover from the
 repository itself.
+
+Call a rule an invariant only when it is true throughout the stated scope,
+consequential when violated, observable or checkable, and compatible with every
+other applicable instruction. Enforce mechanically decidable invariants outside
+the prompt when violation is unacceptable. Treat commands as conditional unless
+they truly apply to every task in scope: naming a tool or check can induce
+unnecessary use even when the task does not need it.
 
 ## 6. Choose the smallest truthful scope
 
@@ -171,7 +174,26 @@ For each representative task:
 Test the instruction interface, not only the Markdown. A correct file that is
 not loaded—or is loaded too broadly—does not satisfy the goal.
 
-## 11. Assign maintenance ownership
+## 11. Evaluate behavioral value
+
+Applicability checks establish that the intended text enters the effective
+surface; they do not establish benefit. Compare the candidate with the prior,
+smaller, or absent-guidance baseline on representative and adjacent tasks.
+Measure separately:
+
+- task outcome and quality;
+- instruction adherence and safety;
+- unnecessary exploration, tool use, and validation;
+- tokens, latency, and cost; and
+- regressions outside the motivating cases.
+
+Where practical, ablate one added instruction or content class at a time and
+reserve held-out cases that were not used to write the revision. If no
+behavioral evidence is available, report the change as structurally validated,
+not as demonstrated improvement. Follow
+[How to evaluate a context system](../../evaluation/context-evaluation.md).
+
+## 12. Assign maintenance ownership
 
 Record who owns each instruction scope and what changes should trigger review,
 such as command changes, repository restructuring, harness changes, or moved
@@ -187,3 +209,5 @@ tasks over adding instructions after every isolated failure.
 - Conflicts are removed unless precedence is explicit and intentional.
 - Canonical sources and projections cannot silently drift.
 - Representative and adjacent entry points produce the intended context.
+- Behavioral value was compared with a meaningful baseline, or the absence of
+  such evidence is explicit.

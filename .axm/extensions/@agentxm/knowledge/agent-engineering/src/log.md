@@ -1,7 +1,31 @@
 # Agent engineering update log
 
+## 2026-08-24
+
+- **Evidence-calibrated instructions**: Distinguished interface conformity from
+  demonstrated behavioral value, added minimal and absent-guidance baselines,
+  component ablations, held-out cases, adjacent-task regressions, and separate
+  outcome, compliance, trajectory, economy, and safety measures.
+- **Repository guidance evidence**: Reconciled mixed empirical results across
+  generated, static, efficiency-oriented, and failure-refined repository
+  guidance, added unproven accretion as an audit finding, and made continued
+  retention contingent on representative value without unacceptable cost or
+  regression.
+- **Instruction elements**: Added evidence-calibrated guidance for goal
+  contracts, scope-wide invariants, examples, personas, tone labels,
+  procedures, and formatting; narrowed negative examples to measured material
+  boundaries and replaced emphasis escalation with failure diagnosis.
+- **Roles and personas**: Separated responsibility-and-authority role contracts
+  from presentation or simulation personas and rejected persona labels as
+  evidence of expertise.
+
 ## 2026-08-22
 
+- **Catalog and composition authority**: Clarified that an active catalog or
+  observed cohort supplies routing, coexistence, and compatibility context but
+  cannot create a dependency or required composition. Required collaboration
+  needs independent package, host, or workflow authority, and collision
+  findings belong to the smallest responsible surface.
 - **Replaceable evaluation runners**: Defined explicit-runner precedence over
   an active configured default, selection-source attribution, disabled-source
   handling, no auto-discovery or fallback, and adapter-based evidence mapping

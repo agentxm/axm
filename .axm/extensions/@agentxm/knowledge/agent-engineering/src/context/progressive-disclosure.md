@@ -34,11 +34,11 @@ exploration rather than exhaustive loading.[^anthropic-context]
 
 ## Three-part contract
 
-| Part      | Responsibility                                                       |
-| --------- | -------------------------------------------------------------------- |
-| Route     | Name what exists, when it matters, its boundary, and how to reach it |
-| Selection | Decide whether this task warrants the deeper context                 |
-| Depth     | Supply enough selected material to act without an unbounded descent  |
+| Part | Responsibility |
+| --- | --- |
+| Route | Name what exists, when it matters, its boundary, and how to reach it |
+| Selection | Decide whether this task warrants the deeper context |
+| Depth | Supply enough selected material to act without an unbounded descent |
 
 Depth without a route is invisible. A route without a selection condition loads
 too broadly. A destination that does not fulfill its advertised purpose makes
@@ -65,5 +65,4 @@ Do not repair a routing failure by bloating every entry point with the entire
 destination.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
-
 [^cursor-discovery]: Cursor — Dynamic context discovery

@@ -68,5 +68,4 @@ the tested cohort, and running it before the blind verdict exists destroys the
 blinding it depends on.
 
 [^skillbench]: SkillBench — Benchmarking Agent Skills
-
 [^anthropic-skill-creator-comparator]: Anthropic — Skill Creator blind comparator

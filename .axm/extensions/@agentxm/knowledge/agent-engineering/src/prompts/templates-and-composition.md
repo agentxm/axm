@@ -54,5 +54,4 @@ least privilege, approval, output validation, and monitoring remain outside the
 template.
 
 [^anthropic-tools]: Anthropic — Console prompting tools
-
 [^owasp-injection]: OWASP — LLM Prompt Injection Prevention Cheat Sheet

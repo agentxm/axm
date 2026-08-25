@@ -2,19 +2,7 @@
 type: How-to guide
 title: How to design agent-mediated user experience
 description: How to make a user-facing agent workflow legible, actionable, and authority-aware across openings, progress, questions, gates, and closeouts.
-tags:
-  [
-    agent-mediated-ux,
-    human-agent-interaction,
-    user-experience,
-    workflows,
-    progress,
-    questions,
-    approvals,
-    interaction-surfaces,
-    round-trips,
-    register,
-  ]
+tags: [agent-mediated-ux, human-agent-interaction, user-experience, workflows, progress, questions, approvals, interaction-surfaces, round-trips, register]
 status: stable
 sources:
   - id: qualitymd-agent-mediated-ux
@@ -50,13 +38,13 @@ can quickly tell:
 Agent-mediated UX crosses several system surfaces without erasing their
 ownership:
 
-| Concern                                                                         | Responsible surface                |
-| ------------------------------------------------------------------------------- | ---------------------------------- |
-| The sequence of user-visible states, questions, decisions, and handoffs         | Agent, skill, or workflow behavior |
-| The semantic fields, order, labels, and stable identifiers in one response      | Prompt and presentation contract   |
-| Rendering assistant text, a picker, a confirmation control, or a review surface | Harness interaction interface      |
-| Permission enforcement and tool authorization                                   | Harness authority boundary         |
-| Whether oversight and intervention are meaningful                               | Human-control policy               |
+| Concern | Responsible surface |
+| --- | --- |
+| The sequence of user-visible states, questions, decisions, and handoffs | Agent, skill, or workflow behavior |
+| The semantic fields, order, labels, and stable identifiers in one response | Prompt and presentation contract |
+| Rendering assistant text, a picker, a confirmation control, or a review surface | Harness interaction interface |
+| Permission enforcement and tool authorization | Harness authority boundary |
+| Whether oversight and intervention are meaningful | Human-control policy |
 
 The workflow should therefore specify interaction intent and fallback behavior
 without pretending to own a host's widgets. The harness should render the
@@ -68,12 +56,12 @@ decision policy.
 The experience begins before the workflow activates. Keep these surfaces
 aligned without duplicating their prose:
 
-| Surface                       | Primary reader and job                                                 |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| Model-facing route            | Helps the agent select the right capability from a realistic request   |
+| Surface | Primary reader and job |
+| --- | --- |
+| Model-facing route | Helps the agent select the right capability from a realistic request |
 | Human-facing catalog metadata | Helps a person understand what the capability does before selecting it |
-| Default prompt or starter     | Gives a person a concrete, editable way to begin                       |
-| Runtime opening               | Confirms the actual target, scope, and next meaningful transition      |
+| Default prompt or starter | Gives a person a concrete, editable way to begin |
+| Runtime opening | Confirms the actual target, scope, and next meaningful transition |
 
 All four should describe the same underlying job and boundaries. They need not
 use identical words, and none should promise authority, supported hosts, or
@@ -99,16 +87,16 @@ operation, error category, preserved state, and recovery action.
 
 Classify each interaction by what the person must do:
 
-| Intent                                                  | Fit-for-purpose rendering                                                                            |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Choose one enumerated option                            | Single-select affordance or numbered text choices                                                    |
-| Choose several enumerated options                       | Multi-select affordance or checklist-style text                                                      |
-| Confirm or reject one consequential action              | Confirmation control or explicit binary text choice                                                  |
-| Inspect and approve an artifact                         | Plan, preview, or diff review when available                                                         |
+| Intent | Fit-for-purpose rendering |
+| --- | --- |
+| Choose one enumerated option | Single-select affordance or numbered text choices |
+| Choose several enumerated options | Multi-select affordance or checklist-style text |
+| Confirm or reject one consequential action | Confirmation control or explicit binary text choice |
+| Inspect and approve an artifact | Plan, preview, or diff review when available |
 | Review a set of produced artifacts and return judgments | Bulk review surface when available, otherwise each artifact and its identifier presented in sequence |
-| Supply unconstrained context or a correction            | Free text                                                                                            |
-| Observe a long-running phase                            | Progress or task-state surface, with concise text state                                              |
-| Authorize a tool or permission boundary                 | Harness-owned authorization prompt                                                                   |
+| Supply unconstrained context or a correction | Free text |
+| Observe a long-running phase | Progress or task-state surface, with concise text state |
+| Authorize a tool or permission boundary | Harness-owned authorization prompt |
 
 Treat native interaction controls as progressive enhancement. Every required
 interaction must remain understandable through ordinary assistant output when
@@ -353,5 +341,4 @@ rather than merely asserting success.
   how fields, order, labels, emphasis, and final handoff become explicit.
 
 [^qualitymd-agent-mediated-ux]: QUALITY.md — Designing agent-mediated UX
-
 [^anthropic-skill-creator]: Anthropic — Skill Creator

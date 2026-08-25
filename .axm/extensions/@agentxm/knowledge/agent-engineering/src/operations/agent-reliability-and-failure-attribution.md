@@ -21,17 +21,17 @@ Treat reliability as a property of the deployed agent system on a task
 distribution, not as a model trait. Attribute a failure before editing the most
 visible prompt.
 
-| Surface                 | Typical failure                                                                  |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| Agency choice           | Dynamic control was unnecessary, unsafe, or insufficient                         |
-| Goal and role           | Ambiguous outcome, conflicting priorities, missing boundary                      |
-| Planning and stopping   | Poor decomposition, no replanning, loops, premature completion                   |
-| Capability policy       | Wrong tool, unsafe ordering, bad retry, missed observation                       |
-| Memory and coordination | Stale influence, lost responsibility, conflicting actors                         |
-| Prompt                  | Misexpressed instruction, example, schema, or response contract                  |
-| Context                 | Missing, stale, excessive, untrusted, or mistimed information                    |
-| Harness and environment | Broken interface, runtime, state, permission, enforcement, or feedback           |
-| Evaluation              | Unrepresentative case, invalid grader, hidden uncertainty, wrong target identity |
+| Surface | Typical failure |
+| --- | --- |
+| Agency choice | Dynamic control was unnecessary, unsafe, or insufficient |
+| Goal and role | Ambiguous outcome, conflicting priorities, missing boundary |
+| Planning and stopping | Poor decomposition, no replanning, loops, premature completion |
+| Capability policy | Wrong tool, unsafe ordering, bad retry, missed observation |
+| Memory and coordination | Stale influence, lost responsibility, conflicting actors |
+| Prompt | Misexpressed instruction, example, schema, or response contract |
+| Context | Missing, stale, excessive, untrusted, or mistimed information |
+| Harness and environment | Broken interface, runtime, state, permission, enforcement, or feedback |
+| Evaluation | Unrepresentative case, invalid grader, hidden uncertainty, wrong target identity |
 
 Preserve the trajectory and external state needed to distinguish reasoning
 failure from observation failure or mechanical failure. A convincing response
@@ -44,5 +44,4 @@ defects. Track cost, latency, safety, robustness, and human intervention along
 with task success.[^eval-survey]
 
 [^eval-survey]: Survey on Evaluation of LLM-based Agents
-
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

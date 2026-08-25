@@ -5,7 +5,7 @@ description: How AXM manages canonical packages, projections, composition, works
 tags: [agent-extensions, agent-skills, axm, packaging, projections, packs, lifecycle]
 status: stable
 stale_after: 2027-02-22
-generated: { by: "codex/gpt-5.6", at: 2026-08-22T15:54:57Z }
+generated: { by: "codex/gpt-5.6", at: 2026-08-22T22:33:39Z }
 sources:
   - id: axm-skills-architecture
     resource: https://github.com/agentxm/axm/blob/main/docs/architecture/extensions/skills.md
@@ -42,11 +42,11 @@ contracts.[^axm-skills-help]
 
 Keep these state families distinct:[^axm-workspace-state-help]
 
-| State               | Authority                                                               |
-| ------------------- | ----------------------------------------------------------------------- |
-| Desired             | `.axm/settings.json` and workspace-authored pack manifests              |
-| Accepted resolution | Immutable external identities in `.axm/axm-lock.yaml`                   |
-| Observed            | Canonical packages, projections, managed regions, and ownership markers |
+| State | Authority |
+| --- | --- |
+| Desired | `.axm/settings.json` and workspace-authored pack manifests |
+| Accepted resolution | Immutable external identities in `.axm/axm-lock.yaml` |
+| Observed | Canonical packages, projections, managed regions, and ownership markers |
 
 Use AXM commands or desired-state sources to change intent. Use `axm lint` for
 read-only facts and `axm sync --preview` before reconciliation. Never reconstruct
@@ -61,6 +61,14 @@ referencing extension must be non-standalone, recommend the pack, and use the
 canonical same-pack path. Pack install, update, enable, disable, uninstall, and
 unpack apply to the complete member graph atomically.[^axm-packs-help]
 
+An active catalog or observed cohort records what happened to coexist during a
+run; it is not relationship authority. A co-installed extension can be a useful
+routing neighbor or collision case without becoming a dependency, required
+collaborator, or remediation target. Infer required composition only from the
+declared package relationship above, and attribute a catalog-level collision to
+the smallest surface that owns it rather than rewriting an unrelated package to
+depend on an incidental neighbor.
+
 `recommendedPacks` is discovery metadata, not an installation guarantee. A
 host-native agent plugin is not an AXM extension type and is not interchangeable
 with an AXM pack. Link ecosystem or plugin packages to extensions through AXM's
@@ -72,14 +80,14 @@ belong together, recommend one pack rather than parallel entries.[^axm-package-e
 Governance states and AXM operations answer different questions. A governance
 decision can require several AXM actions:
 
-| Intent                                            | AXM control             |
-| ------------------------------------------------- | ----------------------- |
-| Record migration guidance                         | `axm deprecate`         |
-| Exclude one or all versions from fresh resolution | `axm yank`              |
-| Retain an installed extension but deactivate it   | Type-specific `disable` |
-| Remove an extension from one workspace            | `axm uninstall`         |
-| Change an authored package version                | `axm version`           |
-| Reconcile accepted intent and owned projections   | `axm sync`              |
+| Intent | AXM control |
+| --- | --- |
+| Record migration guidance | `axm deprecate` |
+| Exclude one or all versions from fresh resolution | `axm yank` |
+| Retain an installed extension but deactivate it | Type-specific `disable` |
+| Remove an extension from one workspace | `axm uninstall` |
+| Change an authored package version | `axm version` |
+| Reconcile accepted intent and owned projections | `axm sync` |
 
 Deprecation is warning-only: it does not block fresh resolution or deactivate
 existing installations. Yanking changes fresh resolution without deleting the
@@ -100,11 +108,7 @@ profile was checked against AXM 0.27.15 and must be refreshed against the
 current CLI and schemas after its `stale_after` date.
 
 [^axm-skills-architecture]: AXM — Skills architecture
-
 [^axm-skills-help]: AXM CLI — Skills help
-
 [^axm-packs-help]: AXM CLI — Packs help
-
 [^axm-workspace-state-help]: AXM CLI — Workspace state help
-
 [^axm-package-extensions-help]: AXM CLI — Package extensions help

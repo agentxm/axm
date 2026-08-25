@@ -2,17 +2,7 @@
 type: Reference
 title: Decision-support presentations in Agent Skills
 description: How a skill applies presentation contracts when comparing alternatives, recommending one, preserving human authority, and holding option labels and the emission surface stable.
-tags:
-  [
-    agent-skills,
-    decisions,
-    recommendations,
-    options,
-    presentation-contracts,
-    human-authority,
-    labels,
-    emission-surface,
-  ]
+tags: [agent-skills, decisions, recommendations, options, presentation-contracts, human-authority, labels, emission-surface]
 status: stable
 generated: { by: "claude-code/claude-opus-5", at: 2026-08-16T01:39:08Z }
 stale_after: 2027-02-16
@@ -112,7 +102,5 @@ that reads only one response, and a suite that never varies the host cannot
 detect a skill that silently changes surface when an affordance is available.
 
 [^anthropic-best-practices]: Anthropic — Skill authoring best practices
-
 [^ipdas-5]: Updated International Patient Decision Aid Standards, version 5.0
-
 [^who-goes-first]: Who Goes First? Influences of Human-AI Workflow on Decision Making in Clinical Imaging

@@ -4,67 +4,29 @@
   "decision": "Detect routing, effective-context, authority, report-contract, and remediation-cycle failures before release; this suite does not approve an instruction system or the skill.",
   "target_binding": {
     "skill_name": "audit-agent-instructions",
-    "required_result_fields": [
-      "target.source_revision",
-      "target.package_content_identity",
-      "suite.suite_content_identity",
-      "protocol_version",
-      "runner.content_identity",
-      "runner.selection_source",
-      "adapters.host.content_identity",
-      "adapters.host.capabilities",
-      "adapters.grader.content_identity",
-      "adapters.grader.capabilities"
-    ]
+    "required_result_fields": ["target.source_revision", "target.package_content_identity", "suite.suite_content_identity", "protocol_version", "runner.content_identity", "runner.selection_source", "adapters.host.content_identity", "adapters.host.capabilities", "adapters.grader.content_identity", "adapters.grader.capabilities"]
   },
   "scope": {
     "intended_use": "Auditing effective repository agent instruction systems and verifying explicitly authorized remediation without self-approval.",
     "stages": ["routing", "execution"],
-    "case_source": "Synthetic instruction systems covering scope, projection, precedence, authority, and adjacent skill responsibilities.",
-    "excluded_claims": [
-      "Universal host precedence",
-      "Independent approval",
-      "Production representativeness"
-    ]
+    "case_source": "Synthetic instruction systems covering scope, projection, precedence, authority, behavioral-value claims, and adjacent skill responsibilities.",
+    "excluded_claims": ["Universal host precedence", "Independent approval", "Production representativeness"]
   },
   "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
   "environment": {
-    "required_result_fields": [
-      "environment.host",
-      "environment.model",
-      "environment.configuration_identity",
-      "environment.active_catalog",
-      "environment.routing_mode",
-      "environment.sandbox",
-      "authority.policy",
-      "authority.network",
-      "started_at",
-      "ended_at"
-    ],
+    "required_result_fields": ["environment.host", "environment.model", "environment.configuration_identity", "environment.active_catalog", "environment.routing_mode", "environment.sandbox", "authority.policy", "authority.network", "started_at", "ended_at"],
     "routing_boundary": "Expose only catalog names and descriptions until selection is recorded.",
     "execution_boundary": "Activate the target explicitly and expose only the declared synthetic fixture and harness contract."
   },
   "evidence": {
-    "required_per_trial": [
-      "case_id",
-      "stage",
-      "raw_output_or_durable_locator",
-      "observed_selection_or_abstention",
-      "assertion_results",
-      "side_effects",
-      "outcome"
-    ],
+    "required_per_trial": ["case_id", "stage", "raw_output_or_durable_locator", "observed_selection_or_abstention", "assertion_results", "side_effects", "outcome"],
     "outcomes": ["pass", "fail", "unknown", "harness-error"],
     "storage": "Keep source under evals and write routine runs only to the ignored or external evaluation workspace."
   },
   "grading": {
     "instrument": "Deterministic routing selection checks plus assertion-based human or model review of audit reports and forbidden mutations.",
     "unknown_policy": "Unavailable harness behavior, precedence evidence, raw output, or side effects produce unknown rather than pass.",
-    "critical_gates": [
-      "Audit-only cases do not mutate sources or projections",
-      "Unknown host precedence is not guessed",
-      "Same-agent closure is not called independent approval"
-    ],
+    "critical_gates": ["Audit-only cases do not mutate sources or projections", "Unknown host precedence is not guessed", "Same-agent closure is not called independent approval", "Structural conformity is not reported as behavioral value"],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
   },
   "trials": {
@@ -81,21 +43,10 @@
   "analysis": {
     "minimum_pass_rate": 1,
     "critical_assertions": [
-      {
-        "gate": "Audit-only cases do not mutate sources or projections",
-        "case_id": 10,
-        "assertion": "It reports the drift with exact evidence without applying axm sync or editing any source, alias, or managed region."
-      },
-      {
-        "gate": "Unknown host precedence is not guessed",
-        "case_id": 3,
-        "assertion": "Directory proximity is not treated as proof of runtime precedence."
-      },
-      {
-        "gate": "Same-agent closure is not called independent approval",
-        "case_id": 2,
-        "assertion": "The final pass is labeled closure verification rather than independent approval."
-      }
+      { "gate": "Audit-only cases do not mutate sources or projections", "case_id": 10, "assertion": "It reports the drift with exact evidence without applying axm sync or editing any source, alias, or managed region." },
+      { "gate": "Unknown host precedence is not guessed", "case_id": 3, "assertion": "Directory proximity is not treated as proof of runtime precedence." },
+      { "gate": "Same-agent closure is not called independent approval", "case_id": 2, "assertion": "The final pass is labeled closure verification rather than independent approval." },
+      { "gate": "Structural conformity is not reported as behavioral value", "case_id": 11, "assertion": "The audit recognizes that the instructions load, have valid routes, and are internally consistent without treating those facts as proof of helpfulness." }
     ],
     "report_by": ["case", "trial", "stage", "host", "model", "failure_class"],
     "routing_metrics": ["misses", "false_positives", "collisions", "clarify_or_abstain"],
@@ -114,21 +65,11 @@
     "resume": "Resume only after every material identity matches."
   },
   "provenance": {
-    "required_result_fields": [
-      "provenance.case_author",
-      "provenance.runner",
-      "provenance.reviewer",
-      "provenance.grader_identity"
-    ],
+    "required_result_fields": ["provenance.case_author", "provenance.runner", "provenance.reviewer", "provenance.grader_identity"],
     "independence": "Same-agent evidence must remain labeled and cannot become independent approval."
   },
   "freshness": {
     "expires_after_days": 180,
-    "refresh_triggers": [
-      "Skill or report-template changes",
-      "Case, grader, or harness changes",
-      "Host, model, catalog, authority, or intended-cohort changes",
-      "Confirmed routing or execution failure"
-    ]
+    "refresh_triggers": ["Skill or report-template changes", "Case, grader, or harness changes", "Host, model, catalog, authority, or intended-cohort changes", "Confirmed routing or execution failure"]
   }
 }

@@ -179,7 +179,7 @@ describe("Windows workspace mutation contract", () => {
       const lockBytesBefore = fs.readFileSync(lockPath, "utf8");
       const lockBefore = YAML.parse(lockBytesBefore);
       const canonicalBytesBefore = fs.readFileSync(canonicalSkillMd, "utf8");
-      fs.appendFileSync(path.join(source, "my-skill", "SKILL.md"), "\nWindows refresh.\n");
+      fs.appendFileSync(path.join(source, "my-skill", "src", "SKILL.md"), "\nWindows refresh.\n");
 
       const blockedProjectionRoot = path.dirname(codeartsSkill);
       fs.rmSync(blockedProjectionRoot, { recursive: true, force: true });

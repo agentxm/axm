@@ -18,16 +18,16 @@ const setupWorkspace = async (tempPath: string, registryPath: string, owner: str
   await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
     cwd: tempPath,
   });
-  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settingsPath = path.join(tempPath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-/** Create a skill extension in .axm/extensions/. */
+/** Create an authored skill extension. */
 const createManagedSkill = (tempPath: string, owner: string, name: string, version = "1.0.0") => {
-  const extensionDir = path.join(tempPath, ".axm", "extensions", owner, "skills", name);
+  const extensionDir = path.join(tempPath, "skills", name);
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -47,13 +47,13 @@ const createManagedSkill = (tempPath: string, owner: string, name: string, versi
       2,
     ) + "\n",
   );
-  const settingsPath = path.join(tempPath, ".axm", "settings.json");
+  const settingsPath = path.join(tempPath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.skills = { ...settings.skills, [name]: `workspace:${owner}/skills/${name}` };
+  settings.skills = { ...settings.skills, [name]: "workspace" };
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-/** Create a pack in .axm/extensions/ with a pack.json manifest. */
+/** Create an authored pack with a pack.json manifest. */
 const createManagedPack = async (
   tempPath: string,
   owner: string,
@@ -68,7 +68,7 @@ const createManagedPack = async (
   });
   expect(createResult.exitCode, createResult.stderr).toBe(0);
 
-  const packDir = path.join(tempPath, ".axm", "extensions", owner, "packs", name);
+  const packDir = path.join(tempPath, "packs", name);
   fs.writeFileSync(
     path.join(packDir, "pack.json"),
     JSON.stringify(
@@ -299,7 +299,7 @@ describe("axm packs publish", () => {
         );
         expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills["registry-dep"] = `${owner}/skills/registry-dep@^1.0.0`;
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -356,7 +356,7 @@ describe("axm packs publish", () => {
           },
         });
         fs.writeFileSync(
-          path.join(temp.path, ".axm", "extensions", owner, "skills", "invalid-dep", "skill.json"),
+          path.join(temp.path, "skills", "invalid-dep", "skill.json"),
           "{ invalid json",
         );
 

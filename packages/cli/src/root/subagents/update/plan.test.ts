@@ -4,8 +4,14 @@ import * as Option from "effect/Option";
 import type { SubagentsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
+import { TreeIntegritySchema } from "@agentxm/client-core/unstable/extensions";
+import * as Schema from "effect/Schema";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
+
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 
 const makeRegistryRef = (name: string, version: string): RegistrySubagentRef => ({
   type: "subagent",
@@ -33,6 +39,7 @@ const acceptedRegistry = (version: string): SubagentsLockMap => ({
     integrity: "sha512-AAAA==",
     sourceName: "default",
     publisherBindingId: "hbnd_test",
+    treeIntegrity,
   },
 });
 

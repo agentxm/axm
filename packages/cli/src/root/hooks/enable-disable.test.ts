@@ -189,17 +189,9 @@ describe("hooks enable/disable no-op output", () => {
         });
 
         expect(logs.success).toContain("Enabled 1 hook");
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
-        expect(settings.hooks["workspace-baseline"]).toBe(
-          "workspace:@acme/hooks/workspace-baseline",
-        );
-        expect(
-          fs.existsSync(
-            path.join(tempDir, ".axm", "extensions", "@acme", "hooks", "workspace-baseline"),
-          ),
-        ).toBe(true);
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
+        expect(settings.hooks["workspace-baseline"]).toBe("workspace");
+        expect(fs.existsSync(path.join(tempDir, "hooks", "workspace-baseline"))).toBe(true);
       }),
     );
   });

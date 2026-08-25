@@ -16,7 +16,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
@@ -64,6 +63,7 @@ import {
   dependencyConstraintMap,
   exactVersion,
   extensionName,
+  writeWorkspaceFiles,
 } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
@@ -100,70 +100,14 @@ const initWorkspace = (
     owner?: string;
   },
 ) => {
-  const acceptedEntries = (entries: Record<string, unknown> | undefined) =>
-    Object.fromEntries(
-      Object.entries(entries ?? {}).flatMap(([name, value]) => {
-        if (
-          typeof value !== "object" ||
-          value === null ||
-          Reflect.get(value, "type") === "workspace"
-        ) {
-          return [];
-        }
-        return [
-          [
-            name,
-            {
-              type: Reflect.get(value, "type"),
-              owner: Reflect.get(value, "owner"),
-              name: Reflect.get(value, "name"),
-              resolvedVersion: Reflect.get(value, "resolvedVersion"),
-              integrity: Reflect.get(value, "integrity"),
-              sourceName: Reflect.get(value, "sourceName"),
-              publisherBindingId: Reflect.get(value, "publisherBindingId"),
-            },
-          ],
-        ];
-      }),
-    );
-  const acceptedPacks = Object.fromEntries(
-    Object.entries(opts?.lockfilePacks ?? {}).flatMap(([name, value]) => {
-      if (
-        typeof value !== "object" ||
-        value === null ||
-        Reflect.get(value, "type") === "workspace"
-      ) {
-        return [];
-      }
-      return [
-        [
-          name,
-          {
-            ...acceptedEntries({ [name]: value })[name],
-            manifestContentIdentity:
-              Reflect.get(value, "manifestContentIdentity") ??
-              Reflect.get(value, "sourceHash") ??
-              "test-pack-manifest",
-          },
-        ],
-      ];
-    }),
-  );
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = { agents: ["claude-code"] };
-  if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
-  if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
-  if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.owner) settings["owner"] = opts.owner;
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({
-      lockfileVersion: 4,
-      skills: acceptedEntries(opts?.lockfileSkills),
-      ...(Object.keys(acceptedPacks).length > 0 ? { packs: acceptedPacks } : {}),
-    }),
-  );
+  writeWorkspaceFiles(axmDir, {
+    owner: opts?.owner ?? "@acme",
+    packs: opts?.settingsPacks,
+    skills: opts?.settingsSkills,
+    sources: opts?.sources,
+    lockfilePacks: opts?.lockfilePacks,
+    lockfileSkills: opts?.lockfileSkills,
+  });
 };
 
 const defaultSourceArgs = (
@@ -783,20 +727,20 @@ describe("packs install handler", () => {
     });
 
     const writeWorkspaceSkill = (name: string, version = "1.0.0") => {
-      const root = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);
-      fs.mkdirSync(root, { recursive: true });
+      const root = path.join(tempDir, "skills", name);
+      fs.mkdirSync(path.join(root, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(root, "skill.json"),
         JSON.stringify({ owner: "@acme", type: "skill", name, version }),
       );
-      fs.writeFileSync(path.join(root, "SKILL.md"), `# ${name}\n`);
+      fs.writeFileSync(path.join(root, "src", "SKILL.md"), `# ${name}\n`);
       return { root: fs.realpathSync(root), sourceHash: computePackageContentHashSync(root) };
     };
 
     it.effect("hard-blocks a Registry reinstall over workspace pack authority", () => {
       const packRef = makePackRef("test-pack");
       initWorkspace(path.join(tempDir, ".axm"), {
-        settingsPacks: { "test-pack": "workspace:@acme/packs/test-pack" },
+        settingsPacks: { "test-pack": "workspace" },
       });
       const { provide } = makeLayersWithMockSources(serviceStubs);
 
@@ -860,8 +804,8 @@ describe("packs install handler", () => {
       const find = vi.fn(() => Effect.succeed([]));
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsSkills: {
-          alpha: "workspace:@acme/skills/alpha",
-          beta: "workspace:@acme/skills/beta",
+          alpha: "workspace",
+          beta: "workspace",
         },
       });
       const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
@@ -891,7 +835,7 @@ describe("packs install handler", () => {
       const workspaceSkill = writeWorkspaceSkill("review", "1.4.0");
       const find = vi.fn(() => Effect.succeed([]));
       initWorkspace(path.join(tempDir, ".axm"), {
-        settingsSkills: { review: "workspace:@acme/skills/review" },
+        settingsSkills: { review: "workspace" },
       });
       const { provide } = makeLayersWithMockSources({ ...serviceStubs, find });
 
@@ -916,7 +860,10 @@ describe("packs install handler", () => {
           expect(reusedTarget).toMatchObject({ change: "unchanged" });
           expect(find).not.toHaveBeenCalled();
 
-          fs.appendFileSync(path.join(workspaceSkill.root, "SKILL.md"), "changed after preview\n");
+          fs.appendFileSync(
+            path.join(workspaceSkill.root, "src", "SKILL.md"),
+            "changed after preview\n",
+          );
           const graphStep = plan.jobs[0]?.steps[0];
           if (graphStep?.readiness !== "ready") throw new Error("Expected a ready graph step");
           const error = yield* graphStep.run.pipe(Effect.flip);
@@ -924,9 +871,7 @@ describe("packs install handler", () => {
             code: "conflict",
             detail: expect.stringContaining("authority changed"),
           });
-          expect(fs.existsSync(path.join(tempDir, ".axm", "extensions", "@acme", "packs"))).toBe(
-            false,
-          );
+          expect(fs.existsSync(path.join(tempDir, "packs"))).toBe(false);
         }),
       );
     });
@@ -1113,8 +1058,7 @@ describe("packs install handler", () => {
             preview: false,
           });
 
-          const axmDir = path.join(tempDir, ".axm");
-          const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settingsJson: { packs?: Record<string, string> } = JSON.parse(settingsContent);
           expect(settingsJson.packs?.["test-pack"]).toBe("@acme/packs/test-pack@^2.0.0");
         }),
@@ -1619,7 +1563,7 @@ describe("packs install handler", () => {
         },
       };
 
-      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "prune-pack");
+      const packDir = path.join(tempDir, "agent_extensions", "@acme", "packs", "prune-pack");
       fs.mkdirSync(packDir, { recursive: true });
       const currentManifest = {
         owner: "@acme",
@@ -1682,15 +1626,15 @@ describe("packs install handler", () => {
           expect(steps.map((step) => step.label)).toEqual(["@acme/packs/prune-pack"]);
           expect(steps[0]?.artifact?.targets).toEqual([
             {
-              path: ".axm/extensions/@acme/packs/prune-pack",
+              path: "agent_extensions/@acme/packs/prune-pack",
               change: "updated",
             },
             {
-              path: ".axm/extensions/@acme/skills/kept-skill",
+              path: "agent_extensions/@acme/skills/kept-skill",
               change: "updated",
             },
             {
-              path: ".axm/extensions/@acme/skills/dropped-skill",
+              path: "agent_extensions/@acme/skills/dropped-skill",
               change: "removed",
             },
           ]);
@@ -1718,14 +1662,13 @@ describe("packs install handler", () => {
       } satisfies PackRef;
       const currentPackDir = path.join(
         tempDir,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@acme",
         "packs",
         "disabled-pack",
       );
       const nextPackDir = path.join(tempDir, "next-disabled-pack");
-      const currentSkillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+      const currentSkillDir = path.join(tempDir, "skills", "review");
       fs.mkdirSync(currentPackDir, { recursive: true });
       fs.mkdirSync(nextPackDir, { recursive: true });
       fs.mkdirSync(path.join(currentSkillDir, "src"), { recursive: true });
@@ -1756,7 +1699,7 @@ describe("packs install handler", () => {
         },
         settingsSkills: {
           review: {
-            source: "workspace:@acme/skills/review",
+            source: "workspace",
             enabled: false,
           },
         },
@@ -1821,7 +1764,7 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "prune-pack");
+      const packDir = path.join(tempDir, "agent_extensions", "@acme", "packs", "prune-pack");
       fs.mkdirSync(packDir, { recursive: true });
       const currentManifest = {
         owner: "@acme",

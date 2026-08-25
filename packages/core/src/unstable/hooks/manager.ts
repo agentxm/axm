@@ -25,17 +25,20 @@ import {
   installable,
 } from "../agent-capabilities/index.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 import { type SourceHash } from "../extensions/rendered-files.js";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   enabledConfiguredEntries,
   formatFqn,
-  materializeExternalPackage,
+  materializeExternalPackageWithTreeIntegrity,
   canReuseInstalledPackage,
-  materializeRegistryPackage,
+  materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
+import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
 import type { ConfiguredAgentOutcome } from "../plan/plan.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
@@ -52,7 +55,6 @@ import { MaterializedFileTargetSchema } from "../workspace/materialized-file-tar
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
-import { printSourceParams } from "../sources/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
@@ -68,7 +70,10 @@ import type {
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   HOOK_EXTENSION_DIR,
@@ -117,7 +122,10 @@ const packageMaterializeLockFor = (key: string): Semaphore.Semaphore => {
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (ref: RegistryHookRef): HookLockEntry => ({
+const registryHookLockEntry = (
+  ref: RegistryHookRef,
+  treeIntegrity: TreeIntegrity,
+): HookLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -125,20 +133,37 @@ const registryHookLockEntry = (ref: RegistryHookRef): HookLockEntry => ({
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
 });
 
-const gitHookLockEntry = (ref: GitHostedHookRef, contentIdentity: SourceHash): HookLockEntry => ({
-  ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
+const gitHookLockEntry = (
+  ref: GitHostedHookRef,
+  contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
+): HookLockEntry => ({
+  ...gitSourceLockFields(
+    ref.source,
+    ref.gitCommitSha,
+    ref.gitTreeSha,
+    contentIdentity,
+    ref.owner,
+    ref.name,
+    treeIntegrity,
+  ),
 });
 
 const localHookLockEntry = (
   ref: LocalHookRef,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
 ): HookLockEntry => ({
   type: "local",
+  packageOwner: ref.owner,
+  packageName: ref.name,
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   contentIdentity,
+  treeIntegrity,
 });
 
 interface HookWriterTarget {
@@ -415,23 +440,22 @@ export const HookManagerLive = Layer.effect(
         readonly ref: HookExtensionRef;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
+        readonly treeIntegrity: TreeIntegrity;
       }
     >();
     let lastProjection: MaterializationObservation | undefined;
 
     const materializeFromRegistry = (ref: RegistryHookRef) =>
       Effect.gen(function* () {
-        const canonicalPath = path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          ref.owner,
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          ws.layout,
+          ref,
           HOOK_EXTENSION_DIR,
           ref.name,
-        );
-        const lockedVersion = acceptedRegistryVersionForRef(
-          yield* ws.getLockedHookEntry(ref.hook.name),
-          ref,
-        );
+        ).canonicalPath;
+        const lockedEntry = yield* ws.getLockedHookEntry(ref.hook.name);
+        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
@@ -443,9 +467,14 @@ export const HookManagerLive = Layer.effect(
               `Failed to check if canonical hook package path exists: ${target}`,
           }),
         );
-        if (reuse) return canonicalPath;
-        return yield* provide(
-          materializeRegistryPackage({
+        if (reuse && Option.isSome(lockedEntry)) {
+          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+          if (observedTree === lockedEntry.value.treeIntegrity) {
+            return { packageRoot: canonicalPath, treeIntegrity: lockedEntry.value.treeIntegrity };
+          }
+        }
+        const materialized = yield* provide(
+          materializeRegistryPackageWithTreeIntegrity({
             baseDir,
             destinationPath: canonicalPath,
             sourceLocation: ref.source.location,
@@ -459,23 +488,33 @@ export const HookManagerLive = Layer.effect(
             },
           }),
         );
+        return {
+          packageRoot: materialized.canonicalPath,
+          treeIntegrity: materialized.treeIntegrity,
+        };
       });
 
     const materializeFromExternal = (ref: GitHostedHookRef | LocalHookRef) =>
       provide(
-        materializeExternalPackage({
+        materializeExternalPackageWithTreeIntegrity({
           baseDir,
-          canonicalPath: path.join(
-            baseDir,
-            EXTERNAL_EXTENSIONS_DIR,
+          canonicalPath: computeExtensionPathsForLayout(
+            path.join,
+            ws.layout,
+            ref,
             HOOK_EXTENSION_DIR,
             ref.hook.name,
-          ),
+          ).canonicalPath,
           sourceLocation: ref.location,
           copyFailureCode: "validation",
           copyFailureDetail: (canonicalPath) =>
             `Failed to copy hook package files to ${canonicalPath}`,
-        }),
+        }).pipe(
+          Effect.map((materialized) => ({
+            packageRoot: materialized.canonicalPath,
+            treeIntegrity: materialized.treeIntegrity,
+          })),
+        ),
       );
 
     // Serialize re-materialization of the same package within a process: sync
@@ -496,13 +535,13 @@ export const HookManagerLive = Layer.effect(
           case "local":
             return yield* materializeFromExternal(ref);
           case "workspace": {
-            const expectedPath = path.join(
-              baseDir,
-              REGISTRY_EXTENSIONS_DIR,
-              ref.owner,
+            const expectedPath = computeExtensionPathsForLayout(
+              path.join,
+              ws.layout,
+              ref,
               HOOK_EXTENSION_DIR,
               ref.name,
-            );
+            ).canonicalPath;
             if (
               ref.scope !== ws.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
@@ -512,7 +551,10 @@ export const HookManagerLive = Layer.effect(
                 detail: `Invalid workspace hook source location: ${ref.location}`,
               });
             }
-            return ref.location;
+            return {
+              packageRoot: ref.location,
+              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+            };
           }
         }
       });
@@ -565,14 +607,17 @@ export const HookManagerLive = Layer.effect(
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["locked"];
     }) =>
-      activeContributors({
-        baseDir,
-        path,
-        type: "hook",
-        extensionDir: HOOK_EXTENSION_DIR,
-        graph: args.graph,
-        locked: args.locked,
-      }).pipe(
+      provide(
+        activeContributors({
+          baseDir,
+          layout: ws.layout,
+          path,
+          type: "hook",
+          extensionDir: HOOK_EXTENSION_DIR,
+          graph: args.graph,
+          locked: args.locked,
+        }),
+      ).pipe(
         Effect.flatMap((contributors) =>
           Effect.forEach(
             contributors,
@@ -960,7 +1005,8 @@ export const HookManagerLive = Layer.effect(
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
     )(function* ({ ref }) {
-      const packageRoot = yield* materializePackage(ref);
+      const materialized = yield* materializePackage(ref);
+      const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
       const workspaceRelativeLocalSourcePath =
@@ -979,6 +1025,7 @@ export const HookManagerLive = Layer.effect(
         ref,
         workspaceRelativeLocalSourcePath,
         sourceHash,
+        treeIntegrity: materialized.treeIntegrity,
       });
     }, Effect.asVoid);
 
@@ -989,14 +1036,19 @@ export const HookManagerLive = Layer.effect(
         const state = lastInstallState.get(ref.hook.name);
         switch (ref.refType) {
           case "registry":
-            return Option.some(registryHookLockEntry(ref));
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Hook ${ref.hook.name} has no materialized tree integrity`,
+                })
+              : Option.some(registryHookLockEntry(ref, state.treeIntegrity));
           case "git-hosted":
             return state === undefined
               ? yield* makeAppError({
                   code: "internal",
                   detail: `Hook ${ref.hook.name} has no materialized content identity`,
                 })
-              : Option.some(gitHookLockEntry(ref, state.sourceHash));
+              : Option.some(gitHookLockEntry(ref, state.sourceHash, state.treeIntegrity));
           case "local":
             return state === undefined
               ? yield* makeAppError({
@@ -1004,7 +1056,12 @@ export const HookManagerLive = Layer.effect(
                   detail: `Hook ${ref.hook.name} has no materialized content identity`,
                 })
               : Option.some(
-                  localHookLockEntry(ref, state.workspaceRelativeLocalSourcePath, state.sourceHash),
+                  localHookLockEntry(
+                    ref,
+                    state.workspaceRelativeLocalSourcePath,
+                    state.sourceHash,
+                    state.treeIntegrity,
+                  ),
                 );
           case "workspace":
             return Option.none();
@@ -1022,9 +1079,7 @@ export const HookManagerLive = Layer.effect(
             name: target.name,
           }),
         );
-        const packageRoot = Option.flatMap(canonical, (state) =>
-          Option.fromUndefinedOr(state.observation.path),
-        );
+        const packageRoot = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(packageRoot)) {
           yield* protectWorkspacePath(packageRoot.value);
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
@@ -1087,7 +1142,7 @@ export const HookManagerLive = Layer.effect(
         const lockEntry = yield* buildLockEntry(ref);
         if (Option.isNone(lockEntry)) {
           yield* ws.setHookEntry(ref.hook.name, {
-            source: printSourceParams(ref.source),
+            source: "workspace",
             enabled: true,
           });
           return;

@@ -19,10 +19,15 @@ import type { LocalSubagentRef } from "./refs.js";
 import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
 import { CodingAgentRepository } from "../agents/coding-agent.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import {
+  makeBaseWorkspaceMock,
+  TEST_CONTENT_IDENTITY,
+  TEST_TREE_INTEGRITY,
+} from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -35,8 +40,10 @@ const makeLocalSubagentRef = (
 ): LocalSubagentRef => ({
   type: "subagent",
   refType: "local",
+  owner: handle("@acme"),
+  name: extensionName(name),
   subagent: {
-    name: name as import("../extensions/common.js").ExtensionName,
+    name: extensionName(name),
     description: Option.none(),
   },
   source: { type: "local", path: sourcePath },
@@ -46,6 +53,23 @@ const makeLocalSubagentRef = (
 
 const makeSubagentContent = (name: string, description: string) =>
   `---\nname: ${name}\ndescription: ${description}\n---\n\nYou are a ${name}.`;
+
+const writeSubagentPackage = (packageRoot: string, name: string, description: string) => {
+  nodeFs.mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
+  nodeFs.writeFileSync(
+    nodePath.join(packageRoot, "subagent.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "subagent",
+      name,
+      version: "1.0.0",
+    }),
+  );
+  nodeFs.writeFileSync(
+    nodePath.join(packageRoot, "src", `${name}.md`),
+    makeSubagentContent(name, description),
+  );
+};
 
 const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): CodingAgent => ({
   id: id as import("../agents/types.js").AgentId,
@@ -142,8 +166,11 @@ describe("SubagentManager", () => {
                 Effect.succeed({
                   planner: {
                     type: "local",
+                    packageOwner: handle("@acme"),
+                    packageName: extensionName("planner"),
                     path: decodeRelativePathSync("test"),
                     contentIdentity: TEST_CONTENT_IDENTITY,
+                    treeIntegrity: TEST_TREE_INTEGRITY,
                   },
                 }),
             },
@@ -273,13 +300,8 @@ describe("SubagentManager", () => {
         addSubagent: addSubagentSpy,
       });
 
-      // Create source directory with planner.md
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
-      nodeFs.mkdirSync(sourceDir, { recursive: true });
-      nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "planner.md"),
-        makeSubagentContent("planner", "Plans work"),
-      );
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
 
       const axmDir = nodePath.join(tmpDir, "project", ".axm");
       nodeFs.mkdirSync(axmDir, { recursive: true });
@@ -307,7 +329,7 @@ describe("SubagentManager", () => {
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
         expect(addSubagentCalls[0]?.editSourcePath).toBe(
-          ".axm/extensions/external/subagents/planner/planner.md",
+          "agent_extensions/@acme/subagents/planner/src/planner.md",
         );
         expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
@@ -338,13 +360,8 @@ describe("SubagentManager", () => {
         addSubagent: addSubagentSpy,
       });
 
-      // Create source directory with planner.md
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
-      nodeFs.mkdirSync(sourceDir, { recursive: true });
-      nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "planner.md"),
-        makeSubagentContent("planner", "Plans work"),
-      );
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
 
       const axmDir = nodePath.join(tmpDir, "project", ".axm");
       nodeFs.mkdirSync(axmDir, { recursive: true });
@@ -367,8 +384,11 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
+                    packageOwner: handle("@acme"),
+                    packageName: extensionName("planner"),
                     path: decodeRelativePathSync("source/planner"),
                     contentIdentity: TEST_CONTENT_IDENTITY,
+                    treeIntegrity: TEST_TREE_INTEGRITY,
                   } satisfies SubagentLockEntry),
                 ),
             },
@@ -379,11 +399,7 @@ describe("SubagentManager", () => {
 
     it.effect("degrades unsupported subagents to an explicitly reported role skill", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
-      nodeFs.mkdirSync(sourceDir, { recursive: true });
-      nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "planner.md"),
-        makeSubagentContent("planner", "Plans work"),
-      );
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
       const projectDir = nodePath.join(tmpDir, "project");
       const axmDir = nodePath.join(projectDir, ".axm");
       const skillsDir = nodePath.join(projectDir, ".cline", "skills");
@@ -449,11 +465,7 @@ describe("SubagentManager", () => {
 
     it.effect("rejects role-skill degradation when fallback is none", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner-native-only");
-      nodeFs.mkdirSync(sourceDir, { recursive: true });
-      nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "planner.md"),
-        makeSubagentContent("planner", "Plans work"),
-      );
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
       const projectDir = nodePath.join(tmpDir, "project-native-only");
       const axmDir = nodePath.join(projectDir, ".axm");
       nodeFs.mkdirSync(axmDir, { recursive: true });
@@ -474,11 +486,7 @@ describe("SubagentManager", () => {
       "reports applicable empty coverage when no agent supports a native or fallback surface",
       () => {
         const sourceDir = nodePath.join(tmpDir, "source", "planner");
-        nodeFs.mkdirSync(sourceDir, { recursive: true });
-        nodeFs.writeFileSync(
-          nodePath.join(sourceDir, "planner.md"),
-          makeSubagentContent("planner", "Plans work"),
-        );
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
         const axmDir = nodePath.join(tmpDir, "project", ".axm");
         nodeFs.mkdirSync(axmDir, { recursive: true });
         const unsupportedAgent = makeMockCodingAgent("cline", {
@@ -532,8 +540,11 @@ describe("SubagentManager", () => {
                 Effect.succeed(
                   Option.some({
                     type: "local",
+                    packageOwner: handle("@acme"),
+                    packageName: extensionName("planner"),
                     path: decodeRelativePathSync("tmp/source/planner"),
                     contentIdentity: TEST_CONTENT_IDENTITY,
+                    treeIntegrity: TEST_TREE_INTEGRITY,
                   } satisfies SubagentLockEntry),
                 ),
             },
@@ -548,8 +559,7 @@ describe("SubagentManager", () => {
       const canonicalDir = nodePath.join(
         tmpDir,
         "project",
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@test",
         "subagents",
         "planner",
@@ -580,7 +590,23 @@ describe("SubagentManager", () => {
           makeTestLayer({
             axmDir,
             wsOverrides: {
-              getLockedSubagent: () => Effect.succeed(Option.none()),
+              getConfiguredSubagentEntries: () =>
+                Effect.succeed({
+                  planner: { source: "@test/subagents/planner", enabled: true },
+                }),
+              getLockedSubagent: () =>
+                Effect.succeed(
+                  Option.some({
+                    type: "registry",
+                    owner: handle("@test"),
+                    name: extensionName("planner"),
+                    resolvedVersion: exactVersion("1.0.0"),
+                    integrity: "sha512-test",
+                    sourceName: "registry",
+                    publisherBindingId: "hbnd_test",
+                    treeIntegrity: TEST_TREE_INTEGRITY,
+                  } satisfies SubagentLockEntry),
+                ),
             },
           }),
         ),

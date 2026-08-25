@@ -88,10 +88,10 @@ const hasAggregateProjection = (surface: InstallSurface): boolean =>
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
-  path.join(workspacePath, ".axm", "extensions", OWNER, surface, name);
+  path.join(workspacePath, "agent_extensions", OWNER, surface, name);
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
@@ -103,7 +103,7 @@ const configureWorkspaceEntries = (
   workspacePath: string,
   entries: Partial<Record<SettingsKey, Record<string, string>>>,
 ) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   if (entries.skills !== undefined) {
     delete settings.skills?.axm;
@@ -270,15 +270,7 @@ const publishPackToRegistry = async (
     expect(createResult.exitCode).toBe(0);
 
     if (Object.keys(options).length > 0) {
-      const manifestPath = path.join(
-        workspace.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "packs",
-        name,
-        "pack.json",
-      );
+      const manifestPath = path.join(workspace.path, "packs", name, "pack.json");
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       fs.writeFileSync(
         manifestPath,
@@ -333,10 +325,10 @@ const publishScaffoldedToRegistry =
   };
 
 const readSettings = (workspacePath: string) =>
-  JSON.parse(fs.readFileSync(path.join(workspacePath, ".axm", "settings.json"), "utf-8"));
+  JSON.parse(fs.readFileSync(path.join(workspacePath, "axm.json"), "utf-8"));
 
 const readLockfile = (workspacePath: string) =>
-  YAML.parse(fs.readFileSync(path.join(workspacePath, ".axm", "axm-lock.yaml"), "utf-8"));
+  YAML.parse(fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"));
 
 const normalizeLockEntry = (value: unknown) => {
   const copy = JSON.parse(JSON.stringify(value));
@@ -520,7 +512,7 @@ describe("axm install", () => {
       });
 
       await initWorkspace(workspace.path, registryDir.path);
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const settingsPath = path.join(workspace.path, "axm.json");
       const initialSettings = readSettings(workspace.path);
       initialSettings.lint = {
         rules: {
@@ -682,9 +674,9 @@ describe("axm install", () => {
         const rootFootprint = (rootResult.stdout.result.footprint ?? []).map(
           (entry) => `${entry.change} ${entry.path}`,
         );
-        expect(rootFootprint).toContain("modified .axm/settings.json");
-        expect(rootFootprint).toContain("modified .axm/axm-lock.yaml");
-        expect(rootFootprint).toContain(`created .axm/extensions/${OWNER}/${surface}/${name}`);
+        expect(rootFootprint).toContain("modified axm.json");
+        expect(rootFootprint).toContain("modified axm-lock.yaml");
+        expect(rootFootprint).toContain(`created agent_extensions/${OWNER}/${surface}/${name}`);
 
         const settingsKey = settingsKeyForSurface(surface);
         const rootSettings = readSettings(rootWorkspace.path);

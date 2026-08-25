@@ -27,6 +27,7 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -41,7 +42,6 @@ const initWorkspace = (
   configuredSkills: Record<string, string> = {},
   configuredPacks: Record<string, string> = {},
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
   // Build settings skills map so removeSkill can find them
   const settingsSkills: Record<string, string> = { ...configuredSkills };
   for (const name of Object.keys(lockfileSkills)) {
@@ -54,26 +54,28 @@ const initWorkspace = (
       typeof entry.type === "string"
         ? entry.type
         : undefined;
-    settingsSkills[name] = entryType ?? "local";
+    const entryOwner =
+      typeof entry === "object" &&
+      entry !== null &&
+      "owner" in entry &&
+      typeof entry.owner === "string"
+        ? entry.owner
+        : "@acme";
+    settingsSkills[name] =
+      entryType === "registry" ? `${entryOwner}/skills/${name}` : "./installed";
   }
-  const settings: Record<string, unknown> = { agents };
-  if (Object.keys(settingsSkills).length > 0) {
-    settings["skills"] = settingsSkills;
-  }
-  if (Object.keys(configuredPacks).length > 0) {
-    settings["packs"] = configuredPacks;
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = { lockfileVersion: 4, skills: lockfileSkills };
-  if (Object.keys(lockfilePacks).length > 0) {
-    lockfile["packs"] = lockfilePacks;
-  }
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  writeWorkspaceFiles(axmDir, {
+    agents,
+    skills: settingsSkills,
+    packs: configuredPacks,
+    lockfileSkills,
+    lockfilePacks,
+  });
 };
 
 /** Create a canonical skill directory with SKILL.md. */
 const createCanonicalSkill = (base: string, name: string) => {
-  const dir = path.join(base, ".axm", "extensions", "external", "skills", name);
+  const dir = path.join(base, "agent_extensions", "@acme", "skills", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "SKILL.md"), `# ${name}`);
   return dir;
@@ -81,7 +83,7 @@ const createCanonicalSkill = (base: string, name: string) => {
 
 /** Create an agent symlink pointing to canonical. */
 const createAgentSymlink = (base: string, agentDir: string, name: string) => {
-  const canonical = path.join(base, ".axm", "extensions", "external", "skills", name);
+  const canonical = path.join(base, "agent_extensions", "@acme", "skills", name);
   const agentSkillDir = path.join(base, agentDir, "skills");
   fs.mkdirSync(agentSkillDir, { recursive: true });
   fs.symlinkSync(canonical, path.join(agentSkillDir, name));
@@ -208,16 +210,14 @@ describe("uninstall.handler", () => {
 
           // Canonical directory should be removed
           expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
-            ),
+            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
           ).toBe(false);
 
           // Agent symlink should be removed
           expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(false);
 
           // Lockfile should not have the skill
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeUndefined();
         }),
@@ -241,9 +241,7 @@ describe("uninstall.handler", () => {
             preview: false,
           });
 
-          const settings = JSON.parse(
-            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-          );
+          const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
           const skills =
             typeof settings === "object" &&
             settings !== null &&
@@ -285,19 +283,19 @@ describe("uninstall.handler", () => {
           // effect-* skills should be removed
           expect(
             fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+              path.join(tempDir, "agent_extensions", "@acme", "skills", "effect-basics"),
             ),
           ).toBe(false);
           expect(
             fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
+              path.join(tempDir, "agent_extensions", "@acme", "skills", "effect-stream"),
             ),
           ).toBe(false);
 
           // testing-unit should remain
           expect(
             fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "testing-unit"),
+              path.join(tempDir, "agent_extensions", "@acme", "skills", "testing-unit"),
             ),
           ).toBe(true);
         }),
@@ -363,7 +361,7 @@ describe("uninstall.handler", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills?.["nonexistent"]).toBeUndefined();
         }),
@@ -402,13 +400,11 @@ describe("uninstall.handler", () => {
 
           // Canonical should be removed
           expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
-            ),
+            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
           ).toBe(false);
 
           // Lockfile should not have the skill
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeUndefined();
         }),
@@ -425,7 +421,7 @@ describe("uninstall.handler", () => {
       const { provide } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
-      const packDir = path.join(tempDir, ".axm", "extensions", "@my-ns", "packs", "my-pack");
+      const packDir = path.join(tempDir, "agent_extensions", "@my-ns", "packs", "my-pack");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
         path.join(packDir, "pack.json"),
@@ -459,16 +455,11 @@ describe("uninstall.handler", () => {
 
           // Canonical directory should still exist (retained because pack requires it)
           expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", skillName),
-            ),
+            fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", skillName)),
           ).toBe(true);
 
           // Settings should not have the skill
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.[skillName]).toBeUndefined();
         }),
@@ -481,16 +472,16 @@ describe("uninstall.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("preview flag", () => {
-    it.effect("shows workspace-authored canonical source deletion before confirmation", () => {
+    it.effect("preserves workspace-authored source while removing its settings entry", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
         {},
         ["claude-code"],
         {},
-        { "my-skill": "workspace:@acme/skills/my-skill" },
+        { "my-skill": "workspace" },
       );
-      fs.mkdirSync(path.join(tempDir, ".axm", "extensions", "@acme", "skills", "my-skill"), {
+      fs.mkdirSync(path.join(tempDir, "skills", "my-skill"), {
         recursive: true,
       });
 
@@ -501,10 +492,8 @@ describe("uninstall.handler", () => {
             preview: true,
           });
 
-          expect(logs.message).toContain("    removed: .axm/extensions/@acme/skills/my-skill");
-          expect(
-            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@acme", "skills", "my-skill")),
-          ).toBe(true);
+          expect(logs.message).toContain("    unchanged: skills/my-skill");
+          expect(fs.existsSync(path.join(tempDir, "skills", "my-skill"))).toBe(true);
         }),
       );
     });
@@ -528,27 +517,19 @@ describe("uninstall.handler", () => {
 
             // Canonical directory should still exist (preview = no side effects)
             expect(
-              fs.existsSync(
-                path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
-              ),
+              fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
             ).toBe(true);
 
             // Agent symlink should still exist
             expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(true);
 
             // Lockfile should still have the skill
-            const lockContent = fs.readFileSync(
-              path.join(tempDir, ".axm", "axm-lock.yaml"),
-              "utf-8",
-            );
+            const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
             const lockfile = YAML.parse(lockContent);
             expect(lockfile.skills["my-skill"]).toBeDefined();
 
             // Settings should still have the skill
-            const settingsContent = fs.readFileSync(
-              path.join(tempDir, ".axm", "settings.json"),
-              "utf-8",
-            );
+            const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
             const settings = JSON.parse(settingsContent);
             expect(settings.skills?.["my-skill"]).toBeDefined();
 
@@ -556,9 +537,9 @@ describe("uninstall.handler", () => {
             expect(logs.info.some((m) => m.includes("Would uninstall 1 skill"))).toBe(true);
             expect(logs.message).toEqual(
               expect.arrayContaining([
-                "    updated: .axm/axm-lock.yaml",
-                "    updated: .axm/settings.json",
-                "    removed: .axm/extensions/external/skills/my-skill",
+                "    updated: axm-lock.yaml",
+                "    updated: axm.json",
+                "    removed: agent_extensions/@acme/skills/my-skill",
                 "    removed: .claude/skills/my-skill",
               ]),
             );
@@ -589,9 +570,7 @@ describe("uninstall.handler", () => {
 
             // Canonical directory should still exist
             expect(
-              fs.existsSync(
-                path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
-              ),
+              fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill")),
             ).toBe(true);
 
             // Both agent symlinks should still exist
@@ -599,10 +578,7 @@ describe("uninstall.handler", () => {
             expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(true);
 
             // Lockfile should still have the skill
-            const lockContent = fs.readFileSync(
-              path.join(tempDir, ".axm", "axm-lock.yaml"),
-              "utf-8",
-            );
+            const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
             const lockfile = YAML.parse(lockContent);
             expect(lockfile.skills["my-skill"]).toBeDefined();
           }),

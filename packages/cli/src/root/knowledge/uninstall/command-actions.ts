@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import { resolveInstructionsConfig } from "@agentxm/client-core/unstable/agents";
 import {
   EXTERNAL_EXTENSIONS_DIR,
@@ -246,6 +246,20 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
             : yield* manager.getConfiguredSource({ target });
         const installed = yield* manager.isInstalled({ target });
         const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+        const authoredPackagePresent =
+          ws.layout.scope === "project" &&
+          (yield* fs.exists(path.join(ws.layout.authoredRoot("knowledge"), target.name)).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to inspect authored Knowledge package "${target.name}"`,
+                cause,
+              }),
+            ),
+          ));
+        if (Option.isNone(configured) && Option.isNone(locked) && authoredPackagePresent) {
+          return { targets: [] };
+        }
         if (Option.isNone(configured) && Option.isNone(locked) && !installed) {
           return { targets: [] };
         }

@@ -7,9 +7,9 @@ import { groupConfiguredMcpTargets } from "../../../mcps/targeting.js";
 import type { McpServerEntry } from "../../../settings/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/mcps-shared-target-compatible";
-const SETTINGS_REL = ".axm/settings.json";
 
 const transportFor = (entry: McpServerEntry) => {
   if (entry.command !== undefined) return "stdio";
@@ -18,7 +18,12 @@ const transportFor = (entry: McpServerEntry) => {
   return inference._tag === "supported" ? inference.transport : undefined;
 };
 
-const findingFor = (serverName: string, path: string, reason: string): AdvisoryFinding => ({
+const findingFor = (
+  serverName: string,
+  path: string,
+  reason: string,
+  settingsPath: string,
+): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
@@ -30,7 +35,7 @@ const findingFor = (serverName: string, path: string, reason: string): AdvisoryF
     "'. " +
     reason +
     " Update the configured agents or their MCP compatibility metadata before syncing.",
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 export const mcpServerSharedTargetCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -54,7 +59,14 @@ export const mcpServerSharedTargetCompatibleRule: AdvisoryRule<WorkspaceRuleCont
         return groups.flatMap((group) => {
           const resolution = resolveSharedMcpTarget({ members: group.members, transport });
           return resolution._tag === "conflict"
-            ? [findingFor(serverName, resolution.path, resolution.reason)]
+            ? [
+                findingFor(
+                  serverName,
+                  resolution.path,
+                  resolution.reason,
+                  settingsDisplayPath(context.subject.scope),
+                ),
+              ]
             : [];
         });
       });

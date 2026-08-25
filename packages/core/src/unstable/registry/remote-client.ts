@@ -360,14 +360,24 @@ export const createRemoteRegistryClient = (
         mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
       },
     ).pipe(
-      Effect.flatMap((response) =>
-        Option.isNone(response)
-          ? Effect.succeed(Option.none<ExtensionIndex>())
-          : Effect.try({
-              try: () => Option.some(mapToExtensionIndex(response.value)),
-              catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+      Effect.flatMap((response) => {
+        if (Option.isNone(response)) {
+          return Effect.succeed(Option.none<ExtensionIndex>());
+        }
+        const responseValue = response.value;
+        if (responseValue === undefined) {
+          return Effect.fail(
+            makeAppError({
+              code: "internal",
+              detail: "Remote Registry returned an extension index without a body",
             }),
-      ),
+          );
+        }
+        return Effect.try({
+          try: () => Option.some(mapToExtensionIndex(responseValue)),
+          catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+        });
+      }),
     );
 
   /**
@@ -576,6 +586,13 @@ export const createRemoteRegistryClient = (
           mapError: mapPackageFetchError,
         },
       );
+
+      if (indexResult === undefined) {
+        return yield* makeAppError({
+          code: "internal",
+          detail: "Remote Registry returned a package index without a body",
+        });
+      }
 
       const index = yield* Effect.try({
         try: () => mapToExtensionIndex(indexResult),

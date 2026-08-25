@@ -3,6 +3,7 @@ import * as Result from "effect/Result";
 import { formatAxmSkillCompatibilityTarget } from "../../../skills/axm-skill-compatibility.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
+import { canonicalDisplayRoot } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/axm-skill-compatible";
@@ -23,7 +24,12 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
             ruleId: RULE_ID,
             severity: "error" as const,
             message: `The official AXM skill compatibility state is unreadable: ${compatibilityResult.failure._tag}. Repair the workspace state, then rerun lint.`,
-            location: { file: ".axm" },
+            location: {
+              file:
+                context.subject.scope === "project"
+                  ? "skills/axm"
+                  : `${canonicalDisplayRoot(context.subject.scope)}/@agentxm/skills/axm`,
+            },
           },
         ];
       }
@@ -37,7 +43,12 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message: `${compatibility.detail ?? "The official AXM skill is incompatible with this AXM CLI."} Reason: ${compatibility.reasonCode ?? "unknown"}. Target: ${target}.${recovery === null ? "" : ` Next: \`${recovery}\`.`}`,
-          location: { file: ".axm/extensions/@agentxm/skills/axm" },
+          location: {
+            file:
+              context.subject.scope === "project"
+                ? "skills/axm"
+                : `${canonicalDisplayRoot(context.subject.scope)}/@agentxm/skills/axm`,
+          },
         },
       ];
     }),

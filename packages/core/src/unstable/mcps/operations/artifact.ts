@@ -2,17 +2,19 @@ import type { AgentId } from "../../agents/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
+import type { WorkspaceScope } from "../../workspace/scope.js";
 
-export const MCP_CONFIG_SURFACE = ".axm (config/lockfile)";
+export const mcpConfigSurface = (scope: WorkspaceScope): string =>
+  scope === "project" ? "axm.json / axm-lock.yaml" : ".axm (config/lockfile)";
 export const MCP_AGENT_CONFIG_SURFACE = ".mcp.json";
 
 export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
-export const mcpServerSourcePath = (entry: McpServerLockEntry): string =>
+export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   entry.type === "registry"
-    ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/mcps/${entry.name}`
-    : MCP_CONFIG_SURFACE;
+    ? `${scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions"}/${entry.owner}/mcps/${entry.name}`
+    : mcpConfigSurface(scope);
 
 export const agentConfigTarget = (
   change: JobStepArtifactTarget["change"],
@@ -77,17 +79,19 @@ export const agentConfigTargets = (
 };
 
 export const mcpSettingsTarget = (
+  scope: WorkspaceScope,
   change: JobStepArtifactTarget["change"],
 ): JobStepArtifactTarget => ({
-  path: MCP_CONFIG_SURFACE,
+  path: scope === "project" ? "axm.json" : ".axm/settings.json",
   change,
 });
 
 export const mcpSourceTarget = (
+  scope: WorkspaceScope,
   entry: McpServerLockEntry,
   change: JobStepArtifactTarget["change"],
 ): JobStepArtifactTarget => ({
-  path: mcpServerSourcePath(entry),
+  path: mcpServerSourcePath(scope, entry),
   change,
 });
 
@@ -101,7 +105,10 @@ export const mcpServerArtifact = (args: {
   const version = args.lockEntry === undefined ? undefined : mcpServerVersion(args.lockEntry);
 
   return {
-    path: args.lockEntry === undefined ? MCP_CONFIG_SURFACE : mcpServerSourcePath(args.lockEntry),
+    path:
+      args.lockEntry === undefined
+        ? mcpConfigSurface(args.scope)
+        : mcpServerSourcePath(args.scope, args.lockEntry),
     scope: args.scope,
     change: args.change,
     ...(args.agents === undefined ? {} : { agents: args.agents }),

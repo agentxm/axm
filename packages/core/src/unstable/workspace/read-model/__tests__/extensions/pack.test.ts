@@ -51,7 +51,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 4,
+    lockfileVersion: 5,
     skills: {},
     packs: {
       [packName]: {
@@ -63,6 +63,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         manifestContentIdentity: "sha256-manifest",
         sourceName: "registry",
         publisherBindingId: "hbnd_test",
+        treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
       },
     },
   }).pipe(Effect.orDie);

@@ -24,9 +24,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import {
-  LOCKFILE_NAME,
   LOCKFILE_VERSION,
-  commitLockfileSnapshotUpdate,
+  commitLockfileSnapshotUpdateAtPath,
   type HooksLockMap,
   type KnowledgeLockMap,
   type RulesLockMap,
@@ -35,8 +34,8 @@ import {
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
-import { computeSkillPaths } from "../skills/paths.js";
-import { computePackPaths } from "../packs/paths.js";
+import { computeSkillPathsForLayout } from "../skills/paths.js";
+import { computePackPathsForLayout } from "../packs/paths.js";
 import type { Handle } from "../extensions/handle.js";
 import { sanitizeName } from "../extensions/utils.js";
 import {
@@ -63,11 +62,10 @@ import {
   type RuleEntry,
   type RulesMap,
   type Settings,
-  SETTINGS_FILENAME,
   type SkillsMap,
   type SubagentsMap,
   type SourceHostConfig,
-  writeSettings,
+  writeSettingsAtPath,
 } from "../settings/index.js";
 import {
   DEFAULT_MINIMUM_RELEASE_AGE,
@@ -78,6 +76,13 @@ import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 
 import { getAxmDir } from "./paths.js";
+import {
+  LOCK_FILENAME,
+  resolveProjectWorkspaceLayout,
+  resolveProjectWorkspaceStatePaths,
+  resolveUserWorkspaceLayout,
+  USER_SETTINGS_FILENAME,
+} from "./layout.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -253,8 +258,8 @@ const requireInitializedWorkspace = (
 export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir("user");
-    const localDir = yield* getAxmDir("project", options.projectRoot);
-    const workspaceDir = options.scope === "user" ? globalDir : localDir;
+    const localRuntimeDir = yield* getAxmDir("project", options.projectRoot);
+    const workspaceDir = options.scope === "user" ? globalDir : localRuntimeDir;
 
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
@@ -264,9 +269,15 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     // transaction calls the same service's mutation methods while it owns the
     // outer admission permit.
     const transactionSemaphore = yield* Semaphore.make(1);
-    const settingsPath = path.join(workspaceDir, SETTINGS_FILENAME);
+    const projectStatePaths = resolveProjectWorkspaceStatePaths(path, options.projectRoot);
+    const settingsPath =
+      options.scope === "user"
+        ? path.join(globalDir, USER_SETTINGS_FILENAME)
+        : projectStatePaths.settingsPath;
+    const lockPath =
+      options.scope === "user" ? path.join(globalDir, LOCK_FILENAME) : projectStatePaths.lockPath;
 
-    const baseDir = path.dirname(workspaceDir);
+    const baseDir = options.scope === "user" ? path.dirname(globalDir) : options.projectRoot;
 
     const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -275,7 +286,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const contextEnv = Layer.mergeAll(
       fsLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
-        projectRoot: makeAbsolutePath(path, path.dirname(localDir)),
+        projectRoot: options.projectRoot,
         userHome: makeAbsolutePath(path, path.dirname(globalDir)),
         allowedRoot: makeAbsolutePath(path, "/"),
       }),
@@ -304,6 +315,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       yield* requireInitializedWorkspace(settingsPath, readSettingsCell(workspaceDir));
     }
 
+    const projectSettings = yield* readSettingsCell(localRuntimeDir).pipe(
+      Effect.map(Option.getOrElse(() => createDefaultSettings())),
+    );
+    const userSettings = yield* readSettingsCell(globalDir).pipe(
+      Effect.map(Option.getOrElse(() => createDefaultSettings())),
+    );
+    const projectLayout = yield* resolveProjectWorkspaceLayout(
+      options.projectRoot,
+      projectSettings,
+    );
+    const userLayout = yield* resolveUserWorkspaceLayout(globalDir, userSettings);
+    const layout = options.scope === "project" ? projectLayout : userLayout;
+
     // Built-in sources: parameterized via options, falling back to git forges only
     const builtInSources: ReadonlyArray<SourceHostConfig> = options.builtInSources ?? [
       { name: "github", type: "github", url: new URL("https://github.com") },
@@ -327,17 +351,17 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfileCell(dir);
 
+    const writeScopedSettings = (settings: Settings) => writeSettingsAtPath(settingsPath, settings);
+
     const commitWorkspaceState = (base: Lockfile, next: Lockfile) =>
-      commitLockfileSnapshotUpdate(workspaceDir, base, next).pipe(Effect.provide(fsLayer));
+      commitLockfileSnapshotUpdateAtPath(lockPath, base, next).pipe(Effect.provide(fsLayer));
 
     const runTransaction: WorkspaceTransactionRunner = (args) =>
       runWorkspaceTransaction({
         workspaceDir,
         semaphore: transactionSemaphore,
         targets: [
-          ...(args.claimDefaultTargets === false
-            ? []
-            : [settingsPath, path.join(workspaceDir, LOCKFILE_NAME)]),
+          ...(args.claimDefaultTargets === false ? [] : [settingsPath, lockPath]),
           ...(args.targets ?? []),
         ],
         transition: args.transition,
@@ -376,12 +400,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
      */
     const getLockfileState = (): Effect.Effect<LockfileState, AppError> =>
       Effect.gen(function* () {
-        const lockfilePath = path.join(workspaceDir, LOCKFILE_NAME);
-        const exists = yield* fs.exists(lockfilePath).pipe(
+        const exists = yield* fs.exists(lockPath).pipe(
           Effect.mapError((error) =>
             makeAppError({
               code: "validation",
-              detail: `Failed to check if lockfile exists at ${lockfilePath}`,
+              detail: `Failed to check if lockfile exists at ${lockPath}`,
               cause: error,
             }),
           ),
@@ -415,12 +438,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const readDesiredStateGraph = () =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
-        const graph = yield* buildDesiredStateGraph({ baseDir, settings }).pipe(
+        const graph = yield* buildDesiredStateGraph({ baseDir, settings, layout }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
         const lockfile = yield* readLockfileSafe(workspaceDir);
-        return yield* validateDesiredPackLock({ baseDir, graph, lockfile }).pipe(
+        return yield* validateDesiredPackLock({ baseDir, graph, lockfile, layout }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
@@ -481,7 +504,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
-        const projectSettings = yield* readSettingsSafe(localDir);
+        const projectSettings = yield* readSettingsSafe(localRuntimeDir);
         const globalSettings = yield* readSettingsSafe(globalDir);
 
         const projectSources: ReadonlyArray<SourceHostConfig> = projectSettings.sources ?? [];
@@ -505,6 +528,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       scope: options.scope,
       path: workspaceDir,
       baseDir,
+      layout,
 
       runTransaction,
 
@@ -536,7 +560,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getConfiguredOwner: () =>
         Effect.gen(function* () {
-          const projectSettings = yield* readSettingsSafe(localDir);
+          const projectSettings = yield* readSettingsSafe(localRuntimeDir);
           if (projectSettings.owner) return Option.some(projectSettings.owner);
           const globalSettings = yield* readSettingsSafe(globalDir);
           if (globalSettings.owner) return Option.some(globalSettings.owner);
@@ -592,7 +616,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const current = yield* readSettingsSafe(workspaceDir);
             const currentSources: ReadonlyArray<SourceHostConfig> = current.sources ?? [];
             const updatedSettings = { ...current, sources: [...currentSources, source] };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             cachedSources = null; // invalidate cache
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.addConfiguredSource")),
@@ -623,7 +647,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...current,
               instructionFiles: config,
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setInstructionsConfig")),
 
@@ -662,7 +686,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentRules: RulesMap = currentSettings.rules ?? {};
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               rules: {
                 ...currentRules,
@@ -726,9 +750,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   })()
                 : currentLockfile;
 
-            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* writeScopedSettings(remainingSettings).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               remainingLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -743,7 +767,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in currentRules)) return;
             const { [name]: _, ...remainingRules } = currentRules;
             void _;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               rules: remainingRules,
             }).pipe(Effect.provide(fsLayer));
@@ -762,8 +786,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               rules: remainingRules,
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -777,7 +801,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentRules: RulesMap = currentSettings.rules ?? {};
             const existingEntry = currentRules[name];
             if (existingEntry === undefined) return;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               rules: { ...currentRules, [name]: updater(existingEntry) },
             }).pipe(Effect.provide(fsLayer));
@@ -789,7 +813,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentRules: RulesMap = currentSettings.rules ?? {};
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               rules: { ...currentRules, [name]: entry },
             }).pipe(Effect.provide(fsLayer));
@@ -825,7 +849,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 : printSourceParams(lockEntryToSourceParams(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentHooks: HooksMap = currentSettings.hooks ?? {};
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               hooks: {
                 ...currentHooks,
@@ -889,9 +913,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                   })()
                 : currentLockfile;
 
-            yield* writeSettings(workspaceDir, remainingSettings).pipe(Effect.provide(fsLayer));
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* writeScopedSettings(remainingSettings).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               remainingLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -906,7 +930,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in currentHooks)) return;
             const { [name]: _, ...remainingHooks } = currentHooks;
             void _;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               hooks: remainingHooks,
             }).pipe(Effect.provide(fsLayer));
@@ -925,8 +949,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentLockfile,
               hooks: remainingHooks,
             };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -940,7 +964,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentHooks: HooksMap = currentSettings.hooks ?? {};
             const existingEntry = currentHooks[name];
             if (existingEntry === undefined) return;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               hooks: { ...currentHooks, [name]: updater(existingEntry) },
             }).pipe(Effect.provide(fsLayer));
@@ -952,7 +976,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentHooks: HooksMap = currentSettings.hooks ?? {};
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               hooks: { ...currentHooks, [name]: entry },
             }).pipe(Effect.provide(fsLayer));
@@ -1000,7 +1024,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentKnowledge: KnowledgeMap = currentSettings.knowledge ?? {};
             const currentEntry = currentKnowledge[name];
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               knowledge: {
                 ...currentKnowledge,
@@ -1066,8 +1090,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                     return { ...currentLockfile, knowledge: remaining };
                   })()
                 : currentLockfile;
-            yield* writeSettings(workspaceDir, nextSettings).pipe(Effect.provide(fsLayer));
-            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, nextLockfile).pipe(
+            yield* writeScopedSettings(nextSettings).pipe(Effect.provide(fsLayer));
+            yield* commitLockfileSnapshotUpdateAtPath(lockPath, currentLockfile, nextLockfile).pipe(
               Effect.provide(fsLayer),
             );
           }),
@@ -1081,7 +1105,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in configured)) return;
             const { [name]: removed, ...remaining } = configured;
             void removed;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               knowledge: remaining,
             }).pipe(Effect.provide(fsLayer));
@@ -1096,7 +1120,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             if (!(name in locked)) return;
             const { [name]: removed, ...remaining } = locked;
             void removed;
-            yield* commitLockfileSnapshotUpdate(workspaceDir, currentLockfile, {
+            yield* commitLockfileSnapshotUpdateAtPath(lockPath, currentLockfile, {
               ...currentLockfile,
               knowledge: remaining,
             }).pipe(Effect.provide(fsLayer));
@@ -1110,7 +1134,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const configured: KnowledgeMap = currentSettings.knowledge ?? {};
             const existing = configured[name];
             if (existing === undefined) return;
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               knowledge: { ...configured, [name]: updater(existing) },
             }).pipe(Effect.provide(fsLayer));
@@ -1122,7 +1146,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.gen(function* () {
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const configured: KnowledgeMap = currentSettings.knowledge ?? {};
-            yield* writeSettings(workspaceDir, {
+            yield* writeScopedSettings({
               ...currentSettings,
               knowledge: { ...configured, [name]: entry },
             }).pipe(Effect.provide(fsLayer));
@@ -1141,7 +1165,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           if (source !== undefined) {
             const dirName =
               source.refType === "registry" ? yield* resolveRegistryDirName(name) : name;
-            return computeSkillPaths(path.join, baseDir, source, sanitizeName(dirName));
+            return computeSkillPathsForLayout(path.join, layout, source, sanitizeName(dirName));
           }
 
           const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
@@ -1166,11 +1190,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             entry.type === "registry"
               ? { refType: "registry", owner: entry.owner }
               : entry.type === "local"
-                ? { refType: "local" }
-                : { refType: "git-hosted" };
+                ? { refType: "local", owner: entry.packageOwner }
+                : { refType: "git-hosted", owner: entry.packageOwner };
 
-          const dirName = entry.type === "registry" ? entry.name : name;
-          return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
+          const dirName = entry.type === "registry" ? entry.name : entry.packageName;
+          return computeSkillPathsForLayout(path.join, layout, entrySource, sanitizeName(dirName));
         }),
 
       setSkill: ({ name, lockEntry, versionRange }: SetSkillArgs) =>
@@ -1203,7 +1227,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const lockChanged = !skillLockEntrySemanticallyEqual(currentLockEntry, lockEntry);
 
             if (settingsChanged) {
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+              yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
             if (!lockChanged) return;
@@ -1251,7 +1275,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: _, ...remainingSkills } = currentSkills;
               void _;
               const updatedSettings = { ...currentSettings, skills: remainingSkills };
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+              yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
             // Update lockfile
@@ -1261,8 +1285,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: __, ...remainingLockSkills } = currentLockfile.skills;
               void __;
               const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
+              yield* commitLockfileSnapshotUpdateAtPath(
+                lockPath,
                 currentLockfile,
                 updatedLockfile,
               ).pipe(Effect.provide(fsLayer));
@@ -1280,7 +1304,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingSkills } = currentSkills;
             void _;
             const updatedSettings = { ...currentSettings, skills: remainingSkills };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1300,7 +1324,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               skills: { ...currentSkills, [name]: updated },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1313,7 +1337,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               skills: { ...currentSkills, [name]: entry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1335,7 +1359,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const agents = current.agents ?? [];
             if (agents.includes(validId)) return;
             const updatedSettings: Settings = { ...current, agents: [...agents, validId] };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1360,7 +1384,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...current,
               agents: agents.filter((configured) => configured !== validId),
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1396,7 +1420,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               packs: { ...currentPacks, [name]: { source, enabled } },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
 
             // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1442,7 +1466,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               packs: { ...currentPacks, [name]: entry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setPackEntry")),
 
@@ -1457,7 +1481,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingPacks } = currentPacks;
             void _;
             const updatedSettings = { ...currentSettings, packs: remainingPacks };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
 
             // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1466,8 +1490,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: __, ...remainingLockedPacks } = currentLockedPacks;
               void __;
               const updatedLockfile = { ...currentLockfile, packs: remainingLockedPacks };
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
+              yield* commitLockfileSnapshotUpdateAtPath(
+                lockPath,
                 currentLockfile,
                 updatedLockfile,
               ).pipe(Effect.provide(fsLayer));
@@ -1476,7 +1500,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         ).pipe(Effect.withSpan("WorkspaceMutations.removePack")),
 
       getPackDir: (name: string, owner: Handle) =>
-        Effect.succeed(computePackPaths(path.join, baseDir, owner, name)),
+        Effect.succeed(computePackPathsForLayout(path.join, layout, "external", owner, name)),
 
       // -----------------------------------------------------------------------
       // Subagent methods
@@ -1526,7 +1550,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const lockChanged = !subagentLockEntrySemanticallyEqual(currentLockEntry, lockEntry);
 
             if (settingsChanged) {
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+              yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
             if (!lockChanged) return;
@@ -1574,7 +1598,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               const { [name]: _, ...remainingSubagents } = currentSubagents;
               void _;
               const updatedSettings = { ...currentSettings, subagents: remainingSubagents };
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+              yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
             // Update lockfile
@@ -1587,8 +1611,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile,
                 subagents: remainingLockedSubagents,
               };
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
+              yield* commitLockfileSnapshotUpdateAtPath(
+                lockPath,
                 currentLockfile,
                 updatedLockfile,
               ).pipe(Effect.provide(fsLayer));
@@ -1608,7 +1632,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               subagents: { ...currentSubagents, [name]: updated },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.updateSubagentEntry")),
 
@@ -1621,7 +1645,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               subagents: { ...currentSubagents, [name]: entry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ).pipe(Effect.withSpan("WorkspaceMutations.setSubagentEntry")),
 
@@ -1635,7 +1659,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingSubagents } = currentSubagents;
             void _;
             const updatedSettings = { ...currentSettings, subagents: remainingSubagents };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1648,8 +1672,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remaining } = currentLockedSubagents;
             void _;
             const updatedLockfile = { ...currentLockfile, subagents: remaining };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -1702,7 +1726,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 [name]: settingsEntry,
               },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
 
             // Update lockfile (uses "mcpServers" key)
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -1751,7 +1775,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               mcpServers: { ...currentMcpServers, [name]: updated },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1764,7 +1788,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
               ...currentSettings,
               mcpServers: { ...currentMcpServers, [name]: entry },
             };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1783,7 +1807,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentSettings,
                 mcpServers: remainingMcpServers,
               };
-              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+              yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
             }
 
             // Update lockfile (uses "mcpServers" key)
@@ -1796,8 +1820,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
                 ...currentLockfile,
                 mcpServers: remainingLockedMcpServers,
               };
-              yield* commitLockfileSnapshotUpdate(
-                workspaceDir,
+              yield* commitLockfileSnapshotUpdateAtPath(
+                lockPath,
                 currentLockfile,
                 updatedLockfile,
               ).pipe(Effect.provide(fsLayer));
@@ -1817,8 +1841,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingSkills } = currentLockfile.skills;
             void _;
             const updatedLockfile = { ...currentLockfile, skills: remainingSkills };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -1834,7 +1858,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingMcpServers } = currentMcpServers;
             void _;
             const updatedSettings = { ...currentSettings, mcpServers: remainingMcpServers };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1847,8 +1871,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingMcpServers } = currentLockedMcpServers;
             void _;
             const updatedLockfile = { ...currentLockfile, mcpServers: remainingMcpServers };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));
@@ -1864,7 +1888,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingPacks } = currentPacks;
             void _;
             const updatedSettings = { ...currentSettings, packs: remainingPacks };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeScopedSettings(updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -1877,8 +1901,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const { [name]: _, ...remainingPacks } = currentLockedPacks;
             void _;
             const updatedLockfile = { ...currentLockfile, packs: remainingPacks };
-            yield* commitLockfileSnapshotUpdate(
-              workspaceDir,
+            yield* commitLockfileSnapshotUpdateAtPath(
+              lockPath,
               currentLockfile,
               updatedLockfile,
             ).pipe(Effect.provide(fsLayer));

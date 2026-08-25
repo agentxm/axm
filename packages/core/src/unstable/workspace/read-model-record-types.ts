@@ -20,6 +20,7 @@ export type ReadModelRecordRow =
       readonly name: string;
       readonly source: string;
       readonly enabled: boolean;
+      readonly origin?: "bundled";
       readonly packagingKind: PackagingKind;
       readonly lifecycle: "configured";
     }

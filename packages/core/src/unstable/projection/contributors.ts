@@ -11,21 +11,26 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   parseExtensionFqnParts,
   type ExtensionType,
 } from "../extensions/index.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 import type { Handle } from "../extensions/handle.js";
 import type {
   DesiredExtensionNode,
   DesiredStateGraph,
   DesiredStateProblem,
 } from "../workspace/desired-state-graph.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural view of a per-extension source lock entry. Registry
@@ -37,9 +42,13 @@ export type SourceLockEntryLike =
       readonly type: "registry";
       readonly owner: Handle;
       readonly name: string;
+      readonly treeIntegrity: TreeIntegrity;
     }
   | {
       readonly type: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "local";
+      readonly packageOwner: Handle;
+      readonly packageName: string;
+      readonly treeIntegrity: TreeIntegrity;
     };
 
 /** One member of an aggregate unit's contributor set, resolved to content. */
@@ -90,14 +99,15 @@ export const activeNodesOfType = (
  */
 export const contributorForNode = (args: {
   readonly baseDir: string;
+  readonly layout: WorkspaceLayout;
   readonly path: Path.Path;
   readonly node: DesiredExtensionNode;
   /** Type-specific segment under the extensions trees, e.g. `rules`. */
   readonly extensionDir: string;
   readonly locked: SourceLockEntryLike | undefined;
-}): Effect.Effect<AggregateContributor, AppError> =>
+}): Effect.Effect<AggregateContributor, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const { baseDir, extensionDir, locked, node, path } = args;
+    const { baseDir, extensionDir, layout, locked, node, path } = args;
     if (node.identity.startsWith("workspace:")) {
       const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
       if (identity === undefined || identity.type !== node.type) {
@@ -108,13 +118,10 @@ export const contributorForNode = (args: {
       }
       return {
         node,
-        packageRoot: path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          identity.owner,
-          extensionDir,
-          identity.name,
-        ),
+        packageRoot:
+          layout.scope === "project"
+            ? path.join(layout.authoredRoot(node.type), identity.name)
+            : path.join(layout.canonicalRoot, identity.owner, extensionDir, identity.name),
         identityOwner: Option.some(identity.owner),
       };
     }
@@ -124,23 +131,31 @@ export const contributorForNode = (args: {
         detail: `Active ${node.type} has no accepted resolution: ${node.name}`,
       });
     }
-    if (locked.type === "registry") {
-      return {
-        node,
-        packageRoot: path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          locked.owner,
-          extensionDir,
-          locked.name,
-        ),
-        identityOwner: Option.some(locked.owner),
-      };
+    const packageOwner = locked.type === "registry" ? locked.owner : locked.packageOwner;
+    const packageName = locked.type === "registry" ? locked.name : locked.packageName;
+    const packageRoot =
+      layout.scope === "project"
+        ? path.join(layout.acquiredRoot, packageOwner, extensionDir, packageName)
+        : locked.type === "registry"
+          ? path.join(layout.canonicalRoot, packageOwner, extensionDir, packageName)
+          : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, extensionDir, packageName);
+    const observedTree = yield* computeMaterializedTreeIntegrity(packageRoot);
+    if (observedTree !== locked.treeIntegrity) {
+      return yield* makeAppError({
+        code: "conflict",
+        detail: `Materialized package tree does not match the accepted lock entry: ${packageRoot}`,
+        suggestions: [
+          {
+            description:
+              "Restore the accepted package with install or update, or fork it into the authored workspace tree before editing.",
+          },
+        ],
+      });
     }
     return {
       node,
-      packageRoot: path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, extensionDir, node.name),
-      identityOwner: Option.none<Handle>(),
+      packageRoot,
+      identityOwner: Option.some(packageOwner),
     };
   });
 
@@ -151,17 +166,23 @@ export const contributorForNode = (args: {
  */
 export const activeContributors = (args: {
   readonly baseDir: string;
+  readonly layout: WorkspaceLayout;
   readonly path: Path.Path;
   readonly type: ExtensionType;
   readonly extensionDir: string;
   readonly graph: DesiredStateGraph;
   readonly locked: Readonly<Record<string, SourceLockEntryLike>>;
-}): Effect.Effect<ReadonlyArray<AggregateContributor>, AppError> =>
+}): Effect.Effect<
+  ReadonlyArray<AggregateContributor>,
+  AppError,
+  FileSystem.FileSystem | Path.Path
+> =>
   requireCompleteGraph(args.graph).pipe(
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
         contributorForNode({
           baseDir: args.baseDir,
+          layout: args.layout,
           path: args.path,
           node,
           extensionDir: args.extensionDir,

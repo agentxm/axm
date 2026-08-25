@@ -31,11 +31,13 @@ import {
   extensionTypes,
   parseRegistrySourcePatternParts,
   SourceHashSchema,
+  TreeIntegritySchema,
+  decodeHandleSync,
   type ExtensionType,
   type InstallableExtensionType,
 } from "../extensions/index.js";
 import { type Handle } from "../extensions/handle.js";
-import { decodeRelativePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync, decodeRelativePathSync } from "../utils/path-types.js";
 import { decodeVersionSync, type Version } from "../version-constraints/version-constraints.js";
 
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
@@ -294,6 +296,16 @@ export const makeBaseWorkspaceMock = (
     scope: "project",
     path: axmDir,
     baseDir,
+    layout: {
+      scope: "project",
+      projectRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
+      settingsPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm.json")),
+      lockPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm-lock.yaml")),
+      runtimeDir: decodeAbsolutePathSync(path.resolve(baseDir, ".axm")),
+      acquiredRoot: decodeAbsolutePathSync(path.resolve(baseDir, "agent_extensions")),
+      authoredRoot: (type: ExtensionType) =>
+        decodeAbsolutePathSync(path.resolve(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
+    },
     records,
     runTransaction,
     acquireTransition,
@@ -390,10 +402,17 @@ export const makeBaseWorkspaceMock = (
     removePackLock: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   } satisfies WorkspaceMutationsService;
-  return { ...base, ...serviceOverrides };
+  return {
+    ...base,
+    ...serviceOverrides,
+    layout: serviceOverrides.layout ?? base.layout,
+  };
 };
 
 export const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
+export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 
 const hasEntries = (
   value: Readonly<Record<string, unknown>> | undefined,
@@ -428,7 +447,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
+    lockfileVersion: 5,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
@@ -448,8 +467,11 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
+  packageOwner: decodeHandleSync("@test"),
+  packageName: decodeExtensionNameSync("installed"),
   path: decodeRelativePathSync(opts?.path ?? "installed"),
   contentIdentity: TEST_CONTENT_IDENTITY,
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
@@ -470,6 +492,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistryMcpServerLockEntry = (opts: {
@@ -489,6 +512,7 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistryPackLockEntry = (opts: {
@@ -516,4 +540,5 @@ export const makeRegistryPackLockEntry = (opts: {
       opts.sourceHash === undefined
         ? TEST_CONTENT_IDENTITY
         : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
+    treeIntegrity: TEST_TREE_INTEGRITY,
   });

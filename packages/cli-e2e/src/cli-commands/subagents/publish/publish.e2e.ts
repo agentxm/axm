@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string, owner: string) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
   settings.owner = owner;
@@ -22,7 +22,7 @@ const createManagedSubagent = (
   name: string,
   version: string,
 ) => {
-  const extensionDir = path.join(workspacePath, ".axm", "extensions", owner, "subagents", name);
+  const extensionDir = path.join(workspacePath, "subagents", name);
   const srcDir = path.join(extensionDir, "src");
 
   fs.mkdirSync(srcDir, { recursive: true });
@@ -45,11 +45,11 @@ const createManagedSubagent = (
       2,
     ) + "\n",
   );
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.subagents = {
     ...settings.subagents,
-    [name]: `workspace:${owner}/subagents/${name}`,
+    [name]: "workspace",
   };
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };

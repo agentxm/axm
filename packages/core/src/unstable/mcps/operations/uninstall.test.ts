@@ -166,7 +166,7 @@ describe("uninstallMcpServer", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcps", serverName);
+    const canonicalPath = path.join(base, "agent_extensions", owner, "mcps", serverName);
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");
@@ -193,10 +193,10 @@ describe("uninstallMcpServer", () => {
         }
         expect(result.message).toContain("Uninstalled my-server");
         expect(result.artifact).toMatchObject({
-          path: ".axm (config/lockfile)",
+          path: "axm.json / axm-lock.yaml",
           scope: "project",
           change: "removed",
-          targets: [{ path: ".axm (config/lockfile)", change: "removed" }],
+          targets: [{ path: "axm.json", change: "removed" }],
         });
         expect(fs.existsSync(canonicalPath)).toBe(false);
       }),

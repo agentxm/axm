@@ -160,9 +160,9 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
     case "registry":
       return { refType: "registry", owner: ref.owner };
     case "git-hosted":
-      return { refType: "git-hosted" };
+      return { refType: "git-hosted", owner: ref.owner };
     case "local":
-      return { refType: "local" };
+      return { refType: "local", owner: ref.owner };
     case "workspace":
       return { refType: "workspace", owner: ref.owner };
   }

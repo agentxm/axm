@@ -25,7 +25,7 @@ describe("axm skills publish", () => {
         );
 
         // Set up registry source and owner
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
@@ -33,19 +33,12 @@ describe("axm skills publish", () => {
         settings.owner = "@test";
         settings.skills = {
           ...settings.skills,
-          "my-publish-skill": "workspace:@test/skills/my-publish-skill",
+          "my-publish-skill": "workspace",
         };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        // Manually create an extension in .axm/extensions/
-        const extensionDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "@test",
-          "skills",
-          "my-publish-skill",
-        );
+        // Manually create an authored package.
+        const extensionDir = path.join(temp.path, "skills", "my-publish-skill");
         const srcDir = path.join(extensionDir, "src");
         fs.mkdirSync(srcDir, { recursive: true });
 
@@ -150,7 +143,7 @@ describe("axm skills publish", () => {
           { cwd: temp.path },
         );
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
@@ -158,19 +151,12 @@ describe("axm skills publish", () => {
         settings.owner = "@myorg";
         settings.skills = {
           ...settings.skills,
-          "code-review": "workspace:@myorg/skills/code-review",
+          "code-review": "workspace",
         };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Create extension with owner from settings
-        const extensionDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "skills",
-          "code-review",
-        );
+        const extensionDir = path.join(temp.path, "skills", "code-review");
         const srcDir = path.join(extensionDir, "src");
         fs.mkdirSync(srcDir, { recursive: true });
         fs.writeFileSync(
@@ -226,7 +212,7 @@ describe("axm skills publish", () => {
           { cwd: temp.path },
         );
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
@@ -250,14 +236,14 @@ describe("axm skills publish", () => {
   });
 
   describe("glob and multi-extension publish", () => {
-    /** Create an extension in .axm/extensions/ with a manifest. */
+    /** Create an authored extension with a manifest. */
     const createManagedExtension = (
       tempPath: string,
       owner: string,
       name: string,
       version = "1.0.0",
     ) => {
-      const extensionDir = path.join(tempPath, ".axm", "extensions", owner, "skills", name);
+      const extensionDir = path.join(tempPath, "skills", name);
       const srcDir = path.join(extensionDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(
@@ -290,7 +276,7 @@ describe("axm skills publish", () => {
         ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
         { cwd: tempPath },
       );
-      const settingsPath = path.join(tempPath, ".axm", "settings.json");
+      const settingsPath = path.join(tempPath, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
       settings.owner = owner;
@@ -311,9 +297,9 @@ describe("axm skills publish", () => {
 
         // Set up workspace with all 3 registered as configured skills
         await setupWorkspace(temp.path, registryDir.path, owner, {
-          "effect-basics": `workspace:${owner}/skills/effect-basics`,
-          "effect-stream": `workspace:${owner}/skills/effect-stream`,
-          commit: `workspace:${owner}/skills/commit`,
+          "effect-basics": "workspace",
+          "effect-stream": "workspace",
+          commit: "workspace",
         });
 
         // Publish with glob pattern
@@ -369,8 +355,8 @@ describe("axm skills publish", () => {
         createManagedExtension(temp.path, owner, "skill-b");
 
         await setupWorkspace(temp.path, registryDir.path, owner, {
-          "skill-a": `workspace:${owner}/skills/skill-a`,
-          "skill-b": `workspace:${owner}/skills/skill-b`,
+          "skill-a": "workspace",
+          "skill-b": "workspace",
         });
 
         // Publish multiple literal names

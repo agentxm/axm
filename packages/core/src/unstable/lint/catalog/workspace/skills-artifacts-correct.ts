@@ -34,44 +34,43 @@ import {
   resolveUniversalDirPresence,
 } from "../../../extensions/universal-skills-dir.js";
 import { isConfigurableAgentId } from "../../../agents/types.js";
+import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/skills-artifacts-correct";
-const SETTINGS_REL = ".axm/settings.json";
-
-const enableFinding = (name: string, reason: string): AdvisoryFinding => ({
+const enableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${name}' is enabled, but it is missing from declared agents: ${reason}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: path },
 });
 
-const disableFinding = (name: string, reason: string): AdvisoryFinding => ({
+const disableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${name}' is disabled, but it is still present for declared agents: ${reason}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: path },
 });
 
-const inconsistentFinding = (name: string, details: string): AdvisoryFinding => ({
+const inconsistentFinding = (name: string, details: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${name}' is present for some declared agents but missing from others. ${details}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: path },
 });
 
 interface ArtifactViolation {
   readonly finding: LintFinding;
 }
 
-const implicitEnableFinding = (name: string, reason: string): AdvisoryFinding => ({
+const implicitEnableFinding = (name: string, reason: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Pack-provided skill '${name}' is missing from declared agents: ${reason}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: path },
 });
 
 const collectArtifactViolations = (
@@ -82,6 +81,7 @@ const collectArtifactViolations = (
     readonly missingAgents: ReadonlyArray<string>;
     readonly implicit: boolean;
   }>,
+  settingsPath: string,
 ): ReadonlyArray<ArtifactViolation> => {
   const violations: Array<ArtifactViolation> = [];
 
@@ -92,13 +92,13 @@ const collectArtifactViolations = (
       }
       if (implicit) {
         violations.push({
-          finding: implicitEnableFinding(name, missingAgents.join(", ")),
+          finding: implicitEnableFinding(name, missingAgents.join(", "), settingsPath),
         });
         continue;
       }
       if (presentAgents.length === 0) {
         violations.push({
-          finding: enableFinding(name, missingAgents.join(", ")),
+          finding: enableFinding(name, missingAgents.join(", "), settingsPath),
         });
         continue;
       }
@@ -106,6 +106,7 @@ const collectArtifactViolations = (
         finding: inconsistentFinding(
           name,
           `Present for agents: ${presentAgents.join(", ")}. Missing from agents: ${missingAgents.join(", ")}`,
+          settingsPath,
         ),
       });
       continue;
@@ -113,7 +114,7 @@ const collectArtifactViolations = (
 
     if (presentAgents.length > 0) {
       violations.push({
-        finding: disableFinding(name, presentAgents.join(", ")),
+        finding: disableFinding(name, presentAgents.join(", "), settingsPath),
       });
     }
   }
@@ -178,7 +179,10 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
           implicit,
         };
       });
-      const violations = collectArtifactViolations(existenceBySkill);
+      const violations = collectArtifactViolations(
+        existenceBySkill,
+        settingsDisplayPath(context.subject.scope),
+      );
       return violations.map((violation): LintFinding => violation.finding);
     }),
 };

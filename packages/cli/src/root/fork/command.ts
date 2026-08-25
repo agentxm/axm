@@ -26,7 +26,6 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
   computePackageContentHash,
   copyExtensionDirectory,
@@ -57,7 +56,9 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
   names: [fqn.name],
@@ -133,6 +134,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
+  yield* requireAuthoredOwner(target.owner);
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -145,13 +147,14 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
       ? [
           {
             ...(yield* inspectExtensionPackage(
-              path.join(
-                ws.baseDir,
-                REGISTRY_EXTENSIONS_DIR,
-                source.owner,
-                extensionTypeToPlural[source.extensionType],
-                source.name,
-              ),
+              ws.layout.scope === "project"
+                ? path.join(ws.layout.authoredRoot(source.extensionType), source.name)
+                : path.join(
+                    ws.layout.canonicalRoot,
+                    source.owner,
+                    extensionTypeToPlural[source.extensionType],
+                    source.name,
+                  ),
             )),
             origin: providers.origin(source),
           },
@@ -166,10 +169,9 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   const selected = yield* selectPackage(packages);
 
   const targetDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    target.owner,
-    extensionTypeToPlural[target.type],
+    ws.layout.scope === "project"
+      ? ws.layout.authoredRoot(target.type)
+      : path.join(ws.layout.canonicalRoot, target.owner, extensionTypeToPlural[target.type]),
     target.name,
   );
   yield* preflightCreateOnly({
@@ -197,7 +199,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   });
   const stagedHash = yield* computePackageContentHash(stagedPackage);
   const fqn = formatFqn(target);
-  const sourceLocator = `workspace:${fqn}`;
+  const sourceLocator = "workspace";
 
   let enabled: boolean;
   let markAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
@@ -270,7 +272,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
     change: "created",
     targets: [
       { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
     ],
   };
   const common = {

@@ -30,12 +30,13 @@ const writeWorkspace = (
   axmDir: string,
   options: { readonly agents: ReadonlyArray<string>; readonly lockfile: string },
 ) => {
+  const projectRoot = path.dirname(axmDir);
   fs.mkdirSync(axmDir, { recursive: true });
   fs.writeFileSync(
-    path.join(axmDir, "settings.json"),
-    JSON.stringify({ agents: options.agents }, null, 2),
+    path.join(projectRoot, "axm.json"),
+    JSON.stringify({ owner: "@acme", agents: options.agents }, null, 2),
   );
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), options.lockfile);
+  fs.writeFileSync(path.join(projectRoot, "axm-lock.yaml"), options.lockfile);
 };
 
 describe("agents remove.handler", () => {
@@ -130,7 +131,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 4\nskills: {}\n",
+      lockfile: "lockfileVersion: 5\nskills: {}\n",
     });
 
     return provide(
@@ -155,7 +156,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 4\nskills: {}\n",
+      lockfile: "lockfileVersion: 5\nskills: {}\n",
     });
 
     return provide(
@@ -185,7 +186,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 4\nskills: {}\n",
+      lockfile: "lockfileVersion: 5\nskills: {}\n",
     });
 
     return provide(
@@ -221,7 +222,7 @@ describe("agents remove.handler", () => {
               state: "committed",
               message: "Removed opencode",
               artifact: {
-                path: ".axm/settings.json",
+                path: "axm.json",
                 scope: "project",
                 agents: ["opencode"],
                 change: "updated",
@@ -238,7 +239,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ failCleanupAtApply: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 4\nskills: {}\n",
+      lockfile: "lockfileVersion: 5\nskills: {}\n",
     });
 
     return provide(
@@ -265,7 +266,7 @@ describe("agents remove.handler", () => {
           message: "Removed 1 agent",
         });
         const settings: { readonly agents?: unknown } = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
         );
         expect(settings.agents).toEqual(["opencode"]);
       }),
@@ -276,9 +277,9 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 4\nskills: {}\n",
+      lockfile: "lockfileVersion: 5\nskills: {}\n",
     });
-    const sourceDir = path.join(tempDir, ".axm", "extensions", "@agentxm", "skills", "axm", "src");
+    const sourceDir = path.join(tempDir, "agent_extensions", "@agentxm", "skills", "axm", "src");
     const skillsDir = path.join(tempDir, ".opencode", "skills");
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.mkdirSync(skillsDir, { recursive: true });

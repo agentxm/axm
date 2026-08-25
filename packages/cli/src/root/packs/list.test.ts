@@ -9,15 +9,15 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { computePackManifestContentIdentity } from "@agentxm/client-core/unstable/packs";
 import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
-import { computePackageContentHashSync } from "../../test-stubs.js";
+import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleList } from "./list.js";
 
 // -----------------------------------------------------------------------------
@@ -25,7 +25,7 @@ import { handleList } from "./list.js";
 // -----------------------------------------------------------------------------
 
 const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = {}) => {
-  fs.mkdirSync(axmDir, { recursive: true });
+  const projectRoot = path.dirname(axmDir);
   const packs: Record<string, unknown> = {};
   const lockedPacks: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(lockfilePacks)) {
@@ -34,28 +34,17 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     const version = Reflect.get(value, "resolvedVersion");
     if (typeof owner !== "string" || typeof version !== "string") continue;
     packs[name] = `${owner}/packs/${name}`;
-    const packDir = path.join(axmDir, "extensions", owner, "packs", name);
+    const packDir = path.join(projectRoot, "agent_extensions", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(packDir, "pack.json"),
-      JSON.stringify({ owner, type: "pack", name, version, dependencies: {} }),
-    );
+    const manifest = { owner, type: "pack" as const, name, version, dependencies: {} };
+    fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
     lockedPacks[name] = {
       ...value,
-      manifestContentIdentity: computePackageContentHashSync(packDir),
+      manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
     };
   }
-  fs.writeFileSync(
-    path.join(axmDir, "settings.json"),
-    JSON.stringify({
-      agents: ["claude-code"],
-      ...(Object.keys(packs).length === 0 ? {} : { packs }),
-    }),
-  );
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 4, skills: {}, packs: lockedPacks }),
-  );
+  writeWorkspaceFiles(axmDir, { packs, lockfilePacks: lockedPacks });
 };
 
 const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({

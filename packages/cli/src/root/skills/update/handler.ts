@@ -693,7 +693,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
         name: "install-skill",
         args: {
           ref: item.ref,
-          force: args.force,
+          force: args.force || item.ref.refType !== "registry",
           versionRange: item.versionRange,
           skipSettings: Option.none(),
           strictUnknownAgents: Option.none(),

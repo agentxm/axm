@@ -27,7 +27,6 @@ import {
   isAxmManagedMcpEntry,
 } from "@agentxm/client-core/unstable/mcps";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
   createCanonicalDirectory,
   formatFqn,
@@ -54,10 +53,12 @@ import {
 import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import {
   type McpImportAdoption,
@@ -419,12 +420,12 @@ const importArtifact = (
 ): JobStepArtifact => {
   const adoptions = preflight.candidates.flatMap((candidate) => candidate.adoptions);
   return {
-    path: ".axm/settings.json",
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     change: "updated",
     fileCount: 1 + new Set(adoptions.map((adoption) => adoption.filePath)).size,
     targets: [
-      { path: ".axm/settings.json", change: "updated" },
+      { path: workspaceSettingsPath(ws.scope), change: "updated" },
       ...Array.from(new Set(adoptions.map((adoption) => adoption.filePath)))
         .sort()
         .map((filePath) => ({
@@ -509,6 +510,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       detail: `MCP package import target must use the mcps type: ${args.targetInput}`,
     });
   }
+  yield* requireAuthoredOwner(target.owner);
   if (args.preflight.conflicts.length > 0) {
     return yield* makeAppError({
       code: "conflict",
@@ -535,10 +537,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   const fqn = formatFqn(target);
   const version = decodeVersionSync("0.1.0");
   const targetDir = args.path.join(
-    args.ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    target.owner,
-    "mcps",
+    workspaceAuthoredRoot(args.path, args.ws, "mcp-server", target.owner),
     target.name,
   );
   yield* preflightCreateOnly({
@@ -578,7 +577,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   const manager = yield* McpServerManager;
   const renderer = yield* CliRenderer;
   const agentRepo = yield* CodingAgentRepository;
-  const source = `workspace:${fqn}`;
+  const source = "workspace";
   const adoptionPaths = Array.from(
     new Set(candidate.adoptions.map((adoption) => adoption.filePath)),
   ).sort();
@@ -589,7 +588,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     change: "created",
     targets: [
       { path: args.path.relative(args.ws.baseDir, targetDir), change: "created" },
-      { path: ".axm/settings.json", change: "created" },
+      { path: workspaceSettingsPath(args.ws.scope), change: "created" },
       ...adoptionPaths.map((filePath) => ({
         path: args.path.relative(args.ws.baseDir, filePath),
         change: "updated" as const,

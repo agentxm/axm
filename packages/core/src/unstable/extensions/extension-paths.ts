@@ -5,9 +5,9 @@
  */
 
 import type { Handle } from "./handle.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
 import type { ExtensionTypePlural } from "./common.js";
 import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural discriminant for determining installed extension path layout.
@@ -19,7 +19,7 @@ import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.j
  */
 export type ExtensionPathSource =
   | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
 
 /**
  * Computed paths for an installed extension directory.
@@ -27,9 +27,9 @@ export type ExtensionPathSource =
  * - `canonicalPath`: root of the installed extension
  * - `extensionSrcPath`: where actual extension source files live
  *
- * Non-registry: `canonicalPath === extensionSrcPath` = `<base>/.axm/extensions/external/<type>/<sanitized-name>`
- * Registry: `canonicalPath` = `<base>/.axm/extensions/<owner>/<type>/<sanitized-name>`,
- *           `extensionSrcPath` = `<canonicalPath>/src`
+ * Package-backed extension types keep authored content in `<canonicalPath>/src`.
+ * MCP servers and packs use their package root because their manifests are the
+ * complete executable declaration.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -74,16 +74,75 @@ export const computeExtensionPaths = (
   type: ExtensionTypePlural,
   sanitizedName: string,
 ): ExtensionDirPaths => {
-  if (source.refType === "registry" || source.refType === "workspace") {
-    const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, source.owner, type, sanitizedName);
+  if (source.refType === "workspace") {
+    const canonicalPath = join(base, type, sanitizedName);
     return {
       canonicalPath: decodeAbsolutePathSync(canonicalPath),
       extensionSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
     };
   }
-  const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, type, sanitizedName);
+  if (source.refType === "registry") {
+    const canonicalPath = join(base, ".axm", "extensions", source.owner, type, sanitizedName);
+    return {
+      canonicalPath: decodeAbsolutePathSync(canonicalPath),
+      extensionSrcPath: decodeAbsolutePathSync(join(canonicalPath, "src")),
+    };
+  }
+  const canonicalPath = join(base, ".axm", "extensions", "external", type, sanitizedName);
   return {
     canonicalPath: decodeAbsolutePathSync(canonicalPath),
     extensionSrcPath: decodeAbsolutePathSync(canonicalPath),
+  };
+};
+
+/** Resolve canonical package paths from the explicit scope-aware workspace layout. */
+export const computeExtensionPathsForLayout = (
+  join: (...paths: string[]) => string,
+  layout: WorkspaceLayout,
+  source: ExtensionPathSource,
+  type: ExtensionTypePlural,
+  sanitizedName: string,
+): ExtensionDirPaths => {
+  if (layout.scope === "user") {
+    const canonicalPath =
+      source.refType === "registry" || source.refType === "workspace"
+        ? join(layout.canonicalRoot, source.owner, type, sanitizedName)
+        : join(layout.canonicalRoot, "external", type, sanitizedName);
+    return {
+      canonicalPath: decodeAbsolutePathSync(canonicalPath),
+      extensionSrcPath: decodeAbsolutePathSync(
+        source.refType === "registry" || source.refType === "workspace"
+          ? join(canonicalPath, "src")
+          : canonicalPath,
+      ),
+    };
+  }
+
+  const canonicalPath =
+    source.refType === "workspace"
+      ? join(
+          layout.authoredRoot(
+            type === "mcps"
+              ? "mcp-server"
+              : type === "skills"
+                ? "skill"
+                : type === "subagents"
+                  ? "subagent"
+                  : type === "rules"
+                    ? "rule"
+                    : type === "hooks"
+                      ? "hook"
+                      : type === "knowledge"
+                        ? "knowledge"
+                        : "pack",
+          ),
+          sanitizedName,
+        )
+      : join(layout.acquiredRoot, source.owner, type, sanitizedName);
+  return {
+    canonicalPath: decodeAbsolutePathSync(canonicalPath),
+    extensionSrcPath: decodeAbsolutePathSync(
+      type === "mcps" || type === "packs" ? canonicalPath : join(canonicalPath, "src"),
+    ),
   };
 };

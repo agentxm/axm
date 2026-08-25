@@ -369,8 +369,8 @@ describe("root install handler", () => {
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
-        owner: "@axm",
-        knowledge: { handbook: "workspace:@acme/knowledge/handbook" },
+        owner: "@acme",
+        knowledge: { handbook: "workspace" },
       });
       writeKnowledgeExtension(axmDir, "handbook");
 

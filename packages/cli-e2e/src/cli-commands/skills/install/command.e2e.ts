@@ -14,7 +14,7 @@ import { getOutput } from "../../../test-helpers.js";
 
 describe("axm skills install", () => {
   describe("with local source --all --yes", () => {
-    it("installs all skills and creates .axm structure", async () => {
+    it("installs all skills and creates the project and acquired-package structure", async () => {
       const temp = createTempDir();
       try {
         // Initialize first with claude-code agent to ensure .claude/ symlinks
@@ -32,16 +32,12 @@ describe("axm skills install", () => {
         expect(output).toContain("my-skill");
         expect(output).toContain("another-skill");
 
-        // Verify .axm structure
-        const axmDir = path.join(temp.path, ".axm");
-        expect(fs.existsSync(axmDir)).toBe(true);
-
-        // Verify settings.json exists
-        const settingsPath = path.join(axmDir, "settings.json");
+        // Verify the root project contract exists
+        const settingsPath = path.join(temp.path, "axm.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
 
         // Verify axm-lock.yaml exists and has entries (YAML format)
-        const lockPath = path.join(axmDir, "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         expect(fs.existsSync(lockPath)).toBe(true);
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock).toHaveProperty("lockfileVersion");
@@ -49,8 +45,8 @@ describe("axm skills install", () => {
         expect(lock.skills).toHaveProperty("my-skill");
         expect(lock.skills).toHaveProperty("another-skill");
 
-        // Verify canonical skills directory (.axm/extensions/external/skills/)
-        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
+        // Verify canonical skills directory (agent_extensions/@test/skills/)
+        const skillsDir = path.join(temp.path, "agent_extensions", "@test", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "my-skill"))).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "another-skill"))).toBe(true);
@@ -81,11 +77,11 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(4);
+        expect(lock.lockfileVersion).toBe(5);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should have required fields per flat schema
@@ -154,7 +150,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("Failed to discover extensions (network)");
+        expect(result.stderr).toContain("No skills found in source (not_found)");
       } finally {
         temp.cleanup();
       }
@@ -197,7 +193,7 @@ describe("axm skills install", () => {
         );
         expect(setup.exitCode, setup.stderr).toBe(0);
 
-        const packageRoot = path.join(temp.path, ".axm", "extensions", "@agentxm", "skills", "axm");
+        const packageRoot = path.join(temp.path, "agent_extensions", "@agentxm", "skills", "axm");
         const manifestPath = path.join(packageRoot, "skill.json");
         const skillPath = path.join(packageRoot, "src", "SKILL.md");
         const originalManifest: unknown = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
@@ -235,11 +231,9 @@ describe("axm skills install", () => {
         expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
         expect(fs.readFileSync(skillPath, "utf8")).not.toContain("99.0.0");
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(temp.path, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(temp.path, "axm.json"), "utf8"));
         expect(settings.skills.axm).toEqual({
-          source: "workspace:@agentxm/skills/axm",
+          source: "workspace",
           origin: "bundled",
         });
       } finally {
@@ -275,29 +269,25 @@ describe("axm skills install", () => {
         });
 
         // Expected structure:
-        // .axm/
-        //   settings.json
-        //   axm-lock.yaml
-        // .axm/
-        //   extensions/external/skills/
+        // axm.json
+        // axm-lock.yaml
+        // agent_extensions/@test/skills/
         //     my-skill/
         //       SKILL.md
         // .claude/
         //   skills/
         //     my-skill -> symlink to canonical (symlink)
 
-        const axmDir = path.join(temp.path, ".axm");
-        const settingsPath = path.join(axmDir, "settings.json");
-        const lockPath = path.join(axmDir, "axm-lock.yaml");
+        const settingsPath = path.join(temp.path, "axm.json");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const canonicalSkillDir = path.join(
           temp.path,
-          ".axm",
-          "extensions",
-          "external",
+          "agent_extensions",
+          "@test",
           "skills",
           "my-skill",
         );
-        const canonicalSkillMd = path.join(canonicalSkillDir, "SKILL.md");
+        const canonicalSkillMd = path.join(canonicalSkillDir, "src", "SKILL.md");
 
         expect(fs.existsSync(settingsPath)).toBe(true);
         expect(fs.existsSync(lockPath)).toBe(true);
@@ -311,7 +301,7 @@ describe("axm skills install", () => {
 
         // Verify symlink target resolves correctly
         const resolvedTarget = fs.realpathSync(agentSkillDir);
-        expect(resolvedTarget).toBe(fs.realpathSync(canonicalSkillDir));
+        expect(resolvedTarget).toBe(fs.realpathSync(path.join(canonicalSkillDir, "src")));
       } finally {
         temp.cleanup();
       }
@@ -328,7 +318,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
         // Settings should still have agents
@@ -353,11 +343,11 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(4);
+        expect(lock.lockfileVersion).toBe(5);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -390,9 +380,8 @@ describe("axm skills install", () => {
           const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
           const canonicalSkillDir = path.join(
             temp.path,
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@test",
             "skills",
             skillName,
           );
@@ -403,7 +392,7 @@ describe("axm skills install", () => {
           const linkTarget = fs.readlinkSync(agentSkillDir);
           // Resolve relative symlink
           const resolvedLink = path.resolve(path.dirname(agentSkillDir), linkTarget);
-          expect(resolvedLink).toBe(canonicalSkillDir);
+          expect(resolvedLink).toBe(path.join(canonicalSkillDir, "src"));
         }
       } finally {
         temp.cleanup();
@@ -511,7 +500,7 @@ describe("axm skills install", () => {
         expect(output).toContain("Would install");
 
         // Verify no files were created
-        const skillsDir = path.join(temp.path, ".axm", "skills");
+        const skillsDir = path.join(temp.path, "agent_extensions", "@test", "skills");
         expect(fs.existsSync(skillsDir)).toBe(false);
       } finally {
         temp.cleanup();
@@ -558,11 +547,11 @@ describe("axm skills install", () => {
         // Modify the installed skill to simulate local changes (creates hash mismatch)
         const skillMdPath = path.join(
           temp.path,
-          ".axm",
-          "extensions",
-          "external",
+          "agent_extensions",
+          "@test",
           "skills",
           "my-skill",
+          "src",
           "SKILL.md",
         );
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
@@ -652,7 +641,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         expect(fs.existsSync(lockPath)).toBe(true);
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
@@ -682,7 +671,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         const entry = lock.skills["my-skill"];
@@ -712,7 +701,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         const entry = lock.skills["my-skill"];
@@ -740,7 +729,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         const entry = lock.skills["my-skill"];
@@ -770,7 +759,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         const entry = lock.skills["my-skill"];
@@ -800,7 +789,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Expected structure per design:
@@ -850,7 +839,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
         // Skills should be at root level
@@ -875,7 +864,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
         const entry = settings.skills["my-skill"];
@@ -905,7 +894,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
         // Expected structure per design:
@@ -1009,7 +998,7 @@ describe("axm skills install", () => {
         });
 
         // Get original lockfile timestamp
-        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
         const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         const installedAtBefore = lockBefore.skills?.["my-skill"]?.installedAt;
 

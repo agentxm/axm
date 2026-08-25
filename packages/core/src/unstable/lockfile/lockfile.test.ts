@@ -7,6 +7,9 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { SourceHashSchema } from "../extensions/rendered-files.js";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
+import { decodeExtensionNameSync } from "../extensions/common.js";
+import { decodeHandleSync } from "../extensions/handle.js";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
 import {
   applyLockfileUpdates,
@@ -16,10 +19,16 @@ import {
 } from "./lockfile.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
-const localEntry = (pathValue: string): SkillLockEntry => ({
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
+const localEntry = (pathValue: string, packageName = "review"): SkillLockEntry => ({
   type: "local",
+  packageOwner: decodeHandleSync("@acme"),
+  packageName: decodeExtensionNameSync(packageName),
   path: pathValue,
   contentIdentity,
+  treeIntegrity,
 });
 
 describe("lockfile", () => {
@@ -40,7 +49,7 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 4,
+          lockfileVersion: 5,
           skills: { review: localEntry("../sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
@@ -55,10 +64,13 @@ describe("lockfile", () => {
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 4, skills: {} };
+    const base: Lockfile = { lockfileVersion: 5, skills: {} };
     const result = applyLockfileUpdates(base, [
       (lockfile) => ({ ...lockfile, skills: { review: localEntry("../one") } }),
-      (lockfile) => ({ ...lockfile, skills: { ...lockfile.skills, plan: localEntry("../two") } }),
+      (lockfile) => ({
+        ...lockfile,
+        skills: { ...lockfile.skills, plan: localEntry("../two", "plan") },
+      }),
     ]);
     expect(Object.keys(result.skills).sort()).toEqual(["plan", "review"]);
   });
@@ -66,15 +78,15 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 4, skills: {} };
+        const base: Lockfile = { lockfileVersion: 5, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 4,
-          skills: { existing: localEntry("../existing") },
+          lockfileVersion: 5,
+          skills: { existing: localEntry("../existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
           (lockfile) => ({
             ...lockfile,
-            skills: { ...lockfile.skills, review: localEntry("../review") },
+            skills: { ...lockfile.skills, review: localEntry("../review", "review") },
           }),
         ]);
         expect(Object.keys(result.skills).sort()).toEqual(["existing", "review"]);
@@ -86,20 +98,20 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 4,
+          lockfileVersion: 5,
           skills: { review: localEntry("../old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 4,
-          skills: { ...base.skills, independent: localEntry("../independent") },
+          lockfileVersion: 5,
+          skills: { ...base.skills, independent: localEntry("../independent", "independent") },
         });
         const next: Lockfile = {
-          lockfileVersion: 4,
+          lockfileVersion: 5,
           skills: { review: localEntry("../new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
         expect(result.skills["review"]).toEqual(localEntry("../new"));
-        expect(result.skills["independent"]).toEqual(localEntry("../independent"));
+        expect(result.skills["independent"]).toEqual(localEntry("../independent", "independent"));
       }),
     ),
   );

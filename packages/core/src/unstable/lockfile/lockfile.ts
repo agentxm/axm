@@ -1,5 +1,6 @@
 /**
- * Lockfile module for managing `.axm/axm-lock.yaml` (YAML format).
+ * Lockfile module for managing project-root `axm-lock.yaml` or the user-scope
+ * `.axm/axm-lock.yaml` (YAML format).
  *
  * Provides functions to read, write, and update accepted external resolutions.
  *
@@ -60,14 +61,16 @@ const inProcessSemaphoreFor = (key: string): Semaphore.Semaphore => {
   return created;
 };
 
-const ensureAxmDir = (axmDir: string) =>
+const ensureLockfileParent = (lockfilePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
+    const path = yield* Path.Path;
+    const parent = path.dirname(lockfilePath);
+    yield* fs.makeDirectory(parent, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to create directory ${axmDir}`,
+          detail: `Failed to create directory ${parent}`,
           cause: error,
         }),
       ),
@@ -155,12 +158,10 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
 };
 
 const readLockfileIfPresent = (
-  axmDir: string,
+  lockfilePath: string,
 ): Effect.Effect<Lockfile | undefined, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const lockfilePath = lockfilePathFor(path, axmDir);
     const exists = yield* fs.exists(lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -205,12 +206,12 @@ const readLockfileIfPresent = (
   });
 
 const withLockfileLock = <A, E, R>(
-  axmDir: string,
+  lockfilePath: string,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E | AppError, R | FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const key = path.resolve(axmDir);
+    const key = path.resolve(lockfilePath);
     const semaphore = inProcessSemaphoreFor(key);
     // Cross-process exclusion belongs to the workspace transaction. This
     // semaphore only serializes multiple updates in one runtime so the
@@ -231,11 +232,9 @@ const lockfileWriteErrorDetail = (lockfilePath: string, failure: AtomicWriteFail
   }
 };
 
-const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
+const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const lockfilePath = lockfilePathFor(path, axmDir);
     const yamlContent = yield* encodeLockfileYaml(lockfile);
     const existed = yield* fs.exists(lockfilePath).pipe(Effect.orElseSucceed(() => true));
     yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
@@ -260,9 +259,9 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
 // -----------------------------------------------------------------------------
 
 /**
- * Writes the lockfile to `.axm/axm-lock.yaml` in YAML format.
+ * Writes the lockfile to the selected scope's `axm-lock.yaml` in YAML format.
  *
- * Creates the `.axm` directory if it does not exist. Writes are serialized by
+ * Creates the containing directory if it does not exist. Writes are serialized by
  * an in-process keyed semaphore plus a best-effort local advisory lock file.
  * Temporary files are removed by scoped finalizer on interruption, and stale
  * temp files from older crashed writers are swept before each write. When the
@@ -272,21 +271,27 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
  * `commitLockfileUpdates` when applying deltas that must reread the latest
  * lockfile state under the advisory lock.
  *
- * @param axmDir - Path to the `.axm` directory
+ * @param axmDir - Directory containing the selected scope's lockfile
  * @param lockfile - The lockfile object to write
  * @returns Effect yielding void on success
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
+export const writeLockfileAtPath = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
-    yield* ensureAxmDir(axmDir);
+    yield* ensureLockfileParent(lockfilePath);
     yield* withLockfileLock(
-      axmDir,
+      lockfilePath,
       Effect.gen(function* () {
-        yield* writeLockfileUnlocked(axmDir, lockfile);
+        yield* writeLockfileUnlocked(lockfilePath, lockfile);
       }),
     );
+  });
+
+export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    yield* writeLockfileAtPath(lockfilePathFor(path, axmDir), lockfile);
   });
 
 /**
@@ -313,13 +318,15 @@ export const commitLockfileUpdates = (
   updates: ReadonlyArray<LockfileUpdate>,
 ) =>
   Effect.gen(function* () {
-    yield* ensureAxmDir(axmDir);
+    const path = yield* Path.Path;
+    const lockfilePath = lockfilePathFor(path, axmDir);
+    yield* ensureLockfileParent(lockfilePath);
     const updated = yield* withLockfileLock(
-      axmDir,
+      lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileIfPresent(axmDir);
+        const current = yield* readLockfileIfPresent(lockfilePath);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
-        yield* writeLockfileUnlocked(axmDir, updated);
+        yield* writeLockfileUnlocked(lockfilePath, updated);
         return updated;
       }),
     );
@@ -337,17 +344,27 @@ export const commitLockfileUpdates = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
+export const commitLockfileSnapshotUpdateAtPath = (
+  lockfilePath: string,
+  base: Lockfile,
+  next: Lockfile,
+) =>
   Effect.gen(function* () {
-    yield* ensureAxmDir(axmDir);
+    yield* ensureLockfileParent(lockfilePath);
     const updated = yield* withLockfileLock(
-      axmDir,
+      lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileIfPresent(axmDir);
+        const current = yield* readLockfileIfPresent(lockfilePath);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
-        yield* writeLockfileUnlocked(axmDir, updated);
+        yield* writeLockfileUnlocked(lockfilePath, updated);
         return updated;
       }),
     );
     return updated;
+  });
+
+export const commitLockfileSnapshotUpdate = (axmDir: string, base: Lockfile, next: Lockfile) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* commitLockfileSnapshotUpdateAtPath(lockfilePathFor(path, axmDir), base, next);
   });

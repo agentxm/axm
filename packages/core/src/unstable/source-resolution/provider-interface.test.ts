@@ -18,7 +18,7 @@ import type {
 } from "../sources/index.js";
 import type { ExtensionType } from "../extensions/index.js";
 import type { VersionEntry } from "../registry/index.js";
-import { exactVersion, extensionName, versionRange } from "../test-helpers.js";
+import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
 
 type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
   readonly publishExtension: (
@@ -119,6 +119,8 @@ describe("SourceHostProvider", () => {
       const ref: GitHostedSkillRef = {
         type: "skill",
         refType: "git-hosted",
+        owner: handle("@test"),
+        name: extensionName("test-skill"),
         skill: {
           name: extensionName("test-skill"),
           description: Option.none(),

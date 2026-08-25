@@ -68,6 +68,7 @@ import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "../agent-capabilities/index.js";
+import type { WorkspaceLayout } from "./layout.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -81,7 +82,7 @@ import type { ConfigurableAgentId } from "../agent-capabilities/index.js";
  */
 export type SkillPathSource =
   | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
 
 /**
  * Computed paths for an installed skill directory.
@@ -373,6 +374,8 @@ export interface WorkspaceMutationsService {
   readonly path: string;
   /** Project root directory (parent of .axm) */
   readonly baseDir: string;
+  /** Explicit scope-aware paths for authoritative, runtime, and package state. */
+  readonly layout: WorkspaceLayout;
   /** Run one coupled authoritative workspace transition under the workspace lock. */
   readonly runTransaction: WorkspaceTransactionRunner;
   /** Acquire the workspace transition for a post-confirmation apply. */

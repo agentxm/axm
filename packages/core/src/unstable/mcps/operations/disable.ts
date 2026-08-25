@@ -142,7 +142,7 @@ export const disableMcpServer = (
         lockEntry: undefined,
         scope: ws.scope,
         change: "updated",
-        targets: [mcpSettingsTarget("updated"), ...agentConfigTargets(syncedAgents)],
+        targets: [mcpSettingsTarget(ws.scope, "updated"), ...agentConfigTargets(syncedAgents)],
       }),
     };
   });

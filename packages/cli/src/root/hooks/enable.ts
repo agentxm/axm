@@ -3,11 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  buildInstallOperation,
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@agentxm/client-core/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import { HOOK_EXTENSION_DIR, HookManager } from "@agentxm/client-core/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
@@ -28,23 +24,33 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  workspaceCanonicalPath,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../shared/workspace-display-paths.js";
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
-const hookPackagePath = (entry: HookLockEntry, name: string): string =>
+const hookPackagePath = (
+  scope: JobStepArtifact["scope"],
+  entry: HookLockEntry,
+  name: string,
+): string =>
   entry.type === "registry"
-    ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`
-    : `${EXTERNAL_EXTENSIONS_DIR}/${HOOK_EXTENSION_DIR}/${name}`;
+    ? workspaceCanonicalPath(scope, `${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`)
+    : workspaceCanonicalPath(scope, `external/${HOOK_EXTENSION_DIR}/${name}`);
 
 const hookEnableArtifactTargets = (args: {
   readonly entry: HookLockEntry;
   readonly name: string;
+  readonly scope: JobStepArtifact["scope"];
 }): ReadonlyArray<JobStepArtifactTarget> =>
   [
-    { path: ".axm/settings.json", change: "updated" as const },
-    { path: ".axm/axm-lock.yaml", change: "updated" as const },
-    { path: hookPackagePath(args.entry, args.name), change: "created" as const },
+    { path: workspaceSettingsPath(args.scope), change: "updated" as const },
+    { path: workspaceLockfilePath(args.scope), change: "updated" as const },
+    { path: hookPackagePath(args.scope, args.entry, args.name), change: "created" as const },
   ].sort((left, right) => left.path.localeCompare(right.path));
 
 const hookEnableArtifact = (args: {
@@ -55,11 +61,12 @@ const hookEnableArtifact = (args: {
   const targets = hookEnableArtifactTargets({
     entry: args.lockEntry,
     name: args.name,
+    scope: args.scope,
   });
   const version = hookLockEntryVersion(args.lockEntry);
 
   return {
-    path: ".axm/settings.json",
+    path: workspaceSettingsPath(args.scope),
     scope: args.scope,
     ...(version === undefined ? {} : { version }),
     change: "updated",
@@ -124,7 +131,7 @@ const handleEnableHookBody = Effect.fn("EnableHook.handle")(function* (args: {
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         if (Option.isNone(currentLockEntry)) {
           return {
-            path: ".axm/settings.json",
+            path: workspaceSettingsPath(scope),
             scope,
             change: "updated",
           } satisfies JobStepArtifact;

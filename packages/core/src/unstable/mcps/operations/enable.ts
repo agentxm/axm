@@ -40,7 +40,7 @@ const enableArtifact = (args: {
     lockEntry: args.lockEntry,
     scope: args.scope,
     change: "updated",
-    targets: [mcpSettingsTarget("updated"), ...args.targets],
+    targets: [mcpSettingsTarget(args.scope, "updated"), ...args.targets],
   });
 };
 

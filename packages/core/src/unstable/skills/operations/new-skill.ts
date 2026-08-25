@@ -20,7 +20,6 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { MANIFEST_FILENAME, MANIFEST_SCHEMA_URL, type SkillManifest } from "../manifest-schema.js";
-import { computeSkillPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // Operation types
@@ -82,17 +81,18 @@ export const newSkill: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "New skills can only be scaffolded in a project workspace",
+      });
+    }
 
     const { name, owner } = op.args;
     const fqn = `${owner}/skills/${name}`;
 
     const configuredSkills = yield* ws.getConfiguredSkillEntries();
-    const { canonicalPath } = computeSkillPaths(
-      path.join,
-      base,
-      { refType: "registry", owner },
-      name,
-    );
+    const canonicalPath = path.join(ws.layout.authoredRoot("skill"), name);
     yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath });
     yield* preflightCreateOnly({
       subject: "Skill",

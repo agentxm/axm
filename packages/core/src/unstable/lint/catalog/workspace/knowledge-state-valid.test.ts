@@ -61,7 +61,7 @@ describe("workspace/knowledge-state-valid", () => {
           severity: "error",
           message:
             "Knowledge bundle 'handbook' has canonical content without an accepted AXM ownership fact.",
-          location: { file: ".axm/extensions" },
+          location: { file: "agent_extensions" },
         },
       ]);
     }),

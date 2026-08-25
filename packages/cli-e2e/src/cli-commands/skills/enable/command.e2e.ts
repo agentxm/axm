@@ -33,9 +33,8 @@ describe("axm skills enable", () => {
       // Verify canonical files are preserved after disable
       const canonicalSkillDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
+        "agent_extensions",
+        "@test",
         "skills",
         "my-skill",
       );
@@ -54,13 +53,13 @@ describe("axm skills enable", () => {
 
       // Verify canonical skill files still exist
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
-      expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
+      expect(fs.existsSync(path.join(canonicalSkillDir, "src", "SKILL.md"))).toBe(true);
 
       // Verify agent symlink is restored
       expect(fs.existsSync(agentSkillDir)).toBe(true);
 
       // Verify settings updated (collapsed to string or enabled: true)
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       expect(settings.skills["my-skill"]).toBeDefined();
       const entry = settings.skills["my-skill"];
@@ -74,7 +73,7 @@ describe("axm skills enable", () => {
       }
 
       // Verify lockfile entry still exists
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(temp.path, "axm-lock.yaml");
       const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
       expect(lock.skills["my-skill"]).toBeDefined();
     } finally {

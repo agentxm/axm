@@ -299,11 +299,23 @@ const AGENT_CONVENTION_DIRS: ReadonlySet<string> = new Set(
   }),
 );
 
-const shouldSkipDir = (name: string): boolean =>
+const PROJECT_EXTENSION_ROOTS: ReadonlySet<string> = new Set([
+  "agent_extensions",
+  "skills",
+  "mcps",
+  "subagents",
+  "rules",
+  "hooks",
+  "knowledge",
+  "packs",
+]);
+
+const shouldSkipDir = (name: string, scope: WorkspaceScope): boolean =>
   name === ".git" ||
   name === ".axm" ||
   name === "node_modules" ||
   name === "dist" ||
+  (scope === "project" && PROJECT_EXTENSION_ROOTS.has(name)) ||
   AGENT_CONVENTION_DIRS.has(name);
 
 interface InstructionTargetCandidate extends OwnFileConvention {
@@ -386,7 +398,7 @@ const discoverInstructionTree = (
             ? []
             : yield* Effect.forEach(
                 entries.filter(
-                  (entry) => !shouldSkipDir(entry) || AGENT_CONVENTION_DIRS.has(entry),
+                  (entry) => !shouldSkipDir(entry, scope) || AGENT_CONVENTION_DIRS.has(entry),
                 ),
                 (entry) =>
                   Effect.gen(function* () {

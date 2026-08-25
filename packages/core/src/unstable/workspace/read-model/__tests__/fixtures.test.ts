@@ -69,8 +69,8 @@ import { WorkspaceReadModelTest } from "../__fixtures__/test-layer.js";
 const WORKSPACE_ROOT = "/test/workspace";
 const USER_HOME = "/test/home";
 
-const PROJECT_SETTINGS_PATH = "/test/workspace/.axm/settings.json";
-const PROJECT_LOCKFILE_PATH = "/test/workspace/.axm/axm-lock.yaml";
+const PROJECT_SETTINGS_PATH = "/test/workspace/axm.json";
+const PROJECT_LOCKFILE_PATH = "/test/workspace/axm-lock.yaml";
 const USER_SETTINGS_PATH = "/test/home/.axm/settings.json";
 
 // ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 4, skills: {} },
+            contents: { lockfileVersion: 5, skills: {} },
           },
         },
       };
@@ -193,7 +193,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const parsed = YAML.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(4);
+      expect(decoded.lockfileVersion).toBe(5);
     }),
   );
 
@@ -268,8 +268,8 @@ describe("buildFixture: scanner-visible trees", () => {
       };
       const deps = yield* buildFixture(spec);
 
-      const canonical = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/some-skill/src/SKILL.md`;
-      const external = `${WORKSPACE_ROOT}/.axm/extensions/external/skills/some-skill/SKILL.md`;
+      const canonical = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/some-skill/src/SKILL.md`;
+      const external = `${WORKSPACE_ROOT}/agent_extensions/external/skills/some-skill/SKILL.md`;
       expect(yield* exists(deps, canonical)).toBe(true);
       expect(yield* exists(deps, external)).toBe(true);
       expect(yield* readBytes(deps, canonical)).toBe("# canonical\n");
@@ -310,8 +310,8 @@ describe("buildFixture: scanner-visible trees", () => {
         },
       };
       const deps = yield* buildFixture(spec);
-      const presentPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/present/src/SKILL.md`;
-      const missingPath = `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/missing/src/SKILL.md`;
+      const presentPath = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/present/src/SKILL.md`;
+      const missingPath = `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/missing/src/SKILL.md`;
       expect(yield* exists(deps, presentPath)).toBe(true);
       expect(yield* exists(deps, missingPath)).toBe(false);
     }),
@@ -536,7 +536,7 @@ describe("named scenario constructors", () => {
         expect(
           yield* exists(
             deps,
-            `${WORKSPACE_ROOT}/.axm/extensions/@owner/skills/some-skill/src/SKILL.md`,
+            `${WORKSPACE_ROOT}/agent_extensions/@owner/skills/some-skill/src/SKILL.md`,
           ),
         ).toBe(true);
       }),
@@ -577,7 +577,7 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 4, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 5, skills: {} } },
           axmExtensions: {
             "external/skills/legacy/SKILL.md": "# legacy\n",
           },
@@ -598,7 +598,7 @@ describe("buildFixture: serialize round trip", () => {
       const checks: ReadonlyArray<readonly [string, true]> = [
         [PROJECT_SETTINGS_PATH, true],
         [PROJECT_LOCKFILE_PATH, true],
-        [`${WORKSPACE_ROOT}/.axm/extensions/external/skills/legacy/SKILL.md`, true],
+        [`${WORKSPACE_ROOT}/agent_extensions/external/skills/legacy/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.claude/skills/some-skill/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.mcp.json`, true],
         [USER_SETTINGS_PATH, true],

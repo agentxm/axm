@@ -3,7 +3,9 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Subagent packages live in `./.axm/extensions/<@owner>/subagents/<subagent-name>`.
+Project-authored subagent packages live in `./subagents/<subagent-name>`;
+acquired packages live under
+`./agent_extensions/<@owner>/subagents/<subagent-name>`.
 
 A subagent is two coordinated files: a portable manifest plus a content file that holds the system prompt and any agent-facing frontmatter.
 
@@ -11,7 +13,9 @@ A subagent is two coordinated files: a portable manifest plus a content file tha
 
 [`subagent.json`](https://axm.sh/schemas/subagent.schema.json)
 
-Targeting is workspace-owned through `.axm/settings.json` `agents`; publish rejects manifest `agents`. The manifest does not carry per-agent behavior — that lives in the content file.
+Targeting is workspace-owned through `axm.json` `agents`; publish rejects
+manifest `agents`. The manifest does not carry per-agent behavior — that lives
+in the content file.
 
 Run `axm help subagent-schema` to print the raw JSON Schema.
 

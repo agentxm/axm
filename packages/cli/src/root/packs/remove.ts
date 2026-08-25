@@ -6,14 +6,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  normalizeHandle,
-  parseRegistrySourcePatternParts,
-} from "@agentxm/client-core/unstable/extensions";
 import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
 import { removeFromPack } from "@agentxm/client-core/unstable/packs";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
@@ -32,6 +27,7 @@ import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
@@ -86,33 +82,29 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
       recover: "Adopt or copy the pack into workspace authorship before editing its manifest.",
     });
   }
-  const packOwnerFromSource = parseRegistrySourcePatternParts(
-    packSource.slice("workspace:".length),
-  )?.owner;
-  const packOwner =
-    packOwnerFromSource !== undefined
-      ? normalizeHandle(packOwnerFromSource)
-      : yield* Option.match(configuredOwner, {
-          onNone: () =>
-            Effect.fail(
-              makeAppError({
-                code: "validation",
-                detail: `Pack "${packName}" has a non-registry source and no workspace owner is configured`,
-                suggestions: [
-                  {
-                    description: "Set `owner` in `.axm/settings.json` before modifying this pack.",
-                    cmd: "axm setup",
-                  },
-                ],
-              }),
-            ),
-          onSome: Effect.succeed,
-        });
-  const base = ws.baseDir;
+  const packOwner = yield* Option.match(configuredOwner, {
+    onNone: () =>
+      Effect.fail(
+        makeAppError({
+          code: "validation",
+          detail: `Pack "${packName}" has a workspace source and no workspace owner is configured`,
+          suggestions: [
+            {
+              description: `Set \`owner\` in \`${workspaceSettingsPath(ws.scope)}\` before modifying this pack.`,
+              cmd: "axm setup",
+            },
+          ],
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
 
   // Step 2: Read pack manifest and compute hash for stale-check
-  const packDir = computePackPaths(path.join, base, packOwner, packName);
-  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+  const manifestPath = path.join(
+    workspaceAuthoredRoot(path, ws, "pack", packOwner),
+    packName,
+    PACK_MANIFEST_FILENAME,
+  );
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((e) =>

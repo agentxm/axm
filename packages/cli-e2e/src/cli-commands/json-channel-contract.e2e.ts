@@ -123,7 +123,7 @@ describe("JSON-mode channel contract (--json)", () => {
         );
         expect(setup.exitCode).toBe(0);
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
         if (!isRecord(settings)) throw new Error("Expected setup to create object settings");
         fs.writeFileSync(

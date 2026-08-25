@@ -32,6 +32,12 @@ describe("confirmation recovery", () => {
         { cwd: workspace.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const settingsPath = path.join(workspace.path, "axm.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      fs.writeFileSync(
+        settingsPath,
+        `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
+      );
       const created = await runCli(
         ["skills", "new", "recovery-skill", "--owner", "@test", "--yes", "--non-interactive"],
         { cwd: workspace.path },
@@ -59,6 +65,12 @@ describe("confirmation recovery", () => {
         },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+      const settingsPath = path.join(workspace.path, "axm.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      fs.writeFileSync(
+        settingsPath,
+        `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
+      );
       const skill = await runCli(
         ["skills", "new", "pack-member", "--owner", "@test", "--non-interactive"],
         { cwd: workspace.path },

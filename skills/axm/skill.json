@@ -18,7 +18,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/agentxm/axm",
-    "directory": ".axm/extensions/@agentxm/skills/axm"
+    "directory": "skills/axm"
   },
   "homepage": "https://axm.sh",
   "license": "FSL-1.1-MIT"

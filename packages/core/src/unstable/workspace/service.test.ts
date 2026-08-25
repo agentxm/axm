@@ -32,7 +32,7 @@ import {
   stringProperty,
   versionRange,
 } from "../test-helpers.js";
-import { computeSourceHash } from "../extensions/index.js";
+import { computeSourceHash, TreeIntegritySchema } from "../extensions/index.js";
 import { computePackManifestContentIdentity, PackManifestSchema } from "../packs/index.js";
 import { layer as workspaceLayer } from "./service.js";
 import {
@@ -51,6 +51,9 @@ import {
 import { decodeAbsolutePathSync } from "../utils/path-types.js";
 
 describe("WorkspaceMutationsService", () => {
+  const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+    `sha256-tree-v1:${"0".repeat(64)}`,
+  );
   let tempDir: string;
   let projectDir: string;
   let homeDir: string;
@@ -77,13 +80,10 @@ describe("WorkspaceMutationsService", () => {
     };
 
     // Pre-create an initialized workspace so the service doesn't prompt
-    const axmDir = path.join(projectDir, ".axm");
-    fs.mkdirSync(axmDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(axmDir, "settings.json"),
-      JSON.stringify({ agents: ["claude-code"] }),
-    );
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+    const axmDir = projectDir;
+    fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
+    fs.writeFileSync(path.join(axmDir, "axm.json"), JSON.stringify({ agents: ["claude-code"] }));
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -131,7 +131,7 @@ describe("WorkspaceMutationsService", () => {
     it.effect("disables the discovery table when configured", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
-          path.join(projectDir, ".axm", "settings.json"),
+          path.join(projectDir, "axm.json"),
           JSON.stringify({
             agents: ["claude-code"],
             knowledgeConfig: { instructions: false },
@@ -150,7 +150,7 @@ describe("WorkspaceMutationsService", () => {
     it.effect("reads the top-level instructionFiles setting", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
-          path.join(projectDir, ".axm", "settings.json"),
+          path.join(projectDir, "axm.json"),
           JSON.stringify({
             agents: ["claude-code"],
             instructionFiles: {
@@ -179,7 +179,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setInstructionsConfig(false);
 
         const settings: unknown = JSON.parse(
-          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf-8"),
+          fs.readFileSync(path.join(projectDir, "axm.json"), "utf-8"),
         );
         expect(settings).toMatchObject({
           agents: ["claude-code"],
@@ -194,13 +194,19 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe("workspace readiness", () => {
-    it.effect("fails fast when settings.json is missing", () =>
+    it.effect("requires setup when root project state is missing", () =>
       Effect.gen(function* () {
-        fs.rmSync(path.join(projectDir, ".axm"), { recursive: true, force: true });
+        fs.rmSync(path.join(projectDir, "axm.json"), { force: true });
+        fs.rmSync(path.join(projectDir, "axm-lock.yaml"), { force: true });
 
         const error = yield* getService(defaultOptions).pipe(Effect.flip);
-        const appError = getAppError(error);
-        expect(appError.code).toBe("internal");
+
+        expect(getAppError(error)).toMatchObject({
+          code: "internal",
+          suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
+        });
+        expect(fs.existsSync(path.join(projectDir, "axm.json"))).toBe(false);
+        expect(fs.existsSync(path.join(projectDir, "axm-lock.yaml"))).toBe(false);
       }),
     );
 
@@ -230,10 +236,11 @@ describe("WorkspaceMutationsService", () => {
 
     it.effect("does not treat malformed settings as absent for inventory", () =>
       Effect.gen(function* () {
-        fs.writeFileSync(path.join(projectDir, ".axm", "settings.json"), "{ not-json");
+        fs.writeFileSync(path.join(projectDir, "axm.json"), "{ not-json");
 
-        const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
-        const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
+        const error = yield* getService({ ...defaultOptions, allowUninitialized: true }).pipe(
+          Effect.flip,
+        );
 
         const appError = getAppError(error);
         expect(appError.code).toBe("validation");
@@ -244,10 +251,7 @@ describe("WorkspaceMutationsService", () => {
 
     it.effect("does not treat malformed lockfiles as absent for inventory", () =>
       Effect.gen(function* () {
-        fs.writeFileSync(
-          path.join(projectDir, ".axm", "axm-lock.yaml"),
-          "lockfileVersion: invalid\n",
-        );
+        fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: invalid\n");
 
         const ws = yield* getService({ ...defaultOptions, allowUninitialized: true });
         const error = yield* ws.records.getExtensionInventory("skill", {}).pipe(Effect.flip);
@@ -265,14 +269,12 @@ describe("WorkspaceMutationsService", () => {
   // nonInteractive resolution is tested in cli-flags/service.test.ts
   // preview flag is tested in cli-flags
 
-  /**
-   * Helper to write settings JSON to a .axm directory.
-   * Creates the directory if it doesn't exist.
-   */
+  /** Helper to write project settings JSON at the workspace root. */
   const writeSettingsTo = (dir: string, settings: Record<string, unknown>) => {
-    const axmDir = path.join(dir, ".axm");
-    fs.mkdirSync(axmDir, { recursive: true });
-    fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
+    const settingsPath =
+      dir === homeDir ? path.join(dir, ".axm", "settings.json") : path.join(dir, "axm.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   };
 
   const writePackManifestTo = (
@@ -281,7 +283,7 @@ describe("WorkspaceMutationsService", () => {
     name: string,
     dependencies: Readonly<Record<string, string>>,
   ) => {
-    const packDir = path.join(dir, ".axm", "extensions", owner, "packs", name);
+    const packDir = path.join(dir, "agent_extensions", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const decodedManifest = Schema.decodeUnknownSync(PackManifestSchema)({
       owner,
@@ -302,9 +304,9 @@ describe("WorkspaceMutationsService", () => {
     contentIdentity: string,
   ) => {
     fs.writeFileSync(
-      path.join(dir, ".axm", "axm-lock.yaml"),
+      path.join(dir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 4,
+        lockfileVersion: 5,
         skills: {},
         packs: {
           [name]: {
@@ -315,6 +317,7 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            treeIntegrity,
             manifestContentIdentity: contentIdentity,
           },
         },
@@ -666,7 +669,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.addConfiguredSource(newSource);
 
         // Verify it was written to disk
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const content = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(content.sources).toBeDefined();
         expect(content.sources).toHaveLength(1);
@@ -712,9 +715,8 @@ describe("WorkspaceMutationsService", () => {
     subagents?: Record<string, unknown>,
     knowledge?: Record<string, unknown>,
   ) => {
-    const axmDir = path.join(dir, ".axm");
-    fs.mkdirSync(axmDir, { recursive: true });
-    const normalizeEntry = (value: unknown, pack: boolean): unknown => {
+    fs.mkdirSync(dir, { recursive: true });
+    const normalizeEntry = (name: string, value: unknown, pack: boolean): unknown => {
       if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
       const entry: Record<string, unknown> = {};
       for (const [key, field] of Object.entries(value)) {
@@ -736,6 +738,7 @@ describe("WorkspaceMutationsService", () => {
         entry[key] = field;
       }
       const type = entry["type"];
+      entry["treeIntegrity"] ??= `sha256-tree-v1:${"0".repeat(64)}`;
       if (
         type === "github" ||
         type === "gitlab" ||
@@ -746,8 +749,12 @@ describe("WorkspaceMutationsService", () => {
         entry["resolvedCommit"] ??= "test-commit";
         entry["resolvedTree"] ??= "test-tree";
         entry["contentIdentity"] ??= computeSourceHash("test-content");
+        entry["packageOwner"] ??= "@acme";
+        entry["packageName"] ??= name;
       } else if (type === "local") {
         entry["contentIdentity"] ??= computeSourceHash("test-content");
+        entry["packageOwner"] ??= "@acme";
+        entry["packageName"] ??= name;
       } else if (type === "registry" && pack) {
         entry["manifestContentIdentity"] ??= computeSourceHash("test-pack-manifest");
       }
@@ -755,10 +762,10 @@ describe("WorkspaceMutationsService", () => {
     };
     const normalizeEntries = (entries: Record<string, unknown>, pack = false) =>
       Object.fromEntries(
-        Object.entries(entries).map(([name, value]) => [name, normalizeEntry(value, pack)]),
+        Object.entries(entries).map(([name, value]) => [name, normalizeEntry(name, value, pack)]),
       );
     const lockfileData: Record<string, unknown> = {
-      lockfileVersion: 4,
+      lockfileVersion: 5,
       skills: normalizeEntries(skills),
     };
     if (packs !== undefined) {
@@ -773,7 +780,7 @@ describe("WorkspaceMutationsService", () => {
     if (knowledge !== undefined) {
       lockfileData["knowledge"] = normalizeEntries(knowledge);
     }
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
+    fs.writeFileSync(path.join(dir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
 
   interface TestLockfileDiskData {
@@ -788,7 +795,7 @@ describe("WorkspaceMutationsService", () => {
   /** Read lockfile from disk for verification. */
   const readLockfileFromDisk = (dir: string): TestLockfileDiskData => {
     const lockfile: TestLockfileDiskData = YAML.parse(
-      fs.readFileSync(path.join(dir, ".axm", "axm-lock.yaml"), "utf-8"),
+      fs.readFileSync(path.join(dir, "axm-lock.yaml"), "utf-8"),
     );
     return lockfile;
   };
@@ -796,11 +803,14 @@ describe("WorkspaceMutationsService", () => {
   /** Create a sample SkillLockEntry for testing. */
   const makeSampleLockEntry = (): Extract<SkillLockEntry, { readonly type: "github" }> => ({
     type: "github" as const,
+    packageOwner: handle("@acme"),
+    packageName: extensionName("code-review"),
     owner: "acme",
     repo: "code-review",
     resolvedCommit: "test-commit",
     resolvedTree: "test-tree",
     contentIdentity: computeSourceHash("test-content"),
+    treeIntegrity,
   });
 
   const makeSampleSubagentLockEntry = (): Extract<
@@ -808,17 +818,20 @@ describe("WorkspaceMutationsService", () => {
     { readonly type: "github" }
   > => ({
     type: "github" as const,
+    packageOwner: handle("@acme"),
+    packageName: extensionName("planner"),
     owner: "acme",
     repo: "planner",
     resolvedCommit: "test-commit",
     resolvedTree: "test-tree",
     contentIdentity: computeSourceHash("test-content"),
+    treeIntegrity,
   });
 
   describe("getLockfileState", () => {
     it.effect("returns missing when lockfile file is absent", () =>
       Effect.gen(function* () {
-        fs.rmSync(path.join(projectDir, ".axm", "axm-lock.yaml"), { force: true });
+        fs.rmSync(path.join(projectDir, "axm-lock.yaml"), { force: true });
 
         const ws = yield* getService(defaultOptions);
         const state = yield* ws.getLockfileState();
@@ -829,7 +842,7 @@ describe("WorkspaceMutationsService", () => {
 
     it.effect("returns invalid when lockfile cannot be parsed", () =>
       Effect.gen(function* () {
-        fs.writeFileSync(path.join(projectDir, ".axm", "axm-lock.yaml"), "lockfileVersion: [");
+        fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: [");
 
         const ws = yield* getService(defaultOptions);
         const state = yield* ws.getLockfileState();
@@ -841,7 +854,7 @@ describe("WorkspaceMutationsService", () => {
     it.effect("returns invalid when lockfile does not match the schema", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
-          path.join(projectDir, ".axm", "axm-lock.yaml"),
+          path.join(projectDir, "axm-lock.yaml"),
           "lockfileVersion: 3\nskills: []\n",
         );
 
@@ -868,7 +881,7 @@ describe("WorkspaceMutationsService", () => {
     it.effect("rejects an unreadable lockfile", () =>
       Effect.gen(function* () {
         fs.writeFileSync(
-          path.join(projectDir, ".axm", "axm-lock.yaml"),
+          path.join(projectDir, "axm-lock.yaml"),
           "lockfileVersion: 3\nskills: []\n",
         );
 
@@ -1046,12 +1059,13 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            treeIntegrity,
           },
           versionRange: Option.some(versionRange("^1.1.0")),
         });
 
         const settings: unknown = JSON.parse(
-          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf8"),
+          fs.readFileSync(path.join(projectDir, "axm.json"), "utf8"),
         );
         expect(settings).toMatchObject({
           knowledge: {
@@ -1079,7 +1093,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         // Verify settings on disk — source derived from lock entry
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toBeDefined();
         expect(settings.skills["code-review"]).toBe("github:acme/code-review");
@@ -1122,8 +1136,8 @@ describe("WorkspaceMutationsService", () => {
             repo: "code-review",
           },
         });
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
-        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsPath = path.join(projectDir, "axm.json");
+        const lockfilePath = path.join(projectDir, "axm-lock.yaml");
         const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
         const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
 
@@ -1153,8 +1167,8 @@ describe("WorkspaceMutationsService", () => {
             path: "skills/local-review",
           },
         });
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
-        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsPath = path.join(projectDir, "axm.json");
+        const lockfilePath = path.join(projectDir, "axm-lock.yaml");
         const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
 
         const ws = yield* getService(defaultOptions);
@@ -1162,8 +1176,11 @@ describe("WorkspaceMutationsService", () => {
           name: "local-review",
           lockEntry: {
             type: "local",
+            packageOwner: handle("@acme"),
+            packageName: extensionName("local-review"),
             path: "skills/local-review",
             contentIdentity: computeSourceHash("test-content"),
+            treeIntegrity,
           },
           versionRange: Option.none(),
         });
@@ -1183,6 +1200,8 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {
           "code-review": {
             type: "github",
+            packageOwner: handle("@acme"),
+            packageName: extensionName("code-review"),
             owner: "acme",
             repo: "code-review",
           },
@@ -1205,7 +1224,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         // Verify settings updated — source derived from lock entry
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills["code-review"]).toBe("github:acme/code-review-v2");
 
@@ -1239,11 +1258,14 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             type: "github",
+            packageOwner: handle("@acme"),
+            packageName: extensionName("code-review"),
             owner: "acme",
             repo: "code-review-v2",
             resolvedCommit: "replacement-commit",
             resolvedTree: "replacement-tree",
             contentIdentity: replacementIdentity,
+            treeIntegrity,
           },
           versionRange: Option.none(),
         });
@@ -1270,6 +1292,7 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
+          treeIntegrity,
         };
 
         yield* ws.setSkill({
@@ -1278,7 +1301,7 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.some(versionRange("^1.0.0")),
         });
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills.tool).toBe("@acme/skills/tool@^1.0.0");
       }),
@@ -1299,6 +1322,7 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
+          treeIntegrity,
         };
 
         yield* ws.setSkill({
@@ -1307,7 +1331,7 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.none(),
         });
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills.tool).toBe("@acme/skills/tool");
       }),
@@ -1328,6 +1352,7 @@ describe("WorkspaceMutationsService", () => {
           sourceName: "default",
 
           publisherBindingId: "hbnd_test",
+          treeIntegrity,
         };
 
         yield* ws.setSkill({
@@ -1336,7 +1361,7 @@ describe("WorkspaceMutationsService", () => {
           versionRange: Option.some(versionRange("1.2.3")),
         });
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills.tool).toBe("@acme/skills/tool@1.2.3");
       }),
@@ -1350,6 +1375,8 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {
           "code-review": {
             type: "github",
+            packageOwner: handle("@acme"),
+            packageName: extensionName("code-review"),
             owner: "acme",
             repo: "code-review",
           },
@@ -1360,11 +1387,14 @@ describe("WorkspaceMutationsService", () => {
           name: "code-review",
           lockEntry: {
             type: "github",
+            packageOwner: handle("@acme"),
+            packageName: extensionName("code-review"),
             owner: "acme",
             repo: "code-review-v2",
             resolvedCommit: "replacement-commit",
             resolvedTree: "replacement-tree",
             contentIdentity: computeSourceHash("replacement-content"),
+            treeIntegrity,
           },
           versionRange: Option.none(),
         });
@@ -1386,7 +1416,7 @@ describe("WorkspaceMutationsService", () => {
             repo: "code-review",
           },
         });
-        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const lockfilePath = path.join(projectDir, "axm-lock.yaml");
         const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
 
         const ws = yield* getService(defaultOptions);
@@ -1421,6 +1451,7 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-BBBB==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            treeIntegrity,
           },
         });
         yield* ws.setMcpServer({
@@ -1434,12 +1465,11 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-CCCC==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            treeIntegrity,
           },
         });
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(projectDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(projectDir, "axm.json"), "utf8"));
         expect(settings.subagents.reviewer).toBe("@acme/subagents/reviewer@~2.0.0");
         expect(settings.mcpServers.browser).toBe("@acme/mcps/browser@3.x");
       }),
@@ -1466,8 +1496,8 @@ describe("WorkspaceMutationsService", () => {
             sourceHash: "abc123",
           },
         });
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
-        const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+        const settingsPath = path.join(projectDir, "axm.json");
+        const lockfilePath = path.join(projectDir, "axm-lock.yaml");
         const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
         const lockfileBefore = fs.readFileSync(lockfilePath, "utf-8");
 
@@ -1512,7 +1542,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeSkill("code-review");
 
         // Verify settings: code-review removed, test-gen remains
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).not.toHaveProperty("code-review");
         expect(settings.skills).toHaveProperty("test-gen");
@@ -1541,7 +1571,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeSkill("nonexistent");
 
         // Verify nothing changed
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toHaveProperty("test-gen");
         expect(Object.keys(expectDefined(settings.skills))).toHaveLength(1);
@@ -1567,7 +1597,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeSkill("implicit");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toBeUndefined();
 
@@ -1585,7 +1615,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.addConfiguredAgent("cursor");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code", "cursor"]);
       }),
@@ -1598,7 +1628,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.addConfiguredAgent("claude-code");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
       }),
@@ -1615,7 +1645,7 @@ describe("WorkspaceMutationsService", () => {
         expect(result.code).toBe("validation");
 
         // Verify settings were not changed
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
       }),
@@ -1631,7 +1661,7 @@ describe("WorkspaceMutationsService", () => {
         expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("validation");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
       }),
@@ -1646,7 +1676,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeConfiguredAgent("cursor");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
       }),
@@ -1659,7 +1689,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeConfiguredAgent("cursor");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code"]);
       }),
@@ -1675,7 +1705,7 @@ describe("WorkspaceMutationsService", () => {
         expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("validation");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code", "cursor"]);
       }),
@@ -1691,7 +1721,7 @@ describe("WorkspaceMutationsService", () => {
         expect(result).toBeInstanceOf(AppError);
         expect(result.code).toBe("validation");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.agents).toEqual(["claude-code", "cursor"]);
       }),
@@ -1707,8 +1737,8 @@ describe("WorkspaceMutationsService", () => {
      * Helper to remove the pre-created settings so init triggers.
      */
     const removePreCreatedSettings = () => {
-      const axmDir = path.join(projectDir, ".axm");
-      fs.rmSync(axmDir, { recursive: true, force: true });
+      fs.rmSync(path.join(projectDir, "axm.json"), { force: true });
+      fs.rmSync(path.join(projectDir, "axm-lock.yaml"), { force: true });
     };
 
     /**
@@ -1821,9 +1851,9 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill");
 
-        expect(paths.canonicalPath).toContain(".axm/extensions/@acme/skills/my-skill");
+        expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/my-skill");
         expect(paths.skillSrcPath).toContain(
-          ".axm/extensions/@acme/skills/my-skill" + path.sep + "src",
+          "agent_extensions/@acme/skills/my-skill" + path.sep + "src",
         );
         expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
@@ -1844,8 +1874,8 @@ describe("WorkspaceMutationsService", () => {
           const ws = yield* getService(defaultOptions);
           const paths = yield* ws.getSkillDir("code-review");
 
-          expect(paths.canonicalPath).toContain(".axm/extensions/external/skills/code-review");
-          expect(paths.skillSrcPath).toBe(paths.canonicalPath);
+          expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/code-review");
+          expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
         }),
     );
 
@@ -1860,7 +1890,7 @@ describe("WorkspaceMutationsService", () => {
           owner: handle("@corp"),
         });
 
-        expect(paths.canonicalPath).toContain(".axm/extensions/@corp/skills/my-skill");
+        expect(paths.canonicalPath).toContain("agent_extensions/@corp/skills/my-skill");
         expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
     );
@@ -1871,10 +1901,13 @@ describe("WorkspaceMutationsService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const paths = yield* ws.getSkillDir("code-review", { refType: "git-hosted" });
+        const paths = yield* ws.getSkillDir("code-review", {
+          refType: "git-hosted",
+          owner: handle("@acme"),
+        });
 
-        expect(paths.canonicalPath).toContain(".axm/extensions/external/skills/code-review");
-        expect(paths.skillSrcPath).toBe(paths.canonicalPath);
+        expect(paths.canonicalPath).toContain("agent_extensions/@acme/skills/code-review");
+        expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
       }),
     );
 
@@ -1922,7 +1955,7 @@ describe("WorkspaceMutationsService", () => {
         );
 
         // Both mutations should be present in final state
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toHaveProperty("code-review");
         expect(settings.sources).toBeDefined();
@@ -2077,7 +2110,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.updateSkillEntry("code-review", (entry) => ({ ...entry, enabled: false }));
 
         // Verify on disk: collapsed to object form since enabled=false
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills["code-review"]).toEqual({
           source: "github:acme/code-review",
@@ -2097,7 +2130,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.updateSkillEntry("code-review", (entry) => ({ ...entry, enabled: true }));
 
         // Collapsed to plain string since enabled=true
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills["code-review"]).toBe("github:acme/code-review");
       }),
@@ -2132,6 +2165,7 @@ describe("WorkspaceMutationsService", () => {
     resolvedVersion: exactVersion("1.0.0"),
     integrity: "sha512-AAAA==",
     manifestContentIdentity: computeSourceHash("test-pack-manifest"),
+    treeIntegrity,
     sourceName: "default",
     versionRange: Option.none(),
     ...overrides,
@@ -2295,12 +2329,13 @@ describe("WorkspaceMutationsService", () => {
             integrity: "sha512-AAAA==",
             sourceName: "default",
             publisherBindingId: "hbnd_test",
+            treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
           });
           const lock = (suffix = "", owner = "@acme") => ({
-            lockfileVersion: 4,
+            lockfileVersion: 5,
             skills: { [`unrelated${suffix}`]: resolutionEntry(`unrelated${suffix}`, owner) },
           });
-          const lockfilePath = path.join(projectDir, ".axm", "axm-lock.yaml");
+          const lockfilePath = path.join(projectDir, "axm-lock.yaml");
           const variants = [
             {
               name: "missing",
@@ -2309,7 +2344,7 @@ describe("WorkspaceMutationsService", () => {
             {
               name: "empty",
               write: () =>
-                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 4, skills: {} })),
+                fs.writeFileSync(lockfilePath, YAML.stringify({ lockfileVersion: 5, skills: {} })),
             },
             {
               name: "unrelated",
@@ -2571,7 +2606,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setPack(makeSampleSetPackArgs());
 
         // Verify settings on disk
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toBeDefined();
         expect(settings.packs["starter-pack"]).toBe("@acme/packs/starter-pack");
@@ -2648,7 +2683,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removePack("starter-pack");
 
         // Verify settings: starter-pack removed, other-pack remains
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).not.toHaveProperty("starter-pack");
         expect(settings.packs).toHaveProperty("other-pack");
@@ -2672,7 +2707,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removePack("nonexistent");
 
         // Verify nothing changed
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toHaveProperty("other-pack");
         expect(Object.keys(expectDefined(settings.packs))).toHaveLength(1);
@@ -2686,7 +2721,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getPackDir("starter-pack", handle("@acme"));
 
-        expect(result.canonicalPath).toContain(".axm/extensions/@acme/packs/starter-pack");
+        expect(result.canonicalPath).toContain("agent_extensions/@acme/packs/starter-pack");
       }),
     );
 
@@ -2695,7 +2730,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getPackDir("my-pack", handle("@community"));
 
-        expect(result.canonicalPath).toContain(".axm/extensions/@community/packs/my-pack");
+        expect(result.canonicalPath).toContain("agent_extensions/@community/packs/my-pack");
       }),
     );
   });
@@ -2981,7 +3016,7 @@ describe("WorkspaceMutationsService", () => {
           },
         });
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings).toHaveProperty("mcpServers");
         expect(settings["mcpServers"]).toHaveProperty("my-mcp");
@@ -3005,7 +3040,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeMcpServer("my-mcp");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).not.toHaveProperty("my-mcp");
       }),
@@ -3069,11 +3104,14 @@ describe("WorkspaceMutationsService", () => {
     { readonly type: "github" }
   > => ({
     type: "github",
+    packageOwner: handle("@acme"),
+    packageName: extensionName("my-mcp-server"),
     owner: "acme",
     repo: "my-mcp-server",
     resolvedCommit: "test-commit",
     resolvedTree: "test-tree",
     contentIdentity: computeSourceHash("test-content"),
+    treeIntegrity,
   });
 
   const makeSampleSetMcpServerArgs = (overrides?: Partial<SetMcpServerArgs>): SetMcpServerArgs => ({
@@ -3157,7 +3195,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
 
         // Verify settings on disk
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toBeDefined();
         expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server");
@@ -3212,7 +3250,7 @@ describe("WorkspaceMutationsService", () => {
         });
 
         // Verify settings updated
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server-v2");
 
@@ -3235,7 +3273,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.setMcpServerLock(makeSampleSetMcpServerArgs());
 
         // Settings should NOT have mcps
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toBeUndefined();
 
@@ -3275,7 +3313,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeMcpServer("my-mcp-server");
 
         // Verify settings: my-mcp-server removed, other-server remains
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).not.toHaveProperty("my-mcp-server");
         expect(settings["mcpServers"]).toHaveProperty("other-server");
@@ -3304,7 +3342,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeMcpServer("nonexistent");
 
         // Verify nothing changed
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings["mcpServers"]).toHaveProperty("other-server");
         expect(Object.keys(expectDefined(settings["mcpServers"]))).toHaveLength(1);
@@ -3330,7 +3368,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeMcpServer("implicit");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.mcpServers).toBeUndefined();
 
@@ -3363,7 +3401,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeSkillLock("code-review");
 
         // Settings should still have the skill
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toHaveProperty("code-review");
 
@@ -3406,7 +3444,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeMcpServerSettings("my-mcp");
 
         // Settings should NOT have the mcp server
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.mcpServers).not.toHaveProperty("my-mcp");
 
@@ -3424,7 +3462,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removeMcpServerSettings("nonexistent");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.mcpServers).toBeUndefined();
       }),
@@ -3450,7 +3488,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removeMcpServerLock("my-mcp");
 
         // Settings should still have the mcp server
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.mcpServers).toHaveProperty("my-mcp");
 
@@ -3505,7 +3543,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removePackSettings("starter-pack");
 
         // Settings should NOT have the pack
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).not.toHaveProperty("starter-pack");
 
@@ -3523,7 +3561,7 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         yield* ws.removePackSettings("nonexistent");
 
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toBeUndefined();
       }),
@@ -3561,7 +3599,7 @@ describe("WorkspaceMutationsService", () => {
         yield* ws.removePackLock("starter-pack");
 
         // Settings should still have the pack
-        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toHaveProperty("starter-pack");
 

@@ -111,7 +111,7 @@ jobs:
                 | select(.severity == "error")
                 | select(
                     ((.path // "") + " " + (.displayRoot // ""))
-                    | contains(".axm/extensions/@agentxm/skills/axm")
+                    | contains("agent_extensions/@agentxm/skills/axm")
                   )
               ] as $errors
               | if ($errors | length) == 0 then

@@ -12,6 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  computeMaterializedTreeIntegritySync,
   exactVersion,
   extensionName,
   handle,
@@ -54,16 +55,11 @@ const initWorkspace = (
   } = {},
 ) => {
   writeWorkspaceFiles(axmDir, {
-    owner: opts.profile,
+    owner: opts.profile ?? "@acme",
     packs:
       opts.packs === undefined
         ? undefined
-        : Object.fromEntries(
-            Object.keys(opts.packs).map((name) => [
-              name,
-              `workspace:${opts.profile ?? "@acme"}/packs/${name}`,
-            ]),
-          ),
+        : Object.fromEntries(Object.keys(opts.packs).map((name) => [name, "workspace"])),
     skills: opts.skills,
     hooks: opts.hooks,
     rules: opts.rules,
@@ -84,7 +80,8 @@ const initWorkspace = (
       const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
       const version = typeof raw["resolvedVersion"] === "string" ? raw["resolvedVersion"] : "1.0.0";
       const plural = type === "knowledge" ? "knowledge" : `${type}s`;
-      const packageDir = path.join(axmDir, "extensions", owner, plural, packageName);
+      const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
+      const packageDir = path.join(projectRoot, "agent_extensions", owner, plural, packageName);
       fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
       const extras =
         type === "hook"
@@ -108,6 +105,40 @@ const initWorkspace = (
   writeCanonical("hook", opts.lockfileHooks);
   writeCanonical("rule", opts.lockfileRules);
   writeCanonical("knowledge", opts.lockfileKnowledge);
+  const withTreeIntegrity = (
+    type: "skill" | "hook" | "rule" | "knowledge",
+    entries: Record<string, unknown> | undefined,
+  ) =>
+    Object.fromEntries(
+      Object.entries(entries ?? {}).map(([workspaceName, raw]) => {
+        if (!isRecord(raw)) return [workspaceName, raw];
+        const owner = typeof raw["owner"] === "string" ? raw["owner"] : "@acme";
+        const packageName = typeof raw["name"] === "string" ? raw["name"] : workspaceName;
+        const plural = type === "knowledge" ? "knowledge" : `${type}s`;
+        const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
+        const packageDir = path.join(projectRoot, "agent_extensions", owner, plural, packageName);
+        return [
+          workspaceName,
+          { ...raw, treeIntegrity: computeMaterializedTreeIntegritySync(packageDir) },
+        ];
+      }),
+    );
+  writeWorkspaceFiles(axmDir, {
+    owner: opts.profile ?? "@acme",
+    packs:
+      opts.packs === undefined
+        ? undefined
+        : Object.fromEntries(Object.keys(opts.packs).map((name) => [name, "workspace"])),
+    skills: opts.skills,
+    hooks: opts.hooks,
+    rules: opts.rules,
+    knowledge: opts.knowledge,
+    sources: [{ type: "registry", name: "local", location: "file:///tmp/test-registry" }],
+    lockfileSkills: withTreeIntegrity("skill", opts.lockfileSkills),
+    lockfileHooks: withTreeIntegrity("hook", opts.lockfileHooks),
+    lockfileRules: withTreeIntegrity("rule", opts.lockfileRules),
+    lockfileKnowledge: withTreeIntegrity("knowledge", opts.lockfileKnowledge),
+  });
 };
 
 /** Registry lock fields shared by every non-skill lock union used below. */
@@ -124,15 +155,7 @@ const registryLockEntry = (name: string, version: string) => ({
 });
 
 const readPackDependencies = (tempDir: string, pack: string): Record<string, string> => {
-  const manifestPath = path.join(
-    tempDir,
-    ".axm",
-    "extensions",
-    "@acme",
-    "packs",
-    pack,
-    "pack.json",
-  );
+  const manifestPath = path.join(tempDir, "packs", pack, "pack.json");
   const manifest: { dependencies?: Record<string, string> } = JSON.parse(
     fs.readFileSync(manifestPath, "utf-8"),
   );
@@ -145,7 +168,7 @@ const createPackManifest = (
   name: string,
   manifest?: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
+  const packDir = path.join(tempDir, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "pack.json"),
@@ -284,22 +307,14 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "code-review"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBe(">=1.2.0");
           expect(logs.success).toContain("Added 1 pack");
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
           expect(rendererState.summaries).toContain(
-            "frontend-tools   updated   1 file   .axm/extensions/@acme/packs/frontend-tools/pack.json",
+            "frontend-tools   updated   1 file   packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
             { description: "Inspect installed packs", cmd: "axm packs list" },
@@ -317,7 +332,7 @@ describe("packs-add.handler", () => {
           expect(property(firstUnit, "state")).toBe("committed");
           const artifact = expectRecord(property(firstUnit, "artifact"));
           expect(artifact).toMatchObject({
-            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            path: "packs/frontend-tools/pack.json",
             scope: "project",
             change: "updated",
             fileCount: 1,
@@ -375,9 +390,9 @@ describe("packs-add.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), {
         profile: "@acme",
         packs: { docs: "@acme/packs/docs" },
-        knowledge: { docs: "workspace:@acme/knowledge/docs" },
+        knowledge: { docs: "workspace" },
       });
-      const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "docs");
+      const knowledgeDir = path.join(tempDir, "knowledge", "docs");
       fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(knowledgeDir, "knowledge.json"),
@@ -389,6 +404,10 @@ describe("packs-add.handler", () => {
           format: { name: "okf", version: "0.2" },
           bundleRoot: "src",
         }),
+      );
+      fs.writeFileSync(
+        path.join(knowledgeDir, "src", "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Docs\n',
       );
       createPackManifest(tempDir, "@acme", "docs", {
         dependencies: { "@acme/knowledge/docs": "^0.4.0" },
@@ -546,15 +565,7 @@ describe("packs-add.handler", () => {
           yield* handlePacksAdd(defaultArgs("frontend-tools", "code-review", { preview: true }));
 
           // Manifest should NOT have the new extension
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
 
@@ -606,15 +617,7 @@ describe("packs-add.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksAdd(defaultArgs("my-pack", "effect-*"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "my-pack",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "my-pack", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/effect-basics"]).toBe(">=1.0.0");
           expect(manifest.dependencies["@acme/skills/effect-streams"]).toBe(">=2.0.0");
@@ -738,15 +741,7 @@ describe("packs-add.handler", () => {
           // Second add of a different skill also succeeds (hash is re-read each time)
           yield* handlePacksAdd(defaultArgs("frontend-tools", "skill-b"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/skill-a"]).toBe(">=1.0.0");
           expect(manifest.dependencies["@acme/skills/skill-b"]).toBe(">=2.0.0");

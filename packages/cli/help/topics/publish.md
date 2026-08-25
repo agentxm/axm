@@ -2,8 +2,9 @@
 
 `axm publish` and each `axm <type> publish` command distribute only extensions
 authored by the project workspace. Authorship comes from the configured
-`workspace:@owner/<plural-type>/<name>` source; a canonical directory alone
-does not grant publication authority.
+exact `workspace` source together with the project `owner`, settings map key,
+extension type, and matching manifest in that type's authored root. A canonical
+directory alone does not grant publication authority.
 
 ## Selection
 

@@ -107,7 +107,7 @@ describe("mcps import output", () => {
               state: "committed",
               message: "Imported 1 MCP server",
               artifact: {
-                path: ".axm/settings.json",
+                path: "axm.json",
                 scope: "project",
                 change: "updated",
                 fileCount: 2,
@@ -128,9 +128,7 @@ describe("mcps import output", () => {
             source: "inline",
           },
         });
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
         expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
         expect(JSON.stringify(settings)).not.toContain("secret-value");
@@ -174,10 +172,7 @@ describe("mcps import output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpsImport({ yes: true, preview: false });
-        const settingsAfterImport = fs.readFileSync(
-          path.join(tempDir, ".axm", "settings.json"),
-          "utf8",
-        );
+        const settingsAfterImport = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
         yield* handleMcpsImport({ yes: true, preview: false });
 
         expect(rendererState.results[1]?.data).toMatchObject({
@@ -186,9 +181,7 @@ describe("mcps import output", () => {
             imports: { imported: 0, skipped: 1, conflicting: 0 },
           },
         });
-        expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
-          settingsAfterImport,
-        );
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsAfterImport);
       }),
     );
   });
@@ -196,7 +189,7 @@ describe("mcps import output", () => {
   it.effect("reports unsupported native config formats without parsing or exposing them", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({ agents: ["codex"], mcpServers: {} }),
     );
     fs.mkdirSync(path.join(tempDir, ".codex"), { recursive: true });
@@ -231,7 +224,7 @@ describe("mcps import output", () => {
 
         expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "Import 1 MCP server   updated   2 files   .axm/settings.json, .mcp.json",
+          "Import 1 MCP server   updated   2 files   axm.json, .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
@@ -246,7 +239,7 @@ describe("mcps import output", () => {
     () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
       fs.writeFileSync(
-        path.join(tempDir, ".axm", "settings.json"),
+        path.join(tempDir, "axm.json"),
         JSON.stringify({ agents: ["claude-code", "cursor"], mcpServers: {} }),
       );
       fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
@@ -293,7 +286,7 @@ describe("mcps import output", () => {
       agents: ["claude-code", "cursor"],
       mcpServers: {},
     });
-    fs.writeFileSync(path.join(tempDir, ".axm", "settings.json"), originalSettings);
+    fs.writeFileSync(path.join(tempDir, "axm.json"), originalSettings);
     fs.mkdirSync(path.join(tempDir, ".cursor"), { recursive: true });
     const workspaceConfig = JSON.stringify({
       mcpServers: { zebra: { command: "node", args: ["zebra.js"] } },
@@ -322,9 +315,7 @@ describe("mcps import output", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: { outcome: "failed", imports: { imported: 0, conflicting: 0 } },
         });
-        expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
-          originalSettings,
-        );
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(originalSettings);
         expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toBe(workspaceConfig);
         expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toBe(
           cursorConfig,

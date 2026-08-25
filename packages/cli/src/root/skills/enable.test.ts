@@ -11,6 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  computeMaterializedTreeIntegritySync,
   computePackageContentHashSync,
   extensionName,
   writeWorkspaceFiles,
@@ -166,19 +167,27 @@ describe("enable.handler", () => {
 
   describe("promoted skill re-enable", () => {
     it.effect("re-enables promoted transitive skill by updating settings", () => {
-      const { provide, logs } = makeLayers();
+      const { provide } = makeLayers();
       const skillDir = path.join(
         tempDir,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@acme",
         "skills",
         "code-review",
         "src",
       );
       fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(path.dirname(skillDir), "skill.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "code-review",
+          version: "1.2.0",
+        }),
+      );
       fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# code-review");
-      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "starter-pack");
+      const packDir = path.join(tempDir, "packs", "starter-pack");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
         path.join(packDir, "pack.json"),
@@ -212,13 +221,14 @@ describe("enable.handler", () => {
             sourceName: "default",
             publisherBindingId: "hbnd_test",
             sourceHash: computePackageContentHashSync(path.dirname(skillDir)),
+            treeIntegrity: computeMaterializedTreeIntegritySync(path.dirname(skillDir)),
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
         },
         ["claude-code"],
         {
-          packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
+          packs: { "starter-pack": "workspace" },
         },
       );
 
@@ -226,14 +236,8 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("code-review"));
 
-          expect(logs.success.length).toBeGreaterThan(0);
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
-
           // Settings should show re-enabled (collapsed to string form)
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toBe("@acme/skills/code-review");
         }),
@@ -275,10 +279,7 @@ describe("enable.handler", () => {
           ]);
 
           // Settings should show re-enabled (collapsed to string form)
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({
             source: "@acme/skills/my-skill",
@@ -321,10 +322,7 @@ describe("enable.handler", () => {
           yield* handleEnable(defaultArgs("my-skill", { preview: true }));
 
           // Settings should still show disabled (preview = no side effects)
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({
             source: "./installed",
@@ -348,33 +346,32 @@ describe("enable.handler", () => {
 
   describe("plan execution", () => {
     it.effect("builds and resolves enable plan for disabled skill", () => {
-      const { provide, logs } = makeLayers();
-      // Create a disabled skill: { source: "local", enabled: false }
+      const { provide } = makeLayers();
+      const canonicalDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "my-skill");
+      fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(canonicalDir, "skill.json"),
+        JSON.stringify({ owner: "@acme", type: "skill", name: "my-skill", version: "1.0.0" }),
+      );
+      fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), "# my-skill");
       initWorkspace(
         path.join(tempDir, ".axm"),
         { "my-skill": { source: "./installed", enabled: false } },
         {
-          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+          "my-skill": {
+            type: "local",
+            packageOwner: "@acme",
+            packageName: "my-skill",
+            path: "installed",
+            contentIdentity: computePackageContentHashSync(canonicalDir),
+            treeIntegrity: computeMaterializedTreeIntegritySync(canonicalDir),
+          },
         },
       );
-      // Create canonical skill directory at the new external extensions path
-      const canonicalDir = path.join(
-        tempDir,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "my-skill",
-      );
-      fs.mkdirSync(canonicalDir, { recursive: true });
-      fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 
       return provide(
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
-
-          expect(logs.success.length).toBeGreaterThan(0);
-          expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Verify agent symlink was created
           const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");

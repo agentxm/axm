@@ -4,6 +4,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { ExtensionRef } from "../extensions/index.js";
+import { decodeExtensionNameSync } from "../extensions/common.js";
+import { decodeHandleSync } from "../extensions/handle.js";
 import {
   hookLockEntryToRef,
   knowledgeLockEntryToRef,
@@ -41,6 +43,16 @@ export interface UsableAcceptedCanonicalObservation extends AcceptedCanonicalObs
 export interface UsableAcceptedCanonical extends UsableAcceptedCanonicalObservation {
   readonly ref: ExtensionRef;
 }
+
+/** Canonical package AXM may delete when removing desired state. Authored source is durable. */
+export const removableAcceptedCanonicalPath = (
+  canonical: Option.Option<AcceptedCanonicalObservation>,
+): Option.Option<string> =>
+  Option.flatMap(canonical, (state) =>
+    state.desired.identity.startsWith("workspace:")
+      ? Option.none()
+      : Option.fromUndefinedOr(state.observation.path),
+  );
 
 const getAcceptedResolution = (
   workspace: WorkspaceMutationsService,
@@ -154,15 +166,36 @@ const refForDesired = (
   workspace: WorkspaceMutationsService,
   desired: DesiredExtensionNode,
 ): Effect.Effect<ExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
-  desired.identity.startsWith("workspace:")
-    ? resolveWorkspaceExtensionRef({
+  Effect.gen(function* () {
+    if (desired.identity.startsWith("bundled:")) {
+      const path = yield* Path.Path;
+      return yield* resolveWorkspaceExtensionRef({
+        settingsName: desired.name,
+        source: "workspace",
+        expectedType: desired.type,
+        layout: workspace.layout,
+        scope: workspace.scope,
+        staticPackage: {
+          owner: decodeHandleSync("@agentxm"),
+          name: decodeExtensionNameSync(desired.name),
+          root:
+            workspace.layout.scope === "project"
+              ? path.join(workspace.layout.acquiredRoot, "@agentxm", "skills", desired.name)
+              : path.join(workspace.layout.canonicalRoot, "@agentxm", "skills", desired.name),
+        },
+      });
+    }
+    if (desired.identity.startsWith("workspace:")) {
+      return yield* resolveWorkspaceExtensionRef({
         settingsName: desired.name,
         source: desired.source,
         expectedType: desired.type,
-        baseDir: workspace.baseDir,
+        layout: workspace.layout,
         scope: workspace.scope,
-      })
-    : refFromAcceptedResolution(workspace, desired.type, desired.name);
+      });
+    }
+    return yield* refFromAcceptedResolution(workspace, desired.type, desired.name);
+  });
 
 /**
  * Reconstruct the immutable source reference recorded for a desired extension,
@@ -195,7 +228,7 @@ export const acceptedCanonicalObservation = ({
     if (desired === undefined) return Option.none();
     const accepted = yield* getAcceptedResolution(workspace, type, name);
     const observation = yield* observeCanonicalExtension({
-      baseDir: workspace.baseDir,
+      layout: workspace.layout,
       desired,
       accepted: Option.getOrUndefined(accepted),
     });

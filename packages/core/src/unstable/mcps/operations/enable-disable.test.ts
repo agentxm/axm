@@ -12,7 +12,11 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { McpServerEntry } from "../../settings/index.js";
-import { handle, makeCodingAgentStub } from "../../test-helpers.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  handle,
+  makeCodingAgentStub,
+} from "../../test-helpers.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type { WorkspaceMutationsService } from "../../workspace/service-interface.js";
 import {
@@ -30,11 +34,15 @@ const makeEntry = (enabled: boolean): McpServerEntry => ({
   env: {},
 });
 
-const makeLockEntry = (): McpServerLockEntry =>
-  makeRegistryMcpServerLockEntry({
+const makeLockEntry = (projectRoot: string): McpServerLockEntry => ({
+  ...makeRegistryMcpServerLockEntry({
     owner: handle("@community"),
     name: serverName,
-  });
+  }),
+  treeIntegrity: computeMaterializedTreeIntegritySync(
+    path.join(projectRoot, "agent_extensions", "@community", "mcps", serverName),
+  ),
+});
 
 const makeAgentRepo = (agent: CodingAgent): CodingAgentRepositoryService => ({
   get: () => Effect.die(new Error("not implemented in test")),
@@ -73,11 +81,11 @@ describe("enableMcpServer and disableMcpServer", () => {
     projectDir = path.join(tmpDir, "project");
     axmDir = path.join(projectDir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
-    fs.mkdirSync(path.join(axmDir, "extensions", "@community", "mcps", serverName), {
+    fs.mkdirSync(path.join(projectDir, "agent_extensions", "@community", "mcps", serverName), {
       recursive: true,
     });
     fs.writeFileSync(
-      path.join(axmDir, "extensions", "@community", "mcps", serverName, "mcp.json"),
+      path.join(projectDir, "agent_extensions", "@community", "mcps", serverName, "mcp.json"),
       JSON.stringify({
         owner: "@community",
         type: "mcp-server",
@@ -125,8 +133,8 @@ describe("enableMcpServer and disableMcpServer", () => {
         axmDir,
         {
           getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
-          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry() }),
-          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry())),
+          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry(projectDir) }),
+          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry(projectDir))),
           updateMcpServerEntry: () => Effect.void,
         },
         makeAgentRepo(agent),
@@ -144,11 +152,11 @@ describe("enableMcpServer and disableMcpServer", () => {
       expect(result.message).toContain("Enabled my-server");
       expect(result.message).toContain("agent used fallback config path");
       expect(result.artifact).toMatchObject({
-        path: ".axm/extensions/@community/mcps/my-server",
+        path: "agent_extensions/@community/mcps/my-server",
         scope: "project",
         change: "updated",
         targets: [
-          { path: ".axm (config/lockfile)", change: "updated" },
+          { path: "axm.json", change: "updated" },
           { path: ".mcp.json", change: "updated", agentIds: ["claude-code"] },
         ],
       });
@@ -173,8 +181,8 @@ describe("enableMcpServer and disableMcpServer", () => {
         axmDir,
         {
           getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
-          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry() }),
-          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry())),
+          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry(projectDir) }),
+          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry(projectDir))),
           updateMcpServerEntry: updateSpy,
         },
         makeAgentRepo(agent),

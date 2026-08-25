@@ -19,26 +19,19 @@ import {
   handleInstructionsEnable,
   handleInstructionsStatus,
 } from "./instructions.js";
+import { writeWorkspaceFiles } from "../test-stubs.js";
 
 const initWorkspace = (
   baseDir: string,
   agents: ReadonlyArray<string>,
   instructionFiles?: false | Readonly<Record<string, unknown>>,
 ) => {
-  const axmDir = path.join(baseDir, ".axm");
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(axmDir, "settings.json"),
-    JSON.stringify(
-      {
-        agents,
-        ...(instructionFiles === undefined ? {} : { instructionFiles }),
-      },
-      null,
-      2,
-    ),
-  );
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+  writeWorkspaceFiles(path.join(baseDir, ".axm"), { agents });
+  if (instructionFiles !== undefined) {
+    const settingsPath = path.join(baseDir, "axm.json");
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, instructionFiles }, null, 2));
+  }
 };
 
 describe("instructions handler", () => {
@@ -91,9 +84,7 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true });
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
         expect(settings.instructionFiles).toEqual({
           fileName: "AGENTS.md",
           gitignoreAliases: true,
@@ -124,7 +115,7 @@ describe("instructions handler", () => {
   it.effect("previews enable without changing settings or instruction aliases", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"]);
-    const settingsPath = path.join(tempDir, ".axm", "settings.json");
+    const settingsPath = path.join(tempDir, "axm.json");
     const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
     return provide(
@@ -151,15 +142,13 @@ describe("instructions handler", () => {
     fs.mkdirSync(path.join(tempDir, ".git"));
     fs.mkdirSync(path.join(tempDir, ".gitignore"));
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Human instructions\n");
-    const settingsBefore = fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8");
+    const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
 
     return provide(
       Effect.gen(function* () {
         yield* handleInstructionsEnable({ fileName: "AGENTS.md", gitignore: true });
 
-        expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8")).toBe(
-          settingsBefore,
-        );
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8")).toBe(settingsBefore);
         expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toBe(
           "# Human instructions\n",
         );
@@ -183,9 +172,7 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsEnable({ fileName: "TEAM.md", gitignore: false });
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
         expect(settings.instructionFiles).toEqual({
           fileName: "TEAM.md",
           gitignoreAliases: false,
@@ -368,9 +355,7 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsDisable();
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
         expect(settings.instructionFiles).toBe(false);
         expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
         expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf-8")).toContain(
@@ -395,7 +380,7 @@ describe("instructions handler", () => {
     });
     fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
     fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
-    const settingsPath = path.join(tempDir, ".axm", "settings.json");
+    const settingsPath = path.join(tempDir, "axm.json");
     const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
     return provide(
@@ -475,9 +460,7 @@ describe("instructions handler", () => {
       Effect.gen(function* () {
         yield* handleInstructionsDisable();
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
         expect(settings.instructionFiles).toEqual({
           fileName: "AGENTS.md",
           gitignoreAliases: false,

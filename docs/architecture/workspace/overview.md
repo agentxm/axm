@@ -65,10 +65,11 @@ intent; it acts on choices the user expresses through commands or direct edits.
 Workspace configuration records those durable choices: directly requested
 extensions, version constraints, agents, activation, inline definitions,
 workspace capabilities, and workspace-authored manifests. The [workspace
-settings design](settings.md) owns the `.axm/settings.json` boundary. AXM
-combines that configuration with authored Pack manifests and accepted locked
-Pack metadata to derive the complete desired state, including Pack members and
-the outputs required for configured agents.
+settings design](settings.md) owns the project-root `axm.json` boundary and the
+user-scope `.axm/settings.json` boundary. AXM combines that configuration with
+authored Pack manifests and accepted locked Pack metadata to derive the
+complete desired state, including Pack members and the outputs required for
+configured agents.
 
 The lockfile authoritatively records accepted external source and immutable
 resolution state. Installed files and managed outputs realize current state.
@@ -84,7 +85,7 @@ content.
 | Workspace configuration     | Records the user's explicit, durable choices in [settings](settings.md).                     |
 | Desired state               | Describes desired extensions, activation, agents, and workspace capabilities.                |
 | Authoritative lock state    | Records accepted immutable external resolutions and provenance; see [Lockfile](lockfile.md). |
-| Canonical extension content | Holds authored, installed, or bundled content from which projections are produced.           |
+| Canonical extension content | Holds authored, acquired, or bundled content from which projections are produced.            |
 | Inline configuration        | Authoritatively defines a managed capability directly in settings.                           |
 | Managed outputs             | Present desired capabilities in agent or workspace-native surfaces.                          |
 | Observed content            | Records what exists without implying desired state or authority.                             |
@@ -108,9 +109,18 @@ Canonical extension content has one of three authorities:
 - **Workspace-authored:** The workspace is the source. AXM never overwrites or
   deletes it as an incidental lifecycle or recovery action.
 - **External:** AXM installed a copy from a registry or other supported source.
-  The extension remains AXM-managed even if its local bytes change, but ordinary
-  sync does not overwrite that drift.
+  The extension remains AXM-managed even if its local bytes change, but the
+  drift blocks its use until explicit recovery; ordinary sync does not
+  overwrite it.
 - **Bundled:** The running AXM distribution supplies and controls the content.
+
+Project workspaces keep those authorities physically distinct. Authored
+packages live in the type-specific roots declared by `axm.json`, defaulting to
+`skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
+`packs/`. Acquired packages live under
+`agent_extensions/@owner/<type>/<name>/`. The ignored `.axm/` directory is
+runtime state, not project configuration or canonical package inventory.
+User scope retains its self-contained `.axm/` layout.
 
 Changing an extension among workspace-authored, external, and bundled authority
 is an explicit operation. A lock row or recommended Pack does not silently
@@ -172,9 +182,9 @@ When a mutable source no longer reproduces the locked identity, sync and
 reinstall block rather than substituting different bytes. Desired capabilities
 without an external source have no fabricated resolution row.
 
-The accepted lock does not make later local byte drift a standing security
-violation. Present external canonical content remains valid projection input.
-Replacing divergent content during explicit update or reinstall is disclosed.
+The accepted lock makes later package-tree drift an authority violation for the
+affected content. Drift blocks reads, projection, and mutation preflight until
+explicit `reinstall`, `update`, or `fork` establishes valid authority again.
 
 ## Output reconciliation
 

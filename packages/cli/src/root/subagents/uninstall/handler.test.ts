@@ -154,7 +154,7 @@ describe("uninstall.handler (subagents)", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.subagents?.["nonexistent"]).toBeUndefined();
           expect(logs.warn).toEqual([]);
@@ -231,15 +231,12 @@ describe("uninstall.handler (subagents)", () => {
           });
 
           // Lockfile should not have the subagent
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 
           // Settings should not have the subagent
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.subagents?.["my-subagent"]).toBeUndefined();
         }),
@@ -283,11 +280,11 @@ describe("uninstall.handler (subagents)", () => {
                   fileCount: 4,
                   targets: [
                     {
-                      path: ".axm/settings.json",
+                      path: "axm.json",
                       change: "updated",
                     },
                     {
-                      path: ".axm/extensions/external/subagents/my-subagent",
+                      path: "agent_extensions/external/subagents/my-subagent",
                       change: "removed",
                     },
                     {

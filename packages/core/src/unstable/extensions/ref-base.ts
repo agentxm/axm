@@ -27,6 +27,10 @@ import type { DeprecationView } from "../registry/schema.js";
 
 /** Ref details for git-hosted sources (GitHub, GitLab, Bitbucket, AzureRepos, Git). @experimental */
 export interface GitHostedRefDetails {
+  /** Publisher identity declared by the resolved package manifest. */
+  readonly owner: Handle;
+  /** Package identity declared by the resolved package manifest. */
+  readonly name: ExtensionName;
   /** file:// URL to cloned directory */
   readonly location: string;
   /** Repository-relative directory selected for this extension */
@@ -63,6 +67,10 @@ export interface RegistryRefDetails {
 
 /** Ref details for local filesystem sources. @experimental */
 export interface LocalRefDetails {
+  /** Publisher identity declared by the resolved package manifest. */
+  readonly owner: Handle;
+  /** Package identity declared by the resolved package manifest. */
+  readonly name: ExtensionName;
   /** file:// URL to local directory */
   readonly location: string;
 }

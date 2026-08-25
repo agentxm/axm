@@ -18,7 +18,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
@@ -38,6 +37,7 @@ import {
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 
 const unsupportedRegistryHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -61,18 +61,12 @@ const initWorkspace = (
     minimumReleaseAgeExclude?: ReadonlyArray<string>;
   },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = { agents: ["claude-code"] };
-  if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.owner) settings["owner"] = opts.owner;
-  if (opts?.minimumReleaseAgeExclude) {
-    settings["minimumReleaseAgeExclude"] = opts.minimumReleaseAgeExclude;
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 4, skills: {} }),
-  );
+  writeWorkspaceFiles(axmDir, {
+    agents: ["claude-code"],
+    owner: opts?.owner,
+    sources: opts?.sources,
+    minimumReleaseAgeExclude: opts?.minimumReleaseAgeExclude,
+  });
 };
 
 const createRegistrySkill = ({
@@ -548,8 +542,7 @@ describe("skills install handler — error propagation", () => {
           preview: false,
         }).pipe(Effect.flip);
         const appError = getAppError(error);
-        expect(appError.code).toBe("network");
-        expect(appError.cause).toBeDefined();
+        expect(appError.code).toBe("not_found");
       }),
     );
   });
@@ -622,8 +615,8 @@ describe("skills install handler — error propagation", () => {
     const { provide } = makeLayers();
     const axmDir = path.join(tempDir, ".axm");
     initWorkspace(axmDir);
-    const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
-    const lockBefore = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8");
+    const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+    const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
 
     return provide(
       Effect.gen(function* () {
@@ -633,11 +626,9 @@ describe("skills install handler — error propagation", () => {
           preview: true,
         });
 
-        expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
-        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
-        expect(fs.existsSync(path.join(axmDir, "extensions", "@agentxm", "skills", "axm"))).toBe(
-          false,
-        );
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+        expect(fs.existsSync(path.join(tempDir, "skills", "axm"))).toBe(false);
       }),
     );
   });
@@ -658,19 +649,19 @@ describe("skills install handler — error propagation", () => {
         });
 
         const settings: unknown = JSON.parse(
-          fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
         );
         expect(settings).toMatchObject({
           skills: {
             axm: {
-              source: "workspace:@agentxm/skills/axm",
+              source: "workspace",
               origin: "bundled",
             },
           },
         });
         expect(
           fs.existsSync(
-            path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
+            path.join(tempDir, "agent_extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
           ),
         ).toBe(true);
       }),
@@ -681,28 +672,20 @@ describe("skills install handler — error propagation", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     initWorkspace(axmDir);
-    const settingsPath = path.join(axmDir, "settings.json");
+    const settingsPath = path.join(tempDir, "axm.json");
     fs.writeFileSync(
       settingsPath,
       JSON.stringify({
         agents: ["claude-code"],
         skills: {
           axm: {
-            source: "workspace:@agentxm/skills/axm",
+            source: "workspace",
             enabled: true,
           },
         },
       }),
     );
-    const skillPath = path.join(
-      axmDir,
-      "extensions",
-      "@agentxm",
-      "skills",
-      "axm",
-      "src",
-      "SKILL.md",
-    );
+    const skillPath = path.join(tempDir, "skills", "axm", "src", "SKILL.md");
     fs.mkdirSync(path.dirname(skillPath), { recursive: true });
     fs.writeFileSync(skillPath, "authored in-flight bytes\n");
     const settingsBefore = fs.readFileSync(settingsPath, "utf8");

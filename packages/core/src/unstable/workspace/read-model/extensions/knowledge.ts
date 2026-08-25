@@ -5,12 +5,12 @@
  * Declared bundles come from `settings.knowledge`; resolved bundles come from
  * `axm-lock.yaml` `knowledge`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "knowledge"`), which enumerates
- * `.axm/extensions/<owner>/knowledge/<name>/src` and
- * `.axm/extensions/external/knowledge/<name>`.
+ * project-authored `knowledge/<name>/src`, project-acquired
+ * `agent_extensions/<owner>/knowledge/<name>/src`, and user-scope packages.
  *
  * Knowledge installs also write two derived artifacts — the `.axm/knowledge/index.md`
  * catalog and the discovery region inside the agent instructions file. Both live
- * outside `.axm/extensions`, so the canonical scanner never sees them and they
+ * outside canonical package roots, so the canonical scanner never sees them and they
  * cannot become occurrences; `actual` is therefore scoped to the materialized
  * bundle package directory by construction.
  *

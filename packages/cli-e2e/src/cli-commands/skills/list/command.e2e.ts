@@ -66,7 +66,7 @@ describe("axm skills list", () => {
     const temp = createTempDir();
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
-      fs.writeFileSync(path.join(temp.path, ".axm", "settings.json"), "{ not-json");
+      fs.writeFileSync(path.join(temp.path, "axm.json"), "{ not-json");
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
@@ -81,10 +81,10 @@ describe("axm skills list", () => {
     try {
       fs.mkdirSync(path.join(temp.path, ".axm"), { recursive: true });
       fs.writeFileSync(
-        path.join(temp.path, ".axm", "settings.json"),
+        path.join(temp.path, "axm.json"),
         `${JSON.stringify({ agents: [] }, null, 2)}\n`,
       );
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "lockfileVersion: invalid\n");
+      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: invalid\n");
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 

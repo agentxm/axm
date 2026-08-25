@@ -10,7 +10,7 @@ const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
-const CANONICAL_REFERENCE = `.axm/extensions/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
+const CANONICAL_REFERENCE = `agent_extensions/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
 
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -35,7 +35,7 @@ describe("installed-state scope consistency", () => {
         },
       );
       expect(authorSetup.exitCode, `${authorSetup.stderr}\n${authorSetup.stdout}`).toBe(0);
-      configureRegistry(path.join(author.path, ".axm", "settings.json"), registry.path);
+      configureRegistry(path.join(author.path, "axm.json"), registry.path);
 
       const created = await runCli(["packs", "new", PACK, "--owner", OWNER, "--yes"], {
         cwd: author.path,
@@ -59,15 +59,7 @@ describe("installed-state scope consistency", () => {
         knowledgeCreated.exitCode,
         `${knowledgeCreated.stderr}\n${knowledgeCreated.stdout}`,
       ).toBe(0);
-      const knowledgeRoot = path.join(
-        author.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "knowledge",
-        KNOWLEDGE,
-        "src",
-      );
+      const knowledgeRoot = path.join(author.path, "knowledge", KNOWLEDGE, "src");
       fs.mkdirSync(path.join(knowledgeRoot, "policies"), { recursive: true });
       fs.writeFileSync(
         path.join(knowledgeRoot, "index.md"),
@@ -91,7 +83,7 @@ describe("installed-state scope consistency", () => {
         { cwd: author.path },
       );
       expect(skillCreated.exitCode, `${skillCreated.stderr}\n${skillCreated.stdout}`).toBe(0);
-      const skillRoot = path.join(author.path, ".axm", "extensions", OWNER, "skills", SKILL);
+      const skillRoot = path.join(author.path, "skills", SKILL);
       const skillManifestPath = path.join(skillRoot, "skill.json");
       const skillManifest = JSON.parse(fs.readFileSync(skillManifestPath, "utf-8"));
       fs.writeFileSync(
@@ -116,15 +108,7 @@ describe("installed-state scope consistency", () => {
       );
       expect(skillPublished.exitCode, `${skillPublished.stderr}\n${skillPublished.stdout}`).toBe(0);
 
-      const packManifestPath = path.join(
-        author.path,
-        ".axm",
-        "extensions",
-        OWNER,
-        "packs",
-        PACK,
-        "pack.json",
-      );
+      const packManifestPath = path.join(author.path, "packs", PACK, "pack.json");
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       fs.writeFileSync(
         packManifestPath,
@@ -170,7 +154,7 @@ describe("installed-state scope consistency", () => {
         },
       );
       expect(projectSetup.exitCode, `${projectSetup.stderr}\n${projectSetup.stdout}`).toBe(0);
-      const projectSettingsPath = path.join(consumer.path, ".axm", "settings.json");
+      const projectSettingsPath = path.join(consumer.path, "axm.json");
       configureRegistry(projectSettingsPath, registry.path);
       const projectInstalled = await runCli(
         ["packs", "install", `${OWNER}/packs/${PACK}`, "--yes"],
@@ -182,7 +166,7 @@ describe("installed-state scope consistency", () => {
       ).toBe(0);
       expect(
         fs.readFileSync(
-          path.join(consumer.path, ".axm", "extensions", OWNER, "skills", SKILL, "src", "SKILL.md"),
+          path.join(consumer.path, "agent_extensions", OWNER, "skills", SKILL, "src", "SKILL.md"),
           "utf-8",
         ),
       ).toContain(CANONICAL_REFERENCE);
@@ -232,7 +216,21 @@ describe("installed-state scope consistency", () => {
           "utf-8",
         ),
       ).toContain(CANONICAL_REFERENCE);
-      expect(fs.existsSync(path.join(userHome.path, CANONICAL_REFERENCE))).toBe(true);
+      expect(
+        fs.existsSync(
+          path.join(
+            userHome.path,
+            ".axm",
+            "extensions",
+            OWNER,
+            "knowledge",
+            KNOWLEDGE,
+            "src",
+            "policies",
+            "review.md",
+          ),
+        ),
+      ).toBe(true);
 
       const shown = await runCli(["packs", "show", PACK, "--scope", "user", "--json"], {
         cwd: consumer.path,
@@ -260,7 +258,21 @@ describe("installed-state scope consistency", () => {
 
       const userSettings = JSON.parse(fs.readFileSync(userSettingsPath, "utf-8"));
       expect(userSettings.packs ?? {}).not.toHaveProperty(PACK);
-      expect(fs.existsSync(path.join(userHome.path, CANONICAL_REFERENCE))).toBe(true);
+      expect(
+        fs.existsSync(
+          path.join(
+            userHome.path,
+            ".axm",
+            "extensions",
+            OWNER,
+            "knowledge",
+            KNOWLEDGE,
+            "src",
+            "policies",
+            "review.md",
+          ),
+        ),
+      ).toBe(true);
     } finally {
       author.cleanup();
       consumer.cleanup();

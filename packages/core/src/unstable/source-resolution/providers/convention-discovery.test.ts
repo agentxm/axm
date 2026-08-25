@@ -16,9 +16,13 @@ const localSource = (pathValue: string): LocalSource => ({
 });
 
 const writeSkill = (dir: string, name: string) => {
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
   fs.writeFileSync(
-    path.join(dir, "SKILL.md"),
+    path.join(dir, "skill.json"),
+    JSON.stringify({ owner: "@acme", type: "skill", name, version: "1.0.0" }),
+  );
+  fs.writeFileSync(
+    path.join(dir, "src", "SKILL.md"),
     `---\nname: "${name}"\ndescription: "A useful skill"\n---\n\n# ${name}\n`,
   );
 };
@@ -51,7 +55,7 @@ describe("discoverConventionRefs", () => {
 
   it.effect("discovers a standards-conforming skill without rewriting its name", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "pretty-skill");
+      writeSkill(path.join(tempDir, "pretty-skill"), "pretty-skill");
 
       const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",
@@ -71,7 +75,7 @@ describe("discoverConventionRefs", () => {
 
   it.effect("matches targeted skill discovery by its standards-conforming name", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "pretty-skill");
+      writeSkill(path.join(tempDir, "pretty-skill"), "pretty-skill");
 
       const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",
@@ -91,7 +95,7 @@ describe("discoverConventionRefs", () => {
 
   it.effect("ignores skills whose names do not conform to Agent Skills", () =>
     Effect.gen(function* () {
-      writeSkill(path.join(tempDir, "skills", "pretty-skill"), "Pretty Skill");
+      writeSkill(path.join(tempDir, "pretty-skill"), "Pretty Skill");
 
       const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
         type: "skill",

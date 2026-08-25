@@ -7,9 +7,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { computeExtensionPaths } from "../extensions/extension-paths.js";
+import {
+  computeExtensionPaths,
+  computeExtensionPathsForLayout,
+} from "../extensions/extension-paths.js";
 import type { Handle } from "../extensions/handle.js";
 import type { AbsolutePath } from "../utils/path-types.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -19,7 +23,7 @@ import type { AbsolutePath } from "../utils/path-types.js";
  */
 export type SkillPathSource =
   | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
 
 /**
  * Computed paths for an installed skill directory.
@@ -55,4 +59,14 @@ export const computeSkillPaths = (
     canonicalPath: paths.canonicalPath,
     skillSrcPath: paths.extensionSrcPath,
   };
+};
+
+export const computeSkillPathsForLayout = (
+  join: (...paths: string[]) => string,
+  layout: WorkspaceLayout,
+  source: SkillPathSource,
+  sanitizedName: string,
+): SkillDirPaths => {
+  const paths = computeExtensionPathsForLayout(join, layout, source, "skills", sanitizedName);
+  return { canonicalPath: paths.canonicalPath, skillSrcPath: paths.extensionSrcPath };
 };

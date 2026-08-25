@@ -148,7 +148,7 @@ describe("compiled binary smoke", () => {
         },
       );
       expect(setup.exitCode, getOutput(setup)).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
@@ -187,10 +187,8 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
 
     try {
-      const axmDir = path.join(temp.path, ".axm");
-      fs.mkdirSync(axmDir, { recursive: true });
       fs.writeFileSync(
-        path.join(axmDir, "settings.json"),
+        path.join(temp.path, "axm.json"),
         JSON.stringify({
           agents: [],
           skills: { review: "@acme/skills/review" },

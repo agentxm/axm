@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
 import { SourceHashSchema } from "../extensions/rendered-files.js";
 import type {
   GitHostedSkillRef,
@@ -12,6 +13,9 @@ import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 const skill = {
   name: extensionName("review"),
   description: Option.none<string>(),
@@ -23,6 +27,8 @@ describe("sourceToLockEntry", () => {
     const ref: GitHostedSkillRef = {
       type: "skill",
       refType: "git-hosted",
+      owner: handle("@acme"),
+      name: extensionName("review"),
       skill,
       source: {
         type: "github",
@@ -38,8 +44,12 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: "tree-456",
     };
 
-    expect(sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity })).toEqual({
+    expect(
+      sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity, treeIntegrity }),
+    ).toEqual({
       type: "github",
+      packageOwner: handle("@acme"),
+      packageName: extensionName("review"),
       owner: "acme",
       repo: "extensions",
       ref: "main",
@@ -47,6 +57,7 @@ describe("sourceToLockEntry", () => {
       resolvedCommit: "commit-123",
       resolvedTree: "tree-456",
       contentIdentity,
+      treeIntegrity,
     });
   });
 
@@ -54,6 +65,8 @@ describe("sourceToLockEntry", () => {
     const ref: LocalSkillRef = {
       type: "skill",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("review"),
       skill,
       source: { type: "local", path: "/tmp/review" },
       location: "file:///tmp/review",
@@ -64,9 +77,17 @@ describe("sourceToLockEntry", () => {
         ref,
         sourceName: Option.none(),
         contentIdentity,
+        treeIntegrity,
         workspaceRelativeLocalSourcePath: Option.some("../sources/review"),
       }),
-    ).toEqual({ type: "local", path: "../sources/review", contentIdentity });
+    ).toEqual({
+      type: "local",
+      packageOwner: handle("@acme"),
+      packageName: extensionName("review"),
+      path: "../sources/review",
+      contentIdentity,
+      treeIntegrity,
+    });
   });
 
   it("persists Registry provenance without receipt fields", () => {
@@ -92,6 +113,7 @@ describe("sourceToLockEntry", () => {
         ref,
         sourceName: Option.some("enterprise"),
         contentIdentity,
+        treeIntegrity,
       }),
     ).toEqual({
       type: "registry",
@@ -101,6 +123,7 @@ describe("sourceToLockEntry", () => {
       integrity: "sha512-archive",
       sourceName: "enterprise",
       publisherBindingId: "binding-1",
+      treeIntegrity,
     });
   });
 
@@ -119,10 +142,12 @@ describe("sourceToLockEntry", () => {
       name: extensionName("review"),
       version: exactVersion("1.0.0"),
       scope: "project",
-      location: "file:///workspace/.axm/extensions/@acme/skills/review",
+      location: "file:///workspace/skills/review",
       sourceHash: contentIdentity,
     };
 
-    expect(sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity })).toBeUndefined();
+    expect(
+      sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity, treeIntegrity }),
+    ).toBeUndefined();
   });
 });

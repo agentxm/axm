@@ -41,6 +41,7 @@ import {
   planResultUnits,
   stringProperty,
 } from "../../../test-helpers.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -58,22 +59,14 @@ const initWorkspace = (
     agents?: string[];
   },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = {
-    agents: opts?.agents ?? ["claude-code"],
-  };
-  if (opts?.skills) settings["skills"] = opts.skills;
-  if (opts?.packs) settings["packs"] = opts.packs;
-  if (opts?.sources) settings["sources"] = opts.sources;
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
-    skills: opts?.skillLocks ?? {},
-  };
-  if (opts?.packLocks) {
-    lockfile["packs"] = opts.packLocks;
-  }
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  writeWorkspaceFiles(axmDir, {
+    agents: opts?.agents,
+    skills: opts?.skills,
+    packs: opts?.packs,
+    sources: opts?.sources,
+    lockfileSkills: opts?.skillLocks,
+    lockfilePacks: opts?.packLocks,
+  });
 };
 
 const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerArgs => ({
@@ -640,14 +633,14 @@ describe("update.handler — error recovery", () => {
           yield* handleUpdate(defaultArgs());
 
           const settings = expectRecord(
-            JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8")),
+            JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8")),
             "Expected settings object",
           );
           const skills = expectRecord(settings["skills"], "Expected settings.skills");
           expect(skills["code-review"]).toBe("@acme/skills/code-review@^1.0.0");
 
           const lockfile = expectRecord(
-            YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+            YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
             "Expected lockfile object",
           );
           const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
@@ -703,7 +696,7 @@ describe("update.handler — error recovery", () => {
       Effect.gen(function* () {
         yield* handleUpdate(defaultArgs());
         const lockfile = expectRecord(
-          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
           "Expected lockfile object",
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
@@ -764,7 +757,7 @@ describe("update.handler — error recovery", () => {
         yield* handleUpdate(defaultArgs());
 
         const lockfile = expectRecord(
-          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
           "Expected lockfile object",
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
@@ -882,7 +875,7 @@ describe("update.handler — preview flag", () => {
 
         // Lockfile should still have original version (preview = no side effects)
         const lockfile = expectRecord(
-          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
           "Expected lockfile object",
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
@@ -894,7 +887,7 @@ describe("update.handler — preview flag", () => {
 
         // Settings should be unchanged
         const settings = expectRecord(
-          JSON.parse(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8")),
+          JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8")),
           "Expected settings object",
         );
         const skills = expectRecord(settings["skills"], "Expected settings.skills");
@@ -953,7 +946,7 @@ describe("update.handler — preview flag", () => {
 
         // Both skills should still have original versions (preview = no side effects)
         const lockfile = expectRecord(
-          YAML.parse(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8")),
+          YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8")),
           "Expected lockfile object",
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");

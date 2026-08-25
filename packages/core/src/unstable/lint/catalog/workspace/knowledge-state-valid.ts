@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/knowledge-state-valid";
 
@@ -24,8 +25,13 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         : new Set(Option.getOrElse(resolved.success, () => []).map(({ name }) => name));
       const unmanagedFindings = Result.isFailure(unmanaged)
         ? []
-        : unmanaged.success.flatMap(({ key }): ReadonlyArray<AdvisoryFinding> =>
-            resolvedNames.has(key.name)
+        : unmanaged.success.flatMap(({ key, actual }): ReadonlyArray<AdvisoryFinding> =>
+            resolvedNames.has(key.name) ||
+            !actual.contentRoot
+              .replaceAll("\\", "/")
+              .includes(
+                context.subject.scope === "project" ? "/agent_extensions/" : "/.axm/extensions/",
+              )
               ? []
               : [
                   {
@@ -33,7 +39,7 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
                     ruleId: RULE_ID,
                     severity: "error",
                     message: `Knowledge bundle '${key.name}' has canonical content without an accepted AXM ownership fact.`,
-                    location: { file: ".axm/extensions" },
+                    location: { file: canonicalDisplayRoot(context.subject.scope) },
                   },
                 ],
           );
@@ -56,7 +62,9 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
               ruleId: RULE_ID,
               severity: "error",
               message: `Knowledge bundle '${desired.name}' has canonical state ${observation.status}.`,
-              location: { file: observation.path ?? ".axm/settings.json" },
+              location: {
+                file: observation.path ?? settingsDisplayPath(context.subject.scope),
+              },
             },
           ];
         },

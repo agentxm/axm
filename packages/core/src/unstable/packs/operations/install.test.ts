@@ -154,7 +154,7 @@ describe("installPack", () => {
   it.effect("succeeds when fetched manifest dependencies are all in resolved metadata", () => {
     const projectDir = path.join(tmpDir, "project");
     const packSourceDir = path.join(tmpDir, "pack-source");
-    const packDir = path.join(projectDir, ".axm", "extensions", "@acme", "packs", "frontend-pack");
+    const packDir = path.join(projectDir, "agent_extensions", "@acme", "packs", "frontend-pack");
 
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(packSourceDir, { recursive: true });
@@ -201,7 +201,7 @@ describe("installPack", () => {
   it.effect("succeeds when fetched manifest declares no dependencies", () => {
     const projectDir = path.join(tmpDir, "project");
     const packSourceDir = path.join(tmpDir, "pack-source");
-    const packDir = path.join(projectDir, ".axm", "extensions", "@acme", "packs", "frontend-pack");
+    const packDir = path.join(projectDir, "agent_extensions", "@acme", "packs", "frontend-pack");
 
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(packSourceDir, { recursive: true });
@@ -246,7 +246,7 @@ describe("installPack", () => {
   it.effect("returns metadata update warning in result without raw warning logs", () => {
     const projectDir = path.join(tmpDir, "project");
     const packSourceDir = path.join(tmpDir, "pack-source");
-    const packDir = path.join(projectDir, ".axm", "extensions", "@acme", "packs", "frontend-pack");
+    const packDir = path.join(projectDir, "agent_extensions", "@acme", "packs", "frontend-pack");
 
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(packSourceDir, { recursive: true });

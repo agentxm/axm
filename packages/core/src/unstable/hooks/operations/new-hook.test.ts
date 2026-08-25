@@ -34,8 +34,7 @@ const makeOp = (name: string, opts: Partial<NewHookOperation["args"]> = {}): New
   },
 });
 
-const hookDir = (tempDir: string, name: string, owner = "@acme") =>
-  path.join(tempDir, ".axm", "extensions", owner, "hooks", name);
+const hookDir = (tempDir: string, name: string) => path.join(tempDir, "hooks", name);
 
 // -----------------------------------------------------------------------------
 // Tests

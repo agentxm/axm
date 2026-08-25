@@ -81,8 +81,8 @@ never from raw settings entries, which omit Pack-contributed members.
 Authority facts distinguish conditions a catch-all lifecycle label cannot:
 
 - workspace-authored canonical inventory may exist outside desired state;
-- external canonical content requires an accepted lock identity but remains
-  valid projection input when its local bytes drift;
+- acquired canonical content requires an accepted lock identity and matching
+  package-tree integrity before it can serve as projection input;
 - bundled content derives authority from the running CLI;
 - inline definitions derive authority directly from settings without a
   fabricated lock row or canonical copy;
@@ -178,7 +178,8 @@ Cross-cutting adversarial coverage proves:
 - stale plans write nothing and concurrent plans cannot interleave;
 - interruption at every publication boundary converges from surviving
   authority on the next mutation;
-- formatter-induced external drift remains valid and projectable;
+- formatter-induced drift in an acquired package is detected and blocks
+  affected reads and mutation closures until explicit recovery;
 - update and reinstall disclose replacement of divergent external content;
 - global sync reports closure-local outcomes and nonzero overall results when
   any requested closure does not converge, including when others commit;

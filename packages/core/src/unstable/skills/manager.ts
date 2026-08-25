@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { printSourceParams, sourceToLockEntry } from "../sources/index.js";
+import { sourceToLockEntry } from "../sources/index.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "./refs.js";
@@ -33,10 +33,8 @@ import { existsInAnyCanonicalLocation } from "./disk-check.js";
 import { sanitizeName } from "../extensions/utils.js";
 import type { SourceHash } from "../extensions/index.js";
 import { computePackageContentHash } from "../extensions/index.js";
-import {
-  makeWorkspaceRelativeSourcePath,
-  removeFromAllCanonicalLocations,
-} from "../utils/index.js";
+import type { TreeIntegrity } from "../extensions/materialized-tree.js";
+import { makeWorkspaceRelativeSourcePath, removeIfExists } from "../utils/index.js";
 import { CodingAgentRepository, type AgentId } from "../agents/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { computeSkillSourceHash } from "./operations/source-hash.js";
@@ -47,7 +45,11 @@ import {
   type ProvideRegistryMaterialization,
 } from "./materialization.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
-import { usableAcceptedCanonicalRef } from "../workspace/accepted-canonical-ref.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+  usableAcceptedCanonicalRef,
+} from "../workspace/accepted-canonical-ref.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 
@@ -69,11 +71,13 @@ const buildSkillLockEntry = (
   ref: SkillExtensionRef,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
 ) =>
   sourceToLockEntry({
     ref,
     sourceName: Option.none(),
     contentIdentity,
+    treeIntegrity,
     workspaceRelativeLocalSourcePath,
   });
 
@@ -108,6 +112,7 @@ export const SkillManagerLive = Layer.effect(
     const provideRegistry: ProvideRegistryMaterialization = (effect) =>
       Effect.provide(effect, registryMaterializationLayer);
     const lastSourceHashes = new Map<string, SourceHash>();
+    const lastTreeIntegrities = new Map<string, TreeIntegrity>();
     const lastMaterializations = new Map<string, MaterializationObservation>();
 
     const materializeInstall: ExtensionManager<SkillExtensionRef>["materializeInstall"] = Effect.fn(
@@ -115,22 +120,29 @@ export const SkillManagerLive = Layer.effect(
     )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
 
+      const lockedEntry = yield* ws.getLockedSkill(ref.skill.name);
       const lockedVersion =
-        ref.refType === "registry"
-          ? acceptedRegistryVersionForRef(yield* ws.getLockedSkill(ref.skill.name), ref)
-          : undefined;
+        ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
 
-      const skillSrcPath = yield* materializeSkillCanonical({
+      const materialized = yield* materializeSkillCanonical({
         ref,
         sanitizedName: sanitized,
         fs,
         pathService: path,
         baseDir,
+        layout: ws.layout,
         sources,
         provide,
         provideRegistry,
-        reuse: { force: force === true, lockedVersion },
+        reuse: {
+          force: force === true,
+          lockedVersion,
+          lockedTreeIntegrity: Option.isSome(lockedEntry)
+            ? lockedEntry.value.treeIntegrity
+            : undefined,
+        },
       });
+      const skillSrcPath = materialized.skillSrcPath;
 
       const configuredAgents = yield* agentRepo
         .getMaterializationAgents()
@@ -212,6 +224,15 @@ export const SkillManagerLive = Layer.effect(
             ? yield* provide(computePackageContentHash(path.dirname(skillSrcPath)))
             : yield* provide(computeSkillSourceHash(skillSrcPath));
       lastSourceHashes.set(ref.skill.name, sourceHash);
+      if (ref.refType !== "workspace") {
+        if (materialized.treeIntegrity === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Skill ${ref.skill.name} has no materialized tree integrity`,
+          });
+        }
+        lastTreeIntegrities.set(ref.skill.name, materialized.treeIntegrity);
+      }
       lastMaterializations.set(ref.skill.name, {
         agents: Array.dedupe(
           installTargets
@@ -285,7 +306,11 @@ export const SkillManagerLive = Layer.effect(
         );
 
         if (!retainCanonical) {
-          yield* removeFromAllCanonicalLocations(fs, baseDir, "skills", sanitized, path);
+          const canonical = yield* provide(
+            acceptedCanonicalObservation({ workspace: ws, type: "skill", name: target.name }),
+          );
+          const packageRoot = removableAcceptedCanonicalPath(canonical);
+          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
         }
       });
     const materializeUninstall = makeMaterializeRemoval(false);
@@ -324,18 +349,28 @@ export const SkillManagerLive = Layer.effect(
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
         const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+        const configuredEntries = yield* ws.getConfiguredSkillEntries();
+        const configuredWithoutBundled = Object.fromEntries(
+          Object.entries(configured).filter(
+            ([name]) => configuredEntries[name]?.origin !== "bundled",
+          ),
+        );
         const workspaceRefs = yield* configuredSkillsToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope },
-          configured,
+          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
+          configuredWithoutBundled,
         );
         const trustedRefs = yield* Effect.forEach(
           enabledConfiguredEntries(configured),
           ([name]) =>
-            provide(
-              usableAcceptedCanonicalRef({ workspace: ws, type: "skill", name }).pipe(
-                Effect.map(Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-              ),
-            ),
+            configuredEntries[name]?.origin === "bundled"
+              ? Effect.succeed(Option.none<SkillExtensionRef>())
+              : provide(
+                  usableAcceptedCanonicalRef({ workspace: ws, type: "skill", name }).pipe(
+                    Effect.map(
+                      Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
+                    ),
+                  ),
+                ),
           { concurrency: "unbounded" },
         );
         const refsByName = new Map(workspaceRefs.map((ref) => [ref.skill.name, ref]));
@@ -365,19 +400,25 @@ export const SkillManagerLive = Layer.effect(
           });
         }
         const sourceHash = lastSourceHashes.get(ref.skill.name);
+        const treeIntegrity = lastTreeIntegrities.get(ref.skill.name);
         if (ref.refType === "workspace") {
           return yield* ws.setSkillEntry(ref.skill.name, {
-            source: printSourceParams(ref.source),
+            source: "workspace",
             enabled: true,
           });
         }
-        if (sourceHash === undefined) {
+        if (sourceHash === undefined || treeIntegrity === undefined) {
           return yield* makeAppError({
             code: "internal",
             detail: `Skill ${ref.skill.name} has no materialized content identity`,
           });
         }
-        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, sourceHash);
+        const lockEntry = buildSkillLockEntry(
+          ref,
+          workspaceRelativeLocalSourcePath,
+          sourceHash,
+          treeIntegrity,
+        );
         if (lockEntry === undefined) {
           return yield* makeAppError({
             code: "internal",
@@ -422,13 +463,19 @@ export const SkillManagerLive = Layer.effect(
           return;
         }
         const sourceHash = lastSourceHashes.get(ref.skill.name);
-        if (sourceHash === undefined) {
+        const treeIntegrity = lastTreeIntegrities.get(ref.skill.name);
+        if (sourceHash === undefined || treeIntegrity === undefined) {
           return yield* makeAppError({
             code: "internal",
             detail: `Skill ${ref.skill.name} has no materialized content identity`,
           });
         }
-        const lockEntry = buildSkillLockEntry(ref, workspaceRelativeLocalSourcePath, sourceHash);
+        const lockEntry = buildSkillLockEntry(
+          ref,
+          workspaceRelativeLocalSourcePath,
+          sourceHash,
+          treeIntegrity,
+        );
         if (lockEntry === undefined) {
           return yield* makeAppError({
             code: "internal",

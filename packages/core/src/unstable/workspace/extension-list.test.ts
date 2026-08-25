@@ -8,6 +8,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import {
   decodeExtensionNameSync,
   SourceHashSchema,
+  TreeIntegritySchema,
   type ExtensionRef,
 } from "../extensions/index.js";
 import {
@@ -17,20 +18,27 @@ import {
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { makeBaseWorkspaceMock } from "./test-stubs.js";
+import { handle } from "../test-helpers.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 
 describe("extension list assessment", () => {
   it.effect("compares current Git commit and tree to accepted lock authority", () =>
     Effect.gen(function* () {
       const accepted = {
         type: "github" as const,
+        packageOwner: handle("@acme"),
+        packageName: decodeExtensionNameSync("review"),
         owner: "acme",
         repo: "extensions",
         path: "skills/review",
         resolvedCommit: "commit-1",
         resolvedTree: "tree-1",
         contentIdentity,
+        treeIntegrity,
       };
       const ws = makeBaseWorkspaceMock("/tmp/.axm", {
         getLockedSkill: () => Effect.succeed(Option.some(accepted)),
@@ -40,6 +48,8 @@ describe("extension list assessment", () => {
       const ref: ExtensionRef = {
         type: "skill",
         refType: "git-hosted",
+        owner: handle("@acme"),
+        name: decodeExtensionNameSync("review"),
         skill: {
           name: decodeExtensionNameSync("review"),
           description: Option.none(),

@@ -26,6 +26,10 @@ import { buildUninstallOperation } from "@agentxm/client-core/unstable/extension
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import {
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -111,7 +115,9 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
             if (result.result !== "success") return result;
             const unchanged = result.message === "not installed";
             const sourceTarget =
-              lockEntry?.type === "registry" ? mcpSourceTarget(lockEntry, "removed") : undefined;
+              lockEntry?.type === "registry"
+                ? mcpSourceTarget(ws.scope, lockEntry, "removed")
+                : undefined;
             return {
               ...result,
               artifact: mcpServerArtifact({
@@ -121,8 +127,8 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
                 targets: unchanged
                   ? []
                   : [
-                      { path: ".axm/axm-lock.yaml", change: "updated" },
-                      { path: ".axm/settings.json", change: "updated" },
+                      { path: workspaceLockfilePath(ws.scope), change: "updated" },
+                      { path: workspaceSettingsPath(ws.scope), change: "updated" },
                       ...(sourceTarget === undefined ? [] : [sourceTarget]),
                     ],
               }),

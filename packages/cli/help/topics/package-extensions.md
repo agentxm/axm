@@ -55,7 +55,7 @@ evolvable contents over time.
 
 For the equivalent location in other package formats, see [Specifying recommended extensions in package metadata](#specifying-recommended-extensions-in-package-metadata) below.
 
-Default to identity-only — omit `versionRange`. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `.axm/axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
+Default to identity-only — omit `versionRange`. A recommendation is a discovery signal: AXM resolves it to the newest matching extension version and pins that exact version in `axm-lock.yaml`, so the range never controls what the user ends up installing. An identity-only recommendation never goes stale and always points at the current extension.
 
 Add a semver `versionRange` only when your package genuinely pairs with a bounded major line of the extension — for example, when a later major release of the extension drops an API your package relies on:
 

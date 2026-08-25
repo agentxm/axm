@@ -15,7 +15,8 @@ projection, packaging, and publication. It does not implement or debug the MCP
 server software behind that connection.
 
 MCP server packages live in
-`./.axm/extensions/<@owner>/mcps/<name>/mcp.json`. Unlike skills and
+`./mcps/<name>/mcp.json`; acquired packages live under
+`./agent_extensions/<@owner>/mcps/<name>`. Unlike skills and
 subagents, an MCP server has no `src/` body — the whole definition lives in the
 manifest.
 
@@ -124,8 +125,8 @@ subset removes only stale AXM-owned state and preserves unmanaged collisions.
 
 ## Settings and lockfile
 
-Installed servers are tracked in `.axm/settings.json` under `mcpServers`, with
-shared resolution state in `.axm/axm-lock.yaml` under `mcpServers`. The lockfile
+Installed servers are tracked in `axm.json` under `mcpServers`, with
+shared resolution state in `axm-lock.yaml` under `mcpServers`. The lockfile
 does not persist which agents received materialized configuration. Every entry
 declares exactly one transport — `source`, `command`, or `url`:
 
@@ -170,7 +171,7 @@ configs through `axm sync`.
 
 ## Secrets
 
-Never store literal tokens in `.axm/settings.json`. Put secrets in `env` or
+Never store literal tokens in `axm.json`. Put secrets in `env` or
 `headers` as `${VAR}` references and let each agent resolve them from the
 environment at runtime. Registry inputs marked `isSecret` may be supplied to
 the installer and saved in the system keychain, but native config receives only

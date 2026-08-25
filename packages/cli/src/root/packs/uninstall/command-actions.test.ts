@@ -122,11 +122,12 @@ describe("pack uninstall graph readiness", () => {
           {
             type: "pack-manifest-unavailable",
             pack: "@acme/packs/toolkit",
-            path: ".axm/extensions/@acme/packs/toolkit/pack.json",
+            path: "agent_extensions/@acme/packs/toolkit/pack.json",
           },
         ],
       },
       ["@acme/packs/toolkit"],
+      "project",
     );
 
     expect(decision).toMatchObject({
@@ -136,19 +137,19 @@ describe("pack uninstall graph readiness", () => {
         {
           problemType: "pack-manifest-unavailable",
           packs: ["@acme/packs/toolkit"],
-          authoritativeLocations: [".axm/extensions/@acme/packs/toolkit/pack.json"],
+          authoritativeLocations: ["agent_extensions/@acme/packs/toolkit/pack.json"],
         },
       ],
     });
     if (decision.readiness === "blocked") {
       expect(decision.detail).toContain("@acme/packs/toolkit");
       expect(decision.detail).toContain("pack-manifest-unavailable");
-      expect(decision.detail).toContain(".axm/extensions/@acme/packs/toolkit/pack.json");
+      expect(decision.detail).toContain("agent_extensions/@acme/packs/toolkit/pack.json");
     }
   });
 
   it("returns the complete graph as ready", () => {
-    expect(planPackUninstallGraphReadiness(completeGraph([]), [])).toMatchObject({
+    expect(planPackUninstallGraphReadiness(completeGraph([]), [], "project")).toMatchObject({
       readiness: "ready",
     });
   });

@@ -5,11 +5,7 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  buildUninstallOperation,
-} from "@agentxm/client-core/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type {
   JobStepArtifact,
@@ -23,6 +19,11 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import {
+  workspaceCanonicalPath,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 
 export interface UninstallHookHandlerArgs {
   readonly name: string;
@@ -36,15 +37,16 @@ const hookUninstallArtifactTargets = (
   entry: Option.Option<HookLockEntry>,
   retained: boolean,
   targetName: string,
+  scope: JobStepArtifact["scope"],
 ): ReadonlyArray<JobStepArtifactTarget> => {
   if (Option.isNone(entry)) return [];
   const sourcePath =
     entry.value.type === "registry"
-      ? `${REGISTRY_EXTENSIONS_DIR}/${entry.value.owner}/hooks/${entry.value.name}`
-      : `${EXTERNAL_EXTENSIONS_DIR}/hooks/${targetName}`;
+      ? workspaceCanonicalPath(scope, `${entry.value.owner}/hooks/${entry.value.name}`)
+      : workspaceCanonicalPath(scope, `external/hooks/${targetName}`);
   return [
-    { path: ".axm/axm-lock.yaml", change: "updated" },
-    { path: ".axm/settings.json", change: "updated" },
+    { path: workspaceLockfilePath(scope), change: "updated" },
+    { path: workspaceSettingsPath(scope), change: "updated" },
     { path: sourcePath, change: retained ? "unchanged" : "removed" },
   ];
 };
@@ -57,9 +59,14 @@ const hookUninstallArtifact = (args: {
 }): JobStepArtifact => {
   const retained =
     args.result.result === "success" && args.result.message.startsWith("Kept on disk");
-  const targets = hookUninstallArtifactTargets(args.lockEntry, retained, args.targetName);
+  const targets = hookUninstallArtifactTargets(
+    args.lockEntry,
+    retained,
+    args.targetName,
+    args.scope,
+  );
   return {
-    path: retained ? ".axm/settings.json" : ".axm/axm-lock.yaml",
+    path: retained ? workspaceSettingsPath(args.scope) : workspaceLockfilePath(args.scope),
     scope: args.scope,
     change: retained ? "updated" : "removed",
     ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),

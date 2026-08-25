@@ -1,12 +1,18 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { decodeExtensionNameSync } from "../extensions/common.js";
+import { decodeHandleSync } from "../extensions/handle.js";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
 import { SourceHashSchema } from "../extensions/rendered-files.js";
 import { gitSourceLockFields } from "./entry-fields.js";
 
 describe("gitSourceLockFields", () => {
   it("persists locator plus immutable commit, tree, and content identities", () => {
     const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
+    const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+      `sha256-tree-v1:${"0".repeat(64)}`,
+    );
     expect(
       gitSourceLockFields(
         {
@@ -20,9 +26,14 @@ describe("gitSourceLockFields", () => {
         "commit-1",
         "tree-1",
         contentIdentity,
+        decodeHandleSync("@acme"),
+        decodeExtensionNameSync("review"),
+        treeIntegrity,
       ),
     ).toEqual({
       type: "github",
+      packageOwner: "@acme",
+      packageName: "review",
       owner: "acme",
       repo: "extensions",
       ref: "main",
@@ -30,6 +41,7 @@ describe("gitSourceLockFields", () => {
       resolvedCommit: "commit-1",
       resolvedTree: "tree-1",
       contentIdentity,
+      treeIntegrity,
     });
   });
 });

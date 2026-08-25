@@ -2,7 +2,8 @@
  * Lockfile feature module.
  *
  * Provides lockfile schema definitions and I/O functions for managing
- * the `.axm/axm-lock.yaml` file that tracks installed skill versions.
+ * the selected scope's `axm-lock.yaml` file that records accepted external
+ * extension resolutions.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -56,8 +57,10 @@ export type { LockfileUpdate } from "./lockfile.js";
 export {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,
+  commitLockfileSnapshotUpdateAtPath,
   commitLockfileUpdates,
   writeLockfile,
+  writeLockfileAtPath,
 } from "./lockfile.js";
 export { validateExactResolvedVersion } from "./resolved-version.js";
 export { acceptedRegistryVersionForRef } from "./accepted-registry-version.js";

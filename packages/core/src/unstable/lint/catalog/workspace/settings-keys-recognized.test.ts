@@ -31,7 +31,7 @@ describe("workspace/settings-keys-recognized", () => {
           severity: "error",
           message:
             "Workspace settings has unrecognized top-level key 'telemetry'. The current settings schema does not recognize this key.",
-          location: { file: ".axm/settings.json" },
+          location: { file: "axm.json" },
         },
       ]);
     }).pipe(Effect.provide(testWorkspace)),

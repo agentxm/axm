@@ -249,7 +249,7 @@ describe("buildInstallOperation", () => {
         runTransaction,
         isInstalled: () => Effect.succeed(true),
         materializeInstall,
-        getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+        getConfiguredSource: () => Effect.succeed(Option.some("workspace")),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.void,
         materializeDeactivate: () => Effect.void,

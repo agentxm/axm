@@ -18,7 +18,7 @@ import type { FindOptions, GitHubSource } from "../sources/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
-import { at, extensionName } from "../test-helpers.js";
+import { at, extensionName, handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -133,6 +133,8 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
         const mockRef: ExtensionRef = {
           type: "skill",
           refType: "git-hosted",
+          owner: handle("@test"),
+          name: extensionName("test-skill"),
           source: ghSource,
           skill: {
             name: extensionName("test-skill"),

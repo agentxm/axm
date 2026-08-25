@@ -63,7 +63,7 @@ describe("mcps-new.handler", () => {
           preview: false,
         });
 
-        const packageDir = path.join(tempDir, ".axm", "extensions", "@acme", "mcps", "context");
+        const packageDir = path.join(tempDir, "mcps", "context");
         const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, "mcp.json"), "utf-8"));
         expect(manifest).toMatchObject({
           owner: "@acme",
@@ -73,20 +73,15 @@ describe("mcps-new.handler", () => {
           description: "Context server",
         });
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-        );
-        expect(settings.mcpServers?.context).toBe("workspace:@acme/mcps/context");
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
+        expect(settings.mcpServers?.context).toBe("workspace");
 
-        const lockfile = YAML.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
-        );
+        const lockfile = YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"));
         expect(lockfile.mcpServers?.context).toBeUndefined();
         expect(logs.success).toEqual(["Created 1 MCP server"]);
         expect(rendererState.suggestions).toEqual([
           {
-            description:
-              "Edit `.axm/extensions/@acme/mcps/context/mcp.json` to configure the MCP server",
+            description: "Edit `mcps/context/mcp.json` to configure the MCP server",
           },
         ]);
       }),
@@ -120,11 +115,7 @@ describe("mcps-new.handler", () => {
           throw new Error("Expected artifact.targets array");
         }
         const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
-        expect(targetPaths).toEqual([
-          ".axm/extensions/@acme/mcps/context/mcp.json",
-          ".axm (config/lockfile)",
-          ".mcp.json",
-        ]);
+        expect(targetPaths).toEqual(["mcps/context/mcp.json", "axm.json", ".mcp.json"]);
         const mcpConfigTarget = expectRecord(
           expectDefined(
             targets.find((target) => property(expectRecord(target), "path") === ".mcp.json"),

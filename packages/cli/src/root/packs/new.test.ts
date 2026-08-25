@@ -104,15 +104,7 @@ describe("packs-new.handler", () => {
           yield* handlePacksNew(defaultArgs("frontend-tools"));
 
           // Verify manifest created
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -126,24 +118,23 @@ describe("packs-new.handler", () => {
           expect(manifest["mcps"]).toBeUndefined();
 
           // Verify registered in settings
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs).toBeDefined();
-          expect(settings.packs["frontend-tools"]).toBe("workspace:@acme/packs/frontend-tools");
+          expect(settings.packs["frontend-tools"]).toBe("workspace");
 
           const lockfile = YAML.parse(
-            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
           );
           expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 
           expect(logs.success).toContain("Created 1 pack");
           expect(rendererState.summaries).toContain(
-            "@acme/packs/frontend-tools   0.0.1   created   1 file   .axm/extensions/@acme/packs/frontend-tools/pack.json, .axm (config/lockfile)",
+            "@acme/packs/frontend-tools   0.0.1   created   1 file   packs/frontend-tools/pack.json, axm.json",
           );
           expect(rendererState.suggestions).toEqual([
             {
-              description:
-                "Edit `.axm/extensions/@acme/packs/frontend-tools/pack.json` to fill in pack contents",
+              description: "Edit `packs/frontend-tools/pack.json` to fill in pack contents",
             },
           ]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
@@ -155,7 +146,7 @@ describe("packs-new.handler", () => {
           expect(property(firstUnit, "state")).toBe("committed");
           const artifact = expectRecord(property(firstUnit, "artifact"));
           expect(artifact).toMatchObject({
-            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            path: "packs/frontend-tools",
             scope: "project",
             version: "0.0.1",
             change: "created",
@@ -176,19 +167,11 @@ describe("packs-new.handler", () => {
           yield* handlePacksNew(defaultArgs("frontend-tools", { preview: true }));
 
           // Manifest should NOT be created
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           expect(fs.existsSync(manifestPath)).toBe(false);
 
           // Settings should NOT have the pack registered
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs?.["frontend-tools"]).toBeUndefined();
 
@@ -200,58 +183,30 @@ describe("packs-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("uses --owner override instead of workspace owner", () => {
+    it.effect("rejects an owner override that conflicts with the workspace owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(
+          const error = yield* handlePacksNew(
             defaultArgs("frontend-tools", { owner: Option.some(handle("@corp")) }),
-          );
-
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
-          expect(fs.existsSync(manifestPath)).toBe(true);
-
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@corp");
-          expect(manifest.type).toBe("pack");
-          expect(manifest.name).toBe("frontend-tools");
+          ).pipe(Effect.flip);
+          expect(getAppError(error).code).toBe("conflict");
         }),
       );
     });
 
-    it.effect("normalizes owner without @ prefix", () => {
+    it.effect("rejects a different normalized owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("my-pack", { owner: Option.some(handle("@corp")) }));
-
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "packs",
-            "my-pack",
-            "pack.json",
-          );
-          expect(fs.existsSync(manifestPath)).toBe(true);
-
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@corp");
-          expect(manifest.type).toBe("pack");
-          expect(manifest.name).toBe("my-pack");
+          const error = yield* handlePacksNew(
+            defaultArgs("my-pack", { owner: Option.some(handle("@corp")) }),
+          ).pipe(Effect.flip);
+          expect(getAppError(error).detail).toContain("Package owner @corp");
         }),
       );
     });
@@ -281,7 +236,7 @@ describe("packs-new.handler", () => {
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       // Pre-create the manifest
-      const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");
+      const packDir = path.join(tempDir, "packs", "frontend-tools");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(path.join(packDir, "pack.json"), "{}");
 

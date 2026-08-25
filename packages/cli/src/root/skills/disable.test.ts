@@ -189,10 +189,7 @@ describe("disable.handler", () => {
           yield* handleDisable(defaultArgs("my-skill", { preview: true }));
 
           // Settings should still show enabled (preview = no side effects)
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toBe("local");
 
@@ -203,7 +200,7 @@ describe("disable.handler", () => {
           expect(fs.existsSync(agentSkillDir)).toBe(true);
 
           // Lockfile should be unchanged
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeDefined();
 
@@ -222,11 +219,11 @@ describe("disable.handler", () => {
     it.effect("creates direct entry when disabling implicit skill", () => {
       const { provide, logs } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "code-review");
+      const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "code-review");
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(path.join(skillDir, "src", "SKILL.md"), "# code-review");
 
-      const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter-pack");
+      const packDir = path.join(tempDir, "packs", "starter-pack");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
         path.join(packDir, "pack.json"),
@@ -261,7 +258,7 @@ describe("disable.handler", () => {
         },
         ["claude-code"],
         {
-          packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
+          packs: { "starter-pack": "workspace" },
         },
       );
 
@@ -273,10 +270,7 @@ describe("disable.handler", () => {
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should have a new direct entry with enabled: false
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toEqual({
             source: "@acme/skills/code-review@^1.0.0",
@@ -319,10 +313,7 @@ describe("disable.handler", () => {
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show disabled
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({
             source: "@acme/skills/my-skill",
@@ -370,10 +361,7 @@ describe("disable.handler", () => {
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
           // Settings should show disabled
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({ source: "local", enabled: false });
 

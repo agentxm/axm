@@ -28,9 +28,8 @@ describe("axm skills disable", () => {
       // Verify skill is installed
       const canonicalSkillDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
+        "agent_extensions",
+        "@test",
         "skills",
         "my-skill",
       );
@@ -52,7 +51,7 @@ describe("axm skills disable", () => {
       expect(fs.existsSync(agentSkillDir)).toBe(false);
 
       // Verify settings preserved with enabled: false
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       expect(settings.skills).toBeDefined();
       expect(settings.skills["my-skill"]).toBeDefined();
@@ -63,7 +62,7 @@ describe("axm skills disable", () => {
       expect(entry.source).toBeDefined();
 
       // Verify lockfile entry retained
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(temp.path, "axm-lock.yaml");
       const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
       expect(lock.skills["my-skill"]).toBeDefined();
     } finally {

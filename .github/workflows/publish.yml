@@ -222,7 +222,7 @@ jobs:
                 "$axm_binary" skills show axm --json |
                   jq -r '.result.item.version'
               )"
-              skill_document=".axm/extensions/@agentxm/skills/axm/src/SKILL.md"
+              skill_document="agent_extensions/@agentxm/skills/axm/src/SKILL.md"
 
               if [[ "$actual_version" == "$AXM_EXPECTED_VERSION" ]] &&
                 grep -Fq "cli-version: \"$AXM_EXPECTED_VERSION\"" "$skill_document"; then

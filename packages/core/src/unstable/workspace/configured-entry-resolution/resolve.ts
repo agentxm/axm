@@ -254,7 +254,7 @@ export const resolveConfiguredSkill = (
         settingsName: name,
         source,
         expectedType: "skill",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "skill") {
@@ -355,7 +355,7 @@ export const resolveConfiguredSubagent = (
         settingsName: name,
         source,
         expectedType: "subagent",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "subagent") {
@@ -459,7 +459,7 @@ export const resolveConfiguredRule = (
         settingsName: name,
         source,
         expectedType: "rule",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "rule") {
@@ -562,7 +562,7 @@ export const resolveConfiguredHook = (
         settingsName: name,
         source,
         expectedType: "hook",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "hook") {
@@ -665,7 +665,7 @@ export const resolveConfiguredKnowledge = (
         settingsName: name,
         source,
         expectedType: "knowledge",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "knowledge") {
@@ -756,7 +756,7 @@ export const resolveConfiguredMcpServer = (
         settingsName: name,
         source,
         expectedType: "mcp-server",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "mcp-server") {
@@ -860,7 +860,7 @@ export const resolveConfiguredPack = (
         settingsName: name,
         source,
         expectedType: "pack",
-        baseDir: ws.baseDir,
+        layout: ws.layout,
         scope: ws.scope,
       });
       if (ref.type !== "pack") {

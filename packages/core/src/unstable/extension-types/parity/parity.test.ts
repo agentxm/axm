@@ -42,7 +42,10 @@ const REGISTRY_LOCK_ENTRY = {
   integrity: "sha512-abc123",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
 } as const;
+
+const registryLockEntry = (_type: CatalogExtensionType) => REGISTRY_LOCK_ENTRY;
 
 type LockEntrySchema = (typeof LOCK_ENTRY_SCHEMA_BY_TYPE)[CatalogExtensionType];
 
@@ -65,14 +68,17 @@ const decodes = (schema: LockEntrySchema, input: unknown): boolean => {
  */
 const CHECKS: Record<ObligationId, ((type: CatalogExtensionType) => boolean) | null> = {
   "2.6-accepted-resolution": (type) =>
-    decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], REGISTRY_LOCK_ENTRY) &&
+    decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], registryLockEntry(type)) &&
     decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], {
       type: "github",
+      packageOwner: "@acme",
+      packageName: "example",
       owner: "acme",
       repo: "example",
       resolvedCommit: "commit-1",
       resolvedTree: "tree-1",
       contentIdentity: "content-1",
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     }),
   "2.9-read-model-family": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
   "2.11-ownership-safe-prune": (type) => READ_MODEL_EXTENSION_FAMILY_BY_TYPE[type] !== null,
@@ -119,7 +125,7 @@ describe("extension type parity (core tier)", () => {
 
   it("decodes the baseline registry lock entry for every type", () => {
     const undecodable = CATALOG_EXTENSION_TYPES.filter(
-      (type) => !decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], REGISTRY_LOCK_ENTRY),
+      (type) => !decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], registryLockEntry(type)),
     );
 
     expect(undecodable).toStrictEqual([]);

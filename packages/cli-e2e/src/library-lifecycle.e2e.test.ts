@@ -6,19 +6,22 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const libraryRef = "@acme/libraries/frontend";
 
 const snapshotAxmState = (workspace: string): Readonly<Record<string, string>> => {
-  const axmDir = path.join(workspace, ".axm");
   const snapshot: Record<string, string> = {};
   const visit = (dir: string): void => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const absolutePath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         visit(absolutePath);
+      } else if (entry.isFile()) {
+        snapshot[path.relative(workspace, absolutePath)] = fs.readFileSync(absolutePath, "utf8");
       } else {
-        snapshot[path.relative(axmDir, absolutePath)] = fs.readFileSync(absolutePath, "utf8");
+        snapshot[path.relative(workspace, absolutePath)] = entry.isSymbolicLink()
+          ? `symlink:${fs.readlinkSync(absolutePath)}`
+          : "other";
       }
     }
   };
-  visit(axmDir);
+  visit(workspace);
   return snapshot;
 };
 

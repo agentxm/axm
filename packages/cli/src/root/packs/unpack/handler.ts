@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -25,6 +26,10 @@ import {
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
+import {
+  workspaceCanonicalNodePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 
 export interface UnpackHandlerArgs {
@@ -36,9 +41,6 @@ export interface UnpackHandlerArgs {
 const neverRetain: UninstallRetentionPolicy = {
   isRequiredByInstalledPack: () => Effect.succeed(false),
 };
-
-const normalizeIdentity = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
 const promoteToDirectSettings = (
   ws: WorkspaceMutationsService,
@@ -99,6 +101,7 @@ export const handleUnpack = (args: UnpackHandlerArgs) =>
 const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const packManager = yield* PackManager;
+  const path = yield* Path.Path;
 
   const graph = yield* ws.getDesiredStateGraph();
   if (!graph.complete) {
@@ -212,11 +215,11 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
   });
   const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
     ...promotions.map((node): JobStepArtifactTarget => ({
-      path: `.axm/settings.json#${node.type}.${node.name}`,
+      path: `${workspaceSettingsPath(ws.scope)}#${node.type}.${node.name}`,
       change: "updated",
     })),
     {
-      path: `.axm/extensions/${normalizeIdentity(packNode.identity)}`,
+      path: workspaceCanonicalNodePath(path, ws, packNode),
       change: "removed",
     } satisfies JobStepArtifactTarget,
   ];

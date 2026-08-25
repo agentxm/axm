@@ -2458,7 +2458,7 @@ export type ExtensionsGetVersion200 = {
   readonly authors?: ReadonlyArray<Author> | null;
   readonly dependencies?: { readonly [x: string]: VersionRange } | null;
   readonly packages?: ReadonlyArray<CompanionPackage> | null;
-  readonly metadata?: {} | null;
+  readonly metadata?: { readonly [x: string]: never } | null;
   readonly yanked_at?: IsoDateTimeString | null;
   readonly yank_category?: Union_;
   readonly yank_notice?: Union_;
@@ -2483,7 +2483,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
   metadata: Schema.optionalKey(
     Schema.Union([
-      Schema.Struct({}).annotate({
+      Schema.Record(Schema.String, Schema.Never).annotate({
         title: "Extension Metadata",
         description:
           "Opaque consumer-defined JSON metadata. The compact UTF-8 JSON representation is limited to 65,536 bytes and container depth 16.",
@@ -3195,6 +3195,8 @@ export const make = (
           Stream.decodeText(),
           Stream.pipeThroughChannel(Sse.decodeSchema(schema)),
         );
+  const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
+    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
   const binaryRequest = (
     request: HttpClientRequest.HttpClientRequest,
   ): Stream.Stream<Uint8Array, HttpClientError.HttpClientError> =>
@@ -3204,8 +3206,10 @@ export const make = (
         Effect.map((response) => response.stream),
         Stream.unwrap,
       );
-  const decodeBinary = (response: HttpClientResponse.HttpClientResponse) =>
-    Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
+  const decodeVoidError =
+    <const Tag extends string>(tag: Tag) =>
+    (response: HttpClientResponse.HttpClientResponse) =>
+      Effect.fail(RegistryClientError(tag, undefined, response));
   const decodeSuccess =
     <Schema extends Schema.Constraint>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
@@ -3216,10 +3220,6 @@ export const make = (
       Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)(response), (cause) =>
         Effect.fail(RegistryClientError(tag, cause, response)),
       );
-  const decodeVoidError =
-    <const Tag extends string>(tag: Tag) =>
-    (response: HttpClientResponse.HttpClientResponse) =>
-      Effect.fail(RegistryClientError(tag, undefined, response));
   return {
     httpClient,
     MetaGet: (options) =>
@@ -3403,7 +3403,7 @@ export const make = (
       HttpClientRequest.get(`/v1/extensions/${owner}/${type}/${name}`).pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ExtensionsGet200),
+            "200": decodeSuccess(ExtensionsGet200),
             "400": decodeError("ExtensionsGet400", ExtensionsGet400),
             "404": decodeError("ExtensionsGet404", ExtensionsGet404),
             "304": () => Effect.void,
@@ -4069,7 +4069,7 @@ export interface RegistryClient {
     name: string,
     options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGet200.Type, Config>,
+    WithOptionalResponse<typeof ExtensionsGet200.Type | void, Config>,
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>

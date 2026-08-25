@@ -14,7 +14,6 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   buildInstallOperation,
   extensionTypeToPlural,
   type ExtensionType,
@@ -208,13 +207,15 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const canonicalDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    parsed.owner,
-    extensionTypeToPlural[parsed.type],
-    parsed.name,
-  );
+  const authoredDir =
+    ws.layout.scope === "project"
+      ? path.join(ws.layout.authoredRoot(parsed.type), parsed.name)
+      : path.join(
+          ws.layout.canonicalRoot,
+          parsed.owner,
+          extensionTypeToPlural[parsed.type],
+          parsed.name,
+        );
   const run = operation.run.pipe(
     Effect.tap(() => restoreDisabledState(parsed.type, parsed.name, entryEnabled(current))),
     Effect.provideService(WorkspaceMutations, ws),
@@ -225,9 +226,7 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
     warnMessage: "Future updates may replace this package from its new source",
     run: Effect.gen(function* () {
       const result = yield* run;
-      if (!source.startsWith("@")) {
-        yield* fs.remove(canonicalDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
-      }
+      yield* fs.remove(authoredDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       return result;
     }),
   } satisfies PlannedJobStep;

@@ -15,14 +15,16 @@ import * as Result from "effect/Result";
 import { resolveInstructionsConfig } from "../agents/instructions.js";
 import { AppError, makeAppError } from "../app-error/index.js";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  parseExtensionFqnParts,
 } from "../extensions/index.js";
+import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 import type { SourceHash } from "../extensions/rendered-files.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
@@ -44,7 +46,10 @@ import type { ExtensionManager, ExtensionTarget } from "../workspace/service-int
 import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
@@ -101,6 +106,7 @@ export interface KnowledgeSyncResult {
 interface PreparedKnowledgePackage {
   readonly root: string;
   readonly sourceHash: SourceHash;
+  readonly treeIntegrity?: TreeIntegrity;
   readonly commit: Effect.Effect<void, ReturnType<typeof makeAppError>>;
   readonly rollback: Effect.Effect<void, ReturnType<typeof makeAppError>>;
 }
@@ -111,7 +117,10 @@ export class KnowledgeManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/knowledge/manager/KnowledgeManager") {}
 
 const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
-const registryLockEntry = (ref: RegistryKnowledgeRef): KnowledgeLockEntry => ({
+const registryLockEntry = (
+  ref: RegistryKnowledgeRef,
+  treeIntegrity: TreeIntegrity,
+): KnowledgeLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -119,23 +128,37 @@ const registryLockEntry = (ref: RegistryKnowledgeRef): KnowledgeLockEntry => ({
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
 });
 
 const gitLockEntry = (
   ref: GitHostedKnowledgeRef,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
 ): KnowledgeLockEntry => ({
-  ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
+  ...gitSourceLockFields(
+    ref.source,
+    ref.gitCommitSha,
+    ref.gitTreeSha,
+    contentIdentity,
+    ref.owner,
+    ref.name,
+    treeIntegrity,
+  ),
 });
 
 const localLockEntry = (
   ref: LocalKnowledgeRef,
   relativePath: Option.Option<string>,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
 ): KnowledgeLockEntry => ({
   type: "local",
+  packageOwner: ref.owner,
+  packageName: ref.name,
   path: Option.getOrElse(relativePath, () => ref.source.path),
   contentIdentity,
+  treeIntegrity,
 });
 
 export const KnowledgeManagerLive = Layer.effect(
@@ -160,13 +183,13 @@ export const KnowledgeManagerLive = Layer.effect(
       {
         readonly relativeLocalSource: Option.Option<string>;
         readonly sourceHash: SourceHash;
+        readonly treeIntegrity?: TreeIntegrity;
       }
     >();
 
     const canonicalPathForRef = (ref: KnowledgeExtensionRef): string =>
-      ref.refType === "registry" || ref.refType === "workspace"
-        ? path.join(baseDir, REGISTRY_EXTENSIONS_DIR, ref.owner, KNOWLEDGE_EXTENSION_DIR, ref.name)
-        : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, ref.knowledge.name);
+      computeExtensionPathsForLayout(path.join, ws.layout, ref, KNOWLEDGE_EXTENSION_DIR, ref.name)
+        .canonicalPath;
 
     const materializePackage = (
       ref: KnowledgeExtensionRef,
@@ -301,10 +324,8 @@ export const KnowledgeManagerLive = Layer.effect(
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
         if (ref.refType === "registry") {
-          const lockedVersion = acceptedRegistryVersionForRef(
-            yield* ws.getLockedKnowledgeEntry(ref.knowledge.name),
-            ref,
-          );
+          const lockedEntry = yield* ws.getLockedKnowledgeEntry(ref.knowledge.name);
+          const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
           const reuse = yield* provide(
             canReuseInstalledPackage({
               installedPath: canonicalPath,
@@ -315,13 +336,21 @@ export const KnowledgeManagerLive = Layer.effect(
               existsFailureDetail: (target) => `Failed to inspect knowledge path: ${target}`,
             }),
           );
-          if (reuse) {
-            return {
-              root: canonicalPath,
-              sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
-              commit: Effect.void,
-              rollback: Effect.void,
-            };
+          if (reuse && Option.isSome(lockedEntry)) {
+            const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+            if (observedTree !== lockedEntry.value.treeIntegrity) {
+              yield* Effect.logWarning(
+                `Knowledge package ${ref.knowledge.name} differs from its accepted tree; rematerializing`,
+              );
+            } else {
+              return {
+                root: canonicalPath,
+                sourceHash: yield* provide(computePackageContentHash(canonicalPath)),
+                treeIntegrity: lockedEntry.value.treeIntegrity,
+                commit: Effect.void,
+                rollback: Effect.void,
+              };
+            }
           }
         }
         const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-knowledge-package-" });
@@ -376,6 +405,7 @@ export const KnowledgeManagerLive = Layer.effect(
         });
         yield* inspectPackage(stagedRoot);
         const sourceHash = yield* provide(computePackageContentHash(stagedRoot));
+        const treeIntegrity = yield* provide(computeMaterializedTreeIntegrity(stagedRoot));
         yield* protectWorkspacePath(canonicalPath);
         const hadCanonical = yield* fs.exists(canonicalPath);
         yield* Effect.uninterruptible(
@@ -407,6 +437,7 @@ export const KnowledgeManagerLive = Layer.effect(
         return {
           root: canonicalPath,
           sourceHash,
+          treeIntegrity,
           commit: Ref.set(stageState, { phase: "settled" }),
           rollback: restoreStagedPackage,
         };
@@ -444,36 +475,33 @@ export const KnowledgeManagerLive = Layer.effect(
     const canonicalRoot = (name: string, locked: KnowledgeLockEntry): string =>
       locked.type === "registry"
         ? path.join(
-            baseDir,
-            REGISTRY_EXTENSIONS_DIR,
+            ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
             locked.owner,
             KNOWLEDGE_EXTENSION_DIR,
             locked.name,
           )
-        : path.join(baseDir, EXTERNAL_EXTENSIONS_DIR, KNOWLEDGE_EXTENSION_DIR, name);
+        : path.join(
+            ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
+            ws.layout.scope === "project" ? locked.packageOwner : "external",
+            KNOWLEDGE_EXTENSION_DIR,
+            ws.layout.scope === "project" ? locked.packageName : name,
+          );
 
     const desiredCanonicalRoot = (
       node: { readonly name: string; readonly identity: string },
       locked: KnowledgeLockEntry | undefined,
     ) => {
       if (node.identity.startsWith("workspace:")) {
-        const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
-        return identity !== undefined && identity.type === "knowledge"
-          ? Effect.succeed(
-              path.join(
-                baseDir,
-                REGISTRY_EXTENSIONS_DIR,
-                identity.owner,
+        return Effect.succeed(
+          ws.layout.scope === "project"
+            ? path.join(ws.layout.authoredRoot("knowledge"), node.name)
+            : path.join(
+                ws.layout.canonicalRoot,
+                ws.layout.owner ?? "",
                 KNOWLEDGE_EXTENSION_DIR,
-                identity.name,
+                node.name,
               ),
-            )
-          : Effect.fail(
-              makeAppError({
-                code: "validation",
-                detail: `Invalid workspace Knowledge identity: ${node.identity}`,
-              }),
-            );
+        );
       }
       return locked === undefined
         ? Effect.fail(
@@ -656,21 +684,33 @@ export const KnowledgeManagerLive = Layer.effect(
         const state = lastInstallState.get(ref.knowledge.name);
         switch (ref.refType) {
           case "registry":
-            return Option.some(registryLockEntry(ref));
+            return state?.treeIntegrity === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Knowledge ${ref.knowledge.name} has no materialized tree integrity`,
+                })
+              : Option.some(registryLockEntry(ref, state.treeIntegrity));
           case "git-hosted":
-            return state === undefined
+            return state?.treeIntegrity === undefined
               ? yield* makeAppError({
                   code: "internal",
                   detail: `Knowledge ${ref.knowledge.name} has no materialized content identity`,
                 })
-              : Option.some(gitLockEntry(ref, state.sourceHash));
+              : Option.some(gitLockEntry(ref, state.sourceHash, state.treeIntegrity));
           case "local":
-            return state === undefined
+            return state?.treeIntegrity === undefined
               ? yield* makeAppError({
                   code: "internal",
                   detail: `Knowledge ${ref.knowledge.name} has no materialized content identity`,
                 })
-              : Option.some(localLockEntry(ref, state.relativeLocalSource, state.sourceHash));
+              : Option.some(
+                  localLockEntry(
+                    ref,
+                    state.relativeLocalSource,
+                    state.sourceHash,
+                    state.treeIntegrity,
+                  ),
+                );
           case "workspace":
             return Option.none();
         }
@@ -813,7 +853,16 @@ export const KnowledgeManagerLive = Layer.effect(
               lastInstallState.set(name, {
                 relativeLocalSource,
                 sourceHash: prepared.sourceHash,
+                ...(prepared.treeIntegrity === undefined
+                  ? {}
+                  : { treeIntegrity: prepared.treeIntegrity }),
               });
+              if (args.ref.refType !== "workspace" && prepared.treeIntegrity === undefined) {
+                return yield* makeAppError({
+                  code: "internal",
+                  detail: `Knowledge ${name} has no staged tree integrity`,
+                });
+              }
               const lockEntry = yield* buildLockEntry(args.ref);
               if (Option.isSome(lockEntry)) {
                 yield* ws.setKnowledge({
@@ -868,9 +917,7 @@ export const KnowledgeManagerLive = Layer.effect(
             name: target.name,
           }),
         );
-        const root = Option.flatMap(canonical, (state) =>
-          Option.fromUndefinedOr(state.observation.path),
-        );
+        const root = removableAcceptedCanonicalPath(canonical);
         const locked = yield* ws.getLockedKnowledgeEntry(target.name);
         const ownedRoot = Option.orElse(root, () =>
           Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
@@ -935,6 +982,9 @@ export const KnowledgeManagerLive = Layer.effect(
           lastInstallState.set(ref.knowledge.name, {
             relativeLocalSource,
             sourceHash: prepared.sourceHash,
+            ...(prepared.treeIntegrity === undefined
+              ? {}
+              : { treeIntegrity: prepared.treeIntegrity }),
           });
         },
         Effect.asVoid,
@@ -972,7 +1022,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   lockEntry: lockEntry.value,
                   versionRange,
                 })
-              : setKnowledgeSourceEntry(ref.knowledge.name, printSourceParams(ref.source)),
+              : setKnowledgeSourceEntry(ref.knowledge.name, "workspace"),
           ),
         ),
       removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),

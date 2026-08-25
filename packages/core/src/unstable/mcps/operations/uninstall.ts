@@ -276,7 +276,7 @@ export const uninstallMcpServer: (
         scope: ws.scope,
         change: "removed",
         targets: [
-          mcpSettingsTarget("removed"),
+          mcpSettingsTarget(ws.scope, "removed"),
           ...(agentTarget === undefined ? [] : [agentTarget]),
         ],
       }),

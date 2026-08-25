@@ -21,6 +21,7 @@ import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
   SourceHashSchema,
+  TreeIntegritySchema,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
@@ -42,7 +43,10 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/client-core/unstable/version-constraints";
-import { decodeRelativePathSync } from "@agentxm/client-core/unstable/utils";
+import {
+  decodeAbsolutePathSync,
+  decodeRelativePathSync,
+} from "@agentxm/client-core/unstable/utils";
 
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
@@ -205,6 +209,16 @@ export const makeBaseWorkspaceMock = (
     scope: "project",
     path: axmDir,
     baseDir,
+    layout: {
+      scope: "project",
+      projectRoot: decodeAbsolutePathSync(baseDir),
+      settingsPath: decodeAbsolutePathSync(path.join(baseDir, "axm.json")),
+      lockPath: decodeAbsolutePathSync(path.join(baseDir, "axm-lock.yaml")),
+      runtimeDir: decodeAbsolutePathSync(path.join(baseDir, ".axm")),
+      acquiredRoot: decodeAbsolutePathSync(path.join(baseDir, "agent_extensions")),
+      authoredRoot: (type: InstallableExtensionType) =>
+        decodeAbsolutePathSync(path.join(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
+    },
     records,
     runTransaction: runWorkspaceTransactionStub,
     acquireTransition: acquireTransitionStub,
@@ -306,10 +320,17 @@ export const makeBaseWorkspaceMock = (
     removePackLock: () => Effect.void,
     isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
   } satisfies WorkspaceMutationsService;
-  return { ...base, ...serviceOverrides };
+  return {
+    ...base,
+    ...serviceOverrides,
+    layout: serviceOverrides.layout ?? base.layout,
+  };
 };
 
 const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
+const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
   ExtensionDependencyConstraintMapSchema,
 );
@@ -322,8 +343,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * Accept the concise pre-v4 fixture shapes still useful to command tests, but
- * publish only valid v4 accepted resolutions to the workspace under test.
+ * Accept concise fixture shapes useful to command tests, but publish only
+ * valid v5 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -346,6 +367,7 @@ const normalizeTestLockMap = (
               integrity: value["integrity"],
               sourceName: value["sourceName"],
               publisherBindingId: value["publisherBindingId"],
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
               ...(feature === "pack"
                 ? {
                     manifestContentIdentity:
@@ -364,9 +386,12 @@ const normalizeTestLockMap = (
             name,
             {
               type,
+              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+              packageName: value["packageName"] ?? name,
               path: value["path"],
               contentIdentity:
                 value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
         ];
@@ -384,6 +409,8 @@ const normalizeTestLockMap = (
             name,
             {
               type,
+              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+              packageName: value["packageName"] ?? name,
               ...(type === "azurerepos"
                 ? {
                     organization: value["organization"],
@@ -399,6 +426,7 @@ const normalizeTestLockMap = (
               resolvedTree: value["resolvedTree"] ?? immutableRevision,
               contentIdentity:
                 value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
         ];
@@ -420,6 +448,7 @@ export const dependencyConstraintMap = (
 ): ExtensionDependencyConstraintMap => decodeExtensionDependencyConstraintMapSync(entries);
 
 export interface WriteWorkspaceFilesOptions {
+  readonly scope?: "project" | "user" | undefined;
   readonly agents?: ReadonlyArray<string> | undefined;
   readonly owner?: string | undefined;
   readonly skills?: Record<string, unknown> | undefined;
@@ -442,7 +471,9 @@ export interface WriteWorkspaceFilesOptions {
   readonly writeTrustFromLockfile?: boolean | undefined;
 }
 
-export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+  const scope = opts.scope ?? "project";
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
   const registrySourceNames = new Set(
     [
       opts.lockfileSkills,
@@ -471,7 +502,11 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
       : undefined);
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
-    ...(opts.owner && { owner: opts.owner }),
+    ...(Object.hasOwn(opts, "owner")
+      ? opts.owner === undefined
+        ? {}
+        : { owner: opts.owner }
+      : { owner: "@acme" }),
     ...(hasEntries(opts.skills) && { skills: opts.skills }),
     ...(hasEntries(opts.rules) && { rules: opts.rules }),
     ...(hasEntries(opts.hooks) && { hooks: opts.hooks }),
@@ -487,7 +522,7 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
+    lockfileVersion: 5,
     skills: normalizeTestLockMap(opts.lockfileSkills),
     ...(hasEntries(opts.lockfileRules) && { rules: normalizeTestLockMap(opts.lockfileRules) }),
     ...(hasEntries(opts.lockfileHooks) && { hooks: normalizeTestLockMap(opts.lockfileHooks) }),
@@ -505,9 +540,17 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     }),
   };
 
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  const settingsPath =
+    scope === "user" ? path.join(runtimeDir, "settings.json") : path.join(projectRoot, "axm.json");
+  const lockPath =
+    scope === "user"
+      ? path.join(runtimeDir, "axm-lock.yaml")
+      : path.join(projectRoot, "axm-lock.yaml");
+  fs.mkdirSync(scope === "user" ? runtimeDir : path.join(projectRoot, ".axm"), {
+    recursive: true,
+  });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings));
+  fs.writeFileSync(lockPath, YAML.stringify(lockfile));
 };
 
 export const computePackageContentHashSync = (packageDir: string): string => {
@@ -539,12 +582,47 @@ export const computePackageContentHashSync = (packageDir: string): string => {
   return computeSourceHash(hash.digest("hex"));
 };
 
+/** Compute the strict v5 lock identity for a materialized test package tree. */
+export const computeMaterializedTreeIntegritySync = (root: string): string => {
+  const files: Array<{ readonly relativePath: string; readonly absolutePath: string }> = [];
+  const walk = (directory: string, relativeDirectory: string): void => {
+    const entries = fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name, "en"));
+    for (const entry of entries) {
+      const relativePath =
+        relativeDirectory.length === 0 ? entry.name : `${relativeDirectory}/${entry.name}`;
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new Error(`Unexpected symlink: ${relativePath}`);
+      if (entry.isDirectory()) walk(absolutePath, relativePath);
+      else if (entry.isFile()) files.push({ relativePath, absolutePath });
+      else throw new Error(`Unexpected filesystem entry: ${relativePath}`);
+    }
+  };
+  walk(root, "");
+  const hash = crypto.createHash("sha256");
+  const frame = (bytes: Uint8Array): void => {
+    const length = Buffer.alloc(8);
+    length.writeBigUInt64BE(BigInt(bytes.byteLength));
+    hash.update(length);
+    hash.update(bytes);
+  };
+  frame(Buffer.from("agentxm-materialized-tree"));
+  frame(Buffer.from("1"));
+  for (const file of files) {
+    frame(Buffer.from(file.relativePath, "utf8"));
+    frame(fs.readFileSync(file.absolutePath));
+  }
+  return Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${hash.digest("hex")}`);
+};
+
 /**
- * Write a workspace-sourced OKF knowledge package under `<axmDir>/extensions`,
- * resolvable as `workspace:@acme/knowledge/<name>`.
+ * Write a project-authored OKF knowledge package under the default
+ * `<projectRoot>/knowledge` authoring root, resolvable from source `workspace`.
  */
-export const writeKnowledgeExtension = (axmDir: string, name: string): void => {
-  const root = path.join(axmDir, "extensions", "@acme", "knowledge", name);
+export const writeKnowledgeExtension = (runtimeDir: string, name: string): void => {
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  const root = path.join(projectRoot, "knowledge", name);
   fs.mkdirSync(path.join(root, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "knowledge.json"),
@@ -563,21 +641,27 @@ export const writeKnowledgeExtension = (axmDir: string, name: string): void => {
   );
 };
 
-export const ensureWorkspaceFiles = (axmDir: string): void => {
-  if (!fs.existsSync(path.join(axmDir, "settings.json"))) {
-    writeWorkspaceFiles(axmDir);
+export const ensureWorkspaceFiles = (runtimeDir: string): void => {
+  const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
+  if (!fs.existsSync(path.join(projectRoot, "axm.json"))) {
+    writeWorkspaceFiles(runtimeDir);
   }
 };
 
 export const makeLocalSkillLockEntry = (opts?: {
+  readonly owner?: Handle;
+  readonly name?: ExtensionName;
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   type: "local",
+  packageOwner: normalizeHandle(opts?.owner ?? "@acme"),
+  packageName: extensionName(opts?.name ?? "test"),
   path: decodeRelativePathSync(opts?.path ?? "installed"),
   contentIdentity: TEST_CONTENT_IDENTITY,
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistrySkillLockEntry = (opts: {
@@ -598,6 +682,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   integrity: opts.integrity ?? "sha512-AAAA==",
   sourceName: opts.sourceName ?? "default",
   publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 export const makeRegistryPackLockEntry = (opts: {
@@ -621,6 +706,7 @@ export const makeRegistryPackLockEntry = (opts: {
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "default",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    treeIntegrity: TEST_TREE_INTEGRITY,
     manifestContentIdentity:
       opts.sourceHash === undefined
         ? TEST_CONTENT_IDENTITY

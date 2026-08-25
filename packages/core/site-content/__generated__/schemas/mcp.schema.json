@@ -2,7 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/McpServerManifest",
   "definitions": {
-    "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
     "ExtensionVisibility": {
       "type": "string",
       "enum": ["public", "private"],
@@ -19,14 +18,10 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
-                  "examples": [[], ["evals/*"]]
-                }
-              ],
-              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "uniqueItems": true,
+              "description": "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
+              "examples": [[], ["evals/*"]],
+              "items": { "type": "string", "minLength": 1 }
             },
             { "type": "null" }
           ]
@@ -38,25 +33,17 @@
     },
     "Handle": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-          "title": "Handle",
-          "description": "A unique username or organization name starting with @, like @my-org.",
-          "examples": ["@my-org", "@username"]
-        }
-      ]
+      "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+      "title": "Handle",
+      "description": "A unique username or organization name starting with @, like @my-org.",
+      "examples": ["@my-org", "@username"]
     },
     "Version": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-          "title": "Version",
-          "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-          "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-        }
-      ]
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "title": "Version",
+      "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+      "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
     },
     "Repository": {
       "anyOf": [
@@ -72,13 +59,9 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "allOf": [
-                    {
-                      "minLength": 1,
-                      "description": "Version control system (e.g., `git`).",
-                      "examples": ["git"]
-                    }
-                  ]
+                  "minLength": 1,
+                  "description": "Version control system (e.g., `git`).",
+                  "examples": ["git"]
                 },
                 { "type": "null" }
               ]
@@ -98,13 +81,9 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "allOf": [
-                    {
-                      "minLength": 1,
-                      "description": "Subdirectory within the repository, for monorepo publishers.",
-                      "examples": ["packages/code-review"]
-                    }
-                  ]
+                  "minLength": 1,
+                  "description": "Subdirectory within the repository, for monorepo publishers.",
+                  "examples": ["packages/code-review"]
                 },
                 { "type": "null" }
               ]
@@ -170,8 +149,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "$ref": "#/definitions/Union_" },
-        "url": { "$ref": "#/definitions/Union_" }
+        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
       },
       "required": ["name"],
       "additionalProperties": false,
@@ -180,24 +159,16 @@
     },
     "PackageIdentityPurl": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
-          "title": "Package Identity Purl",
-          "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
-          "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+      "title": "Package Identity Purl",
+      "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+      "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
     },
     "VersRangeEncoded": {
       "type": "string",
-      "allOf": [
-        {
-          "minLength": 1,
-          "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
-        }
-      ]
+      "minLength": 1,
+      "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
     },
     "CompanionPackage": {
       "type": "object",
@@ -214,27 +185,19 @@
     },
     "PackSpec": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
-          "title": "Pack Spec",
-          "description": "Pack reference with an optional version constraint suffix.",
-          "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
+      "title": "Pack Spec",
+      "description": "Pack reference with an optional version constraint suffix.",
+      "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
     },
     "ExtensionName": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-          "title": "Extension Name",
-          "description": "Short name for this MCP server within its owner namespace. Combined with owner, forms the FQN @owner/mcps/<name>.",
-          "examples": ["my-skill", "code-review", "prettier"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      "title": "Extension Name",
+      "description": "Short name for this MCP server within its owner namespace. Combined with owner, forms the FQN @owner/mcps/<name>.",
+      "examples": ["my-skill", "code-review", "prettier"]
     },
     "McpRegistryStdioTransport": {
       "type": "object",
@@ -243,29 +206,25 @@
       "additionalProperties": false,
       "title": "MCP Registry Stdio Transport"
     },
-    "Union_1": {
-      "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
-    },
-    "Union_2": {
-      "anyOf": [
-        { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
-        { "type": "null" }
-      ]
-    },
-    "Union_3": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
-    "Union_4": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
     "McpRegistryKeyValueInput": {
       "type": "object",
       "properties": {
-        "choices": { "$ref": "#/definitions/Union_1" },
-        "default": { "$ref": "#/definitions/Union_" },
-        "description": { "$ref": "#/definitions/Union_" },
-        "format": { "$ref": "#/definitions/Union_2" },
-        "isRequired": { "$ref": "#/definitions/Union_3" },
-        "isSecret": { "$ref": "#/definitions/Union_3" },
-        "placeholder": { "$ref": "#/definitions/Union_" },
-        "value": { "$ref": "#/definitions/Union_" },
-        "variables": { "$ref": "#/definitions/Union_4" },
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
         "name": { "type": "string" }
       },
       "required": ["name"],
@@ -277,10 +236,7 @@
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["streamable-http"] },
-        "url": {
-          "type": "string",
-          "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
-        },
+        "url": { "type": "string", "minLength": 1, "pattern": "^https?:\\/\\/[^\\s]+$" },
         "headers": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
@@ -296,10 +252,7 @@
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["sse"] },
-        "url": {
-          "type": "string",
-          "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
-        },
+        "url": { "type": "string", "minLength": 1, "pattern": "^https?:\\/\\/[^\\s]+$" },
         "headers": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
@@ -324,17 +277,24 @@
         {
           "type": "object",
           "properties": {
-            "choices": { "$ref": "#/definitions/Union_1" },
-            "default": { "$ref": "#/definitions/Union_" },
-            "description": { "$ref": "#/definitions/Union_" },
-            "format": { "$ref": "#/definitions/Union_2" },
-            "isRequired": { "$ref": "#/definitions/Union_3" },
-            "isSecret": { "$ref": "#/definitions/Union_3" },
-            "placeholder": { "$ref": "#/definitions/Union_" },
-            "value": { "$ref": "#/definitions/Union_" },
-            "variables": { "$ref": "#/definitions/Union_4" },
+            "choices": {
+              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+            },
+            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "format": {
+              "anyOf": [
+                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+                { "type": "null" }
+              ]
+            },
+            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
             "type": { "type": "string", "enum": ["positional"] },
-            "isRepeated": { "$ref": "#/definitions/Union_3" },
+            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
             "valueHint": { "type": "string" }
           },
           "required": ["type", "valueHint"],
@@ -343,17 +303,24 @@
         {
           "type": "object",
           "properties": {
-            "choices": { "$ref": "#/definitions/Union_1" },
-            "default": { "$ref": "#/definitions/Union_" },
-            "description": { "$ref": "#/definitions/Union_" },
-            "format": { "$ref": "#/definitions/Union_2" },
-            "isRequired": { "$ref": "#/definitions/Union_3" },
-            "isSecret": { "$ref": "#/definitions/Union_3" },
-            "placeholder": { "$ref": "#/definitions/Union_" },
+            "choices": {
+              "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+            },
+            "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "format": {
+              "anyOf": [
+                { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+                { "type": "null" }
+              ]
+            },
+            "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+            "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "value": { "type": "string" },
-            "variables": { "$ref": "#/definitions/Union_4" },
+            "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
             "type": { "type": "string", "enum": ["positional"] },
-            "isRepeated": { "$ref": "#/definitions/Union_3" }
+            "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
           },
           "required": ["value", "type"],
           "additionalProperties": false
@@ -365,18 +332,25 @@
     "McpRegistryNamedArgument": {
       "type": "object",
       "properties": {
-        "choices": { "$ref": "#/definitions/Union_1" },
-        "default": { "$ref": "#/definitions/Union_" },
-        "description": { "$ref": "#/definitions/Union_" },
-        "format": { "$ref": "#/definitions/Union_2" },
-        "isRequired": { "$ref": "#/definitions/Union_3" },
-        "isSecret": { "$ref": "#/definitions/Union_3" },
-        "placeholder": { "$ref": "#/definitions/Union_" },
-        "value": { "$ref": "#/definitions/Union_" },
-        "variables": { "$ref": "#/definitions/Union_4" },
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
         "type": { "type": "string", "enum": ["named"] },
         "name": { "type": "string" },
-        "isRepeated": { "$ref": "#/definitions/Union_3" }
+        "isRepeated": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] }
       },
       "required": ["type", "name"],
       "additionalProperties": false,
@@ -397,11 +371,9 @@
         "registryType": { "type": "string" },
         "identifier": { "type": "string" },
         "transport": { "$ref": "#/definitions/McpRegistryLocalTransport" },
-        "version": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-        },
-        "registryBaseUrl": { "$ref": "#/definitions/Union_" },
-        "runtimeHint": { "$ref": "#/definitions/Union_" },
+        "version": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+        "registryBaseUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "runtimeHint": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "runtimeArguments": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/McpRegistryArgument" } },
@@ -421,10 +393,7 @@
           ]
         },
         "fileSha256": {
-          "anyOf": [
-            { "type": "string", "allOf": [{ "pattern": "^[a-f0-9]{64}$" }] },
-            { "type": "null" }
-          ]
+          "anyOf": [{ "type": "string", "pattern": "^[a-f0-9]{64}$" }, { "type": "null" }]
         }
       },
       "required": ["registryType", "identifier", "transport"],
@@ -435,15 +404,22 @@
     "McpRegistryInput": {
       "type": "object",
       "properties": {
-        "choices": { "$ref": "#/definitions/Union_1" },
-        "default": { "$ref": "#/definitions/Union_" },
-        "description": { "$ref": "#/definitions/Union_" },
-        "format": { "$ref": "#/definitions/Union_2" },
-        "isRequired": { "$ref": "#/definitions/Union_3" },
-        "isSecret": { "$ref": "#/definitions/Union_3" },
-        "placeholder": { "$ref": "#/definitions/Union_" },
-        "value": { "$ref": "#/definitions/Union_" },
-        "variables": { "$ref": "#/definitions/Union_4" }
+        "choices": {
+          "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }]
+        },
+        "default": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "format": {
+          "anyOf": [
+            { "type": "string", "enum": ["string", "number", "boolean", "filepath"] },
+            { "type": "null" }
+          ]
+        },
+        "isRequired": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "isSecret": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "placeholder": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "value": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "variables": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
       },
       "additionalProperties": false,
       "title": "MCP Registry Input",
@@ -455,10 +431,7 @@
           "type": "object",
           "properties": {
             "type": { "type": "string", "enum": ["streamable-http"] },
-            "url": {
-              "type": "string",
-              "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
-            },
+            "url": { "type": "string", "minLength": 1, "pattern": "^https?:\\/\\/[^\\s]+$" },
             "headers": {
               "anyOf": [
                 { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
@@ -482,10 +455,7 @@
           "type": "object",
           "properties": {
             "type": { "type": "string", "enum": ["sse"] },
-            "url": {
-              "type": "string",
-              "allOf": [{ "minLength": 1 }, { "pattern": "^https?:\\/\\/[^\\s]+$" }]
-            },
+            "url": { "type": "string", "minLength": 1, "pattern": "^https?:\\/\\/[^\\s]+$" },
             "headers": {
               "anyOf": [
                 { "type": "array", "items": { "$ref": "#/definitions/McpRegistryKeyValueInput" } },
@@ -513,8 +483,8 @@
       "properties": {
         "url": { "type": "string" },
         "source": { "type": "string" },
-        "id": { "$ref": "#/definitions/Union_" },
-        "subfolder": { "$ref": "#/definitions/Union_" }
+        "id": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "subfolder": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
       },
       "required": ["url", "source"],
       "additionalProperties": false,
@@ -524,7 +494,7 @@
     "McpRegistryIcon": {
       "type": "object",
       "properties": {
-        "src": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "src": { "type": "string", "minLength": 1 },
         "mimeType": {
           "anyOf": [
             {
@@ -536,10 +506,7 @@
         },
         "sizes": {
           "anyOf": [
-            {
-              "type": "array",
-              "items": { "type": "string", "allOf": [{ "pattern": "^(\\d+x\\d+|any)$" }] }
-            },
+            { "type": "array", "items": { "type": "string", "pattern": "^(\\d+x\\d+|any)$" } },
             { "type": "null" }
           ]
         },
@@ -553,16 +520,15 @@
     "McpRegistryServerDetail": {
       "type": "object",
       "properties": {
-        "$schema": { "$ref": "#/definitions/Union_" },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "name": {
           "type": "string",
-          "allOf": [{ "minLength": 1 }, { "pattern": "^[a-zA-Z0-9.-]+\\/[a-zA-Z0-9._-]+$" }]
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9.-]+\\/[a-zA-Z0-9._-]+$"
         },
-        "description": { "type": "string", "allOf": [{ "minLength": 1 }] },
+        "description": { "type": "string", "minLength": 1 },
         "version": { "type": "string" },
-        "title": {
-          "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-        },
+        "title": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
         "packages": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/definitions/McpRegistryPackage" } },
@@ -584,7 +550,7 @@
             { "type": "null" }
           ]
         },
-        "websiteUrl": { "$ref": "#/definitions/Union_" },
+        "websiteUrl": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "_meta": { "anyOf": [{ "type": "object" }, { "type": "null" }] }
       },
       "required": ["name", "description", "version"],
@@ -595,7 +561,7 @@
     "McpServerManifest": {
       "type": "object",
       "properties": {
-        "$schema": { "$ref": "#/definitions/Union_" },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "metadata": {
           "anyOf": [
@@ -623,7 +589,7 @@
             {
               "type": "array",
               "examples": [["lint", "typescript", "review"]],
-              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "items": { "type": "string", "minLength": 1 }
             },
             { "type": "null" }
           ]
@@ -668,20 +634,12 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Soft capability enhancements used by the source. These never block installation."
-                }
-              ],
+              "uniqueItems": true,
+              "description": "Soft capability enhancements used by the source. These never block installation.",
               "items": {
                 "type": "string",
-                "allOf": [
-                  { "minLength": 1 },
-                  {
-                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
-                  }
-                ]
+                "minLength": 1,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
               }
             },
             { "type": "null" }
@@ -691,20 +649,12 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Hard capabilities without which the extension cannot operate."
-                }
-              ],
+              "uniqueItems": true,
+              "description": "Hard capabilities without which the extension cannot operate.",
               "items": {
                 "type": "string",
-                "allOf": [
-                  { "minLength": 1 },
-                  {
-                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
-                  }
-                ]
+                "minLength": 1,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
               }
             },
             { "type": "null" }

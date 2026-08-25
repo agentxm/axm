@@ -40,6 +40,7 @@ export default [
       "**/out-tsc/**",
       "**/build/**",
       "**/node_modules/**",
+      "agent_extensions/**",
       ".axm/cache/**",
       ".claude/worktrees/**",
       "**/.wrangler-artifacts/**",

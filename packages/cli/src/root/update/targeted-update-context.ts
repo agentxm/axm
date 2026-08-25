@@ -102,7 +102,7 @@ const configuredPackFqn = (
   entry: ConfiguredRecordRow,
   configuredOwner?: string,
 ): string | undefined => {
-  if (entry.source === "registry") {
+  if (entry.source === "registry" || isWorkspaceSourceLocator(entry.source)) {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
   const source = normalizedIdentity(entry.source);

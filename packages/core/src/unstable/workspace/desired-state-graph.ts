@@ -13,10 +13,16 @@ import {
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
-import { computePackPaths } from "../packs/paths.js";
+import { computePackPathsForLayout } from "../packs/paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "../sources/index.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
+import {
+  ACQUIRED_DIRECTORY,
+  configuredAuthoredDirectory,
+  PROJECT_SETTINGS_FILENAME,
+  type WorkspaceLayout,
+} from "./layout.js";
 
 export type DesiredExtensionOrigin =
   | {
@@ -28,6 +34,7 @@ export type DesiredExtensionOrigin =
   | {
       readonly type: "pack";
       readonly pack: string;
+      readonly manifestPath: string;
       readonly source: string;
       readonly constraint: string;
       readonly enabled: boolean;
@@ -51,6 +58,11 @@ export interface DesiredConstraintContributor {
 }
 
 export type DesiredStateProblem =
+  | {
+      readonly type: "workspace-owner-missing";
+      readonly extensionType: ExtensionType;
+      readonly name: string;
+    }
   | {
       readonly type: "pack-manifest-unavailable";
       readonly pack: string;
@@ -105,6 +117,7 @@ export interface DesiredStateGraph {
 interface DesiredStateGraphArgs {
   readonly baseDir: string;
   readonly settings: Settings;
+  readonly layout?: WorkspaceLayout;
 }
 
 interface Candidate {
@@ -133,15 +146,12 @@ const sourceIdentity = (
   type: ExtensionType,
   name: string,
   source: string,
+  settings: Settings,
 ): { readonly identity: string; readonly constraint?: string } => {
   if (isWorkspaceSourceLocator(source)) {
-    const parsed = parseExtensionFqnParts(source.slice("workspace:".length));
-    if (parsed !== undefined && parsed.type === type && parsed.name === name) {
-      return {
-        identity: `workspace:${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`,
-      };
-    }
-    return { identity: source };
+    return settings.owner === undefined
+      ? { identity: source }
+      : { identity: `workspace:${settings.owner}/${toExtensionTypePlural(type)}/${name}` };
   }
 
   const parsed = parseRegistrySourceRef(source);
@@ -161,12 +171,11 @@ const packIdentity = (
   settings: Settings,
 ): PackIdentity | undefined => {
   if (isWorkspaceSourceLocator(source)) {
-    const parsed = parseExtensionFqnParts(source.slice("workspace:".length));
-    if (parsed === undefined || parsed.type !== "pack") return undefined;
+    if (settings.owner === undefined) return undefined;
     return {
-      owner: parsed.owner,
-      name: parsed.name,
-      fqn: `${parsed.owner}/packs/${parsed.name}`,
+      owner: settings.owner,
+      name: settingsName,
+      fqn: `${settings.owner}/packs/${settingsName}`,
     };
   }
 
@@ -211,7 +220,7 @@ const intersectConstraints = (constraints: ReadonlyArray<string>): string | unde
 };
 
 export const collectDesiredConstraintContributors = (
-  path: Path.Path,
+  _path: Path.Path,
   origins: ReadonlyArray<DesiredExtensionOrigin>,
 ): ReadonlyArray<DesiredConstraintContributor> =>
   origins
@@ -222,28 +231,16 @@ export const collectDesiredConstraintContributors = (
           {
             source: "settings",
             range: origin.constraint,
-            location: path.join(".axm", "settings.json"),
+            location: PROJECT_SETTINGS_FILENAME,
           },
         ];
       }
-      const parsed = parseExtensionFqnParts(origin.pack.replace(/^workspace:/, ""));
-      const location =
-        parsed === undefined || parsed.type !== "pack"
-          ? path.join(".axm", "extensions")
-          : path.join(
-              ".axm",
-              "extensions",
-              parsed.owner,
-              "packs",
-              parsed.name,
-              PACK_MANIFEST_FILENAME,
-            );
       return [
         {
           source: "pack",
           dependingPack: origin.pack.replace(/^workspace:/, ""),
           range: origin.constraint,
-          location,
+          location: origin.manifestPath,
         },
       ];
     })
@@ -268,6 +265,7 @@ const parsePackManifest = (raw: string) => {
 export const buildDesiredStateGraph = ({
   baseDir,
   settings,
+  layout,
 }: DesiredStateGraphArgs): Effect.Effect<
   DesiredStateGraph,
   never,
@@ -282,11 +280,26 @@ export const buildDesiredStateGraph = ({
     const addSettingsEntries = (
       type: Exclude<ExtensionType, "pack">,
       entries:
-        | Readonly<Record<string, { readonly source: string; readonly enabled: boolean }>>
+        | Readonly<
+            Record<
+              string,
+              {
+                readonly source: string;
+                readonly enabled: boolean;
+                readonly origin?: "bundled";
+              }
+            >
+          >
         | undefined,
     ) => {
       for (const [name, entry] of Object.entries(entries ?? {})) {
-        const identity = sourceIdentity(type, name, entry.source);
+        const bundled = type === "skill" && entry.origin === "bundled";
+        const identity = bundled
+          ? { identity: `bundled:@agentxm/skills/${name}` }
+          : sourceIdentity(type, name, entry.source, settings);
+        if (!bundled && isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
+          problems.push({ type: "workspace-owner-missing", extensionType: type, name });
+        }
         candidates.push({
           type,
           name,
@@ -340,8 +353,23 @@ export const buildDesiredStateGraph = ({
         },
       });
 
+      const workspacePack = isWorkspaceSourceLocator(entry.source);
       const manifestPath = path.join(
-        computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath,
+        layout === undefined
+          ? path.join(
+              baseDir,
+              workspacePack
+                ? configuredAuthoredDirectory(settings, "pack")
+                : path.join(ACQUIRED_DIRECTORY, identity.owner, "packs"),
+              identity.name,
+            )
+          : computePackPathsForLayout(
+              path.join,
+              layout,
+              workspacePack ? "workspace" : "external",
+              identity.owner,
+              identity.name,
+            ).canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
       const readResult = yield* Effect.result(fs.readFileString(manifestPath));
@@ -392,7 +420,8 @@ export const buildDesiredStateGraph = ({
           constraint,
           origin: {
             type: "pack",
-            pack: identity.fqn,
+            pack: workspacePack ? `workspace:${identity.fqn}` : identity.fqn,
+            manifestPath: path.relative(baseDir, manifestPath),
             source: fqn,
             constraint,
             enabled: entry.enabled !== false,

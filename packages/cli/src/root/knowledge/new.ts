@@ -15,10 +15,8 @@ import {
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import {
-  KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_MANIFEST_SCHEMA_URL,
   KNOWLEDGE_SOURCE_DIR,
@@ -39,7 +37,9 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 export const handleKnowledgeNew = (args: {
   readonly name: string;
@@ -71,16 +71,11 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("knowledge bundle creation");
+  yield* requireAuthoredOwner(owner);
   const name = decodeExtensionNameSync(args.name);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "knowledge", name });
-  const targetDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    owner,
-    KNOWLEDGE_EXTENSION_DIR,
-    name,
-  );
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "knowledge", owner), name);
   const configuredKnowledge = yield* ws.getConfiguredKnowledgeEntries();
   yield* preflightCreateOnly({
     subject: "Knowledge bundle",
@@ -110,7 +105,7 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
     targets: [
       { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
       { path: path.relative(ws.baseDir, indexPath), change: "created" as const },
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
   };
   const scaffold = createCanonicalDirectory({
@@ -206,7 +201,7 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
             }),
             scaffold,
             markAuthored: ws.setKnowledgeEntry(name, {
-              source: `workspace:${fqn}`,
+              source: "workspace",
               enabled: true,
             }),
             buildArtifact: () => Effect.succeed(artifact),

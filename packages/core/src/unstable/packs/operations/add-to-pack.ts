@@ -20,7 +20,6 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../manifest-schema.js";
-import { computePackPaths } from "../paths.js";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 
@@ -70,6 +69,12 @@ export const addToPack: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Authored packs can only be edited in a project workspace",
+      });
+    }
     const { packName, packOwner, additions, manifestHash } = op.args;
     const configured = (yield* ws.getConfiguredPackEntries())[packName];
     if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
@@ -79,15 +84,16 @@ export const addToPack: OperationHandler<
         recover: "Only workspace-authored packs can be edited in place.",
       });
     }
-    const base = ws.baseDir;
-
     // 1. Short-circuit if nothing to add
     if (Object.keys(additions).length === 0) {
       return { result: "success", message: "No pack entries added" } satisfies JobStepResult;
     }
 
-    const packDir = computePackPaths(path.join, base, packOwner, packName);
-    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
+    const manifestPath = path.join(
+      ws.layout.authoredRoot("pack"),
+      packName,
+      PACK_MANIFEST_FILENAME,
+    );
     yield* ws
       .runTransaction({
         targets: [manifestPath],

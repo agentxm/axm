@@ -95,34 +95,23 @@ describe("axm knowledge lifecycle", () => {
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
 
-      const sourceRoot = path.join(temp.path, "knowledge-source");
+      const sourceRoot = path.join(temp.path, "knowledge", "platform");
       createKnowledgePackage(sourceRoot);
       fs.writeFileSync(
         path.join(sourceRoot, "src", "index.md"),
         '---\nokf_version: "0.2"\n---\n# Platform knowledge\n\n- [Architecture](architecture.md)\n',
       );
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: [],
-        knowledge: { platform: { source: "./knowledge-source", enabled: true } },
+        owner: "@acme",
+        knowledge: { platform: { source: "workspace", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--yes", "--non-interactive"], {
-        cwd: temp.path,
-      });
-      expect(install.exitCode, install.stdout + install.stderr).toBe(0);
-
-      const installedRoot = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "knowledge",
-        "platform",
-      );
-      const conceptPath = path.join(installedRoot, "src", "architecture.md");
+      const installedRoot = sourceRoot;
+      const sourceConceptPath = path.join(sourceRoot, "src", "architecture.md");
       fs.writeFileSync(
-        conceptPath,
+        sourceConceptPath,
         "---\ntype: reference\ndescription: value: extra\n---\n# Architecture\n",
       );
 
@@ -171,9 +160,11 @@ describe("axm knowledge lifecycle", () => {
       });
 
       fs.writeFileSync(
-        conceptPath,
+        sourceConceptPath,
         "---\ntype: reference\ndescription: Platform architecture\ntags: [platform]\n---\n# Architecture\n",
       );
+      const synchronized = await runCli(["sync"], { cwd: temp.path });
+      expect(synchronized.exitCode, synchronized.stdout + synchronized.stderr).toBe(0);
       for (let run = 0; run < 2; run += 1) {
         const directClean = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
           cwd: temp.path,
@@ -240,7 +231,7 @@ describe("axm knowledge lifecycle", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: [],
@@ -253,18 +244,26 @@ describe("axm knowledge lifecycle", () => {
 
       const installedRoot = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
+        "agent_extensions",
+        "@acme",
         "knowledge",
         "platform",
       );
       const installedConceptPath = path.join(installedRoot, "src", "architecture.md");
       const installedConcept = fs.readFileSync(installedConceptPath, "utf8");
+      const sourceConceptPath = path.join(sourceRoot, "src", "architecture.md");
       fs.writeFileSync(
-        installedConceptPath,
+        sourceConceptPath,
         "---\ntype: reference\ndescription: Architecture\ntags: [platform]\nresource: ./missing.txt\n---\n# Architecture\n",
       );
+      const updateMissingResource = await runCli(
+        ["knowledge", "update", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(
+        updateMissingResource.exitCode,
+        updateMissingResource.stdout + updateMissingResource.stderr,
+      ).toBe(0);
       const focusedLint = await runCli(["knowledge", "lint", "--path", installedRoot, "--json"], {
         cwd: temp.path,
       });
@@ -283,7 +282,11 @@ describe("axm knowledge lifecycle", () => {
         severity: "warning",
         message: focusedDiagnostic.message,
       });
-      fs.writeFileSync(installedConceptPath, installedConcept);
+      fs.writeFileSync(sourceConceptPath, installedConcept);
+      const restoreConcept = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(restoreConcept.exitCode, restoreConcept.stdout + restoreConcept.stderr).toBe(0);
 
       const get = await runCli(
         ["knowledge", "concepts", "get", "@acme/knowledge/platform#architecture", "--json"],
@@ -364,7 +367,7 @@ describe("axm knowledge lifecycle", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: [],
@@ -463,7 +466,7 @@ describe("axm knowledge lifecycle", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: [],
@@ -605,17 +608,11 @@ describe("axm knowledge lifecycle", () => {
         { cwd: temp.path },
       );
       const revision = JSON.parse(get.stdout).result.concept.ref.contentRevision;
-      const installedArchitecture = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "knowledge",
-        "platform",
-        "src",
-        "architecture.md",
-      );
-      fs.appendFileSync(installedArchitecture, "\nChanged.\n");
+      fs.appendFileSync(path.join(sourceRoot, "src", "architecture.md"), "\nChanged.\n");
+      const updateRevision = await runCli(["knowledge", "update", "--yes", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(updateRevision.exitCode, updateRevision.stdout + updateRevision.stderr).toBe(0);
       const guarded = await runCli(
         [
           "knowledge",
@@ -672,7 +669,7 @@ describe("axm knowledge lifecycle", () => {
         { cwd: temp.path },
       );
 
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: [],
@@ -690,19 +687,10 @@ describe("axm knowledge lifecycle", () => {
       }).toEqual({ exitCode: 0, output: expect.any(String) });
       expect(install.stdout + install.stderr).not.toContain("No configured extensions");
 
-      const canonical = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "knowledge",
-        "platform",
-      );
+      const canonical = path.join(temp.path, "agent_extensions", "@acme", "knowledge", "platform");
       expect(fs.existsSync(path.join(canonical, "src", "architecture.md"))).toBe(true);
       expect(fs.existsSync(path.join(temp.path, ".agents", "knowledge"))).toBe(false);
-      expect(fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf8")).toContain(
-        "platform:",
-      );
+      expect(fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf8")).toContain("platform:");
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
       expect(installedInstructions).toContain("## Knowledge Bundles");
       expect(installedInstructions).toContain(
@@ -710,7 +698,7 @@ describe("axm knowledge lifecycle", () => {
       );
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
-        "[platform](.axm/extensions/external/knowledge/platform/src/index.md)",
+        "[platform](agent_extensions/@acme/knowledge/platform/src/index.md)",
       );
       expect(installedInstructions).toContain("Platform architecture and operational guidance.");
 
@@ -729,9 +717,7 @@ describe("axm knowledge lifecycle", () => {
       expect(fs.readFileSync(path.join(canonical, "src", "architecture.md"), "utf8")).toContain(
         "Updated architecture",
       );
-      expect(fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf8")).toContain(
-        "platform:",
-      );
+      expect(fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf8")).toContain("platform:");
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
         "Updated platform guidance.",
       );

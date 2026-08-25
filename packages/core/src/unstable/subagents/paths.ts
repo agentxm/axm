@@ -9,11 +9,13 @@
 
 import {
   computeExtensionPaths,
+  computeExtensionPathsForLayout,
   extensionContentFilename,
   extensionContentPath,
 } from "../extensions/extension-paths.js";
 import type { Handle } from "../extensions/handle.js";
 import type { AbsolutePath } from "../utils/path-types.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Minimal structural discriminant for determining subagent path layout.
@@ -25,7 +27,7 @@ import type { AbsolutePath } from "../utils/path-types.js";
  */
 export type SubagentPathSource =
   | { readonly refType: "registry" | "workspace"; readonly owner: Handle }
-  | { readonly refType: "git-hosted" | "local" };
+  | { readonly refType: "git-hosted" | "local"; readonly owner: Handle };
 
 /**
  * Computed paths for an installed subagent directory.
@@ -83,4 +85,14 @@ export const computeSubagentPaths = (
     canonicalPath: paths.canonicalPath,
     subagentSrcPath: paths.extensionSrcPath,
   };
+};
+
+export const computeSubagentPathsForLayout = (
+  join: (...paths: string[]) => string,
+  layout: WorkspaceLayout,
+  source: SubagentPathSource,
+  sanitizedName: string,
+): SubagentDirPaths => {
+  const paths = computeExtensionPathsForLayout(join, layout, source, "subagents", sanitizedName);
+  return { canonicalPath: paths.canonicalPath, subagentSrcPath: paths.extensionSrcPath };
 };

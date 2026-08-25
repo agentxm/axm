@@ -84,15 +84,18 @@ const cleanupSkillArtifactsInDir = (args: {
   readonly baseDir: string;
   readonly skillsDir: string;
   readonly dryRun: boolean;
+  readonly ownershipRoots?: ReadonlyArray<string>;
 }) =>
   Effect.gen(function* () {
     const removedPaths: Array<string> = [];
     const preservedPaths: Array<string> = [];
     const entries = yield* safeReadDirectory(args.fs, args.skillsDir);
-    const extensionsDir = args.path.join(args.baseDir, REGISTRY_EXTENSIONS_DIR);
-    const canonicalExtensionsDir = yield* args.fs.realPath(extensionsDir).pipe(Effect.option);
-    const ownershipRoot =
-      canonicalExtensionsDir._tag === "Some" ? canonicalExtensionsDir.value : extensionsDir;
+    const configuredRoots = args.ownershipRoots ?? [
+      args.path.join(args.baseDir, REGISTRY_EXTENSIONS_DIR),
+    ];
+    const ownershipRoots = yield* Effect.forEach(configuredRoots, (root) =>
+      args.fs.realPath(root).pipe(Effect.orElseSucceed(() => root)),
+    );
 
     for (const entry of entries) {
       const artifactPath = args.path.join(args.skillsDir, entry);
@@ -102,7 +105,7 @@ const cleanupSkillArtifactsInDir = (args: {
         const canonicalTarget = yield* args.fs.realPath(resolvedTarget).pipe(Effect.option);
         const ownershipTarget =
           canonicalTarget._tag === "Some" ? canonicalTarget.value : resolvedTarget;
-        if (!isWithin(args.path, ownershipRoot, ownershipTarget)) {
+        if (!ownershipRoots.some((root) => isWithin(args.path, root, ownershipTarget))) {
           preservedPaths.push(artifactPath);
           continue;
         }
@@ -182,6 +185,7 @@ interface RemovedAgentCleanupContext {
   readonly agent: CodingAgent;
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
+  readonly skillOwnershipRoots: ReadonlyArray<string>;
   readonly dryRun: boolean;
 }
 
@@ -203,6 +207,7 @@ const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
       baseDir: context.workspaceRoot,
       skillsDir: skillsDir.dir,
       dryRun: context.dryRun,
+      ownershipRoots: context.skillOwnershipRoots,
     });
   });
 
@@ -335,6 +340,10 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
         agent,
         workspaceRoot: ws.baseDir,
         scope: ws.scope,
+        skillOwnershipRoots:
+          ws.layout.scope === "project"
+            ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+            : [ws.layout.canonicalRoot],
         dryRun: args.dryRun === true,
       };
       for (const type of PER_AGENT_EXTENSION_TYPES) {
@@ -374,6 +383,10 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
           baseDir: ws.baseDir,
           skillsDir: skillsDir.dir,
           dryRun: true,
+          ownershipRoots:
+            ws.layout.scope === "project"
+              ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+              : [ws.layout.canonicalRoot],
         });
         issues.push(
           ...result.preservedPaths.map((artifactPath) => ({
@@ -417,7 +430,7 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
           ...commands.map((command) => ({
             kind: "hook-ownership-ambiguous" as const,
             path: configPath,
-            detail: `Hook command targets .axm/extensions/ without x-axm ownership metadata: ${command}`,
+            detail: `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${command}`,
           })),
         );
       }

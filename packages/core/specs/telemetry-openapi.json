@@ -404,10 +404,13 @@
           "event": { "type": "string", "allOf": [{ "minLength": 1 }] },
           "distinctId": { "type": "string", "allOf": [{ "minLength": 1 }] },
           "timestamp": { "type": "string", "allOf": [{ "minLength": 1, "format": "date-time" }] },
-          "properties": { "type": "object" },
+          "properties": { "type": "object", "additionalProperties": true },
           "userProperties": {
             "type": "object",
-            "properties": { "set": { "type": "object" }, "setOnce": { "type": "object" } },
+            "properties": {
+              "set": { "type": "object", "additionalProperties": true },
+              "setOnce": { "type": "object", "additionalProperties": true }
+            },
             "additionalProperties": false
           },
           "groups": { "type": "object", "additionalProperties": { "type": "string" } },
@@ -560,7 +563,7 @@
             "title": "Severity Level",
             "description": "Severity level associated with an error report or breadcrumb."
           },
-          "data": { "type": "object" }
+          "data": { "type": "object", "additionalProperties": true }
         },
         "additionalProperties": false,
         "title": "Telemetry Breadcrumb",

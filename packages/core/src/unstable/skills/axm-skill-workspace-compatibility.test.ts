@@ -84,6 +84,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
       const result = yield* readAxmSkillWorkspaceCompatibility({
         platform: { fs, path },
         workspace: {
+          scope: workspace.scope,
           skills: {
             ...workspace.skills,
             byName: () =>
@@ -117,6 +118,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
       const result = yield* readAxmSkillWorkspaceCompatibility({
         platform: { fs, path },
         workspace: {
+          scope: workspace.scope,
           skills: {
             ...workspace.skills,
             byName: () =>
@@ -128,7 +130,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
                     declared: {
                       name: decodeExtensionNameSync("axm"),
                       entry: {
-                        source: "workspace:@agentxm/skills/axm",
+                        source: "workspace",
                         enabled: true,
                         origin: "bundled",
                       },

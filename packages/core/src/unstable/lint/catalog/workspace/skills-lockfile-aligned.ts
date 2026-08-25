@@ -10,16 +10,16 @@ import { versionSatisfiesRange } from "../../../version-constraints/version-cons
 import type { DesiredExtensionNode } from "../../../workspace/desired-state-graph.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/skills-lockfile-aligned";
-const LOCKFILE_REL = ".axm/axm-lock.yaml";
 
-const finding = (message: string): AdvisoryFinding => ({
+const finding = (message: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message,
-  location: { file: LOCKFILE_REL },
+  location: { file: path },
 });
 
 const externalSkills = (nodes: ReadonlyArray<DesiredExtensionNode>) =>
@@ -31,6 +31,7 @@ const externalSkills = (nodes: ReadonlyArray<DesiredExtensionNode>) =>
 const collectFindings = (
   nodes: ReadonlyArray<DesiredExtensionNode>,
   lockfile: Lockfile,
+  lockfilePath: string,
 ): ReadonlyArray<AdvisoryFinding> => {
   const desired = externalSkills(nodes);
   const desiredNames = new Set(desired.map((node) => node.name));
@@ -40,7 +41,10 @@ const collectFindings = (
     const accepted = lockfile.skills[node.name];
     if (accepted === undefined) {
       findings.push(
-        finding(`Skill '${node.name}' has desired external content but no accepted resolution.`),
+        finding(
+          `Skill '${node.name}' has desired external content but no accepted resolution.`,
+          lockfilePath,
+        ),
       );
       continue;
     }
@@ -51,6 +55,7 @@ const collectFindings = (
       findings.push(
         finding(
           `Skill '${node.name}' accepts Registry version ${accepted.resolvedVersion}, which does not satisfy desired constraint ${constraint}.`,
+          lockfilePath,
         ),
       );
     }
@@ -58,7 +63,9 @@ const collectFindings = (
 
   for (const name of Object.keys(lockfile.skills)) {
     if (!desiredNames.has(name)) {
-      findings.push(finding(`Skill '${name}' has an accepted resolution but is not desired.`));
+      findings.push(
+        finding(`Skill '${name}' has an accepted resolution but is not desired.`, lockfilePath),
+      );
     }
   }
   return findings;
@@ -81,6 +88,10 @@ export const skillsLockfileAlignedRule: AdvisoryRule<WorkspaceRuleContext> = {
       ) {
         return [];
       }
-      return collectFindings(graph.success.nodes, lockfile.success.value);
+      return collectFindings(
+        graph.success.nodes,
+        lockfile.success.value,
+        lockfileDisplayPath(context.subject.scope),
+      );
     }),
 };

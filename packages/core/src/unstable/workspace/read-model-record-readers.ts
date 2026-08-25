@@ -196,7 +196,11 @@ export const makeReadModelRecordReaders = (args: {
 
   const installedRowToReadModelRecordRow = <
     TDeclared extends {
-      readonly entry: { readonly source: string; readonly enabled?: boolean };
+      readonly entry: {
+        readonly source: string;
+        readonly enabled?: boolean;
+        readonly origin?: "bundled";
+      };
     },
     TPackMember,
   >(
@@ -217,6 +221,9 @@ export const makeReadModelRecordReaders = (args: {
         name: row.key.name,
         source,
         enabled: row.activation === "enabled",
+        ...(row.installationOrigin.declared.entry.origin === undefined
+          ? {}
+          : { origin: row.installationOrigin.declared.entry.origin }),
         packagingKind: packagingKindForResolved(row.resolved, type, source),
         lifecycle: "configured",
       };
@@ -274,7 +281,11 @@ export const makeReadModelRecordReaders = (args: {
 
   const collectReadModelRecordRows = <
     TDeclared extends {
-      readonly entry: { readonly source: string; readonly enabled?: boolean };
+      readonly entry: {
+        readonly source: string;
+        readonly enabled?: boolean;
+        readonly origin?: "bundled";
+      };
     },
     TPackMember,
   >(input: {

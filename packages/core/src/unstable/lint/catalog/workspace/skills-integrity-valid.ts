@@ -2,21 +2,17 @@
  * `workspace/skills-integrity-valid` — each installed skill listed in the
  * lockfile is present on disk.
  *
- * For each skill lock entry with a `sourceHash`, verify the canonical
- * installed directory (`.axm/extensions/<owner>/skills/<name>/src/` for
- * registry sources; `.axm/extensions/external/skills/<name>/` for
- * non-registry) exists. Missing-directory entries each emit one finding.
+ * For each accepted skill lock entry, verify that its canonical acquired
+ * package is present in the scope's canonical root. Missing-package entries
+ * each emit one finding.
  * Configured findings are autofixable via `install-skill` with
  * `force: true`; pack-provided implicit findings are advisory because the
  * repair is a pack-level reinstall.
  *
- * This rule never compares installed bytes against `sourceHash`. Installed
- * canonical content is workspace-owned after install: content-preserving
- * workspace tools (formatters, line-ending normalization) may rewrite it,
- * and such differences are not defects. Archive integrity is enforced at
- * download time by the installer, not by this rule. If content-drift
- * detection is added later it must stay advisory and tolerate
- * formatting-only differences.
+ * This rule owns only the missing-package arm. Package-tree integrity is
+ * evaluated by canonical observations against `treeIntegrity`; local edits,
+ * including formatter changes, are drift and block affected reads and
+ * mutation closures until explicit recovery.
  *
  * A skill whose `sourceHash` is undefined in the lockfile (e.g., git-hosted
  * sources without pinned hash) is not checked.
@@ -34,9 +30,9 @@ import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "../../rule.js";
 import { type SkillLockEntry } from "../../../lockfile/schema.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
+import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/skills-integrity-valid";
-const LOCKFILE_REL = ".axm/axm-lock.yaml";
 
 const simpleName = (name: string): string => name.split("/").at(-1) ?? name;
 
@@ -54,22 +50,17 @@ const hasSourceActual = (
         occurrence.origin._tag === "external-axm-skill"),
   );
 
-const integrityFinding = (name: string, reason: string): AdvisoryFinding => ({
+const integrityFinding = (name: string, reason: string, lockfilePath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${name}' has an accepted resolution, but ${reason}.`,
-  location: { file: LOCKFILE_REL },
+  location: { file: lockfilePath },
 });
 
 /**
- * Presence probe for the skill's installed `src/` tree.
- *
- * Deliberately existence-only: installed content is workspace-owned after
- * install, so this rule never re-hashes bytes against `sourceHash` — a tree
- * rewritten by a formatter or other content-preserving tool is not a
- * defect. Only a `sourceHash`-bearing lock entry whose canonical `src/`
- * directory does NOT exist yields a finding.
+ * Presence probe for the skill's acquired package tree. Integrity drift is a
+ * separate canonical-observation fact, so this helper owns only absence.
  */
 const integrityReason = (
   lockEntry: SkillLockEntry,
@@ -88,6 +79,7 @@ const collectIntegrityFindings = (
     readonly entry: SkillLockEntry;
     readonly exists: boolean;
   }>,
+  lockfilePath: string,
 ): ReadonlyArray<LintFinding> => {
   const findings: Array<LintFinding> = [];
 
@@ -97,7 +89,7 @@ const collectIntegrityFindings = (
     if (Option.isNone(reason)) {
       continue;
     }
-    findings.push(integrityFinding(name, reason.value));
+    findings.push(integrityFinding(name, reason.value, lockfilePath));
   }
 
   return findings;
@@ -133,6 +125,10 @@ export const skillsIntegrityValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       const desiredNames = new Set(
         graphResult.success.nodes.filter((node) => node.type === "skill").map((node) => node.name),
       );
-      return collectIntegrityFindings(desiredNames, probes);
+      return collectIntegrityFindings(
+        desiredNames,
+        probes,
+        lockfileDisplayPath(context.subject.scope),
+      );
     }),
 };

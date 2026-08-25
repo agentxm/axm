@@ -30,6 +30,7 @@ import {
   materializeExternalPackage,
   materializeRegistryPackage,
   stripTrailingSeparators,
+  computeMaterializedTreeIntegrity,
 } from "../../extensions/index.js";
 import * as Schema from "effect/Schema";
 import type {
@@ -45,7 +46,6 @@ import {
   createSymlink,
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
-  removeFromAllCanonicalLocations,
   stripFileProtocol,
 } from "../../utils/index.js";
 import { validatePathSafety } from "../../extensions/index.js";
@@ -271,6 +271,7 @@ const expectedSkillSrcPath = (ref: SkillExtensionRef) =>
       case "local": {
         const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
           refType: ref.refType,
+          owner: ref.owner,
         });
         return skillSrcPath;
       }
@@ -352,7 +353,6 @@ export const gitHostedSkillArtifactSource = (
 const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
     const sourceExists = yield* fs
@@ -382,14 +382,6 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
           sourceExists,
         }),
     }).pipe(Effect.mapError((error) => errInstallFailed({ message: error.detail, cause: error })));
-    yield* removeFromAllCanonicalLocations(
-      fs,
-      ws.baseDir,
-      "skills",
-      sanitizedName,
-      path,
-      copyTarget,
-    );
   });
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -427,18 +419,22 @@ const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
+      owner: ref.owner,
     });
-    yield* validatePathSafety(path, ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
-    const sourcePath = stripFileProtocol(ref.location);
+    const packageRoot = stripFileProtocol(ref.location);
+    const sourceSkillPath = path.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
       ref,
-      packageRoot: path.dirname(sourcePath),
-      skillSourcePath: sourcePath,
+      packageRoot,
+      skillSourcePath: sourceSkillPath,
     });
-    yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+    const sourcePath = canonicalPath === skillSrcPath ? sourceSkillPath : packageRoot;
+    const copyTarget = canonicalPath === skillSrcPath ? skillSrcPath : canonicalPath;
+    yield* preCleanAndCopy(sanitizedName, sourcePath, copyTarget);
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
   });
@@ -448,20 +444,24 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
       refType: ref.refType,
+      owner: ref.owner,
     });
-    yield* validatePathSafety(path, ws.baseDir, skillSrcPath);
+    yield* validatePathSafety(path, ws.baseDir, canonicalPath);
 
-    const sourcePath = stripFileProtocol(ref.location);
+    const packageRoot = stripFileProtocol(ref.location);
+    const sourceSkillPath = path.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
       ref,
-      packageRoot: path.dirname(sourcePath),
-      skillSourcePath: sourcePath,
+      packageRoot,
+      skillSourcePath: sourceSkillPath,
     });
-    const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
+    const sourcePath = canonicalPath === skillSrcPath ? sourceSkillPath : packageRoot;
+    const copyTarget = canonicalPath === skillSrcPath ? skillSrcPath : canonicalPath;
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(copyTarget);
     if (!isSelfCopy) {
-      yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+      yield* preCleanAndCopy(sanitizedName, sourcePath, copyTarget);
     }
 
     return { skillSrcPath, versionRange: Option.none() } satisfies MaterializedSkill;
@@ -474,7 +474,6 @@ const installFromRegistry = (
   reuse: CanonicalReuseContext,
 ) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
 
@@ -513,14 +512,6 @@ const installFromRegistry = (
             skillSourcePath: path.join(stagingPath, "src"),
           }).pipe(Effect.asVoid),
       });
-      yield* removeFromAllCanonicalLocations(
-        fs,
-        ws.baseDir,
-        "skills",
-        sanitizedName,
-        path,
-        canonicalPath,
-      );
     } else {
       yield* validateAxmSkillCandidate({
         ref,
@@ -838,6 +829,12 @@ export const installSkill: OperationHandler<
       ref,
       sourceName: op.args.sourceName,
       contentIdentity: sourceHash,
+      treeIntegrity: yield* computeMaterializedTreeIntegrity(
+        (yield* ws.getSkillDir(ref.skill.name, {
+          refType: ref.refType,
+          owner: ref.owner,
+        })).canonicalPath,
+      ),
       workspaceRelativeLocalSourcePath,
     });
 
@@ -899,7 +896,7 @@ export const installSkill: OperationHandler<
         ? skipSettings
           ? Effect.void
           : ws.setSkillEntry(ref.skill.name, {
-              source: printSourceParams(ref.source),
+              source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
               enabled: true,
             })
         : skipSettings

@@ -27,6 +27,7 @@ import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js"
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { installBundledAxmSkill } from "../../setup.js";
+import { workspaceAuthoredPath } from "../../shared/workspace-display-paths.js";
 
 export interface InstallHandlerArgs {
   readonly source: Option.Option<string>;
@@ -122,7 +123,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
               readiness: "ready",
               label: "@agentxm/skills/axm",
               artifact: {
-                path: ".axm/extensions/@agentxm/skills/axm",
+                path: workspaceAuthoredPath(path, ws, "skill", "axm"),
                 scope: ws.scope,
                 change: "updated",
               },
@@ -131,7 +132,7 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
                   result: "success",
                   message: "Installed the bundled AXM skill",
                   artifact: {
-                    path: ".axm/extensions/@agentxm/skills/axm",
+                    path: workspaceAuthoredPath(path, ws, "skill", "axm"),
                     scope: ws.scope,
                     change: "updated",
                   },

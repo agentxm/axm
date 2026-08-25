@@ -23,6 +23,7 @@ export {
 // Paths
 export {
   computeSubagentPaths,
+  computeSubagentPathsForLayout,
   subagentContentFilename,
   subagentContentPath,
   type SubagentPathSource,

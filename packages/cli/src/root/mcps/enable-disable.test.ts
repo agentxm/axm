@@ -57,7 +57,7 @@ describe("mcps enable/disable output", () => {
 
   const writeMcpSettings = (enabled: boolean) => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         agents: ["claude-code"],
         mcpServers: {
@@ -110,7 +110,7 @@ describe("mcps enable/disable output", () => {
               label: "context",
               state: "committed",
               artifact: {
-                path: ".axm (config/lockfile)",
+                path: "axm.json / axm-lock.yaml",
                 scope: "project",
                 change: "updated",
               },
@@ -135,7 +135,7 @@ describe("mcps enable/disable output", () => {
 
         expect(logs.success).toEqual(["Enabled 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "context   updated   2 files   .axm (config/lockfile), .mcp.json",
+          "context   updated   2 files   axm.json, .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
@@ -188,7 +188,7 @@ describe("mcps enable/disable output", () => {
               label: "context",
               state: "committed",
               artifact: {
-                path: ".axm (config/lockfile)",
+                path: "axm.json / axm-lock.yaml",
                 scope: "project",
                 change: "updated",
               },

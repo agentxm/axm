@@ -24,6 +24,8 @@ import { makeAgentDirScanner } from "../scanners/agent-dir.js";
 import { makeAgentSettingsScanner } from "../scanners/agent-settings.js";
 import { makeCanonicalExtensionsScanner } from "../scanners/canonical-extensions.js";
 import { makeMcpConfigScanner } from "../scanners/mcp-config.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { resolveProjectWorkspaceLayout } from "../../layout.js";
 
 // Compile-time scanner contract assertions live in
 // `scanners-shared.type-test.ts`.
@@ -89,6 +91,12 @@ const makeDiag = Effect.gen(function* () {
   return { diag: makeDiagnostics(ref), ref };
 });
 
+const makeProjectLayout = (path: Path.Path, workspaceRoot: string) =>
+  resolveProjectWorkspaceLayout(makeAbsolutePath(path, workspaceRoot), {}).pipe(
+    Effect.provideService(FileSystem.FileSystem, emptyFs),
+    Effect.provideService(Path.Path, path),
+  );
+
 // ---------------------------------------------------------------------------
 // Scanner contract tests
 // ---------------------------------------------------------------------------
@@ -102,11 +110,12 @@ layer(Path.layer, { excludeTestServices: true })(
         Effect.gen(function* () {
           const path = yield* Path.Path;
           const { diag, ref } = yield* makeDiag;
+          const layout = yield* makeProjectLayout(path, "/ws");
           const occurrences = yield* makeCanonicalExtensionsScanner({
             fs: failingFs,
             path,
             workspaceRoot: "/ws",
-            scope: "project",
+            layout,
             diagnostics: diag,
           });
           expect(occurrences).toEqual([]);
@@ -185,11 +194,12 @@ layer(Path.layer, { excludeTestServices: true })(
         // should treat it like any other root and read what it can. With an
         // empty FS it returns an empty array without raising.
         const escaping = "/ws/../escape";
+        const layout = yield* makeProjectLayout(path, escaping);
         const occurrences = yield* makeCanonicalExtensionsScanner({
           fs: emptyFs,
           path,
           workspaceRoot: escaping,
-          scope: "project",
+          layout,
           diagnostics: diag,
         });
         expect(occurrences).toEqual([]);
@@ -204,11 +214,12 @@ layer(Path.layer, { excludeTestServices: true })(
         // test guards against a future refactor that drops the wrapper.
         const path = yield* Path.Path;
         const { diag } = yield* makeDiag;
+        const layout = yield* makeProjectLayout(path, "/ws");
         yield* makeCanonicalExtensionsScanner({
           fs: emptyFs,
           path,
           workspaceRoot: "/ws",
-          scope: "project",
+          layout,
           diagnostics: diag,
         });
         yield* makeAgentDirScanner({

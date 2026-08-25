@@ -28,12 +28,20 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { CodingAgentRepository, type SubagentSyncOutcome } from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
+  removeIfExists,
   removeFromAllCanonicalLocations,
   stripFileProtocol,
   makeWorkspaceRelativeSourcePath,
 } from "../utils/index.js";
-import { printSourceParams } from "../sources/index.js";
-import { computeSubagentPaths, subagentContentFilename, subagentContentPath } from "./paths.js";
+import {
+  computeSubagentPathsForLayout,
+  subagentContentFilename,
+  subagentContentPath,
+} from "./paths.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
@@ -45,8 +53,8 @@ import {
   computePackageContentHash,
   computeSourceHash,
   insertManagedFileBanner,
-  materializeExternalPackage,
-  materializeRegistryPackage,
+  materializeExternalPackageWithTreeIntegrity,
+  materializeRegistryPackageWithTreeIntegrity,
   RenderedFilePathSchema,
   type SourceHash,
 } from "../extensions/index.js";
@@ -57,6 +65,10 @@ import {
 } from "../workspace/rendered-file-cleanup.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
@@ -177,6 +189,7 @@ export const SubagentManagerLive = Layer.effect(
       string,
       {
         readonly sourceHash: SourceHash;
+        readonly treeIntegrity: TreeIntegrity;
         readonly materialization: MaterializationObservation;
       }
     >();
@@ -188,8 +201,8 @@ export const SubagentManagerLive = Layer.effect(
       const source: SubagentPathSource =
         ref.refType === "registry" || ref.refType === "workspace"
           ? { refType: ref.refType, owner: ref.owner }
-          : { refType: ref.refType };
-      const paths = computeSubagentPaths(path.join, baseDir, source, sanitized);
+          : { refType: ref.refType, owner: ref.owner };
+      const paths = computeSubagentPathsForLayout(path.join, ws.layout, source, sanitized);
       return { sanitized, paths };
     };
 
@@ -219,7 +232,7 @@ export const SubagentManagerLive = Layer.effect(
     // Copy source to canonical location
     const copyToCanonical = (sourcePath: string, targetPath: string) =>
       provide(
-        materializeExternalPackage({
+        materializeExternalPackageWithTreeIntegrity({
           baseDir,
           canonicalPath: targetPath,
           sourceLocation: sourcePath,
@@ -235,10 +248,8 @@ export const SubagentManagerLive = Layer.effect(
       force: boolean,
     ) =>
       Effect.gen(function* () {
-        const lockedVersion = acceptedRegistryVersionForRef(
-          yield* ws.getLockedSubagent(ref.subagent.name),
-          ref,
-        );
+        const lockedEntry = yield* ws.getLockedSubagent(ref.subagent.name);
+        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const useExisting = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
@@ -250,23 +261,28 @@ export const SubagentManagerLive = Layer.effect(
           }),
         );
 
-        if (!useExisting) {
-          yield* provide(
-            materializeRegistryPackage({
-              baseDir,
-              destinationPath: canonicalPath,
-              sourceLocation: ref.source.location,
-              owner: ref.owner,
-              type: "subagent",
-              name: ref.name,
-              version: ref.version,
-              integrity: ref.integrity,
-              messages: {
-                integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
-              },
-            }),
-          );
+        if (useExisting && Option.isSome(lockedEntry)) {
+          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+          if (observedTree === lockedEntry.value.treeIntegrity) {
+            return lockedEntry.value.treeIntegrity;
+          }
         }
+        const materialized = yield* provide(
+          materializeRegistryPackageWithTreeIntegrity({
+            baseDir,
+            destinationPath: canonicalPath,
+            sourceLocation: ref.source.location,
+            owner: ref.owner,
+            type: "subagent",
+            name: ref.name,
+            version: ref.version,
+            integrity: ref.integrity,
+            messages: {
+              integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            },
+          }),
+        );
+        return materialized.treeIntegrity;
       });
 
     // Materialize canonical source for any ref type
@@ -280,40 +296,47 @@ export const SubagentManagerLive = Layer.effect(
       Effect.gen(function* () {
         switch (ref.refType) {
           case "git-hosted": {
-            const sourcePath = stripFileProtocol(ref.location);
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
+            const packageRoot = stripFileProtocol(ref.location);
+            const sourcePath =
+              ws.layout.scope === "project" ? packageRoot : path.join(packageRoot, "src");
+            const targetPath = ws.layout.scope === "project" ? canonicalPath : subagentSrcPath;
+            const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
             if (!isSelfCopy) {
-              yield* copyToCanonical(sourcePath, subagentSrcPath);
+              const materialized = yield* copyToCanonical(sourcePath, targetPath);
               yield* removeFromAllCanonicalLocations(
                 fs,
                 baseDir,
                 "subagents",
                 sanitized,
                 path,
-                subagentSrcPath,
+                targetPath,
               );
+              return materialized.treeIntegrity;
             }
-            break;
+            return yield* provide(computeMaterializedTreeIntegrity(targetPath));
           }
           case "local": {
-            const sourcePath = stripFileProtocol(ref.location);
-            const isSelfCopy = path.resolve(sourcePath) === path.resolve(subagentSrcPath);
+            const packageRoot = stripFileProtocol(ref.location);
+            const sourcePath =
+              ws.layout.scope === "project" ? packageRoot : path.join(packageRoot, "src");
+            const targetPath = ws.layout.scope === "project" ? canonicalPath : subagentSrcPath;
+            const isSelfCopy = path.resolve(sourcePath) === path.resolve(targetPath);
             if (!isSelfCopy) {
-              yield* copyToCanonical(sourcePath, subagentSrcPath);
+              const materialized = yield* copyToCanonical(sourcePath, targetPath);
               yield* removeFromAllCanonicalLocations(
                 fs,
                 baseDir,
                 "subagents",
                 sanitized,
                 path,
-                subagentSrcPath,
+                targetPath,
               );
+              return materialized.treeIntegrity;
             }
-            break;
+            return yield* provide(computeMaterializedTreeIntegrity(targetPath));
           }
           case "registry": {
-            yield* materializeFromRegistry(ref, canonicalPath, force);
-            break;
+            return yield* materializeFromRegistry(ref, canonicalPath, force);
           }
           case "workspace": {
             if (
@@ -340,7 +363,7 @@ export const SubagentManagerLive = Layer.effect(
                 detail: `Workspace subagent source is missing: ${subagentSrcPath}`,
               });
             }
-            break;
+            return yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
           }
         }
       });
@@ -351,7 +374,13 @@ export const SubagentManagerLive = Layer.effect(
         const { canonicalPath, subagentSrcPath } = paths;
 
         // --- Materialize canonical source ---
-        yield* materializeCanonical(ref, sanitized, canonicalPath, subagentSrcPath, force === true);
+        const treeIntegrity = yield* materializeCanonical(
+          ref,
+          sanitized,
+          canonicalPath,
+          subagentSrcPath,
+          force === true,
+        );
         const manifestRaw = yield* fs
           .readFileString(path.join(canonicalPath, MANIFEST_FILENAME))
           .pipe(Effect.option);
@@ -498,6 +527,7 @@ export const SubagentManagerLive = Layer.effect(
         }
         lastInstallState.set(ref.subagent.name, {
           sourceHash: yield* Effect.provide(computePackageContentHash(canonicalPath), fsPathLayer),
+          treeIntegrity,
           materialization: {
             agents: successfulResults.map(({ agentId }) => agentId),
             targets: Array.from(agentIdsByPath.entries())
@@ -614,7 +644,11 @@ export const SubagentManagerLive = Layer.effect(
 
         // --- Remove canonical source directory ---
         if (!retainCanonical) {
-          yield* removeFromAllCanonicalLocations(fs, baseDir, "subagents", sanitized, path);
+          const canonical = yield* provide(
+            acceptedCanonicalObservation({ workspace: ws, type: "subagent", name: target.name }),
+          );
+          const packageRoot = removableAcceptedCanonicalPath(canonical);
+          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
         }
       });
     const materializeUninstall = makeMaterializeRemoval(false);
@@ -645,7 +679,7 @@ export const SubagentManagerLive = Layer.effect(
           .rows("subagent")
           .pipe(Effect.map(configuredRowsByName));
         return yield* configuredSubagentsToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope },
+          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
           configured,
         );
       }),
@@ -674,7 +708,7 @@ export const SubagentManagerLive = Layer.effect(
         const state = lastInstallState.get(ref.subagent.name);
         if (ref.refType === "workspace") {
           return yield* ws.setSubagentEntry(ref.subagent.name, {
-            source: printSourceParams(ref.source),
+            source: "workspace",
             enabled: true,
           });
         }
@@ -687,6 +721,7 @@ export const SubagentManagerLive = Layer.effect(
         const lockEntry = buildSubagentLockEntry(
           ref,
           state.sourceHash,
+          state.treeIntegrity,
           workspaceRelativeLocalSourcePath,
         );
         if (lockEntry === undefined) {
@@ -742,6 +777,7 @@ export const SubagentManagerLive = Layer.effect(
         const lockEntry = buildSubagentLockEntry(
           ref,
           state.sourceHash,
+          state.treeIntegrity,
           workspaceRelativeLocalSourcePath,
         );
         if (lockEntry === undefined) {

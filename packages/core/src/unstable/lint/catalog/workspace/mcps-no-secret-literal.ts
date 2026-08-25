@@ -3,10 +3,10 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/mcps-no-secret-literal";
-const SETTINGS_REL = ".axm/settings.json";
 
 const SECRET_KEY_RE = /(authorization|bearer|token|secret|password|api[-_]?key|access[-_]?key)/i;
 const TOKEN_VALUE_RE =
@@ -31,25 +31,26 @@ const isSecretLiteral = (name: string, value: string): boolean => {
   return SECRET_KEY_RE.test(name) || TOKEN_VALUE_RE.test(value);
 };
 
-const findingFor = (serverName: string, field: string): AdvisoryFinding => ({
+const findingFor = (serverName: string, field: string, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "warning",
   message:
     `MCP server '${serverName}' stores a secret-looking literal in ${field}. ` +
     "Use a `${VAR}` reference so settings.json does not contain the secret.",
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 const collectRecordFindings = (
   serverName: string,
   fieldPrefix: string,
   value: unknown,
+  settingsPath: string,
 ): ReadonlyArray<AdvisoryFinding> => {
   if (!isRecord(value)) return [];
   return Object.entries(value).flatMap(([key, item]) =>
     typeof item === "string" && isSecretLiteral(key, item)
-      ? [findingFor(serverName, `${fieldPrefix}.${key}`)]
+      ? [findingFor(serverName, `${fieldPrefix}.${key}`, settingsPath)]
       : [],
   );
 };
@@ -70,8 +71,18 @@ export const mcpServerNoSecretLiteralRule: AdvisoryRule<WorkspaceRuleContext> = 
       return Object.entries(mcpServers).flatMap(([serverName, entry]) => {
         if (!isRecord(entry)) return [];
         return [
-          ...collectRecordFindings(serverName, "env", entry["env"]),
-          ...collectRecordFindings(serverName, "headers", entry["headers"]),
+          ...collectRecordFindings(
+            serverName,
+            "env",
+            entry["env"],
+            settingsDisplayPath(context.subject.scope),
+          ),
+          ...collectRecordFindings(
+            serverName,
+            "headers",
+            entry["headers"],
+            settingsDisplayPath(context.subject.scope),
+          ),
         ];
       });
     }),

@@ -21,7 +21,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { computePackPaths } from "../paths.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 
 // -----------------------------------------------------------------------------
@@ -66,6 +65,12 @@ export const newPack: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "New packs can only be scaffolded in a project workspace",
+      });
+    }
     const initialVersion = decodeVersionSync("0.0.1");
 
     const { name, owner } = op.args;
@@ -73,17 +78,17 @@ export const newPack: OperationHandler<
     const fqn = formatFqn({ owner, type: "pack", name: extensionName });
 
     // 1. Compute pack directory path
-    const packDir = computePackPaths(path.join, base, owner, name);
+    const canonicalPath = path.join(ws.layout.authoredRoot("pack"), name);
     const configuredPacks = yield* ws.getConfiguredPackEntries();
     yield* recoverCanonicalDirectory({
       baseDir: base,
-      canonicalPath: packDir.canonicalPath,
+      canonicalPath,
     });
     yield* preflightCreateOnly({
       subject: "Pack",
       name,
       configured: Object.hasOwn(configuredPacks, name),
-      destinations: [packDir.canonicalPath],
+      destinations: [canonicalPath],
     });
 
     const manifest = {
@@ -97,7 +102,7 @@ export const newPack: OperationHandler<
 
     yield* createCanonicalDirectory({
       baseDir: base,
-      canonicalPath: packDir.canonicalPath,
+      canonicalPath,
       subject: "Pack",
       requiredFiles: [PACK_MANIFEST_FILENAME],
       populate: (stagingPath) => {

@@ -37,6 +37,9 @@ import * as PlatformError from "effect/PlatformError";
 import YAML from "yaml";
 import { AGENTS } from "../../../agents/registry.js";
 import type { AgentId } from "../../../agents/types.js";
+import type { Settings } from "../../../settings/schema.js";
+import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "../../layout.js";
 
 // ---------------------------------------------------------------------------
 // Public spec shape
@@ -118,6 +121,18 @@ export interface FixtureTestDeps {
   readonly workspaceRoot: string;
   readonly userHome: string;
 }
+
+export const resolveFixtureProjectLayout = (deps: FixtureTestDeps, settings: Settings = {}) =>
+  resolveProjectWorkspaceLayout(makeAbsolutePath(deps.path, deps.workspaceRoot), settings).pipe(
+    Effect.provideService(FileSystem.FileSystem, deps.fs),
+    Effect.provideService(Path.Path, deps.path),
+  );
+
+export const resolveFixtureUserLayout = (deps: FixtureTestDeps, settings: Settings = {}) =>
+  resolveUserWorkspaceLayout(
+    makeAbsolutePath(deps.path, deps.path.join(deps.userHome, ".axm")),
+    settings,
+  ).pipe(Effect.provideService(Path.Path, deps.path));
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -396,14 +411,19 @@ const writeScope = (
   files: Map<string, string>,
   scope: ScopeFiles | undefined,
   scopeRoot: string,
-  options: { readonly includeLockfile: boolean },
+  options: { readonly scope: "project" | "user"; readonly includeLockfile: boolean },
 ): Effect.Effect<void, PathEscapeError> =>
   Effect.gen(function* () {
     if (scope === undefined) return;
 
     const axmDir = join(scopeRoot, ".axm");
-    const settingsPath = join(axmDir, "settings.json");
-    const lockfilePath = options.includeLockfile ? join(axmDir, "axm-lock.yaml") : null;
+    const settingsPath =
+      options.scope === "project" ? join(scopeRoot, "axm.json") : join(axmDir, "settings.json");
+    const lockfilePath = options.includeLockfile
+      ? options.scope === "project"
+        ? join(scopeRoot, "axm-lock.yaml")
+        : join(axmDir, "axm-lock.yaml")
+      : null;
     const mcpJsonPath = join(scopeRoot, ".mcp.json");
 
     if (scope.settings !== undefined) {
@@ -415,7 +435,9 @@ const writeScope = (
     if (scope.axmExtensions !== undefined) {
       yield* writeTree(
         files,
-        join(scopeRoot, ".axm", "extensions"),
+        options.scope === "project"
+          ? join(scopeRoot, "agent_extensions")
+          : join(scopeRoot, ".axm", "extensions"),
         scope.axmExtensions,
         "axmExtensions",
       );
@@ -458,8 +480,14 @@ export const buildFixture = (spec: FixtureSpec): Effect.Effect<FixtureTestDeps, 
   Effect.gen(function* () {
     const files = new Map<string, string>();
 
-    yield* writeScope(files, spec.project, spec.workspaceRoot, { includeLockfile: true });
-    yield* writeScope(files, spec.user, join(spec.userHome), { includeLockfile: true });
+    yield* writeScope(files, spec.project, spec.workspaceRoot, {
+      scope: "project",
+      includeLockfile: true,
+    });
+    yield* writeScope(files, spec.user, join(spec.userHome), {
+      scope: "user",
+      includeLockfile: true,
+    });
 
     const fs = makeInMemoryFs(files);
     const path = yield* Path.Path;
@@ -484,16 +512,19 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 4,
+  lockfileVersion: 5,
   skills: {
     "managed-tool": {
       type: "github",
+      packageOwner: "@owner",
+      packageName: "managed-tool",
       owner: "owner",
       repo: "repo",
       ref: "main",
       resolvedCommit: "commit-1",
       resolvedTree: "tree-1",
       contentIdentity: "content-1",
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     },
   },
 };

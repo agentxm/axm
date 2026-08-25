@@ -18,13 +18,17 @@ import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 import type { SubagentExtensionRef } from "../subagents/refs.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 import { enabledConfiguredEntries } from "./configured-entry.js";
+import { decodeExtensionNameSync } from "./common.js";
+import { decodeHandleSync } from "./handle.js";
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly baseDir: string;
   readonly scope: WorkspaceScope;
+  readonly layout: WorkspaceLayout;
 }
 
 interface SkillDiskAcceptedResolutionContext {
@@ -61,7 +65,7 @@ const resolveWorkspaceFromDisk = (
     settingsName,
     source,
     expectedType,
-    baseDir: env.baseDir,
+    layout: env.layout,
     scope: env.scope,
   }).pipe(
     Effect.provideService(FileSystem.FileSystem, env.fs),
@@ -76,6 +80,32 @@ export const configuredSkillsToDiskRefs = (
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) => {
+      if (entry.origin === "bundled") {
+        const owner = decodeHandleSync("@agentxm");
+        const packageName = decodeExtensionNameSync(settingsName);
+        const packageRoot =
+          env.layout.scope === "project"
+            ? env.path.join(env.layout.acquiredRoot, owner, "skills", settingsName)
+            : env.path.join(env.layout.canonicalRoot, owner, "skills", settingsName);
+        return resolveWorkspaceExtensionRef({
+          settingsName,
+          source: "workspace",
+          expectedType: "skill",
+          layout: env.layout,
+          scope: env.scope,
+          staticPackage: {
+            owner,
+            name: packageName,
+            root: packageRoot,
+          },
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, env.fs),
+          Effect.provideService(Path.Path, env.path),
+          Effect.map((ref) =>
+            ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
+          ),
+        );
+      }
       if (isWorkspaceSourceLocator(entry.source)) {
         return resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
           Effect.map((ref) =>
@@ -94,15 +124,23 @@ export const configuredSkillsToDiskRefs = (
         return Effect.succeed(Option.none<SkillExtensionRef>());
       }
 
-      const skillFile = env.path.join(
-        env.baseDir,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        settingsName,
-        "SKILL.md",
-      );
+      const skillFile =
+        env.layout.scope === "project"
+          ? env.path.join(
+              env.layout.acquiredRoot,
+              lockEntry.packageOwner,
+              "skills",
+              lockEntry.packageName,
+              "src",
+              "SKILL.md",
+            )
+          : env.path.join(
+              env.layout.canonicalRoot,
+              "external",
+              "skills",
+              lockEntry.packageName,
+              "SKILL.md",
+            );
       return env.fs.exists(skillFile).pipe(
         Effect.mapError((cause) =>
           makeAppError({

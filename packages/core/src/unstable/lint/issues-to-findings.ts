@@ -183,7 +183,7 @@ const describeValueReference = (documentLabel: string, pathStr: string): string 
 
 const formatRemediation = (file: string, manualAction: string): string =>
   isLockfile(file)
-    ? "Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json` by reinstalling the declared extensions."
+    ? "Regenerate the workspace lockfile from workspace settings by reinstalling the declared extensions."
     : `Edit \`${file}\` and ${manualAction}.`;
 
 const formatPath = (path: ReadonlyArray<PropertyKey>): string =>

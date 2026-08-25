@@ -49,6 +49,7 @@ import {
   property,
 } from "../../../test-helpers.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "./readiness.js";
+import { writeWorkspaceFiles } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -64,22 +65,8 @@ const initWorkspace = (
     settingsPacks?: Record<string, unknown>;
   },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = { agents: ["claude-code"] };
-  if (opts?.settingsSkills) settings["skills"] = opts.settingsSkills;
-  if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
+  const projectRoot = path.basename(axmDir) === ".axm" ? path.dirname(axmDir) : axmDir;
   const lockfilePacks: Record<string, unknown> = { ...(opts?.lockfilePacks ?? {}) };
-  if (
-    Object.values(lockfilePacks).some(
-      (entry) =>
-        typeof entry === "object" && entry !== null && Reflect.get(entry, "type") === "registry",
-    )
-  ) {
-    settings["sources"] = [
-      { type: "registry", name: "default", location: "file:///tmp/test-registry" },
-    ];
-  }
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   for (const [name, value] of Object.entries(lockfilePacks)) {
     if (typeof value !== "object" || value === null) continue;
     const owner = Reflect.get(value, "owner");
@@ -108,33 +95,28 @@ const initWorkspace = (
         if (typeof resolvedVersion === "string") dependencies[fqn] = resolvedVersion;
       }
     }
-    const packDir = path.join(axmDir, "extensions", owner, "packs", name);
+    const packDir =
+      Reflect.get(value, "type") === "workspace"
+        ? path.join(projectRoot, "packs", name)
+        : path.join(projectRoot, "agent_extensions", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const manifest = { owner, type: "pack" as const, name, version, dependencies };
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
     if (Reflect.get(value, "type") === "workspace") {
-      delete lockfilePacks[name];
       continue;
     }
     lockfilePacks[name] = {
-      type: "registry",
-      owner,
-      name,
-      resolvedVersion: version,
-      integrity: Reflect.get(value, "integrity"),
+      ...value,
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
-      sourceName: Reflect.get(value, "sourceName"),
-      publisherBindingId: Reflect.get(value, "publisherBindingId"),
     };
   }
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({
-      lockfileVersion: 4,
-      skills: opts?.lockfileSkills ?? {},
-      ...(Object.keys(lockfilePacks).length === 0 ? {} : { packs: lockfilePacks }),
-    }),
-  );
+  writeWorkspaceFiles(projectRoot, {
+    owner: "@acme",
+    skills: opts?.settingsSkills,
+    packs: opts?.settingsPacks,
+    lockfileSkills: opts?.lockfileSkills,
+    lockfilePacks,
+  });
 };
 
 const defaultArgs = (
@@ -299,7 +281,7 @@ describe("packs uninstall handler", () => {
           });
 
           // Check lockfile no longer has the pack
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["my-pack"]).toBeUndefined();
         }),
@@ -322,7 +304,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["my-pack"]).toBeUndefined();
         }),
@@ -340,7 +322,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs).toBeUndefined();
         }),
@@ -352,24 +334,21 @@ describe("packs uninstall handler", () => {
     const initializeWorkspacePack = () => {
       const axmDir = path.join(tempDir, ".axm");
       initWorkspace(axmDir, {
-        settingsPacks: { toolkit: "workspace:@acme/packs/toolkit" },
+        settingsPacks: { toolkit: "workspace" },
         lockfilePacks: {
           toolkit: makeWorkspacePackLockEntry("@acme", "toolkit"),
         },
       });
-      return axmDir;
+      return tempDir;
     };
 
     it.effect("previews a bare workspace pack without changing workspace state", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = initializeWorkspacePack();
       const before = {
-        settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        settings: fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"),
         lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
-        manifest: fs.readFileSync(
-          path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
-          "utf8",
-        ),
+        manifest: fs.readFileSync(path.join(axmDir, "packs", "toolkit", "pack.json"), "utf8"),
       };
 
       return provide(
@@ -383,14 +362,11 @@ describe("packs uninstall handler", () => {
             planName: "Uninstall pack",
             totalSteps: 1,
           });
-          expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8")).toBe(before.settings);
           expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
-          expect(
-            fs.readFileSync(
-              path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"),
-              "utf8",
-            ),
-          ).toBe(before.manifest);
+          expect(fs.readFileSync(path.join(axmDir, "packs", "toolkit", "pack.json"), "utf8")).toBe(
+            before.manifest,
+          );
         }),
       );
     });
@@ -398,19 +374,12 @@ describe("packs uninstall handler", () => {
     it.effect("blocks preview and apply on the same incomplete Pack graph facts", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = initializeWorkspacePack();
-      const manifestPath = path.join(
-        axmDir,
-        "extensions",
-        "@acme",
-        "packs",
-        "toolkit",
-        "pack.json",
-      );
+      const manifestPath = path.join(axmDir, "packs", "toolkit", "pack.json");
       fs.rmSync(manifestPath);
       const projectionPath = path.join(tempDir, "AGENTS.md");
       fs.writeFileSync(projectionPath, "authored projection sentinel\n");
       const before = {
-        settings: fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
+        settings: fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"),
         lockfile: fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
         projection: fs.readFileSync(projectionPath, "utf8"),
       };
@@ -446,14 +415,14 @@ describe("packs uninstall handler", () => {
               expect.objectContaining({
                 level: "blocked",
                 id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
-                detail: expect.stringContaining(".axm/extensions/@acme/packs/toolkit/pack.json"),
+                detail: expect.stringContaining("packs/toolkit/pack.json"),
               }),
             ],
           };
           expect(preview).toMatchObject(decision);
           expect(apply).toMatchObject(decision);
           expect(JSON.stringify(preview)).toContain("@acme/packs/toolkit");
-          expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(before.settings);
+          expect(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8")).toBe(before.settings);
           expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(before.lockfile);
           expect(fs.existsSync(manifestPath)).toBe(false);
           expect(fs.readFileSync(projectionPath, "utf8")).toBe(before.projection);
@@ -464,7 +433,7 @@ describe("packs uninstall handler", () => {
     it.effect("reports incomplete Pack facts in human output", () => {
       const { provide, logs } = makeLayers();
       const axmDir = initializeWorkspacePack();
-      fs.rmSync(path.join(axmDir, "extensions", "@acme", "packs", "toolkit", "pack.json"));
+      fs.rmSync(path.join(axmDir, "packs", "toolkit", "pack.json"));
 
       return provide(
         Effect.gen(function* () {
@@ -476,7 +445,7 @@ describe("packs uninstall handler", () => {
           const output = [...logs.error, ...logs.warn, ...logs.info, ...logs.success].join("\n");
           expect(output).toContain("@acme/packs/toolkit");
           expect(output).toContain("pack-manifest-unavailable");
-          expect(output).toContain(".axm/extensions/@acme/packs/toolkit/pack.json");
+          expect(output).toContain("packs/toolkit/pack.json");
         }),
       );
     });
@@ -484,16 +453,9 @@ describe("packs uninstall handler", () => {
     it.effect("returns a stale candidate when Pack authority changes before apply", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = initializeWorkspacePack();
-      const settingsPath = path.join(axmDir, "settings.json");
+      const settingsPath = path.join(axmDir, "axm.json");
       const lockfilePath = path.join(axmDir, "axm-lock.yaml");
-      const manifestPath = path.join(
-        axmDir,
-        "extensions",
-        "@acme",
-        "packs",
-        "toolkit",
-        "pack.json",
-      );
+      const manifestPath = path.join(axmDir, "packs", "toolkit", "pack.json");
       const before = {
         settings: fs.readFileSync(settingsPath, "utf8"),
         lockfile: fs.readFileSync(lockfilePath, "utf8"),
@@ -544,17 +506,13 @@ describe("packs uninstall handler", () => {
               preview: false,
             });
 
-            const settings = JSON.parse(
-              fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"),
-            );
+            const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"));
             const lockfile = YAML.parse(
               fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
             );
             expect(settings.packs?.toolkit).toBeUndefined();
             expect(lockfile.packs?.toolkit).toBeUndefined();
-            expect(
-              fs.existsSync(path.join(axmDir, "extensions", "@acme", "packs", "toolkit")),
-            ).toBe(false);
+            expect(fs.existsSync(path.join(axmDir, "packs", "toolkit"))).toBe(true);
           }),
         );
       },
@@ -575,8 +533,8 @@ describe("packs uninstall handler", () => {
             planName: "Uninstall packs",
             message: "No packs uninstalled.",
           });
-          const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8"));
-          expect(settings.packs?.toolkit).toBe("workspace:@acme/packs/toolkit");
+          const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "axm.json"), "utf8"));
+          expect(settings.packs?.toolkit).toBe("workspace");
         }),
       );
     });
@@ -624,7 +582,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["my-pack"]).toBeUndefined();
           expect(lockfile.skills?.["skill-a"]).toBeUndefined();
@@ -663,7 +621,7 @@ describe("packs uninstall handler", () => {
           // shared-skill is retained by pack-b, should not appear as a unit
           expect(logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
           expect(rendererState.summaries.some((m) => m.includes("shared-skill"))).toBe(false);
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["pack-a"]).toBeUndefined();
         }),
@@ -691,12 +649,10 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["my-pack"]).toBeUndefined();
-          const settings = JSON.parse(
-            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-          );
+          const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
           expect(settings.skills?.["promoted-skill"]).toBe("@acme/skills/promoted-skill");
         }),
       );
@@ -727,9 +683,7 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          const settings = JSON.parse(
-            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
-          );
+          const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
           expect(settings.skills?.["promoted-skill"]).toEqual(disabled);
         }),
       );
@@ -764,7 +718,7 @@ describe("packs uninstall handler", () => {
           });
 
           // Check lockfile - acme-tools and acme-utils should be removed, other-pack preserved
-          const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["acme-tools"]).toBeUndefined();
           expect(lockfile.packs?.["acme-utils"]).toBeUndefined();

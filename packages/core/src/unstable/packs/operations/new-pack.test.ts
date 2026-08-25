@@ -86,7 +86,7 @@ describe("newPack", () => {
         expect(result.result).toBe("success");
 
         // Verify pack directory and manifest were created
-        const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
+        const packDir = path.join(base, "packs", "my-pack");
         expect(fs.existsSync(packDir)).toBe(true);
         expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
       }),
@@ -100,15 +100,7 @@ describe("newPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.$schema).toBe("https://axm.sh/schemas/pack.schema.json");
         expect(manifest.owner).toBe("@myorg");
@@ -142,7 +134,7 @@ describe("newPack", () => {
         const { axmDir, base } = setupBase();
 
         // Pre-create the pack manifest
-        const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
+        const packDir = path.join(base, "packs", "my-pack");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
           path.join(packDir, "pack.json"),

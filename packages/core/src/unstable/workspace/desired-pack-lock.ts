@@ -11,14 +11,16 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "../packs/index.js";
-import { computePackPaths } from "../packs/paths.js";
+import { computePackPaths, computePackPathsForLayout } from "../packs/paths.js";
 import type { DesiredStateGraph, DesiredStateProblem } from "./desired-state-graph.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
+import type { WorkspaceLayout } from "./layout.js";
 
 interface ValidateDesiredPackLockArgs {
   readonly baseDir: string;
   readonly graph: DesiredStateGraph;
   readonly lockfile: Lockfile;
+  readonly layout?: WorkspaceLayout;
 }
 
 const normalizedPackIdentity = (identity: string): string =>
@@ -71,6 +73,7 @@ export const validateDesiredPackLock = ({
   baseDir,
   graph,
   lockfile,
+  layout,
 }: ValidateDesiredPackLockArgs): Effect.Effect<
   DesiredStateGraph,
   never,
@@ -111,7 +114,10 @@ export const validateDesiredPackLock = ({
       }
 
       const manifestPath = path.join(
-        computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath,
+        layout === undefined
+          ? computePackPaths(path.join, baseDir, identity.owner, identity.name).canonicalPath
+          : computePackPathsForLayout(path.join, layout, "external", identity.owner, identity.name)
+              .canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
       const readResult = yield* Effect.result(fs.readFileString(manifestPath));

@@ -19,6 +19,7 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { HooksLockMapSchema, type HooksLockMap } from "../lockfile/index.js";
+import { computeMaterializedTreeIntegritySync } from "../test-helpers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
@@ -39,7 +40,7 @@ const providersStub: SourceHostProvidersService = {
 
 const decodeLockMap = Schema.decodeUnknownSync(HooksLockMapSchema);
 
-const registryLock = (name: string) => ({
+const registryLock = (baseDir: string, name: string) => ({
   type: "registry",
   owner: OWNER,
   name,
@@ -47,6 +48,9 @@ const registryLock = (name: string) => ({
   integrity: "sha512-stub",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  treeIntegrity: computeMaterializedTreeIntegritySync(
+    nodePath.join(baseDir, "agent_extensions", OWNER, "hooks", name),
+  ),
 });
 
 const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
@@ -60,6 +64,7 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
     {
       type: "pack",
       pack: `${OWNER}/packs/${pack}`,
+      manifestPath: `/workspace/agent_extensions/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/hooks/${name}`,
       constraint: "^1.0.0",
       enabled: true,
@@ -85,7 +90,7 @@ describe("HookManager graph-derived unit projection", () => {
   });
 
   const writeHookPackage = (name: string) => {
-    const root = nodePath.join(baseDir, ".axm/extensions", OWNER, "hooks", name);
+    const root = nodePath.join(baseDir, "agent_extensions", OWNER, "hooks", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "hook.json"),
@@ -131,8 +136,8 @@ describe("HookManager graph-derived unit projection", () => {
         packHookNode("pack-b-hook", "pack-b"),
       ]),
       locked: decodeLockMap({
-        "pack-a-hook": registryLock("pack-a-hook"),
-        "pack-b-hook": registryLock("pack-b-hook"),
+        "pack-a-hook": registryLock(baseDir, "pack-a-hook"),
+        "pack-b-hook": registryLock(baseDir, "pack-b-hook"),
       }),
       configuredAgents: ["claude-code"],
     });
@@ -159,14 +164,14 @@ describe("HookManager graph-derived unit projection", () => {
         packHookNode("pack-b-hook", "pack-b"),
       ]),
       locked: decodeLockMap({
-        "pack-a-hook": registryLock("pack-a-hook"),
-        "pack-b-hook": registryLock("pack-b-hook"),
+        "pack-a-hook": registryLock(baseDir, "pack-a-hook"),
+        "pack-b-hook": registryLock(baseDir, "pack-b-hook"),
       }),
       configuredAgents: ["claude-code"],
     });
     const after = makeTestLayer({
       graph: completeGraph([packHookNode("pack-b-hook", "pack-b")]),
-      locked: decodeLockMap({ "pack-b-hook": registryLock("pack-b-hook") }),
+      locked: decodeLockMap({ "pack-b-hook": registryLock(baseDir, "pack-b-hook") }),
       configuredAgents: ["claude-code"],
     });
     return Effect.gen(function* () {
@@ -193,8 +198,8 @@ describe("HookManager graph-derived unit projection", () => {
         packHookNode("pack-b-hook", "pack-b"),
       ]),
       locked: decodeLockMap({
-        "pack-a-hook": registryLock("pack-a-hook"),
-        "pack-b-hook": registryLock("pack-b-hook"),
+        "pack-a-hook": registryLock(baseDir, "pack-a-hook"),
+        "pack-b-hook": registryLock(baseDir, "pack-b-hook"),
       }),
       configuredAgents: ["claude-code"],
     });
@@ -209,7 +214,7 @@ describe("HookManager graph-derived unit projection", () => {
         settingsPath,
         edited.replace(
           /\}\s*$/u,
-          ',\n  "note": "bash .axm/extensions/@acme/hooks/pack-b-hook/src/hook.sh"\n}\n',
+          ',\n  "note": "bash agent_extensions/@acme/hooks/pack-b-hook/src/hook.sh"\n}\n',
         ),
       );
 
@@ -236,8 +241,8 @@ describe("HookManager graph-derived unit projection", () => {
         packHookNode("pack-b-hook", "pack-b"),
       ]),
       locked: decodeLockMap({
-        "pack-a-hook": registryLock("pack-a-hook"),
-        "pack-b-hook": registryLock("pack-b-hook"),
+        "pack-a-hook": registryLock(baseDir, "pack-a-hook"),
+        "pack-b-hook": registryLock(baseDir, "pack-b-hook"),
       }),
       configuredAgents: ["windsurf"],
     });
@@ -266,7 +271,7 @@ describe("HookManager graph-derived unit projection", () => {
           },
         ],
       },
-      locked: decodeLockMap({ "pack-a-hook": registryLock("pack-a-hook") }),
+      locked: decodeLockMap({ "pack-a-hook": registryLock(baseDir, "pack-a-hook") }),
       configuredAgents: ["claude-code"],
     });
     return Effect.gen(function* () {

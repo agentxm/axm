@@ -123,7 +123,7 @@ const newArgsFor = (type: MatrixExtensionType): ReadonlyArray<string> => {
   return entry.newArgs;
 };
 
-const settingsPathIn = (workspacePath: string) => path.join(workspacePath, ".axm", "settings.json");
+const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.json");
 
 const configureRegistry = (workspacePath: string, location: string) => {
   const settingsPath = settingsPathIn(workspacePath);
@@ -969,7 +969,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, ".axm", "extensions", OWNER, "skills", name);
+        path.join(workspacePath, "agent_extensions", OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),

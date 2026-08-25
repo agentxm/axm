@@ -2,46 +2,31 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/Lockfile",
   "definitions": {
-    "SourceNamespace": { "type": "string", "allOf": [{ "minLength": 1 }] },
-    "SourceSegment": { "type": "string", "allOf": [{ "minLength": 1 }] },
-    "Union_": {
-      "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-    },
-    "SourceSubPath": { "type": "string", "allOf": [{ "minLength": 1 }] },
-    "Union_1": { "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }] },
     "Handle": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-          "title": "Handle",
-          "description": "A unique username or organization name starting with @, like @my-org.",
-          "examples": ["@my-org", "@username"]
-        }
-      ]
+      "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+      "title": "Handle",
+      "description": "A unique username or organization name starting with @, like @my-org.",
+      "examples": ["@my-org", "@username"]
     },
     "ExtensionName": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-          "title": "Extension Name",
-          "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-          "examples": ["my-skill", "code-review", "prettier"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      "title": "Extension Name",
+      "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+      "examples": ["my-skill", "code-review", "prettier"]
     },
+    "SourceNamespace": { "type": "string", "minLength": 1 },
+    "SourceSegment": { "type": "string", "minLength": 1 },
+    "SourceSubPath": { "type": "string", "minLength": 1 },
+    "TreeIntegrity": { "type": "string" },
     "Version": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-          "title": "Version",
-          "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-          "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-        }
-      ]
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "title": "Version",
+      "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+      "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
     },
     "PackLockEntry": {
       "type": "object",
@@ -56,7 +41,8 @@
           "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
         },
         "sourceName": { "type": "string" },
-        "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+        "publisherBindingId": { "type": "string", "minLength": 1 },
+        "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
       },
       "required": [
         "type",
@@ -66,7 +52,8 @@
         "integrity",
         "manifestContentIdentity",
         "sourceName",
-        "publisherBindingId"
+        "publisherBindingId",
+        "treeIntegrity"
       ],
       "additionalProperties": false,
       "title": "Pack Lock Entry",
@@ -77,9 +64,9 @@
       "properties": {
         "lockfileVersion": {
           "type": "number",
-          "enum": [4],
+          "enum": [5],
           "description": "Lockfile schema version.",
-          "default": 4
+          "default": 5
         },
         "skills": {
           "type": "object",
@@ -89,24 +76,32 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["github"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": { "$ref": "#/definitions/Union_" },
-                  "path": { "$ref": "#/definitions/Union_1" },
-                  "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "path": {
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                  },
+                  "resolvedCommit": { "type": "string", "minLength": 1 },
+                  "resolvedTree": { "type": "string", "minLength": 1 },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
                 "required": [
                   "type",
+                  "packageOwner",
+                  "packageName",
                   "owner",
                   "repo",
                   "resolvedCommit",
                   "resolvedTree",
-                  "contentIdentity"
+                  "contentIdentity",
+                  "treeIntegrity"
                 ],
                 "additionalProperties": false
               },
@@ -114,24 +109,32 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["gitlab"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": { "$ref": "#/definitions/Union_" },
-                  "path": { "$ref": "#/definitions/Union_1" },
-                  "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "path": {
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                  },
+                  "resolvedCommit": { "type": "string", "minLength": 1 },
+                  "resolvedTree": { "type": "string", "minLength": 1 },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
                 "required": [
                   "type",
+                  "packageOwner",
+                  "packageName",
                   "owner",
                   "repo",
                   "resolvedCommit",
                   "resolvedTree",
-                  "contentIdentity"
+                  "contentIdentity",
+                  "treeIntegrity"
                 ],
                 "additionalProperties": false
               },
@@ -139,24 +142,32 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["bitbucket"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "owner": { "$ref": "#/definitions/SourceNamespace" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": { "$ref": "#/definitions/Union_" },
-                  "path": { "$ref": "#/definitions/Union_1" },
-                  "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "path": {
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                  },
+                  "resolvedCommit": { "type": "string", "minLength": 1 },
+                  "resolvedTree": { "type": "string", "minLength": 1 },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
                 "required": [
                   "type",
+                  "packageOwner",
+                  "packageName",
                   "owner",
                   "repo",
                   "resolvedCommit",
                   "resolvedTree",
-                  "contentIdentity"
+                  "contentIdentity",
+                  "treeIntegrity"
                 ],
                 "additionalProperties": false
               },
@@ -164,26 +175,34 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["azurerepos"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "organization": { "$ref": "#/definitions/SourceSegment" },
                   "project": { "$ref": "#/definitions/SourceSegment" },
                   "repo": { "$ref": "#/definitions/SourceSegment" },
-                  "ref": { "$ref": "#/definitions/Union_" },
-                  "path": { "$ref": "#/definitions/Union_1" },
-                  "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "path": {
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                  },
+                  "resolvedCommit": { "type": "string", "minLength": 1 },
+                  "resolvedTree": { "type": "string", "minLength": 1 },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
                 "required": [
                   "type",
+                  "packageOwner",
+                  "packageName",
                   "organization",
                   "project",
                   "repo",
                   "resolvedCommit",
                   "resolvedTree",
-                  "contentIdentity"
+                  "contentIdentity",
+                  "treeIntegrity"
                 ],
                 "additionalProperties": false
               },
@@ -191,30 +210,54 @@
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["git"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "url": { "type": "string" },
-                  "ref": { "$ref": "#/definitions/Union_" },
-                  "path": { "$ref": "#/definitions/Union_1" },
-                  "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "ref": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "path": {
+                    "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                  },
+                  "resolvedCommit": { "type": "string", "minLength": 1 },
+                  "resolvedTree": { "type": "string", "minLength": 1 },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
-                "required": ["type", "url", "resolvedCommit", "resolvedTree", "contentIdentity"],
+                "required": [
+                  "type",
+                  "packageOwner",
+                  "packageName",
+                  "url",
+                  "resolvedCommit",
+                  "resolvedTree",
+                  "contentIdentity",
+                  "treeIntegrity"
+                ],
                 "additionalProperties": false
               },
               {
                 "type": "object",
                 "properties": {
                   "type": { "type": "string", "enum": ["local"] },
+                  "packageOwner": { "$ref": "#/definitions/Handle" },
+                  "packageName": { "$ref": "#/definitions/ExtensionName" },
                   "path": { "type": "string" },
                   "contentIdentity": {
                     "type": "string",
                     "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                  }
+                  },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
-                "required": ["type", "path", "contentIdentity"],
+                "required": [
+                  "type",
+                  "packageOwner",
+                  "packageName",
+                  "path",
+                  "contentIdentity",
+                  "treeIntegrity"
+                ],
                 "additionalProperties": false
               },
               {
@@ -229,7 +272,8 @@
                     "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                   },
                   "sourceName": { "type": "string" },
-                  "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                  "publisherBindingId": { "type": "string", "minLength": 1 },
+                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
                 "required": [
                   "type",
@@ -238,7 +282,8 @@
                   "resolvedVersion",
                   "integrity",
                   "sourceName",
-                  "publisherBindingId"
+                  "publisherBindingId",
+                  "treeIntegrity"
                 ],
                 "additionalProperties": false
               }
@@ -255,24 +300,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -280,24 +335,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -305,24 +370,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -330,26 +405,36 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["azurerepos"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "organization",
                       "project",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -357,22 +442,32 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "url": { "type": "string" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "url",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -380,13 +475,23 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "path": { "type": "string" },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
-                    "required": ["type", "path", "contentIdentity"],
+                    "required": [
+                      "type",
+                      "packageOwner",
+                      "packageName",
+                      "path",
+                      "contentIdentity",
+                      "treeIntegrity"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -401,7 +506,8 @@
                         "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                       },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                      "publisherBindingId": { "type": "string", "minLength": 1 },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
@@ -410,7 +516,8 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
-                      "publisherBindingId"
+                      "publisherBindingId",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   }
@@ -430,24 +537,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -455,24 +572,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -480,24 +607,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -505,26 +642,36 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["azurerepos"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "organization",
                       "project",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -532,22 +679,32 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "url": { "type": "string" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "url",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -555,13 +712,23 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "path": { "type": "string" },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
-                    "required": ["type", "path", "contentIdentity"],
+                    "required": [
+                      "type",
+                      "packageOwner",
+                      "packageName",
+                      "path",
+                      "contentIdentity",
+                      "treeIntegrity"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -576,7 +743,8 @@
                         "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                       },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                      "publisherBindingId": { "type": "string", "minLength": 1 },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
@@ -585,7 +753,8 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
-                      "publisherBindingId"
+                      "publisherBindingId",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   }
@@ -605,24 +774,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -630,24 +809,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -655,24 +844,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -680,26 +879,36 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["azurerepos"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "organization",
                       "project",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -707,22 +916,32 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "url": { "type": "string" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "url",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -730,13 +949,23 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "path": { "type": "string" },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
-                    "required": ["type", "path", "contentIdentity"],
+                    "required": [
+                      "type",
+                      "packageOwner",
+                      "packageName",
+                      "path",
+                      "contentIdentity",
+                      "treeIntegrity"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -751,7 +980,8 @@
                         "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                       },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                      "publisherBindingId": { "type": "string", "minLength": 1 },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
@@ -760,7 +990,8 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
-                      "publisherBindingId"
+                      "publisherBindingId",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   }
@@ -780,24 +1011,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -805,24 +1046,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -830,24 +1081,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -855,26 +1116,36 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["azurerepos"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "organization",
                       "project",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -882,22 +1153,32 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "url": { "type": "string" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "url",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -905,13 +1186,23 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "path": { "type": "string" },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
-                    "required": ["type", "path", "contentIdentity"],
+                    "required": [
+                      "type",
+                      "packageOwner",
+                      "packageName",
+                      "path",
+                      "contentIdentity",
+                      "treeIntegrity"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -926,7 +1217,8 @@
                         "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                       },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                      "publisherBindingId": { "type": "string", "minLength": 1 },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
@@ -935,7 +1227,8 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
-                      "publisherBindingId"
+                      "publisherBindingId",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   }
@@ -955,24 +1248,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["github"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -980,24 +1283,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["gitlab"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -1005,24 +1318,34 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["bitbucket"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "owner": { "$ref": "#/definitions/SourceNamespace" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "owner",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -1030,26 +1353,36 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["azurerepos"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "organization": { "$ref": "#/definitions/SourceSegment" },
                       "project": { "$ref": "#/definitions/SourceSegment" },
                       "repo": { "$ref": "#/definitions/SourceSegment" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "organization",
                       "project",
                       "repo",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -1057,22 +1390,32 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["git"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "url": { "type": "string" },
-                      "ref": { "$ref": "#/definitions/Union_" },
-                      "path": { "$ref": "#/definitions/Union_1" },
-                      "resolvedCommit": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                      "resolvedTree": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                      "ref": {
+                        "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": {
+                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                      },
+                      "resolvedCommit": { "type": "string", "minLength": 1 },
+                      "resolvedTree": { "type": "string", "minLength": 1 },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
+                      "packageOwner",
+                      "packageName",
                       "url",
                       "resolvedCommit",
                       "resolvedTree",
-                      "contentIdentity"
+                      "contentIdentity",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   },
@@ -1080,13 +1423,23 @@
                     "type": "object",
                     "properties": {
                       "type": { "type": "string", "enum": ["local"] },
+                      "packageOwner": { "$ref": "#/definitions/Handle" },
+                      "packageName": { "$ref": "#/definitions/ExtensionName" },
                       "path": { "type": "string" },
                       "contentIdentity": {
                         "type": "string",
                         "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
-                      }
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
-                    "required": ["type", "path", "contentIdentity"],
+                    "required": [
+                      "type",
+                      "packageOwner",
+                      "packageName",
+                      "path",
+                      "contentIdentity",
+                      "treeIntegrity"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -1101,7 +1454,8 @@
                         "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
                       },
                       "sourceName": { "type": "string" },
-                      "publisherBindingId": { "type": "string", "allOf": [{ "minLength": 1 }] }
+                      "publisherBindingId": { "type": "string", "minLength": 1 },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                     },
                     "required": [
                       "type",
@@ -1110,7 +1464,8 @@
                       "resolvedVersion",
                       "integrity",
                       "sourceName",
-                      "publisherBindingId"
+                      "publisherBindingId",
+                      "treeIntegrity"
                     ],
                     "additionalProperties": false
                   }

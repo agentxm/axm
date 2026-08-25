@@ -15,6 +15,7 @@ import {
   routeUrlInput,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { workspaceSettingsPath } from "../../shared/workspace-display-paths.js";
 
 import { ADD_REGISTRY_SOURCE } from "../../suggested-actions.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
@@ -125,7 +126,7 @@ const resolveRegistrySource = (
         detail: `No registry source is configured for owner "${owner}"`,
         suggestions: [
           {
-            description: `Add a registry source for owner "${owner}" under \`sources\` in .axm/settings.json.`,
+            description: `Add a registry source for owner "${owner}" under \`sources\` in ${workspaceSettingsPath(ws.scope)}.`,
             cmd: ADD_REGISTRY_SOURCE.cmd,
           },
         ],

@@ -28,7 +28,7 @@ const settingsWithHooks = (
 
 const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
   decodedLockfile({
-    lockfileVersion: 4,
+    lockfileVersion: 5,
     skills: {},
     hooks: Object.fromEntries(
       names.map((name) => [
@@ -41,6 +41,7 @@ const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile
           integrity: "sha512-abc",
           sourceName: "registry",
           publisherBindingId: "hbnd_test",
+          treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
         },
       ]),
     ),

@@ -3,12 +3,13 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Hook packages live in `./.axm/extensions/<@owner>/hooks/<hook-name>`.
+Project-authored hook packages live in `./hooks/<hook-name>`; acquired hooks
+live in `./agent_extensions/<@owner>/hooks/<hook-name>`.
 
 A hook extension runs your code on an agent lifecycle event such as a tool
 pre-call, tool post-call, prompt submission, or session start. It is a portable
-manifest plus an executable body. On install, AXM materializes the body under
-`.axm/extensions/...` and merges a native hook entry into the target agent's
+manifest plus an executable body. On install, AXM materializes the package under
+`agent_extensions/...` and merges a native hook entry into the target agent's
 settings file that points at it.
 
 The command AXM writes always targets the materialized entrypoint in your
@@ -91,8 +92,8 @@ that requirement.
 
 `axm hooks install` (or the generic `axm install`):
 
-1. Materializes the package into `.axm/extensions/<owner>/hooks/<name>/`.
-2. Records the resolved hook in `.axm/axm-lock.yaml`.
+1. Materializes the package into `agent_extensions/<owner>/hooks/<name>/`.
+2. Records the resolved hook in `axm-lock.yaml`.
 3. Merges a generated command into the target agent's settings through the
    JSONC-aware writer.
 
@@ -116,7 +117,7 @@ For the generated command, AXM joins the runtime and the materialized
 entrypoint:
 
 ```text
-bash .axm/extensions/@acme/hooks/block-secrets/src/hook.sh
+bash agent_extensions/@acme/hooks/block-secrets/src/hook.sh
 ```
 
 Claude Code uses the catalog-driven `command-stdin` serializer: a `tool.pre`
@@ -129,15 +130,15 @@ contract.
 
 Every generated command entry carries structured `x-axm` metadata with
 `v: 1`, `managed: true`, `unit: "hook:<name>"`, source, and reference. A command
-that merely points into `.axm/extensions/` is not AXM-owned and is never removed
+that merely points into `agent_extensions/` is not AXM-owned and is never removed
 on that basis. `axm lint` reports such an unmarked entry as
 `workspace/hook-ownership-ambiguous`; add or remove it manually after deciding
 who owns it.
 
 ## Configuration
 
-Installed hooks are tracked in `.axm/settings.json` under the `hooks` map
-(name → entry) and locked in `.axm/axm-lock.yaml`. An entry is a source string,
+Installed hooks are tracked in `axm.json` under the `hooks` map
+(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
 or an object with `source` plus optional flags:
 
 ```jsonc

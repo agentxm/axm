@@ -142,7 +142,9 @@ export const disableSkill: OperationHandler<
       sanitizedName,
       scope: ws.scope,
       change: "removed",
-      workspaceTargets: [{ path: ".axm/settings.json", change: "updated" }],
+      workspaceTargets: [
+        { path: ws.scope === "project" ? "axm.json" : ".axm/settings.json", change: "updated" },
+      ],
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

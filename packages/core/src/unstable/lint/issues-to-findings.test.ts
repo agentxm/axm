@@ -176,7 +176,7 @@ describe("issuesToFindings", () => {
       issue,
     );
 
-    expect(finding?.message).toContain("Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json`");
+    expect(finding?.message).toContain("Regenerate the workspace lockfile from workspace settings");
     expect(finding?.message).not.toContain("Edit `.axm/axm-lock.yaml`");
   });
 

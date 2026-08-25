@@ -48,6 +48,7 @@ http-client.private.env.json
 .nx/cache/
 .nx/workspace-data/
 tmp/
+.axm/
 
 # Test results (JUnit XML reports)
 test-results/

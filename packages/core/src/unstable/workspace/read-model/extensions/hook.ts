@@ -5,8 +5,8 @@
  * Declared hooks come from `settings.hooks`; resolved hooks come from
  * `axm-lock.yaml` `hooks`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "hook"`), which enumerates
- * `.axm/extensions/<owner>/hooks/<name>/src` and
- * `.axm/extensions/external/hooks/<name>`.
+ * project-authored `hooks/<name>/src`, project-acquired
+ * `agent_extensions/<owner>/hooks/<name>/src`, and user-scope packages.
  *
  * The hook installer also writes agent-side derived artifacts — managed hook
  * groups inside agent settings files and the advisory-rule fallback region.
@@ -125,8 +125,8 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedHooks => {
 // ---------------------------------------------------------------------------
 
 /**
- * Hook scanners. Hooks materialize only under `.axm/extensions`, so the
- * canonical scanner is the sole input; agent-side managed hook groups are
+ * Hook scanners. Hook packages materialize only in canonical package roots,
+ * so the canonical scanner is the sole input; agent-side managed hook groups are
  * renderings of an installed hook rather than independent materializations.
  */
 export interface HookScanners {

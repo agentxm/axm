@@ -10,6 +10,7 @@
 import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
  * Computed path for an installed pack directory.
@@ -39,3 +40,27 @@ export const computePackPaths = (
   const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, owner, "packs", name);
   return { canonicalPath: decodeAbsolutePathSync(canonicalPath) };
 };
+
+/** Resolve a conventionally placed workspace-authored Pack. */
+export const computeAuthoredPackPaths = (
+  join: (...paths: string[]) => string,
+  base: string,
+  name: string,
+): PackDirPath => ({
+  canonicalPath: decodeAbsolutePathSync(join(base, "packs", name)),
+});
+
+export const computePackPathsForLayout = (
+  join: (...paths: string[]) => string,
+  layout: WorkspaceLayout,
+  source: "workspace" | "external",
+  owner: Handle,
+  name: string,
+): PackDirPath => ({
+  canonicalPath:
+    layout.scope === "project" && source === "workspace"
+      ? decodeAbsolutePathSync(join(layout.authoredRoot("pack"), name))
+      : layout.scope === "project"
+        ? decodeAbsolutePathSync(join(layout.acquiredRoot, owner, "packs", name))
+        : decodeAbsolutePathSync(join(layout.canonicalRoot, owner, "packs", name)),
+});

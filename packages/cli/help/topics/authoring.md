@@ -19,7 +19,7 @@ Use `fork` and the type-specific native import commands for different source
 states:
 
 - `axm fork <source> <extension>` starts a new workspace-authored package from
-  an existing managed AXM package. Registry, `workspace:`, local, and Git
+  an existing managed AXM package. Registry, exact `workspace`, local, and Git
   sources are supported. The source and target types must match; packs are
   copied shallowly, so their dependency map remains unchanged.
 - `axm skills import <source> <extension>` and `axm subagents import <source>

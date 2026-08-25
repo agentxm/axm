@@ -90,7 +90,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         cliVersion: "1.1.9",
         skill: {
           manifestVersion: SKILL_VERSION,
-          source: "workspace:@agentxm/skills/axm",
+          source: "workspace",
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -157,7 +157,7 @@ describe("evaluateAxmSkillCompatibility", () => {
         cliVersion: "1.3.0",
         skill: {
           manifestVersion: SKILL_VERSION,
-          source: "workspace:@agentxm/skills/axm",
+          source: "workspace",
           metadata: {
             [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
             [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",

@@ -19,45 +19,45 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import { categorizeEntry, type Categorized } from "./helpers/source-categorize.js";
 
 const RULE_ID = "workspace/packs-declarations-valid";
-const SETTINGS_REL = ".axm/settings.json";
-
-const bareNameFinding = (entry: Categorized): AdvisoryFinding => ({
+const bareNameFinding = (entry: Categorized, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Pack '${entry.name}' uses ambiguous bare source '${entry.source}'.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
-const nonRegistryFinding = (entry: Categorized): AdvisoryFinding => ({
+const nonRegistryFinding = (entry: Categorized, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Pack '${entry.name}' source '${entry.source}' is not a supported Pack source reference.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
-const missingOwnerFinding = (entry: Categorized): AdvisoryFinding => ({
+const missingOwnerFinding = (entry: Categorized, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Pack '${entry.name}' source '${entry.source}' is missing its owner-qualified identity.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 const duplicateFinding = (
   entry: Categorized,
   duplicates: ReadonlyArray<string>,
+  settingsPath: string,
 ): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Pack '${entry.name}' duplicates the same Pack identity as: ${duplicates.join(", ")}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -89,16 +89,17 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       }
 
       const findings: Array<AdvisoryFinding> = [];
+      const settingsPath = settingsDisplayPath(context.subject.scope);
       for (const entry of entries) {
         switch (entry.kind) {
           case "bare":
-            findings.push(bareNameFinding(entry));
+            findings.push(bareNameFinding(entry, settingsPath));
             break;
           case "non-registry":
-            findings.push(nonRegistryFinding(entry));
+            findings.push(nonRegistryFinding(entry, settingsPath));
             break;
           case "registry-no-owner":
-            findings.push(missingOwnerFinding(entry));
+            findings.push(missingOwnerFinding(entry, settingsPath));
             break;
           case "registry": {
             if (entry.registryFqn === undefined) {
@@ -106,7 +107,7 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             }
             const group = byFqn.get(entry.registryFqn) ?? [];
             if (group.length > 1) {
-              findings.push(duplicateFinding(entry, group.map((g) => g.name).sort()));
+              findings.push(duplicateFinding(entry, group.map((g) => g.name).sort(), settingsPath));
             }
             break;
           }
@@ -116,7 +117,7 @@ export const packsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             }
             const group = byFqn.get(entry.registryFqn) ?? [];
             if (group.length > 1) {
-              findings.push(duplicateFinding(entry, group.map((g) => g.name).sort()));
+              findings.push(duplicateFinding(entry, group.map((g) => g.name).sort(), settingsPath));
             }
             break;
           }

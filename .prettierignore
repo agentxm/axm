@@ -10,5 +10,5 @@ packages/core/src/unstable/lint/__fixtures__/
 
 .nx/self-healing
 
-# AXM canonical installations preserve immutable upstream archive formatting.
-.axm/extensions/
+# AXM acquired packages preserve immutable upstream archive formatting.
+agent_extensions/

@@ -27,7 +27,7 @@ describe("extension path helpers", () => {
     const paths = computeExtensionPaths(
       nodePath.join,
       "/workspace",
-      { refType: "local" },
+      { refType: "local", owner: handle("@acme") },
       "subagents",
       "reviewer",
     );

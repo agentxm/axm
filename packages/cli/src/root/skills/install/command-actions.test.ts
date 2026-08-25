@@ -47,6 +47,8 @@ const makeRegistrySkillRef = (
 const makeLocalSkillRef = (name: string, metadata?: Record<string, unknown>): LocalSkillRef => ({
   type: "skill",
   refType: "local",
+  owner: ACME,
+  name: extensionName(name),
   skill: {
     name: extensionName(name),
     description: Option.some(`${name} skill`),

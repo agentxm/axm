@@ -57,7 +57,7 @@ const registryLock = (owner: string, name: string) => ({
 });
 
 const enableManagedInstructions = (axmDir: string, fileName = "AGENTS.md"): void => {
-  const settingsPath = path.join(axmDir, "settings.json");
+  const settingsPath = path.join(path.dirname(axmDir), "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
   fs.writeFileSync(
     settingsPath,
@@ -91,7 +91,7 @@ describe("Knowledge uninstall ownership", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir);
     writeKnowledgePackage(
-      path.join(axmDir, "extensions", "@acme", "knowledge", "handbook"),
+      path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook"),
       "@acme",
       "handbook",
     );
@@ -149,7 +149,7 @@ describe("Knowledge uninstall ownership", () => {
       knowledge: { handbook: "@acme/knowledge/handbook" },
     });
     writeKnowledgePackage(
-      path.join(axmDir, "extensions", "@acme", "knowledge", "handbook"),
+      path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook"),
       "@acme",
       "handbook",
     );
@@ -171,7 +171,7 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes a lock-only accepted package", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const canonicalRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "handbook");
+    const canonicalRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
     writeWorkspaceFiles(axmDir, {
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
     });
@@ -189,7 +189,7 @@ describe("Knowledge uninstall ownership", () => {
         });
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(canonicalRoot)).toBe(false);
-        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).not.toContain(
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "handbook",
         );
       }),
@@ -198,7 +198,7 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes every owned surface for an accepted package", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const canonicalRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "handbook");
+    const canonicalRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
     writeWorkspaceFiles(axmDir, {
       knowledge: { handbook: "@acme/knowledge/handbook" },
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
@@ -208,7 +208,7 @@ describe("Knowledge uninstall ownership", () => {
     const instructionsPath = path.join(tempDir, "AGENTS.md");
     fs.writeFileSync(
       instructionsPath,
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 
@@ -223,10 +223,8 @@ describe("Knowledge uninstall ownership", () => {
         });
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(canonicalRoot)).toBe(false);
-        expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).not.toContain(
-          "handbook",
-        );
-        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).not.toContain(
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).not.toContain("handbook");
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "handbook",
         );
         expect(fs.readFileSync(instructionsPath, "utf8")).not.toContain("handbook");
@@ -236,8 +234,8 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("removes only the accepted canonical package when an unowned namesake exists", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const ownedRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "handbook");
-    const unownedRoot = path.join(axmDir, "extensions", "@other", "knowledge", "handbook");
+    const ownedRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
+    const unownedRoot = path.join(tempDir, "agent_extensions", "@other", "knowledge", "handbook");
     writeWorkspaceFiles(axmDir, {
       knowledge: { handbook: "@acme/knowledge/handbook" },
       lockfileKnowledge: { handbook: registryLock("@acme", "handbook") },
@@ -247,7 +245,7 @@ describe("Knowledge uninstall ownership", () => {
     enableManagedInstructions(axmDir);
     fs.writeFileSync(
       path.join(tempDir, "AGENTS.md"),
-      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](.axm/extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
+      "# Agent\n\n<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->\n## Knowledge Bundles\n\nUse `axm knowledge concepts --help` to search, read, and explore these bundles.\n\n### @acme\n\n| Bundle | Description |\n| --- | --- |\n| [handbook](agent_extensions/@acme/knowledge/handbook/src/index.md) | — |\n<!-- axm:end v=1 region=knowledge -->\n",
     );
     const { provide } = makeActions();
 
@@ -263,10 +261,8 @@ describe("Knowledge uninstall ownership", () => {
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(fs.existsSync(ownedRoot)).toBe(false);
         expect(fs.existsSync(unownedRoot)).toBe(true);
-        expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).not.toContain(
-          "handbook",
-        );
-        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).not.toContain(
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).not.toContain("handbook");
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "handbook",
         );
         expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf8")).not.toContain("handbook");
@@ -276,8 +272,8 @@ describe("Knowledge uninstall ownership", () => {
 
   it.effect("rolls back canonical, settings, lock, and instructions when projection fails", () => {
     const axmDir = path.join(tempDir, ".axm");
-    const targetRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "handbook");
-    const siblingRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "sibling");
+    const targetRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "handbook");
+    const siblingRoot = path.join(tempDir, "agent_extensions", "@acme", "knowledge", "sibling");
     writeWorkspaceFiles(axmDir, {
       knowledge: {
         handbook: "@acme/knowledge/handbook",
@@ -293,8 +289,8 @@ describe("Knowledge uninstall ownership", () => {
     enableManagedInstructions(axmDir, "NOTES.json");
     const instructionsPath = path.join(tempDir, "NOTES.json");
     fs.writeFileSync(instructionsPath, "Original instructions\n");
-    const settingsPath = path.join(axmDir, "settings.json");
-    const lockPath = path.join(axmDir, "axm-lock.yaml");
+    const settingsPath = path.join(tempDir, "axm.json");
+    const lockPath = path.join(tempDir, "axm-lock.yaml");
     const before = {
       canonical: fs.readFileSync(path.join(targetRoot, "knowledge.json")),
       settings: fs.readFileSync(settingsPath),

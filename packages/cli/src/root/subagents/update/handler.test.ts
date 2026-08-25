@@ -11,7 +11,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
   SourceHostProviders,
@@ -31,7 +30,7 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../../test-helpers.js";
-import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
+import { exactVersion, extensionName, handle, writeWorkspaceFiles } from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -47,19 +46,12 @@ const initWorkspace = (
     agents?: string[];
   },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  const settings: Record<string, unknown> = {
-    agents: opts?.agents ?? ["claude-code"],
-  };
-  if (opts?.subagents) settings["subagents"] = opts.subagents;
-  if (opts?.sources) settings["sources"] = opts.sources;
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  const lockfile: Record<string, unknown> = {
-    lockfileVersion: 4,
-    skills: {},
-    subagents: opts?.subagentLocks ?? {},
-  };
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  writeWorkspaceFiles(axmDir, {
+    agents: opts?.agents,
+    subagents: opts?.subagents,
+    sources: opts?.sources,
+    lockfileSubagents: opts?.subagentLocks,
+  });
 };
 
 const defaultArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHandlerArgs => ({

@@ -81,7 +81,7 @@ describe("pack publish resolution divergence", () => {
     {
       packFqn: "@acme/packs/reviewers",
       packAuthority: "workspace" as const,
-      manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+      manifestPath: "packs/reviewers/pack.json",
       memberFqn: "@acme/skills/review",
       constraint: "^0.0.4",
       memberVersion: "0.0.5",
@@ -218,13 +218,10 @@ describe("root publish", () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.mkdirSync(path.join(tempDir, "registry"), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [] }),
     );
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 4\nskills: {}\n",
-    );
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -247,14 +244,14 @@ describe("root publish", () => {
 
   const writeReviewSkill = () => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
-        skills: { review: "workspace:@acme/skills/review" },
+        skills: { review: "workspace" },
       }),
     );
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -272,8 +269,7 @@ describe("root publish", () => {
     readonly packVersion?: string;
   }) => {
     writeReviewSkill();
-    const axmDir = path.join(tempDir, ".axm");
-    const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
       JSON.stringify({
@@ -283,7 +279,7 @@ describe("root publish", () => {
         version: args.skillVersion,
       }),
     );
-    const packDir = path.join(axmDir, "extensions", "@acme", "packs", "reviewers");
+    const packDir = path.join(tempDir, "packs", "reviewers");
     fs.mkdirSync(packDir, { recursive: true });
     fs.writeFileSync(
       path.join(packDir, "pack.json"),
@@ -296,18 +292,18 @@ describe("root publish", () => {
       }),
     );
     fs.writeFileSync(
-      path.join(axmDir, "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
-        skills: { review: "workspace:@acme/skills/review" },
-        packs: { reviewers: "workspace:@acme/packs/reviewers" },
+        skills: { review: "workspace" },
+        packs: { reviewers: "workspace" },
       }),
     );
     fs.writeFileSync(
-      path.join(axmDir, "axm-lock.yaml"),
+      path.join(tempDir, "axm-lock.yaml"),
       YAML.stringify({
-        lockfileVersion: 4,
+        lockfileVersion: 5,
         skills: {},
       }),
     );
@@ -1257,16 +1253,7 @@ describe("root publish", () => {
           const request = authorizationRequest;
           if (request === undefined) return false;
           fs.appendFileSync(
-            path.join(
-              tempDir,
-              ".axm",
-              "extensions",
-              "@acme",
-              "skills",
-              "review",
-              "src",
-              "SKILL.md",
-            ),
+            path.join(tempDir, "skills", "review", "src", "SKILL.md"),
             "\nChanged during authorization.\n",
           );
           const callback = new URL(request.redirectUri);
@@ -1506,16 +1493,16 @@ describe("root publish", () => {
 
   it.effect("selects a disabled workspace source during argument-free preview", () => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
         skills: {
-          review: { source: "workspace:@acme/skills/review", enabled: false },
+          review: { source: "workspace", enabled: false },
         },
       }),
     );
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -1547,16 +1534,16 @@ describe("root publish", () => {
 
   it.effect("builds a publish candidate for a conformant Knowledge bundle", () => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
         knowledge: {
-          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
+          platform: { source: "workspace", enabled: true },
         },
       }),
     );
-    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
+    const knowledgeDir = path.join(tempDir, "knowledge", "platform");
     fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(knowledgeDir, "knowledge.json"),
@@ -1603,16 +1590,16 @@ describe("root publish", () => {
 
   it.effect("builds a publish candidate for a conformant OKF 0.2 Knowledge bundle", () => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
         knowledge: {
-          platform: { source: "workspace:@acme/knowledge/platform", enabled: true },
+          platform: { source: "workspace", enabled: true },
         },
       }),
     );
-    const knowledgeDir = path.join(tempDir, ".axm", "extensions", "@acme", "knowledge", "platform");
+    const knowledgeDir = path.join(tempDir, "knowledge", "platform");
     fs.mkdirSync(path.join(knowledgeDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(knowledgeDir, "knowledge.json"),
@@ -1714,14 +1701,14 @@ describe("root publish", () => {
 
   it.effect("verifies an existing immutable version and detects integrity drift", () => {
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
-        skills: { review: "workspace:@acme/skills/review" },
+        skills: { review: "workspace" },
       }),
     );
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     const skillBody = path.join(skillDir, "src", "SKILL.md");
     fs.mkdirSync(path.dirname(skillBody), { recursive: true });
     fs.writeFileSync(
@@ -1778,15 +1765,7 @@ describe("root publish", () => {
     writeReviewSkill();
     const { provide, rendererState } = makeContext(false);
     const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-    const manifestPath = path.join(
-      tempDir,
-      ".axm",
-      "extensions",
-      "@acme",
-      "skills",
-      "review",
-      "skill.json",
-    );
+    const manifestPath = path.join(tempDir, "skills", "review", "skill.json");
     const manifest = expectRecord(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
     const metadata = { "com.example/tool": { enabled: true } };
     fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, metadata }));
@@ -1825,7 +1804,7 @@ describe("root publish", () => {
 
   describe("existing version policy", () => {
     const writeSkill = (name: string, version: string) => {
-      const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", name);
+      const skillDir = path.join(tempDir, "skills", name);
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(skillDir, "skill.json"),
@@ -1839,11 +1818,11 @@ describe("root publish", () => {
 
     const writeSkillSettings = (names: ReadonlyArray<string>) => {
       fs.writeFileSync(
-        path.join(tempDir, ".axm", "settings.json"),
+        path.join(tempDir, "axm.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
-          skills: Object.fromEntries(names.map((name) => [name, `workspace:@acme/skills/${name}`])),
+          skills: Object.fromEntries(names.map((name) => [name, "workspace"])),
         }),
       );
       for (const name of names) writeSkill(name, "1.0.0");
@@ -2118,7 +2097,7 @@ describe("root publish", () => {
   });
 
   describe("publish safety gates", () => {
-    const skillDir = () => path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = () => path.join(tempDir, "skills", "review");
 
     const writeReviewSkill = (version: string) => {
       fs.mkdirSync(path.join(skillDir(), "src"), { recursive: true });
@@ -2131,11 +2110,11 @@ describe("root publish", () => {
         "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
       );
       fs.writeFileSync(
-        path.join(tempDir, ".axm", "settings.json"),
+        path.join(tempDir, "axm.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
-          skills: { review: "workspace:@acme/skills/review" },
+          skills: { review: "workspace" },
         }),
       );
     };
@@ -2388,7 +2367,7 @@ describe("root publish", () => {
   describe("result versions", () => {
     const writeExternallySourcedExtensions = () => {
       fs.writeFileSync(
-        path.join(tempDir, ".axm", "settings.json"),
+        path.join(tempDir, "axm.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
@@ -2447,15 +2426,15 @@ describe("root publish", () => {
   describe("command telemetry", () => {
     const writeReviewSkill = (settings: Record<string, unknown> = {}) => {
       fs.writeFileSync(
-        path.join(tempDir, ".axm", "settings.json"),
+        path.join(tempDir, "axm.json"),
         JSON.stringify({
           owner: "@acme",
           agents: [],
-          skills: { review: "workspace:@acme/skills/review" },
+          skills: { review: "workspace" },
           ...settings,
         }),
       );
-      const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+      const skillDir = path.join(tempDir, "skills", "review");
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(skillDir, "skill.json"),
@@ -2528,8 +2507,8 @@ describe("root publish", () => {
     });
 
     it.effect("reports mixed subject types across a multi-type selection", () => {
-      writeReviewSkill({ rules: { style: "workspace:@acme/rules/style" } });
-      const ruleDir = path.join(tempDir, ".axm", "extensions", "@acme", "rules", "style");
+      writeReviewSkill({ rules: { style: "workspace" } });
+      const ruleDir = path.join(tempDir, "rules", "style");
       fs.mkdirSync(path.join(ruleDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(ruleDir, "rule.json"),

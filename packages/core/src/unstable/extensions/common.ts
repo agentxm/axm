@@ -1040,7 +1040,7 @@ export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
 export const ConfigurableAgentIdSchema = Schema.Literals([...CONFIGURABLE_AGENT_IDS]).annotate({
   identifier: "ConfigurableAgentId",
   title: "Configurable Agent ID",
-  description: "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
+  description: "Supported coding agent identifier used in workspace settings `agents`.",
   examples: ["claude-code", "codex", "cursor"],
 });
 

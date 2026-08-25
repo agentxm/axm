@@ -23,10 +23,10 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/agents-detected-declared";
-const SETTINGS_REL = ".axm/settings.json";
 
 export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -60,7 +60,7 @@ export const agentsDetectedDeclaredRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "warning",
           message: `Agent '${detection.agentId}' is present on disk but missing from \`settings.agents[]\`.`,
-          location: { file: SETTINGS_REL },
+          location: { file: settingsDisplayPath(context.subject.scope) },
         });
       }
       return findings;

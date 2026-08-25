@@ -8,6 +8,8 @@ import { emptyWorkspaceState, type WorkspaceState } from "../workspace-fixtures/
 import { scopeFilesFromWorkspaceState } from "../workspace-fixtures/fixture-state.js";
 import { skillsIntegrityValidRule } from "./skills-integrity-valid.js";
 
+const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+
 const desired: DesiredExtensionNode = {
   type: "skill",
   name: "my-skill",
@@ -60,6 +62,7 @@ const resolution = {
   integrity: "sha512-stub",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  treeIntegrity,
 };
 
 const stateWithDesiredSkill = () => {
@@ -68,7 +71,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 4, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 5, skills: { "my-skill": resolution } };
   return state;
 };
 
@@ -76,7 +79,7 @@ describe("workspace/skills-integrity-valid", () => {
   it.effect("accepts present canonical content for a desired accepted resolution", () =>
     Effect.gen(function* () {
       const state = stateWithDesiredSkill();
-      state.existingPaths.add(".axm/extensions/@examples/skills/my-skill/src/SKILL.md");
+      state.existingPaths.add("agent_extensions/@examples/skills/my-skill/src/SKILL.md");
 
       expect(yield* runCheck(state, [desired])).toEqual([]);
     }),
@@ -108,7 +111,7 @@ describe("workspace/skills-integrity-valid", () => {
         agents: ["claude-code"],
         skills: { draft: "workspace:@examples/skills/draft" },
       };
-      state.lockfile = { lockfileVersion: 4, skills: {} };
+      state.lockfile = { lockfileVersion: 5, skills: {} };
 
       expect(yield* runCheck(state, [])).toEqual([]);
     }),

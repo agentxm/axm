@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../test-stubs.js";
@@ -125,27 +124,18 @@ describe("list command empty output", () => {
       mcps: {
         context: "@acme/mcps/context",
       },
-    });
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "axm-lock.yaml"),
-      YAML.stringify({
-        lockfileVersion: 4,
-        skills: {},
-        mcpServers: {
-          context: {
-            type: "registry",
-            owner: "@acme",
-            name: "context",
-            resolvedVersion: "2.3.4",
-            integrity: "sha512-AAAA==",
-            sourceName: "default",
-            publisherBindingId: "hbnd_test",
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
+      lockfileMcpServers: {
+        context: {
+          type: "registry",
+          owner: "@acme",
+          name: "context",
+          resolvedVersion: "2.3.4",
+          integrity: "sha512-AAAA==",
+          sourceName: "default",
+          publisherBindingId: "hbnd_test",
         },
-      }),
-    );
+      },
+    });
 
     return provide(
       Effect.gen(function* () {

@@ -19,7 +19,7 @@ const approvedProjectSetup = [
 
 describe("axm setup", () => {
   describe("with --yes and --non-interactive", () => {
-    it("creates settings file in .axm directory", async () => {
+    it("creates the project contract at the workspace root", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(approvedProjectSetup, { cwd: temp.path });
@@ -27,12 +27,7 @@ describe("axm setup", () => {
         // Should exit successfully
         expect(result.exitCode).toBe(0);
 
-        // Should create .axm directory
-        const axmDir = path.join(temp.path, ".axm");
-        expect(fs.existsSync(axmDir)).toBe(true);
-
-        // Should create settings.json
-        const settingsPath = path.join(axmDir, "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
 
         // Settings should be valid JSON with required properties
@@ -40,12 +35,20 @@ describe("axm setup", () => {
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
         expect(settings.skills?.["axm"]).toEqual({
-          source: "workspace:@agentxm/skills/axm",
+          source: "workspace",
           origin: "bundled",
         });
         expect(
           fs.existsSync(
-            path.join(axmDir, "extensions", "@agentxm", "skills", "axm", "src", "SKILL.md"),
+            path.join(
+              temp.path,
+              "agent_extensions",
+              "@agentxm",
+              "skills",
+              "axm",
+              "src",
+              "SKILL.md",
+            ),
           ),
         ).toBe(true);
       } finally {
@@ -71,7 +74,9 @@ describe("axm setup", () => {
           env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
         });
         expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
-        expect(preview.stdout).toContain("workspace:@agentxm/skills/axm");
+        expect(JSON.parse(preview.stdout)).toMatchObject({
+          result: { units: [expect.objectContaining({ id: "skill:axm", state: "ready" })] },
+        });
       } finally {
         temp.cleanup();
       }
@@ -88,8 +93,7 @@ describe("axm setup", () => {
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         const bundledSkillPath = path.join(
           temp.path,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@agentxm",
           "skills",
           "axm",
@@ -113,7 +117,7 @@ describe("axm setup", () => {
         expect(result.exitCode).toBe(0);
 
         // Verify settings.json structure
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
         // Should have agents array (may be empty if no agents detected in test env)
@@ -132,7 +136,7 @@ describe("axm setup", () => {
         expect(result.exitCode).toBe(0);
 
         // Should create axm-lock.yaml
-        const lockfilePath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockfilePath = path.join(temp.path, "axm-lock.yaml");
         expect(fs.existsSync(lockfilePath)).toBe(true);
       } finally {
         temp.cleanup();
@@ -179,7 +183,7 @@ describe("axm setup", () => {
         await runCli(approvedProjectSetup, { cwd: temp.path });
 
         // Get original settings
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const originalContent = fs.readFileSync(settingsPath, "utf-8");
         const originalMtime = fs.statSync(settingsPath).mtimeMs;
 
@@ -208,7 +212,7 @@ describe("axm setup", () => {
       try {
         const first = await runCli(approvedProjectSetup, { cwd: temp.path });
         expect(first.exitCode, `${first.stderr}\n${first.stdout}`).toBe(0);
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const before = fs.readFileSync(settingsPath);
 
         const second = await runCli(

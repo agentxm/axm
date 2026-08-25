@@ -20,11 +20,12 @@ import {
   makeRegistrySkillLockEntry,
   rowsFor,
   TEST_CONTENT_IDENTITY,
+  TEST_TREE_INTEGRITY,
 } from "../../workspace/test-stubs.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
-import { handle } from "../../test-helpers.js";
+import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
 import { computePackageContentHash, type SourceHash } from "../../extensions/index.js";
 
@@ -87,11 +88,17 @@ const makeWorkspaceMock = (
       }
       if (lockEntry.type === "registry") {
         const owner = lockEntry.owner;
-        const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", sanitized);
+        const canonicalPath = path.join(base, "agent_extensions", owner, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
-      const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
-      return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
+      const canonicalPath = path.join(
+        base,
+        "agent_extensions",
+        lockEntry.packageOwner,
+        "skills",
+        lockEntry.packageName,
+      );
+      return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
     },
     updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
     setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
@@ -113,24 +120,31 @@ const makeOp = (skillName = "my-skill"): EnableSkillOperation => ({
 
 /** Creates a local source accepted-resolution entry for the in-memory mock. */
 const makeLocalLockEntry = (
-  _agents: string[],
+  packageRoot?: string,
   sourcePath = "tmp/source",
   contentIdentity: SourceHash = TEST_CONTENT_IDENTITY,
 ): SkillLockEntry => ({
   type: "local" as const,
+  packageOwner: handle("@community"),
+  packageName: extensionName("my-skill"),
   path: decodeRelativePathSync(sourcePath),
   contentIdentity,
+  treeIntegrity:
+    packageRoot === undefined
+      ? TEST_TREE_INTEGRITY
+      : computeMaterializedTreeIntegritySync(packageRoot),
 });
 
 /** Creates a registry source lock entry for the in-memory mock (DateTime.Utc values). */
-const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
-  makeRegistrySkillLockEntry({
+const makeRegistryLockEntry = (packageRoot: string): SkillLockEntry => ({
+  ...makeRegistrySkillLockEntry({
     owner: handle("@community"),
     name: "my-skill",
     sourceName: "local",
-
     publisherBindingId: "hbnd_test",
-  });
+  }),
+  treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
+});
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -160,11 +174,14 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    // Create canonical skill files at the external extensions path
-    const canonicalDir = path.join(base, ".axm", "extensions", "external", "skills", skillName);
-    fs.mkdirSync(canonicalDir, { recursive: true });
-    fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), `# ${skillName}`);
-    fs.writeFileSync(path.join(canonicalDir, "prompt.md"), "prompt content");
+    const canonicalDir = path.join(base, "agent_extensions", "@community", "skills", skillName);
+    fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(canonicalDir, "skill.json"),
+      JSON.stringify({ owner: "@community", type: "skill", name: skillName, version: "1.0.0" }),
+    );
+    fs.writeFileSync(path.join(canonicalDir, "src", "SKILL.md"), `# ${skillName}`);
+    fs.writeFileSync(path.join(canonicalDir, "src", "prompt.md"), "prompt content");
 
     return { base, axmDir, canonicalDir, skillName, agents };
   };
@@ -178,7 +195,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], "tmp/source", contentIdentity) },
+              lockfileSkills: {
+                "my-skill": makeLocalLockEntry(canonicalDir, "tmp/source", contentIdentity),
+              },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },
@@ -190,7 +209,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
         expect(result.message).toContain("my-skill");
 
         // Canonical location should still have files
-        expect(fs.existsSync(path.join(canonicalDir, "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalDir, "src", "SKILL.md"))).toBe(true);
 
         // Agent symlink should exist
         const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
@@ -209,7 +228,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code", "cursor"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], "tmp/source", contentIdentity) },
+              lockfileSkills: {
+                "my-skill": makeLocalLockEntry(canonicalDir, "tmp/source", contentIdentity),
+              },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },
@@ -235,7 +256,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], "tmp/source", contentIdentity) },
+              lockfileSkills: {
+                "my-skill": makeLocalLockEntry(canonicalDir, "tmp/source", contentIdentity),
+              },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },
@@ -258,7 +281,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], "tmp/source", contentIdentity) },
+              lockfileSkills: {
+                "my-skill": makeLocalLockEntry(canonicalDir, "tmp/source", contentIdentity),
+              },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },
@@ -286,7 +311,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry() },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },
@@ -313,20 +338,28 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
         // Create registry-style canonical directory with src subdirectory
         const registryCanonical = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "skills",
           "my-skill",
         );
         const registrySrcDir = path.join(registryCanonical, "src");
         fs.mkdirSync(registrySrcDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(registryCanonical, "skill.json"),
+          JSON.stringify({
+            owner: "@community",
+            type: "skill",
+            name: "my-skill",
+            version: "1.0.0",
+          }),
+        );
         fs.writeFileSync(path.join(registrySrcDir, "SKILL.md"), "# my-skill");
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeRegistryLockEntry([]) },
+              lockfileSkills: { "my-skill": makeRegistryLockEntry(registryCanonical) },
               settingsSkills: {
                 "my-skill": {
                   source: "@community/skills/my-skill",
@@ -388,7 +421,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry() },
               settingsSkills: {
                 "my-skill": { source: "./tmp/source", enabled: false },
               },

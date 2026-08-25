@@ -18,6 +18,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 import type { LocalKnowledgeRef } from "./refs.js";
 
@@ -56,23 +57,32 @@ const writeKnowledgePackage = (
 const localRef = (name: string, root: string): LocalKnowledgeRef => ({
   type: "knowledge",
   refType: "local",
+  owner: handle("@acme"),
+  name: extensionName(name),
   source: { type: "local", path: root },
   location: pathToFileURL(root).href,
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
 /** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
-const desiredHandbookOverrides = (): NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> => ({
+const desiredHandbookOverrides = (
+  workspaceRoot: string,
+): NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> => ({
   getConfiguredKnowledgeEntries: () =>
     Effect.succeed({ handbook: { source: "./source", enabled: true } }),
   getLockedKnowledge: () =>
-    Effect.succeed({
+    Effect.sync(() => ({
       handbook: {
         type: "local" as const,
+        packageOwner: handle("@acme"),
+        packageName: extensionName("handbook"),
         path: decodeRelativePathSync("source"),
         contentIdentity: TEST_CONTENT_IDENTITY,
+        treeIntegrity: computeMaterializedTreeIntegritySync(
+          nodePath.join(workspaceRoot, "agent_extensions", "@acme", "knowledge", "handbook"),
+        ),
       },
-    }),
+    })),
 });
 
 const managerLayer = (
@@ -116,9 +126,8 @@ describe("KnowledgeManager", () => {
 
         const canonicalRoot = nodePath.join(
           workspaceRoot,
-          ".axm",
-          "extensions",
-          "external",
+          "agent_extensions",
+          "@acme",
           "knowledge",
           "handbook",
         );
@@ -161,15 +170,16 @@ describe("KnowledgeManager", () => {
           const manager = yield* KnowledgeManager;
           yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
           yield* applyPlannedProjections(manager);
-        }).pipe(Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides())));
+        }).pipe(
+          Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides(workspaceRoot))),
+        );
 
         expect(
           existsSync(
             nodePath.join(
               workspaceRoot,
-              ".axm",
-              "extensions",
-              "external",
+              "agent_extensions",
+              "@acme",
               "knowledge",
               "handbook",
               "src",
@@ -184,7 +194,7 @@ describe("KnowledgeManager", () => {
         expect(instructions).toContain(
           "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
         );
-        expect(instructions).toContain(".axm/extensions/external/knowledge/handbook/src/index.md");
+        expect(instructions).toContain("agent_extensions/@acme/knowledge/handbook/src/index.md");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -230,9 +240,8 @@ describe("KnowledgeManager", () => {
             existsSync(
               nodePath.join(
                 workspaceRoot,
-                ".axm",
-                "extensions",
-                "external",
+                "agent_extensions",
+                "@acme",
                 "knowledge",
                 "handbook",
                 "src",
@@ -310,9 +319,8 @@ describe("KnowledgeManager", () => {
             existsSync(
               nodePath.join(
                 workspaceRoot,
-                ".axm",
-                "extensions",
-                "external",
+                "agent_extensions",
+                "@acme",
                 "knowledge",
                 "handbook",
                 "src",
@@ -344,9 +352,8 @@ describe("KnowledgeManager", () => {
           existsSync(
             nodePath.join(
               workspaceRoot,
-              ".axm",
-              "extensions",
-              "external",
+              "agent_extensions",
+              "@acme",
               "knowledge",
               "invalid-handbook",
             ),
@@ -397,9 +404,8 @@ describe("KnowledgeManager", () => {
           existsSync(
             nodePath.join(
               workspaceRoot,
-              ".axm",
-              "extensions",
-              "external",
+              "agent_extensions",
+              "@acme",
               "knowledge",
               "warning-handbook",
               "src",
@@ -439,13 +445,14 @@ describe("KnowledgeManager", () => {
             yield* manager
               .materializeInstall({ ref: localRef("handbook", invalidRoot) })
               .pipe(Effect.flip);
-          }).pipe(Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides())));
+          }).pipe(
+            Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides(workspaceRoot))),
+          );
 
           const canonicalConcept = nodePath.join(
             workspaceRoot,
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@acme",
             "knowledge",
             "handbook",
             "src",
@@ -455,7 +462,7 @@ describe("KnowledgeManager", () => {
           const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
           expect(instructions).toContain("### @acme");
           expect(instructions).toContain(
-            "[handbook](.axm/extensions/external/knowledge/handbook/src/index.md)",
+            "[handbook](agent_extensions/@acme/knowledge/handbook/src/index.md)",
           );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -473,17 +480,15 @@ describe("KnowledgeManager", () => {
           const unavailableSource = nodePath.join(workspaceRoot, "sources", "unavailable");
           const healthyCanonical = nodePath.join(
             workspaceRoot,
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@acme",
             "knowledge",
             "healthy",
           );
           const unavailableCanonical = nodePath.join(
             workspaceRoot,
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@acme",
             "knowledge",
             "unavailable",
           );
@@ -495,13 +500,19 @@ describe("KnowledgeManager", () => {
           const locked = {
             healthy: {
               type: "local",
+              packageOwner: handle("@acme"),
+              packageName: extensionName("healthy"),
               path: "sources/healthy",
               contentIdentity: TEST_CONTENT_IDENTITY,
+              treeIntegrity: computeMaterializedTreeIntegritySync(healthyCanonical),
             },
             unavailable: {
               type: "local",
+              packageOwner: handle("@acme"),
+              packageName: extensionName("unavailable"),
               path: "sources/unavailable",
               contentIdentity: TEST_CONTENT_IDENTITY,
+              treeIntegrity: computeMaterializedTreeIntegritySync(unavailableCanonical),
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
           const layer = managerLayer(workspaceRoot, {

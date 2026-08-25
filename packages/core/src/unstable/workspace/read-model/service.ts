@@ -10,17 +10,24 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { detectAgentsForScope } from "../../agents/detection.js";
+import type { AppError } from "../../app-error/index.js";
 import { AGENTS } from "../../agents/registry.js";
 import type { AgentId } from "../../agents/types.js";
 import type { CatalogExtensionType } from "../../extension-types/schema.js";
-import { LOCKFILE_NAME } from "../../lockfile/lockfile.js";
 import { parseExtensionFqnParts, type ExtensionName } from "../../extensions/common.js";
 import { type Handle } from "../../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../../packs/index.js";
-import { SETTINGS_FILENAME } from "../../settings/settings.js";
-import type { SourceHostConfig } from "../../settings/schema.js";
+import type { Settings, SourceHostConfig } from "../../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
 import { AXM_DIR_NAME } from "../paths.js";
+import {
+  LOCK_FILENAME,
+  resolveProjectWorkspaceLayout,
+  resolveProjectWorkspaceStatePaths,
+  resolveUserWorkspaceLayout,
+  type WorkspaceLayout,
+  USER_SETTINGS_FILENAME,
+} from "../layout.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
 import { type AgentScannerObservations } from "./agents/types.js";
@@ -249,15 +256,40 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     lockfilePath,
   });
 
+  const settingsResult = yield* Effect.result(loaders.settings);
+  const layoutSettings: Settings = Result.isSuccess(settingsResult)
+    ? Option.getOrElse(settingsResult.success, () => ({}))
+    : {};
+  const resolveLayout = (): Effect.Effect<WorkspaceLayout, AppError> =>
+    scope === "project"
+      ? resolveProjectWorkspaceLayout(makeAbsolutePath(path, workspaceRoot), layoutSettings).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        )
+      : resolveUserWorkspaceLayout(
+          makeAbsolutePath(path, path.join(workspaceRoot, AXM_DIR_NAME)),
+          layoutSettings,
+        ).pipe(Effect.provideService(Path.Path, path));
+  const layoutResult = yield* Effect.result(resolveLayout());
+  if (Result.isFailure(layoutResult)) {
+    yield* diagnostics.append({
+      source: "scanner",
+      message: `workspace-layout: ${layoutResult.failure.message}`,
+      code: "scanner-io",
+    });
+  }
+
   // Scanner cells — eagerly enumerate the closed scanner key set.
   const canonicalScanner = yield* Effect.cached(
-    makeCanonicalExtensionsScanner({
-      fs,
-      path,
-      workspaceRoot,
-      scope,
-      diagnostics,
-    }),
+    Result.isFailure(layoutResult)
+      ? Effect.succeed<ReadonlyArray<CanonicalExtensionOccurrence>>([])
+      : makeCanonicalExtensionsScanner({
+          fs,
+          path,
+          workspaceRoot,
+          diagnostics,
+          layout: layoutResult.success,
+        }),
   );
   const agentDirScanner = yield* Effect.cached(
     makeAgentDirScanner({
@@ -655,9 +687,16 @@ export const makeWorkspaceReadModel = (
 
     // Workspace path layout per scope.
     const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
-    const axmDir = pathSvc.join(workspaceRoot, AXM_DIR_NAME);
-    const settingsPath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, SETTINGS_FILENAME));
-    const lockfilePath = makeAbsolutePath(pathSvc, pathSvc.join(axmDir, LOCKFILE_NAME));
+    const projectPaths = resolveProjectWorkspaceStatePaths(pathSvc, config.projectRoot);
+    const userAxmDir = pathSvc.join(workspaceRoot, AXM_DIR_NAME);
+    const settingsPath =
+      scope === "project"
+        ? projectPaths.settingsPath
+        : makeAbsolutePath(pathSvc, pathSvc.join(userAxmDir, USER_SETTINGS_FILENAME));
+    const lockfilePath =
+      scope === "project"
+        ? projectPaths.lockPath
+        : makeAbsolutePath(pathSvc, pathSvc.join(userAxmDir, LOCK_FILENAME));
 
     // Pre-seed agent-root collision warnings into the project scope only;
     // the user scope receives a clean buffer.

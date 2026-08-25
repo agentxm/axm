@@ -14,7 +14,6 @@ import {
   recoverCanonicalDirectory,
   decodeExtensionNameSync,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
 } from "../../extensions/index.js";
 import type { Handle } from "../../extensions/handle.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
@@ -148,12 +147,18 @@ export const newHook: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "New hooks can only be scaffolded in a project workspace",
+      });
+    }
 
     const { name, owner, runtime, event, matcher } = op.args;
     const fqn = `${owner}/${HOOK_EXTENSION_DIR}/${name}`;
 
     const configuredHooks = yield* ws.getConfiguredHookEntries();
-    const canonicalPath = path.join(base, REGISTRY_EXTENSIONS_DIR, owner, HOOK_EXTENSION_DIR, name);
+    const canonicalPath = path.join(ws.layout.authoredRoot("hook"), name);
     yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath });
     yield* preflightCreateOnly({
       subject: "Hook",

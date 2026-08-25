@@ -11,7 +11,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
@@ -20,6 +19,7 @@ import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/works
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleList } from "./list.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -31,12 +31,7 @@ const initWorkspace = (
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 4, skills: lockfileSkills }),
-  );
+  writeWorkspaceFiles(axmDir, { agents, lockfileSkills });
 };
 
 const makeLockEntry = (_agents: string[] = ["claude-code"]) => ({

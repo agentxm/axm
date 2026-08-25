@@ -24,14 +24,14 @@ const initWorkspace = (root: string, registryRoot: string) => {
   fs.mkdirSync(path.join(root, ".axm"), { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
   fs.writeFileSync(
-    path.join(root, ".axm", "settings.json"),
+    path.join(root, "axm.json"),
     JSON.stringify({
       owner: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
     }),
   );
-  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+  fs.writeFileSync(path.join(root, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
 };
 
 const writeIndex = (registryRoot: string, deprecation: unknown = null) => {

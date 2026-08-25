@@ -47,6 +47,10 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  workspaceCanonicalNodePath,
+  workspaceSettingsPath,
+} from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
 
@@ -237,6 +241,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   args: PackActivationArgs,
 ) {
   const ws = yield* WorkspaceMutations;
+  const path = yield* Path.Path;
   const runServices = yield* Effect.context<
     | Scope.Scope
     | HttpClient.HttpClient
@@ -294,26 +299,19 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
       packContributesTo(node, packIdentity) &&
       !remainsActiveWithoutPack(node, packIdentity),
   );
-  const previewItems = args.enabled
-    ? graph.nodes
-        .filter((node) => node.type !== "pack" && packContributesTo(node, packIdentity))
-        .map((node) => `${node.type}: ${node.name}`)
-    : affected.map((node) => `${node.type}: ${node.name}`);
-  const memberTargets: ReadonlyArray<JobStepArtifactTarget> = args.enabled
-    ? previewItems.map((item) => ({
-        path: `.axm/extensions/${item.slice(item.indexOf(": ") + 2)}`,
-        change: "unchanged",
-      }))
-    : affected.map((node) => ({
-        path: `.axm/extensions/${normalizedPackIdentity(node.identity)}`,
-        change: "unchanged",
-      }));
+  const memberNodes = args.enabled
+    ? graph.nodes.filter((node) => node.type !== "pack" && packContributesTo(node, packIdentity))
+    : affected;
+  const memberTargets: ReadonlyArray<JobStepArtifactTarget> = memberNodes.map((node) => ({
+    path: workspaceCanonicalNodePath(path, ws, node),
+    change: "unchanged",
+  }));
   const activationArtifact = {
-    path: ".axm/settings.json",
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     change: "updated",
     fileCount: memberTargets.length + 1,
-    targets: [{ path: ".axm/settings.json", change: "updated" }, ...memberTargets],
+    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }, ...memberTargets],
   } satisfies JobStepArtifact;
 
   const plan: Plan = {

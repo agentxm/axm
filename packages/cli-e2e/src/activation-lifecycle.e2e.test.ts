@@ -14,7 +14,7 @@ const writeJson = (filePath: string, value: unknown): void => {
 const extensionName = (plural: string): string => `atomic-${plural}`;
 
 const canonicalDirectory = (workspace: string, plural: string): string =>
-  path.join(workspace, ".axm", "extensions", "@test", plural, extensionName(plural));
+  path.join(workspace, plural, extensionName(plural));
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   const snapshot: Record<string, string> = {};
@@ -164,7 +164,7 @@ describe("extension activation lifecycle", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         owner: "@test",
@@ -250,6 +250,11 @@ describe("extension activation lifecycle", () => {
         { cwd: workspace.path, env },
       );
       expect(projectSetup.exitCode, projectSetup.stdout + projectSetup.stderr).toBe(0);
+      const projectSettingsPath = path.join(workspace.path, "axm.json");
+      writeJson(projectSettingsPath, {
+        ...readJson(projectSettingsPath),
+        owner: "@test",
+      });
       const userSetup = await runCli(
         ["setup", "--scope", "user", "--agent", "claude-code", "--yes", "--non-interactive"],
         { cwd: workspace.path, env },

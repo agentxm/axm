@@ -26,6 +26,7 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
   activeInstructionsConfig,
   instructionReconciliationReadiness,
@@ -86,7 +87,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
     message: `Enabled ${args.name}`,
     buildArtifact: () =>
       Effect.succeed({
-        path: ".axm/settings.json",
+        path: workspaceSettingsPath(scope),
         scope,
         change: "updated",
       } satisfies JobStepArtifact),

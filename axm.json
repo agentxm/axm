@@ -1,4 +1,5 @@
 {
+  "$schema": "https://axm.sh/schemas/settings.schema.json",
   "owner": "@agentxm",
   "agents": ["claude-code"],
   "minimumReleaseAgeExclude": ["@agentxm/*", "@craigsmitham/*"],
@@ -7,10 +8,8 @@
     "gitignoreAliases": true
   },
   "skills": {
-    "code-review": "workspace:@agentxm/skills/code-review",
-    "e2e-publish-check": "workspace:@local-dev/skills/e2e-publish-check",
-    "axm": "workspace:@agentxm/skills/axm",
-    "okf-author": "workspace:@craigsmitham/skills/okf-author",
+    "code-review": "workspace",
+    "axm": "workspace",
     "improve-whatever": "@craigsmitham/skills/improve-whatever",
     "author-okf": "@craigsmitham/skills/author-okf"
   },

@@ -17,15 +17,13 @@ import {
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
-  subagentScaffoldArtifact,
-  subagentSourcePath,
   subagentContentPath,
   SubagentManager,
   type SubagentManifest,
   type WorkspaceSubagentRef,
 } from "@agentxm/client-core/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
 import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 import { emitOperationResolution } from "../../../operation-output.js";
@@ -33,6 +31,11 @@ import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { joinDisplayPath } from "../../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../../shared/authored-owner.js";
+import {
+  workspaceAuthoredRoot,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -75,6 +78,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("subagent creation");
+  yield* requireAuthoredOwner(owner);
 
   // 2. Validate name
   if (
@@ -96,9 +100,9 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   // 3. Check existence
   const configuredSubagents = yield* ws.getConfiguredSubagentEntries();
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
-  const scaffoldPath = subagentSourcePath(owner, args.name);
   const base = ws.baseDir;
-  const canonicalPath = path.join(base, scaffoldPath);
+  const canonicalPath = path.join(workspaceAuthoredRoot(path, ws, "subagent", owner), args.name);
+  const authoredPath = path.relative(base, canonicalPath);
   yield* preflightCreateOnly({
     subject: "Subagent",
     name: args.name,
@@ -120,19 +124,21 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
       description: Option.none(),
     },
   };
-  const scaffoldArtifact = subagentScaffoldArtifact({
-    owner,
-    name: args.name,
+  const artifact = {
+    path: authoredPath,
     scope: ws.scope,
     version: "0.0.1",
-  });
-  const artifact = {
-    ...scaffoldArtifact,
+    change: "created" as const,
+    fileCount: 2,
     targets: [
-      ...(scaffoldArtifact.targets ?? []),
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      { path: path.join(authoredPath, MANIFEST_FILENAME), change: "created" as const },
+      {
+        path: path.join(authoredPath, "src", `${args.name}.md`),
+        change: "created" as const,
+      },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
-  };
+  } satisfies JobStepArtifact;
 
   const step = buildNewExtensionStep(manager, {
     ref,
@@ -154,7 +160,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
     markAuthored: ws.setSubagentEntry(args.name, {
-      source: `workspace:${fqn}`,
+      source: "workspace",
       enabled: true,
     }),
     plannedArtifact: artifact,
@@ -234,7 +240,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
 
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "subagents", args.name, "src", `${args.name}.md`)}\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", `${args.name}.md`)}\` to fill in instructions`,
     },
   ];
 

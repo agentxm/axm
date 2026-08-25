@@ -7,16 +7,16 @@ import {
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
 import { type Handle } from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import { workspaceSettingsPath } from "./workspace-display-paths.js";
 
-const makeOwnerRequiredError = (action: string): AppError =>
+const makeOwnerRequiredError = (action: string, scope: WorkspaceScope): AppError =>
   makeAppError({
     code: "validation",
     detail: `No owner configured for ${action}`,
     suggestions: [
       {
-        description:
-          "Set `owner` in `.axm/settings.json`, pass an explicit owner flag, or sign in.",
+        description: `Set \`owner\` in \`${workspaceSettingsPath(scope)}\`, pass an explicit owner flag, or sign in.`,
         cmd: "axm login",
       },
     ],
@@ -46,5 +46,5 @@ export const resolveOwnerForNewContent = (
 
     if (fallback && Option.isSome(fallback)) return fallback.value;
 
-    return yield* makeOwnerRequiredError(action);
+    return yield* makeOwnerRequiredError(action, ws.scope);
   });

@@ -92,9 +92,12 @@ preflight, lint, inventory, or state commands; hand the work to its owner.
    edit release-owned compatibility stamps.
 3. Resolve project or user scope, the fully qualified extension identity,
    source authority, and canonical path. Use local inventory and workspace
-   facts before a network lookup. Treat `.axm/settings.json` as desired state,
-   `.axm/axm-lock.yaml` as accepted external resolution, canonical package
-   content as observed source, and agent-native files as projections.
+   facts before a network lookup. In project scope, treat `axm.json` as desired
+   state, `axm-lock.yaml` as accepted external resolution, authored type roots
+   and `agent_extensions/` as canonical package content, and `.axm/` as ignored
+   runtime state. User scope retains `.axm/settings.json`,
+   `.axm/axm-lock.yaml`, and `.axm/extensions/`. Agent-native files remain
+   projections in either scope.
    When required local desired, lock, or canonical state is missing or
    inconsistent, stop before any Registry command; network discovery does not
    substitute for unresolved local authority.
@@ -110,10 +113,13 @@ apply. Entry suppression does not disable an enabled Concepts corpus; use `axm
 help knowledge` for the current settings shape and precedence.
 
 Never edit an agent projection when canonical source exists. For a
-workspace-authored extension, semantic edits belong under
-`.axm/extensions/<owner>/<type>/<name>` through the applicable authoring
-workflow. For an external package, preserve its accepted identity and treat
-local drift as evidence to resolve, not permission to overwrite.
+project-authored extension, semantic edits belong under the configured
+type-specific authored root, such as `skills/<name>` or `rules/<name>`, through
+the applicable authoring workflow. User-authored content remains under
+`.axm/extensions/<owner>/<type>/<name>`. For an acquired package, preserve its
+accepted publisher identity and treat local drift under
+`agent_extensions/<owner>/<type>/<name>` (or the user-scope canonical root) as
+evidence to resolve, not permission to overwrite.
 When a projection is named as the desired permanent source, identify it as
 non-authoritative, resolve the canonical package first, make semantic changes
 there, then verify the projection from AXM state.

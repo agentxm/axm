@@ -222,6 +222,8 @@ export const validatePackGraphPostcondition = (args: {
         case "projection-collision":
         case "constraint-conflict":
           return requiredMemberKeys.has(`${problem.extensionType}:${problem.name}`);
+        case "workspace-owner-missing":
+          return requiredMemberKeys.has(`${problem.extensionType}:${problem.name}`);
       }
     });
     if (relevantProblems.length > 0) {

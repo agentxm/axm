@@ -35,6 +35,7 @@ const snapshotTree = (root: string): Readonly<Record<string, string>> => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(root, absolute);
+      if (relative === ".axm" || relative.startsWith(`.axm${path.sep}`)) continue;
       if (entry.isDirectory()) {
         snapshot[relative] = "directory";
         visit(absolute);
@@ -78,7 +79,7 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
         agents: ["claude-code", "windsurf"],

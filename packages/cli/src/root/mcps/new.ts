@@ -10,7 +10,6 @@ import {
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
   recoverCanonicalDirectory,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
@@ -52,9 +51,11 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
@@ -88,6 +89,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("MCP server creation");
+  yield* requireAuthoredOwner(owner);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "mcp-server", name: args.name });
 
@@ -98,9 +100,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
     });
   }
 
-  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "mcps", args.name);
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "mcp-server", owner), args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
-  const sourcePath = joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name);
+  const sourcePath = path.relative(ws.baseDir, targetDir);
   const configuredServers = yield* ws.getConfiguredMcpServerEntries();
   yield* preflightCreateOnly({
     subject: "MCP server",
@@ -160,7 +162,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
     change: "created",
     targets: [
       { path: path.relative(ws.baseDir, manifestPath), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
       ...agentConfigTargets,
     ],
   };
@@ -208,15 +210,15 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             Effect.provideService(Path.Path, path),
           );
           yield* ws.setMcpServerEntry(args.name, {
-            source: `workspace:${fqn}`,
+            source: "workspace",
             enabled: true,
             env: {},
           });
           const resolvedRef = yield* resolveWorkspaceExtensionRef({
             settingsName: args.name,
-            source: `workspace:${fqn}`,
+            source: "workspace",
             expectedType: "mcp-server",
-            baseDir: ws.baseDir,
+            layout: ws.layout,
             scope: ws.scope,
           }).pipe(
             Effect.provideService(WorkspaceMutations, ws),
@@ -307,7 +309,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const resolution = yield* previewOrApplyPlan(plan, { execution });
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "mcps", args.name, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
+      description: `Edit \`${joinDisplayPath(path, sourcePath, MCP_SERVER_MANIFEST_FILENAME)}\` to configure the MCP server`,
     },
   ];
   yield* emitOperationResolution("mcps.new", resolution, { suggestions });

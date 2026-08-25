@@ -181,6 +181,8 @@ const desiredStateProblemText = (graph: DesiredStateGraph): string =>
                 : `settings range=${contributor.range} location=${contributor.location}`,
             )
             .join(", ")}; decision=blocked; reason=no-satisfying-version`;
+        case "workspace-owner-missing":
+          return `${problem.extensionType} ${problem.name}: workspace owner is missing`;
       }
     })
     .join("; ");
@@ -194,7 +196,11 @@ const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
 const sourceTransitionIdentity = (authority: string, identity: string): string =>
-  identity.startsWith(`${authority}:`) ? identity : `${authority}:${identity}`;
+  authority === "workspace"
+    ? "workspace"
+    : identity.startsWith(`${authority}:`)
+      ? identity
+      : `${authority}:${identity}`;
 
 const selectedDesiredNodes = (
   graph: DesiredStateGraph,

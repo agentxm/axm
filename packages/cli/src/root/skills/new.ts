@@ -8,10 +8,8 @@ import {
   buildNewExtensionStep,
   computeSourceHash,
   decodeExtensionNameSync,
-  formatFqn,
   normalizeHandle,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
@@ -46,6 +44,12 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
+import {
+  workspaceAuthoredPath,
+  workspaceAuthoredRoot,
+  workspaceSettingsPath,
+} from "../shared/workspace-display-paths.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
@@ -81,6 +85,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   const owner = Option.isSome(args.owner)
     ? normalizeOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("skill creation");
+  yield* requireAuthoredOwner(owner);
 
   // 2. Validate name
   if (
@@ -102,7 +107,8 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   // 5. Capture services for run closure
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const canonicalPath = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, "skills", args.name);
+  const canonicalPath = path.join(workspaceAuthoredRoot(path, ws, "skill", owner), args.name);
+  const authoredPath = workspaceAuthoredPath(path, ws, "skill", args.name);
   yield* preflightCreateOnly({
     subject: "Skill",
     name: args.name,
@@ -157,7 +163,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
     ws.baseDir,
   );
   const previewArtifact: JobStepArtifact = {
-    path: path.relative(ws.baseDir, canonicalPath),
+    path: authoredPath,
     scope: ws.scope,
     version: "0.0.1",
     change: "created",
@@ -171,7 +177,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
         path: path.relative(ws.baseDir, path.join(canonicalPath, "src", "SKILL.md")),
         change: "created",
       },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
       ...previewTargetLocations.map((location) => {
         const agentIds = artifactTargetAgentIds(location.agentIds);
         return {
@@ -200,7 +206,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
     markAuthored: ws.setSkillEntry(args.name, {
-      source: `workspace:${formatFqn({ owner, type: "skill", name: args.name })}`,
+      source: "workspace",
       enabled: true,
     }),
     scaffold: newSkill(op).pipe(
@@ -233,11 +239,11 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
         );
         const change = installedBefore ? "updated" : "created";
         const sourceTarget: JobStepArtifactTarget = {
-          path: joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name),
+          path: authoredPath,
           change,
         };
         const configTarget: JobStepArtifactTarget = {
-          path: ".axm (config/lockfile)",
+          path: workspaceSettingsPath(ws.scope),
           change,
         };
         const materializedTargets: Array<JobStepArtifactTarget> = targetLocations.map(
@@ -322,7 +328,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
 
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "skills", args.name, "src", "SKILL.md")}\` to fill in instructions`,
+      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", "SKILL.md")}\` to fill in instructions`,
     },
   ];
   yield* emitOperationResolution("skills.new", resolution, { suggestions });

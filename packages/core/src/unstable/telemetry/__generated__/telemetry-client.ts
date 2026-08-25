@@ -57,8 +57,11 @@ export type TelemetryEvent = {
   readonly event: string;
   readonly distinctId: string;
   readonly timestamp: string;
-  readonly properties?: {};
-  readonly userProperties?: { readonly set?: {}; readonly setOnce?: {} };
+  readonly properties?: { readonly [x: string]: Schema.Json };
+  readonly userProperties?: {
+    readonly set?: { readonly [x: string]: Schema.Json };
+    readonly setOnce?: { readonly [x: string]: Schema.Json };
+  };
   readonly groups?: { readonly [x: string]: string };
   readonly sessionId?: string;
   readonly anonymous?: boolean;
@@ -76,11 +79,17 @@ export const TelemetryEvent = Schema.Struct({
       format: "date-time",
     }),
   ),
-  properties: Schema.optionalKey(Schema.Struct({})),
+  properties: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+  ),
   userProperties: Schema.optionalKey(
     Schema.Struct({
-      set: Schema.optionalKey(Schema.Struct({})),
-      setOnce: Schema.optionalKey(Schema.Struct({})),
+      set: Schema.optionalKey(
+        Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+      ),
+      setOnce: Schema.optionalKey(
+        Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+      ),
     }),
   ),
   groups: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
@@ -154,7 +163,7 @@ export type TelemetryBreadcrumb = {
   readonly message?: string;
   readonly timestamp?: string;
   readonly level?: "fatal" | "error" | "warning" | "info" | "debug";
-  readonly data?: {};
+  readonly data?: { readonly [x: string]: Schema.Json };
 };
 export const TelemetryBreadcrumb = Schema.Struct({
   type: Schema.optionalKey(Schema.String),
@@ -167,7 +176,9 @@ export const TelemetryBreadcrumb = Schema.Struct({
       description: "Severity level associated with an error report or breadcrumb.",
     }),
   ),
-  data: Schema.optionalKey(Schema.Struct({})),
+  data: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Json.annotate({ expected: "JSON value" })),
+  ),
 }).annotate({
   title: "Telemetry Breadcrumb",
   description: "Lightweight diagnostic breadcrumb attached to an error report.",

@@ -24,9 +24,9 @@ import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
+import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/agents-recognized";
-const SETTINGS_REL = ".axm/settings.json";
 
 export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -36,6 +36,7 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       const scoped = context.workspace;
+      const settingsPath = settingsDisplayPath(context.subject.scope);
 
       // `state.settings` returns the decoded `Settings` already; the
       // `SettingsReadError` family (io / parse / decode) is owned by
@@ -60,8 +61,8 @@ export const agentsRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
           severity: "error",
           message:
             `Agent id '${id}' in \`settings.agents[]\` is not supported. ` +
-            `Edit \`.axm/settings.json\` and remove '${id}' from \`agents\`, or replace it there with the intended agent id.`,
-          location: { file: SETTINGS_REL },
+            `Edit \`${settingsPath}\` and remove '${id}' from \`agents\`, or replace it there with the intended agent id.`,
+          location: { file: settingsPath },
         });
       }
       return findings;

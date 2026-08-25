@@ -7,7 +7,6 @@ import * as semver from "semver";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
   fqnInvalidErrorToAppError,
   parseFqn,
@@ -150,10 +149,9 @@ export const resolveManifestVersionInfo = (
     }
 
     const manifestPath = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      fqn.owner,
-      extensionTypeToPlural[fqn.type],
+      ws.layout.scope === "project"
+        ? ws.layout.authoredRoot(fqn.type)
+        : path.join(ws.layout.canonicalRoot, fqn.owner, extensionTypeToPlural[fqn.type]),
       fqn.name,
       manifestFilename(fqn.type),
     );

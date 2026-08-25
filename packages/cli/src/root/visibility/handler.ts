@@ -10,7 +10,6 @@ import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-r
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
-  REGISTRY_EXTENSIONS_DIR,
   extensionTypeToPlural,
   parseExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
@@ -73,10 +72,9 @@ const repositoryIntent = (parts: NonNullable<ReturnType<typeof parseExtensionFqn
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const manifestPath = path.join(
-      workspace.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      parts.owner,
-      extensionTypeToPlural[parts.type],
+      workspace.layout.scope === "project"
+        ? workspace.layout.authoredRoot(parts.type)
+        : path.join(workspace.layout.canonicalRoot, parts.owner, extensionTypeToPlural[parts.type]),
       parts.name,
       manifestFilenameForType(parts.type),
     );

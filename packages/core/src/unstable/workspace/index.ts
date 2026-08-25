@@ -11,6 +11,7 @@
 
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
+export type { WorkspaceLayout } from "./layout.js";
 export {
   AXM_DIR_NAME,
   getUserScopeDir,

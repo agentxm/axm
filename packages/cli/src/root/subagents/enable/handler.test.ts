@@ -192,10 +192,7 @@ describe("subagents enable.handler", () => {
           ]);
 
           // Settings should show re-enabled (collapsed to string form)
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
+          const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
           expect(settings.subagents?.["my-agent"]).toEqual({
             source: "@acme/subagents/my-agent",

@@ -2,7 +2,6 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$ref": "#/definitions/KnowledgeManifest",
   "definitions": {
-    "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
     "ExtensionVisibility": {
       "type": "string",
       "enum": ["public", "private"],
@@ -19,14 +18,10 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
-                  "examples": [[], ["evals/*"]]
-                }
-              ],
-              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "uniqueItems": true,
+              "description": "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
+              "examples": [[], ["evals/*"]],
+              "items": { "type": "string", "minLength": 1 }
             },
             { "type": "null" }
           ]
@@ -38,25 +33,17 @@
     },
     "Handle": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-          "title": "Handle",
-          "description": "A unique username or organization name starting with @, like @my-org.",
-          "examples": ["@my-org", "@username"]
-        }
-      ]
+      "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+      "title": "Handle",
+      "description": "A unique username or organization name starting with @, like @my-org.",
+      "examples": ["@my-org", "@username"]
     },
     "Version": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-          "title": "Version",
-          "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-          "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-        }
-      ]
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "title": "Version",
+      "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+      "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
     },
     "Repository": {
       "anyOf": [
@@ -72,13 +59,9 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "allOf": [
-                    {
-                      "minLength": 1,
-                      "description": "Version control system (e.g., `git`).",
-                      "examples": ["git"]
-                    }
-                  ]
+                  "minLength": 1,
+                  "description": "Version control system (e.g., `git`).",
+                  "examples": ["git"]
                 },
                 { "type": "null" }
               ]
@@ -98,13 +81,9 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "allOf": [
-                    {
-                      "minLength": 1,
-                      "description": "Subdirectory within the repository, for monorepo publishers.",
-                      "examples": ["packages/code-review"]
-                    }
-                  ]
+                  "minLength": 1,
+                  "description": "Subdirectory within the repository, for monorepo publishers.",
+                  "examples": ["packages/code-review"]
                 },
                 { "type": "null" }
               ]
@@ -170,8 +149,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "$ref": "#/definitions/Union_" },
-        "url": { "$ref": "#/definitions/Union_" }
+        "email": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
       },
       "required": ["name"],
       "additionalProperties": false,
@@ -180,24 +159,16 @@
     },
     "PackageIdentityPurl": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
-          "title": "Package Identity Purl",
-          "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
-          "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+      "title": "Package Identity Purl",
+      "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+      "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
     },
     "VersRangeEncoded": {
       "type": "string",
-      "allOf": [
-        {
-          "minLength": 1,
-          "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
-        }
-      ]
+      "minLength": 1,
+      "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
     },
     "CompanionPackage": {
       "type": "object",
@@ -214,32 +185,24 @@
     },
     "PackSpec": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
-          "title": "Pack Spec",
-          "description": "Pack reference with an optional version constraint suffix.",
-          "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/packs\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)(?:@.+)?$",
+      "title": "Pack Spec",
+      "description": "Pack reference with an optional version constraint suffix.",
+      "examples": ["@acme/packs/typescript", "@acme/packs/typescript@^1.0.0"]
     },
     "ExtensionName": {
       "type": "string",
-      "allOf": [
-        { "minLength": 1 },
-        {
-          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-          "title": "Extension Name",
-          "description": "Short bundle name. Combined with owner, forms the FQN @owner/knowledge/<name>.",
-          "examples": ["my-skill", "code-review", "prettier"]
-        }
-      ]
+      "minLength": 1,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      "title": "Extension Name",
+      "description": "Short bundle name. Combined with owner, forms the FQN @owner/knowledge/<name>.",
+      "examples": ["my-skill", "code-review", "prettier"]
     },
     "KnowledgeManifest": {
       "type": "object",
       "properties": {
-        "$schema": { "$ref": "#/definitions/Union_" },
+        "$schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "publish": { "anyOf": [{ "$ref": "#/definitions/PublishOptions" }, { "type": "null" }] },
         "metadata": {
           "anyOf": [
@@ -267,7 +230,7 @@
             {
               "type": "array",
               "examples": [["lint", "typescript", "review"]],
-              "items": { "type": "string", "allOf": [{ "minLength": 1 }] }
+              "items": { "type": "string", "minLength": 1 }
             },
             { "type": "null" }
           ]
@@ -312,20 +275,12 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Soft capability enhancements used by the source. These never block installation."
-                }
-              ],
+              "uniqueItems": true,
+              "description": "Soft capability enhancements used by the source. These never block installation.",
               "items": {
                 "type": "string",
-                "allOf": [
-                  { "minLength": 1 },
-                  {
-                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
-                  }
-                ]
+                "minLength": 1,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
               }
             },
             { "type": "null" }
@@ -335,20 +290,12 @@
           "anyOf": [
             {
               "type": "array",
-              "allOf": [
-                {
-                  "uniqueItems": true,
-                  "description": "Hard capabilities without which the extension cannot operate."
-                }
-              ],
+              "uniqueItems": true,
+              "description": "Hard capabilities without which the extension cannot operate.",
               "items": {
                 "type": "string",
-                "allOf": [
-                  { "minLength": 1 },
-                  {
-                    "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
-                  }
-                ]
+                "minLength": 1,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$"
               }
             },
             { "type": "null" }

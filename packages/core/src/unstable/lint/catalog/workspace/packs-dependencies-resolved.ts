@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/packs-dependencies-resolved";
 
@@ -44,7 +45,7 @@ export const packsDependenciesResolvedRule: AdvisoryRule<WorkspaceRuleContext> =
           ruleId: RULE_ID,
           severity: "error",
           message: `Pack-declared ${node.type} '${node.identity}' has no accepted external resolution.`,
-          location: { file: ".axm/axm-lock.yaml" },
+          location: { file: lockfileDisplayPath(context.subject.scope) },
         });
       }
       return findings;

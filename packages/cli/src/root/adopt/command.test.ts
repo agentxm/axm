@@ -21,14 +21,11 @@ describe("adopt command", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-adopt-test-"));
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [] }),
     );
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 4\nskills: {}\n",
-    );
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
+    const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -53,13 +50,14 @@ describe("adopt command", () => {
         yield* handleAdopt({ fqn: "@acme/skills/review", yes: true, preview: false });
 
         const settings = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema))(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
         );
-        expect(settings.skills?.["review"]).toEqual({
-          source: "workspace:@acme/skills/review",
-          enabled: true,
-        });
-        expect(fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf8")).not.toContain(
+        expect(settings.skills?.["review"]).toEqual({ source: "workspace", enabled: true });
+        expect(fs.existsSync(path.join(tempDir, "skills", "review", "skill.json"))).toBe(true);
+        expect(
+          fs.existsSync(path.join(tempDir, "agent_extensions", "@acme", "skills", "review")),
+        ).toBe(false);
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).not.toContain(
           "review:",
         );
       }),

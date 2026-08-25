@@ -1,7 +1,7 @@
 # Environment
 
 AXM environment variables control the current process. They are not workspace
-state, are never written to `.axm/settings.json`, and do not travel with a
+state, are never written to `axm.json`, and do not travel with a
 workspace. Unless a row says otherwise, an unset or empty variable uses the
 documented default.
 
@@ -58,7 +58,7 @@ telemetry and takes precedence over `AXM_TELEMETRY`. Otherwise:
 - an unset, empty, or unrecognized value uses the default of usage and error
   telemetry.
 
-A top-level `telemetry` key in `.axm/settings.json` is unrecognized and is
+A top-level `telemetry` key in `axm.json` is unrecognized and is
 reported by strict workspace linting.
 
 ## Interaction and text-output modes

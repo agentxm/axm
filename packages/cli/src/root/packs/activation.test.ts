@@ -18,7 +18,7 @@ import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -37,9 +37,9 @@ const initializePack = (root: string) => {
     owner: "@acme",
     agents: ["claude-code"],
     sources: [{ type: "registry", name: "default", location: "file:///tmp/test-registry" }],
-    packs: { toolkit: "workspace:@acme/packs/toolkit" },
+    packs: { toolkit: "workspace" },
   });
-  const packDir = path.join(axmDir, "extensions", "@acme", "packs", "toolkit");
+  const packDir = path.join(root, "packs", "toolkit");
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "pack.json"),
@@ -51,13 +51,13 @@ const initializePack = (root: string) => {
       dependencies: {},
     }),
   );
-  const lockPath = path.join(axmDir, "axm-lock.yaml");
+  const lockPath = path.join(root, "axm-lock.yaml");
   return { axmDir, packDir, lockPath };
 };
 
 const initializePackWithSkill = (root: string) => {
   const { axmDir, packDir, lockPath } = initializePack(root);
-  const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
+  const skillDir = path.join(root, "agent_extensions", "@acme", "skills", "review");
   fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "skill.json"),
@@ -92,6 +92,7 @@ const initializePackWithSkill = (root: string) => {
           integrity: "sha512-AAAA==",
           sourceName: "default",
           publisherBindingId: "hbnd_test",
+          treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
         },
       },
     }),
@@ -105,7 +106,7 @@ const initializePackWithSkill = (root: string) => {
 
 const packSetting = (axmDir: string): unknown => {
   const settings = expectRecord(
-    JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")),
+    JSON.parse(fs.readFileSync(path.join(path.dirname(axmDir), "axm.json"), "utf8")),
   );
   return expectRecord(settings["packs"])["toolkit"];
 };
@@ -186,8 +187,8 @@ describe("packs activation", () => {
 
   it.effect("previews disable without changing retained state", () =>
     Effect.gen(function* () {
-      const { axmDir, packDir, lockPath } = initializePack(root);
-      const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
+      const { packDir, lockPath } = initializePack(root);
+      const settingsBefore = fs.readFileSync(path.join(root, "axm.json"), "utf8");
       const lockBefore = fs.readFileSync(lockPath, "utf8");
       const { provide, rendererState } = makeLayers();
 
@@ -200,7 +201,7 @@ describe("packs activation", () => {
         }),
       );
 
-      expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(root, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
       expect(fs.existsSync(packDir)).toBe(true);
       expectPreviewedPlanResult(expectDefined(rendererState.results[0]).data, {
@@ -226,7 +227,7 @@ describe("packs activation", () => {
       );
 
       expect(packSetting(axmDir)).toEqual({
-        source: "workspace:@acme/packs/toolkit",
+        source: "workspace",
         enabled: false,
       });
       expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
@@ -255,7 +256,7 @@ describe("packs activation", () => {
           preview: false,
         }),
       );
-      expect(packSetting(axmDir)).toBe("workspace:@acme/packs/toolkit");
+      expect(packSetting(axmDir)).toBe("workspace");
       expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
       expect(fs.existsSync(packDir)).toBe(true);
     }),
@@ -277,7 +278,7 @@ describe("packs activation", () => {
       );
 
       expect(packSetting(axmDir)).toEqual({
-        source: "workspace:@acme/packs/toolkit",
+        source: "workspace",
         enabled: false,
       });
       expect(fs.existsSync(renderedSkill)).toBe(false);
@@ -300,7 +301,7 @@ describe("packs activation", () => {
       expectAppliedPlanResult(enableData, {
         planName: "Enable pack",
       });
-      expect(packSetting(axmDir)).toBe("workspace:@acme/packs/toolkit");
+      expect(packSetting(axmDir)).toBe("workspace");
       expect(fs.existsSync(renderedSkill)).toBe(true);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
     }),

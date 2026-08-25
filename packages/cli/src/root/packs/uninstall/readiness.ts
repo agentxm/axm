@@ -3,6 +3,12 @@ import type {
   DesiredStateGraph,
   DesiredStateProblem,
 } from "@agentxm/client-core/unstable/workspace";
+import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import {
+  workspaceCanonicalRoot,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 
 /** Recovery-conformance identity for Pack uninstall planning on an incomplete graph. */
 export const PACK_UNINSTALL_GRAPH_BLOCKER_ID =
@@ -31,19 +37,23 @@ export type PackUninstallGraphReadiness =
 const normalizedPack = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
 
-const locationsFor = (problem: DesiredStateProblem): ReadonlyArray<string> => {
+const locationsFor = (
+  problem: DesiredStateProblem,
+  scope: WorkspaceScope,
+): ReadonlyArray<string> => {
   if ("path" in problem && problem.path !== undefined) return [problem.path];
-  if ("pack" in problem) return [".axm/settings.json", ".axm/axm-lock.yaml"];
-  return [".axm/settings.json", ".axm/extensions/*/packs/*/pack.json"];
+  if ("pack" in problem) return [workspaceSettingsPath(scope), workspaceLockfilePath(scope)];
+  return [workspaceSettingsPath(scope), `${workspaceCanonicalRoot(scope)}/*/packs/*/pack.json`];
 };
 
 const factFor = (
   problem: DesiredStateProblem,
   selectedPacks: ReadonlyArray<string>,
+  scope: WorkspaceScope,
 ): PackUninstallGraphBlockerFact => {
   const packs =
     "pack" in problem ? [normalizedPack(problem.pack)] : selectedPacks.map(normalizedPack);
-  const authoritativeLocations = locationsFor(problem);
+  const authoritativeLocations = locationsFor(problem, scope);
   const member =
     "extensionType" in problem ? { type: problem.extensionType, name: problem.name } : undefined;
   const subject =
@@ -69,6 +79,7 @@ const factFor = (
 export const planPackUninstallGraphReadiness = (
   graph: DesiredStateGraph,
   selectedPacks: ReadonlyArray<string>,
+  scope: WorkspaceScope,
 ): PackUninstallGraphReadiness => {
   const decision = planDesiredStateGraph(graph);
   if (decision.readiness === "ready") return decision;
@@ -78,11 +89,11 @@ export const planPackUninstallGraphReadiness = (
           {
             problemType: "unknown" as const,
             packs: selectedPacks.map(normalizedPack),
-            authoritativeLocations: [".axm/settings.json", ".axm/axm-lock.yaml"],
-            detail: `Pack ${selectedPacks.map(normalizedPack).join(", ")}: desired-state graph is incomplete; authoritative locations: .axm/settings.json, .axm/axm-lock.yaml`,
+            authoritativeLocations: [workspaceSettingsPath(scope), workspaceLockfilePath(scope)],
+            detail: `Pack ${selectedPacks.map(normalizedPack).join(", ")}: desired-state graph is incomplete; authoritative locations: ${workspaceSettingsPath(scope)}, ${workspaceLockfilePath(scope)}`,
           },
         ]
-      : decision.problems.map((problem) => factFor(problem, selectedPacks));
+      : decision.problems.map((problem) => factFor(problem, selectedPacks, scope));
   return {
     readiness: "blocked",
     id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,

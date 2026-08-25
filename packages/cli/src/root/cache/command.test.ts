@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
+import { makeCliTestContext, makeEffectProvide } from "../../test-helpers.js";
 import { handleCachePrune, handleCacheStatus, handleCacheVerify } from "./command.js";
 
 describe("cache commands", () => {
@@ -27,9 +27,9 @@ describe("cache commands", () => {
   });
 
   it.effect("reports liveness while loading human-readable status", () => {
-    const { provide, logs, rendererState } = makeWorkspaceHandlerTestContext({
-      wsOptions: { projectRoot: tempDir },
-    });
+    const context = makeCliTestContext();
+    const provide = makeEffectProvide(context.baseLayer);
+    const { logs, rendererState } = context;
 
     return provide(
       Effect.gen(function* () {
@@ -45,10 +45,9 @@ describe("cache commands", () => {
   });
 
   it.effect("reports liveness and one machine result for maintenance commands", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
-      machine: true,
-      wsOptions: { projectRoot: tempDir },
-    });
+    const context = makeCliTestContext({ machine: true });
+    const provide = makeEffectProvide(context.baseLayer);
+    const { rendererState } = context;
 
     return provide(
       Effect.gen(function* () {
@@ -67,10 +66,9 @@ describe("cache commands", () => {
   });
 
   it.effect("keeps machine-readable status flat inside the ordinary result envelope", () => {
-    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
-      machine: true,
-      wsOptions: { projectRoot: tempDir },
-    });
+    const context = makeCliTestContext({ machine: true });
+    const provide = makeEffectProvide(context.baseLayer);
+    const { rendererState } = context;
 
     return provide(
       Effect.gen(function* () {

@@ -2,9 +2,9 @@
 
 AXM separates three state families:
 
-- **Desired** — `.axm/settings.json` and workspace-authored pack manifests say
+- **Desired** — project `axm.json` and workspace-authored pack manifests say
   what the workspace wants.
-- **Accepted resolution** — `.axm/axm-lock.yaml` records the exact immutable
+- **Accepted resolution** — project `axm-lock.yaml` records the exact immutable
   identity and provenance accepted for each desired external extension.
 - **Observed** — canonical packages, managed agent artifacts and instruction
   regions, native config, and ownership markers say what actually exists.
@@ -44,21 +44,27 @@ configured agent directory has neither a structured file marker nor a managed
 symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
 delete it automatically.
 
+User scope uses `.axm/settings.json`, `.axm/axm-lock.yaml`, and
+`.axm/extensions/`; the authority relationships are otherwise the same.
+
 ## Accepted external resolution
 
-Lockfile v4 contains only external resolutions. Registry rows pin version,
-archive integrity, source name, and publisher binding. Git rows pin commit,
-tree, and content identity. Local-source rows pin the relative locator and
-content identity. Workspace-authored, bundled, inline, projected, and
-command-history state does not belong in the lockfile.
+Lockfile v5 contains only external resolutions. Registry rows pin version,
+archive integrity, source name, publisher binding, and the strict integrity of
+the complete materialized package tree. Git and local-source rows likewise pin
+their immutable source identity plus the complete tree. Workspace-authored,
+bundled, inline, projected, and command-history state does not belong in the
+lockfile.
 
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
-verifies downloaded archive bytes before extraction. Extracted canonical files
-are observed materialization: local formatting or edits are drift, not a new
-archive-integrity fact, and AXM does not continuously rehash them against the
-release. Publish independently rebuilds only workspace-authored packages and
-compares that archive digest when verifying an existing immutable version;
-installed external trees are never publication inputs.
+verifies downloaded archive bytes before extraction, then records
+`treeIntegrity` over every regular-file path and byte in the extracted package.
+Any later edit, addition, removal, symlink, unsafe path, or case-fold collision
+is canonical drift. Drift blocks the affected desired-state closure, lint,
+sync, inspection, projection, and lifecycle preflight until the package is
+reinstalled, updated, or explicitly forked into authored source. Publish
+independently rebuilds only workspace-authored packages; installed external
+trees are never publication inputs.
 
 Sync may resolve a desired external extension once when no accepted row exists.
 After acceptance, reinstall and sync use that exact identity; only update may
@@ -105,9 +111,10 @@ replacement before reconciling again.
 
 ## Transient files and caches
 
-Durable workspace state stays in canonical `.axm/` paths. AXM uses unique
-children of `.axm/tmp/` only for project-local scratch and removes that
-directory when it becomes empty. Invocation scratch and transaction rollback
+Durable project authority stays in `axm.json`, `axm-lock.yaml`, authored roots,
+and `agent_extensions/`. AXM uses unique children of ignored `.axm/tmp/` only
+for project-local scratch and removes that directory when it becomes empty.
+Invocation scratch and transaction rollback
 snapshots use uniquely prefixed operating-system temporary directories.
 
 Atomic file writes use exact `<target>.tmp.<unique>` siblings. Atomic package
@@ -122,10 +129,11 @@ and rebuilt; it is never workspace authority.
 
 ## Workspace files
 
-- Change intent through AXM commands or `.axm/settings.json`.
-- Treat `.axm/axm-lock.yaml` as generated accepted-resolution state; do not
+- Change project intent through AXM commands or `axm.json`.
+- Treat `axm-lock.yaml` as generated accepted-resolution state; do not
   hand-edit it.
-- Check `.axm/` into source control.
+- Commit `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`;
+  ignore `.axm/` runtime state.
 - Use `axm lint` for read-only workspace facts.
 - Use `axm sync --preview --json` to inspect reconciliation, then `axm sync` to
   apply it.

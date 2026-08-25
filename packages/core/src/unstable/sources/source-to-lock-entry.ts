@@ -11,6 +11,7 @@
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
 import type { SourceHash } from "../extensions/rendered-files.js";
+import type { TreeIntegrity } from "../extensions/materialized-tree.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SkillExtensionRef } from "../skills/refs.js";
 
@@ -24,6 +25,7 @@ export interface SourceToLockEntryInput {
   readonly sourceName: Option.Option<string>;
   /** Canonical package identity required by Git and local-path resolutions. */
   readonly contentIdentity: SourceHash;
+  readonly treeIntegrity: TreeIntegrity;
   /** Workspace-root-relative local source path for lockfile persistence. */
   readonly workspaceRelativeLocalSourcePath?: Option.Option<string>;
 }
@@ -51,14 +53,25 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, input.contentIdentity),
+        ...gitSourceLockFields(
+          ref.source,
+          ref.gitCommitSha,
+          ref.gitTreeSha,
+          input.contentIdentity,
+          ref.owner,
+          ref.name,
+          input.treeIntegrity,
+        ),
       };
 
     case "local":
       return {
         type: "local",
+        packageOwner: ref.owner,
+        packageName: ref.name,
         path: localSourceLockPath(input, ref.source.path),
         contentIdentity: input.contentIdentity,
+        treeIntegrity: input.treeIntegrity,
       };
 
     case "registry":
@@ -70,6 +83,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: Option.getOrElse(input.sourceName, () => "default"),
         publisherBindingId: ref.publisherBindingId,
+        treeIntegrity: input.treeIntegrity,
       };
     case "workspace":
       return undefined;

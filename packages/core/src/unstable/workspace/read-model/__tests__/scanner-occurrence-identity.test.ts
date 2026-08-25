@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { AGENTS } from "../../../agents/registry.js";
-import { buildFixture } from "../__fixtures__/builder.js";
+import { buildFixture, resolveFixtureProjectLayout } from "../__fixtures__/builder.js";
 import {
   makeAgentDirOccurrence,
   makeAgentMcpConfigOccurrence,
@@ -199,11 +199,12 @@ describe("scanner occurrence identity", () => {
               },
             },
           });
+          const layout = yield* resolveFixtureProjectLayout(deps);
           const canonical = yield* makeCanonicalExtensionsScanner({
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: WORKSPACE_ROOT,
-            scope: "project",
+            layout,
             diagnostics: diag,
           });
           const agentDir = yield* makeAgentDirScanner({
@@ -258,11 +259,12 @@ describe("scanner occurrence identity", () => {
               },
             },
           });
+          const layout = yield* resolveFixtureProjectLayout(deps);
           const canonical = yield* makeCanonicalExtensionsScanner({
             fs: deps.fs,
             path: deps.path,
             workspaceRoot: WORKSPACE_ROOT,
-            scope: "project",
+            layout,
             diagnostics: diag,
           });
           const agentDir = yield* makeAgentDirScanner({

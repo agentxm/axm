@@ -3,15 +3,22 @@ import type { Handle } from "../../extensions/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 import { PACK_MANIFEST_FILENAME } from "../manifest-schema.js";
 
-export const packManifestPath = (owner: Handle, name: string): string =>
-  `${REGISTRY_EXTENSIONS_DIR}/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
+export const packManifestPath = (
+  scope: JobStepArtifact["scope"],
+  owner: Handle,
+  name: string,
+): string =>
+  scope === "project"
+    ? `packs/${name}/${PACK_MANIFEST_FILENAME}`
+    : `${REGISTRY_EXTENSIONS_DIR}/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
 
 export const packManifestTarget = (
+  scope: JobStepArtifact["scope"],
   owner: Handle,
   name: string,
   change: JobStepArtifactTarget["change"],
 ): JobStepArtifactTarget => ({
-  path: packManifestPath(owner, name),
+  path: packManifestPath(scope, owner, name),
   change,
 });
 
@@ -23,10 +30,10 @@ export const packManifestArtifact = (args: {
   readonly version?: string;
   readonly fileCount?: number;
 }): JobStepArtifact => ({
-  path: packManifestPath(args.owner, args.name),
+  path: packManifestPath(args.scope, args.owner, args.name),
   scope: args.scope,
   change: args.change,
   ...(args.version === undefined ? {} : { version: args.version }),
   ...(args.fileCount === undefined ? {} : { fileCount: args.fileCount }),
-  targets: [packManifestTarget(args.owner, args.name, args.change)],
+  targets: [packManifestTarget(args.scope, args.owner, args.name, args.change)],
 });

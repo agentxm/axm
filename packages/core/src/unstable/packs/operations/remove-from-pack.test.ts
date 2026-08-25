@@ -39,7 +39,7 @@ const makeWorkspaceMock = (
     getConfiguredPackEntries: () =>
       Effect.succeed({
         "my-pack": {
-          source: "workspace:@myorg/packs/my-pack",
+          source: "workspace",
           enabled: true,
         },
       }),
@@ -48,7 +48,7 @@ const makeWorkspaceMock = (
         configuredRow({
           type: "pack",
           name: "my-pack",
-          source: "workspace:@myorg/packs/my-pack",
+          source: "workspace",
           packagingKind: "non-native",
         }),
       ],
@@ -70,7 +70,7 @@ const createPackManifestWithDependencies = (
   packName: string,
   dependencies: Record<string, string> = {},
 ) => {
-  const packDir = path.join(base, ".axm", "extensions", owner, "packs", packName);
+  const packDir = path.join(base, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
     owner,
@@ -138,15 +138,7 @@ describe("removeFromPack", () => {
         expect(result.result).toBe("success");
 
         // Verify manifest was updated
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/my-skill"]).toBeUndefined();
         expect(manifest.dependencies["@acme/skills/other-skill"]).toBe("^2.0.0");
@@ -171,15 +163,7 @@ describe("removeFromPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/skill-a"]).toBeUndefined();
         expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
@@ -244,15 +228,7 @@ describe("removeFromPack", () => {
         );
 
         // Manifest should be unchanged
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
       }),

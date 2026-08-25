@@ -12,8 +12,8 @@ depends-on:
 AXM mutates derived workspace output only when it can prove ownership of the
 exact unit being changed. Ownership is explicit, versioned, native to the
 target substrate, and independent of human-facing guidance. Unmarked content
-is user-owned even when it resembles AXM output or points into
-`.axm/extensions/`.
+is user-owned even when it resembles AXM output or points into a canonical
+extension root.
 
 ## Encodings
 
@@ -22,9 +22,10 @@ AXM uses one ownership vocabulary through four substrate encodings:
 - A fence owns a byte range in comment-bearing text.
 - A banner owns a whole comment-bearing file.
 - An `x-axm` property owns one keyed JSON or YAML entry.
-- A symlink whose resolved target is inside `.axm/extensions/` proves
-  structural ownership without a marker; an instruction alias proves it by
-  resolving to its canonical source.
+- A symlink whose resolved target is inside a project authored root,
+  `agent_extensions/`, or the user-scope canonical root proves structural
+  ownership without a marker; an instruction alias proves it by resolving to
+  its canonical source.
 
 The canonical comment-bearing grammar is:
 

@@ -6,11 +6,6 @@ import * as Schema from "effect/Schema";
 
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  parseExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
-import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeBundleFqnSchema,
@@ -20,53 +15,40 @@ import {
   readKnowledgePackageManifest,
 } from "@agentxm/client-core/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { WorkspaceMutations, type WorkspaceLayout } from "@agentxm/client-core/unstable/workspace";
 
 export { inspectKnowledgePackage } from "@agentxm/client-core/unstable/knowledge";
 
 export const bundleRoot = (
-  baseDir: string,
+  layout: WorkspaceLayout,
   name: string,
   entry: KnowledgeLockEntry,
   path: Path.Path,
-): string =>
-  entry.type === "registry"
-    ? path.join(
-        baseDir,
-        REGISTRY_EXTENSIONS_DIR,
-        entry.owner,
-        KNOWLEDGE_EXTENSION_DIR,
-        name,
-        KNOWLEDGE_SOURCE_DIR,
-      )
-    : path.join(
-        baseDir,
-        EXTERNAL_EXTENSIONS_DIR,
-        KNOWLEDGE_EXTENSION_DIR,
-        name,
-        KNOWLEDGE_SOURCE_DIR,
-      );
+): string => {
+  const root = layout.scope === "project" ? layout.acquiredRoot : layout.canonicalRoot;
+  const owner =
+    entry.type === "registry"
+      ? entry.owner
+      : layout.scope === "project"
+        ? entry.packageOwner
+        : "external";
+  const packageName =
+    entry.type === "registry" ? entry.name : layout.scope === "project" ? entry.packageName : name;
+  return path.join(root, owner, KNOWLEDGE_EXTENSION_DIR, packageName, KNOWLEDGE_SOURCE_DIR);
+};
 
 const desiredBundleRoot = (
-  baseDir: string,
+  layout: WorkspaceLayout,
   node: { readonly name: string; readonly identity: string },
   entry: KnowledgeLockEntry | undefined,
   path: Path.Path,
 ): string | undefined => {
   if (node.identity.startsWith("workspace:")) {
-    const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
-    return identity === undefined || identity.type !== "knowledge"
+    return layout.scope !== "project"
       ? undefined
-      : path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          identity.owner,
-          KNOWLEDGE_EXTENSION_DIR,
-          identity.name,
-          KNOWLEDGE_SOURCE_DIR,
-        );
+      : path.join(layout.authoredRoot("knowledge"), node.name, KNOWLEDGE_SOURCE_DIR);
   }
-  return entry === undefined ? undefined : bundleRoot(baseDir, node.name, entry, path);
+  return entry === undefined ? undefined : bundleRoot(layout, node.name, entry, path);
 };
 
 const isCorpusChanging = (
@@ -100,7 +82,7 @@ export const inspectInstalledKnowledge = Effect.fn("Knowledge.inspectInstalled")
     )
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((node): readonly [string, string] | undefined => {
-      const sourceRoot = desiredBundleRoot(ws.baseDir, node, locked[node.name], path);
+      const sourceRoot = desiredBundleRoot(ws.layout, node, locked[node.name], path);
       return sourceRoot === undefined ? undefined : [node.name, sourceRoot];
     })
     .filter((entry): entry is readonly [string, string] => entry !== undefined);
@@ -152,7 +134,7 @@ export const captureInstalledKnowledgeIndex = Effect.fn("Knowledge.captureInstal
       )
       .sort((left, right) => left.name.localeCompare(right.name))
       .flatMap((node) => {
-        const sourceRoot = desiredBundleRoot(ws.baseDir, node, locked[node.name], path);
+        const sourceRoot = desiredBundleRoot(ws.layout, node, locked[node.name], path);
         return sourceRoot === undefined ? [] : [{ name: node.name, sourceRoot }];
       });
     if (selectedName !== undefined && entries.length === 0) {

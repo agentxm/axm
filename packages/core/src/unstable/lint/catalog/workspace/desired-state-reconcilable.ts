@@ -31,7 +31,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
             ruleId: RULE_ID,
             severity: "error",
             message: `Pack '${problem.pack}' does not currently form a reconcilable desired-state route.${observed}`,
-            location: { file: ".axm/settings.json" },
+            location: { file: "axm.json" },
           };
         }
         return {
@@ -39,16 +39,18 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           ruleId: RULE_ID,
           severity: "error",
           message:
-            problem.type === "projection-collision"
-              ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
-              : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
-                  .map((contributor) =>
-                    contributor.source === "pack"
-                      ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-                      : `settings range=${contributor.range} location=${contributor.location}`,
-                  )
-                  .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
-          location: { file: ".axm/settings.json" },
+            problem.type === "workspace-owner-missing"
+              ? `${problem.extensionType} '${problem.name}' uses source 'workspace', but axm.json does not declare an owner.`
+              : problem.type === "projection-collision"
+                ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
+                : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
+                    .map((contributor) =>
+                      contributor.source === "pack"
+                        ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
+                        : `settings range=${contributor.range} location=${contributor.location}`,
+                    )
+                    .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
+          location: { file: "axm.json" },
         };
       });
       if (context.health.canonicalObservations === undefined) return graphFindings;
@@ -80,7 +82,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
                 ruleId: RULE_ID,
                 severity: "error",
                 message: `${extensionConstraintFactText(fact)}; decision=reconcilable.`,
-                location: { file: observation.path ?? ".axm/settings.json" },
+                location: { file: observation.path ?? "axm.json" },
               },
             ];
           }
@@ -96,7 +98,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
               ruleId: RULE_ID,
               severity: "error",
               message: `${label} has canonical state ${observation.status}.`,
-              location: { file: observation.path ?? ".axm/settings.json" },
+              location: { file: observation.path ?? "axm.json" },
             },
           ];
         },

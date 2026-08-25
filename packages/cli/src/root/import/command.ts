@@ -17,7 +17,6 @@ import {
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   buildAuthoredExtensionStep,
   computePackageContentHash,
   copyExtensionDirectory,
@@ -41,7 +40,9 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 type NativeImportType = "skill" | "subagent";
 
@@ -80,6 +81,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
       detail: `Expected a ${extensionTypeToPlural[args.type]} target FQN, got ${args.target}`,
     });
   }
+  yield* requireAuthoredOwner(target.owner);
   const group = extensionTypeToPlural[args.type];
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
@@ -87,10 +89,9 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   const source = yield* resolveSource(args.source);
   const acquired = yield* acquireExternalSource(source);
   const targetDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    target.owner,
-    extensionTypeToPlural[target.type],
+    ws.layout.scope === "project"
+      ? ws.layout.authoredRoot(target.type)
+      : path.join(ws.layout.canonicalRoot, target.owner, extensionTypeToPlural[target.type]),
     target.name,
   );
   yield* preflightCreateOnly({
@@ -117,7 +118,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   });
   const stagedHash = yield* computePackageContentHash(stagedPackage);
   const fqn = formatFqn(target);
-  const sourceLocator = `workspace:${fqn}`;
+  const sourceLocator = "workspace";
 
   let enabled: boolean;
   let markAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
@@ -146,7 +147,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     change: "created",
     targets: [
       { path: path.relative(ws.baseDir, targetDir), change: "created" },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
     ],
   };
   const common = {

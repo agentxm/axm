@@ -16,7 +16,7 @@ const pack = (name: string, source: string): ConfiguredRecordRow => ({
 
 describe("resolveConfiguredPackSelector", () => {
   const configured = [
-    pack("toolkit", "workspace:@acme/packs/toolkit"),
+    pack("toolkit", "workspace"),
     pack("reviewers", "@acme/packs/reviewers@^1.0.0"),
   ];
 
@@ -29,7 +29,7 @@ describe("resolveConfiguredPackSelector", () => {
 
       expect(selected.configuredName).toBe("toolkit");
       expect(selected.match).toBe("local-name");
-      expect(selected.entry.source).toBe("workspace:@acme/packs/toolkit");
+      expect(selected.entry.source).toBe("workspace");
     }),
   );
 
@@ -37,6 +37,7 @@ describe("resolveConfiguredPackSelector", () => {
     Effect.gen(function* () {
       const selected = yield* resolveConfiguredPackSelector({
         configured,
+        configuredOwner: "@acme",
         selector: "@acme/packs/toolkit",
       });
 
@@ -98,8 +99,8 @@ describe("resolveConfiguredPackSelector", () => {
     Effect.gen(function* () {
       const error = yield* resolveConfiguredPackSelector({
         configured: [
-          pack("toolkit", "workspace:@acme/packs/toolkit"),
-          pack("toolkit-copy", "workspace:@acme/packs/toolkit"),
+          pack("toolkit", "@acme/packs/toolkit@^1.0.0"),
+          pack("toolkit-copy", "@acme/packs/toolkit@^2.0.0"),
         ],
         selector: "@acme/packs/toolkit",
         recovery: { command: "add", extension: "@acme/skills/review" },

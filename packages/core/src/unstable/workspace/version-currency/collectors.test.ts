@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeVersionSync, type Version } from "../../version-constraints/version-constraints.js";
+import { handle } from "../../test-helpers.js";
 import { decodeExtensionNameSync, type ExtensionRef } from "../../extensions/index.js";
 import { normalizeHandle } from "../../extensions/handle.js";
 import {
@@ -15,6 +16,7 @@ import {
   makeRegistryMcpServerLockEntry,
   makeRegistryPackLockEntry,
   TEST_CONTENT_IDENTITY,
+  TEST_TREE_INTEGRITY,
 } from "../test-stubs.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import {
@@ -55,6 +57,7 @@ const makeRegistryLockFields = (opts: {
   integrity: "sha512-AAAA==",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 describe("collectSkillCurrency", () => {
@@ -145,11 +148,14 @@ describe("collectSkillCurrency", () => {
           Effect.succeed({
             "local-skill": {
               type: "github" as const,
+              packageOwner: handle("@local"),
+              packageName: decodeExtensionNameSync("local-skill"),
               owner: "user",
               repo: "repo",
               resolvedCommit: "commit-1",
               resolvedTree: "tree-1",
               contentIdentity: TEST_CONTENT_IDENTITY,
+              treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
       });
@@ -185,12 +191,15 @@ describe("collectSkillSourceFreshness", () => {
           Effect.succeed({
             "find-skills": {
               type: "github" as const,
+              packageOwner: handle("@vercel-labs"),
+              packageName: decodeExtensionNameSync("find-skills"),
               owner: "vercel-labs",
               repo: "skills",
               path: "skills/find-skills",
               resolvedCommit: "commit-1",
               resolvedTree: "old-tree",
               contentIdentity: TEST_CONTENT_IDENTITY,
+              treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
       });
@@ -202,6 +211,8 @@ describe("collectSkillSourceFreshness", () => {
             {
               type: "skill",
               refType: "git-hosted",
+              owner: handle("@vercel-labs"),
+              name: decodeExtensionNameSync("find-skills"),
               skill: {
                 name: decodeExtensionNameSync("find-skills"),
                 description: Option.some("Find skills"),
@@ -249,11 +260,14 @@ describe("collectSkillSourceFreshness", () => {
 describe("git-source freshness beyond skills", () => {
   const gitLockEntry = (repo: string, resolvedTree: string) => ({
     type: "github" as const,
+    packageOwner: handle("@acme"),
+    packageName: decodeExtensionNameSync(repo),
     owner: "acme",
     repo,
     resolvedCommit: "commit-1",
     resolvedTree,
     contentIdentity: TEST_CONTENT_IDENTITY,
+    treeIntegrity: TEST_TREE_INTEGRITY,
   });
 
   const providersReturning = (refs: ReadonlyArray<ExtensionRef>): SourceHostProvidersService => ({
@@ -304,6 +318,8 @@ describe("git-source freshness beyond skills", () => {
             {
               type: "hook",
               refType: "git-hosted",
+              owner: handle("@acme"),
+              name: decodeExtensionNameSync("guard"),
               hook: namePayload("guard"),
               source: gitSource("guard"),
               location: "file:///tmp/guard",
@@ -447,6 +463,7 @@ describe("collectSubagentCurrency", () => {
               sourceName: "default",
 
               publisherBindingId: "hbnd_test",
+              treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
       });
@@ -570,11 +587,14 @@ describe("collectRuleCurrency", () => {
           Effect.succeed({
             "local-rule": {
               type: "github" as const,
+              packageOwner: handle("@local"),
+              packageName: decodeExtensionNameSync("local-rule"),
               owner: "user",
               repo: "repo",
               resolvedCommit: "commit-1",
               resolvedTree: "tree-1",
               contentIdentity: TEST_CONTENT_IDENTITY,
+              treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
       });

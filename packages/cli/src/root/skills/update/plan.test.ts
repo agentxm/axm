@@ -2,7 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { normalizeHandle, SourceHashSchema } from "@agentxm/client-core/unstable/extensions";
+import {
+  normalizeHandle,
+  SourceHashSchema,
+  TreeIntegritySchema,
+} from "@agentxm/client-core/unstable/extensions";
 import type { SkillLockEntry, SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type {
@@ -14,6 +18,9 @@ import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 
 const CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
+const TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 const AXM = normalizeHandle("@axm");
 
 const skillBase = (name: string) => ({
@@ -38,6 +45,8 @@ const makeOp = (
     ref = {
       ...skillBase(name),
       refType: "git-hosted",
+      owner: AXM,
+      name: extensionName(name),
       source: {
         type: "github",
         url: new URL("https://github.com"),
@@ -70,6 +79,8 @@ const makeOp = (
     ref = {
       ...skillBase(name),
       refType: "local",
+      owner: AXM,
+      name: extensionName(name),
       source: { type: "local", path: "/fake" },
       location: `file:///fake/${name}`,
     };
@@ -90,11 +101,14 @@ const makeOp = (
 
 const githubLock = (tree: string): SkillLockEntry => ({
   type: "github",
+  packageOwner: AXM,
+  packageName: extensionName("skill"),
   owner: "owner",
   repo: "repo",
   resolvedCommit: "commit",
   resolvedTree: tree,
   contentIdentity: CONTENT_IDENTITY,
+  treeIntegrity: TREE_INTEGRITY,
 });
 
 const registryLock = (version: Version): SkillLockEntry => ({
@@ -105,6 +119,7 @@ const registryLock = (version: Version): SkillLockEntry => ({
   integrity: "sha512-AAAA==",
   sourceName: "default",
   publisherBindingId: "hbnd_test",
+  treeIntegrity: TREE_INTEGRITY,
 });
 
 const stubRunClosure: MakeRunClosure = (op) =>
@@ -165,7 +180,14 @@ describe("buildUpdatePlan", () => {
   it.effect("dispatches local, missing, and forced resolutions", () =>
     Effect.gen(function* () {
       const local = yield* firstMessage(makeOp("local", { type: "local" }), {
-        local: { type: "local", path: "source", contentIdentity: CONTENT_IDENTITY },
+        local: {
+          type: "local",
+          packageOwner: AXM,
+          packageName: extensionName("local"),
+          path: "source",
+          contentIdentity: CONTENT_IDENTITY,
+          treeIntegrity: TREE_INTEGRITY,
+        },
       });
       const missing = yield* firstMessage(makeOp("missing", { type: "github", tree: "tree" }), {});
       const forced = yield* firstMessage(makeOp("forced", { type: "github", tree: "tree" }, true), {

@@ -5,6 +5,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import {
+  computeMaterializedTreeIntegrity,
   parseExtensionFqnParts,
   toExtensionTypePlural,
   type ExtensionType,
@@ -23,6 +24,7 @@ import {
   type DesiredConstraintContributor,
   type DesiredExtensionNode,
 } from "./desired-state-graph.js";
+import type { WorkspaceLayout } from "./layout.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -33,6 +35,7 @@ export type CanonicalObservationStatus =
   | "corrupt"
   | "incomplete"
   | "locally-modified"
+  | "materialization-mismatch"
   | "usable";
 
 export type CanonicalConstraintContributor = DesiredConstraintContributor;
@@ -63,7 +66,7 @@ export type CanonicalObservation =
     });
 
 interface ObserveCanonicalArgs {
-  readonly baseDir: string;
+  readonly layout: WorkspaceLayout;
   readonly desired: DesiredExtensionNode;
   readonly accepted: AcceptedExtensionResolution | undefined;
 }
@@ -85,34 +88,37 @@ const MANIFEST_CONTRACTS = {
 
 export const canonicalPathForAcceptedExtension = (
   path: Path.Path,
-  baseDir: string,
+  layout: WorkspaceLayout,
   desired: DesiredExtensionNode,
   accepted: AcceptedExtensionResolution | undefined,
 ): string | undefined => {
   if (desired.source === "inline") return undefined;
-  if (desired.identity.startsWith("workspace:") || accepted?.type === "registry") {
-    const identity = desired.identity.startsWith("workspace:")
-      ? desired.identity.slice("workspace:".length)
-      : desired.identity;
-    const parsed = parseExtensionFqnParts(identity);
-    if (parsed === undefined || parsed.type !== desired.type) return undefined;
-    return path.join(
-      baseDir,
-      ".axm",
-      "extensions",
-      parsed.owner,
-      toExtensionTypePlural(parsed.type),
-      parsed.name,
-    );
+  if (desired.identity.startsWith("bundled:")) {
+    return layout.scope === "project"
+      ? path.join(layout.acquiredRoot, "@agentxm", "skills", desired.name)
+      : path.join(layout.canonicalRoot, "@agentxm", "skills", desired.name);
   }
-  return path.join(
-    baseDir,
-    ".axm",
-    "extensions",
-    "external",
-    toExtensionTypePlural(desired.type),
-    desired.name,
-  );
+  if (desired.identity.startsWith("workspace:")) {
+    if (layout.scope === "project")
+      return path.join(layout.authoredRoot(desired.type), desired.name);
+    const parsed = parseExtensionFqnParts(desired.identity.slice("workspace:".length));
+    return parsed === undefined
+      ? undefined
+      : path.join(
+          layout.canonicalRoot,
+          parsed.owner,
+          toExtensionTypePlural(desired.type),
+          desired.name,
+        );
+  }
+  if (accepted === undefined) return undefined;
+  const owner = accepted.type === "registry" ? accepted.owner : accepted.packageOwner;
+  const name = accepted.type === "registry" ? accepted.name : accepted.packageName;
+  return layout.scope === "project"
+    ? path.join(layout.acquiredRoot, owner, toExtensionTypePlural(desired.type), name)
+    : accepted.type === "registry"
+      ? path.join(layout.canonicalRoot, owner, toExtensionTypePlural(desired.type), name)
+      : path.join(layout.canonicalRoot, "external", toExtensionTypePlural(desired.type), name);
 };
 
 const hasRequiredPayload = (
@@ -124,12 +130,8 @@ const hasRequiredPayload = (
 ) => {
   switch (type) {
     case "skill":
-      return Effect.map(
-        Effect.all(
-          [fs.exists(path.join(root, "SKILL.md")), fs.exists(path.join(root, "src", "SKILL.md"))],
-          { concurrency: "unbounded" },
-        ),
-        (exists) => exists.some(Boolean),
+      return Effect.map(Effect.all([fs.exists(path.join(root, "src", "SKILL.md"))]), (exists) =>
+        exists.some(Boolean),
       );
     case "subagent":
       return fs.exists(path.join(root, "src", `${name}.md`));
@@ -173,7 +175,7 @@ const constraintMismatchObservation = (args: {
 });
 
 export const observeCanonicalExtension = ({
-  baseDir,
+  layout,
   desired,
   accepted,
 }: ObserveCanonicalArgs): Effect.Effect<
@@ -192,7 +194,8 @@ export const observeCanonicalExtension = ({
       };
     }
     const workspaceAuthored = desired.identity.startsWith("workspace:");
-    if (!workspaceAuthored && accepted === undefined) {
+    const bundled = desired.identity.startsWith("bundled:");
+    if (!workspaceAuthored && !bundled && accepted === undefined) {
       return {
         type: desired.type,
         name: desired.name,
@@ -207,6 +210,7 @@ export const observeCanonicalExtension = ({
           : printSourceParams(lockEntryToSourceParams(accepted));
     if (
       !workspaceAuthored &&
+      !bundled &&
       acceptedIdentity !== desired.identity &&
       acceptedIdentity !== desired.source
     ) {
@@ -225,7 +229,7 @@ export const observeCanonicalExtension = ({
         ));
     const acceptedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : undefined;
 
-    const root = canonicalPathForAcceptedExtension(path, baseDir, desired, accepted);
+    const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
     if (root === undefined) {
       if (acceptedConstraintMismatch) {
         return constraintMismatchObservation({
@@ -257,7 +261,7 @@ export const observeCanonicalExtension = ({
     const manifestPath = path.join(root, contract.filename);
     const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
     let manifestVersion: string | undefined;
-    if (!(desired.type === "skill" && !manifestExists)) {
+    {
       if (!manifestExists) {
         if (acceptedConstraintMismatch) {
           return constraintMismatchObservation({
@@ -305,6 +309,32 @@ export const observeCanonicalExtension = ({
         }
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
+      const expectedOwner = bundled
+        ? "@agentxm"
+        : workspaceAuthored
+          ? layout.owner
+          : accepted?.type === "registry"
+            ? accepted.owner
+            : accepted?.packageOwner;
+      const expectedName = bundled
+        ? desired.name
+        : workspaceAuthored
+          ? desired.name
+          : accepted?.type === "registry"
+            ? accepted.name
+            : accepted?.packageName;
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        !("owner" in parsed) ||
+        parsed.owner !== expectedOwner ||
+        !("name" in parsed) ||
+        parsed.name !== expectedName ||
+        !("type" in parsed) ||
+        parsed.type !== desired.type
+      ) {
+        return { type: desired.type, name: desired.name, status: "wrong-origin", path: root };
+      }
       if (
         typeof parsed === "object" &&
         parsed !== null &&
@@ -342,6 +372,21 @@ export const observeCanonicalExtension = ({
     ).pipe(Effect.orElseSucceed(() => false));
     if (!payloadComplete) {
       return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+    }
+
+    if (!workspaceAuthored && accepted !== undefined) {
+      const observedIntegrity = yield* Effect.result(computeMaterializedTreeIntegrity(root));
+      if (
+        Result.isFailure(observedIntegrity) ||
+        observedIntegrity.success !== accepted.treeIntegrity
+      ) {
+        return {
+          type: desired.type,
+          name: desired.name,
+          status: "materialization-mismatch",
+          path: root,
+        };
+      }
     }
 
     return {

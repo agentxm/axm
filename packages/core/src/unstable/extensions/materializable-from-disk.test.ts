@@ -9,6 +9,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import {
   configuredMcpServersToDiskRefs,
   configuredSkillsToDiskRefs,
@@ -18,6 +20,30 @@ import {
 const writeJson = (filePath: string, value: unknown) => {
   nodeFs.mkdirSync(nodePath.dirname(filePath), { recursive: true });
   nodeFs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+};
+
+const makeEnv = (fs: FileSystem.FileSystem, path: Path.Path, baseDir: string) => ({
+  fs,
+  path,
+  baseDir,
+  scope: "project" as const,
+  layout: makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm")).layout,
+});
+
+const writeAcquiredSkill = (baseDir: string) => {
+  const packageRoot = nodePath.join(baseDir, "agent_extensions", "@acme", "skills", "quality");
+  writeJson(nodePath.join(packageRoot, "skill.json"), {
+    owner: "@acme",
+    type: "skill",
+    name: "quality",
+    version: "1.0.0",
+  });
+  nodeFs.mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
+  nodeFs.writeFileSync(
+    nodePath.join(packageRoot, "src", "SKILL.md"),
+    "---\nname: quality\ndescription: Review project quality.\n---\n",
+  );
+  return packageRoot;
 };
 
 layer(NodeServices.layer, { excludeTestServices: true })(
@@ -37,7 +63,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const env = { fs, path, baseDir: tempDir, scope: "project" as const };
+        const env = makeEnv(fs, path, tempDir);
 
         writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/skills/review/skill.json"), {
           owner: "@acme",
@@ -108,14 +134,8 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
-          const env = { fs, path, baseDir: tempDir, scope: "project" as const };
-          nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
-            recursive: true,
-          });
-          nodeFs.writeFileSync(
-            nodePath.join(tempDir, ".axm/extensions/external/skills/quality/SKILL.md"),
-            "---\nname: quality\ndescription: Review project quality.\n---\n",
-          );
+          const env = makeEnv(fs, path, tempDir);
+          const packageRoot = writeAcquiredSkill(tempDir);
 
           const refs = yield* configuredSkillsToDiskRefs(
             env,
@@ -133,11 +153,14 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               lockEntries: {
                 quality: {
                   type: "github",
+                  packageOwner: handle("@acme"),
+                  packageName: extensionName("quality"),
                   owner: "qualitymd",
                   repo: "quality.md",
                   resolvedCommit: "commit-1",
                   resolvedTree: "tree-1",
                   contentIdentity: TEST_CONTENT_IDENTITY,
+                  treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
               getConfiguredSources: () =>
@@ -158,10 +181,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             throw new Error("Expected one Git-hosted skill ref");
           }
           expect(ref.skill.name).toBe("quality");
-          expect(ref.location).toBe(
-            new URL("file://" + nodePath.join(tempDir, ".axm/extensions/external/skills/quality"))
-              .href,
-          );
+          expect(ref.location).toBe(new URL(`file://${packageRoot}`).href);
         }),
     );
 
@@ -171,16 +191,10 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
-          nodeFs.mkdirSync(nodePath.join(tempDir, ".axm/extensions/external/skills/quality"), {
-            recursive: true,
-          });
-          nodeFs.writeFileSync(
-            nodePath.join(tempDir, ".axm/extensions/external/skills/quality/SKILL.md"),
-            "---\nname: quality\ndescription: Review project quality.\n---\n",
-          );
+          const packageRoot = writeAcquiredSkill(tempDir);
 
           const refs = yield* configuredSkillsToDiskRefs(
-            { fs, path, baseDir: tempDir, scope: "project" },
+            makeEnv(fs, path, tempDir),
             {
               quality: {
                 type: "skill",
@@ -195,11 +209,14 @@ layer(NodeServices.layer, { excludeTestServices: true })(
               lockEntries: {
                 quality: {
                   type: "github",
+                  packageOwner: handle("@acme"),
+                  packageName: extensionName("quality"),
                   owner: "qualitymd",
                   repo: "quality.md",
                   resolvedCommit: "commit-1",
                   resolvedTree: "tree-1",
                   contentIdentity: TEST_CONTENT_IDENTITY,
+                  treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
               getConfiguredSources: () =>
@@ -222,19 +239,16 @@ layer(NodeServices.layer, { excludeTestServices: true })(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const refs = yield* configuredSubagentsToDiskRefs(
-          { fs, path, baseDir: tempDir, scope: "project" },
-          {
-            stale: {
-              type: "subagent",
-              name: "stale",
-              source: "@acme/subagents/stale",
-              enabled: true,
-              packagingKind: "native",
-              lifecycle: "configured",
-            },
+        const refs = yield* configuredSubagentsToDiskRefs(makeEnv(fs, path, tempDir), {
+          stale: {
+            type: "subagent",
+            name: "stale",
+            source: "@acme/subagents/stale",
+            enabled: true,
+            packagingKind: "native",
+            lifecycle: "configured",
           },
-        );
+        });
 
         expect(refs).toEqual([]);
       }),
@@ -244,7 +258,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const env = { fs, path, baseDir: tempDir, scope: "project" as const };
+        const env = makeEnv(fs, path, tempDir);
 
         writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
           owner: "@acme",

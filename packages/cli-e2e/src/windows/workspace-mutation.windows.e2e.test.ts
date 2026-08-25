@@ -63,7 +63,7 @@ describe("Windows workspace mutation contract", () => {
         }),
       );
       expect(JSON.parse(detected.stdout)).toMatchObject({ ok: true });
-      expect(readJson(path.join(workspace.path, ".axm", "settings.json"))).toMatchObject({
+      expect(readJson(path.join(workspace.path, "axm.json"))).toMatchObject({
         agents: expect.arrayContaining(["claude-code", "codex", "codearts-agent"]),
       });
 
@@ -175,7 +175,7 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.existsSync(codexSkill)).toBe(true);
       expect(fs.existsSync(codeartsSkill)).toBe(true);
 
-      const lockPath = path.join(workspace.path, ".axm", "axm-lock.yaml");
+      const lockPath = path.join(workspace.path, "axm-lock.yaml");
       const lockBytesBefore = fs.readFileSync(lockPath, "utf8");
       const lockBefore = YAML.parse(lockBytesBefore);
       const canonicalBytesBefore = fs.readFileSync(path.join(canonicalSkill, "SKILL.md"), "utf8");
@@ -254,7 +254,7 @@ describe("Windows workspace mutation contract", () => {
           env,
         }),
       );
-      const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+      const settingsPath = path.join(workspace.path, "axm.json");
       const settingsBeforeFailure = fs.readFileSync(settingsPath, "utf8");
       const instructionSource = path.join(workspace.path, "AGENTS.md");
       const sourceBeforeFailure = fs.readFileSync(instructionSource, "utf8");

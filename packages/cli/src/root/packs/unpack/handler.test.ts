@@ -38,7 +38,13 @@ import {
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { exactVersion, extensionName, handle } from "../../../test-stubs.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  exactVersion,
+  extensionName,
+  handle,
+  writeWorkspaceFiles,
+} from "../../../test-stubs.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -55,47 +61,18 @@ const initWorkspace = (
     lockMcpServers?: Record<string, unknown>;
     lockPacks?: Record<string, unknown>;
   } = {},
-) => {
-  const acceptedEntries = (entries: Record<string, unknown> | undefined) =>
-    Object.fromEntries(
-      Object.entries(entries ?? {}).map(([name, value]) => {
-        const entry = expectRecord(value);
-        return [
-          name,
-          {
-            type: "registry",
-            owner: entry["owner"],
-            name: entry["name"],
-            resolvedVersion: entry["resolvedVersion"],
-            integrity: entry["integrity"],
-            sourceName: entry["sourceName"],
-            publisherBindingId: entry["publisherBindingId"],
-          },
-        ];
-      }),
-    );
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(axmDir, "settings.json"),
-    JSON.stringify({
-      owner: "@test",
-      agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
-      ...(options.skills ? { skills: options.skills } : {}),
-      ...(options["mcps"] ? { mcpServers: options["mcps"] } : {}),
-      ...(options.packs ? { packs: options.packs } : {}),
-    }),
-  );
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({
-      lockfileVersion: 4,
-      skills: acceptedEntries(options.lockSkills),
-      ...(options.lockMcpServers ? { mcpServers: acceptedEntries(options.lockMcpServers) } : {}),
-      ...(options.lockPacks ? { packs: options.lockPacks } : {}),
-    }),
-  );
-};
+) =>
+  writeWorkspaceFiles(axmDir, {
+    owner: "@test",
+    agents: ["claude-code"],
+    sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
+    skills: options.skills,
+    mcps: options.mcps,
+    packs: options.packs,
+    lockfileSkills: options.lockSkills,
+    lockfileMcpServers: options.lockMcpServers,
+    lockfilePacks: options.lockPacks,
+  });
 
 /** Create canonical extension directories on disk (as if pack install placed them). */
 const createCanonicalDirs = (
@@ -106,23 +83,54 @@ const createCanonicalDirs = (
   },
 ) => {
   for (const skill of opts.skills ?? []) {
-    const srcDir = path.join(
-      baseDir,
-      ".axm",
-      "extensions",
-      skill.owner,
-      "skills",
-      skill.name,
-      "src",
-    );
+    const srcDir = path.join(baseDir, "agent_extensions", skill.owner, "skills", skill.name, "src");
     fs.mkdirSync(srcDir, { recursive: true });
-    fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${skill.name}`);
+    fs.writeFileSync(
+      path.join(path.dirname(srcDir), "skill.json"),
+      JSON.stringify({
+        owner: skill.owner,
+        type: "skill",
+        name: skill.name,
+        version: "1.0.0",
+      }),
+    );
+    fs.writeFileSync(
+      path.join(srcDir, "SKILL.md"),
+      `---\nname: ${skill.name}\ndescription: Test skill\n---\n\n# ${skill.name}`,
+    );
   }
   for (const srv of opts.mcpServers ?? []) {
-    const srvDir = path.join(baseDir, ".axm", "extensions", srv.owner, "mcps", srv.name);
+    const srvDir = path.join(baseDir, "agent_extensions", srv.owner, "mcps", srv.name);
     fs.mkdirSync(srvDir, { recursive: true });
     fs.writeFileSync(path.join(srvDir, "server.js"), "module.exports = {}");
   }
+  const lockfilePath = path.join(baseDir, "axm-lock.yaml");
+  const lockfile = {
+    ...expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8"))),
+  };
+  const withTreeIntegrity = (
+    feature: "skills" | "mcpServers",
+    entries: ReadonlyArray<{ readonly owner: string; readonly name: string }>,
+    directory: "skills" | "mcps",
+  ) => {
+    const locked = expectRecord(lockfile[feature] ?? {});
+    lockfile[feature] = {
+      ...locked,
+      ...Object.fromEntries(
+        entries.map((entry) => {
+          const current = expectRecord(locked[entry.name]);
+          const root = path.join(baseDir, "agent_extensions", entry.owner, directory, entry.name);
+          return [
+            entry.name,
+            { ...current, treeIntegrity: computeMaterializedTreeIntegritySync(root) },
+          ];
+        }),
+      ),
+    };
+  };
+  withTreeIntegrity("skills", opts.skills ?? [], "skills");
+  withTreeIntegrity("mcpServers", opts.mcpServers ?? [], "mcps");
+  fs.writeFileSync(lockfilePath, YAML.stringify(lockfile));
 };
 
 const createPackManifest = (
@@ -130,7 +138,7 @@ const createPackManifest = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
 ) => {
-  const packDir = path.join(baseDir, ".axm", "extensions", "@test", "packs", name);
+  const packDir = path.join(baseDir, "agent_extensions", "@test", "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
     owner: "@test",
@@ -140,7 +148,7 @@ const createPackManifest = (
     dependencies,
   };
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
-  const lockfilePath = path.join(baseDir, ".axm", "axm-lock.yaml");
+  const lockfilePath = path.join(baseDir, "axm-lock.yaml");
   const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
   const packs = expectRecord(lockfile["packs"] ?? {});
   const lockedPack = expectRecord(packs[name]);
@@ -153,6 +161,7 @@ const createPackManifest = (
       resolvedVersion: "1.0.0",
       integrity: lockedPack["integrity"],
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
       sourceName: lockedPack["sourceName"],
       publisherBindingId: lockedPack["publisherBindingId"],
     },
@@ -342,7 +351,7 @@ describe("packs unpack.handler", () => {
 
           // Check settings: pack should be removed, skills should be added
           const settingsContent = JSON.parse(
-            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"),
           );
           // Pack should be removed (empty object or undefined)
           const packs = settingsContent.packs ?? {};
@@ -354,7 +363,7 @@ describe("packs unpack.handler", () => {
 
           // Check lockfile: pack should be removed
           const lockContent = YAML.parse(
-            fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
           );
           const lockPacks = lockContent.packs ?? {};
           expect(Object.keys(lockPacks)).not.toContain("frontend-tools");
@@ -450,7 +459,7 @@ describe("packs unpack.handler", () => {
           yield* handleUnpack(defaultArgs("frontend-tools"));
 
           const settingsContent = JSON.parse(
-            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"),
           );
 
           // Existing entry should be preserved (code-review was already directly installed)
@@ -542,7 +551,7 @@ describe("packs unpack.handler", () => {
 
           // The pack must NOT be removed when unpack refuses.
           const lockContent = YAML.parse(
-            fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
           );
           expect(Object.keys(lockContent.packs ?? {})).toContain("frontend-tools");
         }),

@@ -111,15 +111,7 @@ describe("skills-new.handler", () => {
           yield* handleSkillsNew(defaultArgs("my-skill"));
 
           // Verify manifest
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "skills",
-            "my-skill",
-            "skill.json",
-          );
+          const manifestPath = path.join(tempDir, "skills", "my-skill", "skill.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@acme");
@@ -128,16 +120,7 @@ describe("skills-new.handler", () => {
           expect(manifest.version).toBe("0.0.1");
 
           // Verify SKILL.md
-          const skillMdPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "skills",
-            "my-skill",
-            "src",
-            "SKILL.md",
-          );
+          const skillMdPath = path.join(tempDir, "skills", "my-skill", "src", "SKILL.md");
           expect(fs.existsSync(skillMdPath)).toBe(true);
           const skillMd = fs.readFileSync(skillMdPath, "utf-8");
           expect(skillMd).toContain("name: my-skill");
@@ -146,13 +129,13 @@ describe("skills-new.handler", () => {
           );
 
           // Verify settings registration
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeDefined();
-          expect(settings.skills["my-skill"]).toBe("workspace:@acme/skills/my-skill");
+          expect(settings.skills["my-skill"]).toBe("workspace");
 
           // Authored workspace content is desired authority and has no lock row.
-          const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfilePath = path.join(tempDir, "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.skills?.["my-skill"]).toBeUndefined();
 
@@ -169,8 +152,7 @@ describe("skills-new.handler", () => {
           // the canonical SKILL.md propagate automatically — no `axm sync` hint.
           expect(rendererState.suggestions).toEqual([
             {
-              description:
-                "Edit `.axm/extensions/@acme/skills/my-skill/src/SKILL.md` to fill in instructions",
+              description: "Edit `skills/my-skill/src/SKILL.md` to fill in instructions",
             },
           ]);
         }),
@@ -204,7 +186,7 @@ describe("skills-new.handler", () => {
           }
           const targetPaths = targets.map((target) => property(expectRecord(target), "path"));
           expect(targetPaths).toEqual([
-            ".axm (config/lockfile)",
+            "axm.json",
             ".agents/skills/audit-skill",
             ".claude/skills/audit-skill",
           ]);
@@ -224,56 +206,30 @@ describe("skills-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("uses --owner override instead of workspace owner", () => {
+    it.effect("rejects an owner override that conflicts with the workspace owner", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { owner: Option.some("@corp") }));
-
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "skills",
-            "my-skill",
-            "skill.json",
-          );
-          expect(fs.existsSync(manifestPath)).toBe(true);
-
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@corp");
-          expect(manifest.type).toBe("skill");
-          expect(manifest.name).toBe("my-skill");
+          const error = yield* handleSkillsNew(
+            defaultArgs("my-skill", { owner: Option.some("@corp") }),
+          ).pipe(Effect.flip);
+          expect(getAppError(error).code).toBe("conflict");
         }),
       );
     });
 
-    it.effect("normalizes owner without @ prefix", () => {
+    it.effect("normalizes an owner override before checking for a conflict", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { owner: Option.some("corp") }));
-
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "skills",
-            "my-skill",
-            "skill.json",
-          );
-          expect(fs.existsSync(manifestPath)).toBe(true);
-
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.owner).toBe("@corp");
-          expect(manifest.type).toBe("skill");
-          expect(manifest.name).toBe("my-skill");
+          const error = yield* handleSkillsNew(
+            defaultArgs("my-skill", { owner: Option.some("corp") }),
+          ).pipe(Effect.flip);
+          expect(getAppError(error).detail).toContain("Package owner @corp");
         }),
       );
     });
@@ -370,16 +326,7 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSkillsNew(defaultArgs("my-tool"));
 
-          const skillMdPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "skills",
-            "my-tool",
-            "src",
-            "SKILL.md",
-          );
+          const skillMdPath = path.join(tempDir, "skills", "my-tool", "src", "SKILL.md");
           const content = fs.readFileSync(skillMdPath, "utf-8");
 
           // Check frontmatter
@@ -405,19 +352,11 @@ describe("skills-new.handler", () => {
           yield* handleSkillsNew(defaultArgs("my-skill", { preview: true }));
 
           // Manifest should NOT be created
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "skills",
-            "my-skill",
-            "skill.json",
-          );
+          const manifestPath = path.join(tempDir, "skills", "my-skill", "skill.json");
           expect(fs.existsSync(manifestPath)).toBe(false);
 
           // Settings should NOT have the skill registered
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills?.["my-skill"]).toBeUndefined();
 
@@ -479,7 +418,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(cursorLink)).toBe(false);
 
           const lockfile = YAML.parse(
-            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
           );
           expect(lockfile.skills?.["my-skill"]).toBeUndefined();
         }),

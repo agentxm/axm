@@ -15,13 +15,11 @@ import {
   decodeExtensionNameSync,
   formatFqn,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
 import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import {
   RULE_BODY_FILENAME,
-  RULE_EXTENSION_DIR,
   RULE_MANIFEST_FILENAME,
   RULE_MANIFEST_SCHEMA_URL,
   RuleManager,
@@ -39,11 +37,13 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import {
   isValidScaffoldName,
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
@@ -78,6 +78,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("rule creation");
+  yield* requireAuthoredOwner(owner);
 
   if (!isValidScaffoldName(args.name)) {
     return yield* makeAppError({
@@ -90,7 +91,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   const name = decodeExtensionNameSync(args.name);
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "rule", name });
-  const targetDir = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, owner, RULE_EXTENSION_DIR, name);
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "rule", owner), name);
   const configuredRules = yield* ws.getConfiguredRuleEntries();
   yield* preflightCreateOnly({
     subject: "Rule",
@@ -119,7 +120,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
     targets: [
       { path: path.relative(ws.baseDir, manifestPath), change: "created" as const },
       { path: path.relative(ws.baseDir, bodyPath), change: "created" as const },
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
   };
   const scaffold = createCanonicalDirectory({
@@ -207,7 +208,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
             }),
             scaffold,
             markAuthored: ws.setRuleEntry(name, {
-              source: `workspace:${fqn}`,
+              source: "workspace",
               enabled: true,
             }),
             buildArtifact: () => Effect.succeed(artifact),

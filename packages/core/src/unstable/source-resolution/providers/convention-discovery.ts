@@ -7,6 +7,7 @@ import * as Schema from "effect/Schema";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { type ExtensionName, type ExtensionRef, type Handle } from "../../extensions/index.js";
+import { discoverManifestPackagesInDir } from "../../extensions/manifest-package-discovery.js";
 import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
@@ -21,9 +22,11 @@ import {
 import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "../../subagents/manifest-schema.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
-import { normalizeExtensionName } from "../../extensions/index.js";
-import { skillsInDir } from "../../workspace/read-model/discovery/index.js";
-import type { SkillExtensionRef } from "../../skills/index.js";
+import {
+  MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
+  SkillManifestSchema,
+  type SkillExtensionRef,
+} from "../../skills/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/index.js";
 
@@ -61,14 +64,6 @@ const matchesIdentity = (
   return nameMatch && ownerMatch;
 };
 
-const matchesSkillIdentity = (
-  candidate: { readonly rawName: string; readonly normalizedName: ExtensionName },
-  options: FindOptions,
-): boolean =>
-  options.names.length === 0 ||
-  options.names.includes(candidate.rawName) ||
-  options.names.includes(candidate.normalizedName);
-
 const relativeDir = (basePath: string, location: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -98,25 +93,28 @@ const subPathForSource = (source: ExternalSource): Option.Option<string> => {
   }
 };
 
+const discoverSkillPackagesInDir = discoverManifestPackagesInDir({
+  type: "skill",
+  manifestFilename: SKILL_MANIFEST_FILENAME,
+  manifestSchema: SkillManifestSchema,
+});
+
 const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindOptions) =>
-  skillsInDir(basePath, subPathForSource(source), {
-    fullDepth: true,
-    includeInternal: false,
-  }).pipe(
+  searchRootFor(source, basePath).pipe(
+    Effect.flatMap((root) => discoverSkillPackagesInDir(root, { fullDepth: true })),
     Effect.flatMap((skills) =>
       Effect.forEach(
-        skills.filter(({ skill }) =>
-          matchesSkillIdentity(
-            { rawName: skill.name, normalizedName: normalizeExtensionName(skill.name) },
-            options,
-          ),
-        ),
+        skills.filter(({ manifest }) => matchesIdentity(manifest, options)),
         (discovered) =>
           Effect.gen(function* () {
             const skill = {
-              name: normalizeExtensionName(discovered.skill.name),
-              description: Option.some(discovered.skill.description),
-              metadata: discovered.skill.metadata,
+              name: discovered.manifest.name,
+              description: Option.fromUndefinedOr(discovered.manifest.description),
+              metadata: Option.none(),
+            };
+            const identity = {
+              owner: discovered.manifest.owner,
+              name: discovered.manifest.name,
             };
             switch (source.type) {
               case "local":
@@ -124,6 +122,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                   type: "skill",
                   refType: "local",
                   skill,
+                  ...identity,
                   source,
                   location: discovered.location,
                 } satisfies SkillExtensionRef;
@@ -136,6 +135,7 @@ const skillRefsInDir = (source: ExternalSource, basePath: string, options: FindO
                   type: "skill",
                   refType: "git-hosted",
                   skill,
+                  ...identity,
                   source,
                   location: discovered.location,
                   sourcePath: yield* relativeDir(basePath, discovered.location),
@@ -266,12 +266,14 @@ const knowledgeDiscoveries = (
 const subagentRef = (source: ExternalSource, basePath: string, discovery: SubagentDiscovery) =>
   Effect.gen(function* () {
     const subagent = { name: discovery.name, description: discovery.description };
+    const identity = { owner: discovery.owner, name: discovery.name };
     switch (source.type) {
       case "local":
         return {
           type: "subagent",
           refType: "local",
           subagent,
+          ...identity,
           source,
           location: discovery.location,
         } satisfies SubagentExtensionRef;
@@ -284,6 +286,7 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
           type: "subagent",
           refType: "git-hosted",
           subagent,
+          ...identity,
           source,
           location: discovery.location,
           gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
@@ -295,12 +298,14 @@ const subagentRef = (source: ExternalSource, basePath: string, discovery: Subage
 const knowledgeRef = (source: ExternalSource, basePath: string, discovery: KnowledgeDiscovery) =>
   Effect.gen(function* () {
     const knowledge = { name: discovery.name };
+    const identity = { owner: discovery.owner, name: discovery.name };
     switch (source.type) {
       case "local":
         return {
           type: "knowledge",
           refType: "local",
           knowledge,
+          ...identity,
           source,
           location: discovery.location,
         } satisfies KnowledgeExtensionRef;
@@ -313,6 +318,7 @@ const knowledgeRef = (source: ExternalSource, basePath: string, discovery: Knowl
           type: "knowledge",
           refType: "git-hosted",
           knowledge,
+          ...identity,
           source,
           location: discovery.location,
           sourcePath: yield* relativeDir(basePath, discovery.location),
@@ -356,12 +362,17 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
       (discovery) =>
         Effect.gen(function* () {
           const rule = { name: discovery.manifest.name };
+          const identity = {
+            owner: discovery.manifest.owner,
+            name: discovery.manifest.name,
+          };
           switch (source.type) {
             case "local":
               return {
                 type: "rule",
                 refType: "local",
                 rule,
+                ...identity,
                 source,
                 location: discovery.location,
               } satisfies RuleExtensionRef;
@@ -374,6 +385,7 @@ const ruleRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 type: "rule",
                 refType: "git-hosted",
                 rule,
+                ...identity,
                 source,
                 location: discovery.location,
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),
@@ -395,12 +407,17 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
       (discovery) =>
         Effect.gen(function* () {
           const hook = { name: discovery.manifest.name };
+          const identity = {
+            owner: discovery.manifest.owner,
+            name: discovery.manifest.name,
+          };
           switch (source.type) {
             case "local":
               return {
                 type: "hook",
                 refType: "local",
                 hook,
+                ...identity,
                 source,
                 location: discovery.location,
               } satisfies HookExtensionRef;
@@ -413,6 +430,7 @@ const hookRefsInDir = (source: ExternalSource, basePath: string, options: FindOp
                 type: "hook",
                 refType: "git-hosted",
                 hook,
+                ...identity,
                 source,
                 location: discovery.location,
                 gitTreeSha: yield* gitTreeShaFor(source, basePath, discovery.location),

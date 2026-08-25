@@ -29,9 +29,9 @@ import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding } from "../../rule.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
+import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/settings-schema-valid";
-const SETTINGS_REL = ".axm/settings.json";
 
 export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
@@ -41,6 +41,7 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       const scoped = context.workspace;
+      const settingsPath = settingsDisplayPath(context.subject.scope);
       const raw = yield* Effect.result(scoped.state.raw("settings"));
       if (Result.isSuccess(raw) && Option.isNone(raw.success)) {
         return EMPTY_ADVISORY_FINDINGS;
@@ -54,8 +55,8 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             kind: "advisory",
             ruleId: RULE_ID,
             severity: "error",
-            message: `The workspace settings file does not match the expected schema. Detail: ${issue}. Edit \`${SETTINGS_REL}\` to fix the invalid value.`,
-            location: { file: SETTINGS_REL },
+            message: `The workspace settings file does not match the expected schema. Detail: ${issue}. Edit \`${settingsPath}\` to fix the invalid value.`,
+            location: { file: settingsPath },
           }));
         }
         return [
@@ -65,8 +66,8 @@ export const settingsSchemaValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             severity: "error" as const,
             message:
               `The workspace settings file is not valid JSON. Detail: ${error._tag}. ` +
-              "Edit `.axm/settings.json` to fix the JSON syntax.",
-            location: { file: SETTINGS_REL },
+              `Edit \`${settingsPath}\` to fix the JSON syntax.`,
+            location: { file: settingsPath },
           },
         ];
       }

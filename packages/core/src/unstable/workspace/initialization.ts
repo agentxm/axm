@@ -31,12 +31,18 @@ import {
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import { LOCKFILE_NAME, LOCKFILE_VERSION, writeLockfile } from "../lockfile/index.js";
+import {
+  LOCKFILE_NAME,
+  LOCKFILE_VERSION,
+  writeLockfile,
+  writeLockfileAtPath,
+} from "../lockfile/index.js";
 import {
   createDefaultSettings,
   SETTINGS_FILENAME,
   type Settings,
   writeSettings,
+  writeSettingsAtPath,
 } from "../settings/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
@@ -47,6 +53,7 @@ import { WorkspaceInitializationInteraction } from "./initialization-interaction
 import { type WorkspaceLocation, getAxmDir, locateWorkspace } from "./paths.js";
 import { setupScopeSupport, type SetupScopeSupportCategory } from "./setup-scope-support.js";
 import { protectWorkspacePath } from "./transaction.js";
+import { LOCK_FILENAME, PROJECT_SETTINGS_FILENAME } from "./layout.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",
@@ -167,7 +174,7 @@ const setupAgentCandidates = (args: {
 
 const DEFAULT_SETUP_SKILLS = {
   axm: {
-    source: "workspace:@agentxm/skills/axm",
+    source: "workspace",
     enabled: true,
     origin: "bundled",
   },
@@ -209,6 +216,41 @@ const fileExists = (filePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     return yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+  });
+
+const ensureStaticWorkspacePolicy = (workspaceRoot: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    if (!(yield* fileExists(path.join(workspaceRoot, ".git")))) return;
+    const policies = [
+      {
+        file: ".gitignore",
+        lines: ["/.axm/", "*.axm-staging/", "*.axm-backup/"],
+      },
+      {
+        file: ".gitattributes",
+        lines: ["/agent_extensions/** -text"],
+      },
+    ] as const;
+    for (const policy of policies) {
+      const filePath = path.join(workspaceRoot, policy.file);
+      const current = yield* fs.readFileString(filePath).pipe(Effect.orElseSucceed(() => ""));
+      const existing = new Set(current.split(/\r?\n/u));
+      const missing = policy.lines.filter((line) => !existing.has(line));
+      if (missing.length === 0) continue;
+      const prefix = current.length === 0 || current.endsWith("\n") ? current : `${current}\n`;
+      yield* protectWorkspacePath(filePath);
+      yield* fs.writeFileString(filePath, `${prefix}${missing.join("\n")}\n`).pipe(
+        Effect.mapError((cause) =>
+          makeAppError({
+            code: "internal",
+            detail: `Failed to write AXM workspace policy: ${filePath}`,
+            cause,
+          }),
+        ),
+      );
+    }
   });
 
 const lineCount = (content: string): number => {
@@ -544,13 +586,18 @@ const applyProjectSetup = (args: {
   Effect.gen(function* () {
     if (args.dryRun) return;
     const path = yield* Path.Path;
-    yield* writeSettings(args.localDir, args.settings);
-    const lockfilePath = path.join(args.localDir, LOCKFILE_NAME);
+    const settingsPath = path.join(args.workspaceRoot, PROJECT_SETTINGS_FILENAME);
+    const lockfilePath = path.join(args.workspaceRoot, LOCK_FILENAME);
+    yield* writeSettingsAtPath(settingsPath, args.settings);
     const lockfileExists = yield* fileExists(lockfilePath);
     if (!lockfileExists) {
       yield* protectWorkspacePath(lockfilePath);
-      yield* writeLockfile(args.localDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
+      yield* writeLockfileAtPath(lockfilePath, {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+      });
     }
+    yield* ensureStaticWorkspacePolicy(args.workspaceRoot);
     if (!args.syncInstructions) return;
     yield* writeSourceFileIfMissing({
       workspaceRoot: args.workspaceRoot,
@@ -672,7 +719,7 @@ const configureProjectWorkspace = (args: {
     if (!nonInteractive || args.options.preview === true) {
       yield* renderSetupPlan([
         {
-          target: SETTINGS_FILENAME,
+          target: PROJECT_SETTINGS_FILENAME,
           action: "create",
           detail: `agents: ${agentIds.join(", ")}`,
         },

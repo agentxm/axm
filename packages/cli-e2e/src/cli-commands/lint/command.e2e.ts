@@ -99,6 +99,12 @@ describe("axm lint (e2e, Phase 7)", () => {
           },
         );
         expect(setup.exitCode).toBe(0);
+        const settingsPath = path.join(temp.path, "axm.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify({ ...settings, owner: "@test" }, null, 2)}\n`,
+        );
 
         const scaffold = await runCli(
           ["skills", "new", "draft-skill", "--owner", "@test", "--yes"],
@@ -106,16 +112,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         );
         expect(scaffold.exitCode).toBe(0);
 
-        const skillPath = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "@test",
-          "skills",
-          "draft-skill",
-          "src",
-          "SKILL.md",
-        );
+        const skillPath = path.join(temp.path, "skills", "draft-skill", "src", "SKILL.md");
         fs.appendFileSync(skillPath, "\n## Author edit\n\nUnpublished working content.\n");
 
         const lint = await runCli(["lint", "--json"], { cwd: temp.path, env });
@@ -150,7 +147,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         // so `workspace/skills-lockfile-aligned` (missing-arm, error) and
         // `workspace/skills-artifacts-correct` (enabled-but-not-linked,
         // error) both fire.
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
         // Remove the lockfile to hit the `workspace/lockfile-valid`
@@ -187,13 +184,13 @@ describe("axm lint (e2e, Phase 7)", () => {
           { cwd: temp.path },
         );
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.skills = { demo: "@acme/skills/demo" };
         writeJson(settingsPath, settings);
 
         // Simulate a stale workspace where the lockfile was wiped.
-        fs.rmSync(path.join(temp.path, ".axm", "axm-lock.yaml"), { force: true });
+        fs.rmSync(path.join(temp.path, "axm-lock.yaml"), { force: true });
 
         const result = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(result.exitCode).toBe(1);
@@ -221,7 +218,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           );
           expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
 
-          const settingsPath = path.join(temp.path, ".axm", "settings.json");
+          const settingsPath = path.join(temp.path, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           settings.agents = [...agents];
           settings.mcpServers = {
@@ -423,9 +420,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           { cwd: temp.path, env },
         );
         expect(nested.exitCode).toBe(10);
-        expect(nested.stdout + nested.stderr).toContain(
-          path.join(".claude", ".axm", "settings.json"),
-        );
+        expect(nested.stdout + nested.stderr).toContain(path.join(".claude", "axm.json"));
 
         const live = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(live.exitCode).toBe(0);
@@ -464,7 +459,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         git(temp.path, ["add", "."]);
         git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
 
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settingsPath = path.join(temp.path, "axm.json");
         const validSettings = fs.readFileSync(settingsPath, "utf8");
         const stagedSettings = JSON.parse(validSettings);
         stagedSettings.skills = {
@@ -472,7 +467,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           demo: "@acme/skills/demo",
         };
         writeJson(settingsPath, stagedSettings);
-        git(temp.path, ["add", ".axm/settings.json"]);
+        git(temp.path, ["add", "axm.json"]);
         fs.writeFileSync(settingsPath, validSettings);
 
         const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);

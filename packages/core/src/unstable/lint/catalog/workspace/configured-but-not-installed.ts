@@ -5,10 +5,10 @@ import { extensionTypeSentenceLabels, type ExtensionType } from "../../../extens
 import type { WorkspaceReadModel } from "../../../workspace/read-model/service.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";
 import { categorizeEntry } from "./helpers/source-categorize.js";
 
 const RULE_ID = "workspace/configured-but-not-installed";
-const SETTINGS_REL = ".axm/settings.json";
 
 interface ActualWithOrigin {
   readonly origin: {
@@ -86,16 +86,19 @@ const hasCanonicalContent = (actual: ReadonlyArray<ActualWithOrigin>): boolean =
       entry.origin._tag.startsWith("external-axm-"),
   );
 
-const findingFor = (row: InstalledRow): AdvisoryFinding => ({
+const findingFor = (
+  row: InstalledRow,
+  scope: WorkspaceRuleContext["subject"]["scope"],
+): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message:
     row.installationOrigin._tag === "direct" &&
     categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source).kind === "workspace"
-      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authored canonical package is missing from .axm/extensions.`
-      : `${extensionLabel(row.key.type)} '${row.key.name}' is desired, but its canonical content is missing from .axm/extensions.`,
-  location: { file: SETTINGS_REL },
+      ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authored canonical package is missing from the configured authored root.`
+      : `${extensionLabel(row.key.type)} '${row.key.name}' is desired, but its canonical content is missing from ${canonicalDisplayRoot(scope)}.`,
+  location: { file: settingsDisplayPath(scope) },
 });
 
 const hasLintableInstallSource = (row: InstalledRow): boolean => {
@@ -108,7 +111,10 @@ const hasLintableInstallSource = (row: InstalledRow): boolean => {
   );
 };
 
-const checkRows = (rows: ReadonlyArray<InstalledRow>): ReadonlyArray<AdvisoryFinding> =>
+const checkRows = (
+  rows: ReadonlyArray<InstalledRow>,
+  scope: WorkspaceRuleContext["subject"]["scope"],
+): ReadonlyArray<AdvisoryFinding> =>
   rows.flatMap((row) => {
     if (row.activation === "disabled") return [];
     if (row.installationOrigin._tag !== "direct" && row.installationOrigin._tag !== "pack-member") {
@@ -116,7 +122,7 @@ const checkRows = (rows: ReadonlyArray<InstalledRow>): ReadonlyArray<AdvisoryFin
     }
     if (!hasLintableInstallSource(row)) return [];
     if (hasCanonicalContent(row.actual)) return [];
-    return [findingFor(row)];
+    return [findingFor(row, scope)];
   });
 
 const readRows = (
@@ -130,7 +136,7 @@ const readRows = (
 
 export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Configured extensions have installed content under .axm/extensions.",
+  description: "Configured extensions have canonical content in the scope's canonical roots.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
@@ -140,6 +146,6 @@ export const configuredButNotInstalledRule: AdvisoryRule<WorkspaceRuleContext> =
         (type) => readRows(INSTALLED_ROWS_BY_TYPE[type](context.workspace)),
         { concurrency: "unbounded" },
       ),
-      (families) => families.flatMap(checkRows),
+      (families) => families.flatMap((rows) => checkRows(rows, context.subject.scope)),
     ),
 };

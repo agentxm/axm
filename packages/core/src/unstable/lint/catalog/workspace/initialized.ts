@@ -1,5 +1,5 @@
 /**
- * `workspace/initialized` — `.axm/` and `.axm/settings.json` both exist.
+ * `workspace/initialized` — the scope's settings authority exists.
  *
  * Per the lint design "Foundation" row:
  *
@@ -22,24 +22,25 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/initialized";
 const AXM_REL = ".axm";
-const SETTINGS_REL = ".axm/settings.json";
 
 export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "The workspace includes `.axm/` and `.axm/settings.json`.",
+  description: "The workspace includes its scope-specific settings authority.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
     Effect.gen(function* () {
       const scoped = context.workspace;
+      const settingsPath = settingsDisplayPath(context.subject.scope);
       const settingsRaw = yield* Effect.result(scoped.state.raw("settings"));
       const axmDirExists = yield* context.axmDirExists;
       const findings: Array<AdvisoryFinding> = [];
       if (Result.isFailure(settingsRaw) || Option.isNone(settingsRaw.success)) {
-        if (!axmDirExists) {
+        if (context.subject.scope === "user" && !axmDirExists) {
           findings.push({
             kind: "advisory",
             ruleId: RULE_ID,
@@ -54,7 +55,7 @@ export const initializedRule: AdvisoryRule<WorkspaceRuleContext> = {
           ruleId: RULE_ID,
           severity: "error",
           message: "The workspace settings file is missing.",
-          location: { file: SETTINGS_REL },
+          location: { file: settingsPath },
         });
       }
       return findings;

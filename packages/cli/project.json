@@ -13,8 +13,8 @@
       "inputs": [
         "production",
         "{projectRoot}/help/topics/*.md",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/skill.json",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/**/*",
+        "{workspaceRoot}/skills/axm/skill.json",
+        "{workspaceRoot}/skills/axm/src/**/*",
         "^production"
       ],
       "outputs": ["{projectRoot}/dist"],
@@ -120,8 +120,8 @@
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
         "{workspaceRoot}/packages/core/src/unstable/skills/axm-skill-compatibility.ts",
         "{workspaceRoot}/packages/core/src/unstable/skills/skill-content.ts",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/skill.json",
-        "{workspaceRoot}/.axm/extensions/@agentxm/skills/axm/src/**/*"
+        "{workspaceRoot}/skills/axm/skill.json",
+        "{workspaceRoot}/skills/axm/src/**/*"
       ],
       "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
       "executor": "nx:run-commands",

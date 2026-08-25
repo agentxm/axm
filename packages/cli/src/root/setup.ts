@@ -22,7 +22,6 @@ import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
   getUserScopeDir,
-  protectWorkspacePath,
   runWorkspaceTransaction,
   scanAllSubagentFiles,
   setupScopeSupport,
@@ -36,13 +35,12 @@ import {
 import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import {
   ExtensionTypeSchema,
-  normalizeHandle,
+  replaceCanonicalDirectory,
   sanitizeName,
 } from "@agentxm/client-core/unstable/extensions";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  computeSkillPaths,
   ensureSkillAgentArtifact,
   evaluateAxmSkillCompatibility,
 } from "@agentxm/client-core/unstable/skills";
@@ -235,45 +233,57 @@ const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
     cause,
   });
 
+const bundledSkillCanonicalPath = (
+  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
+  path: Path.Path,
+): string =>
+  ws.layout.scope === "project"
+    ? path.join(ws.layout.acquiredRoot, "@agentxm", "skills", "axm")
+    : path.join(ws.layout.canonicalRoot, "@agentxm", "skills", "axm");
+
 const materializeBundledAxmSkill = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const sanitizedName = sanitizeName("axm");
-  const { canonicalPath, skillSrcPath } = computeSkillPaths(
-    path.join,
-    ws.baseDir,
-    { refType: "registry", owner: normalizeHandle("@agentxm") },
-    sanitizedName,
-  );
-  const skillJsonPath = path.join(canonicalPath, "skill.json");
+  const canonicalPath = bundledSkillCanonicalPath(ws, path);
+  const skillSrcPath = path.join(canonicalPath, "src");
   const fsPathLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, fs),
     Layer.succeed(Path.Path, path),
   );
   const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, fsPathLayer);
 
-  yield* protectWorkspacePath(canonicalPath);
-  yield* fs
-    .makeDirectory(skillSrcPath, { recursive: true })
-    .pipe(Effect.mapError(mapBundledSkillWriteError(skillSrcPath)));
-  yield* fs
-    .writeFileString(skillJsonPath, AXM_SKILL_JSON)
-    .pipe(Effect.mapError(mapBundledSkillWriteError(skillJsonPath)));
-  yield* Effect.forEach(
-    AXM_SKILL_SOURCE_FILES,
-    (sourceFile) => {
-      const destination = path.join(skillSrcPath, sourceFile.path);
-      return fs
-        .makeDirectory(path.dirname(destination), { recursive: true })
-        .pipe(
-          Effect.andThen(fs.writeFile(destination, Buffer.from(sourceFile.base64, "base64"))),
-          Effect.mapError(mapBundledSkillWriteError(destination)),
+  yield* replaceCanonicalDirectory({
+    baseDir: ws.baseDir,
+    canonicalPath,
+    populate: (stagingPath) => {
+      const stagingSrcPath = path.join(stagingPath, "src");
+      const skillJsonPath = path.join(stagingPath, "skill.json");
+      return Effect.gen(function* () {
+        yield* fs
+          .makeDirectory(stagingSrcPath, { recursive: true })
+          .pipe(Effect.mapError(mapBundledSkillWriteError(stagingSrcPath)));
+        yield* fs
+          .writeFileString(skillJsonPath, AXM_SKILL_JSON)
+          .pipe(Effect.mapError(mapBundledSkillWriteError(skillJsonPath)));
+        yield* Effect.forEach(
+          AXM_SKILL_SOURCE_FILES,
+          (sourceFile) => {
+            const destination = path.join(stagingSrcPath, sourceFile.path);
+            return fs
+              .makeDirectory(path.dirname(destination), { recursive: true })
+              .pipe(
+                Effect.andThen(fs.writeFile(destination, Buffer.from(sourceFile.base64, "base64"))),
+                Effect.mapError(mapBundledSkillWriteError(destination)),
+              );
+          },
+          { concurrency: "unbounded", discard: true },
         );
+      });
     },
-    { concurrency: "unbounded", discard: true },
-  );
+  });
 
   const configuredAgents = yield* agentRepo
     .getConfiguredAgents()
@@ -315,7 +325,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
   );
 
   yield* ws.setSkillEntry(sanitizedName, {
-    source: `workspace:@agentxm/skills/${sanitizedName}`,
+    source: "workspace",
     enabled: true,
     origin: "bundled",
   });
@@ -330,7 +340,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
   const sanitizedName = sanitizeName("axm");
   const configuredBefore = yield* ws.getConfiguredSkillEntries();
   const existing = configuredBefore[sanitizedName];
-  if (existing?.source.startsWith("workspace:") === true && existing.origin !== "bundled") {
+  if (existing?.source === "workspace" && existing.origin !== "bundled") {
     return yield* makeAppError({
       code: "conflict",
       detail:
@@ -339,12 +349,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
       cmd: "axm help upgrade",
     });
   }
-  const { canonicalPath } = computeSkillPaths(
-    path.join,
-    ws.baseDir,
-    { refType: "registry", owner: normalizeHandle("@agentxm") },
-    sanitizedName,
-  );
+  const canonicalPath = bundledSkillCanonicalPath(ws, path);
   const configuredAgents = yield* agentRepo
     .getConfiguredAgents()
     .pipe(Effect.provideService(WorkspaceMutations, ws));
@@ -377,10 +382,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
         Effect.gen(function* () {
           const configured = yield* ws.getConfiguredSkillEntries();
           const installedEntry = configured["axm"];
-          if (
-            installedEntry?.source !== "workspace:@agentxm/skills/axm" ||
-            installedEntry.origin !== "bundled"
-          ) {
+          if (installedEntry?.source !== "workspace" || installedEntry.origin !== "bundled") {
             return yield* makeAppError({
               code: "internal",
               detail: "Bundled AXM skill did not retain its bundled source authority",
@@ -604,8 +606,13 @@ const setupSkillTargetPath = (agentId: string): string => {
   return `${agentId} skill target`;
 };
 
-const setupSkillFootprint = (agentIds: ReadonlyArray<string>): string => {
-  const sourcePath = ".axm/extensions/@agentxm/skills/axm";
+const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
+  scope === "project"
+    ? "agent_extensions/@agentxm/skills/axm"
+    : ".axm/extensions/@agentxm/skills/axm";
+
+const setupSkillFootprint = (scope: WorkspaceScope, agentIds: ReadonlyArray<string>): string => {
+  const sourcePath = bundledSkillDisplayPath(scope);
   const targetPaths = agentIds.map(setupSkillTargetPath);
   const paths = [sourcePath, ...targetPaths];
 
@@ -622,6 +629,8 @@ const setupPlanFields = (args: {
   readonly initialized: boolean;
   readonly defaultSkillInstalled: boolean;
   readonly settingsPath: string;
+  readonly lockPath: string;
+  readonly bundledSkillPath: string;
   readonly instructions:
     | {
         readonly enabled: boolean;
@@ -671,7 +680,7 @@ const setupPlanFields = (args: {
         change: workspaceChange,
         targets: [
           { path: args.settingsPath, change: workspaceChange },
-          { path: ".axm/axm-lock.yaml", change: workspaceChange },
+          { path: args.lockPath, change: workspaceChange },
         ],
       },
     },
@@ -726,13 +735,13 @@ const setupPlanFields = (args: {
           ? "Would install the bundled AXM skill"
           : "Installed the bundled AXM skill",
       artifact: {
-        path: ".axm/extensions/@agentxm/skills/axm",
+        path: args.bundledSkillPath,
         scope: args.scope,
         agents: [...args.agentIds],
         version: AXM_SKILL_VERSION,
         change: skillChange,
         targets: [
-          { path: ".axm/extensions/@agentxm/skills/axm", change: skillChange },
+          { path: args.bundledSkillPath, change: skillChange },
           ...args.agentIds.map((agentId) => ({
             path: setupSkillTargetPath(agentId),
             change: skillChange,
@@ -822,7 +831,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     args.scope === "user"
       ? yield* getUserScopeDir()
       : path.join(executionDirectory.path, AXM_DIR_NAME);
-  const settingsExists = yield* fs.exists(path.join(workspaceDir, "settings.json")).pipe(
+  const authoritativeSettingsPath =
+    args.scope === "user"
+      ? path.join(workspaceDir, "settings.json")
+      : path.join(executionDirectory.path, "axm.json");
+  const settingsExists = yield* fs.exists(authoritativeSettingsPath).pipe(
     Effect.mapError((error) =>
       makeAppError({
         code: "internal",
@@ -844,7 +857,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     args.preview !== true &&
     !unattendedIntentComplete
   ) {
-    const settingsPath = joinDisplayPath(path, workspaceDir, "settings.json");
+    const settingsPath =
+      args.scope === "user" ? joinDisplayPath(path, workspaceDir, "settings.json") : "axm.json";
     const suggestions = [
       {
         description: "Preview the setup candidate",
@@ -918,7 +932,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const allAgents = [...agents, ...unknownAgents];
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
-  const settingsPath = joinDisplayPath(path, location.path, "settings.json");
+  const settingsPath =
+    location.scope === "user" ? joinDisplayPath(path, location.path, "settings.json") : "axm.json";
+  const lockPath = location.scope === "user" ? ".axm/axm-lock.yaml" : "axm-lock.yaml";
+  const bundledSkillPath = bundledSkillDisplayPath(location.scope);
   const instructionsValue = settings.instructionFiles;
   const instructions =
     instructionsValue === undefined
@@ -967,6 +984,8 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     initialized,
     defaultSkillInstalled,
     settingsPath,
+    lockPath,
+    bundledSkillPath,
     instructions,
     agentIds,
     includeGitignore,
@@ -1027,7 +1046,9 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
       );
     }
     if (defaultSkillInstalled) {
-      yield* renderer.info(`Skill: @agentxm/skills/axm -> ${setupSkillFootprint(agentIds)}`);
+      yield* renderer.info(
+        `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(location.scope, agentIds)}`,
+      );
     }
     yield* renderSetupScopeSupport(renderer, location.scope, scopeSupport);
 

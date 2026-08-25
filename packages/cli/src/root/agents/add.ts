@@ -24,13 +24,12 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
-
-const AGENT_SETTINGS_PATH = ".axm/settings.json";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -44,24 +43,26 @@ const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJo
   label: `Add ${agentId}`,
   readiness: "ready",
   artifact: {
-    path: AGENT_SETTINGS_PATH,
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     agents: [agentId],
     change: "updated",
     fileCount: 1,
-    targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
   run: ws.addConfiguredAgent(agentId).pipe(
     Effect.as({
       result: "success",
       message: `Configured ${agentId}`,
       artifact: {
-        path: AGENT_SETTINGS_PATH,
+        path: workspaceSettingsPath(ws.scope),
         scope: ws.scope,
         agents: [agentId],
         change: "updated",
         fileCount: 1,
-        targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+        targets: [
+          { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
+        ],
       },
     } satisfies JobStepResult),
   ),

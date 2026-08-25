@@ -44,6 +44,7 @@ import {
 } from "../../test-helpers.js";
 import {
   computePackageContentHashSync,
+  computeMaterializedTreeIntegritySync,
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
@@ -588,9 +589,9 @@ describe("root update handler", () => {
         agents: ["claude-code"],
         owner: "@acme",
         sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
-        packs: { toolkit: "workspace:@acme/packs/toolkit" },
+        packs: { toolkit: "workspace" },
       });
-      const packDir = path.join(axmDir, "extensions", "@acme", "packs", "toolkit");
+      const packDir = path.join(tempDir, "packs", "toolkit");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
         path.join(packDir, "pack.json"),
@@ -602,7 +603,7 @@ describe("root update handler", () => {
           dependencies: { "@acme/skills/reviewer": "^1.0.0" },
         }),
       );
-      const settingsBefore = fs.readFileSync(path.join(axmDir, "settings.json"), "utf8");
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
 
       yield* provide(
         handleUpdate({
@@ -615,7 +616,7 @@ describe("root update handler", () => {
 
       expect(requestedRange).toBe(">=1.0.0 <2.0.0-0");
       expect(calls).toEqual([]);
-      expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
           contract: "plan-result-v3",
@@ -664,7 +665,7 @@ describe("root update handler", () => {
         },
       });
       const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "reviewer");
+      const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "reviewer");
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(skillDir, "skill.json"),
@@ -690,6 +691,7 @@ describe("root update handler", () => {
             sourceName: "test",
             publisherBindingId: "publisher-binding",
             sourceHash,
+            treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
             installedAt: "2026-01-01T00:00:00.000Z",
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
@@ -761,7 +763,7 @@ describe("root update handler", () => {
         },
       });
       const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "reviewer");
+      const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "reviewer");
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(skillDir, "skill.json"),
@@ -787,6 +789,7 @@ describe("root update handler", () => {
             sourceName: "test",
             publisherBindingId: "publisher-binding",
             sourceHash,
+            treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
             installedAt: "2026-01-01T00:00:00.000Z",
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
@@ -931,7 +934,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
         owner: "@axm",
-        knowledge: { handbook: "workspace:@acme/knowledge/handbook" },
+        knowledge: { handbook: "workspace" },
       });
       writeKnowledgeExtension(axmDir, "handbook");
 

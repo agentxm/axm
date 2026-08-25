@@ -18,9 +18,8 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
-
-const KNOWLEDGE_SETTINGS_PATH = ".axm/settings.json";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
@@ -73,10 +72,10 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
         message: `Enabled knowledge bundle ${name}`,
         buildArtifact: () =>
           Effect.succeed({
-            path: KNOWLEDGE_SETTINGS_PATH,
+            path: workspaceSettingsPath(ws.scope),
             scope: ws.scope,
             change: "updated",
-            targets: [{ path: KNOWLEDGE_SETTINGS_PATH, change: "updated" }],
+            targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }],
           }),
       })
     : {
@@ -101,10 +100,10 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
               result: "success",
               message: `Disabled knowledge bundle ${name}`,
               artifact: {
-                path: KNOWLEDGE_SETTINGS_PATH,
+                path: workspaceSettingsPath(ws.scope),
                 scope: ws.scope,
                 change: "updated",
-                targets: [{ path: KNOWLEDGE_SETTINGS_PATH, change: "updated" }],
+                targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated" }],
               },
             } satisfies JobStepResult),
           ),

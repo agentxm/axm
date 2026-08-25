@@ -11,14 +11,7 @@ export const refreshAuthoredWorkspacePackState = (
   owner: string,
   name: string,
 ): void => {
-  const manifestPath = path.join(
-    workspaceRoot,
-    ".axm",
-    "extensions",
-    owner,
-    "packs",
-    name,
-    "pack.json",
-  );
+  void owner;
+  const manifestPath = path.join(workspaceRoot, "packs", name, "pack.json");
   JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 };

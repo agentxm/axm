@@ -5,9 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import YAML from "yaml";
-
-import { computePackageContentHashSync } from "../../test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   at,
   expectRecord,
@@ -18,16 +16,11 @@ import {
 import { handleRootVersion, handleVersion } from "./version-command.js";
 
 const initWorkspace = (root: string) => {
-  fs.mkdirSync(path.join(root, ".axm"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, ".axm", "settings.json"),
-    JSON.stringify({
-      owner: "@test",
-      agents: ["claude-code"],
-      sources: [],
-    }),
-  );
-  fs.writeFileSync(path.join(root, ".axm", "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+  writeWorkspaceFiles(path.join(root, ".axm"), {
+    owner: "@test",
+    agents: ["claude-code"],
+    sources: [],
+  });
 };
 
 const MANIFEST_FILES = {
@@ -44,7 +37,7 @@ type ManifestPlural = keyof typeof MANIFEST_FILES;
 
 const writeManifest = (root: string, type: ManifestPlural, name: string, version: string) => {
   const { filename, type: extType } = MANIFEST_FILES[type];
-  const dir = path.join(root, ".axm", "extensions", "@test", type, name);
+  const dir = path.join(root, type, name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, filename),
@@ -56,39 +49,14 @@ const writeManifest = (root: string, type: ManifestPlural, name: string, version
       ...(type === "packs" ? { dependencies: {} } : {}),
     }),
   );
-  const settingsPath = path.join(root, ".axm", "settings.json");
+  const settingsPath = path.join(root, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
   const settingsKey = type === "mcps" ? "mcpServers" : type;
   settings[settingsKey] = {
     ...(settings[settingsKey] ?? {}),
-    [name]: `workspace:@test/${type}/${name}`,
+    [name]: "workspace",
   };
   fs.writeFileSync(settingsPath, JSON.stringify(settings));
-  if (type === "packs") {
-    const lockfilePath = path.join(root, ".axm", "axm-lock.yaml");
-    const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
-    const packs = expectRecord(lockfile["packs"] ?? {});
-    const updatedPacks = {
-      ...packs,
-      [name]: {
-        type: "workspace",
-        owner: "@test",
-        extensionType: "pack",
-        name,
-        version,
-        sourceHash: computePackageContentHashSync(dir),
-        installedAt: "2025-01-01T00:00:00.000Z",
-        updatedAt: "2025-01-01T00:00:00.000Z",
-        resolvedSkills: {},
-        resolvedMcpServers: {},
-        resolvedSubagents: {},
-        resolvedRules: {},
-        resolvedHooks: {},
-        resolvedKnowledge: {},
-      },
-    };
-    fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, packs: updatedPacks }));
-  }
   return path.join(dir, filename);
 };
 
@@ -127,7 +95,7 @@ describe("version command handler", () => {
         expect(logs.info).toContain(
           [
             "Would update skill @test/skills/code-review 1.2.3 -> 1.3.0",
-            "  -> .axm/extensions/@test/skills/code-review/skill.json",
+            "  -> skills/code-review/skill.json",
           ].join("\n"),
         );
       }),
@@ -167,9 +135,7 @@ describe("version command handler", () => {
         expect(property(unit, "message")).toBe("1.2.3 -> 1.2.4");
 
         const artifact = expectRecord(property(unit, "artifact"));
-        expect(property(artifact, "path")).toBe(
-          ".axm/extensions/@test/skills/code-review/skill.json",
-        );
+        expect(property(artifact, "path")).toBe("skills/code-review/skill.json");
         expect(property(artifact, "change")).toBe("updated");
         expect(property(artifact, "previousVersion")).toBe("1.2.3");
         expect(property(artifact, "version")).toBe("1.2.4");
@@ -267,7 +233,7 @@ describe("root version command handler", () => {
         expect(logs.info).toContain(
           [
             "Would update skill @test/skills/code-review 1.2.3 -> 1.3.0",
-            "  -> .axm/extensions/@test/skills/code-review/skill.json",
+            "  -> skills/code-review/skill.json",
           ].join("\n"),
         );
       }),
@@ -291,7 +257,7 @@ describe("root version command handler", () => {
         expect(manifest.version).toBe("0.1.1");
         expect(logs.success).toContain("Updated 1 subagent");
         expect(rendererState.summaries).toEqual([
-          "@test/subagents/researcher   0.1.1   updated   1 file   .axm/extensions/@test/subagents/researcher/subagent.json",
+          "@test/subagents/researcher   0.1.1   updated   1 file   subagents/researcher/subagent.json",
         ]);
       }),
     );

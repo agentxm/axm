@@ -3,10 +3,10 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/mcps-transport-exclusivity";
-const SETTINGS_REL = ".axm/settings.json";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -43,12 +43,12 @@ const transportError = (entry: Readonly<Record<string, unknown>>): string | unde
   return undefined;
 };
 
-const findingFor = (name: string, reason: string): AdvisoryFinding => ({
+const findingFor = (name: string, reason: string, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "warning",
-  message: `MCP server '${name}' ${reason}. Edit \`${SETTINGS_REL}\` so each MCP server uses one transport.`,
-  location: { file: SETTINGS_REL },
+  message: `MCP server '${name}' ${reason}. Edit \`${settingsPath}\` so each MCP server uses one transport.`,
+  location: { file: settingsPath },
 });
 
 export const mcpServerTransportExclusivityRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -67,7 +67,9 @@ export const mcpServerTransportExclusivityRule: AdvisoryRule<WorkspaceRuleContex
       return Object.entries(mcpServers).flatMap(([name, entry]) => {
         if (!isRecord(entry)) return [];
         const reason = transportError(entry);
-        return reason === undefined ? [] : [findingFor(name, reason)];
+        return reason === undefined
+          ? []
+          : [findingFor(name, reason, settingsDisplayPath(context.subject.scope))];
       });
     }),
 };

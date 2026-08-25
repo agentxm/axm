@@ -8,6 +8,8 @@ import { afterEach } from "vitest";
 import { decodeHandleSync } from "../extensions/index.js";
 import type { Lockfile } from "../lockfile/index.js";
 import { computePackManifestContentIdentity, type PackManifest } from "../packs/index.js";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
+import * as Schema from "effect/Schema";
 import { decodeExtensionNameSync } from "../extensions/common.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
@@ -16,6 +18,9 @@ import type { DesiredStateGraph } from "./desired-state-graph.js";
 const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");
 const version = decodeVersionSync("1.0.0");
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 const manifest = {
   owner,
   type: "pack",
@@ -42,7 +47,7 @@ const externalPackGraph = {
 
 const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(manifest)) =>
   ({
-    lockfileVersion: 4,
+    lockfileVersion: 5,
     skills: {},
     packs: {
       toolkit: {
@@ -54,6 +59,7 @@ const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(m
         sourceName: "agentxm",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity,
+        treeIntegrity,
       },
     },
   }) satisfies Lockfile;
@@ -69,7 +75,7 @@ describe("validateDesiredPackLock", () => {
   const setupCanonicalPack = () => {
     const baseDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "pack-lock-")));
     temporaryDirectories.push(baseDir);
-    const canonical = path.join(baseDir, ".axm", "extensions", "@acme", "packs", "toolkit");
+    const canonical = path.join(baseDir, "agent_extensions", "@acme", "packs", "toolkit");
     fs.mkdirSync(canonical, { recursive: true });
     fs.writeFileSync(path.join(canonical, "pack.json"), JSON.stringify(manifest));
     return { baseDir, canonical };
@@ -81,7 +87,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         baseDir,
         graph: externalPackGraph,
-        lockfile: { lockfileVersion: 4, skills: {} },
+        lockfile: { lockfileVersion: 5, skills: {} },
       });
 
       expect(validated.complete).toBe(false);
@@ -155,7 +161,7 @@ describe("validateDesiredPackLock", () => {
       const validated = yield* validateDesiredPackLock({
         baseDir,
         graph,
-        lockfile: { lockfileVersion: 4, skills: {} },
+        lockfile: { lockfileVersion: 5, skills: {} },
       });
       expect(validated.complete).toBe(true);
     }).pipe(Effect.provide(NodeServices.layer)),

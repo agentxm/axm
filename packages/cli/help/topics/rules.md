@@ -30,8 +30,8 @@ axm rules enable <name>
 axm rules uninstall <name>
 ```
 
-Rules are tracked in `.axm/settings.json` under `rules` and in
-`.axm/axm-lock.yaml` under `rules`. The rule name is always required for
+Rules are tracked in `axm.json` under `rules` and in
+`axm-lock.yaml` under `rules`. The rule name is always required for
 activation. Bare `rules enable` and `rules disable` commands are usage errors.
 
 Every Rule install, update, activation, deactivation, uninstall, and sync

@@ -12,7 +12,6 @@ import {
   ConfigurableAgentIdSchema,
   ExtensionVisibilitySchema,
   EXTENSION_NAME_PATTERN,
-  FQN_PATTERN,
 } from "../extensions/common.js";
 import { ReleaseAgeExcludePatternSchema } from "../extensions/fqn-pattern.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
@@ -270,20 +269,10 @@ const entrySourceFieldSchema = (label: string, fqnType: string) =>
 const workspaceEntriesMatch = (pluralType: string) =>
   Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
     for (const [entryName, entry] of Object.entries(entries)) {
+      if (entry.source.startsWith("workspace:") || entry.source === "authored") {
+        return `Workspace package "${entryName}" must use the compact source "workspace" in ${pluralType}`;
+      }
       if (!isWorkspaceSourceLocator(entry.source)) continue;
-      const fqn = entry.source.slice("workspace:".length);
-      const match = FQN_PATTERN.exec(fqn);
-      if (match === null) {
-        return `Workspace source "${entry.source}" must be workspace:@owner/<plural-type>/<name> without a version`;
-      }
-      const sourceType = match[2];
-      const sourceName = match[3];
-      if (sourceType !== pluralType) {
-        return `Workspace source "${entry.source}" has type "${sourceType ?? ""}", but this settings section requires "${pluralType}"`;
-      }
-      if (sourceName !== entryName) {
-        return `Workspace source "${entry.source}" has name "${sourceName ?? ""}", but the settings key is "${entryName}"`;
-      }
     }
     return undefined;
   });
@@ -1088,7 +1077,37 @@ export type InstructionsConfig = Schema.Schema.Type<typeof InstructionsConfigSch
 /** @experimental */
 export type InstructionsConfigValue = false | InstructionsConfig;
 
+const authoredDirectoryFieldSchema = Schema.optionalKey(
+  Schema.NonEmptyString.annotate({
+    description:
+      "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+    examples: ["extensions/skills"],
+  }),
+);
+
+const authoredDirectoryConfigSchema = (identifier: string, title: string) =>
+  Schema.Struct({ dir: authoredDirectoryFieldSchema }).annotate({
+    identifier,
+    title,
+    description:
+      "Authored package directory configuration. AXM reads this manual override but never rewrites it.",
+  });
+
+export const SkillsConfigSchema = authoredDirectoryConfigSchema("SkillsConfig", "Skills Config");
+export const RulesConfigSchema = authoredDirectoryConfigSchema("RulesConfig", "Rules Config");
+export const HooksConfigSchema = authoredDirectoryConfigSchema("HooksConfig", "Hooks Config");
+export const SubagentsConfigSchema = authoredDirectoryConfigSchema(
+  "SubagentsConfig",
+  "Subagents Config",
+);
+export const McpServersConfigSchema = authoredDirectoryConfigSchema(
+  "McpServersConfig",
+  "MCP Servers Config",
+);
+export const PacksConfigSchema = authoredDirectoryConfigSchema("PacksConfig", "Packs Config");
+
 export const KnowledgeConfigSchema = Schema.Struct({
+  dir: authoredDirectoryFieldSchema,
   instructions: Schema.optionalKey(
     Schema.Boolean.annotate({
       description:
@@ -1135,11 +1154,11 @@ export type WorkspacePublishOptions = Schema.Schema.Type<typeof WorkspacePublish
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
-  skill: null,
-  "mcp-server": null,
-  subagent: null,
-  rule: null,
-  hook: null,
+  skill: SkillsConfigSchema,
+  "mcp-server": McpServersConfigSchema,
+  subagent: SubagentsConfigSchema,
+  rule: RulesConfigSchema,
+  hook: HooksConfigSchema,
   knowledge: KnowledgeConfigSchema,
 } as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
 
@@ -1161,13 +1180,19 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "agents",
   "instructionFiles",
   "skills",
+  "skillsConfig",
   "rules",
+  "rulesConfig",
   "hooks",
+  "hooksConfig",
   "knowledge",
   "knowledgeConfig",
   "subagents",
+  "subagentsConfig",
   "packs",
+  "packsConfig",
   "mcpServers",
+  "mcpServersConfig",
   "lint",
 ];
 
@@ -1255,18 +1280,21 @@ const SettingsBaseSchema = Schema.Struct({
         "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
+  skillsConfig: Schema.optionalKey(SkillsConfigSchema),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
         "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
+  rulesConfig: Schema.optionalKey(RulesConfigSchema),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
         "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
+  hooksConfig: Schema.optionalKey(HooksConfigSchema),
   knowledge: Schema.optionalKey(
     Schema.Union([KnowledgeMapSchema]).annotate({
       description: "Desired Open Knowledge Format bundles discovered from agent instruction files.",
@@ -1283,18 +1311,21 @@ const SettingsBaseSchema = Schema.Struct({
         "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
     }),
   ),
+  subagentsConfig: Schema.optionalKey(SubagentsConfigSchema),
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
         "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
     }),
   ),
+  packsConfig: Schema.optionalKey(PacksConfigSchema),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
         "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset.",
     }),
   ),
+  mcpServersConfig: Schema.optionalKey(McpServersConfigSchema),
   lint: Schema.optionalKey(
     Schema.Union([LintConfigSchema]).annotate({
       description: "Lint configuration for `axm lint` in this workspace.",

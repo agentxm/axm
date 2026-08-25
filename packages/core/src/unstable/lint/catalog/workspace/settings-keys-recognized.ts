@@ -18,10 +18,10 @@ import * as Result from "effect/Result";
 import { SETTINGS_KNOWN_KEYS } from "../../../settings/schema.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/settings-keys-recognized";
-const SETTINGS_REL = ".axm/settings.json";
 
 const levenshteinDistance = (left: string, right: string): number => {
   const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
@@ -94,7 +94,7 @@ export const settingsKeysRecognizedRule: AdvisoryRule<WorkspaceRuleContext> = {
               `Workspace settings has unrecognized top-level key '${key}'.` +
               (hint === undefined ? "" : ` Did you mean '${hint}'?`) +
               ` The current settings schema does not recognize this key.`,
-            location: { file: SETTINGS_REL },
+            location: { file: settingsDisplayPath(context.subject.scope) },
           };
         });
     }),

@@ -17,8 +17,8 @@ export const RELEASE_PACKAGE_JSON_PATHS = [
   "packages/cli/package.json",
 ] as const;
 
-export const AXM_SKILL_MANIFEST_PATH = ".axm/extensions/@agentxm/skills/axm/skill.json";
-export const AXM_SKILL_DOCUMENT_PATH = ".axm/extensions/@agentxm/skills/axm/src/SKILL.md";
+export const AXM_SKILL_MANIFEST_PATH = "skills/axm/skill.json";
+export const AXM_SKILL_DOCUMENT_PATH = "skills/axm/src/SKILL.md";
 export const AXM_SKILL_GENERATED_PATH = "packages/cli/src/__generated__/bundled-axm-skill.ts";
 
 const RELEASE_VERSION_JSON_PATHS = [

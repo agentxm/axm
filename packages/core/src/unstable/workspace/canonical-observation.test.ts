@@ -4,12 +4,19 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHashSchema } from "../extensions/rendered-files.js";
+import {
+  computeMaterializedTreeIntegrity,
+  TreeIntegritySchema,
+} from "../extensions/materialized-tree.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
+import { makeAbsolutePath } from "../utils/path-types.js";
 import { observeCanonicalExtension } from "./canonical-observation.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
+import { resolveProjectWorkspaceLayout } from "./layout.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const desiredSkill = (source = "github:acme/tools//skills/review@main"): DesiredExtensionNode => ({
@@ -21,8 +28,13 @@ const desiredSkill = (source = "github:acme/tools//skills/review@main"): Desired
   constraints: [],
   origins: [{ type: "settings", source, enabled: true }],
 });
-const acceptedGit = {
+const placeholderTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
+const acceptedGit = (treeIntegrity = placeholderTreeIntegrity) => ({
   type: "github" as const,
+  packageOwner: handle("@acme"),
+  packageName: extensionName("review"),
   owner: "acme",
   repo: "tools",
   ref: "main",
@@ -30,7 +42,16 @@ const acceptedGit = {
   resolvedCommit: "commit-1",
   resolvedTree: "tree-1",
   contentIdentity,
-};
+  treeIntegrity,
+});
+
+const projectLayout = (root: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, root), {
+      owner: handle("@acme"),
+    });
+  });
 
 layer(NodeServices.layer, { excludeTestServices: true })("canonical observation", (it) => {
   let root: string;
@@ -42,8 +63,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("requires accepted resolution for external desired content", () =>
     Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
       const observed = yield* observeCanonicalExtension({
-        baseDir: root,
+        layout,
         desired: desiredSkill(),
         accepted: undefined,
       });
@@ -55,13 +77,24 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     "accepts present external canonical bytes without treating local drift as authority",
     () =>
       Effect.gen(function* () {
-        const canonical = nodePath.join(root, ".axm", "extensions", "external", "skills", "review");
-        nodeFs.mkdirSync(canonical, { recursive: true });
-        nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Locally formatted\n");
+        const layout = yield* projectLayout(root);
+        const canonical = nodePath.join(root, "agent_extensions", "@acme", "skills", "review");
+        nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+        nodeFs.writeFileSync(
+          nodePath.join(canonical, "skill.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "skill",
+            name: "review",
+            version: "1.0.0",
+          }),
+        );
+        nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Locally formatted\n");
+        const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonical);
         const observed = yield* observeCanonicalExtension({
-          baseDir: root,
+          layout,
           desired: desiredSkill(),
-          accepted: acceptedGit,
+          accepted: acceptedGit(treeIntegrity),
         });
         expect(observed.status).toBe("usable");
         expect(observed.path).toBe(canonical);
@@ -70,10 +103,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("detects accepted source identity mismatch", () =>
     Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
       const observed = yield* observeCanonicalExtension({
-        baseDir: root,
+        layout,
         desired: desiredSkill("github:other/tools//skills/review@main"),
-        accepted: acceptedGit,
+        accepted: acceptedGit(),
       });
       expect(observed.status).toBe("wrong-origin");
     }),
@@ -81,6 +115,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("enforces Registry constraints from accepted resolution state", () =>
     Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
       const source = "@acme/rules/release@^2.0.0";
       const desired: DesiredExtensionNode = {
         type: "rule",
@@ -94,6 +129,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           {
             type: "pack",
             pack: "@acme/packs/platform",
+            manifestPath: `${root}/agent_extensions/@acme/packs/platform/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
             enabled: true,
@@ -101,7 +137,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         ],
       };
       const observed = yield* observeCanonicalExtension({
-        baseDir: root,
+        layout,
         desired,
         accepted: {
           type: "registry",
@@ -111,6 +147,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           integrity: "sha512-archive",
           sourceName: "default",
           publisherBindingId: "binding-1",
+          treeIntegrity: placeholderTreeIntegrity,
         },
       });
       expect(observed.status).toBe("constraint-mismatch");
@@ -135,13 +172,23 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("observes authored workspace content without a lock row", () =>
     Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
       const source = "workspace:@acme/skills/review";
       const desired = desiredSkill(source);
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "skills", "review");
-      nodeFs.mkdirSync(canonical, { recursive: true });
-      nodeFs.writeFileSync(nodePath.join(canonical, "SKILL.md"), "# Authored\n");
+      const canonical = nodePath.join(root, "skills", "review");
+      nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "skill.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+        }),
+      );
+      nodeFs.writeFileSync(nodePath.join(canonical, "src", "SKILL.md"), "# Authored\n");
       const observed = yield* observeCanonicalExtension({
-        baseDir: root,
+        layout,
         desired,
         accepted: undefined,
       });
@@ -151,6 +198,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
 
   it.effect("evaluates pack constraints against an authored workspace manifest", () =>
     Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
       const source = "workspace:@acme/rules/release";
       const desired: DesiredExtensionNode = {
         type: "rule",
@@ -164,13 +212,14 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           {
             type: "pack",
             pack: "@acme/packs/release",
+            manifestPath: `${root}/packs/release/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
             enabled: true,
           },
         ],
       };
-      const canonical = nodePath.join(root, ".axm", "extensions", "@acme", "rules", "release");
+      const canonical = nodePath.join(root, "rules", "release");
       nodeFs.mkdirSync(nodePath.join(canonical, "src"), { recursive: true });
       nodeFs.writeFileSync(
         nodePath.join(canonical, "rule.json"),
@@ -186,7 +235,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       nodeFs.writeFileSync(nodePath.join(canonical, "src", "RULE.md"), "# Release\n");
 
       const observed = yield* observeCanonicalExtension({
-        baseDir: root,
+        layout,
         desired,
         accepted: undefined,
       });

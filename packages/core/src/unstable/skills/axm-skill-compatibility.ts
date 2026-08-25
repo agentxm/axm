@@ -171,8 +171,7 @@ const bundledSkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery
   ],
 });
 
-const isAuthoredSource = (source: string | null): boolean =>
-  source?.startsWith("workspace:") === true;
+const isAuthoredSource = (source: string | null): boolean => source === "workspace";
 
 const isRegistrySource = (source: string | null): boolean =>
   source?.startsWith(`${AXM_SKILL_FQN}@`) === true;

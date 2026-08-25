@@ -154,7 +154,7 @@ describe("setup.handler", () => {
   });
 
   describe("workspace initialization", () => {
-    it.effect("creates .axm, settings.json, and lockfile", () => {
+    it.effect("creates the project workspace config and lockfile", () => {
       const { provide, installCalls } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
@@ -164,13 +164,13 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project" });
 
           const axmDir = path.join(tempDir, ".axm");
-          expect(fs.existsSync(axmDir)).toBe(true);
-          expect(fs.existsSync(path.join(axmDir, "settings.json"))).toBe(true);
-          expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml"))).toBe(true);
+          expect(fs.existsSync(axmDir)).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(true);
 
-          const settings = readJson(path.join(axmDir, "settings.json"));
+          const settings = readJson(path.join(tempDir, "axm.json"));
           expect(settings.skills?.["axm"]).toEqual({
-            source: "workspace:@agentxm/skills/axm",
+            source: "workspace",
             origin: "bundled",
           });
           expect(installCalls).toEqual([{ scope: "project", yes: false, preview: false }]);
@@ -211,8 +211,8 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
-          const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const settingsPath = path.join(tempDir, "axm.json");
+          const lockfilePath = path.join(tempDir, "axm-lock.yaml");
           const settingsBefore = fs.readFileSync(settingsPath);
           const lockfileBefore = fs.readFileSync(lockfilePath);
           const settingsMtimeBefore = fs.statSync(settingsPath).mtimeMs;
@@ -238,7 +238,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
+          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([
             "claude-code",
             "codex",
             "cursor",
@@ -259,7 +259,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
+          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([
             "claude-code",
             "codex",
             "cursor",
@@ -312,7 +312,7 @@ describe("setup.handler", () => {
                 label: "@agentxm/skills/axm",
                 status: "applied",
                 artifact: expect.objectContaining({
-                  path: ".axm/extensions/@agentxm/skills/axm",
+                  path: "agent_extensions/@agentxm/skills/axm",
                   version: AXM_SKILL_VERSION,
                 }),
               }),
@@ -374,7 +374,7 @@ describe("setup.handler", () => {
           expect(rendererState.logs).toContainEqual({
             _tag: "info",
             message:
-              "Skill: @agentxm/skills/axm -> .axm/extensions/@agentxm/skills/axm, .claude/skills/axm",
+              "Skill: @agentxm/skills/axm -> agent_extensions/@agentxm/skills/axm, .claude/skills/axm",
           });
           expect(rendererState.logs).toContainEqual({
             _tag: "info",
@@ -418,7 +418,7 @@ describe("setup.handler", () => {
           expect(installCalls).toEqual([]);
           expect(rendererState.logs).toEqual([]);
           expect(rendererState.results).toEqual([]);
-          expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
         }),
       );
     });
@@ -475,18 +475,17 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          const axmDir = path.join(tempDir, ".axm");
           const skillJsonPath = path.join(
-            axmDir,
-            "extensions",
+            tempDir,
+            "agent_extensions",
             "@agentxm",
             "skills",
             "axm",
             "skill.json",
           );
           const skillMdPath = path.join(
-            axmDir,
-            "extensions",
+            tempDir,
+            "agent_extensions",
             "@agentxm",
             "skills",
             "axm",
@@ -509,7 +508,7 @@ describe("setup.handler", () => {
           }
           expect(fs.existsSync(agentSkillPath)).toBe(true);
 
-          const lockfile = readLockfile(path.join(axmDir, "axm-lock.yaml"));
+          const lockfile = readLockfile(path.join(tempDir, "axm-lock.yaml"));
           expect(lockfile.skills["axm"]).toBeUndefined();
         }),
       );
@@ -522,21 +521,19 @@ describe("setup.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const axmDir = path.join(tempDir, ".axm");
-          fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
-            path.join(axmDir, "settings.json"),
+            path.join(tempDir, "axm.json"),
             JSON.stringify({
               agents: ["claude-code", "cursor"],
               skills: { commit: "^1.0.0" },
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
-          const settings = readJson(path.join(axmDir, "settings.json"));
+          const settings = readJson(path.join(tempDir, "axm.json"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
           expect(settings.owner).toBe("@myorg");
@@ -554,7 +551,7 @@ describe("setup.handler", () => {
 
           yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
 
-          const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
+          const settings = readJson(path.join(tempDir, "axm.json"));
           expect(settings.agents).toEqual(["claude-code"]);
           expect(settings.instructionFiles).toEqual({
             fileName: "AGENTS.md",
@@ -938,9 +935,7 @@ describe("setup.handler", () => {
             yes: true,
           });
 
-          expect(readJson(path.join(tempDir, ".axm", "settings.json")).agents).toEqual([
-            "claude-code",
-          ]);
+          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual(["claude-code"]);
           expect(installCalls).toEqual([{ scope: "project", yes: true, preview: false }]);
         }),
       );
@@ -1104,13 +1099,13 @@ describe("setup.handler", () => {
             yield* handleSetup({ scope: "user" });
 
             const userSettingsPath = path.join(homeDir, ".axm", "settings.json");
-            const projectSettingsPath = path.join(tempDir, ".axm", "settings.json");
+            const projectSettingsPath = path.join(tempDir, "axm.json");
             expect(fs.existsSync(userSettingsPath)).toBe(true);
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
 
             const settings = readJson(userSettingsPath);
             expect(settings.skills?.["axm"]).toEqual({
-              source: "workspace:@agentxm/skills/axm",
+              source: "workspace",
               origin: "bundled",
             });
             expect(installCalls).toEqual([{ scope: "user", yes: false, preview: false }]);
@@ -1166,7 +1161,7 @@ describe("setup.handler", () => {
 
           yield* handleSetup({ scope: "project" });
 
-          const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
+          const settings = readJson(path.join(tempDir, "axm.json"));
           expect(promptState.selectAgentsCalls).toHaveLength(0);
           expect(settings.agents).toContain("claude-code");
         }),
@@ -1183,7 +1178,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          const settings = readJson(path.join(tempDir, ".axm", "settings.json"));
+          const settings = readJson(path.join(tempDir, "axm.json"));
           expect(expectDefined(settings.agents)).toEqual(["claude-code"]);
         }),
       );
@@ -1357,8 +1352,8 @@ describe("setup.handler", () => {
             expect(error.detail).toBe("Injected bundled skill installation failure");
           }
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
-          expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(false);
-          expect(fs.existsSync(path.join(tempDir, ".axm", "axm-lock.yaml"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
         }),
@@ -1370,10 +1365,8 @@ describe("setup.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const axmDir = path.join(tempDir, ".axm");
-          fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm.json"), "not valid json {{{");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error._tag).toBe("AppError");

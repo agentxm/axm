@@ -167,7 +167,7 @@ describe("MCP registry server schema mirror", () => {
     expect(Object.keys(mirroredServerDetail.properties).sort()).toEqual(
       Object.keys(upstreamServerDetail.properties).sort(),
     );
-    expect(mirroredServerDetail.properties.name.allOf[1].pattern.replaceAll("\\/", "/")).toEqual(
+    expect(mirroredServerDetail.properties.name.pattern.replaceAll("\\/", "/")).toEqual(
       upstreamServerDetail.properties.name.pattern,
     );
     expect(generated.definitions.McpServerManifest.properties.server.$ref).toBe(

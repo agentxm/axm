@@ -242,6 +242,11 @@ export {
 } from "./rendered-files.js";
 
 export { computePackageContentHash } from "./package-hash.js";
+export {
+  computeMaterializedTreeIntegrity,
+  TreeIntegritySchema,
+  type TreeIntegrity,
+} from "./materialized-tree.js";
 
 // Frontmatter parsing
 export {
@@ -267,17 +272,23 @@ export {
   canReuseInstalledPackage,
   canonicalMaterializationPaths,
   materializeExternalPackage,
+  materializeExternalPackageWithTreeIntegrity,
   materializeRegistryPackage,
+  materializeRegistryPackageWithTreeIntegrity,
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
+  replaceCanonicalDirectoryWithInspection,
   type CreateCanonicalDirectoryArgs,
   type CanReuseExternalPackageArgs,
   type CanReuseInstalledPackageArgs,
   type MaterializeExternalPackageArgs,
   type MaterializeRegistryPackageArgs,
+  type MaterializedPackage,
   type RegistryPackageMaterializationMessages,
   type RecoverCanonicalDirectoryArgs,
   type ReplaceCanonicalDirectoryArgs,
+  type ReplaceCanonicalDirectoryWithInspectionArgs,
+  type CanonicalDirectoryInspection,
 } from "./package-materialization.js";
 
 export { shouldReuseCanonicalInstall } from "./canonical-reuse.js";

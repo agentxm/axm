@@ -114,7 +114,8 @@ export const ambiguousHookCommands = (hooks: unknown): ReadonlyArray<string> => 
           isRecord(entry) &&
           entry["type"] === "command" &&
           typeof entry["command"] === "string" &&
-          entry["command"].includes(".axm/extensions/") &&
+          (entry["command"].includes(".axm/extensions/") ||
+            entry["command"].includes("agent_extensions/")) &&
           !isManagedHookEntry(entry)
         ) {
           commands.push(entry["command"]);

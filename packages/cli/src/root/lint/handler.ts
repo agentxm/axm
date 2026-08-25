@@ -5,8 +5,8 @@
  *
  * 1. Resolve workspace root + scope (project: cwd (or `<path>`), user:
  *    `$AXM_USER_HOME` or `$HOME`, ignoring `<path>`).
- * 2. Load `.axm/settings.json` (if present) to recover the configured
- *    `lint.rules` overrides.
+ * 2. Load project-root `axm.json` or user-scope `.axm/settings.json` (if
+ *    present) to recover the configured `lint.rules` overrides.
  * 3. Build a `LintWorkspace` (rule context + flat projection) from the
  *    workspace read model, then assemble workspace / skill / pack rule
  *    contexts via the shared-kernel builders.
@@ -197,7 +197,7 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
 };
 
 /**
- * Decode `.axm/settings.json`. Returns `None` when the file is missing, empty,
+ * Decode the authoritative settings document. Returns `None` when the file is missing, empty,
  * or unparseable, so lint still runs — the relevant
  * `workspace/settings-schema-valid` rule produces the user-facing finding for a
  * bad settings file. Callers derive `lint.rules` and the `--fix` inputs from
@@ -207,11 +207,15 @@ const decodeSettings = (input: unknown): Option.Option<Settings> => {
  */
 const loadSettingsDocument = (
   workspaceRoot: string,
+  scope: WorkspaceScope,
 ): Effect.Effect<Option.Option<Settings>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(workspaceRoot, AXM_DIR_NAME, "settings.json");
+    const settingsPath =
+      scope === "user"
+        ? path.join(workspaceRoot, AXM_DIR_NAME, "settings.json")
+        : path.join(workspaceRoot, "axm.json");
     const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return Option.none();
@@ -457,7 +461,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   });
 
   // -- Load settings + lockfile + config --
-  const settings = yield* loadSettingsDocument(workspaceRoot);
+  const settings = yield* loadSettingsDocument(workspaceRoot, args.scope);
 
   // -- Repair before observing, so the report reflects the reconciled state --
   if (args.fix) {

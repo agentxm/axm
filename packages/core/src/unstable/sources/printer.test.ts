@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
 import { SourceHashSchema } from "../extensions/rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
@@ -10,6 +11,9 @@ import {
 } from "./printer.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
+const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
+  `sha256-tree-v1:${"0".repeat(64)}`,
+);
 
 describe("source printers", () => {
   it("prints source parameters", () => {
@@ -37,6 +41,8 @@ describe("source printers", () => {
     expect(
       lockEntryToSourceParams({
         type: "github",
+        packageOwner: handle("@acme"),
+        packageName: extensionName("review"),
         owner: "acme",
         repo: "extensions",
         ref: "main",
@@ -44,6 +50,7 @@ describe("source printers", () => {
         resolvedCommit: "commit-1",
         resolvedTree: "tree-1",
         contentIdentity,
+        treeIntegrity,
       }),
     ).toEqual({
       type: "github",
@@ -52,10 +59,16 @@ describe("source printers", () => {
       ref: Option.some("main"),
       subPath: Option.some("skills/review"),
     });
-    expect(lockEntryToSourceParams({ type: "local", path: "../review", contentIdentity })).toEqual({
-      type: "local",
-      path: "../review",
-    });
+    expect(
+      lockEntryToSourceParams({
+        type: "local",
+        packageOwner: handle("@acme"),
+        packageName: extensionName("review"),
+        path: "../review",
+        contentIdentity,
+        treeIntegrity,
+      }),
+    ).toEqual({ type: "local", path: "../review" });
   });
 
   it("prints a Registry accepted resolution as an exact locator", () => {
@@ -68,6 +81,7 @@ describe("source printers", () => {
         integrity: "sha512-archive",
         sourceName: "default",
         publisherBindingId: "binding-1",
+        treeIntegrity,
       }),
     ).toBe("@acme/skills/review@1.2.3");
   });

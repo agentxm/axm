@@ -6,19 +6,19 @@ import * as Result from "effect/Result";
 import { isWorkspaceSourceLocator } from "../../../sources/index.js";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/lockfile-valid";
-const LOCKFILE_REL = ".axm/axm-lock.yaml";
 
 const isExternalSource = (source: string): boolean =>
   source !== "inline" && !isWorkspaceSourceLocator(source);
 
-const finding = (message: string): AdvisoryFinding => ({
+const finding = (message: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message,
-  location: { file: LOCKFILE_REL },
+  location: { file: path },
 });
 
 export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -30,17 +30,20 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   check: (context) =>
     Effect.gen(function* () {
       const lockfileResult = yield* Effect.result(context.workspace.state.lockfile);
+      const lockfilePath = lockfileDisplayPath(context.subject.scope);
       if (Result.isFailure(lockfileResult)) {
         if (lockfileResult.failure._tag === "LockfileDecodeError") {
           return lockfileResult.failure.issues.map((issue) =>
             finding(
               `The accepted external-resolution lockfile does not match the current schema: ${issue}`,
+              lockfilePath,
             ),
           );
         }
         return [
           finding(
             `The accepted external-resolution lockfile is unreadable: ${lockfileResult.failure._tag}`,
+            lockfilePath,
           ),
         ];
       }
@@ -53,7 +56,10 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
           graph.success.nodes.some((node) => isExternalSource(node.source))
         ) {
           return [
-            finding("Accepted external-resolution state is missing for desired external content."),
+            finding(
+              "Accepted external-resolution state is missing for desired external content.",
+              lockfilePath,
+            ),
           ];
         }
         return [];
@@ -71,7 +77,12 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         ...Object.values(settings.success.value.knowledge ?? {}),
       ];
       return declarations.some((entry) => isExternalSource(entry.source))
-        ? [finding("Accepted external-resolution state is missing for desired external content.")]
+        ? [
+            finding(
+              "Accepted external-resolution state is missing for desired external content.",
+              lockfilePath,
+            ),
+          ]
         : [];
     }),
 };

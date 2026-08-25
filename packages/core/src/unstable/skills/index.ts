@@ -81,7 +81,12 @@ export { SkillManager, SkillManagerLive } from "./manager.js";
 export { ensureSkillAgentArtifact } from "./materialization.js";
 
 // Paths
-export { computeSkillPaths, type SkillPathSource, type SkillDirPaths } from "./paths.js";
+export {
+  computeSkillPaths,
+  computeSkillPathsForLayout,
+  type SkillPathSource,
+  type SkillDirPaths,
+} from "./paths.js";
 
 // Utilities
 export { getSkillDisplayName } from "./utils.js";

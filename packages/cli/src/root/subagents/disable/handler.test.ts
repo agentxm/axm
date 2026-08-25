@@ -61,9 +61,9 @@ const emptyAgentRepo: CodingAgentRepositoryService = {
   getUnknownConfiguredAgentIds: () => Effect.succeed([]),
 };
 
-// Read the settings.json content after a handler run
+// Read the project settings content after a handler run.
 const readSettings = (axmDir: string): Record<string, unknown> => {
-  const raw = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+  const raw = fs.readFileSync(path.join(path.dirname(axmDir), "axm.json"), "utf-8");
   return JSON.parse(raw) as Record<string, unknown>;
 };
 
@@ -192,7 +192,13 @@ describe("subagents disable.handler", () => {
   it.effect("promotes implicit subagent to configured entry with enabled: false", () => {
     const { provide, rendererState } = makeLayers();
     const axmDir = path.join(tempDir, ".axm");
-    const subagentDir = path.join(axmDir, "extensions", "@acme", "subagents", "pack-subagent");
+    const subagentDir = path.join(
+      tempDir,
+      "agent_extensions",
+      "@acme",
+      "subagents",
+      "pack-subagent",
+    );
     fs.mkdirSync(path.join(subagentDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(subagentDir, "subagent.json"),
@@ -208,7 +214,7 @@ describe("subagents disable.handler", () => {
       "---\nname: pack-subagent\n---\n# pack-subagent",
     );
 
-    const packDir = path.join(axmDir, "extensions", "@acme", "packs", "starter-pack");
+    const packDir = path.join(tempDir, "packs", "starter-pack");
     fs.mkdirSync(packDir, { recursive: true });
     fs.writeFileSync(
       path.join(packDir, "pack.json"),
@@ -224,7 +230,7 @@ describe("subagents disable.handler", () => {
     );
 
     initWorkspace(axmDir, {
-      packs: { "starter-pack": "workspace:@acme/packs/starter-pack" },
+      packs: { "starter-pack": "workspace" },
       lockfileSubagents: {
         "pack-subagent": {
           ...makeLockEntry(),

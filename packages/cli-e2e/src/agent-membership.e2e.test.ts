@@ -4,9 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
 const readAgents = (workspace: string): ReadonlyArray<string> => {
-  const settings: unknown = JSON.parse(
-    fs.readFileSync(path.join(workspace, ".axm", "settings.json"), "utf8"),
-  );
+  const settings: unknown = JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"));
   if (typeof settings !== "object" || settings === null || !("agents" in settings)) return [];
   return Array.isArray(settings.agents)
     ? settings.agents.filter((agent): agent is string => typeof agent === "string")

@@ -55,14 +55,18 @@ export type HookInstallSourceRequest = ParsedHookInstallArgs;
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
-const hookInstallArtifactPath = (entry: HookLockEntry): string => {
+const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["scope"]): string => {
   if (entry.type === "registry") {
-    return `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
+    return `${scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions"}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`;
   }
   if (entry.type === "local") {
     return entry.path;
   }
-  return "path" in entry && entry.path !== undefined ? entry.path : ".axm/extensions";
+  return "path" in entry && entry.path !== undefined
+    ? entry.path
+    : scope === "project"
+      ? REGISTRY_EXTENSIONS_DIR
+      : ".axm/extensions";
 };
 
 export const hookInstallArtifact = (args: {
@@ -76,7 +80,7 @@ export const hookInstallArtifact = (args: {
   const version = hookLockEntryVersion(args.lockEntry);
 
   return {
-    path: hookInstallArtifactPath(args.lockEntry),
+    path: hookInstallArtifactPath(args.lockEntry, args.scope),
     scope: args.scope,
     agents: args.agents,
     ...(version === undefined ? {} : { version }),

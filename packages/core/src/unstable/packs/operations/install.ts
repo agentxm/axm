@@ -28,7 +28,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { computePackPaths } from "../paths.js";
+import { computePackPathsForLayout } from "../paths.js";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
@@ -39,6 +39,7 @@ import {
   validateExactPackDependencyVersions,
 } from "../resolved-dependency.js";
 import { computePackManifestContentIdentity } from "../manifest-content-identity.js";
+import { computeMaterializedTreeIntegrity } from "../../extensions/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -151,9 +152,10 @@ export const installPack: OperationHandler<
     );
 
     // Extract to managed location
-    const packDir = computePackPaths(
+    const packDir = computePackPathsForLayout(
       path.join,
-      ws.baseDir,
+      ws.layout,
+      "external",
       op.args.owner,
       op.args.packName,
     ).canonicalPath;
@@ -235,6 +237,7 @@ export const installPack: OperationHandler<
         return computePackManifestContentIdentity(manifest);
       }),
     );
+    const treeIntegrity = yield* computeMaterializedTreeIntegrity(packDir);
 
     // Write lockfile + settings
     const metadataWarning = yield* ws
@@ -247,6 +250,7 @@ export const installPack: OperationHandler<
         sourceName: op.args.sourceName,
         publisherBindingId: op.args.publisherBindingId,
         manifestContentIdentity,
+        treeIntegrity,
         versionRange: op.args.versionRange,
       })
       .pipe(

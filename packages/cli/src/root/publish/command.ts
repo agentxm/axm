@@ -53,7 +53,6 @@ import {
   EXTERNAL_EXTENSIONS_DIR,
   HandleSchema,
   PublishOptionsSchema,
-  REGISTRY_EXTENSIONS_DIR,
   extensionTypes,
   extensionTypeToPlural,
   decodeExtensionNameSync,
@@ -780,9 +779,7 @@ const sourceType = (source: string): SourceType => {
 };
 
 const identityFromSource = (entry: CatalogEntry) => {
-  const authored = isWorkspaceSourceLocator(entry.source);
-  const identitySource = authored ? entry.source.slice("workspace:".length) : entry.source;
-  const parsed = parseRegistrySourcePatternParts(identitySource);
+  const parsed = parseRegistrySourcePatternParts(entry.source);
   if (
     parsed === undefined ||
     parsed.name === undefined ||
@@ -795,7 +792,7 @@ const identityFromSource = (entry: CatalogEntry) => {
     owner: parsed.owner,
     fqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     sourceType: sourceType(entry.source),
-    authored,
+    authored: false,
   } satisfies SelectedEntry;
 };
 
@@ -809,14 +806,24 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const plural = extensionTypeToPlural[entry.type];
-  const extensionRoots = [path.join(ws.baseDir, EXTERNAL_EXTENSIONS_DIR, plural, entry.name)];
-  const canonicalRoot = path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR);
-  const ownerDirs = yield* fs
-    .readDirectory(canonicalRoot)
-    .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-  for (const ownerDir of ownerDirs) {
-    if (ownerDir.startsWith("@")) {
-      extensionRoots.push(path.join(canonicalRoot, ownerDir, plural, entry.name));
+  const authored = isWorkspaceSourceLocator(entry.source);
+  const extensionRoots = authored
+    ? ws.layout.scope === "project"
+      ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]
+      : ws.layout.owner === undefined
+        ? []
+        : [path.join(ws.layout.canonicalRoot, ws.layout.owner, plural, entry.name)]
+    : [path.join(ws.baseDir, EXTERNAL_EXTENSIONS_DIR, plural, entry.name)];
+  if (!authored) {
+    const canonicalRoot =
+      ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot;
+    const ownerDirs = yield* fs
+      .readDirectory(canonicalRoot)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
+    for (const ownerDir of ownerDirs) {
+      if (ownerDir.startsWith("@")) {
+        extensionRoots.push(path.join(canonicalRoot, ownerDir, plural, entry.name));
+      }
     }
   }
 
@@ -844,7 +851,7 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
       owner: manifest.value.owner,
       fqn: formatFqn(manifest.value),
       sourceType: sourceType(entry.source),
-      authored: false,
+      authored,
       extensionDir,
     } satisfies SelectedEntry;
   }
@@ -919,9 +926,10 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     (entry) => identityFromManagedPackage(entry),
     { concurrency: 8 },
   );
-  const identities = resolvedIdentities.filter(
-    (identity): identity is SelectedEntry => identity !== undefined,
-  );
+  const identities: Array<SelectedEntry> = [];
+  for (const identity of resolvedIdentities) {
+    if (identity !== undefined) identities.push(identity);
+  }
   let selected: ReadonlyArray<SelectedEntry>;
   let mode: SelectionMode;
 
@@ -954,7 +962,9 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     for (const pack of selectedPacks) {
       const packDir =
         pack.extensionDir ??
-        path.join(ws.baseDir, REGISTRY_EXTENSIONS_DIR, pack.owner, "packs", pack.name);
+        (ws.layout.scope === "project"
+          ? path.join(ws.layout.authoredRoot("pack"), pack.name)
+          : path.join(ws.layout.canonicalRoot, pack.owner, "packs", pack.name));
       const manifestPath = path.join(packDir, manifestFilename.pack);
       const raw = yield* fs.readFileString(manifestPath).pipe(
         Effect.mapError((cause) =>
@@ -1211,13 +1221,14 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   const path = yield* Path.Path;
   const extensionDir =
     selected.extensionDir ??
-    path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      selected.owner,
-      extensionTypeToPlural[selected.type],
-      selected.name,
-    );
+    (ws.layout.scope === "project" && selected.authored
+      ? path.join(ws.layout.authoredRoot(selected.type), selected.name)
+      : path.join(
+          ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
+          selected.owner,
+          extensionTypeToPlural[selected.type],
+          selected.name,
+        ));
   const manifestPath = path.join(extensionDir, manifestFilename[selected.type]);
   const manifestJson = yield* fs.readFileString(manifestPath).pipe(
     Effect.flatMap((content) =>

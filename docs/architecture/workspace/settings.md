@@ -9,9 +9,10 @@ depends-on:
 
 # Workspace settings
 
-`.axm/settings.json` is the human-editable source of truth for the explicit,
-durable choices in one AXM workspace scope. It records configuration, not the
-complete dependency graph or what happens to be installed.
+Project-root `axm.json` is the human-editable source of truth for the explicit,
+durable choices in a project workspace. User scope keeps the same role in
+`.axm/settings.json`. Each records configuration, not the complete dependency
+graph or what happens to be installed.
 
 Settings names desired extensions and capabilities. When a settings entry
 references a workspace-authored package, its manifest supplies canonical
@@ -58,6 +59,15 @@ filename and alias preferences, and the literal `false` disables it.
 Project and user scopes have separate settings files. Extension roots,
 activation, configured agents, inline definitions, and workspace capabilities
 remain local to the selected scope. A command changes only that scope.
+
+Project settings also establish the physical authoring contract. Each optional
+type configuration may set a normalized, workspace-relative `dir`; absent
+overrides default to `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`,
+`mcps/`, and `packs/`. These roots must stay within the project and must not
+overlap each other, `agent_extensions/`, `.axm/`, or agent projection roots.
+The configured owner is required for project settings, and an authored entry
+uses the exact source selector `workspace`. Its settings key and manifest name
+must agree.
 
 Some defaults and policies are intentionally layered for project operations.
 Project source hosts override same-named user hosts, which override built-in
@@ -126,9 +136,10 @@ so a misspelled or unsupported option cannot be mistaken for an accepted
 choice. Unsupported settings shapes are rejected; AXM provides no dual reader,
 automatic migration or cleanup, alias, or downgrade mode.
 
-Settings should be committed with the workspace. Because the file is shared,
-it contains no credentials or resolved secret values. Configuration that needs
-a secret stores a reference to an external value instead.
+Project `axm.json` should be committed with the workspace. Because it is
+shared, it contains no credentials or resolved secret values. Configuration
+that needs a secret stores a reference to an external value instead. User
+settings remain machine-local under the user's `.axm/` directory.
 
 ## Missing and invalid settings
 

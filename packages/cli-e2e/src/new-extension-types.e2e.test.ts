@@ -15,7 +15,7 @@ const configureWorkspace = (
   workspacePath: string,
   update: (settings: Record<string, unknown>) => Record<string, unknown>,
 ) => {
-  const settingsPath = path.join(workspacePath, ".axm", "settings.json");
+  const settingsPath = path.join(workspacePath, "axm.json");
   writeJson(settingsPath, update(readJson(settingsPath)));
 };
 
@@ -33,7 +33,7 @@ describe("axm skills new", () => {
         owner: "@test",
         lint: { rules: {} },
       }));
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const before = fs.readFileSync(settingsPath, "utf-8");
 
       const result = await runCli(["skills", "new", "layout-check", "--yes"], {
@@ -42,12 +42,12 @@ describe("axm skills new", () => {
 
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       const after = fs.readFileSync(settingsPath, "utf-8");
-      const intendedEntry = ',\n    "layout-check": "workspace:@test/skills/layout-check"';
+      const intendedEntry = ',\n    "layout-check": "workspace"';
       expect(after).toContain(intendedEntry);
       expect(after.endsWith("\n")).toBe(true);
       expect(after.replace(intendedEntry, "").slice(0, -1)).toBe(before);
       expect(readJson(settingsPath)["skills"]).toMatchObject({
-        "layout-check": "workspace:@test/skills/layout-check",
+        "layout-check": "workspace",
       });
     } finally {
       temp.cleanup();
@@ -76,23 +76,21 @@ describe("axm mcps new", () => {
       );
       expect(result.exitCode).toBe(0);
 
-      const packageDir = path.join(temp.path, ".axm", "extensions", "@test", "mcps", "context");
+      const packageDir = path.join(temp.path, "mcps", "context");
       const manifest = readJson(path.join(packageDir, "mcp.json"));
       expect(manifest["owner"]).toBe("@test");
       expect(manifest["type"]).toBe("mcp-server");
       expect(manifest["name"]).toBe("context");
       expect(manifest["version"]).toBe("0.1.0");
 
-      const settings = readJson(path.join(temp.path, ".axm", "settings.json"));
+      const settings = readJson(path.join(temp.path, "axm.json"));
       expect(settings["mcpServers"]).toEqual({
-        context: "workspace:@test/mcps/context",
+        context: "workspace",
       });
 
-      const lockfile = fs.readFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toBe("lockfileVersion: 4\nskills: {}\n");
-      expect(result.stdout + result.stderr).toContain(
-        "Edit `.axm/extensions/@test/mcps/context/mcp.json`",
-      );
+      const lockfile = fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf-8");
+      expect(lockfile).toBe("lockfileVersion: 5\nskills: {}\n");
+      expect(result.stdout + result.stderr).toContain("Edit `mcps/context/mcp.json`");
     } finally {
       temp.cleanup();
     }
@@ -128,24 +126,15 @@ describe("axm mcps new", () => {
         ).exitCode,
       ).toBe(0);
 
-      const originalDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@original",
-        "mcps",
-        "context",
-      );
-      const relocatedDir = path.join(temp.path, ".axm", "extensions", "@other", "mcps", "context");
-      fs.mkdirSync(path.dirname(relocatedDir), { recursive: true });
-      fs.renameSync(originalDir, relocatedDir);
-      writeJson(path.join(relocatedDir, "mcp.json"), {
-        ...readJson(path.join(relocatedDir, "mcp.json")),
+      const packageDir = path.join(temp.path, "mcps", "context");
+      writeJson(path.join(packageDir, "mcp.json"), {
+        ...readJson(path.join(packageDir, "mcp.json")),
         owner: "@other",
       });
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
-        mcpServers: { context: "workspace:@other/mcps/context" },
+        owner: "@other",
+        mcpServers: { context: "workspace" },
       }));
 
       const recovered = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
@@ -225,14 +214,7 @@ describe("axm knowledge new", () => {
         { cwd: temp.path },
       );
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
-      const packageDir = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "knowledge",
-        "platform",
-      );
+      const packageDir = path.join(temp.path, "knowledge", "platform");
       expect(readJson(path.join(packageDir, "knowledge.json"))["description"]).toBe(description);
       expect(fs.readFileSync(path.join(packageDir, "src", "index.md"), "utf8")).toContain(
         "Discovery map",

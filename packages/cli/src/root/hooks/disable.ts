@@ -3,10 +3,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-} from "@agentxm/client-core/unstable/extensions";
 import { HOOK_EXTENSION_DIR, HookManager } from "@agentxm/client-core/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import {
@@ -25,20 +21,29 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import {
+  workspaceCanonicalPath,
+  workspaceSettingsPath,
+} from "../shared/workspace-display-paths.js";
 
-const hookPackagePath = (entry: HookLockEntry, name: string): string =>
+const hookPackagePath = (
+  scope: JobStepArtifact["scope"],
+  entry: HookLockEntry,
+  name: string,
+): string =>
   entry.type === "registry"
-    ? `${REGISTRY_EXTENSIONS_DIR}/${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`
-    : `${EXTERNAL_EXTENSIONS_DIR}/${HOOK_EXTENSION_DIR}/${name}`;
+    ? workspaceCanonicalPath(scope, `${entry.owner}/${HOOK_EXTENSION_DIR}/${entry.name}`)
+    : workspaceCanonicalPath(scope, `external/${HOOK_EXTENSION_DIR}/${name}`);
 
 const hookDisableArtifactTargets = (args: {
   readonly lockEntry: HookLockEntry;
   readonly name: string;
+  readonly scope: JobStepArtifact["scope"];
 }): ReadonlyArray<JobStepArtifactTarget> =>
   [
-    { path: ".axm/settings.json", change: "updated" as const },
+    { path: workspaceSettingsPath(args.scope), change: "updated" as const },
     {
-      path: hookPackagePath(args.lockEntry, args.name),
+      path: hookPackagePath(args.scope, args.lockEntry, args.name),
       change: "removed" as const,
     },
   ].sort((left, right) => left.path.localeCompare(right.path));
@@ -52,11 +57,12 @@ const hookDisableArtifact = (args: {
     ? hookDisableArtifactTargets({
         lockEntry: args.lockEntry.value,
         name: args.name,
+        scope: args.scope,
       })
     : [];
 
   return {
-    path: ".axm/settings.json",
+    path: workspaceSettingsPath(args.scope),
     scope: args.scope,
     change: "updated",
     ...(targets.length === 0 ? {} : { targets }),

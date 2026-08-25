@@ -3,8 +3,8 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Knowledge bundles live canonically in
-`./.axm/extensions/<@owner>/knowledge/<name>`. Active bundles are discoverable
+Project-authored Knowledge bundles live under `./knowledge/<name>`; acquired
+bundles live under `./agent_extensions/<@owner>/knowledge/<name>`. Active bundles are discoverable
 from a compact table in the canonical workspace instruction file.
 
 A knowledge bundle is portable reference material — architecture notes, domain
@@ -46,7 +46,7 @@ in the compact workspace instruction table; omission defaults effectively to
 ## Package layout
 
 ```text
-.axm/extensions/@acme/knowledge/platform/
+knowledge/platform/
 ├── knowledge.json
 └── src/
     ├── index.md
@@ -164,7 +164,7 @@ root index, then add concept files under `src/`.
 Validate while you write:
 
 ```bash
-axm knowledge lint --path ./.axm/extensions/@acme/knowledge/platform
+axm knowledge lint --path ./knowledge/platform
 ```
 
 Lint reports errors (missing root index, missing concept `type`, invalid
@@ -176,8 +176,8 @@ not.
 ## Install and update
 
 `axm knowledge install <source>` (or the generic `axm install`) materializes
-the bundle under `.axm/extensions/<owner>/knowledge/<name>/`, records it in
-`.axm/axm-lock.yaml`, and refreshes the local concept index.
+the bundle under `agent_extensions/<owner>/knowledge/<name>/`, records it in
+`axm-lock.yaml`, and refreshes the local concept index.
 
 ```bash
 axm knowledge install @acme/knowledge/platform
@@ -222,7 +222,7 @@ ordered policy is:
 
 Excluding only an instruction entry never removes an enabled bundle's concepts.
 `axm knowledge list --json` reports the effective entry decision and its stable
-reason. Edit `.axm/settings.json`, then run `axm sync --preview` and `axm sync`;
+reason. Edit `axm.json`, then run `axm sync --preview` and `axm sync`;
 there is no separate instruction-entry command.
 
 `axm sync` restores missing canonical content from exact locked registry
@@ -302,8 +302,8 @@ axm knowledge concepts related '@acme/knowledge/platform#auth/session-management
 
 ## Configuration
 
-Installed bundles are tracked in `.axm/settings.json` under the `knowledge` map
-(name → entry) and locked in `.axm/axm-lock.yaml`. An entry is a source string,
+Installed bundles are tracked in `axm.json` under the `knowledge` map
+(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
 or an object with `source` plus optional flags:
 
 ```jsonc

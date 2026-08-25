@@ -28,7 +28,6 @@ import type { SubagentExtensionRef } from "../subagents/refs.js";
 import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
 import type { RuleExtensionRef } from "../rules/refs.js";
 import type { HookExtensionRef } from "../hooks/refs.js";
-import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 
@@ -190,8 +189,12 @@ const gitBasedSourceFromEntry = (
   }
 };
 
-const lockEntryLocation = (baseDir: string, pluralType: string, name: string): string =>
-  fileHref(`${baseDir}/${AXM_DIR_NAME}/extensions/external/${pluralType}/${name}`);
+const lockEntryLocation = (
+  baseDir: string,
+  owner: string,
+  pluralType: string,
+  name: string,
+): string => fileHref(`${baseDir}/agent_extensions/${owner}/${pluralType}/${name}`);
 
 export const skillLockEntryToRef = (
   name: string,
@@ -223,6 +226,8 @@ export const skillLockEntryToRef = (
           return Effect.succeed({
             type: "skill" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: skillSourcePath },
             location: fileHref(skillSourcePath),
             skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
@@ -238,8 +243,15 @@ export const skillLockEntryToRef = (
             (source) => ({
               type: "skill" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "skills", extensionName),
+              location: lockEntryLocation(
+                deps.baseDir,
+                entry.packageOwner,
+                "skills",
+                extensionName,
+              ),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
@@ -279,6 +291,8 @@ export const mcpServerLockEntryToRef = (
           return Effect.succeed({
             type: "mcp-server" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: mcpServerSourcePath },
             location: fileHref(mcpServerSourcePath),
             server: { name: extensionName },
@@ -294,8 +308,10 @@ export const mcpServerLockEntryToRef = (
             (source) => ({
               type: "mcp-server" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "mcps", extensionName),
+              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "mcps", extensionName),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               server: { name: extensionName },
@@ -335,6 +351,8 @@ export const subagentLockEntryToRef = (
           return Effect.succeed({
             type: "subagent" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: subagentSourcePath },
             location: fileHref(subagentSourcePath),
             subagent: { name: extensionName, description: Option.none() },
@@ -350,8 +368,15 @@ export const subagentLockEntryToRef = (
             (source) => ({
               type: "subagent" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "subagents", extensionName),
+              location: lockEntryLocation(
+                deps.baseDir,
+                entry.packageOwner,
+                "subagents",
+                extensionName,
+              ),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               subagent: { name: extensionName, description: Option.none() },
@@ -391,6 +416,8 @@ export const ruleLockEntryToRef = (
           return Effect.succeed({
             type: "rule" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
             rule: { name: extensionName },
@@ -406,8 +433,10 @@ export const ruleLockEntryToRef = (
             (source) => ({
               type: "rule" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "rules", extensionName),
+              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "rules", extensionName),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               rule: { name: extensionName },
@@ -447,6 +476,8 @@ export const hookLockEntryToRef = (
           return Effect.succeed({
             type: "hook" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
             hook: { name: extensionName },
@@ -462,8 +493,10 @@ export const hookLockEntryToRef = (
             (source) => ({
               type: "hook" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "hooks", extensionName),
+              location: lockEntryLocation(deps.baseDir, entry.packageOwner, "hooks", extensionName),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               hook: { name: extensionName },
@@ -503,6 +536,8 @@ export const knowledgeLockEntryToRef = (
           return Effect.succeed({
             type: "knowledge" as const,
             refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
             source: { type: "local" as const, path: sourcePath },
             location: fileHref(sourcePath),
             knowledge: { name: extensionName },
@@ -518,8 +553,15 @@ export const knowledgeLockEntryToRef = (
             (source) => ({
               type: "knowledge" as const,
               refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
               source,
-              location: lockEntryLocation(deps.baseDir, "knowledge", extensionName),
+              location: lockEntryLocation(
+                deps.baseDir,
+                entry.packageOwner,
+                "knowledge",
+                extensionName,
+              ),
               gitTreeSha: entry.resolvedTree,
               gitCommitSha: entry.resolvedCommit,
               knowledge: { name: extensionName },

@@ -5,6 +5,7 @@ import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { handle } from "../test-helpers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
 
 const writePack = (
@@ -13,12 +14,31 @@ const writePack = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
 ) => {
-  const dir = nodePath.join(root, ".axm", "extensions", owner, "packs", name);
+  const dir = nodePath.join(root, "agent_extensions", owner, "packs", name);
   nodeFs.mkdirSync(dir, { recursive: true });
   nodeFs.writeFileSync(
     nodePath.join(dir, "pack.json"),
     JSON.stringify({
       owner,
+      type: "pack",
+      name,
+      version: "1.0.0",
+      dependencies,
+    }),
+  );
+};
+
+const writeAuthoredPack = (
+  root: string,
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+) => {
+  const dir = nodePath.join(root, "packs", name);
+  nodeFs.mkdirSync(dir, { recursive: true });
+  nodeFs.writeFileSync(
+    nodePath.join(dir, "pack.json"),
+    JSON.stringify({
+      owner: "@acme",
       type: "pack",
       name,
       version: "1.0.0",
@@ -362,21 +382,22 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
 
   it.effect("merges workspace authorship with a pack dependency for the same package", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "reviewers", {
+      writeAuthoredPack(root, "reviewers", {
         "@acme/skills/review": "^1.0.0",
       });
 
       const graph = yield* buildDesiredStateGraph({
         baseDir: root,
         settings: {
+          owner: handle("@acme"),
           skills: {
             review: {
-              source: "workspace:@acme/skills/review",
+              source: "workspace",
               enabled: true,
             },
           },
           packs: {
-            reviewers: { source: "workspace:@acme/packs/reviewers", enabled: true },
+            reviewers: { source: "workspace", enabled: true },
           },
         },
       });
@@ -426,8 +447,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       writePack(root, "@acme", "expected", {});
       const manifestPath = nodePath.join(
         root,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@acme",
         "packs",
         "expected",

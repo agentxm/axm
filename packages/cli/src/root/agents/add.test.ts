@@ -198,8 +198,12 @@ describe("agents add.handler", () => {
   };
 
   const readConfiguredAgents = (root = tempDir): ReadonlyArray<string> => {
+    const projectSettings = path.join(root, "axm.json");
     const settings: { readonly agents?: unknown } = JSON.parse(
-      fs.readFileSync(path.join(root, ".axm", "settings.json"), "utf8"),
+      fs.readFileSync(
+        fs.existsSync(projectSettings) ? projectSettings : path.join(root, ".axm", "settings.json"),
+        "utf8",
+      ),
     );
     return Array.isArray(settings.agents)
       ? settings.agents.filter((agent): agent is string => typeof agent === "string")
@@ -255,7 +259,7 @@ describe("agents add.handler", () => {
               label: "Add cursor",
               state: "committed",
               artifact: expect.objectContaining({
-                path: ".axm/settings.json",
+                path: "axm.json",
                 scope: "project",
                 agents: ["cursor"],
                 change: "updated",
@@ -299,7 +303,7 @@ describe("agents add.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, { agents: [] });
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
     return provide(
       Effect.gen(function* () {
@@ -313,7 +317,7 @@ describe("agents add.handler", () => {
 
         expect(error.code).toBe("validation");
         expect(rendererState.results).toEqual([]);
-        expect(fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8")).toBe(
+        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
           "lockfileVersion: 4\nskills: []\n",
         );
       }),
@@ -373,9 +377,9 @@ describe("agents add.handler", () => {
     const { provide, rendererState } = makeLayers({ skillManager: failingSkillManager });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       agents: [],
-      skills: { review: "workspace:@acme/skills/review" },
+      skills: { review: "workspace" },
     });
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -430,9 +434,9 @@ describe("agents add.handler", () => {
     });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       agents: [],
-      skills: { review: "workspace:@acme/skills/review" },
+      skills: { review: "workspace" },
     });
-    const skillDir = path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review");
+    const skillDir = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(skillDir, "skill.json"),
@@ -480,7 +484,7 @@ describe("agents add.handler", () => {
 
   it.effect("does not auto-add a detected retired agent", () => {
     const { provide, rendererState } = makeLayers({ scope: "user" });
-    writeWorkspaceFiles(path.join(homeDir, ".axm"), { agents: [] });
+    writeWorkspaceFiles(path.join(homeDir, ".axm"), { scope: "user", agents: [] });
     fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
 
     return provide(

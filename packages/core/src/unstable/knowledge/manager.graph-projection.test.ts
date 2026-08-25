@@ -23,6 +23,7 @@ import { decodeRelativePathSync } from "../utils/path-types.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import type { KnowledgeMap } from "../settings/schema.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 
@@ -39,6 +40,7 @@ const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => 
     {
       type: "pack",
       pack: `${OWNER}/packs/${pack}`,
+      manifestPath: `/workspace/agent_extensions/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/knowledge/${name}`,
       constraint: "^1.0.0",
       enabled: true,
@@ -52,10 +54,15 @@ const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredState
   problems: [],
 });
 
-const localLock = (name: string) => ({
+const localLock = (baseDir: string, name: string) => ({
   type: "local" as const,
+  packageOwner: handle(OWNER),
+  packageName: extensionName(name),
   path: decodeRelativePathSync(`sources/${name}`),
   contentIdentity: TEST_CONTENT_IDENTITY,
+  treeIntegrity: computeMaterializedTreeIntegritySync(
+    nodePath.join(baseDir, "agent_extensions", OWNER, "knowledge", name),
+  ),
 });
 
 describe("KnowledgeManager graph-derived discovery projection", () => {
@@ -70,7 +77,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   });
 
   const writeBundle = (name: string, instructionEntry?: boolean) => {
-    const root = nodePath.join(baseDir, ".axm/extensions/external/knowledge", name);
+    const root = nodePath.join(baseDir, "agent_extensions", OWNER, "knowledge", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "knowledge.json"),
@@ -131,8 +138,8 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         packKnowledgeNode("pack-b-bundle", "pack-b"),
       ]),
       locked: {
-        "pack-a-bundle": localLock("pack-a-bundle"),
-        "pack-b-bundle": localLock("pack-b-bundle"),
+        "pack-a-bundle": localLock(baseDir, "pack-a-bundle"),
+        "pack-b-bundle": localLock(baseDir, "pack-b-bundle"),
       },
     });
     return Effect.gen(function* () {
@@ -154,13 +161,13 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         packKnowledgeNode("pack-b-bundle", "pack-b"),
       ]),
       locked: {
-        "pack-a-bundle": localLock("pack-a-bundle"),
-        "pack-b-bundle": localLock("pack-b-bundle"),
+        "pack-a-bundle": localLock(baseDir, "pack-a-bundle"),
+        "pack-b-bundle": localLock(baseDir, "pack-b-bundle"),
       },
     });
     const after = makeTestLayer({
       graph: completeGraph([packKnowledgeNode("pack-b-bundle", "pack-b")]),
-      locked: { "pack-b-bundle": localLock("pack-b-bundle") },
+      locked: { "pack-b-bundle": localLock(baseDir, "pack-b-bundle") },
     });
     const reconcile = Effect.gen(function* () {
       const manager = yield* KnowledgeManager;
@@ -188,7 +195,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     ];
     const layer = makeTestLayer({
       graph: completeGraph(names.map((name) => packKnowledgeNode(name, "knowledge-pack"))),
-      locked: Object.fromEntries(names.map((name) => [name, localLock(name)])),
+      locked: Object.fromEntries(names.map((name) => [name, localLock(baseDir, name)])),
       configured: {
         "workspace-included": {
           source: `${OWNER}/knowledge/workspace-included@^1.0.0`,
@@ -218,11 +225,11 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     writeBundle("platform");
     const enabled = makeTestLayer({
       graph: completeGraph([packKnowledgeNode("platform", "knowledge-pack")]),
-      locked: { platform: localLock("platform") },
+      locked: { platform: localLock(baseDir, "platform") },
     });
     const disabled = makeTestLayer({
       graph: completeGraph([packKnowledgeNode("platform", "knowledge-pack")]),
-      locked: { platform: localLock("platform") },
+      locked: { platform: localLock(baseDir, "platform") },
       knowledgeInstructions: false,
     });
     const reconcile = Effect.gen(function* () {

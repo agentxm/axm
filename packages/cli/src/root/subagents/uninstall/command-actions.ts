@@ -17,8 +17,6 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   buildUninstallOperation,
   parseExtensionFqnParts,
   sanitizeName,
@@ -36,6 +34,11 @@ import type {
 } from "@agentxm/client-core/unstable/plan";
 import type { UninstallSubagentCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import {
+  workspaceCanonicalPath,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -69,15 +72,19 @@ const subagentSourceTarget = (args: {
   readonly name: string;
   readonly lockEntry: SubagentLockEntry | undefined;
   readonly change: JobStepArtifactTarget["change"];
+  readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifactTarget => {
   if (args.lockEntry?.type === "registry") {
     return {
-      path: `${REGISTRY_EXTENSIONS_DIR}/${args.lockEntry.owner}/subagents/${args.lockEntry.name}`,
+      path: workspaceCanonicalPath(
+        args.scope,
+        `${args.lockEntry.owner}/subagents/${args.lockEntry.name}`,
+      ),
       change: args.change,
     };
   }
   return {
-    path: `${EXTERNAL_EXTENSIONS_DIR}/subagents/${sanitizeName(args.name)}`,
+    path: workspaceCanonicalPath(args.scope, `external/subagents/${sanitizeName(args.name)}`),
     change: args.change,
   };
 };
@@ -91,16 +98,18 @@ const subagentArtifact = (args: {
   }>;
   readonly agents: ReadonlyArray<string>;
   readonly change: JobStepArtifact["change"];
+  readonly scope: JobStepArtifact["scope"];
 }): JobStepArtifact => {
   const targetChange: JobStepArtifactTarget["change"] =
     args.change === "removed" ? "removed" : "unchanged";
   const targets: ReadonlyArray<JobStepArtifactTarget> = [
-    { path: ".axm/axm-lock.yaml", change: "updated" },
-    { path: ".axm/settings.json", change: "updated" },
+    { path: workspaceLockfilePath(args.scope), change: "updated" },
+    { path: workspaceSettingsPath(args.scope), change: "updated" },
     subagentSourceTarget({
       name: args.name,
       lockEntry: args.lockEntry,
       change: targetChange,
+      scope: args.scope,
     }),
     ...args.materializedTargets.map((target) => ({ ...target, change: targetChange })),
   ];
@@ -108,7 +117,7 @@ const subagentArtifact = (args: {
   const version = resolvedVersion(args.lockEntry);
   return {
     path: firstTarget?.path ?? args.name,
-    scope: "project",
+    scope: args.scope,
     ...(args.agents.length > 0 ? { agents: args.agents } : {}),
     ...(version !== undefined ? { version } : {}),
     change: args.change,
@@ -204,6 +213,7 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
                 materializedTargets: [],
                 agents: [],
                 change: "unchanged",
+                scope: ws.scope,
               });
 
               const result = yield* step.run;
@@ -230,6 +240,7 @@ export const UninstallSubagentCommandWorkflowActionsLive = Layer.effect(
                   materializedTargets: unmaterialization.targets,
                   agents: unmaterialization.agents,
                   change: "removed",
+                  scope: ws.scope,
                 }),
               } satisfies JobStepResult;
             });

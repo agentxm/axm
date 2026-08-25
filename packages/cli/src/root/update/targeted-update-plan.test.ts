@@ -99,7 +99,7 @@ describe("targeted update transaction", () => {
     return provide(
       Effect.gen(function* () {
         const workspace = yield* WorkspaceMutations;
-        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        const settingsPath = path.join(tempDir, "axm.json");
         const settingsBefore = fs.readFileSync(settingsPath, "utf8");
         const context = yield* resolveTargetedUpdateContext({ target });
         const wrapped = yield* wrapTargetedUpdatePlan({

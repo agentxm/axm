@@ -3,7 +3,8 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Skill packages live in `./.axm/extensions/<@owner>/skills/<skill-name>`.
+Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
+live in `./agent_extensions/<@owner>/skills/<skill-name>`.
 
 ## skill.json
 
@@ -70,7 +71,9 @@ frontmatter fields in a portable skill.
 
 The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
 
-If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md` in `.axm/extensions/...` and run `axm sync`; do not edit the copied agent-side file.
+If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
+in its authored package and run `axm sync`; do not edit the copied agent-side
+file. Acquired packages are immutable accepted state—fork one before editing it.
 
 ## Unmanaged skills
 
@@ -93,10 +96,12 @@ AXM records accepted immutable resolution for externally sourced skills:
 - **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
 - **Local-source identity** — relative locator and content identity for an accepted local source.
 
-After install, remote-source canonical files under `.axm/extensions/` are
-observed materialization. If their content changes locally, AXM preserves the
-drift and reports or blocks affected reconciliation instead of silently
-overwriting it. Workspace-authored packages remain local authority.
+After install, remote-source canonical files under `agent_extensions/` are
+observed materialization. Lockfile v5 records the strict integrity of their
+complete package tree. If any path or byte changes locally, AXM preserves the
+drift and blocks affected lint, inspection, reconciliation, projection, and
+lifecycle work until reinstall, update, or fork resolves it. Workspace-authored
+packages remain local authority.
 
 ## Recommended packs
 

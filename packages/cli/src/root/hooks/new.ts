@@ -9,7 +9,6 @@ import {
   computeSourceHash,
   decodeExtensionNameSync,
   preflightCreateOnly,
-  REGISTRY_EXTENSIONS_DIR,
   type ExtensionName,
 } from "@agentxm/client-core/unstable/extensions";
 import type {
@@ -18,12 +17,7 @@ import type {
   NewHookOperation,
   WorkspaceHookRef,
 } from "@agentxm/client-core/unstable/hooks";
-import {
-  HOOK_EXTENSION_DIR,
-  HOOK_MANIFEST_FILENAME,
-  HookManager,
-  newHook,
-} from "@agentxm/client-core/unstable/hooks";
+import { HOOK_MANIFEST_FILENAME, HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -45,12 +39,14 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import {
   isValidScaffoldName,
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [
@@ -130,6 +126,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
   const owner = Option.isSome(args.owner)
     ? normalizeScaffoldOwner(args.owner.value)
     : yield* resolveOwnerForNewContent("hook creation");
+  yield* requireAuthoredOwner(owner);
 
   // 2. Validate name
   if (!isValidScaffoldName(args.name)) {
@@ -169,13 +166,8 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
 
   // 6. Build plan with inline run closure
   const fqn = `${owner}/hooks/${args.name}`;
-  const targetDir = path.join(
-    ws.baseDir,
-    REGISTRY_EXTENSIONS_DIR,
-    owner,
-    HOOK_EXTENSION_DIR,
-    args.name,
-  );
+  const targetDir = path.join(workspaceAuthoredRoot(path, ws, "hook", owner), args.name);
+  const authoredPath = path.relative(ws.baseDir, targetDir);
   yield* preflightCreateOnly({
     subject: "Hook",
     name: args.name,
@@ -210,7 +202,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
         path: path.relative(ws.baseDir, path.join(targetDir, "src", entrypoint)),
         change: "created",
       },
-      { path: ".axm (config/lockfile)", change: "created" },
+      { path: workspaceSettingsPath(ws.scope), change: "created" },
     ],
   };
 
@@ -268,7 +260,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
         });
       }),
     markAuthored: ws.setHookEntry(args.name, {
-      source: `workspace:${fqn}`,
+      source: "workspace",
       enabled: true,
     }),
     scaffold: newHook(op).pipe(
@@ -297,7 +289,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
 
   const suggestions = [
     {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "hooks", args.name, "src", entrypoint)}\` to implement the hook`,
+      description: `Edit \`${joinDisplayPath(path, authoredPath, "src", entrypoint)}\` to implement the hook`,
     },
   ];
   yield* emitOperationResolution("hooks.new", resolution, { suggestions });

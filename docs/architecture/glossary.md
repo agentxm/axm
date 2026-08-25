@@ -45,8 +45,9 @@ accepted resolution does not create desired-state reachability.
 
 ## Authoritative lockfile
 
-The generated, committed `.axm/axm-lock.yaml` state that records accepted
-external resolutions and provenance. It participates in planning and exact
+The generated, committed `axm-lock.yaml` project state (or user-scope
+`.axm/axm-lock.yaml`) that records accepted external resolutions, package-tree
+integrity, and provenance. It participates in planning and exact
 materialization, but never creates desired membership, activation, Pack
 reachability, projection ownership, or cleanup authority.
 

@@ -23,18 +23,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 
 const writeWorkspace = (root: string, agents: ReadonlyArray<string>) => {
-  const axmDir = path.join(root, ".axm");
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }, null, 2));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\n");
+  writeWorkspaceFiles(path.join(root, ".axm"), { agents });
 };
 
 const readAgents = (root: string): ReadonlyArray<string> => {
-  const parsed: unknown = JSON.parse(
-    fs.readFileSync(path.join(root, ".axm", "settings.json"), "utf8"),
-  );
+  const parsed: unknown = JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8"));
   if (typeof parsed !== "object" || parsed === null || !("agents" in parsed)) return [];
   return Array.isArray(parsed.agents)
     ? parsed.agents.filter((agent): agent is string => typeof agent === "string")

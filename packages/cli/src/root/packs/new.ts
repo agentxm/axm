@@ -13,10 +13,10 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, packManifestArtifact } from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
 import type { NewPackOperation, WorkspacePackRef } from "@agentxm/client-core/unstable/packs";
 import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
-import { computePackPaths } from "@agentxm/client-core/unstable/packs";
+import { computePackPathsForLayout } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { operationPresentation, type Plan } from "@agentxm/client-core/unstable/plan";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -28,7 +28,9 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
+import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -57,12 +59,14 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
   const owner = Option.isSome(args.owner)
     ? args.owner.value
     : yield* resolveOwnerForNewContent("pack creation");
+  yield* requireAuthoredOwner(owner);
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
   const base = ws.baseDir;
 
   // Check if pack already exists
-  const packDir = computePackPaths(path.join, base, owner, args.name);
+  const packDir = computePackPathsForLayout(path.join, ws.layout, "workspace", owner, args.name);
+  const authoredPath = path.relative(base, packDir.canonicalPath);
   const configuredPacks = yield* ws.getConfiguredPackEntries();
   yield* preflightCreateOnly({
     subject: "Pack",
@@ -89,19 +93,18 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     location: packDir.canonicalPath,
     pack: { name: args.name, dependencies: {} },
   };
-  const manifestArtifact = packManifestArtifact({
-    owner,
-    name: args.name,
+  const artifact = {
+    path: authoredPath,
     scope: ws.scope,
-    change: "created",
+    change: "created" as const,
     version: "0.0.1",
     fileCount: 1,
-  });
-  const artifact = {
-    ...manifestArtifact,
     targets: [
-      ...(manifestArtifact.targets ?? []),
-      { path: ".axm (config/lockfile)", change: "created" as const },
+      {
+        path: path.join(authoredPath, PACK_MANIFEST_FILENAME),
+        change: "created" as const,
+      },
+      { path: workspaceSettingsPath(ws.scope), change: "created" as const },
     ],
   };
 
@@ -120,7 +123,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
         destinations: [packDir.canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws.setPackEntry(args.name, { source: `workspace:${fqn}`, enabled: true }),
+    markAuthored: ws.setPackEntry(args.name, { source: "workspace", enabled: true }),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
@@ -149,7 +152,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
   yield* emitOperationResolution("packs.new", resolution, {
     suggestions: [
       {
-        description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
+        description: `Edit \`${joinDisplayPath(path, authoredPath, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
       },
     ],
   });

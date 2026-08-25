@@ -34,7 +34,7 @@ describe("mcps add output", () => {
   const writeInlineMcpSettings = () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         agents: ["claude-code"],
         mcpServers: {
@@ -52,7 +52,7 @@ describe("mcps add output", () => {
   const writeMultiAgentSettings = () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         agents: ["claude-code", "cursor", "codex", "gemini-cli", "antigravity"],
         mcpServers: {},
@@ -63,7 +63,7 @@ describe("mcps add output", () => {
   const writeEnvExpansionSettings = () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         agents: ["claude-code", "cursor", "codex"],
         mcpServers: {},
@@ -190,9 +190,7 @@ describe("mcps add output", () => {
           agents: ["claude-code"],
         });
 
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers.demo.agents).toEqual(["claude-code"]);
         expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(true);
         expect(fs.existsSync(path.join(tempDir, ".cursor", "mcp.json"))).toBe(false);
@@ -222,9 +220,7 @@ describe("mcps add output", () => {
 
         expect(Result.isFailure(result)).toBe(true);
         expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(false);
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers).toEqual({});
       }),
     );
@@ -253,9 +249,7 @@ describe("mcps add output", () => {
         expect(fs.existsSync(path.join(tempDir, ".mcp.json"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, ".cursor", "mcp.json"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, ".codex", "config.toml"))).toBe(false);
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers).toEqual({});
       }),
     );
@@ -285,9 +279,7 @@ describe("mcps add output", () => {
           expect(result.failure.code).toBe("usage");
           expect(result.failure.detail).toContain("axm mcps install @acme/mcps/demo");
         }
-        const settings = JSON.parse(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
-        );
+        const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers).toEqual({});
       }),
     );

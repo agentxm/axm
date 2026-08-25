@@ -90,16 +90,21 @@ const makeWorkspaceMock = (
       if (source?.refType === "registry") {
         const canonicalPath = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           source.owner,
           "skills",
           sanitized,
         );
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
-      const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
-      return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
+      const canonicalPath = path.join(
+        base,
+        "agent_extensions",
+        source?.owner ?? "@local",
+        "skills",
+        sanitized,
+      );
+      return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
     },
     setSkill: setSkillFn
       ? ({ name, lockEntry, versionRange }: SetSkillArgs) =>
@@ -315,6 +320,8 @@ const makeOp = (
           ...base,
           refType: "local" as const,
           source,
+          owner: handle(overrides.owner ?? "@local"),
+          name: skill.name,
           location,
         } satisfies LocalSkillRef;
       case "workspace":
@@ -334,6 +341,8 @@ const makeOp = (
           ...base,
           refType: "git-hosted" as const,
           source,
+          owner: handle(overrides.owner ?? "@local"),
+          name: skill.name,
           location,
           ...(overrides.refSourcePath !== undefined ? { sourcePath: overrides.refSourcePath } : {}),
           gitTreeSha,
@@ -368,11 +377,16 @@ describe("installSkill", () => {
 
   /** Sets up a source skill directory with a SKILL.md file. */
   const setupSource = (name = "my-skill") => {
-    const src = path.join(tmpDir, "source", name);
+    const packageRoot = path.join(tmpDir, "source", name);
+    const src = path.join(packageRoot, "src");
     fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(
+      path.join(packageRoot, "skill.json"),
+      JSON.stringify({ owner: "@local", type: "skill", name, version: "1.0.0" }),
+    );
     fs.writeFileSync(path.join(src, "SKILL.md"), `# ${name}`);
     fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
-    return src;
+    return packageRoot;
   };
 
   /** Sets up a workspace base directory with .axm dir. */
@@ -389,7 +403,7 @@ describe("installSkill", () => {
    * so the handler reuses existing canonical files instead of fetching.
    */
   const setupRegistryCanonical = (base: string, owner: string, name = "my-skill") => {
-    const canonicalPath = path.join(base, ".axm", "extensions", owner, "skills", name);
+    const canonicalPath = path.join(base, "agent_extensions", owner, "skills", name);
     const srcDir = path.join(canonicalPath, "src");
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(
@@ -415,9 +429,11 @@ describe("installSkill", () => {
         expect(result.message).toContain("my-skill");
 
         // Canonical location should have files
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
-        expect(fs.readFileSync(path.join(canonical, "prompt.md"), "utf-8")).toBe("prompt content");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        expect(fs.existsSync(path.join(canonical, "src", "SKILL.md"))).toBe(true);
+        expect(fs.readFileSync(path.join(canonical, "src", "prompt.md"), "utf-8")).toBe(
+          "prompt content",
+        );
 
         // Agent symlink should exist
         const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
@@ -427,7 +443,7 @@ describe("installSkill", () => {
         // Symlink should point to the canonical location
         const linkTarget = fs.readlinkSync(agentSkillDir);
         const resolved = path.resolve(path.dirname(agentSkillDir), linkTarget);
-        expect(resolved).toBe(canonical);
+        expect(resolved).toBe(path.join(canonical, "src"));
 
         const universalSkillDir = path.join(base, ".agents", "skills", "my-skill");
         expect(fs.existsSync(universalSkillDir)).toBe(true);
@@ -573,17 +589,16 @@ describe("installSkill", () => {
           yield* installSkill(makeOp({ sourcePath: src })).pipe(Effect.provide(layer));
           const canonical = path.join(
             path.dirname(axmDir),
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@local",
             "skills",
             "my-skill",
           );
-          const canonicalBefore = yield* computeSkillSourceHash(canonical).pipe(
+          const canonicalBefore = yield* computeSkillSourceHash(path.join(canonical, "src")).pipe(
             Effect.provide(NodeServices.layer),
           );
-          fs.writeFileSync(path.join(src, "prompt.md"), "changed prompt content");
-          const changedSource = yield* computeSkillSourceHash(src).pipe(
+          fs.writeFileSync(path.join(src, "src", "prompt.md"), "changed prompt content");
+          const changedSource = yield* computeSkillSourceHash(path.join(src, "src")).pipe(
             Effect.provide(NodeServices.layer),
           );
           expect(changedSource).not.toBe(canonicalBefore);
@@ -591,7 +606,7 @@ describe("installSkill", () => {
           const second = yield* installSkill(makeOp({ sourcePath: src, force: true })).pipe(
             Effect.provide(layer),
           );
-          const canonicalAfter = yield* computeSkillSourceHash(canonical).pipe(
+          const canonicalAfter = yield* computeSkillSourceHash(path.join(canonical, "src")).pipe(
             Effect.provide(NodeServices.layer),
           );
           expect(canonicalAfter).toBe(changedSource);
@@ -605,52 +620,6 @@ describe("installSkill", () => {
             ]);
           }
         }),
-    );
-
-    it.effect("sanitizes skill name for canonical directory", () =>
-      Effect.gen(function* () {
-        const displayName = "My Awesome Skill!!";
-        const src = setupSource(displayName);
-        const { axmDir, base } = setupBase();
-        const ref: LocalSkillRef = {
-          type: "skill",
-          refType: "local",
-          source: { type: "local", path: src },
-          location: `file://${src}`,
-          skill: {
-            // Assertion needed: this test intentionally passes an unsanitized local skill
-            // name so installSkill exercises the runtime sanitization path.
-            name: displayName as unknown as LocalSkillRef["skill"]["name"],
-            description: Option.some("A test skill"),
-            metadata: Option.none(),
-          },
-        };
-        const op: InstallSkillOperation = {
-          name: "install-skill",
-          args: {
-            ref,
-            force: false,
-            versionRange: Option.none(),
-            skipSettings: Option.none(),
-            strictUnknownAgents: Option.none(),
-            sourceName: Option.none(),
-          },
-        };
-
-        const result = yield* installSkill(op).pipe(Effect.provide(withServices(axmDir)));
-
-        expect(result.result).toBe("success");
-
-        const canonical = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          sanitizeName(displayName),
-        );
-        expect(fs.existsSync(canonical)).toBe(true);
-      }),
     );
 
     it.effect("calls WorkspaceMutations.setSkill after successful installation", () =>
@@ -718,7 +687,7 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Canonical location should exist (from copy)
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
         expect(fs.existsSync(canonical)).toBe(true);
         expect(fs.lstatSync(canonical).isDirectory()).toBe(true);
 
@@ -742,7 +711,7 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Canonical should be a directory (not a symlink)
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
         expect(fs.lstatSync(canonical).isDirectory()).toBe(true);
 
         // amp should have a symlink
@@ -800,9 +769,9 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         // Pre-create canonical with stale content
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        fs.mkdirSync(canonical, { recursive: true });
-        fs.writeFileSync(path.join(canonical, "stale.txt"), "old content");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        fs.mkdirSync(path.join(canonical, "src"), { recursive: true });
+        fs.writeFileSync(path.join(canonical, "src", "stale.txt"), "old content");
 
         const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir)),
@@ -811,9 +780,9 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Stale file should be gone
-        expect(fs.existsSync(path.join(canonical, "stale.txt"))).toBe(false);
+        expect(fs.existsSync(path.join(canonical, "src", "stale.txt"))).toBe(false);
         // New files should exist
-        expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(canonical, "src", "SKILL.md"))).toBe(true);
       }),
     );
   });
@@ -889,7 +858,7 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    it.effect("uses .axm/extensions/@owner/skills/<name>/src/ for registry sources", () =>
+    it.effect("uses agent_extensions/@owner/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -910,8 +879,7 @@ describe("installSkill", () => {
         // Content should be in the registry canonical src/ subdirectory
         const registryCanonical = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "skills",
           "my-skill",
@@ -922,9 +890,8 @@ describe("installSkill", () => {
         // Should NOT be in the external canonical location
         const externalCanonical = path.join(
           base,
-          ".axm",
-          "extensions",
-          "external",
+          "agent_extensions",
+          "@local",
           "skills",
           "my-skill",
         );
@@ -953,8 +920,7 @@ describe("installSkill", () => {
         // Should use source.owner for canonical path
         const registryCanonical = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@myorg",
           "skills",
           "my-skill",
@@ -1048,14 +1014,7 @@ describe("installSkill", () => {
           writeRegistryLock(axmDir, "1.0.0");
 
           // Workspace-owned rewrite of installed content (e.g. a formatter run).
-          const canonical = path.join(
-            base,
-            ".axm",
-            "extensions",
-            "@community",
-            "skills",
-            "my-skill",
-          );
+          const canonical = path.join(base, "agent_extensions", "@community", "skills", "my-skill");
           fs.writeFileSync(path.join(canonical, "src", "SKILL.md"), "# my-skill\n\nreformatted\n");
 
           const result = yield* installSkill(registryOp()).pipe(
@@ -1150,8 +1109,7 @@ describe("installSkill", () => {
           // Pre-create registry canonical (simulates publish pipeline)
           const registryCanonical = path.join(
             base,
-            ".axm",
-            "extensions",
+            "agent_extensions",
             "@community",
             "skills",
             "my-skill",
@@ -1178,7 +1136,7 @@ describe("installSkill", () => {
         }),
     );
 
-    it.effect("removes from .axm/extensions/ when installing as local source", () =>
+    it.effect("preserves another publisher's acquired package when installing a local source", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -1186,8 +1144,7 @@ describe("installSkill", () => {
         // Pre-create in registry canonical location
         const registryCanonical = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "skills",
           "my-skill",
@@ -1203,19 +1160,11 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Registry location should be cleaned
-        expect(fs.existsSync(path.join(registryCanonical, "old.txt"))).toBe(false);
+        expect(fs.existsSync(path.join(registryCanonical, "old.txt"))).toBe(true);
 
         // New location should have files
-        const newCanonical = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
-        expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
+        const newCanonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        expect(fs.existsSync(path.join(newCanonical, "src", "SKILL.md"))).toBe(true);
       }),
     );
   });
@@ -1359,7 +1308,7 @@ describe("installSkill", () => {
           symlinkFailed: true,
           error: Option.none(),
           path: "/project/.claude/skills/my-skill",
-          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+          canonicalPath: "/project/agent_extensions/@local/skills/my-skill",
         },
         {
           success: true,
@@ -1367,7 +1316,7 @@ describe("installSkill", () => {
           symlinkFailed: false,
           error: Option.none(),
           path: "/project/.cursor/skills/my-skill",
-          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+          canonicalPath: "/project/agent_extensions/@local/skills/my-skill",
         },
       ];
 
@@ -1393,7 +1342,7 @@ describe("installSkill", () => {
           symlinkFailed: true,
           error: Option.some("copy failed"),
           path: "/project/.claude/skills/my-skill",
-          canonicalPath: "/project/.axm/extensions/external/skills/my-skill",
+          canonicalPath: "/project/agent_extensions/@local/skills/my-skill",
         },
       ];
 
@@ -1443,8 +1392,8 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        const content = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        const content = fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf-8");
         expect(content).toBe("# my-skill");
       }),
     );
@@ -1503,8 +1452,7 @@ describe("installSkill", () => {
 
         const srcDir = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "skills",
           "my-skill",
@@ -1527,12 +1475,12 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // The original source SKILL.md should NOT have a marker
-        const sourceContent = fs.readFileSync(path.join(src, "SKILL.md"), "utf-8");
+        const sourceContent = fs.readFileSync(path.join(src, "src", "SKILL.md"), "utf-8");
         expect(sourceContent).toBe("# my-skill");
 
         // The copied canonical SKILL.md should also NOT have a marker (local source)
-        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
-        const canonicalContent = fs.readFileSync(path.join(canonical, "SKILL.md"), "utf-8");
+        const canonical = path.join(base, "agent_extensions", "@local", "skills", "my-skill");
+        const canonicalContent = fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf-8");
         expect(canonicalContent).toBe("# my-skill");
       }),
     );

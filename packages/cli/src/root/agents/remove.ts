@@ -30,10 +30,9 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
-
-const AGENT_SETTINGS_PATH = ".axm/settings.json";
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;
@@ -128,24 +127,26 @@ const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): Planne
   label: `Remove ${agentId}`,
   readiness: "ready",
   artifact: {
-    path: AGENT_SETTINGS_PATH,
+    path: workspaceSettingsPath(ws.scope),
     scope: ws.scope,
     agents: [agentId],
     change: "updated",
     fileCount: 1,
-    targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+    targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
   run: ws.removeConfiguredAgent(agentId).pipe(
     Effect.as({
       result: "success",
       message: `Removed ${agentId}`,
       artifact: {
-        path: AGENT_SETTINGS_PATH,
+        path: workspaceSettingsPath(ws.scope),
         scope: ws.scope,
         agents: [agentId],
         change: "updated",
         fileCount: 1,
-        targets: [{ path: AGENT_SETTINGS_PATH, change: "updated", agentIds: [agentId] }],
+        targets: [
+          { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
+        ],
       },
     } satisfies JobStepResult),
   ),

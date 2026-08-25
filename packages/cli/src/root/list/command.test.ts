@@ -10,7 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import { afterEach, beforeEach } from "vitest";
 
-import { writeWorkspaceFiles } from "../../test-stubs.js";
+import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleList } from "./command.js";
 
@@ -97,6 +97,16 @@ describe("root list", () => {
   ) => {
     const axmDir = path.join(tempDir, ".axm");
     const registryDir = path.join(tempDir, "registry");
+    const skillDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "review");
+    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "skill.json"),
+      JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    fs.writeFileSync(
+      path.join(skillDir, "src", "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
+    );
     writeWorkspaceFiles(axmDir, {
       skills: { review: { source: "@acme/skills/review@^1.0.0", enabled: false } },
       sources: [
@@ -115,22 +125,13 @@ describe("root list", () => {
           integrity: "sha512-AAAA==",
           sourceName: "company",
           publisherBindingId: "hbnd_test",
+          treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
           installedAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
       },
       writeTrustFromLockfile: true,
     });
-    const skillDir = path.join(axmDir, "extensions", "@acme", "skills", "review");
-    fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
-    fs.writeFileSync(
-      path.join(skillDir, "skill.json"),
-      JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
-    );
-    fs.writeFileSync(
-      path.join(skillDir, "src", "SKILL.md"),
-      "---\nname: review\ndescription: Review code\n---\n\n# Review\n",
-    );
     if (registryIndex !== undefined) {
       const indexDir = path.join(registryDir, "extensions", "@acme", "skills", "review");
       fs.mkdirSync(indexDir, { recursive: true });

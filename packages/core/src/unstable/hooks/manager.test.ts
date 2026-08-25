@@ -21,6 +21,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import { HookManager, HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "./refs.js";
 
@@ -58,6 +59,8 @@ const writeHookPackage = (
 const makeLocalHookRef = (name: string, packageRoot: string): LocalHookRef => ({
   type: "hook",
   refType: "local",
+  owner: handle("@acme"),
+  name: extensionName(name),
   source: { type: "local", path: packageRoot },
   location: pathToFileURL(packageRoot).href,
   hook: { name: decodeExtensionNameSync(name) },
@@ -90,16 +93,6 @@ const makeHookManagerLayer = (
   const entries = Object.fromEntries(
     hookNames.map((name) => [name, { source: "./source-hook", enabled: true }]),
   );
-  const locked = Object.fromEntries(
-    hookNames.map((name) => [
-      name,
-      {
-        type: "local" as const,
-        path: decodeRelativePathSync("source-hook"),
-        contentIdentity: TEST_CONTENT_IDENTITY,
-      },
-    ]),
-  );
   return HookManagerLive.pipe(
     Layer.provide(
       Layer.succeed(
@@ -107,7 +100,24 @@ const makeHookManagerLayer = (
         makeBaseWorkspaceMock(nodePath.join(workspaceRoot, ".axm"), {
           getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
           getConfiguredHookEntries: () => Effect.succeed(entries),
-          getLockedHooks: () => Effect.succeed(locked),
+          getLockedHooks: () =>
+            Effect.sync(() =>
+              Object.fromEntries(
+                hookNames.map((name) => [
+                  name,
+                  {
+                    type: "local" as const,
+                    packageOwner: handle("@acme"),
+                    packageName: extensionName(name),
+                    path: decodeRelativePathSync("source-hook"),
+                    contentIdentity: TEST_CONTENT_IDENTITY,
+                    treeIntegrity: computeMaterializedTreeIntegritySync(
+                      nodePath.join(workspaceRoot, "agent_extensions", "@acme", "hooks", name),
+                    ),
+                  },
+                ]),
+              ),
+            ),
         }),
       ),
     ),
@@ -158,7 +168,7 @@ describe("HookManager", () => {
         expect(raw).toContain("echo keep");
         expect(raw).toContain('"PreToolUse"');
         expect(raw).toContain('"matcher": "Write|Edit"');
-        expect(raw).toContain(".axm/extensions/external/hooks/identity-check/src/hook.sh");
+        expect(raw).toContain("agent_extensions/@acme/hooks/identity-check/src/hook.sh");
         expect(raw).not.toContain('"name": "identity-check"');
         expect(existsSync(`${settingsPath}.bak`)).toBe(false);
       } finally {

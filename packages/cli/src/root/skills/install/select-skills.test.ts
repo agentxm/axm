@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { extensionName } from "../../../test-stubs.js";
+import { extensionName, handle } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
@@ -24,6 +24,8 @@ import { determineSkillsToInstall } from "./select-skills.js";
 const makeSkill = (name: string): SkillExtensionRef => ({
   type: "skill",
   refType: "local",
+  owner: handle("@local"),
+  name: extensionName(name),
   skill: { name: extensionName(name), description: Option.none(), metadata: Option.none() },
   source: { type: "local", path: `/fake/${name}` },
   location: `file:///fake/${name}`,

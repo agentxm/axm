@@ -19,11 +19,10 @@ import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle.js";
 import { handleAgentsList } from "./list.js";
+import { writeWorkspaceFiles } from "../../test-stubs.js";
 
 const initWorkspace = (axmDir: string, agents: ReadonlyArray<string>) => {
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }, null, 2));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: {}\n");
+  writeWorkspaceFiles(axmDir, { agents });
 };
 
 describe("agents list.handler", () => {

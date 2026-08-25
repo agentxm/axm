@@ -1,7 +1,7 @@
 /**
- * Canonical-extensions scanner: enumerates `.axm/extensions/<owner>/<local-type>/<name>/src`
- * (canonical AXM) and `.axm/extensions/external/<local-type>/<name>`
- * (external AXM) materializations across all extension types.
+ * Canonical-extensions scanner: enumerates authored project type roots,
+ * project-acquired `agent_extensions/<owner>/<local-type>/<name>`, and the
+ * corresponding user-scope `.axm/extensions` materializations.
  *
  * Per Decision 5 of the workspace read-model design, scanner output is
  * occurrence-shaped. Each emitted occurrence carries the scanner-tier origin
@@ -38,7 +38,7 @@ import { decodeHandleSync, type Handle } from "../../../extensions/handle.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
 import { AXM_DIR_NAME } from "../../paths.js";
 import type { Diagnostics } from "../diagnostics.js";
-import type { Scope } from "../types.js";
+import type { WorkspaceLayout } from "../../layout.js";
 import {
   childEntries,
   fileExists,
@@ -57,8 +57,8 @@ export interface CanonicalExtensionsScannerDeps {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly workspaceRoot: string;
-  readonly scope: Scope;
   readonly diagnostics: Diagnostics;
+  readonly layout: WorkspaceLayout;
 }
 
 /**
@@ -136,7 +136,7 @@ const buildOccurrence = (
   },
 ): Effect.Effect<CanonicalExtensionOccurrence> =>
   Effect.gen(function* () {
-    const { fs, path, scope, diagnostics } = deps;
+    const { fs, path, layout, diagnostics } = deps;
     const resolvedName = args.name ?? path.basename(args.nameDir);
     const subjectFileName = subjectFileNameFor(args.extensionType, resolvedName);
     const subjectFile =
@@ -149,7 +149,7 @@ const buildOccurrence = (
     const contentLocation = makeAbsolutePath(path, args.nameDir);
     const occurrence: CanonicalExtensionOccurrence = {
       _tag: "canonical-extension",
-      scope,
+      scope: layout.scope,
       type: args.extensionType,
       origin: args.origin,
       name: decodeExtensionNameSync(resolvedName),
@@ -278,14 +278,71 @@ const scanExternal = (
     return occurrences.flat();
   });
 
+const authoredTypeDirectories: ReadonlyArray<{
+  readonly type: ExtensionType;
+  readonly localDir: string;
+}> = [
+  { type: "skill", localDir: "skills" },
+  { type: "mcp-server", localDir: "mcps" },
+  { type: "subagent", localDir: "subagents" },
+  { type: "rule", localDir: "rules" },
+  { type: "hook", localDir: "hooks" },
+  { type: "knowledge", localDir: "knowledge" },
+  { type: "pack", localDir: "packs" },
+];
+
+const scanAuthoredType = (
+  deps: CanonicalExtensionsScannerDeps,
+  extensionType: ExtensionType,
+): Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>> =>
+  Effect.gen(function* () {
+    if (deps.layout.scope !== "project" || deps.layout.owner === undefined) return [];
+    const root = deps.layout.authoredRoot(extensionType);
+    const packageCandidates = yield* childEntries(
+      SCANNER_NAME,
+      deps.fs,
+      deps.diagnostics,
+      deps.path,
+      root,
+    );
+    const packageDirs = yield* filterDirectories(deps.fs, packageCandidates);
+    const occurrences = yield* Effect.forEach(
+      packageDirs,
+      (packageDir) => {
+        const nameDir =
+          extensionType === "pack" || extensionType === "mcp-server"
+            ? packageDir
+            : deps.path.join(packageDir, "src");
+        return deps.fs.readDirectory(nameDir).pipe(
+          Effect.flatMap(() =>
+            buildOccurrence(deps, {
+              extensionType,
+              origin: "canonical-axm",
+              nameDir,
+              name: deps.path.basename(packageDir),
+              owner: deps.layout.scope === "project" ? (deps.layout.owner ?? null) : null,
+            }),
+          ),
+          Effect.map((occurrence): ReadonlyArray<CanonicalExtensionOccurrence> => [occurrence]),
+          Effect.catch(() => Effect.succeed([])),
+        );
+      },
+      { concurrency: "unbounded" },
+    );
+    return occurrences.flat();
+  });
+
 // ---------------------------------------------------------------------------
 // Scanner body
 // ---------------------------------------------------------------------------
 
 const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonical-extensions")(
   function* (deps: CanonicalExtensionsScannerDeps) {
-    const { fs, path, workspaceRoot, diagnostics } = deps;
-    const extensionsRoot = path.join(workspaceRoot, AXM_DIR_NAME, "extensions");
+    const { fs, path, workspaceRoot, diagnostics, layout } = deps;
+    const extensionsRoot =
+      layout.scope === "project"
+        ? layout.acquiredRoot
+        : path.join(workspaceRoot, AXM_DIR_NAME, "extensions");
 
     const ownerCandidates = yield* childEntries(
       SCANNER_NAME,
@@ -312,6 +369,13 @@ const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonica
       { concurrency: "unbounded" },
     );
 
-    return occurrences.flat();
+    const acquired = occurrences.flat();
+    if (layout.scope !== "project") return acquired;
+    const authored = yield* Effect.forEach(
+      authoredTypeDirectories,
+      ({ type }) => scanAuthoredType(deps, type),
+      { concurrency: "unbounded" },
+    );
+    return [...acquired, ...authored.flat()];
   },
 );

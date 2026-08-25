@@ -9,6 +9,7 @@
 
 import * as Option from "effect/Option";
 import type { SourceHash } from "../extensions/rendered-files.js";
+import type { TreeIntegrity } from "../extensions/materialized-tree.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import type { SubagentExtensionRef } from "./refs.js";
@@ -34,19 +35,31 @@ const localSourceLockPath = (
 export const buildSubagentLockEntry = (
   ref: SubagentExtensionRef,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
   workspaceRelativeLocalSourcePath: Option.Option<string> = Option.none(),
 ): SubagentLockEntry | undefined => {
   switch (ref.refType) {
     case "git-hosted":
       return {
-        ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
+        ...gitSourceLockFields(
+          ref.source,
+          ref.gitCommitSha,
+          ref.gitTreeSha,
+          contentIdentity,
+          ref.owner,
+          ref.name,
+          treeIntegrity,
+        ),
       };
 
     case "local":
       return {
         type: "local",
+        packageOwner: ref.owner,
+        packageName: ref.name,
         path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
         contentIdentity,
+        treeIntegrity,
       };
 
     case "registry":
@@ -58,6 +71,7 @@ export const buildSubagentLockEntry = (
         integrity: Option.getOrElse(ref.integrity, () => ""),
         sourceName: "default",
         publisherBindingId: ref.publisherBindingId,
+        treeIntegrity,
       };
     case "workspace":
       return undefined;

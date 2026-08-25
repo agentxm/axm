@@ -11,7 +11,7 @@ describe("axm skills install output UX", () => {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, agents: [] }, undefined, 2));
 

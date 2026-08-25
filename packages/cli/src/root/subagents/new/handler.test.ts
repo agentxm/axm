@@ -102,15 +102,7 @@ describe("subagents-new.handler", () => {
           yield* handleSubagentsNew(defaultArgs("my-subagent"));
 
           // Verify manifest
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "subagents",
-            "my-subagent",
-            "subagent.json",
-          );
+          const manifestPath = path.join(tempDir, "subagents", "my-subagent", "subagent.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@acme");
@@ -122,9 +114,6 @@ describe("subagents-new.handler", () => {
           // Verify my-subagent.md
           const subagentMdPath = path.join(
             tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
             "subagents",
             "my-subagent",
             "src",
@@ -135,13 +124,13 @@ describe("subagents-new.handler", () => {
           expect(subagentMd).toContain("name: my-subagent");
 
           // Verify settings registration
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.subagents).toBeDefined();
-          expect(settings.subagents["my-subagent"]).toBe("workspace:@acme/subagents/my-subagent");
+          expect(settings.subagents["my-subagent"]).toBe("workspace");
 
           // Authored workspace content is desired authority and has no lock row.
-          const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfilePath = path.join(tempDir, "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 
@@ -152,7 +141,7 @@ describe("subagents-new.handler", () => {
           expect(rendererState.suggestions).toEqual([
             {
               description:
-                "Edit `.axm/extensions/@acme/subagents/my-subagent/src/my-subagent.md` to fill in instructions",
+                "Edit `subagents/my-subagent/src/my-subagent.md` to fill in instructions",
             },
           ]);
         }),
@@ -182,22 +171,22 @@ describe("subagents-new.handler", () => {
             state: "committed",
             message: "Created subagent @acme/subagents/machine-subagent",
             artifact: {
-              path: ".axm/extensions/@acme/subagents/machine-subagent",
+              path: "subagents/machine-subagent",
               scope: "project",
               version: "0.0.1",
               change: "created",
               fileCount: 2,
               targets: [
                 {
-                  path: ".axm/extensions/@acme/subagents/machine-subagent/subagent.json",
+                  path: "subagents/machine-subagent/subagent.json",
                   change: "created",
                 },
                 {
-                  path: ".axm/extensions/@acme/subagents/machine-subagent/src/machine-subagent.md",
+                  path: "subagents/machine-subagent/src/machine-subagent.md",
                   change: "created",
                 },
                 {
-                  path: ".axm (config/lockfile)",
+                  path: "axm.json",
                   change: "created",
                 },
               ],
@@ -206,7 +195,7 @@ describe("subagents-new.handler", () => {
           expect(rendererState.suggestions).toEqual([
             {
               description:
-                "Edit `.axm/extensions/@acme/subagents/machine-subagent/src/machine-subagent.md` to fill in instructions",
+                "Edit `subagents/machine-subagent/src/machine-subagent.md` to fill in instructions",
             },
           ]);
         }),
@@ -215,23 +204,15 @@ describe("subagents-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("uses --owner override instead of workspace owner", () => {
+    it.effect("accepts an owner override matching the workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@corp" });
 
       return provide(
         Effect.gen(function* () {
           yield* handleSubagentsNew(defaultArgs("my-subagent", { owner: Option.some("@corp") }));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "subagents",
-            "my-subagent",
-            "subagent.json",
-          );
+          const manifestPath = path.join(tempDir, "subagents", "my-subagent", "subagent.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -244,21 +225,13 @@ describe("subagents-new.handler", () => {
 
     it.effect("normalizes owner without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@corp" });
 
       return provide(
         Effect.gen(function* () {
           yield* handleSubagentsNew(defaultArgs("my-subagent", { owner: Option.some("corp") }));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@corp",
-            "subagents",
-            "my-subagent",
-            "subagent.json",
-          );
+          const manifestPath = path.join(tempDir, "subagents", "my-subagent", "subagent.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -363,16 +336,7 @@ describe("subagents-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSubagentsNew(defaultArgs("my-tool"));
 
-          const subagentMdPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "subagents",
-            "my-tool",
-            "src",
-            "my-tool.md",
-          );
+          const subagentMdPath = path.join(tempDir, "subagents", "my-tool", "src", "my-tool.md");
           const content = fs.readFileSync(subagentMdPath, "utf-8");
 
           // Frontmatter has just `name`; body is the placeholder.
@@ -394,19 +358,11 @@ describe("subagents-new.handler", () => {
           yield* handleSubagentsNew(defaultArgs("my-subagent", { preview: true }));
 
           // Manifest should NOT be created
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "subagents",
-            "my-subagent",
-            "subagent.json",
-          );
+          const manifestPath = path.join(tempDir, "subagents", "my-subagent", "subagent.json");
           expect(fs.existsSync(manifestPath)).toBe(false);
 
           // Settings should NOT have the subagent registered
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.subagents?.["my-subagent"]).toBeUndefined();
 

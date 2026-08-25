@@ -31,6 +31,7 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import type { InlineMcpDefinition } from "./import-preflight.js";
 
 export interface McpsAddArgs {
@@ -322,10 +323,10 @@ const configArtifact = (
   scope: "project" | "user",
   change: JobStepArtifact["change"],
 ): JobStepArtifact => ({
-  path: ".axm/settings.json",
+  path: workspaceSettingsPath(scope),
   scope,
   change,
-  targets: [{ path: ".axm/settings.json", change }],
+  targets: [{ path: workspaceSettingsPath(scope), change }],
 });
 
 const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => ({

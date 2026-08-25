@@ -28,13 +28,14 @@ import type { Scope } from "../types.js";
 
 /**
  * Origin tag for an occurrence emitted by the canonical-extensions scanner.
- * `canonical-axm` is `.axm/extensions/<owner>/<type-plural>/src/<name>/`;
- * `external-axm` is `.axm/extensions/external/<type-plural>/<name>/`.
+ * `canonical-axm` covers authored or owner-qualified packages;
+ * `external-axm` covers user-scope external-layout packages.
  */
 export type CanonicalExtensionOriginKind = "canonical-axm" | "external-axm";
 
 /**
- * One materialization observed under `.axm/extensions/...`.
+ * One canonical package materialization observed in an authored root,
+ * `agent_extensions/`, or the user-scope `.axm/extensions/` root.
  *
  * Fields:
  *

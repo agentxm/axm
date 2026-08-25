@@ -123,9 +123,13 @@ describe("local source workspace resolution", () => {
     const workspaceRoot = nodePath.join(root, "workspace");
     const sourceRoot = nodePath.join(root, "sources", "review");
     mkdirSync(nodePath.join(workspaceRoot, ".axm"), { recursive: true });
-    mkdirSync(sourceRoot, { recursive: true });
+    mkdirSync(nodePath.join(sourceRoot, "src"), { recursive: true });
     writeFileSync(
-      nodePath.join(sourceRoot, "SKILL.md"),
+      nodePath.join(sourceRoot, "skill.json"),
+      JSON.stringify({ owner: "@test", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    writeFileSync(
+      nodePath.join(sourceRoot, "src", "SKILL.md"),
       "---\nname: review\ndescription: Review code\n---\n# Review\n",
     );
 
@@ -329,13 +333,13 @@ describe("SourceHostProviders dispatch", () => {
       [],
       Effect.gen(function* () {
         const svc = yield* SourceHostProviders;
-        // Querying a nonexistent local path returns an error (not found)
+        // A nonexistent local source has no discoverable packages.
         const result = yield* svc
           .find({ type: "local", path: "/nonexistent/path" }, defaultFindOptions)
           .pipe(Effect.result);
 
-        // Local provider will fail because the dir doesn't exist
-        expect(result._tag).toBe("Failure");
+        expect(result._tag).toBe("Success");
+        if (result._tag === "Success") expect(result.success).toEqual([]);
       }),
     ),
   );

@@ -25,8 +25,8 @@ describe("display path helpers", () => {
   });
 
   it("normalizes display paths with mixed separators", () => {
-    expect(formatDisplayPath(nodePath.win32, "C:\\_code\\hello-claude\\.axm/settings.json")).toBe(
-      "C:\\_code\\hello-claude\\.axm\\settings.json",
+    expect(formatDisplayPath(nodePath.win32, "C:\\_code\\hello-claude\\axm.json")).toBe(
+      "C:\\_code\\hello-claude\\axm.json",
     );
   });
 });

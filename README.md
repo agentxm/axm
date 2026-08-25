@@ -72,7 +72,8 @@ npm install -g axm.sh
 ## Getting started
 
 Initialize AXM in your project. AXM detects your installed agents and creates
-an `.axm/` workspace to manage extensions across all of them.
+root `axm.json`; acquired packages and accepted external resolutions are kept
+in `agent_extensions/` and `axm-lock.yaml`, while `.axm/` is runtime scratch.
 
 ```bash
 axm setup
@@ -150,7 +151,7 @@ Top-level commands work across every extension type and infer the target from
 your input:
 
 ```bash
-axm install                          # Sync extensions from .axm/settings.json
+axm install                          # Sync extensions from axm.json
 axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
 axm list                             # Inventory extensions across all types
@@ -176,11 +177,12 @@ axm lint                             # 3. Check the publish gate locally
 axm publish                          # 4. Publish new authored versions; verify existing ones
 ```
 
-Authorship is derived from the intrinsic
-`workspace:@owner/<plural-type>/<name>` settings source. Bare, filtered, and
-explicit selections publish only workspace-authored packages. Adopt a retained
-canonical package when this workspace should own it, or fork an installed
-package to publish it under a new identity.
+Authorship is derived from the exact intrinsic `workspace` settings source,
+the project `owner`, the settings map key, the extension type, and the matching
+manifest in that type's authored root. Bare, filtered, and explicit selections
+publish only workspace-authored packages. Adopt a retained canonical package
+when this workspace should own it, or fork an installed package to publish it
+under a new identity.
 
 AXM builds a deterministic archive from each selected authored package. For an
 existing immutable version, `--on-existing verify` rebuilds that archive and
@@ -205,7 +207,7 @@ axm lint --json             # Machine-readable findings envelope
 ```
 
 Project scope is the default. Local `lint.rules` overrides in
-`.axm/settings.json` affect `axm lint` only — the registry publish gate
+`axm.json` affect `axm lint` only — the registry publish gate
 remains authoritative.
 
 ## Authentication

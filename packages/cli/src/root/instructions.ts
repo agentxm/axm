@@ -36,6 +36,7 @@ import { withRuntime, withWorkspace } from "../runtime.js";
 import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
 import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
+import { workspaceSettingsPath } from "./shared/workspace-display-paths.js";
 import {
   disableInstructionManagement,
   instructionReconciliationReadiness,
@@ -264,7 +265,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
       label: "Enable instruction-file management",
       readiness: "ready",
       artifact: {
-        path: ".axm/settings.json",
+        path: workspaceSettingsPath(ws.scope),
         scope: ws.scope,
         change: "updated",
       },
@@ -298,7 +299,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
             result: "success",
             message: "Enabled and reconciled instruction-file management",
             artifact: {
-              path: ".axm/settings.json",
+              path: workspaceSettingsPath(ws.scope),
               scope: ws.scope,
               change: "updated",
             },
@@ -358,7 +359,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
       label: "Disable instruction-file management",
       readiness: "ready",
       artifact: {
-        path: ".axm/settings.json",
+        path: workspaceSettingsPath(ws.scope),
         scope: ws.scope,
         change: "updated",
       },
@@ -376,7 +377,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
             result: "success",
             message: "Disabled instruction-file management and removed owned aliases",
             artifact: {
-              path: ".axm/settings.json",
+              path: workspaceSettingsPath(ws.scope),
               scope: ws.scope,
               change: "updated",
             },

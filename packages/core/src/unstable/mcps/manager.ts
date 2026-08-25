@@ -26,16 +26,24 @@ import type {
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   canReuseInstalledPackage,
-  materializeRegistryPackage,
-  REGISTRY_EXTENSIONS_DIR,
+  materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
+import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -47,7 +55,10 @@ export class McpServerManager extends ServiceMap.Service<
 >()("@agentxm/client-core/unstable/mcps/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
-const buildMcpServerLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry => ({
+const buildMcpServerLockEntry = (
+  ref: RegistryMcpServerRef,
+  treeIntegrity: TreeIntegrity,
+): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -55,37 +66,8 @@ const buildMcpServerLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry 
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
 });
-
-const checkInstalledOnDisk = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  serverName: string,
-) =>
-  Effect.gen(function* () {
-    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!extensionsDirExists) return false;
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        const serverPath = pathService.join(extensionsDir, scopeDir, "mcps", serverName);
-        return fsService.exists(serverPath).pipe(Effect.catch(() => Effect.succeed(false)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  });
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -109,6 +91,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
+    const lastTreeIntegrities = new Map<string, TreeIntegrity>();
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
       Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
@@ -126,18 +109,16 @@ export const McpServerManagerLive = Layer.effect(
         }
 
         const registryRef = ref;
-        const canonicalPath = path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          registryRef.owner,
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          ws.layout,
+          registryRef,
           "mcps",
           registryRef.name,
-        );
+        ).canonicalPath;
 
-        const lockedVersion = acceptedRegistryVersionForRef(
-          yield* ws.getLockedMcpServer(registryRef.server.name),
-          registryRef,
-        );
+        const lockedEntry = yield* ws.getLockedMcpServer(registryRef.server.name);
+        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, registryRef);
         const useExisting = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
@@ -149,23 +130,29 @@ export const McpServerManagerLive = Layer.effect(
           }),
         );
 
-        if (!useExisting) {
-          yield* provide(
-            materializeRegistryPackage({
-              baseDir,
-              destinationPath: canonicalPath,
-              sourceLocation: registryRef.source.location,
-              owner: registryRef.owner,
-              type: "mcp-server",
-              name: registryRef.name,
-              version: registryRef.version,
-              integrity: registryRef.integrity,
-              messages: {
-                integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
-              },
-            }),
-          );
+        if (useExisting && Option.isSome(lockedEntry)) {
+          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+          if (observedTree === lockedEntry.value.treeIntegrity) {
+            lastTreeIntegrities.set(registryRef.server.name, lockedEntry.value.treeIntegrity);
+            return;
+          }
         }
+        const materialized = yield* provide(
+          materializeRegistryPackageWithTreeIntegrity({
+            baseDir,
+            destinationPath: canonicalPath,
+            sourceLocation: registryRef.source.location,
+            owner: registryRef.owner,
+            type: "mcp-server",
+            name: registryRef.name,
+            version: registryRef.version,
+            integrity: registryRef.integrity,
+            messages: {
+              integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+            },
+          }),
+        );
+        lastTreeIntegrities.set(registryRef.server.name, materialized.treeIntegrity);
       }, Effect.asVoid);
 
     const makeMaterializeRemoval = (
@@ -205,47 +192,26 @@ export const McpServerManagerLive = Layer.effect(
         );
 
         if (retainCanonical) return;
-        const extensionsDir = path.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-        const extensionsDirExists = yield* fs.exists(extensionsDir).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to inspect registry MCP server directory: ${extensionsDir}`,
-              cause: error,
-            }),
-          ),
+        const canonical = yield* provide(
+          acceptedCanonicalObservation({
+            workspace: ws,
+            type: "mcp-server",
+            name: target.name,
+          }),
         );
-
-        if (!extensionsDirExists) return;
-
-        const scopeDirs = yield* fs.readDirectory(extensionsDir).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to list registry MCP server directory: ${extensionsDir}`,
-              cause: error,
-            }),
-          ),
-        );
-
-        yield* Effect.forEach(
-          scopeDirs,
-          (scopeDir) => {
-            if (!scopeDir.startsWith("@")) return Effect.void;
-            const serverPath = path.join(extensionsDir, scopeDir, "mcps", target.name);
-            return protectWorkspacePath(serverPath).pipe(
-              Effect.andThen(fs.remove(serverPath, { recursive: true, force: true })),
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to remove registry MCP server source: ${serverPath}`,
-                  cause: error,
-                }),
-              ),
-            );
-          },
-          { concurrency: "unbounded" },
-        );
+        const serverPath = removableAcceptedCanonicalPath(canonical);
+        if (Option.isSome(serverPath)) {
+          yield* protectWorkspacePath(serverPath.value);
+          yield* fs.remove(serverPath.value, { recursive: true, force: true }).pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to remove MCP server package: ${serverPath.value}`,
+                cause,
+              }),
+            ),
+          );
+        }
       }, Effect.asVoid);
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
@@ -258,11 +224,7 @@ export const McpServerManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        if (yield* isObservedInstalled(ws, "mcp-server", target.name)) {
-          return true;
-        }
-
-        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        return yield* isObservedInstalled(ws, "mcp-server", target.name);
       }),
 
       materializeInstall,
@@ -277,7 +239,7 @@ export const McpServerManagerLive = Layer.effect(
           .rows("mcp-server")
           .pipe(Effect.map(configuredRowsByName));
         return yield* configuredMcpServersToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope },
+          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
           configured,
         );
       }),
@@ -299,7 +261,16 @@ export const McpServerManagerLive = Layer.effect(
           registryRef.version,
         ).pipe(
           Effect.flatMap(() => {
-            const lockEntry = buildMcpServerLockEntry(registryRef);
+            const treeIntegrity = lastTreeIntegrities.get(registryRef.server.name);
+            if (treeIntegrity === undefined) {
+              return Effect.fail(
+                makeAppError({
+                  code: "internal",
+                  detail: `MCP server ${registryRef.server.name} has no materialized tree integrity`,
+                }),
+              );
+            }
+            const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity);
             return ws.setMcpServer({
               name: ref.server.name,
               lockEntry,
@@ -326,7 +297,16 @@ export const McpServerManagerLive = Layer.effect(
           registryRef.version,
         ).pipe(
           Effect.flatMap(() => {
-            const lockEntry = buildMcpServerLockEntry(registryRef);
+            const treeIntegrity = lastTreeIntegrities.get(registryRef.server.name);
+            if (treeIntegrity === undefined) {
+              return Effect.fail(
+                makeAppError({
+                  code: "internal",
+                  detail: `MCP server ${registryRef.server.name} has no materialized tree integrity`,
+                }),
+              );
+            }
+            const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity);
             return ws.setMcpServerLock({
               name: ref.server.name,
               lockEntry,

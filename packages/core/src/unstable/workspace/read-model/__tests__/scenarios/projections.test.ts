@@ -74,16 +74,19 @@ const authoredPackFiles = (
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 4,
+  lockfileVersion: 5,
   skills: {
     [skillName]: {
       type: "github",
+      packageOwner: "@owner",
+      packageName: skillName,
       owner: "owner",
       repo: "repo",
       ref: "main",
       resolvedCommit: "commit-main",
       resolvedTree: "tree-main",
       contentIdentity: "content-main",
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     },
   },
 });
@@ -151,7 +154,7 @@ describe("projection: pack-provided skill is implicit installed inventory", () =
         settings: {
           _tag: "valid",
           contents: settingsJson({
-            packs: { "team-pack": "workspace:@team/packs/team-pack" },
+            packs: { "team-pack": "workspace" },
           }),
         },
         axmExtensions: authoredPackFiles("team-pack", {
@@ -178,7 +181,7 @@ describe("projection: direct skill declaration wins over pack membership", () =>
         settings: {
           _tag: "valid",
           contents: settingsJson({
-            packs: { "team-pack": "workspace:@team/packs/team-pack" },
+            packs: { "team-pack": "workspace" },
             skills: { "review-tool": "github:owner/review-tool" },
           }),
         },
@@ -233,7 +236,7 @@ describe("projection: pack-provided subagent is implicit installed inventory", (
         settings: {
           _tag: "valid",
           contents: settingsJson({
-            packs: { "team-pack": "workspace:@team/packs/team-pack" },
+            packs: { "team-pack": "workspace" },
           }),
         },
         axmExtensions: authoredPackFiles("team-pack", {
@@ -267,7 +270,7 @@ describe("projection: direct subagent declaration wins (disabled) over pack memb
           settings: {
             _tag: "valid",
             contents: settingsJson({
-              packs: { "team-pack": "workspace:@team/packs/team-pack" },
+              packs: { "team-pack": "workspace" },
               subagents: {
                 "code-reviewer": {
                   source: "github:owner/code-reviewer",
@@ -379,14 +382,14 @@ describe("projection: packs are not installed as pack members", () => {
           settings: {
             _tag: "valid",
             contents: settingsJson({
-              packs: { "platform-pack": "workspace:@team/packs/platform-pack" },
+              packs: { "platform-pack": "workspace" },
             }),
           },
           axmExtensions: authoredPackFiles("platform-pack", {}),
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 4,
+              lockfileVersion: 5,
               skills: {},
               packs: {
                 // nested-pack is in the lockfile but not declared in settings;
@@ -400,6 +403,7 @@ describe("projection: packs are not installed as pack members", () => {
                   sourceName: "registry",
                   publisherBindingId: "hbnd_test",
                   manifestContentIdentity: "nested-content",
+                  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
                 },
               },
             },

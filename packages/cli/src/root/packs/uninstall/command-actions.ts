@@ -12,6 +12,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
 import { PackManager, type PackRef } from "@agentxm/client-core/unstable/packs";
 import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
@@ -43,6 +44,7 @@ import type {
 } from "@agentxm/client-core/unstable/workspace";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
+import { workspaceCanonicalNodePath } from "../../shared/workspace-display-paths.js";
 import { expandGlob } from "@agentxm/client-core/unstable/utils";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import {
@@ -176,6 +178,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
     const mcpServerMgr = yield* McpServerManager;
     const ruleManager = yield* RuleManager;
     const subagentMgr = yield* SubagentManager;
+    const path = yield* Path.Path;
 
     const parseArgs = (args: UninstallPackHandlerArgs) =>
       Effect.gen(function* () {
@@ -254,6 +257,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const graphReadiness = planPackUninstallGraphReadiness(
           observedGraph,
           intent.packsToUninstall.map((pack) => pack.desiredIdentity),
+          ws.scope,
         );
         if (graphReadiness.readiness === "blocked") {
           return {
@@ -348,11 +352,7 @@ export const UninstallPackCommandWorkflowActionsLive = Layer.effect(
         const sourcePathByTarget = new Map(
           graph.nodes.map((node) => [
             `${node.type}:${node.name}`,
-            `.axm/extensions/${
-              node.identity.startsWith("workspace:")
-                ? node.identity.slice("workspace:".length)
-                : node.identity
-            }`,
+            workspaceCanonicalNodePath(path, ws, node),
           ]),
         );
 

@@ -110,6 +110,9 @@ const getFirstAnyOfRecord = (schema: Record<string, unknown>): Record<string, un
 };
 
 const getAnnotatedAllOfRecord = (schema: Record<string, unknown>): Record<string, unknown> => {
+  if (typeof schema["description"] === "string" && Array.isArray(schema["examples"])) {
+    return schema;
+  }
   const allOf = schema["allOf"];
   if (!Array.isArray(allOf)) {
     throw new Error("Expected allOf to contain annotation records.");
@@ -231,8 +234,8 @@ describe("generated schemas", () => {
     const lockfileVersion = getProperty(getDefinition(lockSchema, "Lockfile"), "lockfileVersion");
 
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([4]);
-    expect(lockfileVersion["default"]).toBe(4);
+    expect(lockfileVersion["enum"]).toEqual([5]);
+    expect(lockfileVersion["default"]).toBe(5);
   });
 
   it("publishes common manifest field annotations", () => {
@@ -297,7 +300,7 @@ describe("generated schemas", () => {
     expect(agentId["enum"]).not.toContain("universal");
 
     const agents = getProperty(settings, "agents");
-    expect(agents["allOf"]).toEqual(expect.arrayContaining([{ uniqueItems: true }]));
+    expect(agents["uniqueItems"]).toBe(true);
   });
 
   it("publishes settings entry annotations inline", () => {

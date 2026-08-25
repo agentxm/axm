@@ -15,9 +15,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import {
-  REGISTRY_EXTENSIONS_DIR,
   canReuseInstalledPackage,
-  replaceCanonicalDirectory,
+  replaceCanonicalDirectoryWithInspection,
 } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef } from "./refs.js";
@@ -29,15 +28,21 @@ import type {
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import { sanitizeName } from "../extensions/utils.js";
-import { computePackPaths } from "./paths.js";
+import { computePackPathsForLayout } from "./paths.js";
 import { removeIfExists } from "../utils/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
-import { printSourceParams } from "../sources/index.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import { computePackManifestContentIdentity } from "./manifest-content-identity.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -51,6 +56,7 @@ export class PackManager extends ServiceMap.Service<PackManager, ExtensionManage
 const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionRange: Option.Option<string>,
+  treeIntegrity: TreeIntegrity,
 ): SetPackArgs => ({
   type: "registry",
   owner: ref.owner,
@@ -59,6 +65,7 @@ const buildSetPackArgs = (
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
   manifestContentIdentity: computePackManifestContentIdentity({
     owner: ref.owner,
     type: "pack",
@@ -68,48 +75,6 @@ const buildSetPackArgs = (
   }),
   versionRange,
 });
-
-const checkInstalledOnDisk = (
-  fsService: FileSystem.FileSystem,
-  pathService: Path.Path,
-  baseDir: string,
-  packName: string,
-) =>
-  Effect.gen(function* () {
-    const extensionsDir = pathService.join(baseDir, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!extensionsDirExists) return false;
-
-    const candidateNames = [packName];
-    const sanitizedName = sanitizeName(packName);
-    if (sanitizedName !== packName) {
-      candidateNames.push(sanitizedName);
-    }
-
-    const scopeDirs = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-    const results = yield* Effect.forEach(
-      scopeDirs,
-      (scopeDir) => {
-        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
-        return Effect.forEach(
-          candidateNames,
-          (candidateName) => {
-            const packPath = pathService.join(extensionsDir, scopeDir, "packs", candidateName);
-            return fsService.exists(packPath).pipe(Effect.catch(() => Effect.succeed(false)));
-          },
-          { concurrency: "unbounded" },
-        ).pipe(Effect.map((candidates) => candidates.some((exists) => exists)));
-      },
-      { concurrency: "unbounded" },
-    );
-
-    return results.some((exists) => exists);
-  });
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -133,6 +98,7 @@ export const PackManagerLive = Layer.effect(
     const provide = <A, E>(
       effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
     ): Effect.Effect<A, E, never> => Effect.provide(effect, fsPathLayer);
+    const lastTreeIntegrities = new Map<string, TreeIntegrity>();
     const materializeInstall: ExtensionManager<PackRef>["materializeInstall"] = Effect.fn(
       "PackManager.materializeInstall",
     )(function* ({ ref, force }: { readonly ref: PackRef; readonly force?: boolean }) {
@@ -140,7 +106,13 @@ export const PackManagerLive = Layer.effect(
         yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
       }
 
-      const packDir = computePackPaths(path.join, baseDir, ref.owner, ref.pack.name).canonicalPath;
+      const packDir = computePackPathsForLayout(
+        path.join,
+        ws.layout,
+        ref.refType === "workspace" ? "workspace" : "external",
+        ref.owner,
+        ref.pack.name,
+      ).canonicalPath;
       const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
       if (ref.refType === "workspace") {
         if (ref.scope !== ws.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
@@ -157,10 +129,8 @@ export const PackManagerLive = Layer.effect(
         }
         return;
       }
-      const lockedVersion = acceptedRegistryVersionForRef(
-        yield* ws.getLockedPack(ref.pack.name),
-        ref,
-      );
+      const lockedEntry = yield* ws.getLockedPack(ref.pack.name);
+      const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
       if (
         yield* provide(
           canReuseInstalledPackage({
@@ -174,7 +144,13 @@ export const PackManagerLive = Layer.effect(
           }),
         )
       ) {
-        return;
+        if (Option.isSome(lockedEntry)) {
+          const observedTree = yield* provide(computeMaterializedTreeIntegrity(packDir));
+          if (observedTree === lockedEntry.value.treeIntegrity) {
+            lastTreeIntegrities.set(ref.pack.name, lockedEntry.value.treeIntegrity);
+            return;
+          }
+        }
       }
 
       yield* Effect.scoped(
@@ -188,8 +164,8 @@ export const PackManagerLive = Layer.effect(
               }),
             ),
           );
-          yield* provide(
-            replaceCanonicalDirectory({
+          const materialized = yield* provide(
+            replaceCanonicalDirectoryWithInspection({
               baseDir,
               canonicalPath: packDir,
               populate: (stagingPath) =>
@@ -202,16 +178,21 @@ export const PackManagerLive = Layer.effect(
                     }),
                   ),
                 ),
+              inspect: computeMaterializedTreeIntegrity,
             }),
           );
+          lastTreeIntegrities.set(ref.pack.name, materialized.inspection);
         }),
       );
     });
     const materializeUninstall: ExtensionManager<PackRef>["materializeUninstall"] = Effect.fn(
       "PackManager.materializeUninstall",
     )(function* ({ target }) {
-      const packDir = computePackPaths(path.join, baseDir, target.owner, target.name).canonicalPath;
-      yield* removeIfExists(fs, packDir);
+      const canonical = yield* provide(
+        acceptedCanonicalObservation({ workspace: ws, type: "pack", name: target.name }),
+      );
+      const packDir = removableAcceptedCanonicalPath(canonical);
+      if (Option.isSome(packDir)) yield* removeIfExists(fs, packDir.value);
     });
     const materializeDeactivate: ExtensionManager<PackRef>["materializeDeactivate"] = () =>
       Effect.void;
@@ -219,8 +200,18 @@ export const PackManagerLive = Layer.effect(
     const buildCurrentPackArgs = (
       ref: PackRef,
       versionRange: Option.Option<string>,
-    ): Option.Option<SetPackArgs> =>
-      ref.refType === "registry" ? Option.some(buildSetPackArgs(ref, versionRange)) : Option.none();
+    ): Effect.Effect<Option.Option<SetPackArgs>, ReturnType<typeof makeAppError>> =>
+      Effect.gen(function* () {
+        if (ref.refType !== "registry") return Option.none();
+        const treeIntegrity = lastTreeIntegrities.get(ref.pack.name);
+        if (treeIntegrity === undefined) {
+          return yield* makeAppError({
+            code: "internal",
+            detail: `Pack ${ref.pack.name} has no materialized tree integrity`,
+          });
+        }
+        return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity));
+      });
 
     return {
       type: "pack",
@@ -230,11 +221,7 @@ export const PackManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        if (yield* isObservedInstalled(ws, "pack", target.name)) {
-          return true;
-        }
-
-        return yield* checkInstalledOnDisk(fs, path, baseDir, target.name);
+        return yield* isObservedInstalled(ws, "pack", target.name);
       }),
       materializeInstall,
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
@@ -243,7 +230,10 @@ export const PackManagerLive = Layer.effect(
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
         const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
-        return yield* configuredPacksToDiskRefs({ fs, path, baseDir, scope: ws.scope }, configured);
+        return yield* configuredPacksToDiskRefs(
+          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
+          configured,
+        );
       }),
       materializeUninstall,
       materializeDeactivate,
@@ -255,12 +245,12 @@ export const PackManagerLive = Layer.effect(
         readonly ref: PackRef;
         readonly versionRange: Option.Option<string>;
       }) {
-        const args = buildCurrentPackArgs(ref, versionRange);
+        const args = yield* buildCurrentPackArgs(ref, versionRange);
         if (Option.isSome(args)) {
           yield* ws.setPack(args.value);
         } else {
           yield* ws.setPackEntry(ref.pack.name, {
-            source: printSourceParams(ref.source),
+            source: "workspace",
             enabled: true,
           });
         }
@@ -270,7 +260,7 @@ export const PackManagerLive = Layer.effect(
         ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({ ref }) {
-        const args = buildCurrentPackArgs(ref, Option.none());
+        const args = yield* buildCurrentPackArgs(ref, Option.none());
         if (Option.isSome(args)) {
           yield* ws.setPackLock(args.value);
         } else {

@@ -9,5 +9,4 @@
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const isWorkspaceSourceLocator = (source: string): boolean =>
-  source.startsWith("workspace:");
+export const isWorkspaceSourceLocator = (source: string): boolean => source === "workspace";

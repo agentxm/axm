@@ -14,7 +14,7 @@ const makeContext = (
     type: desired.type,
     name: desired.name,
     status: "locally-modified",
-    path: `/workspace/.axm/extensions/${desired.name}`,
+    path: `/workspace/skills/${desired.name}`,
     contentIdentity: "sha256-working",
   },
 ): Effect.Effect<WorkspaceRuleContext> =>
@@ -70,7 +70,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       type: "skill",
       name: "draft-skill",
       identity: "workspace:@test/skills/draft-skill",
-      source: "workspace:@test/skills/draft-skill",
+      source: "workspace",
       enabled: true,
       constraints: [],
       origins: [],

@@ -188,7 +188,9 @@ export const expectAppliedPlanResult = (
   const total = options.totalSteps ?? 1;
   expectPlanContract(result);
   if (property(result, "outcome") !== "applied") {
-    throw new Error(`Expected plan result outcome to be applied`);
+    throw new Error(
+      `Expected plan result outcome to be applied; received ${String(property(result, "outcome"))}: ${JSON.stringify(result["failure"])}`,
+    );
   }
   if (property(result, "planName") !== options.planName) {
     throw new Error(`Expected plan result planName to be ${options.planName}`);

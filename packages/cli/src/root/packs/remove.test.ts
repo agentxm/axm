@@ -41,12 +41,7 @@ const initWorkspace = (
     packs:
       opts.packs === undefined
         ? undefined
-        : Object.fromEntries(
-            Object.keys(opts.packs).map((name) => [
-              name,
-              `workspace:${opts.profile ?? "@acme"}/packs/${name}`,
-            ]),
-          ),
+        : Object.fromEntries(Object.keys(opts.packs).map((name) => [name, "workspace"])),
   });
 };
 
@@ -56,7 +51,7 @@ const createPackManifest = (
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", owner, "packs", name);
+  const packDir = path.join(tempDir, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   const normalizedManifest = {
     ...manifest,
@@ -67,7 +62,7 @@ const createPackManifest = (
     dependencies: manifest["dependencies"] ?? {},
   };
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
-  const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
+  const lockfilePath = path.join(tempDir, "axm-lock.yaml");
   const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
   const skills = expectRecord(lockfile["skills"] ?? {});
   const updatedSkills: Record<string, unknown> = { ...skills };
@@ -88,6 +83,7 @@ const createPackManifest = (
       integrity: `sha512-${skillName}`,
       sourceName: "default",
       publisherBindingId: `hbnd_${skillName}`,
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
       installedAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z",
     };
@@ -149,18 +145,7 @@ describe("packs-remove.handler", () => {
 
         const manifest = expectRecord(
           JSON.parse(
-            fs.readFileSync(
-              path.join(
-                tempDir,
-                ".axm",
-                "extensions",
-                "@acme",
-                "packs",
-                "frontend-tools",
-                "pack.json",
-              ),
-              "utf8",
-            ),
+            fs.readFileSync(path.join(tempDir, "packs", "frontend-tools", "pack.json"), "utf8"),
           ),
         );
         expect(expectRecord(manifest["dependencies"])["@acme/skills/review"]).toBeUndefined();
@@ -188,15 +173,7 @@ describe("packs-remove.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/skills/code-review"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
@@ -204,7 +181,7 @@ describe("packs-remove.handler", () => {
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
           expect(rendererState.summaries).toContain(
-            "frontend-tools   updated   1 file   .axm/extensions/@acme/packs/frontend-tools/pack.json",
+            "frontend-tools   updated   1 file   packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
             { description: "Inspect installed packs", cmd: "axm packs list" },
@@ -219,7 +196,7 @@ describe("packs-remove.handler", () => {
           expect(property(firstUnit, "state")).toBe("committed");
           const artifact = expectRecord(property(firstUnit, "artifact"));
           expect(artifact).toMatchObject({
-            path: ".axm/extensions/@acme/packs/frontend-tools/pack.json",
+            path: "packs/frontend-tools/pack.json",
             scope: "project",
             change: "updated",
             fileCount: 1,
@@ -252,15 +229,7 @@ describe("packs-remove.handler", () => {
           );
 
           // Manifest should still have the extension (not removed)
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBe("^1.2.0");
           expect(manifest.dependencies["@acme/skills/linting"]).toBe("^2.0.0");
@@ -293,15 +262,7 @@ describe("packs-remove.handler", () => {
         Effect.gen(function* () {
           yield* handlePacksRemove(defaultArgs("my-pack", "@acme/skills/effect-*"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "my-pack",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "my-pack", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/effect-basics"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/effect-streams"]).toBeUndefined();
@@ -358,15 +319,7 @@ describe("packs-remove.handler", () => {
           // Second removal (hash is re-read from updated manifest)
           yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/skills/linting"));
 
-          const manifestPath = path.join(
-            tempDir,
-            ".axm",
-            "extensions",
-            "@acme",
-            "packs",
-            "frontend-tools",
-            "pack.json",
-          );
+          const manifestPath = path.join(tempDir, "packs", "frontend-tools", "pack.json");
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.dependencies["@acme/skills/code-review"]).toBeUndefined();
           expect(manifest.dependencies["@acme/skills/linting"]).toBeUndefined();

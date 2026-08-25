@@ -2,24 +2,33 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
 import { AppError } from "../../app-error/index.js";
+import { handle } from "../../test-helpers.js";
+import { makeAbsolutePath } from "../../utils/path-types.js";
+import { resolveProjectWorkspaceLayout } from "../layout.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 
 const makeSkillPackage = (baseDir: string, manifest: Readonly<Record<string, unknown>>): string => {
-  const packageDir = path.join(baseDir, ".axm", "extensions", "@acme", "skills", "review");
+  const packageDir = path.join(baseDir, "skills", "review");
   fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
   fs.writeFileSync(path.join(packageDir, "skill.json"), JSON.stringify(manifest));
   fs.writeFileSync(path.join(packageDir, "src", "SKILL.md"), "# Review\n");
   return packageDir;
 };
 
-describe("resolveWorkspaceExtensionRef", () => {
+layer(NodeServices.layer, { excludeTestServices: true })("resolveWorkspaceExtensionRef", (it) => {
   it.effect("resolves and hashes the canonical package without a source provider", () =>
     Effect.gen(function* () {
       const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-workspace-ref-"));
       try {
+        const pathService = yield* Path.Path;
+        const layout = yield* resolveProjectWorkspaceLayout(
+          makeAbsolutePath(pathService, baseDir),
+          { owner: handle("@acme") },
+        );
         const packageDir = makeSkillPackage(baseDir, {
           owner: "@acme",
           type: "skill",
@@ -29,11 +38,11 @@ describe("resolveWorkspaceExtensionRef", () => {
 
         const ref = yield* resolveWorkspaceExtensionRef({
           settingsName: "review",
-          source: "workspace:@acme/skills/review",
+          source: "workspace",
           expectedType: "skill",
-          baseDir,
+          layout,
           scope: "project",
-        }).pipe(Effect.provide(NodeServices.layer));
+        });
 
         expect(ref.type).toBe("skill");
         expect(ref.refType).toBe("workspace");
@@ -50,6 +59,11 @@ describe("resolveWorkspaceExtensionRef", () => {
     Effect.gen(function* () {
       const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-workspace-ref-"));
       try {
+        const pathService = yield* Path.Path;
+        const layout = yield* resolveProjectWorkspaceLayout(
+          makeAbsolutePath(pathService, baseDir),
+          { owner: handle("@acme") },
+        );
         makeSkillPackage(baseDir, {
           owner: "@other",
           type: "skill",
@@ -59,11 +73,11 @@ describe("resolveWorkspaceExtensionRef", () => {
 
         const error = yield* resolveWorkspaceExtensionRef({
           settingsName: "review",
-          source: "workspace:@acme/skills/review",
+          source: "workspace",
           expectedType: "skill",
-          baseDir,
+          layout,
           scope: "project",
-        }).pipe(Effect.provide(NodeServices.layer), Effect.flip);
+        }).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.detail).toContain("manifest identity");
@@ -77,13 +91,18 @@ describe("resolveWorkspaceExtensionRef", () => {
     Effect.gen(function* () {
       const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-workspace-ref-"));
       try {
+        const pathService = yield* Path.Path;
+        const layout = yield* resolveProjectWorkspaceLayout(
+          makeAbsolutePath(pathService, baseDir),
+          { owner: handle("@acme") },
+        );
         const error = yield* resolveWorkspaceExtensionRef({
           settingsName: "review",
-          source: "workspace:@acme/skills/review",
+          source: "workspace",
           expectedType: "skill",
-          baseDir,
+          layout,
           scope: "project",
-        }).pipe(Effect.provide(NodeServices.layer), Effect.flip);
+        }).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(AppError);
         expect(error.detail).toContain("canonical package is missing");

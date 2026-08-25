@@ -1,13 +1,14 @@
 # Settings
 
-Desired AXM workspace state lives in `.axm/settings.json`. Accepted external
+Desired project AXM workspace state lives in `axm.json`. Accepted external
 resolution and observed state are separate; see `axm help workspace-state`.
+User scope retains `.axm/settings.json` under the user's AXM directory.
 
 Telemetry is execution policy, not workspace state. A top-level `telemetry`
 key is unrecognized and strict linting reports it. Use `AXM_TELEMETRY` or
 `DO_NOT_TRACK`; see `axm help environment` for values and precedence.
 
-## `.axm/settings.json`
+## `axm.json`
 
 [`settings.json`](https://axm.sh/schemas/settings.schema.json)
 
@@ -55,15 +56,16 @@ Extension entries live under `skills`, `mcpServers`, `subagents`, `rules`,
 string or an object with metadata such as `enabled`.
 
 Prefer the plain source string. Use the object form when you need metadata such
-as `enabled: false`. A workspace-authored package uses the intrinsic source
-`workspace:@owner/<plural-type>/<name>`; authorship is derived from that source.
+as `enabled: false`. A project-authored package uses the exact intrinsic source
+`workspace`; authorship combines the project `owner`, the map key, the
+extension type, and the manifest at that type's authored root.
 
 ```jsonc
 {
   "skills": {
     "code-review": "@acme/skills/code-review@^1.0.0",
     "disabled-review": { "source": "@acme/skills/disabled-review@^1.0.0", "enabled": false },
-    "house-style": "workspace:@acme/skills/house-style",
+    "house-style": "workspace",
   },
 }
 ```
@@ -128,6 +130,14 @@ Workspace publication defaults live under `publish`. An extension manifest's
 ```
 
 `lint` configures workspace-only severity overrides for `axm lint`.
+
+Each extension type has an optional authored-root setting such as
+`skillsConfig.dir`, `rulesConfig.dir`, or `packsConfig.dir`. The value must be a
+normalized workspace-relative directory contained by the project. Authored
+roots cannot overlap reserved runtime, acquired-package, agent-projection, or
+other authored roots, and direct package directories cannot be symlinks. The
+defaults are `skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, and
+`packs`.
 
 ## MCP servers
 

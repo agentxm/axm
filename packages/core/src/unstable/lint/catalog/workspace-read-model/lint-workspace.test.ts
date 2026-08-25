@@ -22,6 +22,7 @@ const WORKSPACE_ROOT = "/workspace";
 const USER_HOME = "/home/user";
 
 const installedAt = "2026-01-01T00:00:00.000Z";
+const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
 
 const baseManifest = {
   owner: "@acme",
@@ -71,7 +72,7 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 4,
+  lockfileVersion: 5,
   skills: {
     "bad-skill": {
       type: "registry",
@@ -82,6 +83,7 @@ const lockfile = {
       sourceName: "default",
 
       publisherBindingId: "hbnd_test",
+      treeIntegrity,
       installedAt,
       updatedAt: installedAt,
       agents: [],
@@ -97,6 +99,7 @@ const lockfile = {
       sourceName: "default",
 
       publisherBindingId: "hbnd_test",
+      treeIntegrity,
       installedAt,
       updatedAt: installedAt,
     },
@@ -119,6 +122,7 @@ const fixture = (packJson: object | string): FixtureSpec => ({
         _tag: "valid",
         contents: manifestFixtures.subagent,
       },
+      "@acme/subagents/bad-subagent/src/bad-subagent.md": "# Bad subagent\n",
       "@acme/mcps/bad-mcp/mcp.json": {
         _tag: "valid",
         contents: manifestFixtures.mcpServer,

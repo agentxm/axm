@@ -27,16 +27,14 @@ const manifestVersion = (content: string): string | null => {
 };
 
 const isOfficialSource = (source: string): boolean =>
-  source === AXM_SKILL_FQN ||
-  source.startsWith(`${AXM_SKILL_FQN}@`) ||
-  source === `workspace:${AXM_SKILL_FQN}`;
+  source === AXM_SKILL_FQN || source.startsWith(`${AXM_SKILL_FQN}@`) || source === "workspace";
 
 export interface ReadAxmSkillWorkspaceCompatibilityArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
   };
-  readonly workspace: Pick<WorkspaceReadModel, "skills">;
+  readonly workspace: Pick<WorkspaceReadModel, "scope" | "skills">;
   readonly policy: AxmSkillCompatibilityPolicyService;
 }
 
@@ -77,11 +75,12 @@ export const readAxmSkillWorkspaceCompatibility = (
       const skillDirectory = occurrence.packageRoot;
       const skillsDirectory = args.platform.path.dirname(skillDirectory);
       const ownerDirectory = args.platform.path.dirname(skillsDirectory);
-      return (
+      const projectAuthored =
         args.platform.path.basename(skillDirectory) === "axm" &&
-        args.platform.path.basename(skillsDirectory) === "skills" &&
-        args.platform.path.basename(ownerDirectory) === "@agentxm"
-      );
+        args.platform.path.basename(skillsDirectory) === "skills";
+      return args.workspace.scope === "project"
+        ? projectAuthored
+        : projectAuthored && args.platform.path.basename(ownerDirectory) === "@agentxm";
     });
     const manifestContent =
       actual?.packageRoot === null || actual?.packageRoot === undefined

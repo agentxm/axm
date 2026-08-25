@@ -28,7 +28,11 @@ const graph = (
   problems: DesiredStateGraph["problems"] = [],
 ): DesiredStateGraph => ({ complete: problems.length === 0, nodes, problems });
 
-const node = (origins: DesiredExtensionNode["origins"]): DesiredExtensionNode => ({
+type DesiredOrigin = DesiredExtensionNode["origins"][number];
+type TestOrigin =
+  DesiredOrigin | Omit<Extract<DesiredOrigin, { readonly type: "pack" }>, "manifestPath">;
+
+const node = (origins: ReadonlyArray<TestOrigin>): DesiredExtensionNode => ({
   type: "skill",
   name: "review",
   identity: target.fqn,
@@ -37,7 +41,14 @@ const node = (origins: DesiredExtensionNode["origins"]): DesiredExtensionNode =>
   constraints: origins.flatMap((origin) =>
     origin.constraint === undefined ? [] : [origin.constraint],
   ),
-  origins,
+  origins: origins.map((origin) =>
+    origin.type === "pack" && !("manifestPath" in origin)
+      ? {
+          ...origin,
+          manifestPath: `/workspace/agent_extensions/${origin.pack}/pack.json`,
+        }
+      : origin,
+  ),
 });
 
 describe("classifyTargetedUpdate", () => {
@@ -92,7 +103,8 @@ describe("classifyTargetedUpdate", () => {
           },
         ]),
       ]),
-      configuredPacks: [configuredPack("toolkit", "workspace:@acme/packs/toolkit")],
+      configuredPacks: [configuredPack("toolkit", "workspace")],
+      configuredOwner: "@acme",
     });
 
     expect(context.public).toMatchObject({
@@ -133,8 +145,8 @@ describe("classifyTargetedUpdate", () => {
         ]),
       ]),
       configuredPacks: [
-        configuredPack("toolkit", "workspace:@acme/packs/toolkit"),
-        configuredPack("reviewers", "workspace:@acme/packs/reviewers"),
+        configuredPack("toolkit", "workspace"),
+        configuredPack("reviewers", "workspace"),
       ],
     });
 
@@ -166,7 +178,7 @@ describe("classifyTargetedUpdate", () => {
           },
         ]),
       ]),
-      configuredPacks: [configuredPack("toolkit", "workspace:@acme/packs/toolkit")],
+      configuredPacks: [configuredPack("toolkit", "workspace")],
     });
 
     expect(context.public).toMatchObject({
@@ -226,13 +238,14 @@ describe("classifyTargetedUpdate", () => {
           {
             type: "pack",
             pack: "@acme/packs/toolkit",
-            source: `workspace:${target.fqn}`,
+            source: "workspace",
             constraint: "^1.0.0",
             enabled: true,
           },
         ]),
       ]),
-      configuredPacks: [configuredPack("toolkit", "workspace:@acme/packs/toolkit")],
+      configuredPacks: [configuredPack("toolkit", "workspace")],
+      configuredOwner: "@acme",
     });
 
     expect(context.public).toMatchObject({

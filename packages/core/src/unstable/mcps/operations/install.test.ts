@@ -298,7 +298,7 @@ describe("installMcpServer", () => {
     name = "my-server",
     runnable = true,
   ) => {
-    const canonicalPath = path.join(base, ".axm", "extensions", owner, "mcps", name);
+    const canonicalPath = path.join(base, "agent_extensions", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp.json"),
@@ -373,8 +373,7 @@ describe("installMcpServer", () => {
 
         const canonicalPath = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "mcps",
           "my-server",
@@ -552,8 +551,7 @@ describe("installMcpServer", () => {
 
         const canonicalPath = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@community",
           "mcps",
           "my-server",
@@ -786,10 +784,10 @@ describe("installMcpServer", () => {
             fileCount: 3,
             targets: [
               expect.objectContaining({
-                path: ".axm/extensions/@community/mcps/my-server",
+                path: "agent_extensions/@community/mcps/my-server",
                 change: "created",
               }),
-              { path: ".axm (config/lockfile)", change: "created" },
+              { path: "axm.json", change: "created" },
               {
                 path: ".mcp.json",
                 change: "created",
@@ -910,8 +908,8 @@ describe("installMcpServer", () => {
             agents: [],
             fileCount: 2,
             targets: [
-              expect.objectContaining({ path: ".axm/extensions/@community/mcps/my-server" }),
-              expect.objectContaining({ path: ".axm (config/lockfile)" }),
+              expect.objectContaining({ path: "agent_extensions/@community/mcps/my-server" }),
+              expect.objectContaining({ path: "axm.json" }),
             ],
           }),
         );

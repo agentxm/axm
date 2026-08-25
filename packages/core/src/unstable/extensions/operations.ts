@@ -620,7 +620,10 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
           result: "success" as const,
           message: `Removed ${toLabel(args.target)}`,
         } satisfies JobStepResult,
-        expectedInstalled: false,
+        expectedInstalled: Option.match(configuredSource, {
+          onNone: () => undefined,
+          onSome: (source) => (isWorkspaceSourceLocator(source) ? undefined : false),
+        }),
       };
     });
 
@@ -639,7 +642,10 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
               }
             }
             const installed = yield* manager.isInstalled({ target: args.target });
-            if (installed !== outcome.expectedInstalled) {
+            if (
+              outcome.expectedInstalled !== undefined &&
+              installed !== outcome.expectedInstalled
+            ) {
               return yield* makeAppError({
                 code: "internal",
                 detail: `Uninstalled ${args.target.type} "${args.target.name}" has an invalid observed postcondition`,

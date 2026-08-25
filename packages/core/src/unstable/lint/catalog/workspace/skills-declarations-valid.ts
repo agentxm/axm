@@ -27,37 +27,37 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import type { WorkspaceRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 import { categorizeEntry, type Categorized } from "./helpers/source-categorize.js";
 
 const RULE_ID = "workspace/skills-declarations-valid";
-const SETTINGS_REL = ".axm/settings.json";
-
-const findingForBareName = (entry: Categorized): AdvisoryFinding => ({
+const findingForBareName = (entry: Categorized, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${entry.name}' uses ambiguous bare source '${entry.source}'.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
-const findingForMissingOwner = (entry: Categorized): AdvisoryFinding => ({
+const findingForMissingOwner = (entry: Categorized, settingsPath: string): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${entry.name}' source '${entry.source}' is missing its owner-qualified identity.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 const findingForDuplicate = (
   entry: Categorized,
   duplicates: ReadonlyArray<string>,
+  settingsPath: string,
 ): AdvisoryFinding => ({
   kind: "advisory",
   ruleId: RULE_ID,
   severity: "error",
   message: `Skill '${entry.name}' duplicates the same Skill identity as: ${duplicates.join(", ")}.`,
-  location: { file: SETTINGS_REL },
+  location: { file: settingsPath },
 });
 
 export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -91,13 +91,14 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       }
 
       const findings: Array<AdvisoryFinding> = [];
+      const settingsPath = settingsDisplayPath(context.subject.scope);
       for (const entry of entries) {
         if (entry.kind === "bare") {
-          findings.push(findingForBareName(entry));
+          findings.push(findingForBareName(entry, settingsPath));
           continue;
         }
         if (entry.kind === "registry-no-owner") {
-          findings.push(findingForMissingOwner(entry));
+          findings.push(findingForMissingOwner(entry, settingsPath));
           continue;
         }
         if (entry.kind === "non-registry") {
@@ -111,7 +112,9 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         ) {
           const group = byFqn.get(entry.registryFqn) ?? [];
           if (group.length > 1) {
-            findings.push(findingForDuplicate(entry, group.map((g) => g.name).sort()));
+            findings.push(
+              findingForDuplicate(entry, group.map((g) => g.name).sort(), settingsPath),
+            );
           }
         }
       }

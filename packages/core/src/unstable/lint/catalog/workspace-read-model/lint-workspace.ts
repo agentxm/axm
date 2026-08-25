@@ -78,6 +78,7 @@ import { KNOWLEDGE_MANIFEST_FILENAME } from "../../../knowledge/manifest-schema.
 import { inspectKnowledgePackage } from "../../../knowledge/package-inspection.js";
 import type { KnowledgeInspection } from "../../../knowledge/okf.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "../../../mcps/manifest-schema.js";
+import { canonicalDisplayRoot } from "../workspace/display-paths.js";
 import { RULE_MANIFEST_FILENAME } from "../../../rules/manifest-schema.js";
 import { PACK_MANIFEST_FILENAME } from "../../../packs/manifest-schema.js";
 import { PackManifestSchema } from "../../../packs/manifest-schema.js";
@@ -499,7 +500,7 @@ const installedPackAuthority = (installed: InstalledPack): PackDependencyAuthori
   if (installed.installationOrigin._tag !== "direct") return "registry";
   const declared = installed.installationOrigin.declared.entry;
   const source = typeof declared === "string" ? declared : declared.source;
-  return source.startsWith("workspace:") ? "workspace" : "registry";
+  return source === "workspace" ? "workspace" : "registry";
 };
 
 const toPackDependencyDeclaration = (entry: NamedPack) => {
@@ -714,9 +715,10 @@ const installedSkillToInfo = (
     info: buildExternalInstalledSkillInfo({
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
       name: skill.key.name,
     }),
-    packageDisplayRoot: externalSkillDisplayRoot(skill.key.name),
+    packageDisplayRoot: externalSkillDisplayRoot(args.scope, skill.key.name),
   };
 };
 
@@ -728,11 +730,12 @@ const nativeSkillInfo = (
   info: buildNativeInstalledSkillInfo({
     platform: args.platform,
     workspaceRoot: args.workspaceRoot,
+    scope: args.scope,
     owner,
     name,
     skillJson: undefined,
   }),
-  packageDisplayRoot: `.axm/extensions/${owner}/skills/${name}`,
+  packageDisplayRoot: `${canonicalDisplayRoot(args.scope)}/${owner}/skills/${name}`,
 });
 
 const installedPackToInfo = (
@@ -753,6 +756,7 @@ const installedPackToInfo = (
     return buildInstalledPackInfo({
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
+      scope: args.scope,
       owner: resolved.value.lockEntry.owner,
       name: pack.key.name,
       packJson: undefined,
@@ -765,6 +769,7 @@ const installedPackToInfo = (
       return buildInstalledPackInfo({
         platform: args.platform,
         workspaceRoot: args.workspaceRoot,
+        scope: args.scope,
         owner: parsed.owner,
         name: pack.key.name,
         packJson: undefined,
@@ -900,7 +905,7 @@ const canonicalPackageRoot = (
     ? undefined
     : args.platform.path.resolve(
         args.workspaceRoot,
-        `.axm/extensions/${owner}/${subject.plural}/${subject.name}`,
+        `${canonicalDisplayRoot(args.scope)}/${owner}/${subject.plural}/${subject.name}`,
       );
 };
 
@@ -962,7 +967,7 @@ const subagentPackageRoot = (
   if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
     return args.platform.path.resolve(
       args.workspaceRoot,
-      `.axm/extensions/${resolved.value.lockEntry.owner}/subagents/${subagent.key.name}`,
+      `${canonicalDisplayRoot(args.scope)}/${resolved.value.lockEntry.owner}/subagents/${subagent.key.name}`,
     );
   }
 
@@ -971,7 +976,7 @@ const subagentPackageRoot = (
     if (parsed !== undefined && parsed.type === "subagents") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `.axm/extensions/${parsed.owner}/subagents/${subagent.key.name}`,
+        `${canonicalDisplayRoot(args.scope)}/${parsed.owner}/subagents/${subagent.key.name}`,
       );
     }
   }
@@ -992,7 +997,7 @@ const mcpServerPackageRoot = (
   if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
     return args.platform.path.resolve(
       args.workspaceRoot,
-      `.axm/extensions/${resolved.value.lockEntry.owner}/mcps/${mcpServer.key.name}`,
+      `${canonicalDisplayRoot(args.scope)}/${resolved.value.lockEntry.owner}/mcps/${mcpServer.key.name}`,
     );
   }
 
@@ -1001,7 +1006,7 @@ const mcpServerPackageRoot = (
     if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,
-        `.axm/extensions/${parsed.owner}/mcps/${mcpServer.key.name}`,
+        `${canonicalDisplayRoot(args.scope)}/${parsed.owner}/mcps/${mcpServer.key.name}`,
       );
     }
   }
@@ -1038,16 +1043,19 @@ const relativeDisplayRoot = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const registryNativeSkillDisplayRoot = (owner: string, name: string): string =>
-  `.axm/extensions/${owner}/skills/${name}/src`;
+export const registryNativeSkillDisplayRoot = (
+  scope: "project" | "user",
+  owner: string,
+  name: string,
+): string => `${canonicalDisplayRoot(scope)}/${owner}/skills/${name}/src`;
 
 /**
  * Compute the `displayRoot` for an external (non-native) skill.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const externalSkillDisplayRoot = (name: string): string =>
-  `.axm/extensions/external/skills/${name}`;
+export const externalSkillDisplayRoot = (scope: "project" | "user", name: string): string =>
+  `${canonicalDisplayRoot(scope)}/external/skills/${name}`;
 
 /**
  * Compute the `displayRoot` for a registry-installed pack.
@@ -1057,8 +1065,11 @@ export const externalSkillDisplayRoot = (name: string): string =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const registryPackDisplayRoot = (owner: string, name: string): string =>
-  `.axm/extensions/${owner}/packs/${name}`;
+export const registryPackDisplayRoot = (
+  scope: "project" | "user",
+  owner: string,
+  name: string,
+): string => `${canonicalDisplayRoot(scope)}/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
 // Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
@@ -1074,6 +1085,7 @@ export interface BuildInstalledSkillInfoNativeArgs {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
   readonly owner: string;
   readonly name: string;
   readonly skillJson: unknown;
@@ -1089,14 +1101,14 @@ export const buildNativeInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `.axm/extensions/${args.owner}/skills/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/${args.owner}/skills/${args.name}`,
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
     isNative: true,
     skillJson: args.skillJson,
     expectedName: args.name,
-    displayRoot: registryNativeSkillDisplayRoot(args.owner, args.name),
+    displayRoot: registryNativeSkillDisplayRoot(args.scope, args.owner, args.name),
     files: makePlatformSkillFileAccessor(args.platform, contentRoot),
     packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
   };
@@ -1111,6 +1123,7 @@ export interface BuildInstalledSkillInfoExternalArgs {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
   readonly name: string;
 }
 
@@ -1124,14 +1137,14 @@ export const buildExternalInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const absoluteRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `.axm/extensions/external/skills/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/external/skills/${args.name}`,
   );
   const accessor = makePlatformSkillFileAccessor(args.platform, absoluteRoot);
   return {
     isNative: false,
     skillJson: undefined,
     expectedName: args.name,
-    displayRoot: externalSkillDisplayRoot(args.name),
+    displayRoot: externalSkillDisplayRoot(args.scope, args.name),
     files: accessor,
     packageFiles: accessor,
   };
@@ -1146,6 +1159,7 @@ export interface BuildInstalledPackInfoArgs {
     readonly path: Path.Path;
   };
   readonly workspaceRoot: string;
+  readonly scope: "project" | "user";
   readonly owner: string;
   readonly name: string;
   readonly packJson: unknown;
@@ -1161,11 +1175,11 @@ export interface BuildInstalledPackInfoArgs {
 export const buildInstalledPackInfo = (args: BuildInstalledPackInfoArgs): InstalledPackInfo => {
   const absoluteRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `.axm/extensions/${args.owner}/packs/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/${args.owner}/packs/${args.name}`,
   );
   return {
     packJson: args.packJson,
-    displayRoot: registryPackDisplayRoot(args.owner, args.name),
+    displayRoot: registryPackDisplayRoot(args.scope, args.owner, args.name),
     files: makePlatformPackFileAccessor(args.platform, absoluteRoot),
   };
 };

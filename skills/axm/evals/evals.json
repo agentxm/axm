@@ -326,7 +326,7 @@
     {
       "id": 31,
       "stage": "execution",
-      "prompt": "This uninitialized workspace has no `.axm/settings.json`. Install a skill named review-api and report completion without modifying files.",
+      "prompt": "This uninitialized project has no `axm.json`. Install a skill named review-api and report completion without modifying files.",
       "expected_output": "A stopped AXM mutation with the observed workspace and exact-target prerequisites plus a safe recovery route; no hand-edited state and no success claim.",
       "assertions": [
         "The response stops because the workspace and exact install target are unresolved.",
@@ -348,7 +348,7 @@
     {
       "id": 33,
       "stage": "execution",
-      "prompt": "This directory has no `.axm/settings.json`. Set up AXM non-interactively for Codex, but the exact candidate has not yet been reviewed.",
+      "prompt": "This directory has no `axm.json`. Set up AXM non-interactively for Codex, but the exact candidate has not yet been reviewed.",
       "expected_output": "A no-write setup preview and a request to review the exact scope, agent candidate, and steps before apply.",
       "assertions": [
         "The workspace-not-initialized state is recognized.",
@@ -369,7 +369,7 @@
     {
       "id": 35,
       "stage": "execution",
-      "prompt": "Treat this AXM resolution as supplied evidence: target `workspace:@acme/skills/review-api`, canonical at `.axm/extensions/@acme/skills/review-api`. Without modifying files, explain how its semantic instructions are updated.",
+      "prompt": "Treat this AXM resolution as supplied evidence: target `@acme/skills/review-api` has exact source `workspace` and its project-authored canonical package is at `skills/review-api`. Without modifying files, explain how its semantic instructions are updated.",
       "expected_output": "A handoff to the applicable authoring workflow in canonical source, with AXM retaining package/lifecycle responsibility and no invented generic edit command.",
       "assertions": [
         "The supplied workspace-authored canonical package is identified.",
@@ -634,7 +634,7 @@
     {
       "id": 60,
       "stage": "execution",
-      "prompt": "Treat this AXM resolution as supplied evidence: workspace-authored canonical package `@acme/skills/review-api` is at `.axm/extensions/@acme/skills/review-api`, and there is no generic edit command. Without modifying files, give the semantic-authoring and verification plan.",
+      "prompt": "Treat this AXM resolution as supplied evidence: workspace-authored canonical package `@acme/skills/review-api` is at `skills/review-api`, and there is no generic edit command. Without modifying files, give the semantic-authoring and verification plan.",
       "expected_output": "A plan that hands semantic editing to the applicable authoring workflow in canonical source, followed by AXM lint and projection verification.",
       "assertions": [
         "Absence of a generic AXM edit command does not block the semantic-authoring plan.",

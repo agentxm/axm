@@ -1,5 +1,5 @@
 /**
- * Settings management for .axm/settings.json.
+ * Settings management for AXM workspace configuration.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -180,27 +180,27 @@ export const renderExistingSettings = (
 // -----------------------------------------------------------------------------
 
 /**
- * Write settings to .axm/settings.json.
+ * Write settings to the selected scope's settings path.
  *
  * Creates the directory if it doesn't exist. Pretty-prints JSON with 2-space indent.
  *
- * @param axmDir - Path to the .axm directory
+ * @param settingsPath - Exact project or user settings path
  * @param settings - Settings object to write
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeSettings = (axmDir: string, settings: Settings) =>
+export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
+    const settingsDir = path.dirname(settingsPath);
 
     // Ensure directory exists
-    yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
+    yield* fs.makeDirectory(settingsDir, { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
           code: "internal",
-          detail: `Failed to create directory: ${axmDir}`,
+          detail: `Failed to create directory: ${settingsDir}`,
           cause: error,
         }),
       ),
@@ -288,4 +288,11 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
         }),
     });
     yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
+  });
+
+/** Write legacy user-scope settings beneath the supplied AXM directory. */
+export const writeSettings = (axmDir: string, settings: Settings) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    yield* writeSettingsAtPath(path.join(axmDir, SETTINGS_FILENAME), settings);
   });

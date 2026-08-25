@@ -28,8 +28,8 @@ function setupWorkspaceWithRegistry() {
   const temp = createTempDir();
   const registryDir = createTempDir("axm-registry-");
 
-  const settingsPath = path.join(temp.path, ".axm", "settings.json");
-  const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+  const settingsPath = path.join(temp.path, "axm.json");
+  const lockPath = path.join(temp.path, "axm-lock.yaml");
 
   const readSettings = () => JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   const readLock = () => YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -53,7 +53,7 @@ function configureRegistrySource(settingsPath: string, registryUrl: string, owne
 }
 
 function writeSkillPackage(workspaceRoot: string, name: string, version = "1.0.0") {
-  const skillDir = path.join(workspaceRoot, ".axm", "extensions", "@test", "skills", name);
+  const skillDir = path.join(workspaceRoot, "skills", name);
   const srcDir = path.join(skillDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -76,7 +76,7 @@ function writeSkillPackage(workspaceRoot: string, name: string, version = "1.0.0
 }
 
 function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.0.0") {
-  const subagentDir = path.join(workspaceRoot, ".axm", "extensions", "@test", "subagents", name);
+  const subagentDir = path.join(workspaceRoot, "subagents", name);
   const srcDir = path.join(subagentDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -108,7 +108,7 @@ function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.
 
 async function publishRegistrySkill(registryPath: string, name: string) {
   const workspace = createTempDir();
-  const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+  const settingsPath = path.join(workspace.path, "axm.json");
 
   try {
     await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -138,7 +138,7 @@ async function publishRegistryPack(
   dependencies: Record<string, string>,
 ) {
   const workspace = createTempDir();
-  const settingsPath = path.join(workspace.path, ".axm", "settings.json");
+  const settingsPath = path.join(workspace.path, "axm.json");
 
   try {
     const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -171,15 +171,7 @@ function updatePackManifest(
     dependencies: Record<string, string>;
   },
 ) {
-  const manifestPath = path.join(
-    workspaceRoot,
-    ".axm",
-    "extensions",
-    "@test",
-    "packs",
-    packName,
-    "pack.json",
-  );
+  const manifestPath = path.join(workspaceRoot, "packs", packName, "pack.json");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
   manifest.version = args.version;
   manifest.dependencies = args.dependencies;
@@ -200,7 +192,7 @@ function detachWorkspacePack(
   const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
   if (lock.packs) delete lock.packs[packName];
   fs.writeFileSync(lockPath, YAML.stringify(lock));
-  fs.rmSync(path.join(workspaceRoot, ".axm", "extensions", "@test", "packs", packName), {
+  fs.rmSync(path.join(workspaceRoot, "packs", packName), {
     recursive: true,
     force: true,
   });
@@ -226,15 +218,7 @@ describe("axm packs new", () => {
       expect(result.exitCode).toBe(0);
 
       // Verify manifest created
-      const manifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "frontend-tools",
-        "pack.json",
-      );
+      const manifestPath = path.join(temp.path, "packs", "frontend-tools", "pack.json");
       expect(fs.existsSync(manifestPath)).toBe(true);
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -253,13 +237,13 @@ describe("axm packs new", () => {
     }
   });
 
-  it("respects --owner override", async () => {
+  it("uses the configured owner when an explicit owner agrees", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
-      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`, "@custom");
 
       const result = await runCli(["packs", "new", "my-pack", "--owner", "@custom", "--yes"], {
         cwd: temp.path,
@@ -267,15 +251,7 @@ describe("axm packs new", () => {
 
       expect(result.exitCode).toBe(0);
 
-      const manifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@custom",
-        "packs",
-        "my-pack",
-        "pack.json",
-      );
+      const manifestPath = path.join(temp.path, "packs", "my-pack", "pack.json");
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
       expect(manifest.owner).toBe("@custom");
@@ -318,15 +294,7 @@ describe("axm packs new", () => {
       });
       expect(create.exitCode, create.stderr).toBe(0);
 
-      const manifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "drifted-pack",
-        "pack.json",
-      );
+      const manifestPath = path.join(temp.path, "packs", "drifted-pack", "pack.json");
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
       fs.writeFileSync(
         manifestPath,
@@ -417,10 +385,7 @@ describe("axm packs add/remove", () => {
       expect(addRegistry.exitCode, addRegistry.stderr).toBe(0);
 
       const manifest = JSON.parse(
-        fs.readFileSync(
-          path.join(temp.path, ".axm", "extensions", "@test", "packs", "mixed-pack", "pack.json"),
-          "utf8",
-        ),
+        fs.readFileSync(path.join(temp.path, "packs", "mixed-pack", "pack.json"), "utf8"),
       );
       expect(manifest.dependencies).toEqual({
         "@test/skills/registry-member": ">=0.0.1",
@@ -440,15 +405,7 @@ describe("axm packs add/remove", () => {
         cwd: temp.path,
       });
       expect(unrelated.exitCode, unrelated.stderr).toBe(0);
-      const driftedManifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "drifted-pack",
-        "pack.json",
-      );
+      const driftedManifestPath = path.join(temp.path, "packs", "drifted-pack", "pack.json");
       const driftedManifest = JSON.parse(fs.readFileSync(driftedManifestPath, "utf-8"));
       driftedManifest.description = "Changed outside AXM";
       fs.writeFileSync(driftedManifestPath, JSON.stringify(driftedManifest, null, 2));
@@ -583,15 +540,7 @@ describe("axm packs install", () => {
       const created = await runCli(["packs", "new", packName, "--yes"], { cwd: temp.path });
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
 
-      const manifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        packName,
-        "pack.json",
-      );
+      const manifestPath = path.join(temp.path, "packs", packName, "pack.json");
       const before = {
         settings: fs.readFileSync(settingsPath, "utf8"),
         lock: fs.readFileSync(lockPath, "utf8"),
@@ -663,7 +612,7 @@ describe("axm packs install", () => {
         { cwd: temp.path },
       );
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
-      const canonical = path.join(temp.path, ".axm", "extensions", "@test", "skills", skillName);
+      const canonical = path.join(temp.path, "skills", skillName);
       const beforeManifest = fs.readFileSync(path.join(canonical, "skill.json"), "utf8");
       const beforeSkill = fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8");
 
@@ -689,7 +638,7 @@ describe("axm packs install", () => {
           ],
         },
       });
-      expect(readSettings().skills?.[skillName]).toBe(`workspace:@test/skills/${skillName}`);
+      expect(readSettings().skills?.[skillName]).toBe("workspace");
       expect(readLock().skills?.[skillName]).toBeUndefined();
       expect(readLock().packs?.[packName]).toMatchObject({
         type: "registry",
@@ -823,8 +772,7 @@ describe("axm packs install", () => {
       expect(directDesiredEntry).toBeDefined();
       const directCanonical = path.join(
         temp.path,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@test",
         "skills",
         directSkill,
@@ -912,7 +860,7 @@ describe("axm packs install", () => {
       expect(lock.packs?.[secondPack]).toMatchObject({ type: "registry" });
 
       for (const skill of [directSkill, firstMember, secondMember]) {
-        const canonical = path.join(temp.path, ".axm", "extensions", "@test", "skills", skill);
+        const canonical = path.join(temp.path, "agent_extensions", "@test", "skills", skill);
         const projection = path.join(temp.path, ".claude", "skills", skill);
         expect(fs.existsSync(canonical), `${skill} canonical package`).toBe(true);
         expect(fs.lstatSync(projection).isSymbolicLink(), `${skill} Claude projection`).toBe(true);
@@ -991,8 +939,7 @@ describe("axm packs install", () => {
       // Verify pack directory exists on disk
       const packDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@test",
         "packs",
         "installable-pack",
@@ -1057,7 +1004,7 @@ describe("axm packs install", () => {
       expect(readLock().skills?.["recoverable-member"]).toMatchObject({ type: "registry" });
       expect(
         fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "@test", "skills", "recoverable-member"),
+          path.join(temp.path, "agent_extensions", "@test", "skills", "recoverable-member"),
         ),
       ).toBe(true);
       expect(
@@ -1139,8 +1086,8 @@ describe("axm packs install", () => {
       });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      // Manually create a skill in .axm/extensions/
-      const skillDir = path.join(temp.path, ".axm", "extensions", "@test", "skills", "dep-skill");
+      // Manually create an authored skill.
+      const skillDir = path.join(temp.path, "skills", "dep-skill");
       const srcDir = path.join(skillDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(
@@ -1165,7 +1112,7 @@ describe("axm packs install", () => {
       const settingsWithSkill = readSettings();
       settingsWithSkill.skills = {
         ...settingsWithSkill.skills,
-        "dep-skill": "workspace:@test/skills/dep-skill",
+        "dep-skill": "workspace",
       };
       fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSkill, null, 2));
 
@@ -1179,15 +1126,7 @@ describe("axm packs install", () => {
       await runCli(["packs", "new", "deps-pack", "--yes"], { cwd: temp.path });
 
       // Manually add the skill to the pack manifest
-      const packManifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "deps-pack",
-        "pack.json",
-      );
+      const packManifestPath = path.join(temp.path, "packs", "deps-pack", "pack.json");
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/skills/dep-skill": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
@@ -1208,9 +1147,9 @@ describe("axm packs install", () => {
 
       const lockBefore = readLock();
       if (lockBefore.packs) delete lockBefore.packs["deps-pack"];
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
 
-      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "deps-pack"), {
+      fs.rmSync(path.join(temp.path, "packs", "deps-pack"), {
         recursive: true,
         force: true,
       });
@@ -1259,7 +1198,7 @@ describe("axm packs install", () => {
       const settingsWithSubagent = readSettings();
       settingsWithSubagent.subagents = {
         ...settingsWithSubagent.subagents,
-        "dep-subagent": "workspace:@test/subagents/dep-subagent",
+        "dep-subagent": "workspace",
       };
       fs.writeFileSync(settingsPath, JSON.stringify(settingsWithSubagent, null, 2));
 
@@ -1274,15 +1213,7 @@ describe("axm packs install", () => {
 
       await runCli(["packs", "new", "subagent-pack", "--yes"], { cwd: temp.path });
 
-      const packManifestPath = path.join(
-        temp.path,
-        ".axm",
-        "extensions",
-        "@test",
-        "packs",
-        "subagent-pack",
-        "pack.json",
-      );
+      const packManifestPath = path.join(temp.path, "packs", "subagent-pack", "pack.json");
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
       packManifest.dependencies = { "@test/subagents/dep-subagent": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
@@ -1301,9 +1232,9 @@ describe("axm packs install", () => {
 
       const lockBefore = readLock();
       if (lockBefore.packs) delete lockBefore.packs["subagent-pack"];
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
 
-      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "subagent-pack"), {
+      fs.rmSync(path.join(temp.path, "packs", "subagent-pack"), {
         recursive: true,
         force: true,
       });
@@ -1329,7 +1260,7 @@ describe("axm packs install", () => {
       expect(settings.subagents?.["dep-subagent"]).toBeUndefined();
       expect(
         fs.existsSync(
-          path.join(temp.path, ".axm", "extensions", "@test", "subagents", "dep-subagent"),
+          path.join(temp.path, "agent_extensions", "@test", "subagents", "dep-subagent"),
         ),
       ).toBe(true);
     } finally {
@@ -1351,9 +1282,9 @@ describe("axm packs install", () => {
     const consumer = createTempDir();
     const registryDir = createTempDir("axm-registry-");
 
-    const authorSettingsPath = path.join(author.path, ".axm", "settings.json");
-    const consumerSettingsPath = path.join(consumer.path, ".axm", "settings.json");
-    const consumerLockPath = path.join(consumer.path, ".axm", "axm-lock.yaml");
+    const authorSettingsPath = path.join(author.path, "axm.json");
+    const consumerSettingsPath = path.join(consumer.path, "axm.json");
+    const consumerLockPath = path.join(consumer.path, "axm-lock.yaml");
 
     try {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -1404,8 +1335,7 @@ describe("axm packs install", () => {
 
       const droppedCanonicalPath = path.join(
         consumer.path,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@test",
         "skills",
         "dropped-skill",
@@ -1413,8 +1343,7 @@ describe("axm packs install", () => {
       const droppedAgentPath = path.join(consumer.path, ".claude", "skills", "dropped-skill");
       const keptCanonicalPath = path.join(
         consumer.path,
-        ".axm",
-        "extensions",
+        "agent_extensions",
         "@test",
         "skills",
         "kept-skill",
@@ -1494,9 +1423,9 @@ describe("axm packs install", () => {
 
       const lockBefore = readLock();
       if (lockBefore.packs) delete lockBefore.packs["preview-pack"];
-      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
 
-      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "preview-pack"), {
+      fs.rmSync(path.join(temp.path, "packs", "preview-pack"), {
         recursive: true,
         force: true,
       });
@@ -1535,7 +1464,7 @@ describe("axm packs uninstall", () => {
     await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
       cwd: temp.path,
     });
-    const settingsPath = path.join(temp.path, ".axm", "settings.json");
+    const settingsPath = path.join(temp.path, "axm.json");
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
     settings.owner = "@test";
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -1545,14 +1474,13 @@ describe("axm packs uninstall", () => {
   };
 
   it.each(["workspace-pack", "@test/packs/workspace-pack"])(
-    "previews and uninstalls a workspace-authored pack selected as %s",
+    "previews and removes intent while preserving a workspace-authored pack selected as %s",
     async (selector) => {
       const temp = await createWorkspacePack("workspace-pack");
       try {
-        const axmDir = path.join(temp.path, ".axm");
-        const settingsPath = path.join(axmDir, "settings.json");
-        const lockPath = path.join(axmDir, "axm-lock.yaml");
-        const packageDir = path.join(axmDir, "extensions", "@test", "packs", "workspace-pack");
+        const settingsPath = path.join(temp.path, "axm.json");
+        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const packageDir = path.join(temp.path, "packs", "workspace-pack");
         const before = {
           settings: fs.readFileSync(settingsPath, "utf8"),
           lockfile: fs.readFileSync(lockPath, "utf8"),
@@ -1595,7 +1523,7 @@ describe("axm packs uninstall", () => {
         expect(YAML.parse(fs.readFileSync(lockPath, "utf8")).packs?.["workspace-pack"]).toBe(
           undefined,
         );
-        expect(fs.existsSync(packageDir)).toBe(false);
+        expect(fs.readFileSync(path.join(packageDir, "pack.json"), "utf8")).toBe(before.manifest);
       } finally {
         temp.cleanup();
       }
@@ -1612,10 +1540,8 @@ describe("axm packs uninstall", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({ result: { outcome: "no-op" } });
       expect(
-        JSON.parse(fs.readFileSync(path.join(temp.path, ".axm", "settings.json"), "utf8")).packs?.[
-          "owned-pack"
-        ],
-      ).toBe("workspace:@test/packs/owned-pack");
+        JSON.parse(fs.readFileSync(path.join(temp.path, "axm.json"), "utf8")).packs?.["owned-pack"],
+      ).toBe("workspace");
     } finally {
       temp.cleanup();
     }
@@ -1657,7 +1583,7 @@ describe("axm packs uninstall", () => {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
         cwd: temp.path,
       });
-      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settingsPath = path.join(temp.path, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
       settings.owner = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -1743,7 +1669,7 @@ describe("axm packs list", () => {
       detachWorkspacePack(
         temp.path,
         settingsPath,
-        path.join(temp.path, ".axm", "axm-lock.yaml"),
+        path.join(temp.path, "axm-lock.yaml"),
         "listable-pack",
       );
 

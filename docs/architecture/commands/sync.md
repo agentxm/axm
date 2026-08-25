@@ -56,9 +56,10 @@ resolution, publish content, claim unowned native content, or remove
 workspace-authored inventory merely because it is not desired. It does not
 choose between conflicting explicit choices.
 
-Present byte drift in installed external canonical content is preserved during
-ordinary sync and remains valid projection input. Explicit update or reinstall
-owns replacement and discloses it.
+Present byte drift in acquired canonical content is preserved during ordinary
+sync but is not valid projection input. The affected semantic mutation closure
+blocks until explicit `reinstall`, `update`, or `fork` establishes valid
+authority again.
 
 Sync realizes configured agents, instruction-file behavior, and inline MCP
 definitions without inventing extension archives, canonical copies, or lock

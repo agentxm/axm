@@ -7,11 +7,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
 import { formatFqn, parseExtensionFqnParts } from "@agentxm/client-core/unstable/extensions";
-import {
-  computePackPaths,
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import {
   acceptedCanonicalObservation,
@@ -89,8 +85,16 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
   }
   const source = configuredSource(entry);
   const sourceFqn = isWorkspaceSourceLocator(source)
-    ? source.slice("workspace:".length)
+    ? ws.layout.owner === undefined
+      ? undefined
+      : `${ws.layout.owner}/packs/${name}`
     : source.replace(/^registry:/, "").replace(/@[^@/]+$/, "");
+  if (sourceFqn === undefined) {
+    return yield* makeAppError({
+      code: "validation",
+      detail: `Configured workspace pack "${name}" requires a workspace owner`,
+    });
+  }
   const parsedSource = parseExtensionFqnParts(sourceFqn);
   if (parsedSource === undefined || parsedSource.type !== "pack") {
     return yield* makeAppError({
@@ -107,13 +111,17 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       detail: `Requested pack does not match configured identity ${sourceFqn}`,
     });
   }
-  const canonicalPath = computePackPaths(
-    path.join,
-    ws.baseDir,
-    parsedSource.owner,
-    parsedSource.name,
-  ).canonicalPath;
-  const manifestPath = path.join(canonicalPath, PACK_MANIFEST_FILENAME);
+  const canonical = yield* acceptedCanonicalObservation({ workspace: ws, type: "pack", name });
+  const canonicalPath = Option.flatMap(canonical, (state) =>
+    Option.fromUndefinedOr(state.observation.path),
+  );
+  if (Option.isNone(canonicalPath)) {
+    return yield* makeAppError({
+      code: "not_found",
+      detail: `Canonical pack "${sourceFqn}" is unavailable`,
+    });
+  }
+  const manifestPath = path.join(canonicalPath.value, PACK_MANIFEST_FILENAME);
   const raw = yield* fs.readFileString(manifestPath).pipe(
     Effect.mapError((cause) =>
       makeAppError({
@@ -163,7 +171,6 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       reachability: node === undefined ? ("missing" as const) : ("satisfying" as const),
     };
   });
-  const canonical = yield* acceptedCanonicalObservation({ workspace: ws, type: "pack", name });
   const canonicalStatus = Option.isSome(canonical) ? canonical.value.observation.status : "missing";
   const acceptedResolution =
     sourceAuthority === "workspace" ? "authored" : Option.isSome(locked) ? "accepted" : "missing";

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTempDir, runCli } from "./e2e/utils.js";
 
-const settingsPath = (root: string): string => path.join(root, ".axm", "settings.json");
+const settingsPath = (root: string): string => path.join(root, "axm.json");
 
 describe("global directory flag", () => {
   it("runs setup in the selected directory and resolves relative arguments from there", async () => {
@@ -117,9 +117,8 @@ describe("global directory flag", () => {
         fs.existsSync(
           path.join(
             workspace.path,
-            ".axm",
-            "extensions",
-            "external",
+            "agent_extensions",
+            "@acme",
             "skills",
             "review",
             "src",
@@ -213,9 +212,9 @@ describe("global directory flag", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       // Temp-dir paths may or may not be symlink-resolved depending on the
       // platform, so compare real paths instead of raw strings.
-      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
-        fs.realpathSync(path.join(invoking.path, ".axm", "settings.json")),
-      );
+      expect(
+        fs.realpathSync(path.resolve(invoking.path, JSON.parse(result.stdout).result.settingsPath)),
+      ).toBe(fs.realpathSync(path.join(invoking.path, "axm.json")));
     } finally {
       invoking.cleanup();
     }
@@ -247,9 +246,11 @@ describe("global directory flag", () => {
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       // The physical workspace, not the symlink, owns the settings path; temp
       // directories may themselves be symlinks, so compare real paths.
-      expect(fs.realpathSync(JSON.parse(result.stdout).result.settingsPath)).toBe(
-        fs.realpathSync(path.join(workspace.path, ".axm", "settings.json")),
-      );
+      expect(
+        fs.realpathSync(
+          path.resolve(workspace.path, JSON.parse(result.stdout).result.settingsPath),
+        ),
+      ).toBe(fs.realpathSync(path.join(workspace.path, "axm.json")));
     } finally {
       invoking.cleanup();
       workspace.cleanup();

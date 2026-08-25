@@ -74,9 +74,11 @@ The presence of unowned native content is not itself an invariant violation.
 Lint reports it only when the relevant extension contract makes the state a
 collision, an authority ambiguity, or another durable invalid condition.
 
-Local byte drift in externally installed canonical extension content is not by
-itself a lint or accepted-resolution violation. The content remains externally
-sourced, but only an explicit update or reinstall may replace it.
+Local byte drift in acquired canonical extension content violates its accepted
+package-tree integrity. Lint reports the drift and blocks affected inspection,
+projection, reconciliation, and mutation preflight. The content remains
+externally sourced, but only explicit `reinstall`, `update`, or `fork` may
+establish valid authority again.
 
 ## Views
 

@@ -10,9 +10,10 @@ depends-on:
 
 # Lockfile
 
-`.axm/axm-lock.yaml` is AXM's generated, committed authority for accepted
-external resolutions and their provenance. It is a reproducible-resolution
-snapshot used by planning, materialization, update, reinstall, and cleanup.
+Project-root `axm-lock.yaml` is AXM's generated, committed authority for
+accepted external resolutions and their provenance. User scope keeps the same
+authority in `.axm/axm-lock.yaml`. It is a reproducible-resolution snapshot
+used by planning, materialization, update, reinstall, and cleanup.
 
 Settings and workspace-authored manifests remain the only authority for desired
 intent and reachability. The lockfile answers which immutable external content
@@ -27,6 +28,13 @@ the accepted content from another result at the same mutable source:
 - a Registry version, extension-archive integrity, and publisher binding;
 - a Git commit and tree identity; or
 - a local-path content identity.
+
+The current strict version is version 5. Every acquired package row also
+records `treeIntegrity`, the deterministic integrity of the complete installed
+package tree under `agent_extensions/@owner/<type>/<name>/`. This package-level
+identity covers every shipped file, including companion files outside the
+extension's primary payload, rather than treating a single manifest or entry
+file as the installed unit.
 
 Exact fields and the strict lockfile version remain executable contracts owned
 by schemas and behavior tests. The architectural requirement is that the row
@@ -70,9 +78,12 @@ content is unavailable, the affected semantic mutation closure blocks. AXM
 does not substitute current bytes. An explicit update may resolve and accept a
 new identity within durable version intent.
 
-Present byte drift in installed external canonical content does not alter the
-lock row, transfer authorship, or make ordinary sync overwrite it. Update and
-reinstall may replace that content and must disclose the replacement.
+Present byte drift in acquired external canonical content does not alter the
+lock row or transfer authorship. It does make the accepted installed tree
+untrustworthy as projection or publication input: affected reads, mutation
+closures, and preflight checks block until explicit `reinstall`, `update`, or
+`fork` establishes valid authority again. AXM does not silently overwrite the
+drift during ordinary sync.
 
 ## Invalid and incompatible state
 

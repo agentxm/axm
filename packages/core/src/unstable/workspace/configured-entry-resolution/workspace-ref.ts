@@ -4,7 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
+import { decodeExtensionNameSync, type ExtensionName } from "../../extensions/common.js";
+import type { Handle } from "../../extensions/handle.js";
 import { computePackageContentHash } from "../../extensions/package-hash.js";
 import { validatePathSafety } from "../../extensions/utils.js";
 import { HookManifestSchema, HOOK_MANIFEST_FILENAME } from "../../hooks/manifest-schema.js";
@@ -28,7 +29,6 @@ import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
 } from "../../skills/manifest-schema.js";
 import type { WorkspaceSkillRef } from "../../skills/refs.js";
-import { parseInputPattern } from "../../sources/parser.js";
 import type { WorkspaceSource } from "../../sources/types.js";
 import {
   SubagentManifestSchema,
@@ -37,6 +37,7 @@ import {
 import type { WorkspaceSubagentRef } from "../../subagents/refs.js";
 import type { ExtensionType } from "../../extensions/common.js";
 import type { WorkspaceScope } from "../scope.js";
+import type { WorkspaceLayout } from "../layout.js";
 
 const WorkspaceManifestSchema = Schema.Union([
   SkillManifestSchema,
@@ -107,37 +108,42 @@ export const resolveWorkspaceExtensionRef = (args: {
   readonly settingsName: string;
   readonly source: string;
   readonly expectedType: ExtensionType;
-  readonly baseDir: string;
+  readonly layout: WorkspaceLayout;
   readonly scope: WorkspaceScope;
+  readonly staticPackage?: {
+    readonly owner: Handle;
+    readonly name: ExtensionName;
+    readonly root: string;
+  };
 }): Effect.Effect<WorkspaceExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const parsed = parseInputPattern(args.source);
-    if (Option.isNone(parsed) || parsed.value.pattern.pattern !== "workspace-pattern-input") {
-      return yield* workspaceSourceError(args.source, "the locator is malformed");
+    if (args.source !== "workspace") {
+      return yield* workspaceSourceError(args.source, 'expected the compact selector "workspace"');
+    }
+    const owner = args.staticPackage?.owner ?? args.layout.owner;
+    if (owner === undefined) {
+      return yield* workspaceSourceError(
+        args.source,
+        "the workspace settings do not declare an owner",
+      );
     }
     const source: WorkspaceSource = {
       type: "workspace",
-      owner: parsed.value.pattern.owner,
-      extensionType: parsed.value.pattern.type,
-      name: parsed.value.pattern.name,
+      owner,
+      extensionType: args.expectedType,
+      name: args.staticPackage?.name ?? decodeExtensionNameSync(args.settingsName),
     };
-    if (source.extensionType !== args.expectedType || source.name !== args.settingsName) {
-      return yield* workspaceSourceError(
-        args.source,
-        `expected ${args.expectedType} named "${args.settingsName}"`,
-      );
-    }
 
-    const packageDir = path.join(
-      args.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      source.owner,
-      pluralType(args.expectedType),
-      source.name,
-    );
-    yield* validatePathSafety(path, args.baseDir, packageDir);
+    const canonicalRoot =
+      args.layout.scope === "project"
+        ? args.layout.authoredRoot(args.expectedType)
+        : path.join(args.layout.canonicalRoot, owner, pluralType(args.expectedType));
+    const packageDir = args.staticPackage?.root ?? path.join(canonicalRoot, source.name);
+    const containmentRoot =
+      args.layout.scope === "project" ? args.layout.projectRoot : args.layout.userAxmDir;
+    yield* validatePathSafety(path, containmentRoot, packageDir);
     const packageExists = yield* fs
       .exists(packageDir)
       .pipe(

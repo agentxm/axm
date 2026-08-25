@@ -12,6 +12,7 @@
 
 import * as Schema from "effect/Schema";
 import { HandleSchema, SourceHashSchema } from "../extensions/index.js";
+import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
 import { ExtensionNameSchema } from "../extensions/common.js";
 import type { CatalogExtensionType } from "../extension-types/schema.js";
 import { VersionSchema } from "../version-constraints/version-constraints.js";
@@ -22,7 +23,7 @@ import {
   SourceSubPathSchema,
 } from "../sources/types.js";
 
-export const LOCKFILE_VERSION = 4;
+export const LOCKFILE_VERSION = 5;
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -52,6 +53,8 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal("github"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
@@ -59,10 +62,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       resolvedCommit: Schema.NonEmptyString,
       resolvedTree: Schema.NonEmptyString,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("gitlab"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
@@ -70,10 +76,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       resolvedCommit: Schema.NonEmptyString,
       resolvedTree: Schema.NonEmptyString,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("bitbucket"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       owner: SourceNamespaceSchema,
       repo: SourceSegmentSchema,
       ref: Schema.optional(SourceRefSchema),
@@ -81,10 +90,13 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       resolvedCommit: Schema.NonEmptyString,
       resolvedTree: Schema.NonEmptyString,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("azurerepos"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       organization: SourceSegmentSchema,
       project: SourceSegmentSchema,
       repo: SourceSegmentSchema,
@@ -93,22 +105,29 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       resolvedCommit: Schema.NonEmptyString,
       resolvedTree: Schema.NonEmptyString,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("git"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       url: Schema.String,
       ref: Schema.optional(SourceRefSchema),
       path: Schema.optional(SourceSubPathSchema),
       resolvedCommit: Schema.NonEmptyString,
       resolvedTree: Schema.NonEmptyString,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
       type: Schema.Literal("local"),
+      packageOwner: HandleSchema,
+      packageName: ExtensionNameSchema,
       path: LocalSourceLockPathSchema,
       contentIdentity: SourceHashSchema,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
@@ -124,6 +143,7 @@ const makeSourceLockUnion = <F extends Schema.Struct.Fields>(extraFields: F) =>
       }),
       sourceName: Schema.String,
       publisherBindingId: Schema.NonEmptyString,
+      treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
   ]);
@@ -348,6 +368,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   manifestContentIdentity: SourceHashSchema,
   sourceName: Schema.String,
   publisherBindingId: Schema.NonEmptyString,
+  treeIntegrity: TreeIntegritySchema,
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",

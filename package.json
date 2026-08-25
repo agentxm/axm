@@ -76,8 +76,8 @@
     "includedScripts": []
   },
   "lint-staged": {
-    "{!(.axm)/**/,}*.{js,ts,mjs,cjs}": "eslint --fix",
-    "{!(.axm)/**/,}*.{md,json,jsonc,yml,yaml}": "prettier --write"
+    "{!(.axm|agent_extensions)/**/,}*.{js,ts,mjs,cjs}": "eslint --fix",
+    "{!(.axm|agent_extensions)/**/,}*.{md,json,jsonc,yml,yaml}": "prettier --write"
   },
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {

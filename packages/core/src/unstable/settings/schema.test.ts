@@ -157,12 +157,33 @@ describe("Settings schema", () => {
 
     it("round-trips supported feature config blocks through schema encode", () => {
       const input = {
-        knowledgeConfig: { instructions: false },
+        skillsConfig: { dir: "extensions/skills" },
+        rulesConfig: { dir: "extensions/rules" },
+        knowledgeConfig: { dir: "extensions/knowledge", instructions: false },
+        subagentsConfig: { dir: "extensions/subagents" },
+        hooksConfig: { dir: "extensions/hooks" },
+        mcpServersConfig: { dir: "extensions/mcps" },
+        packsConfig: { dir: "extensions/packs" },
       };
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
       const encoded = Schema.encodeSync(SettingsSchema)(decoded);
 
       expect(encoded).toEqual(input);
+    });
+
+    it("accepts workspace as the compact authored-package selector", () => {
+      const decoded = Schema.decodeUnknownSync(SettingsSchema)({
+        owner: "@acme",
+        skills: {
+          review: "workspace",
+          draft: { source: "workspace", enabled: false },
+        },
+      });
+
+      expect(decoded.skills).toEqual({
+        review: { source: "workspace", enabled: true },
+        draft: { source: "workspace", enabled: false },
+      });
     });
 
     it("accepts an empty Knowledge config so instruction discovery defaults on", () => {
@@ -300,13 +321,13 @@ describe("Settings schema", () => {
       expect(() => Schema.decodeUnknownSync(SettingsSchema)({ instructionFiles: null })).toThrow();
     });
 
-    it("does not interpret the legacy rules config as instruction settings", () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        rulesConfig: { instructions: false },
-      });
-
-      expect(result.instructionFiles).toBeUndefined();
-      expect(Reflect.get(result, "rulesConfig")).toEqual({ instructions: false });
+    it("rejects legacy instruction settings inside the authored rules config", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)(
+          { rulesConfig: { instructions: false } },
+          { onExcessProperty: "error" },
+        ),
+      ).toThrow();
     });
   });
 
@@ -607,18 +628,18 @@ describe("Settings schema", () => {
   });
 
   describe("workspace source locators", () => {
-    it("accepts matching type and name identities for every supported extension family", () => {
+    it("accepts the compact workspace selector for every supported extension family", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({
-        skills: { review: "workspace:@acme/skills/review" },
-        rules: { review: "workspace:@acme/rules/review" },
-        hooks: { review: "workspace:@acme/hooks/review" },
-        subagents: { review: "workspace:@acme/subagents/review" },
-        packs: { review: "workspace:@acme/packs/review" },
-        mcpServers: { review: "workspace:@acme/mcps/review" },
+        skills: { review: "workspace" },
+        rules: { review: "workspace" },
+        hooks: { review: "workspace" },
+        subagents: { review: "workspace" },
+        packs: { review: "workspace" },
+        mcpServers: { review: "workspace" },
       });
 
-      expect(result.skills?.["review"]?.source).toBe("workspace:@acme/skills/review");
-      expect(result.mcpServers?.["review"]?.source).toBe("workspace:@acme/mcps/review");
+      expect(result.skills?.["review"]?.source).toBe("workspace");
+      expect(result.mcpServers?.["review"]?.source).toBe("workspace");
     });
 
     it("rejects a locator whose plural type does not match its settings section", () => {
@@ -748,7 +769,7 @@ describe("Settings schema", () => {
       const input = {
         skills: {
           axm: {
-            source: "workspace:@agentxm/skills/axm",
+            source: "workspace",
             origin: "bundled",
           },
         },
@@ -756,7 +777,7 @@ describe("Settings schema", () => {
       const decoded = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(decoded.skills?.["axm"]).toEqual({
-        source: "workspace:@agentxm/skills/axm",
+        source: "workspace",
         enabled: true,
         origin: "bundled",
       });

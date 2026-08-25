@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 
 import { parseSkillMd } from "@agentxm/client-core/unstable/skills";
 
-const packageRoot = "../../.axm/extensions/@agentxm/skills/axm";
+const packageRoot = "../../skills/axm";
 const skillMd = readFileSync(`${packageRoot}/src/SKILL.md`, "utf8");
 const manifest = JSON.parse(readFileSync(`${packageRoot}/skill.json`, "utf8"));
 
@@ -96,7 +96,7 @@ describe("official AXM skill contract", () => {
 
     const repository: unknown = Reflect.get(manifest, "repository");
     expect(requireString(repository, "url")).toBe("https://github.com/agentxm/axm");
-    expect(requireString(repository, "directory")).toBe(".axm/extensions/@agentxm/skills/axm");
+    expect(requireString(repository, "directory")).toBe("skills/axm");
     expect(readFileSync(`${packageRoot}/README.md`, "utf8")).toContain("## Install");
     expect(readFileSync(`${packageRoot}/LICENSE`, "utf8")).toContain(
       "https://github.com/agentxm/axm/blob/main/LICENSE",

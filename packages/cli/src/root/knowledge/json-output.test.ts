@@ -293,13 +293,13 @@ describe("knowledge JSON output", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeKnowledgeExtension(axmDir, "platform");
-    const packageRoot = path.join(axmDir, "extensions", "@acme", "knowledge", "platform");
+    const packageRoot = path.join(tempDir, "knowledge", "platform");
     fs.writeFileSync(
       path.join(packageRoot, "src", "auth.md"),
       "---\ntype: policy\ndescription: Authentication policy\n---\n# Authentication\n\nRotate credentials.\n",
     );
     writeWorkspaceFiles(axmDir, {
-      knowledge: { platform: "workspace:@acme/knowledge/platform" },
+      knowledge: { platform: "workspace" },
     });
 
     return provide(
@@ -364,7 +364,7 @@ describe("knowledge JSON output", () => {
   it.effect("disable emits exactly one JSON document", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      knowledge: { platform: "workspace:@acme/knowledge/platform" },
+      knowledge: { platform: "workspace" },
     });
 
     return provide(
@@ -387,7 +387,7 @@ describe("knowledge JSON output", () => {
     writeKnowledgeExtension(axmDir, "platform");
     writeWorkspaceFiles(axmDir, {
       knowledge: {
-        platform: { source: "workspace:@acme/knowledge/platform", enabled: false },
+        platform: { source: "workspace", enabled: false },
       },
     });
 

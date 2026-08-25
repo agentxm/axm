@@ -50,8 +50,7 @@ const defaultArgs = (
   ...overrides,
 });
 
-const hookDir = (tempDir: string, name: string, owner = "@acme") =>
-  path.join(tempDir, ".axm", "extensions", owner, "hooks", name);
+const hookDir = (tempDir: string, name: string) => path.join(tempDir, "hooks", name);
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -109,17 +108,17 @@ describe("hooks-new.handler", () => {
           expect(fs.existsSync(entrypointPath)).toBe(true);
 
           // Settings registration (workspace source)
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.hooks?.["tool-audit"]).toBe("workspace:@acme/hooks/tool-audit");
+          expect(settings.hooks?.["tool-audit"]).toBe("workspace");
 
-          const lockfile = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
+          const lockfile = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
           expect(lockfile).not.toContain("tool-audit:");
 
           const claudeSettingsPath = path.join(tempDir, ".claude", "settings.json");
           expect(fs.existsSync(claudeSettingsPath)).toBe(true);
           const claudeSettings = fs.readFileSync(claudeSettingsPath, "utf-8");
-          expect(claudeSettings).toContain(".axm/extensions/@acme/hooks/tool-audit/src/hook.sh");
+          expect(claudeSettings).toContain("hooks/tool-audit/src/hook.sh");
 
           expect(logs.success).toEqual(["Created 1 hook"]);
           expect(rendererState.summaries.some((m) => m.includes("@acme/hooks/tool-audit"))).toBe(
@@ -127,8 +126,7 @@ describe("hooks-new.handler", () => {
           );
           expect(rendererState.suggestions).toEqual([
             {
-              description:
-                "Edit `.axm/extensions/@acme/hooks/tool-audit/src/hook.sh` to implement the hook",
+              description: "Edit `hooks/tool-audit/src/hook.sh` to implement the hook",
             },
           ]);
         }),
@@ -156,7 +154,7 @@ describe("hooks-new.handler", () => {
             state: "committed",
             message: "Created hook @acme/hooks/machine-hook",
             artifact: {
-              path: ".axm/extensions/@acme/hooks/machine-hook",
+              path: "hooks/machine-hook",
               scope: "project",
               version: "0.1.0",
               change: "created",
@@ -175,8 +173,7 @@ describe("hooks-new.handler", () => {
           });
           expect(rendererState.suggestions).toEqual([
             {
-              description:
-                "Edit `.axm/extensions/@acme/hooks/machine-hook/src/hook.sh` to implement the hook",
+              description: "Edit `hooks/machine-hook/src/hook.sh` to implement the hook",
             },
           ]);
         }),
@@ -200,15 +197,15 @@ describe("hooks-new.handler", () => {
   });
 
   describe("owner override", () => {
-    it.effect("uses --owner override and normalizes a bare handle", () => {
+    it.effect("normalizes an owner override matching the workspace owner", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@corp" });
 
       return provide(
         Effect.gen(function* () {
           yield* handleHooksNew(defaultArgs("tool-audit", { owner: Option.some("corp") }));
 
-          const manifestPath = path.join(hookDir(tempDir, "tool-audit", "@corp"), "hook.json");
+          const manifestPath = path.join(hookDir(tempDir, "tool-audit"), "hook.json");
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.owner).toBe("@corp");
@@ -278,7 +275,7 @@ describe("hooks-new.handler", () => {
           const manifestPath = path.join(hookDir(tempDir, "tool-audit"), "hook.json");
           expect(fs.existsSync(manifestPath)).toBe(false);
 
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settingsPath = path.join(tempDir, "axm.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.hooks?.["tool-audit"]).toBeUndefined();
         }),

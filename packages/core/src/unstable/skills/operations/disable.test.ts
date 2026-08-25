@@ -18,10 +18,11 @@ import {
   makeRegistrySkillLockEntry,
   rowsFor,
   TEST_CONTENT_IDENTITY,
+  TEST_TREE_INTEGRITY,
 } from "../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
-import { handle } from "../../test-helpers.js";
+import { extensionName, handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "../../utils/path-types.js";
 
 // -----------------------------------------------------------------------------
@@ -65,8 +66,11 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
 /** Creates a local source lock entry. */
 const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
   type: "local" as const,
+  packageOwner: handle("@local"),
+  packageName: extensionName("my-skill"),
   path: decodeRelativePathSync("tmp/source"),
   contentIdentity: TEST_CONTENT_IDENTITY,
+  treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
 /** Creates a registry source lock entry. */
@@ -436,6 +440,7 @@ describe("disableSkill", () => {
                     {
                       type: "pack",
                       pack: "@community/packs/toolkit",
+                      manifestPath: "/project/agent_extensions/@community/packs/toolkit/pack.json",
                       source: "@community/skills/my-skill",
                       constraint: "*",
                       enabled: true,

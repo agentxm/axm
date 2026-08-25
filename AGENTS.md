@@ -6,7 +6,7 @@ and more.
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the
-[AgentXM Knowledge bundle](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md).
+[AgentXM Knowledge bundle](agent_extensions/@agentxm/knowledge/agentxm/src/index.md).
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
@@ -65,7 +65,7 @@ For HTTP(S), it also sets `AXM_REGISTRY_URL` for auth/API flows.
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
-of checking custom registry sources into `.axm/settings.json`. `axm lint`
+of checking custom registry sources into `axm.json`. `axm lint`
 reports workspace findings read-only; `axm lint --fix` performs only
 deterministic, meaning-preserving source or configuration normalization.
 
@@ -252,21 +252,21 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 ### @agentxm
 
-| Bundle                                                                                 | Description                                                                                                                                                         |
-| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [agent-engineering](.axm/extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](.axm/extensions/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
+| Bundle                                                                                  | Description                                                                                                                                                         |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agent-engineering](agent_extensions/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agentxm](agent_extensions/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
-| Bundle                                                                                              | Description                                                                                                                                                                      |
-| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs](.axm/extensions/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns               |
-| [effect-v4](.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                     |
-| [field-notes](.axm/extensions/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                          |
-| [software-architecture](.axm/extensions/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views |
-| [software-engineering](.axm/extensions/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                          |
-| [workflow-automation](.axm/extensions/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
+| Bundle                                                                                               | Description                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns               |
+| [effect-v4](agent_extensions/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                     |
+| [field-notes](agent_extensions/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                          |
+| [software-architecture](agent_extensions/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views |
+| [software-engineering](agent_extensions/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                          |
+| [workflow-automation](agent_extensions/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices           |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->

@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { AppError, AppErrorCode } from "../app-error/index.js";
 import { makeAppError } from "../app-error/index.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
@@ -19,6 +20,7 @@ import type { ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { copyExtensionDirectory, validatePathSafety } from "./utils.js";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
 
 export const canonicalMaterializationPaths = (canonicalPath: string) => ({
   stagingPath: `${canonicalPath}.axm-staging`,
@@ -83,6 +85,18 @@ export interface ReplaceCanonicalDirectoryArgs<R> {
   readonly validate?: (stagingPath: string) => Effect.Effect<void, AppError, R>;
 }
 
+export interface ReplaceCanonicalDirectoryWithInspectionArgs<
+  A,
+  R,
+> extends ReplaceCanonicalDirectoryArgs<R> {
+  readonly inspect: (stagingPath: string) => Effect.Effect<A, AppError, R>;
+}
+
+export interface CanonicalDirectoryInspection<A> {
+  readonly canonicalPath: string;
+  readonly inspection: A;
+}
+
 export interface CreateCanonicalDirectoryArgs<R> extends ReplaceCanonicalDirectoryArgs<R> {
   /** Human-readable create-only subject used in collision diagnostics. */
   readonly subject: string;
@@ -125,9 +139,13 @@ const validateRequiredPackageFiles = (stagingPath: string, requiredFiles: Readon
  * restores a prior tree left in the sibling backup by abrupt process death;
  * incomplete staging is never made eligible for reuse.
  */
-export const replaceCanonicalDirectory = <R>(
-  args: ReplaceCanonicalDirectoryArgs<R>,
-): Effect.Effect<string, AppError, FileSystem.FileSystem | Path.Path | R> =>
+export const replaceCanonicalDirectoryWithInspection = <A, R>(
+  args: ReplaceCanonicalDirectoryWithInspectionArgs<A, R>,
+): Effect.Effect<
+  CanonicalDirectoryInspection<A>,
+  AppError,
+  FileSystem.FileSystem | Path.Path | R
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -145,7 +163,7 @@ export const replaceCanonicalDirectory = <R>(
       ),
     );
 
-    const prepare = Effect.gen(function* () {
+    const inspection = yield* Effect.gen(function* () {
       yield* fs.makeDirectory(stagingPath, { recursive: true }).pipe(
         Effect.mapError((cause) =>
           makeAppError({
@@ -157,13 +175,12 @@ export const replaceCanonicalDirectory = <R>(
       );
       yield* args.populate(stagingPath);
       if (args.validate !== undefined) yield* args.validate(stagingPath);
+      return yield* args.inspect(stagingPath);
     }).pipe(
       Effect.tapError(() =>
         fs.remove(stagingPath, { recursive: true, force: true }).pipe(Effect.ignore),
       ),
     );
-    yield* prepare;
-
     yield* protectWorkspacePath(args.canonicalPath);
     const hadCanonical = yield* fs.exists(args.canonicalPath).pipe(
       Effect.mapError((cause) =>
@@ -202,8 +219,16 @@ export const replaceCanonicalDirectory = <R>(
       change: hadCanonical ? "modified" : "created",
     });
 
-    return args.canonicalPath;
+    return { canonicalPath: args.canonicalPath, inspection };
   });
+
+export const replaceCanonicalDirectory = <R>(
+  args: ReplaceCanonicalDirectoryArgs<R>,
+): Effect.Effect<string, AppError, FileSystem.FileSystem | Path.Path | R> =>
+  replaceCanonicalDirectoryWithInspection({
+    ...args,
+    inspect: () => Effect.void,
+  }).pipe(Effect.map(({ canonicalPath }) => canonicalPath));
 
 /**
  * Publish one create-only authored package without ever populating its
@@ -341,6 +366,11 @@ export interface MaterializeRegistryPackageArgs {
   ) => Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path>;
 }
 
+export interface MaterializedPackage {
+  readonly canonicalPath: string;
+  readonly treeIntegrity: TreeIntegrity;
+}
+
 /**
  * Fetch, verify, and extract a registry package into `destinationPath`.
  *
@@ -348,7 +378,13 @@ export interface MaterializeRegistryPackageArgs {
  * `canReuseInstalledPackage`'s decision, which the caller makes against the
  * canonical installed path before choosing a destination.
  */
-export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs) =>
+export const materializeRegistryPackageWithTreeIntegrity = (
+  args: MaterializeRegistryPackageArgs,
+): Effect.Effect<
+  MaterializedPackage,
+  AppError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+> =>
   Effect.gen(function* () {
     yield* recoverCanonicalDirectory({
       baseDir: args.baseDir,
@@ -372,13 +408,23 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
       }
     }
 
-    return yield* replaceCanonicalDirectory({
+    const result = yield* replaceCanonicalDirectoryWithInspection({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
       populate: (stagingPath) => extractZip(archive, stagingPath),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
+      inspect: computeMaterializedTreeIntegrity,
     });
+    return {
+      canonicalPath: result.canonicalPath,
+      treeIntegrity: result.inspection,
+    };
   });
+
+export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs) =>
+  materializeRegistryPackageWithTreeIntegrity(args).pipe(
+    Effect.map(({ canonicalPath }) => canonicalPath),
+  );
 
 export interface MaterializeExternalPackageArgs {
   readonly baseDir: string;
@@ -391,7 +437,9 @@ export interface MaterializeExternalPackageArgs {
   ) => Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path>;
 }
 
-export const materializeExternalPackage = (args: MaterializeExternalPackageArgs) =>
+export const materializeExternalPackageWithTreeIntegrity = (
+  args: MaterializeExternalPackageArgs,
+): Effect.Effect<MaterializedPackage, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
 
@@ -399,9 +447,14 @@ export const materializeExternalPackage = (args: MaterializeExternalPackageArgs)
 
     const sourcePath = stripFileProtocol(args.sourceLocation);
     const isSelfCopy = path.resolve(sourcePath) === path.resolve(args.canonicalPath);
-    if (isSelfCopy) return args.canonicalPath;
+    if (isSelfCopy) {
+      return {
+        canonicalPath: args.canonicalPath,
+        treeIntegrity: yield* computeMaterializedTreeIntegrity(args.canonicalPath),
+      };
+    }
 
-    return yield* replaceCanonicalDirectory({
+    const result = yield* replaceCanonicalDirectoryWithInspection({
       baseDir: args.baseDir,
       canonicalPath: args.canonicalPath,
       populate: (stagingPath) =>
@@ -415,5 +468,15 @@ export const materializeExternalPackage = (args: MaterializeExternalPackageArgs)
           ),
         ),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
+      inspect: computeMaterializedTreeIntegrity,
     });
+    return {
+      canonicalPath: result.canonicalPath,
+      treeIntegrity: result.inspection,
+    };
   });
+
+export const materializeExternalPackage = (args: MaterializeExternalPackageArgs) =>
+  materializeExternalPackageWithTreeIntegrity(args).pipe(
+    Effect.map(({ canonicalPath }) => canonicalPath),
+  );

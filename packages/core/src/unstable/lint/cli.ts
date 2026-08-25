@@ -705,7 +705,7 @@ const coalesceFullDiagnostic = (
         title: "Lockfile is missing required fields.",
         details: compressDetails(fields),
         helps: [
-          "Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json` by reinstalling the declared extensions.",
+          "Regenerate the workspace lockfile from workspace settings by reinstalling the declared extensions.",
         ],
         fixable: false,
         paths,
@@ -834,7 +834,7 @@ const coalesceGroupedDiagnostic = (
         title: "Lockfile is missing fields required by the current schema.",
         details: [`Missing fields include: ${previewList(fields, 4)}`],
         helps: [
-          "Fix: Regenerate `.axm/axm-lock.yaml` from `.axm/settings.json` by reinstalling the declared extensions.",
+          "Fix: Regenerate the workspace lockfile from workspace settings by reinstalling the declared extensions.",
         ],
         fixable: false,
         paths,

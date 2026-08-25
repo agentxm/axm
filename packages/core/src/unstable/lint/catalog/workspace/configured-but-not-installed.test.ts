@@ -70,7 +70,7 @@ describe("workspace/configured-but-not-installed", () => {
 
       expect(findings).toHaveLength(1);
       expect(findings[0]?.message).toBe(
-        "subagent 'reviewer' is desired, but its canonical content is missing from .axm/extensions.",
+        "subagent 'reviewer' is desired, but its canonical content is missing from agent_extensions.",
       );
     }),
   );
@@ -86,7 +86,7 @@ describe("workspace/configured-but-not-installed", () => {
       expect(findings).toHaveLength(1);
       expect(findings[0]?.ruleId).toBe("workspace/configured-but-not-installed");
       expect(findings[0]?.message).toBe(
-        "hook 'deploy' is desired, but its canonical content is missing from .axm/extensions.",
+        "hook 'deploy' is desired, but its canonical content is missing from agent_extensions.",
       );
     }),
   );

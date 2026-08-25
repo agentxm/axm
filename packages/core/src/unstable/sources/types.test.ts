@@ -305,6 +305,8 @@ describe("convenience unions", () => {
 describe("ref detail interfaces", () => {
   it("GitHostedRefDetails has location and gitTreeSha", () => {
     const details: GitHostedRefDetails = {
+      owner: handle("@acme"),
+      name: extensionName("test"),
       location: "file:///tmp/clone",
       gitTreeSha: "abc123",
       gitCommitSha: "commit123",
@@ -329,7 +331,11 @@ describe("ref detail interfaces", () => {
   });
 
   it("LocalRefDetails has location", () => {
-    const details: LocalRefDetails = { location: "file:///home/user/skill" };
+    const details: LocalRefDetails = {
+      owner: handle("@acme"),
+      name: extensionName("test"),
+      location: "file:///home/user/skill",
+    };
     expect(details.location).toBe("file:///home/user/skill");
   });
 });
@@ -343,6 +349,8 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "git-hosted",
+      owner: handle("@acme"),
+      name: extensionName("test"),
       skill: {
         name: extensionName("test"),
         description: Option.some("desc"),
@@ -399,6 +407,8 @@ describe("SkillExtensionRef", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("test"),
       skill: {
         name: extensionName("test"),
         description: Option.some("desc"),
@@ -416,6 +426,8 @@ describe("SkillExtensionRef", () => {
     const withDesc: SkillExtensionRef = {
       type: "skill",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("s"),
       skill: {
         name: extensionName("s"),
         description: Option.some("hello"),
@@ -427,6 +439,8 @@ describe("SkillExtensionRef", () => {
     const withoutDesc: SkillExtensionRef = {
       type: "skill",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("s"),
       skill: { name: extensionName("s"), description: Option.none(), metadata: Option.none() },
       source: { type: "local", path: "/test" },
       location: "file:///test",
@@ -445,6 +459,8 @@ describe("McpServerExtensionRef", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
       refType: "git-hosted",
+      owner: handle("@acme"),
+      name: extensionName("my-server"),
       server: { name: extensionName("my-server") },
       source: {
         type: "github",
@@ -530,6 +546,8 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "skill",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("test"),
       skill: {
         name: extensionName("test"),
         description: Option.some("desc"),
@@ -547,6 +565,8 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "mcp-server",
       refType: "local",
+      owner: handle("@acme"),
+      name: extensionName("srv"),
       server: { name: extensionName("srv") },
       source: { type: "local", path: "/test" },
       location: "file:///test",

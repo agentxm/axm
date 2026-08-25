@@ -24,15 +24,16 @@ import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "@agentxm/client-core/unstable/skills";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-  buildUninstallOperation,
-  sanitizeName,
-} from "@agentxm/client-core/unstable/extensions";
+import { buildUninstallOperation, sanitizeName } from "@agentxm/client-core/unstable/extensions";
 import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import {
+  workspaceAuthoredPath,
+  workspaceCanonicalPath,
+  workspaceLockfilePath,
+  workspaceSettingsPath,
+} from "../../shared/workspace-display-paths.js";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import type {
   JobStepArtifactTarget,
@@ -76,24 +77,33 @@ export class UninstallSkillCommandWorkflowActions extends ServiceMap.Service<
 >()("axm.sh/root/skills/uninstall/command-actions/UninstallSkillCommandWorkflowActions") {}
 
 const skillSourceTarget = (
+  ws: typeof WorkspaceMutations.Service,
+  path: Path.Path,
   configuredSource: Option.Option<string>,
   lockEntry: Option.Option<SkillLockEntry>,
   sanitizedName: string,
 ): JobStepArtifactTarget => {
-  if (Option.isSome(configuredSource) && configuredSource.value.startsWith("workspace:")) {
+  if (Option.isSome(configuredSource) && configuredSource.value === "workspace") {
     return {
-      path: `${REGISTRY_EXTENSIONS_DIR}/${configuredSource.value.slice("workspace:".length)}`,
-      change: "removed",
+      path: workspaceAuthoredPath(path, ws, "skill", sanitizedName),
+      change: "unchanged",
     };
   }
-  if (Option.isSome(lockEntry) && lockEntry.value.type === "registry") {
+  if (Option.isSome(lockEntry)) {
+    const entry = lockEntry.value;
+    if (entry.type === "registry") {
+      return {
+        path: workspaceCanonicalPath(ws.scope, `${entry.owner}/skills/${entry.name}`),
+        change: "removed",
+      };
+    }
     return {
-      path: `${REGISTRY_EXTENSIONS_DIR}/${lockEntry.value.owner}/skills/${lockEntry.value.name}`,
+      path: workspaceCanonicalPath(ws.scope, `${entry.packageOwner}/skills/${entry.packageName}`),
       change: "removed",
     };
   }
   return {
-    path: `${EXTERNAL_EXTENSIONS_DIR}/skills/${sanitizedName}`,
+    path: workspaceCanonicalPath(ws.scope, `external/skills/${sanitizedName}`),
     change: "removed",
   };
 };
@@ -207,9 +217,9 @@ export const UninstallSkillCommandWorkflowActionsLive = Layer.effect(
                 scope: ws.scope,
                 change: "removed",
                 workspaceTargets: [
-                  { path: ".axm/axm-lock.yaml", change: "updated" },
-                  { path: ".axm/settings.json", change: "updated" },
-                  skillSourceTarget(configuredSource, lockEntry, sanitizedName),
+                  { path: workspaceLockfilePath(ws.scope), change: "updated" },
+                  { path: workspaceSettingsPath(ws.scope), change: "updated" },
+                  skillSourceTarget(ws, path, configuredSource, lockEntry, sanitizedName),
                 ],
               }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),

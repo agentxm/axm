@@ -37,7 +37,7 @@ const makeWorkspaceMock = (
   const configuredProfile = opts.configuredProfile ?? "@myorg";
   const configuredPacks = opts.configuredPacks ?? {
     "my-pack": {
-      source: "workspace:@myorg/packs/my-pack",
+      source: "workspace",
       enabled: true,
     },
   };
@@ -50,7 +50,7 @@ const makeWorkspaceMock = (
         configuredRow({
           type: "pack",
           name: "my-pack",
-          source: "workspace:@myorg/packs/my-pack",
+          source: "workspace",
           packagingKind: "non-native",
         }),
       ],
@@ -67,7 +67,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 
 /** Creates a pack manifest on disk and returns its content hash. */
 const createPackManifest = (base: string, owner: string, packName: string) => {
-  const packDir = path.join(base, ".axm", "extensions", owner, "packs", packName);
+  const packDir = path.join(base, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
     owner,
@@ -132,15 +132,7 @@ describe("addToPack", () => {
         expect(result.result).toBe("success");
 
         // Verify manifest was updated
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
       }),
@@ -163,15 +155,7 @@ describe("addToPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/skill-a"]).toBe("^1.0.0");
         expect(manifest.dependencies["@acme/skills/skill-b"]).toBe("^2.0.0");
@@ -230,15 +214,7 @@ describe("addToPack", () => {
         );
 
         // Manifest should be unchanged
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const currentContent = fs.readFileSync(manifestPath, "utf-8");
         expect(currentContent).toBe(content);
       }),
@@ -260,15 +236,7 @@ describe("addToPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/hooks/my-hook"]).toBe("^1.0.0");
         expect(manifest.hooks).toBeUndefined();
@@ -289,15 +257,7 @@ describe("addToPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/mcps/my-server"]).toBe("^2.0.0");
         expect(manifest["mcps"]).toBeUndefined();
@@ -322,15 +282,7 @@ describe("addToPack", () => {
 
         expect(result.result).toBe("success");
 
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-          "pack.json",
-        );
+        const manifestPath = path.join(base, "packs", "my-pack", "pack.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.dependencies["@acme/skills/my-skill"]).toBe("^1.0.0");
         expect(manifest.dependencies["@acme/hooks/my-hook"]).toBe("^2.0.0");

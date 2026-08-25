@@ -68,17 +68,18 @@ describe("axm lint handler", () => {
   });
 
   const writeSettings = (contents: Record<string, unknown>) => {
-    const axmDir = path.join(tempDir, ".axm");
-    fs.mkdirSync(axmDir, { recursive: true });
-    fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(contents, null, 2));
+    fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, "axm.json"),
+      JSON.stringify({ owner: "@acme", ...contents }, null, 2),
+    );
   };
 
   const writeEmptyLockfile = () => {
-    const axmDir = path.join(tempDir, ".axm");
-    fs.mkdirSync(axmDir, { recursive: true });
+    fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
-      path.join(axmDir, "axm-lock.yaml"),
-      "lockfileVersion: 4\nskills: {}\nmcpServers: {}\n",
+      path.join(tempDir, "axm-lock.yaml"),
+      "lockfileVersion: 5\nskills: {}\nmcpServers: {}\n",
     );
   };
 
@@ -207,14 +208,14 @@ describe("axm lint handler", () => {
           {
             group: "workspace",
             displayRoot: sourceRoot,
-            path: `${sourceRoot}/.axm/settings.json:4:2`,
+            path: `${sourceRoot}/axm.json:4:2`,
             ruleDescription: "Settings must satisfy the workspace schema.",
             finding: {
               kind: "advisory",
               ruleId: "workspace/settings-schema-valid",
               severity: "error",
               message: "Invalid settings",
-              location: { file: `${sourceRoot}/.axm/settings.json`, line: 4, column: 2 },
+              location: { file: `${sourceRoot}/axm.json`, line: 4, column: 2 },
             },
           },
         ],
@@ -228,8 +229,8 @@ describe("axm lint handler", () => {
     );
 
     expect(summary.findings[0]?.displayRoot).toBe(displayRoot);
-    expect(summary.findings[0]?.path).toBe(`${displayRoot}/.axm/settings.json:4:2`);
-    expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/.axm/settings.json`);
+    expect(summary.findings[0]?.path).toBe(`${displayRoot}/axm.json:4:2`);
+    expect(summary.findings[0]?.finding.location?.file).toBe(`${displayRoot}/axm.json`);
   });
 
   it.effect("does not retain the retired publish-gate drift banner", () => {
@@ -266,7 +267,7 @@ describe("axm lint handler", () => {
 
   it.effect("--strict turns a warning-only run into a non-zero exit", () => {
     const { provide } = makeLayers();
-    // WorkspaceMutations fixture: `.axm/settings.json` exists with unrecognized
+    // WorkspaceMutations fixture: `axm.json` exists with unrecognized
     // agent -> `workspace/agents-recognized` advisory error. We write
     // `agents: []` and rely on warnings from other rules to trigger
     // `--strict`. Actually to construct a warning scenario reliably, set
@@ -284,7 +285,7 @@ describe("axm lint handler", () => {
     });
     // Give the rule something to complain about: add a configured skill
     // with no lockfile.
-    const settingsPath = path.join(tempDir, ".axm", "settings.json");
+    const settingsPath = path.join(tempDir, "axm.json");
     const current = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
     fs.writeFileSync(
       settingsPath,
@@ -360,8 +361,8 @@ describe("axm lint handler", () => {
           ),
         ).toBe(true);
         // Diagnostic headers always show location
-        expect(logs.error.some((message) => message.includes("./.axm/axm-lock.yaml"))).toBe(true);
-        expect(logs.error.some((message) => message.includes("./.axm/settings.json"))).toBe(true);
+        expect(logs.error.some((message) => message.includes("./axm-lock.yaml"))).toBe(true);
+        expect(logs.error.some((message) => message.includes("./axm.json"))).toBe(true);
       }),
     );
   });
@@ -393,8 +394,8 @@ describe("axm lint handler", () => {
       agents: ["claude-code"],
       skills: { demo: sourceDir },
     });
-    fs.writeFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "lockfileVersion: [broken\n");
-    const installedDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "demo");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: [broken\n");
+    const installedDir = path.join(tempDir, "agent_extensions", "@acme", "skills", "demo");
     fs.mkdirSync(installedDir, { recursive: true });
     fs.writeFileSync(path.join(installedDir, "SKILL.md"), "---\nname: demo\n\n# demo\n");
 

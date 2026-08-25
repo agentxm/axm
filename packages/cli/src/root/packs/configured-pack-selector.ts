@@ -29,10 +29,11 @@ const configuredPackFqn = (
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
 
-  const source = isWorkspaceSourceLocator(entry.source)
-    ? entry.source.slice("workspace:".length)
-    : entry.source;
-  const parsed = parseRegistrySourcePatternParts(source);
+  if (isWorkspaceSourceLocator(entry.source)) {
+    return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
+  }
+
+  const parsed = parseRegistrySourcePatternParts(entry.source);
   return parsed?.type === "packs" && parsed.name !== undefined
     ? `${parsed.owner}/packs/${parsed.name}`
     : undefined;

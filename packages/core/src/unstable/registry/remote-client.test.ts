@@ -267,6 +267,18 @@ describe("getExtensionIndex", () => {
     }),
   );
 
+  it.effect("fails when the Registry returns a bodyless 304 without cached state", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() => new Response(null, { status: 304 }));
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(client.getExtensionIndex(makeIndexArgs()));
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toBe("Remote Registry returned an extension index without a body");
+    }),
+  );
+
   it.effect("maps structured deprecation guidance", () =>
     Effect.gen(function* () {
       const response = {
@@ -667,6 +679,18 @@ describe("getExtensionPackage", () => {
         body: { detail: "Extension not found" },
       });
       expect(error.cause).toMatchObject({ _tag: "ExtensionsGet404" });
+    }),
+  );
+
+  it.effect("fails when a package index response has no body", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(() => new Response(null, { status: 304 }));
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
+
+      expect(error.code).toBe("internal");
+      expect(error.detail).toBe("Remote Registry returned a package index without a body");
     }),
   );
 

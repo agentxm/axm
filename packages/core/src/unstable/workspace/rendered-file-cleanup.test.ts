@@ -22,8 +22,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const axmDir = path.join(tempDir, ".axm");
         const canonicalSkill = path.join(
           tempDir,
-          ".axm",
-          "extensions",
+          "agent_extensions",
           "@acme",
           "skills",
           "code-review",

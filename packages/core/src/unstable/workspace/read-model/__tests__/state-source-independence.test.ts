@@ -33,7 +33,7 @@ import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
 // ---------------------------------------------------------------------------
 
 const WORKSPACE_ROOT = "/ws";
-const SETTINGS_PATH = `${WORKSPACE_ROOT}/.axm/settings.json`;
+const SETTINGS_PATH = `${WORKSPACE_ROOT}/axm.json`;
 // Production places the lockfile at the workspace root (no `.axm/`),
 // matching `makeWorkspaceReadModel`'s wiring in `service.ts`.
 const LOCKFILE_PATH = `${WORKSPACE_ROOT}/${LOCKFILE_NAME}`;
@@ -45,16 +45,19 @@ const VALID_SETTINGS_JSON = JSON.stringify({
 });
 
 const VALID_LOCKFILE_YAML = [
-  "lockfileVersion: 4",
+  "lockfileVersion: 5",
   "skills:",
   "  review-tool:",
   "    type: github",
+  "    packageOwner: '@owner'",
+  "    packageName: review-tool",
   "    owner: owner",
   "    repo: repo",
   "    ref: main",
   "    resolvedCommit: commit-1",
   "    resolvedTree: tree-1",
   "    contentIdentity: content-1",
+  `    treeIntegrity: sha256-tree-v1:${"0".repeat(64)}`,
   "",
 ].join("\n");
 
@@ -140,7 +143,7 @@ describe("source independence (Decision 2)", () => {
       const lockfile = yield* api.lockfile;
       expect(Option.isSome(lockfile)).toBe(true);
       const lf = Option.getOrThrow(lockfile);
-      expect(lf.lockfileVersion).toBe(4);
+      expect(lf.lockfileVersion).toBe(5);
       expect(Object.keys(lf.skills)).toContain("review-tool");
 
       // Settings cell SHALL fail with `SettingsParseError` (corrupt JSON).

@@ -15,15 +15,15 @@
  *
  * Cross-platform behavior:
  *
- * - POSIX `/ws/.axm/extensions/@o/skills/x/src` →
- *   `pathSegments = ["", "ws", ".axm", "extensions", "@o", "skills", "x", "src"]`.
+ * - POSIX `/ws/agent_extensions/@o/skills/x/src` →
+ *   `pathSegments = ["", "ws", "agent_extensions", "@o", "skills", "x", "src"]`.
  *   Dropping the trailing `src` segment yields the package root
- *   `/ws/.axm/extensions/@o/skills/x`.
- * - Windows `C:\\ws\\.axm\\extensions\\@o\\skills\\x\\src` →
- *   `pathSegments = ["C:", "ws", ".axm", "extensions", "@o", "skills", "x", "src"]`.
+ *   `/ws/agent_extensions/@o/skills/x`.
+ * - Windows `C:\\ws\\agent_extensions\\@o\\skills\\x\\src` →
+ *   `pathSegments = ["C:", "ws", "agent_extensions", "@o", "skills", "x", "src"]`.
  *   `pathSegments[0]` is `"C:"` (length 2); the separator is
  *   `contentLocation.charAt(2) = "\\"`. Joining yields
- *   `C:\\ws\\.axm\\extensions\\@o\\skills`.
+ *   `C:\\ws\\agent_extensions\\@o\\skills`.
  */
 
 /**

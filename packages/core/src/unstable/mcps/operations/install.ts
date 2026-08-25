@@ -41,6 +41,10 @@ import {
 import { printSourceParams } from "../../sources/index.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../../extensions/materialized-tree.js";
 import { decodeVersionSync } from "../../version-constraints/version-constraints.js";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -99,7 +103,10 @@ export type InstallMcpServerOperation = Operation<
 // Lock entry builder
 // -----------------------------------------------------------------------------
 
-const buildLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry => ({
+const buildLockEntry = (
+  ref: RegistryMcpServerRef,
+  treeIntegrity: TreeIntegrity,
+): McpServerLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -107,6 +114,7 @@ const buildLockEntry = (ref: RegistryMcpServerRef): McpServerLockEntry => ({
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
 });
 
 const MCP_SECRET_SERVICE = "axm-mcp";
@@ -654,10 +662,9 @@ export const installMcpServer: (
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
             const expectedPath = path.join(
-              ws.baseDir,
-              REGISTRY_EXTENSIONS_DIR,
-              ref.owner,
-              "mcps",
+              ws.layout.scope === "project"
+                ? ws.layout.authoredRoot("mcp-server")
+                : path.join(ws.layout.canonicalRoot, ref.owner, "mcps"),
               ref.name,
             );
             if (
@@ -700,7 +707,10 @@ export const installMcpServer: (
       );
     }
 
-    const lockEntry = ref.refType === "registry" ? buildLockEntry(ref) : undefined;
+    const lockEntry =
+      ref.refType === "registry"
+        ? buildLockEntry(ref, yield* computeMaterializedTreeIntegrity(canonicalPath))
+        : undefined;
     const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
     const currentEntry = currentMcpServers[ref.server.name];
     const storedSecrets = yield* loadStoredMcpSecrets(ref.server.name, secretNames);
@@ -732,7 +742,7 @@ export const installMcpServer: (
     const enabled = currentEntry?.enabled ?? true;
     const agents = op.args.agents ?? currentEntry?.agents;
     const settingsEntry: McpServerEntry = {
-      source: printSourceParams(ref.source),
+      source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
       env: persistedEnv,
       enabled,
       ...(agents === undefined ? {} : { agents }),
@@ -813,8 +823,8 @@ export const installMcpServer: (
         change,
         agents: agentOutcomes.map(({ agentId }) => agentId),
         targets: [
-          ...(lockEntry === undefined ? [] : [mcpSourceTarget(lockEntry, change)]),
-          mcpSettingsTarget(change),
+          ...(lockEntry === undefined ? [] : [mcpSourceTarget(ws.scope, lockEntry, change)]),
+          mcpSettingsTarget(ws.scope, change),
           ...agentConfigTargets(agentOutcomes),
         ],
       }),

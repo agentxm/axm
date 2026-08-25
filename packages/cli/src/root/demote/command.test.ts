@@ -34,21 +34,15 @@ describe("demote command", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-demote-test-"));
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
+      path.join(tempDir, "axm.json"),
       JSON.stringify({
         owner: "@acme",
         agents: [],
-        skills: { review: "workspace:@acme/skills/review" },
+        skills: { review: "workspace" },
       }),
     );
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "axm-lock.yaml"),
-      "lockfileVersion: 4\nskills: {}\n",
-    );
-    writeSkill(
-      path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review"),
-      "# Workspace review\n",
-    );
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
+    writeSkill(path.join(tempDir, "skills", "review"), "# Workspace review\n");
     writeSkill(path.join(tempDir, "replacement", "review"), "# Replacement review\n");
   });
 
@@ -77,10 +71,10 @@ describe("demote command", () => {
 
         expect(promptState.confirmCalls).toEqual([{ kind: "resolve-plan" }]);
         const settings = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema))(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
         );
         expect(settings.skills?.["review"]).toEqual({
-          source: "workspace:@acme/skills/review",
+          source: "workspace",
           enabled: true,
         });
       }),
@@ -106,15 +100,13 @@ describe("demote command", () => {
         });
 
         const settings = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema))(
-          fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8"),
+          fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"),
         );
         expect(settings.skills?.["review"]).toEqual({
           source: "./replacement/review",
           enabled: true,
         });
-        expect(
-          fs.existsSync(path.join(tempDir, ".axm", "extensions", "@acme", "skills", "review")),
-        ).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, "skills", "review"))).toBe(false);
       }),
     );
   });

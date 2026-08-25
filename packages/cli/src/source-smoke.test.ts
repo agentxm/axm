@@ -96,7 +96,7 @@ describe("axm source smoke", () => {
   it("keeps detailed output guarantees in live help and routes the bundled skill to it", async () => {
     const help = await runAxm(["help", "environment"]);
     const skill = fs.readFileSync(
-      path.resolve(PACKAGE_ROOT, "../..", ".axm/extensions/@agentxm/skills/axm/src/SKILL.md"),
+      path.resolve(PACKAGE_ROOT, "../..", "skills/axm/src/SKILL.md"),
       "utf8",
     );
 

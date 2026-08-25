@@ -22,15 +22,14 @@ import {
 } from "../agents/instructions.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
   decodeExtensionNameSync,
   enabledConfiguredEntries,
   formatFqn,
-  materializeExternalPackage,
+  materializeExternalPackageWithTreeIntegrity,
   canReuseInstalledPackage,
-  materializeRegistryPackage,
+  materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
+import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
@@ -44,6 +43,10 @@ import {
   parseFrontmatterEffect,
 } from "../extensions/frontmatter.js";
 import { computePackageContentHash } from "../extensions/package-hash.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../extensions/materialized-tree.js";
 import { type SourceHash } from "../extensions/rendered-files.js";
 import type { RuleLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
@@ -58,7 +61,6 @@ import {
 } from "../projection/marker-grammar.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { makeWorkspaceRelativeSourcePath, removeIfExists } from "../utils/index.js";
-import { printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type {
@@ -72,7 +74,10 @@ import {
   resolveConfiguredRule,
 } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
-import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
+import {
+  acceptedCanonicalObservation,
+  removableAcceptedCanonicalPath,
+} from "../workspace/accepted-canonical-ref.js";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -99,7 +104,10 @@ export const RULES_REGION_OWNER = "@agentxm/rules/instructions";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryRuleLockEntry = (ref: RegistryRuleRef): RuleLockEntry => ({
+const registryRuleLockEntry = (
+  ref: RegistryRuleRef,
+  treeIntegrity: TreeIntegrity,
+): RuleLockEntry => ({
   type: "registry",
   owner: ref.owner,
   name: ref.name,
@@ -107,20 +115,37 @@ const registryRuleLockEntry = (ref: RegistryRuleRef): RuleLockEntry => ({
   integrity: Option.getOrElse(ref.integrity, () => ""),
   sourceName: "default",
   publisherBindingId: ref.publisherBindingId,
+  treeIntegrity,
 });
 
-const gitRuleLockEntry = (ref: GitHostedRuleRef, contentIdentity: SourceHash): RuleLockEntry => ({
-  ...gitSourceLockFields(ref.source, ref.gitCommitSha, ref.gitTreeSha, contentIdentity),
+const gitRuleLockEntry = (
+  ref: GitHostedRuleRef,
+  contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
+): RuleLockEntry => ({
+  ...gitSourceLockFields(
+    ref.source,
+    ref.gitCommitSha,
+    ref.gitTreeSha,
+    contentIdentity,
+    ref.owner,
+    ref.name,
+    treeIntegrity,
+  ),
 });
 
 const localRuleLockEntry = (
   ref: LocalRuleRef,
   workspaceRelativeLocalSourcePath: Option.Option<string>,
   contentIdentity: SourceHash,
+  treeIntegrity: TreeIntegrity,
 ): RuleLockEntry => ({
   type: "local",
+  packageOwner: ref.owner,
+  packageName: ref.name,
   path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
   contentIdentity,
+  treeIntegrity,
 });
 
 const normalizeMarkdown = (content: string): string =>
@@ -185,23 +210,22 @@ export const RuleManagerLive = Layer.effect(
         readonly ref: RuleExtensionRef;
         readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
         readonly sourceHash: SourceHash;
+        readonly treeIntegrity: TreeIntegrity;
       }
     >();
     let lastProjection: MaterializationObservation | undefined;
 
     const materializeFromRegistry = (ref: RegistryRuleRef, force: boolean) =>
       Effect.gen(function* () {
-        const canonicalPath = path.join(
-          baseDir,
-          REGISTRY_EXTENSIONS_DIR,
-          ref.owner,
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          ws.layout,
+          ref,
           RULE_EXTENSION_DIR,
           ref.name,
-        );
-        const lockedVersion = acceptedRegistryVersionForRef(
-          yield* ws.getLockedRuleEntry(ref.rule.name),
-          ref,
-        );
+        ).canonicalPath;
+        const lockedEntry = yield* ws.getLockedRuleEntry(ref.rule.name);
+        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
             installedPath: canonicalPath,
@@ -213,9 +237,14 @@ export const RuleManagerLive = Layer.effect(
               `Failed to check if canonical rule package path exists: ${target}`,
           }),
         );
-        if (reuse) return canonicalPath;
-        return yield* provide(
-          materializeRegistryPackage({
+        if (reuse && Option.isSome(lockedEntry)) {
+          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+          if (observedTree === lockedEntry.value.treeIntegrity) {
+            return { packageRoot: canonicalPath, treeIntegrity: lockedEntry.value.treeIntegrity };
+          }
+        }
+        const materialized = yield* provide(
+          materializeRegistryPackageWithTreeIntegrity({
             baseDir,
             destinationPath: canonicalPath,
             sourceLocation: ref.source.location,
@@ -229,23 +258,33 @@ export const RuleManagerLive = Layer.effect(
             },
           }),
         );
+        return {
+          packageRoot: materialized.canonicalPath,
+          treeIntegrity: materialized.treeIntegrity,
+        };
       });
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
       provide(
-        materializeExternalPackage({
+        materializeExternalPackageWithTreeIntegrity({
           baseDir,
-          canonicalPath: path.join(
-            baseDir,
-            EXTERNAL_EXTENSIONS_DIR,
+          canonicalPath: computeExtensionPathsForLayout(
+            path.join,
+            ws.layout,
+            ref,
             RULE_EXTENSION_DIR,
             ref.rule.name,
-          ),
+          ).canonicalPath,
           sourceLocation: ref.location,
           copyFailureCode: "validation",
           copyFailureDetail: (canonicalPath) =>
             `Failed to copy rule package files to ${canonicalPath}`,
-        }),
+        }).pipe(
+          Effect.map((materialized) => ({
+            packageRoot: materialized.canonicalPath,
+            treeIntegrity: materialized.treeIntegrity,
+          })),
+        ),
       );
 
     const materializePackage = (ref: RuleExtensionRef, force = false) =>
@@ -257,13 +296,13 @@ export const RuleManagerLive = Layer.effect(
           case "local":
             return yield* materializeFromExternal(ref);
           case "workspace": {
-            const expectedPath = path.join(
-              baseDir,
-              REGISTRY_EXTENSIONS_DIR,
-              ref.owner,
+            const expectedPath = computeExtensionPathsForLayout(
+              path.join,
+              ws.layout,
+              ref,
               RULE_EXTENSION_DIR,
               ref.name,
-            );
+            ).canonicalPath;
             if (
               ref.scope !== ws.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
@@ -273,7 +312,10 @@ export const RuleManagerLive = Layer.effect(
                 detail: `Invalid workspace rule source location: ${ref.location}`,
               });
             }
-            return ref.location;
+            return {
+              packageRoot: ref.location,
+              treeIntegrity: yield* provide(computeMaterializedTreeIntegrity(ref.location)),
+            };
           }
         }
       });
@@ -382,14 +424,17 @@ export const RuleManagerLive = Layer.effect(
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["locked"];
     }) =>
-      activeContributors({
-        baseDir,
-        path,
-        type: "rule",
-        extensionDir: RULE_EXTENSION_DIR,
-        graph: args.graph,
-        locked: args.locked,
-      }).pipe(
+      provide(
+        activeContributors({
+          baseDir,
+          layout: ws.layout,
+          path,
+          type: "rule",
+          extensionDir: RULE_EXTENSION_DIR,
+          graph: args.graph,
+          locked: args.locked,
+        }),
+      ).pipe(
         Effect.flatMap((contributors) =>
           Effect.forEach(
             contributors,
@@ -548,7 +593,8 @@ export const RuleManagerLive = Layer.effect(
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
     )(function* ({ ref, force }) {
-      const packageRoot = yield* materializePackage(ref, force === true);
+      const materialized = yield* materializePackage(ref, force === true);
+      const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
 
       const workspaceRelativeLocalSourcePath =
@@ -567,6 +613,7 @@ export const RuleManagerLive = Layer.effect(
         ref,
         workspaceRelativeLocalSourcePath,
         sourceHash,
+        treeIntegrity: materialized.treeIntegrity,
       });
     }, Effect.asVoid);
 
@@ -577,14 +624,19 @@ export const RuleManagerLive = Layer.effect(
         const state = lastInstallState.get(ref.rule.name);
         switch (ref.refType) {
           case "registry":
-            return Option.some(registryRuleLockEntry(ref));
+            return state === undefined
+              ? yield* makeAppError({
+                  code: "internal",
+                  detail: `Rule ${ref.rule.name} has no materialized tree integrity`,
+                })
+              : Option.some(registryRuleLockEntry(ref, state.treeIntegrity));
           case "git-hosted":
             return state === undefined
               ? yield* makeAppError({
                   code: "internal",
                   detail: `Rule ${ref.rule.name} has no materialized content identity`,
                 })
-              : Option.some(gitRuleLockEntry(ref, state.sourceHash));
+              : Option.some(gitRuleLockEntry(ref, state.sourceHash, state.treeIntegrity));
           case "local":
             return state === undefined
               ? yield* makeAppError({
@@ -592,7 +644,12 @@ export const RuleManagerLive = Layer.effect(
                   detail: `Rule ${ref.rule.name} has no materialized content identity`,
                 })
               : Option.some(
-                  localRuleLockEntry(ref, state.workspaceRelativeLocalSourcePath, state.sourceHash),
+                  localRuleLockEntry(
+                    ref,
+                    state.workspaceRelativeLocalSourcePath,
+                    state.sourceHash,
+                    state.treeIntegrity,
+                  ),
                 );
           case "workspace":
             return Option.none();
@@ -610,9 +667,7 @@ export const RuleManagerLive = Layer.effect(
             name: target.name,
           }),
         );
-        const packageRoot = Option.flatMap(canonical, (state) =>
-          Option.fromUndefinedOr(state.observation.path),
-        );
+        const packageRoot = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(packageRoot)) {
           yield* removeIfExists(fs, packageRoot.value);
         }
@@ -664,7 +719,7 @@ export const RuleManagerLive = Layer.effect(
         const lockEntry = yield* buildLockEntry(ref);
         if (Option.isNone(lockEntry)) {
           yield* ws.setRuleEntry(ref.rule.name, {
-            source: printSourceParams(ref.source),
+            source: "workspace",
             enabled: true,
           });
           return;

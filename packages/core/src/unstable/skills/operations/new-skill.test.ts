@@ -114,8 +114,8 @@ describe("newSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Verify skill directory was created under registry path
-        const skillDir = path.join(base, ".axm", "extensions", "@myorg", "skills", "my-skill");
+        // Verify the authored skill directory was created.
+        const skillDir = path.join(base, "skills", "my-skill");
         expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
       }),
     );
@@ -160,15 +160,7 @@ describe("newSkill", () => {
         expect(result.result).toBe("success");
 
         // Check manifest content
-        const manifestPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "skills",
-          "my-skill",
-          "skill.json",
-        );
+        const manifestPath = path.join(base, "skills", "my-skill", "skill.json");
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.owner).toBe("@myorg");
         expect(manifest.type).toBe("skill");
@@ -187,16 +179,7 @@ describe("newSkill", () => {
 
         expect(result.result).toBe("success");
 
-        const skillMdPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "skills",
-          "my-skill",
-          "src",
-          "SKILL.md",
-        );
+        const skillMdPath = path.join(base, "skills", "my-skill", "src", "SKILL.md");
         const content = fs.readFileSync(skillMdPath, "utf-8");
         expect(content).not.toContain("Managed by axm");
       }),

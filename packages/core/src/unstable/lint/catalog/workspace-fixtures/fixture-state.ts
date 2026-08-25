@@ -86,6 +86,11 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
   const agents = Object.values(AGENTS);
 
   const addExistingPath = (relativePath: string): void => {
+    const acquiredPrefix = "agent_extensions/";
+    if (relativePath.startsWith(acquiredPrefix)) {
+      addTreeFile(axmExtensions, relativePath.slice(acquiredPrefix.length));
+      return;
+    }
     const axmPrefix = ".axm/extensions/";
     if (relativePath.startsWith(axmPrefix)) {
       addTreeFile(axmExtensions, relativePath.slice(axmPrefix.length));

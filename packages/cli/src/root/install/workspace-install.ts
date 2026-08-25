@@ -480,7 +480,9 @@ const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
     const configured = yield* ws.getConfiguredSkillEntries();
-    const entries = enabledConfiguredEntries(configured);
+    const entries = enabledConfiguredEntries(configured).filter(
+      ([, entry]) => entry.origin !== "bundled",
+    );
 
     const plans = yield* Effect.forEach(
       entries,

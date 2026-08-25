@@ -3,7 +3,8 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Pack packages live in `./.axm/extensions/<@owner>/packs/<pack-name>`.
+Project-authored pack packages live in `./packs/<pack-name>`; acquired packs
+live in `./agent_extensions/<@owner>/packs/<pack-name>`.
 
 ## pack.json
 
@@ -133,11 +134,11 @@ or relative-path namespace. When required coupling uses a sibling file,
 reference the target's canonical path from the active AXM scope root:
 
 ```text
-.axm/extensions/<@owner>/<plural-type>/<name>/src/<path>
+agent_extensions/<@owner>/<plural-type>/<name>/src/<path>
 ```
 
 ```markdown
-Read `.axm/extensions/@acme/knowledge/shared/src/policies/review.md`.
+Read `agent_extensions/@acme/knowledge/shared/src/policies/review.md`.
 ```
 
 The scope root is the project root for project scope and the user's home

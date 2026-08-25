@@ -1,8 +1,8 @@
 /**
  * `LintConfig` — workspace-settings-level lint configuration.
  *
- * WorkspaceMutations `.axm/settings.json` carries a `lint` section whose `rules` map
- * binds rule ids to `"off" | "info" | "warn" | "error"`. The registry publish
+ * Workspace settings carry a `lint` section whose `rules` map binds rule ids
+ * to `"off" | "info" | "warn" | "error"`. The registry publish
  * gate ignores workspace overrides; this config affects `axm lint` only.
  *
  * Keys are **exact** rule ids (`<namespace>/<name>`). No glob, wildcard, or
@@ -157,7 +157,7 @@ export const LintConfigSchema = Schema.Struct({
 }).annotate({
   identifier: "LintConfig",
   title: "Lint Config",
-  description: "Lint configuration under `lint` in `.axm/settings.json`.",
+  description: "Lint configuration under `lint` in workspace settings.",
 });
 
 /**

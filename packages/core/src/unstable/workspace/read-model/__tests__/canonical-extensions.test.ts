@@ -21,7 +21,12 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "../../../extensions/common.js";
-import { buildFixture, type FixtureSpec } from "../__fixtures__/builder.js";
+import {
+  buildFixture,
+  resolveFixtureProjectLayout,
+  resolveFixtureUserLayout,
+  type FixtureSpec,
+} from "../__fixtures__/builder.js";
 import { makeDiagnostics, type Warning } from "../diagnostics.js";
 import { makeCanonicalExtensionsScanner } from "../scanners/canonical-extensions.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
@@ -37,11 +42,12 @@ const runScanner = (spec: FixtureSpec) =>
     const deps = yield* buildFixture(spec);
     const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
     const diag = makeDiagnostics(ref);
+    const layout = yield* resolveFixtureProjectLayout(deps);
     const occurrences = yield* makeCanonicalExtensionsScanner({
       fs: deps.fs,
       path: deps.path,
       workspaceRoot: spec.workspaceRoot,
-      scope: "project",
+      layout,
       diagnostics: diag,
     });
     return { occurrences, warnings: yield* Ref.get(ref) };
@@ -89,7 +95,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-hook",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/hooks/some-hook/src",
+        contentLocation: "/ws/agent_extensions/@owner/hooks/some-hook/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",
@@ -98,7 +104,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/skills/some-skill/src",
+        contentLocation: "/ws/agent_extensions/@owner/skills/some-skill/src",
       });
     }),
   );
@@ -119,7 +125,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       expect(occurrences[0]).toMatchObject({
         type: "mcp-server",
         name: "tools",
-        contentLocation: "/ws/.axm/extensions/@owner/mcps/tools",
+        contentLocation: "/ws/agent_extensions/@owner/mcps/tools",
       });
     }),
   );
@@ -225,13 +231,14 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
           axmExtensions: { "@x/skills/y/src/SKILL.md": "ok\n" },
         },
       });
+      const layout = yield* resolveFixtureProjectLayout(deps);
       // Build the scanner effect with deps, then run it WITHOUT providing fs/path layers.
       // The scanner effect must succeed because it captured deps.fs/deps.path.
       const occurrences = yield* makeCanonicalExtensionsScanner({
         fs: deps.fs,
         path,
         workspaceRoot: WORKSPACE_ROOT,
-        scope: "project",
+        layout,
         diagnostics: diag,
       });
       expect(occurrences).toHaveLength(1);
@@ -244,20 +251,20 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       const deps = yield* buildFixture({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
-        project: {
+        user: {
           axmExtensions: { "@owner/skills/sample/src/SKILL.md": "ok\n" },
         },
       });
       const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+      const layout = yield* resolveFixtureUserLayout(deps);
       const occurrences = yield* makeCanonicalExtensionsScanner({
         fs: deps.fs,
         path,
-        workspaceRoot: WORKSPACE_ROOT,
-        scope: "user",
+        workspaceRoot: deps.userHome,
+        layout,
         diagnostics: makeDiagnostics(ref),
       });
-      // Even though the file is at project, the scanner stamps whatever scope
-      // its deps record specifies. Phase 9 picks the right scope per call.
+      // The workspace layout is the scope authority for every occurrence.
       expect(occurrences.every((o) => o.scope === "user")).toBe(true);
     }),
   );

@@ -87,10 +87,10 @@ describe("extension show", () => {
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, {
       skills: {
-        axm: { source: "workspace:@agentxm/skills/axm", enabled: true },
+        axm: { source: "workspace", enabled: true },
       },
     });
-    const packageRoot = path.join(axmDir, "extensions", "@agentxm", "skills", "axm");
+    const packageRoot = path.join(tempDir, "skills", "axm");
     fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(packageRoot, "skill.json"),
@@ -103,7 +103,7 @@ describe("extension show", () => {
         yield* handleExtensionShow({ type: "skill", name: "axm" });
 
         expect(rendererState.results[0]?.data).toMatchObject({
-          item: { source: "workspace:@agentxm/skills/axm", locked: false, version: "0.27.0" },
+          item: { source: "workspace", locked: false, version: "0.27.0" },
         });
       }),
     );

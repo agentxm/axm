@@ -4,14 +4,10 @@
   "definitions": {
     "Handle": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-          "title": "Handle",
-          "description": "A unique username or organization name starting with @, like @my-org.",
-          "examples": ["@my-org", "@username"]
-        }
-      ]
+      "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+      "title": "Handle",
+      "description": "A unique username or organization name starting with @, like @my-org.",
+      "examples": ["@my-org", "@username"]
     },
     "ExtensionVisibility": {
       "type": "string",
@@ -32,15 +28,11 @@
     },
     "MinimumReleaseAge": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^\\d+(ms|s|m|h|d)$",
-          "title": "Minimum Release Age",
-          "description": "Minimum age for registry versions during unattended resolution. Use 0s to disable the holdback.",
-          "default": "24h",
-          "examples": ["24h", "1440m", "0s"]
-        }
-      ]
+      "pattern": "^\\d+(ms|s|m|h|d)$",
+      "title": "Minimum Release Age",
+      "description": "Minimum age for registry versions during unattended resolution. Use 0s to disable the holdback.",
+      "default": "24h",
+      "examples": ["24h", "1440m", "0s"]
     },
     "ReleaseAgeExcludePatternEncoded": {
       "type": "string",
@@ -113,7 +105,7 @@
         "zenflow"
       ],
       "title": "Configurable Agent ID",
-      "description": "Supported coding agent identifier used in `.axm/settings.json` `agents`.",
+      "description": "Supported coding agent identifier used in workspace settings `agents`.",
       "examples": ["claude-code", "codex", "cursor"]
     },
     "InstructionsConfig": {
@@ -138,14 +130,10 @@
     },
     "SourceName": {
       "type": "string",
-      "allOf": [
-        {
-          "pattern": "^(?!workspace$)[a-z0-9][a-z0-9.-]*$",
-          "title": "Source Name",
-          "description": "Alias used in entry source strings for this source host.",
-          "examples": ["github", "my-registry.dev"]
-        }
-      ]
+      "pattern": "^(?!workspace$)[a-z0-9][a-z0-9.-]*$",
+      "title": "Source Name",
+      "description": "Alias used in entry source strings for this source host.",
+      "examples": ["github", "my-registry.dev"]
     },
     "GitHubSourceHostConfig": {
       "type": "object",
@@ -226,16 +214,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/skills/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/skills/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -265,14 +249,21 @@
     "SkillsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "SkillsConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "Skills Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "RuleEntry": {
       "anyOf": [
@@ -282,16 +273,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/rules/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/rules/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -316,14 +303,21 @@
     "RulesMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/RuleEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "RulesConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "Rules Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "HookEntry": {
       "anyOf": [
@@ -333,16 +327,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/hooks/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/hooks/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -367,14 +357,21 @@
     "HooksMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/HookEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "HooksConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "Hooks Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "KnowledgeEntry": {
       "anyOf": [
@@ -384,16 +381,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/knowledge/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/knowledge/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -423,18 +416,17 @@
     "KnowledgeMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/KnowledgeEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
-        }
-      ]
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
     },
     "KnowledgeConfig": {
       "type": "object",
       "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
+        },
         "instructions": {
           "type": "boolean",
           "description": "Whether active Knowledge is synchronized into the canonical instruction source. Omit true; persist only false.",
@@ -454,16 +446,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/subagents/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/subagents/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -488,14 +476,21 @@
     "SubagentsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SubagentEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "SubagentsConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "Subagents Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "PackEntry": {
       "anyOf": [
@@ -505,16 +500,12 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/packs/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/packs/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "enabled": {
@@ -539,14 +530,21 @@
     "PacksMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/PackEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "PacksConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "Packs Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "McpServerEnv": {
       "anyOf": [
@@ -564,27 +562,19 @@
           "properties": {
             "source": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
-                  "examples": [
-                    "@acme/mcps/code-review@^1.0.0",
-                    "github:acme/agent-extensions",
-                    "./extensions/code-review"
-                  ]
-                }
+              "minLength": 1,
+              "description": "FQN with optional version constraint, source-scheme ref like github:owner/repo, or local path.",
+              "examples": [
+                "@acme/mcps/code-review@^1.0.0",
+                "github:acme/agent-extensions",
+                "./extensions/code-review"
               ]
             },
             "command": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "Executable command for an inline stdio MCP server.",
-                  "examples": ["npx"]
-                }
-              ]
+              "minLength": 1,
+              "description": "Executable command for an inline stdio MCP server.",
+              "examples": ["npx"]
             },
             "args": {
               "type": "array",
@@ -594,13 +584,9 @@
             },
             "url": {
               "type": "string",
-              "allOf": [
-                {
-                  "minLength": 1,
-                  "description": "Remote MCP server URL.",
-                  "examples": ["https://mcp.sentry.dev/sse"]
-                }
-              ]
+              "minLength": 1,
+              "description": "Remote MCP server URL.",
+              "examples": ["https://mcp.sentry.dev/sse"]
             },
             "headers": {
               "type": "object",
@@ -617,7 +603,8 @@
               "type": "array",
               "description": "Coding agents this MCP server applies to. Omit to target every configured agent.",
               "examples": [["claude-code", "codex"]],
-              "allOf": [{ "minItems": 1 }, { "uniqueItems": true }],
+              "minItems": 1,
+              "uniqueItems": true,
               "items": { "$ref": "#/definitions/ConfigurableAgentId" }
             }
           },
@@ -644,14 +631,21 @@
     "McpServersMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/McpServerEntry" },
-      "allOf": [
-        {
-          "propertyNames": {
-            "type": "string",
-            "allOf": [{ "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }]
-          }
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+    },
+    "McpServersConfig": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workspace-relative authored package directory for this extension type. Omit to use the conventional root directory.",
+          "examples": ["extensions/skills"]
         }
-      ]
+      },
+      "additionalProperties": false,
+      "title": "MCP Servers Config",
+      "description": "Authored package directory configuration. AXM reads this manual override but never rewrites it."
     },
     "LintRuleSeverity": {
       "type": "string",
@@ -671,7 +665,7 @@
       },
       "additionalProperties": false,
       "title": "Lint Config",
-      "description": "Lint configuration under `lint` in `.axm/settings.json`."
+      "description": "Lint configuration under `lint` in workspace settings."
     },
     "AxmSettings": {
       "type": "object",
@@ -697,14 +691,14 @@
           "type": "array",
           "description": "Registry extension identities exempt from minimumReleaseAge, as exact FQNs, owner/type patterns, or owner patterns.",
           "examples": [["@acme/skills/code-review", "@acme/rules/*", "@acme/*"]],
-          "allOf": [{ "uniqueItems": true }],
+          "uniqueItems": true,
           "items": { "$ref": "#/definitions/ReleaseAgeExcludePatternEncoded" }
         },
         "agents": {
           "type": "array",
           "description": "Coding agents AXM should sync managed extensions into.",
           "examples": [["claude-code", "codex"]],
-          "allOf": [{ "uniqueItems": true }],
+          "uniqueItems": true,
           "items": { "$ref": "#/definitions/ConfigurableAgentId" }
         },
         "instructionFiles": {
@@ -724,14 +718,17 @@
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
           "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
+        "skillsConfig": { "$ref": "#/definitions/SkillsConfig" },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
           "description": "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
+        "rulesConfig": { "$ref": "#/definitions/RulesConfig" },
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
           "description": "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
+        "hooksConfig": { "$ref": "#/definitions/HooksConfig" },
         "knowledge": {
           "anyOf": [{ "$ref": "#/definitions/KnowledgeMap" }],
           "description": "Desired Open Knowledge Format bundles discovered from agent instruction files."
@@ -744,19 +741,23 @@
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
           "description": "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
         },
+        "subagentsConfig": { "$ref": "#/definitions/SubagentsConfig" },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
           "description": "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`."
         },
+        "packsConfig": { "$ref": "#/definitions/PacksConfig" },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
           "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset."
         },
+        "mcpServersConfig": { "$ref": "#/definitions/McpServersConfig" },
         "lint": {
           "anyOf": [{ "$ref": "#/definitions/LintConfig" }],
           "description": "Lint configuration for `axm lint` in this workspace."
         }
       },
+      "allOf": [{ "type": "object", "additionalProperties": {} }],
       "title": "AXM Settings",
       "description": "Your workspace configuration — owner, sources, installed extensions, feature config, and lint config.",
       "examples": [

@@ -194,6 +194,24 @@ describe("WorkspaceMutationsService", () => {
   });
 
   describe("workspace readiness", () => {
+    it.effect("loads project state when the project root is the user home", () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(
+          path.join(homeDir, "axm.json"),
+          JSON.stringify({ agents: ["claude-code"], owner: "@project" }),
+        );
+        fs.writeFileSync(path.join(homeDir, "axm-lock.yaml"), "lockfileVersion: 5\nskills: {}\n");
+
+        const ws = yield* getService({
+          scope: "project",
+          projectRoot: decodeAbsolutePathSync(homeDir),
+        });
+
+        expect(ws.scope).toBe("project");
+        expect(yield* ws.getConfiguredOwner()).toEqual(Option.some("@project"));
+      }),
+    );
+
     it.effect("requires setup when root project state is missing", () =>
       Effect.gen(function* () {
         fs.rmSync(path.join(projectDir, "axm.json"), { force: true });

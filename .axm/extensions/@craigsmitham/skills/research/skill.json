@@ -1,0 +1,28 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "research",
+  "version": "1.0.0",
+  "description": "Orchestrates QRSPI framing and delegated evidence-backed research into consistent question-by-question reports",
+  "keywords": [
+    "research",
+    "investigation",
+    "evidence",
+    "citations",
+    "synthesis",
+    "uncertainty",
+    "decision-support"
+  ],
+  "standalone": false,
+  "recommendedPacks": [
+    "@craigsmitham/packs/qrspi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/skills/research"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

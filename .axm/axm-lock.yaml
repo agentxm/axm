@@ -128,6 +128,31 @@ skills:
     integrity: sha512-+MQltPP/y2wy17P6rshefdUkyT6/yg/OymPKEkGVUIfLIDF0TA8bnAWR1tgXTTWxVZPvbcn/e11PlamxMNFhcg==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  question:
+    type: registry
+    owner: "@craigsmitham"
+    name: question
+    resolvedVersion: 0.1.2
+    integrity: sha512-bVwzz3CQA5p1I6UV3+LHzFcY0c42EnAXMCJIZKM8FyJ/dSaq1zqwU74qsIz/ukZUeOT+9YHT2f06QdWUqiFJrA==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  research:
+    type: registry
+    owner: "@craigsmitham"
+    name: research
+    resolvedVersion: 1.0.0
+    integrity: sha512-oQAS+69GTZMBbpOBm2idzb68Ci/hTLCqfYBremBZFbmi6NIZNn09g5DuXpPMqHYW7cMmu2qke3Yd5tIdOMT43A==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+subagents:
+  researcher:
+    type: registry
+    owner: "@craigsmitham"
+    name: researcher
+    resolvedVersion: 0.0.1
+    integrity: sha512-URzUgaQ9t3OQ5Zpan+VSqiAnphDnOfE2ysSSuJetk2rk2cR7U63w1CwwpGZkrxXpK/W0SlM7h4QtVctKJszZ5w==
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
 rules:
   field-notes:
     type: registry
@@ -279,5 +304,14 @@ packs:
     resolvedVersion: 0.6.0
     integrity: sha512-bA1yNdwQfmdtMX07QORE9uEaaMS85bnDcw3ob3LNGmQ6QXfo+il9DqCKagPnvFVmGz31TuCZBZCDzZ23MSPfcQ==
     manifestContentIdentity: 1f72b42715888edc99d686b2cf05372baa56e4369d24f62907943393bfe844c5
+    sourceName: default
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+  qrspi:
+    type: registry
+    owner: "@craigsmitham"
+    name: qrspi
+    resolvedVersion: 0.1.0
+    integrity: sha512-OmGzCC9cstEgcWa/zniai73b5W3anhmJ8pGomM+NsIpzVphX6qoKf40L1LpealVBzD1xRNa9EfI65YW8+E0PXg==
+    manifestContentIdentity: d3647dc74fdb7c59f0b98356f6f94aac51ed21b4309ed396d88efa5200b93697
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7

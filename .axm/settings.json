@@ -24,6 +24,7 @@
     "agent-engineering": "@agentxm/packs/agent-engineering",
     "software-engineering": "@craigsmitham/packs/software-engineering",
     "docs": "@craigsmitham/packs/docs",
-    "software-architecture": "@craigsmitham/packs/software-architecture"
+    "software-architecture": "@craigsmitham/packs/software-architecture",
+    "qrspi": "@craigsmitham/packs/qrspi"
   }
 }

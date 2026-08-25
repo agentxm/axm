@@ -17,8 +17,8 @@ repository layout, tracker, or tool.
 ## Concepts
 
 - [Field notes](field-notes-explainer.md) - How field notes preserve one
-  operational occurrence with observed facts, impact, detection, recovery, and
-  explicitly tentative interpretation.
+  operational occurrence with observed facts, safe diagnostic evidence,
+  impact, detection, recovery, and explicitly tentative interpretation.
 - [Subjects](subject-explainer.md) - What a field note subject is — survey
   versus target mode, what makes a usable target condition, how a survey
   subject graduates, and when a subject retires.

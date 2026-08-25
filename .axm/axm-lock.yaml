@@ -4,8 +4,8 @@ skills:
     type: registry
     owner: "@craigsmitham"
     name: field-notes
-    resolvedVersion: 0.2.0
-    integrity: sha512-ya/E/nhDX4lUTD55aoNHiJ67Q9Mew7NPsf8iN1k47HEHWmai9hRhfjvZE9HZmW5IxFvTFQUmGbkH3PhS3QGpNQ==
+    resolvedVersion: 0.2.2
+    integrity: sha512-JJq/GlUOuJXUqaUUQYVt+hzUpLGERh9py8P2VIHG4g3m0xMHqB9B8bUaFKYBvDowrnR1cqw3wlEgrniF4Mf2Bw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   improve-whatever:
@@ -133,8 +133,8 @@ rules:
     type: registry
     owner: "@craigsmitham"
     name: field-notes
-    resolvedVersion: 0.2.0
-    integrity: sha512-dlpfr9dqR1Lm5JqrA8OwzUes7iAMIvM4fTWetJHOyMaDsBmDRrB4Fkn7vVVp5DX18n8sR4XxE5HZYYgelGnGTA==
+    resolvedVersion: 0.2.1
+    integrity: sha512-OAU/RKfG6q++FERQwXyiV1bkicnrxL2z37ZwfcgPPmbxhSvruwiPYqYuNYjAoVfJ+3wubw0zoYBcrouCjhFXJQ==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   yagni:
@@ -174,8 +174,8 @@ knowledge:
     type: registry
     owner: "@craigsmitham"
     name: field-notes
-    resolvedVersion: 0.2.0
-    integrity: sha512-nFVSXB2H12YtCzb9ioU4Ccxlg5dnlWfbwVNKVdk0Jwh6NelKOBjSIe+PQYY47ht0nRYkaTiaMj5ZlGl4oT2Mhg==
+    resolvedVersion: 0.2.1
+    integrity: sha512-7DoGWAjHqOXqn3Gs+DL0XYtQfoa9ce4GXW2W6i4IY/BdTxTZdTzDR/ioyqcOY1FOR5fMCvTEjPWL9N3kn8PQiw==
     sourceName: default
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
   workflow-automation:

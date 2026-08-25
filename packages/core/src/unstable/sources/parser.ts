@@ -19,7 +19,7 @@ import type {
   Handle,
 } from "../extensions/index.js";
 import { parseFqn } from "../extensions/index.js";
-import { parseRegistrySourcePatternParts } from "../extensions/registry-source.js";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "../extensions/registry-source.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -31,9 +31,10 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `@owner/<plural-type>/name`. */
+/** A namespaced registry source: `[source-name:]@owner/<plural-type>/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
+  readonly sourceName: string;
   readonly type: Option.Option<ExtensionTypePlural>;
   readonly owner: Handle;
   readonly name: Option.Option<ExtensionName>;
@@ -142,7 +143,24 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     );
   }
 
-  // 3. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
+  // 3. Registry source, including an explicit configured source name. This
+  // must be intercepted before URL parsing because URL accepts arbitrary
+  // opaque schemes such as `agentxm:`.
+  const registry = parseSourceQualifiedRegistrySourcePatternParts(input);
+  if (registry !== undefined) {
+    return Option.some(
+      wrap({
+        pattern: "registry-pattern-input",
+        sourceName: registry.sourceName,
+        type: Option.fromUndefinedOr(registry.type),
+        owner: registry.owner,
+        name: Option.fromUndefinedOr(registry.name),
+        versionRange: Option.fromUndefinedOr(registry.versionRange),
+      }),
+    );
+  }
+
+  // 4. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
   const colonIndex = input.indexOf(":");
   if (colonIndex > 0 && SHORTHAND_PREFIXES.has(input.slice(0, colonIndex))) {
     return Option.some(
@@ -154,12 +172,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     );
   }
 
-  // 4. File path — must check before URL (e.g. `C:/path` is a valid URL with scheme `c:`)
+  // 5. File path — must check before URL (e.g. `C:/path` is a valid URL with scheme `c:`)
   if (LOCAL_PATH_PATTERN.test(input)) {
     return Option.some(wrap({ pattern: "file-path-pattern", path: input }));
   }
 
-  // 5. URL
+  // 6. URL
   try {
     const url = new URL(input);
     if (url.protocol === "file:") {
@@ -168,25 +186,6 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     return Option.some(wrap({ pattern: "url-input", url }));
   } catch {
     // Not a URL
-  }
-
-  // 6. Registry source:
-  //    - @owner
-  //    - @owner/{type}
-  //    - @owner/{type}/{name}@constraint
-  if (input.startsWith("@")) {
-    const parsed = parseRegistrySourcePatternParts(input);
-    if (parsed !== undefined) {
-      return Option.some(
-        wrap({
-          pattern: "registry-pattern-input",
-          type: Option.fromUndefinedOr(parsed.type),
-          owner: parsed.owner,
-          name: Option.fromUndefinedOr(parsed.name),
-          versionRange: Option.fromUndefinedOr(parsed.versionRange),
-        }),
-      );
-    }
   }
 
   // 7. Slash pattern (`owner/repo` or `owner/repo/path`)

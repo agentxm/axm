@@ -94,6 +94,7 @@ const checkRegistryMatch = ({
   });
 
 const resolveRegistrySource = (
+  sourceName: string,
   owner: Handle,
   input: string,
   options: {
@@ -113,7 +114,7 @@ const resolveRegistrySource = (
           cause: e,
         }),
       ),
-    )).filter((source) => source.name === "agentxm");
+    )).filter((source) => source.name === sourceName);
 
     if (registrySources.length === 0) {
       return yield* makeAppError({
@@ -311,7 +312,7 @@ const resolveSkillRegistrySource = (
       });
     }
 
-    return yield* resolveRegistrySource(pattern.owner, input, {
+    return yield* resolveRegistrySource(pattern.sourceName, pattern.owner, input, {
       skillName: pattern.name,
       resolutionOptions,
     });

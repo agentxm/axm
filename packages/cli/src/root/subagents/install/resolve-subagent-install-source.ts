@@ -95,6 +95,7 @@ const checkRegistryMatch = ({
   });
 
 const resolveRegistrySource = (
+  sourceName: string,
   owner: Handle,
   input: string,
   options: {
@@ -105,7 +106,7 @@ const resolveRegistrySource = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
-    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
+    const registrySources = (yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeAppError({
           code: "internal",
@@ -118,7 +119,7 @@ const resolveRegistrySource = (
           cause: e,
         }),
       ),
-    );
+    )).filter((source) => source.name === sourceName);
 
     if (registrySources.length === 0) {
       return yield* makeAppError({
@@ -337,7 +338,7 @@ const resolveSubagentRegistrySource = (
       });
     }
 
-    return yield* resolveRegistrySource(pattern.owner, input, {
+    return yield* resolveRegistrySource(pattern.sourceName, pattern.owner, input, {
       subagentName: pattern.name,
       resolutionOptions,
     });

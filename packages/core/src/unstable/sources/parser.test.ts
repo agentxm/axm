@@ -30,6 +30,7 @@ describe("parseInputPattern", () => {
     it("classifies @owner/skills/name as registry-pattern-input", () => {
       expectSome("@myorg/skills/some-name", {
         pattern: "registry-pattern-input",
+        sourceName: "agentxm",
         type: Option.some("skills"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("some-name")),
@@ -40,6 +41,7 @@ describe("parseInputPattern", () => {
     it("classifies @owner/mcps/name@constraint as registry-pattern-input", () => {
       expectSome("@myorg/mcps/server-a@^1.2.3", {
         pattern: "registry-pattern-input",
+        sourceName: "agentxm",
         type: Option.some("mcps"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("server-a")),
@@ -50,6 +52,7 @@ describe("parseInputPattern", () => {
     it("classifies @owner/packs/name as registry-pattern-input", () => {
       expectSome("@myorg/packs/my-pack", {
         pattern: "registry-pattern-input",
+        sourceName: "agentxm",
         type: Option.some("packs"),
         owner: handle("@myorg"),
         name: Option.some(extensionName("my-pack")),
@@ -64,6 +67,7 @@ describe("parseInputPattern", () => {
     it("classifies @owner as registry-pattern-input with no type/name", () => {
       expectSome("@myorg", {
         pattern: "registry-pattern-input",
+        sourceName: "agentxm",
         type: Option.none(),
         owner: handle("@myorg"),
         name: Option.none(),
@@ -74,9 +78,21 @@ describe("parseInputPattern", () => {
     it("classifies @owner/{type} as registry-pattern-input with no name", () => {
       expectSome("@myorg/skills", {
         pattern: "registry-pattern-input",
+        sourceName: "agentxm",
         type: Option.some("skills"),
         owner: handle("@myorg"),
         name: Option.none(),
+        versionRange: Option.none(),
+      });
+    });
+
+    it("classifies a source-qualified registry FQN before opaque URL syntax", () => {
+      expectSome("internal:@myorg/skills/some-name", {
+        pattern: "registry-pattern-input",
+        sourceName: "internal",
+        type: Option.some("skills"),
+        owner: handle("@myorg"),
+        name: Option.some(extensionName("some-name")),
         versionRange: Option.none(),
       });
     });

@@ -488,6 +488,7 @@ export const routeNameInput = (
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 export const routeRegistryInput = (
   pattern: {
+    readonly sourceName: string;
     readonly type: Option.Option<ExtensionTypePlural>;
     readonly owner: Handle;
     readonly name: Option.Option<ExtensionName>;
@@ -498,18 +499,21 @@ export const routeRegistryInput = (
     const ws = yield* WorkspaceMutations;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
-    const sources = yield* ws
-      .getConfiguredSources()
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({ code: "validation", detail: `Failed to get source agentxm: ${e._tag}` }),
-        ),
-      );
-    const configured = Option.fromUndefinedOr(sources.find((source) => source.name === "agentxm"));
+    const sources = yield* ws.getConfiguredSources().pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
+        }),
+      ),
+    );
+    const configured = Option.fromUndefinedOr(
+      sources.find((source) => source.name === pattern.sourceName),
+    );
     if (Option.isNone(configured) || configured.value.type !== "registry") {
       return yield* makeAppError({
         code: "validation",
-        detail: 'No Registry source named "agentxm" is configured',
+        detail: `No Registry source named "${pattern.sourceName}" is configured`,
       });
     }
     return {

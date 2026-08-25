@@ -702,6 +702,34 @@ describe("axm install", () => {
     },
   );
 
+  it("installs only the exact source-qualified registry skill", async () => {
+    const registryDir = createTempDir("axm-registry-");
+    const workspace = createTempDir();
+    const target = "qualified-target";
+    const other = "qualified-other";
+
+    try {
+      await publishSkillToRegistry(registryDir.path, target);
+      await publishSkillToRegistry(registryDir.path, other);
+      await initWorkspace(workspace.path, registryDir.path);
+
+      const result = await runJsonCommand(
+        workspace.path,
+        ["install"],
+        [`agentxm:${registryFqn("skills", target)}`],
+      );
+
+      expect(result.stdout.result.outcome).toBe("applied");
+      expect(result.stdout.result.units.map((unit) => unit.label)).toEqual([target]);
+      expectConfiguredEntriesInstalled(workspace.path, "skills", [target]);
+      expect(readSettings(workspace.path).skills?.[other]).toBeUndefined();
+      expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", other))).toBe(false);
+    } finally {
+      registryDir.cleanup();
+      workspace.cleanup();
+    }
+  });
+
   it.each(installCases)(
     "C-01: installs all configured $label entries for no-arg $plural install",
     async (row) => {

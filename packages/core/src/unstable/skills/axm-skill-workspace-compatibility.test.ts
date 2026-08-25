@@ -28,7 +28,7 @@ const compatibleFixture = WorkspaceReadModelTest({
         owner: "@team",
         agents: [],
         skills: {
-          axm: { source: `@agentxm/skills/axm@${VERSION}`, enabled: true },
+          axm: { source: `agentxm:@agentxm/skills/axm@${VERSION}`, enabled: true },
         },
       },
     },
@@ -62,7 +62,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
         status: "compatible",
         cliVersion: "1.2.3",
         skillVersion: VERSION,
-        source: `@agentxm/skills/axm@${VERSION}`,
+        source: `agentxm:@agentxm/skills/axm@${VERSION}`,
         declaredCliVersion: VERSION,
         declaredCliVersionRange: RANGE,
         reasonCode: null,

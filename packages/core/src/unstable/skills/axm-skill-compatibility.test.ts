@@ -21,7 +21,7 @@ const compatibleInput = (
   cliVersion: CLI_VERSION,
   skill: {
     manifestVersion: SKILL_VERSION,
-    source: "@agentxm/skills/axm@1.2.0",
+    source: "agentxm:@agentxm/skills/axm@1.2.0",
     metadata: {
       [AXM_SKILL_CLI_VERSION_METADATA_KEY]: SKILL_VERSION,
       [AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY]: ">=1.2.0 <1.3.0",
@@ -69,7 +69,7 @@ describe("evaluateAxmSkillCompatibility", () => {
       status: "compatible",
       cliVersion: CLI_VERSION,
       skillVersion: SKILL_VERSION,
-      source: "@agentxm/skills/axm@1.2.0",
+      source: "agentxm:@agentxm/skills/axm@1.2.0",
       declaredCliVersion: SKILL_VERSION,
       declaredCliVersionRange: ">=1.2.0 <1.3.0",
       reasonCode: null,

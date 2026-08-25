@@ -26,8 +26,16 @@ const manifestVersion = (content: string): string | null => {
   }
 };
 
-const isOfficialSource = (source: string): boolean =>
-  source === AXM_SKILL_FQN || source.startsWith(`${AXM_SKILL_FQN}@`) || source === "workspace";
+const isOfficialSource = (source: string): boolean => {
+  const registrySource = `agentxm:${AXM_SKILL_FQN}`;
+  return (
+    source === AXM_SKILL_FQN ||
+    source.startsWith(`${AXM_SKILL_FQN}@`) ||
+    source === registrySource ||
+    source.startsWith(`${registrySource}@`) ||
+    source === "workspace"
+  );
+};
 
 export interface ReadAxmSkillWorkspaceCompatibilityArgs {
   readonly platform: {

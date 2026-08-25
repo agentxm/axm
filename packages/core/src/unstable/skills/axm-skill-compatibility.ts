@@ -4,6 +4,7 @@ import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
 export const AXM_SKILL_FQN = "@agentxm/skills/axm";
+const AXM_SKILL_AGENTXM_SOURCE = `agentxm:${AXM_SKILL_FQN}`;
 export const AXM_SKILL_CLI_VERSION_METADATA_KEY = "axm.sh/cli-version";
 export const AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY = "axm.sh/cli-version-range";
 export const AXM_SKILL_BUNDLED_PREVIEW_COMMAND =
@@ -174,7 +175,8 @@ const bundledSkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery
 const isAuthoredSource = (source: string | null): boolean => source === "workspace";
 
 const isRegistrySource = (source: string | null): boolean =>
-  source?.startsWith(`${AXM_SKILL_FQN}@`) === true;
+  source?.startsWith(`${AXM_SKILL_FQN}@`) === true ||
+  source?.startsWith(`${AXM_SKILL_AGENTXM_SOURCE}@`) === true;
 
 const registrySkillRecovery = (cliVersion: string): AxmSkillCompatibilityRecovery => ({
   action: "update-registry-skill",

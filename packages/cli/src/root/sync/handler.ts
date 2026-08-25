@@ -40,6 +40,7 @@ import {
   buildMaterializeOperation,
   enabledConfiguredEntries,
   isConfiguredEntryEnabled,
+  managedFileMarker,
   sanitizeName,
   parseExtensionFqnParts,
   targetFromRef,
@@ -610,12 +611,74 @@ const isObservedMaterializationCurrent = (
           return Effect.succeed(true);
         }
         if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
+        if (node.type === "subagent") {
+          return agentRepo.all.pipe(
+            Effect.flatMap((agents) => {
+              const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
+              if (configured.length !== configuredAgents.length) return Effect.succeed(false);
+              return Effect.forEach(
+                configured,
+                (agent) =>
+                  agent
+                    .resolveEffectiveSubagentsDir({
+                      workspaceRoot: ws.baseDir,
+                      scope: ws.scope,
+                    })
+                    .pipe(
+                      Effect.provideService(FileSystem.FileSystem, fs),
+                      Effect.provideService(Path.Path, path),
+                      Effect.flatMap((outcome) => {
+                        if (outcome._tag === "supported") {
+                          return Effect.succeed(
+                            observed.origins.includes("agent-subagent-dir") &&
+                              observed.agents.includes(agent.id),
+                          );
+                        }
+                        if (outcome._tag === "misconfigured") return Effect.succeed(false);
+                        if (outcome._tag === "disabled") return Effect.succeed(true);
+                        return agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                          Effect.provideService(Path.Path, path),
+                          Effect.flatMap((skillsOutcome) => {
+                            if (
+                              skillsOutcome._tag === "unsupported" ||
+                              skillsOutcome._tag === "disabled"
+                            ) {
+                              return Effect.succeed(true);
+                            }
+                            if (skillsOutcome._tag === "misconfigured") {
+                              return Effect.succeed(false);
+                            }
+                            const fallbackPath = path.join(
+                              skillsOutcome.dir,
+                              sanitizeName(node.name),
+                              "SKILL.md",
+                            );
+                            return fs.readFileString(fallbackPath).pipe(
+                              Effect.option,
+                              Effect.map((content) =>
+                                Option.exists(content, (value) =>
+                                  Option.exists(
+                                    managedFileMarker(value, "markdown"),
+                                    (marker) =>
+                                      marker.ext === "@agentxm/subagents/managed-file" &&
+                                      marker.src === `subagents/${node.name}.md`,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        );
+                      }),
+                    ),
+                { concurrency: "unbounded" },
+              ).pipe(Effect.map((results) => results.every(Boolean)));
+            }),
+          );
+        }
         const hasProjectionOrigin = (() => {
           switch (node.type) {
             case "skill":
               return observed.origins.includes("agent-skill-dir");
-            case "subagent":
-              return observed.origins.includes("agent-subagent-dir");
             case "mcp-server":
               return (
                 observed.origins.includes("workspace-mcp-config") ||

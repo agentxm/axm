@@ -2077,6 +2077,33 @@ describe("root sync handler", () => {
     }),
   );
 
+  it.effect("treats an AXM-owned subagent role-skill fallback as current", () =>
+    Effect.gen(function* () {
+      const first = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["zed"],
+        subagents: {
+          researcher: "workspace",
+        },
+      });
+      writeSubagentExtension(tempDir, "researcher");
+
+      yield* first.provide(handleSync({ preview: false }));
+
+      const fallbackPath = path.join(tempDir, ".agents", "skills", "researcher", "SKILL.md");
+      expect(fs.readFileSync(fallbackPath, "utf8")).toContain("src=subagents/researcher.md");
+
+      const second = makeLayers({ machine: true });
+      yield* second.provide(handleSync({ preview: true, failOnChange: true }));
+
+      expectNoOpPlanResult(second.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+      expect(second.rendererState.results[0]?.ok).toBe(true);
+    }),
+  );
+
   it.effect("removes managed subagent files when the settings entry is disabled", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();

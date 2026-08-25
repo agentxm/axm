@@ -12,15 +12,25 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "../extensions/index.js";
+import { computeSourceHash } from "../extensions/rendered-files.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
-import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
-import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
+import {
+  makeBaseWorkspaceMock,
+  readModelRecordStubs,
+  TEST_CONTENT_IDENTITY,
+} from "../workspace/test-stubs.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  exactVersion,
+  extensionName,
+  handle,
+} from "../test-helpers.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
-import type { LocalKnowledgeRef } from "./refs.js";
+import type { LocalKnowledgeRef, WorkspaceKnowledgeRef } from "./refs.js";
 
 const writeKnowledgePackage = (
   root: string,
@@ -62,6 +72,24 @@ const localRef = (name: string, root: string): LocalKnowledgeRef => ({
   source: { type: "local", path: root },
   sourcePath: nodePath.basename(root),
   location: pathToFileURL(root).href,
+  knowledge: { name: decodeExtensionNameSync(name) },
+});
+
+const workspaceRef = (name: string, root: string): WorkspaceKnowledgeRef => ({
+  type: "knowledge",
+  refType: "workspace",
+  source: {
+    type: "workspace",
+    owner: handle("@acme"),
+    extensionType: "knowledge",
+    name: extensionName(name),
+  },
+  owner: handle("@acme"),
+  name: extensionName(name),
+  version: exactVersion("1.0.0"),
+  scope: "project",
+  location: root,
+  sourceHash: computeSourceHash(name),
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
@@ -119,6 +147,82 @@ const managerLayer = (
   );
 
 describe("KnowledgeManager", () => {
+  it.effect("persists the compact source for workspace Knowledge", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      try {
+        const sourceRoot = nodePath.join(workspaceRoot, "knowledges", "handbook");
+        writeKnowledgePackage(sourceRoot, "handbook", true);
+        const written: Array<{ readonly source: string }> = [];
+
+        yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.install({
+            ref: workspaceRef("handbook", sourceRoot),
+            versionRange: Option.none(),
+          });
+        }).pipe(
+          Effect.provide(
+            managerLayer(workspaceRoot, {
+              getConfiguredKnowledgeEntries: () =>
+                Effect.succeed({ handbook: { source: "workspace", enabled: true } }),
+              getDesiredStateGraph: () =>
+                Effect.succeed({
+                  complete: true,
+                  nodes: [
+                    {
+                      type: "knowledge",
+                      name: "handbook",
+                      identity: "workspace:@acme/knowledge/handbook",
+                      source: "workspace",
+                      enabled: true,
+                      constraints: [],
+                      origins: [{ type: "settings", source: "workspace", enabled: true }],
+                    },
+                  ],
+                  problems: [],
+                }),
+              records: {
+                ...readModelRecordStubs,
+                getExtensionInventory: () =>
+                  Effect.succeed({
+                    items: [
+                      {
+                        scope: "project",
+                        type: "knowledge",
+                        name: "handbook",
+                        classification: { kind: "lifecycle", lifecycle: "configured" },
+                        enabled: true,
+                        installed: true,
+                        agents: [],
+                        agentOutcomes: [],
+                        origins: ["settings"],
+                        paths: [sourceRoot],
+                        source: "workspace",
+                      },
+                    ],
+                    count: 1,
+                    configuredCount: 1,
+                    implicitCount: 0,
+                    installedCount: 1,
+                    unmanagedCount: 0,
+                  }),
+              },
+              setKnowledgeEntry: (_name, entry) =>
+                Effect.sync(() => {
+                  written.push(entry);
+                }),
+            }),
+          ),
+        );
+
+        expect(written).toEqual([{ source: "workspace", enabled: true }]);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect("restores the previous canonical bundle when installation is interrupted", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));

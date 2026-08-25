@@ -34,7 +34,7 @@ import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { KnowledgeMap } from "../settings/index.js";
-import { knowledgeLockEntryToRef, printSourceParams } from "../sources/index.js";
+import { knowledgeLockEntryToRef } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
@@ -893,7 +893,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   versionRange: args.versionRange,
                 });
               } else {
-                yield* setKnowledgeSourceEntry(name, printSourceParams(args.ref.source));
+                yield* setKnowledgeSourceEntry(name, "workspace");
               }
               yield* cleanupSupersededCanonical;
               return { name };

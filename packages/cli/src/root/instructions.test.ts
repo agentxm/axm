@@ -50,7 +50,9 @@ describe("instructions handler", () => {
   beforeEach(() => {
     originalCwd = process.cwd();
     originalHome = process.env["HOME"];
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "instructions-handler-"));
+    // Canonicalized like the production workspace root: status reports
+    // canonical paths, and macOS resolves /var to /private/var.
+    tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "instructions-handler-")));
     homeDir = path.join(tempDir, "home");
     fs.mkdirSync(homeDir, { recursive: true });
     process.chdir(tempDir);

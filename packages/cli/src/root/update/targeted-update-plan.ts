@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
 
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import {
+  operationPresentation,
+  type JobStepResult,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
 import { buildAtomicPackGraphStep, type AtomicPackGraphChild } from "../packs/graph-transition.js";
@@ -76,7 +81,7 @@ export const wrapTargetedUpdatePlan = (args: {
       scope: workspace.scope,
       change: "updated" as const,
     };
-    const graphStep = yield* buildAtomicPackGraphStep({
+    const builtStep = yield* buildAtomicPackGraphStep({
       label: args.context.public.target.fqn,
       message: `Updated ${args.context.public.target.fqn}`,
       artifact,
@@ -106,31 +111,35 @@ export const wrapTargetedUpdatePlan = (args: {
       ),
     });
 
+    // Ownership-context staleness resolves as typed blocking rather than as a
+    // step failure, so the operation terminates blocked/stale-candidate.
+    const graphStep: PlannedJobStep =
+      builtStep.readiness === "error"
+        ? builtStep
+        : {
+            ...builtStep,
+            run: builtStep.run.pipe(
+              Effect.catch((error) =>
+                error.code === "conflict" && error.detail === TARGETED_UPDATE_STALE_DETAIL
+                  ? Effect.succeed({
+                      result: "error",
+                      message: TARGETED_UPDATE_STALE_DETAIL,
+                      error,
+                      blocking: { class: "stale-candidate" },
+                    } satisfies JobStepResult)
+                  : Effect.fail(error),
+              ),
+            ),
+          };
+
     return {
       ...args.plan,
       name: `Update ${args.context.public.target.fqn}`,
       description: args.plan.description,
-      sections: [
-        ...(args.plan.sections ?? []),
-        {
-          title: "Targeted update authority",
-          items: [
-            `Ownership: ${args.context.public.ownership}`,
-            `Activation: ${args.context.public.activation}`,
-            `Authority: ${args.context.public.authority}`,
-            ...(args.context.public.effectiveConstraint === undefined
-              ? []
-              : [`Effective constraint: ${args.context.public.effectiveConstraint}`]),
-            ...args.context.public.packs.map(
-              (pack) =>
-                `Owning pack: ${pack.fqn}${
-                  pack.configuredName === undefined ? "" : ` (${pack.configuredName})`
-                } ${pack.constraint}; member source ${pack.memberSource}`,
-            ),
-            `Member closure: ${args.context.public.memberClosure.map((member) => member.fqn).join(", ")}`,
-          ],
-        },
-      ],
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        args.context.public.target.type,
+      ),
       jobs: [{ concurrency: 1, steps: [graphStep] }],
     } satisfies Plan;
   });

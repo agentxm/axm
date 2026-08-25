@@ -31,27 +31,40 @@ import {
   recoverCanonicalDirectory,
 } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
   acquireExternalSource,
   resolveSource,
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 
 type NativeImportType = "skill" | "subagent";
 
-export const handleImport = Effect.fn("Import.handle")(function* (args: {
+interface ImportHandlerArgs {
   readonly type: NativeImportType;
   readonly source: string;
   readonly target: string;
   readonly enable: boolean;
   readonly yes: boolean;
   readonly preview: boolean;
-}) {
+}
+
+export const handleImport = (args: ImportHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: `${extensionTypeToPlural[args.type]} import`,
+      mode: args.preview ? "preview" : "apply",
+      planName: "Import native extension",
+    },
+    handleImportBody(args),
+  );
+
+const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandlerArgs) {
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
@@ -213,6 +226,10 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     description: Option.some(
       `Losslessly convert ${acquired.origin} into ${fqn}; the native source remains unchanged and the import starts ${enabled ? "enabled" : "disabled"}`,
     ),
+    presentation: operationPresentation(
+      { imperative: "import", past: "Imported", gerund: "Importing" },
+      target.type,
+    ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
   const execution = yield* makePlanExecution(
@@ -227,7 +244,7 @@ export const handleImport = Effect.fn("Import.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult(`${group} import`, resolution);
+  yield* emitOperationResolution(`${group} import`, resolution);
 });
 
 const config = {

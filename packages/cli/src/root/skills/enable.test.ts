@@ -265,7 +265,14 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnable(defaultArgs("my-skill"));
 
-          expect(logs.success).toEqual(["  + my-skill"]);
+          // Apply mode renders no planned block; the refusal is the terminal
+          // failed-outcome block.
+          expect(logs.success).toEqual([]);
+          expect(logs.error).toEqual([
+            "Failed to enable 1 skill",
+            '  Accepted skill content for "my-skill" is not usable (not_found)',
+            '  my-skill: Accepted skill content for "my-skill" is not usable (not_found)',
+          ]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

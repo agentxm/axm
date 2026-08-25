@@ -16,11 +16,12 @@
 
 // Plan types
 export {
+  BlockingClassSchema,
   ConfiguredAgentOutcomeSchema,
+  operationPresentation,
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
-  PlanExecutionReasonSchema,
   PlanPolicyIdSchema,
   PlanPolicyIds,
   PlanRiskConditionSchema,
@@ -28,36 +29,92 @@ export {
 export type {
   ArtifactChange,
   ArtifactMechanism,
-  CancelledPlan,
+  BlockingClass,
   CompletedJobStep,
   ConfiguredAgentOutcome,
   ErrorJobStep,
   ExecutedJob,
   ExecutedPlan,
-  FailedPlan,
   Job,
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Operation,
   OperationPrecondition,
+  OperationPresentation,
   Plan,
-  PlanExecutionReason,
   PlanPolicyId,
-  PlanResolution,
   PlanRiskCondition,
-  PlanSection,
   PlannedJobStep,
-  PreviewedPlan,
   ReadyJobStep,
+  UnitBlocking,
   WarnJobStep,
 } from "./plan.js";
 
+// Operation resolution — the single value every plan-family command
+// terminates with, with its pure outcome/exit derivations.
+export {
+  AtomicityClassSchema,
+  OperationOutcomeSchema,
+  OperationPhaseSchema,
+  UnitDispositionSchema,
+  UnitStateSchema,
+  countUnitStates,
+  declaredAtomicity,
+  deriveOperationOutcome,
+  executedUnits,
+  makeOperationResolution,
+  operationExitCode,
+  operationOk,
+  plannedUnits,
+  unitIdOf,
+  unitsByStableIdentity,
+} from "./operation-resolution.js";
+export type {
+  AtomicityClass,
+  MakeOperationResolutionArgs,
+  OperationAtomicity,
+  OperationBlock,
+  OperationFootprintEntry,
+  OperationInterruption,
+  OperationOutcome,
+  OperationPhase,
+  OperationRecovery,
+  OperationResolution,
+  ResolvedUnit,
+  UnitDisposition,
+  UnitState,
+  UnitStateCounts,
+} from "./operation-resolution.js";
+
+// Operation journal — invocation-scoped progress record for interruption.
+export {
+  OperationJournal,
+  appendResolvedUnit,
+  appendStartedUnit,
+  recordJournalPhase,
+  getOperationJournal,
+  makeOperationJournal,
+  recordOperationJournal,
+  updateOperationJournal,
+  type OperationJournalService,
+  type OperationJournalState,
+} from "./operation-journal.js";
+
 // Apply plan + operation handler registry
-export { applyPlan, type OperationHandler } from "./apply-plan.js";
+export { applyPlan, type ApplyPlanOptions, type OperationHandler } from "./apply-plan.js";
+export {
+  OperationLifecycle,
+  makeOperationLifecycle,
+  publishLifecycleEvent,
+  publishPhaseStarted,
+  subscribeToLifecycle,
+  type OperationLifecycleEvent,
+  type OperationLifecycleService,
+} from "./operation-events.js";
 
 // Workspace-interactive preview/apply backbone used by install/uninstall/pack.
-export { previewOrApplyPlan } from "./resolve-plan.js";
+export { STALE_CANDIDATE_DETAIL, previewOrApplyPlan } from "./resolve-plan.js";
 export {
   isExecutionCandidateFresh,
   makeExecutionCandidate,

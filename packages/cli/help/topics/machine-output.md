@@ -21,18 +21,30 @@ The command-specific payload always lives under `result`. Collections put
 fields inside `result`; mutations put their outcome and steps inside `result`.
 Only optional `summary` and `suggestions[]` may sit beside it.
 
-Mutation-plan outcomes are `no-op`, `applied`, `partial`, `failed`,
-`cancelled`, `previewed`, or `reconciliation-required`. For every ordinary
-result, `ok` is `true` exactly when the process exits 0 and `false` when it
-exits nonzero. Inspect step counts and committed artifacts when recovering a
-partial result.
+Workspace mutation results are discriminated by
+`result.contract: "plan-result-v3"`. Outcomes are `previewed`, `applied`,
+`no-op`, `partial`, `failed`, `blocked`, `cancelled`, or `interrupted`. For
+every ordinary result, `ok` is `true` exactly when the process exits 0 and
+`false` when it exits nonzero.
 
-`axm sync --preview --fail-on-change --json` retains the ordinary preview step
-details but returns `ok: false`, `result.outcome:
-"reconciliation-required"`, `result.reconciliationRequired: true`, and exit 1
-when the plan contains changes. A converged workspace returns a `no-op` result
-with `reconciliationRequired: false` and exit 0. Planning or validation
-failures retain their normal error or failed-plan contract.
+Each unit of work is one semantic closure that settles independently:
+committed closures stand even when a later closure fails, a failed closure
+rolls back only itself, and mixed commits and failures report `partial` at
+exit 1. `result.atomicity` names the `declared` and `applied` class —
+`closure-atomic` or `non-rollbackable`. Unit states are `planned`, `ready`,
+`committed`, `unchanged`, `failed`, `rolled-back`, `blocked`, `skipped`,
+`cancelled`, or `interrupted`; a unit of a failed or interrupted closure also
+carries a `disposition` of `restored`, `retained`, `untouched`, or `unknown`.
+An `interrupted` unit was started but its settlement was not observed —
+started work is never reported as not attempted. Inspect `result.counts`,
+unit dispositions, and `result.recovery.retained` when recovering a partial
+or interrupted result.
+
+`axm sync --preview --fail-on-change --json` retains the ordinary preview
+step details but returns `ok: false`, `result.divergence: true`, and exit 1
+when the plan contains changes. A converged workspace returns a `no-op`
+result and exit 0. Planning or validation failures retain their normal error
+or failed-plan contract.
 
 `axm view <extension> <field> --json` places the selected scalar or array directly
 under `result`. Token commands also place their command payload under `result`;
@@ -45,9 +57,18 @@ failed and carries a typed `cause`; a blocked item was not attempted and names
 its causal item or finding through `blockedBy`. Counts are derived from those
 outcomes, so blocked items never increment `failed`.
 
-After a post-preflight partial publication, `result.recovery.cmd` is a
-credential-free generic `axm publish` command over only the failed items and
-their blocked dependents. `result.recovery.remainingItems[]` names that exact
+An interrupted publish still emits one complete document, with
+`result.interruption.signal` and per-item evidenced states: a recorded
+response keeps its `success` or `failed` status, an upload that was
+dispatched with no recorded response reports `status: "unknown"` with
+`reason: "interrupted"` — the registry may have committed the version — and
+work the interruption prevented stays `pending`. AXM never auto-retries the
+replay-unsafe upload; the recovery command verifies before it re-runs.
+
+After a post-preflight partial publication or an interruption,
+`result.recovery.cmd` is a credential-free generic `axm publish` command over
+only the failed, indeterminate, or interrupted items and their blocked
+dependents. `result.recovery.remainingItems[]` names that exact
 continuation set, while `blockedDependents[]` identifies the subset that was
 not attempted. The command verifies byte-identical versions created by an
 earlier attempt and retries versions that remain absent. A rejected preflight

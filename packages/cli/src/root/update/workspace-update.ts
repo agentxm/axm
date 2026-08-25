@@ -14,8 +14,8 @@ import {
   type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
+  operationPresentation,
   type Plan,
-  type PlanSection,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -174,32 +174,6 @@ const workspaceSourceUnchangedPlan = (
     },
   ],
 });
-
-const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSection> | undefined => {
-  const byTitle = new Map<string, Set<string>>();
-
-  for (const plan of plans) {
-    for (const section of plan.sections ?? []) {
-      const existing = byTitle.get(section.title);
-      if (existing === undefined) {
-        byTitle.set(section.title, new Set(section.items));
-        continue;
-      }
-      for (const item of section.items) {
-        existing.add(item);
-      }
-    }
-  }
-
-  if (byTitle.size === 0) {
-    return undefined;
-  }
-
-  return [...byTitle.entries()].map(([title, items]) => ({
-    title,
-    items: [...items],
-  }));
-};
 
 const toCollectedWorkspaceUpdatePlans = ({
   plans,
@@ -791,16 +765,19 @@ export const makeWorkspaceUpdatePlan = (
   name: string,
   description: Option.Option<string>,
   steps: ReadonlyArray<PlannedJobStep>,
-  sections: ReadonlyArray<PlanSection> | undefined,
+  type: Option.Option<WorkspaceUpdatableType>,
   releaseAge: Plan["releaseAge"],
 ): Plan => ({
   _tag: "Plan",
   name,
   description,
   executionCapabilities: { rollback: "non-rollbackable" },
+  presentation: operationPresentation(
+    { imperative: "update", past: "Updated", gerund: "Updating" },
+    Option.getOrUndefined(type),
+  ),
   jobs: [{ concurrency: 1 as const, executionPolicy: "best-effort", steps }],
   ...(releaseAge === undefined ? {} : { releaseAge }),
-  ...(sections === undefined ? {} : { sections }),
 });
 
 export const buildWorkspaceUpdatePlan = (args: {
@@ -842,8 +819,6 @@ export const buildWorkspaceUpdatePlan = (args: {
       } satisfies WorkspaceUpdatePlanResult;
     }
 
-    const plans = collections.flatMap((collection) => collection.plans);
-    const sections = mergePlanSections(plans);
     const releaseAge = {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks,
@@ -856,7 +831,7 @@ export const buildWorkspaceUpdatePlan = (args: {
         args.planName,
         args.planDescription,
         fragments.map((fragment) => fragment.step),
-        sections,
+        args.type,
         releaseAge,
       ),
     } satisfies WorkspaceUpdatePlanResult;

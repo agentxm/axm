@@ -33,7 +33,11 @@ import {
 } from "@agentxm/client-core/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
+import {
+  operationPresentation,
+  type JobStepArtifact,
+  type Plan,
+} from "@agentxm/client-core/unstable/plan";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import {
   resolveSubagentInstallSource,
@@ -366,17 +370,20 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
             return { subagentsToInstall: [] } satisfies InstallSubagentCommandIntent;
           }
 
-          const diagnosticLines = verbose
-            ? [
-                `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
-                ...(parsed.resolutionProbes.length > 0
-                  ? [
-                      `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
-                    ]
-                  : []),
-                `Found ${count(discoveredRefs.length, "subagent")}`,
-              ]
-            : undefined;
+          if (verbose) {
+            const diagnosticLines = [
+              `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
+              ...(parsed.resolutionProbes.length > 0
+                ? [
+                    `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
+                  ]
+                : []),
+              `Found ${count(discoveredRefs.length, "subagent")}`,
+            ];
+            for (const line of diagnosticLines) {
+              yield* renderer.info(line);
+            }
+          }
 
           return {
             subagentsToInstall: selectedSubagents.map((ref) => ({
@@ -384,7 +391,6 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
               versionRange:
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
-            ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
           } satisfies InstallSubagentCommandIntent;
         }),
       );
@@ -499,10 +505,11 @@ export const InstallSubagentCommandWorkflowActionsLive = Layer.effect(
         return {
           _tag: "Plan",
           name: intent.subagentsToInstall.length === 1 ? "Install subagent" : "Install subagents",
-          description:
-            intent.diagnosticLines === undefined
-              ? Option.none()
-              : Option.some(intent.diagnosticLines.join("\n")),
+          description: Option.none(),
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "subagent",
+          ),
           jobs: [
             {
               concurrency: 1 as const,

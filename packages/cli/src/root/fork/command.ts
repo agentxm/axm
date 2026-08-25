@@ -43,7 +43,7 @@ import {
   type ExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import {
   SourceHostProviders,
   findExtensionPackagesFromSource,
@@ -54,9 +54,10 @@ import {
 } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 
 const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
   names: [fqn.name],
@@ -104,7 +105,24 @@ const selectPackage = (
   return Effect.succeed(candidate);
 };
 
-export const handleFork = Effect.fn("Fork.handle")(function* (args: {
+export const handleFork = (args: {
+  readonly source: string;
+  readonly target: string;
+  readonly from: Option.Option<string>;
+  readonly enable: boolean;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "fork",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Fork AXM extension package",
+    },
+    handleForkBody(args),
+  );
+
+const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   readonly source: string;
   readonly target: string;
   readonly from: Option.Option<string>;
@@ -386,6 +404,10 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
     description: Option.some(
       `Create ${fqn} from ${selected.origin}; the source remains unchanged and the fork starts ${enabled ? "enabled" : "disabled"}`,
     ),
+    presentation: operationPresentation(
+      { imperative: "fork", past: "Forked", gerund: "Forking" },
+      target.type,
+    ),
     jobs: [{ concurrency: 1, steps: [step] }],
   };
   const execution = yield* makePlanExecution(
@@ -404,7 +426,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: {
     ),
   );
   const resolution = yield* previewOrApplyPlan(plan, { execution });
-  yield* emitPlanResolutionResult("fork", resolution);
+  yield* emitOperationResolution("fork", resolution);
 });
 
 const config = {

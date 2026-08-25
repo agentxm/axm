@@ -18,8 +18,8 @@ import {
   type ReleaseAgeHoldbackRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
+  operationPresentation,
   type Plan,
-  type PlanSection,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
@@ -151,32 +151,6 @@ const noConfiguredMessage = (type: Option.Option<WorkspaceInstallableType>): str
 
 const flattenPlanSteps = (plan: Plan): ReadonlyArray<PlannedJobStep> =>
   plan.jobs.flatMap((job) => job.steps);
-
-const mergePlanSections = (plans: ReadonlyArray<Plan>): ReadonlyArray<PlanSection> | undefined => {
-  const byTitle = new Map<string, Set<string>>();
-
-  for (const plan of plans) {
-    for (const section of plan.sections ?? []) {
-      const existing = byTitle.get(section.title);
-      if (existing === undefined) {
-        byTitle.set(section.title, new Set(section.items));
-        continue;
-      }
-      for (const item of section.items) {
-        existing.add(item);
-      }
-    }
-  }
-
-  if (byTitle.size === 0) {
-    return undefined;
-  }
-
-  return [...byTitle.entries()].map(([title, items]) => ({
-    title,
-    items: [...items],
-  }));
-};
 
 const toCollectedWorkspaceInstallPlans = ({
   plans,
@@ -721,14 +695,17 @@ const makePlan = (
   name: string,
   description: Option.Option<string>,
   steps: ReadonlyArray<PlannedJobStep>,
-  sections: ReadonlyArray<PlanSection> | undefined,
+  type: Option.Option<WorkspaceInstallableType>,
   releaseAge: Plan["releaseAge"],
 ): Plan => ({
   _tag: "Plan",
   name,
   description,
+  presentation: operationPresentation(
+    { imperative: "install", past: "Installed", gerund: "Installing" },
+    Option.getOrUndefined(type),
+  ),
   jobs: [{ concurrency: 1 as const, steps }],
-  ...(sections === undefined ? {} : { sections }),
   ...(releaseAge === undefined ? {} : { releaseAge }),
 });
 
@@ -770,7 +747,7 @@ export const buildConfiguredPackInstallPlan = (args: {
         args.planName,
         args.planDescription,
         fragments.map((fragment) => fragment.step),
-        mergePlanSections(collection.plans),
+        Option.some("pack"),
         releaseAge,
       ),
       configuredAgentOperations: [...args.packNames].map((name) => ({
@@ -823,8 +800,6 @@ export const buildWorkspaceInstallPlan = (args: {
     }
     const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });
 
-    const plans = collections.flatMap((collection) => collection.plans);
-    const sections = mergePlanSections(plans);
     const holdbacks = normalizeReleaseAgeRecords(
       collections.flatMap((collection) => collection.holdbacks),
     );
@@ -846,7 +821,7 @@ export const buildWorkspaceInstallPlan = (args: {
         args.planName,
         args.planDescription,
         [...fragments.map((fragment) => fragment.step), ...Option.toArray(projectionStep)],
-        sections,
+        args.type,
         releaseAge,
       ),
       configuredAgentOperations: configuredAgentOperationsFromCollections(

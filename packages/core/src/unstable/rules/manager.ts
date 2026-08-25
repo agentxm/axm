@@ -57,7 +57,7 @@ import {
   serializeMarker,
 } from "../projection/marker-grammar.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath, removeIfExists } from "../utils/index.js";
 import { printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
@@ -73,7 +73,6 @@ import {
 } from "../workspace/configured-entry-resolution/index.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -226,7 +225,6 @@ export const RuleManagerLive = Layer.effect(
             version: ref.version,
             integrity: ref.integrity,
             messages: {
-              integrityMismatchCode: "network",
               integrityMismatchDetail: `Integrity mismatch for rule:${ref.name}@${ref.version}`,
             },
           }),
@@ -616,16 +614,7 @@ export const RuleManagerLive = Layer.effect(
           Option.fromUndefinedOr(state.observation.path),
         );
         if (Option.isSome(packageRoot)) {
-          yield* protectWorkspacePath(packageRoot.value);
-          yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove rule package source: ${packageRoot.value}`,
-                cause: error,
-              }),
-            ),
-          );
+          yield* removeIfExists(fs, packageRoot.value);
         }
       }, Effect.asVoid);
     // Deactivation retains canonical content; the caller updates settings

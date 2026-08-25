@@ -19,7 +19,7 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { expectAppliedPlanResult, expectNoPlanEnvelope } from "../../test-helpers.js";
+import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
 import {
   handleCreateToken,
   handleListTokens,
@@ -366,9 +366,10 @@ describe("auth token handler", () => {
           bypassMfa: false,
         });
 
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Create AXM access token",
-        });
+        // Token commands keep the legacy single-step operation-plan document shape.
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
         expect(rendererState.results[0]?.data).toMatchObject({
           data: {
             id: "token_123",
@@ -376,6 +377,8 @@ describe("auth token handler", () => {
           },
         });
         expect(result).toMatchObject({
+          outcome: "applied",
+          planName: "Create AXM access token",
           steps: [
             {
               label: "Registry access token",
@@ -529,10 +532,12 @@ describe("auth token handler", () => {
       Effect.gen(function* () {
         yield* handleRevokeToken("token_123");
         expect(revoked).toEqual(["token_123"]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Revoke AXM access token",
-        });
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
         expect(result).toMatchObject({
+          outcome: "applied",
+          planName: "Revoke AXM access token",
           steps: [
             {
               label: "Registry access token",
@@ -649,10 +654,12 @@ describe("auth token handler", () => {
             },
           },
         ]);
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Revoke AXM access token",
-        });
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
         expect(result).toMatchObject({
+          outcome: "applied",
+          planName: "Revoke AXM access token",
           steps: [
             {
               label: "Registry access token",

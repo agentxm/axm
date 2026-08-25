@@ -504,7 +504,6 @@ const installFromRegistry = (
         version: ref.version,
         integrity: ref.integrity,
         messages: {
-          integrityMismatchCode: "internal",
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
         },
         validate: (stagingPath) =>

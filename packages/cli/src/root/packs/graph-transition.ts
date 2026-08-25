@@ -12,6 +12,7 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 
 const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -135,6 +136,7 @@ export const buildAtomicPackGraphStep = (args: {
             validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
           }),
       })
+      .pipe(surfaceRestorationIncomplete)
       .pipe(
         Effect.map((results) => {
           const warnings = results.flatMap(({ result }) => result.warnings ?? []);

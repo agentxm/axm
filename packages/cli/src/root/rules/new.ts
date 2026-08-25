@@ -18,6 +18,7 @@ import {
   REGISTRY_EXTENSIONS_DIR,
 } from "@agentxm/client-core/unstable/extensions";
 import type { Plan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,
@@ -32,22 +33,38 @@ import {
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
 
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import {
   isValidScaffoldName,
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
 
-export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
+export const handleRulesNew = (args: {
+  readonly name: string;
+  readonly owner: Option.Option<string>;
+  readonly title: Option.Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "rules.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New rule",
+    },
+    handleRulesNewBody(args),
+  );
+
+const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   readonly name: string;
   readonly owner: Option.Option<string>;
   readonly title: Option.Option<string>;
@@ -146,6 +163,10 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
     _tag: "Plan",
     name: "New rule",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "rule",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -199,27 +220,13 @@ export const handleRulesNew = Effect.fn("RulesNew.handle")(function* (args: {
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
-  const summary = `-> ${joinDisplayPath(path, path.relative(ws.baseDir, targetDir))}   ${version} | 2 files`;
   const suggestions = [
     {
       description: `Write the rule body in \`${joinDisplayPath(path, path.relative(ws.baseDir, targetDir), RULE_SOURCE_DIR, RULE_BODY_FILENAME)}\``,
     },
   ];
-  const emitted = yield* emitPlanResolutionResult(
-    "rules.new",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created rule ${fqn}`,
-      summary,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("rules.new", resolution, { suggestions });
 });
 
 const newConfig = {

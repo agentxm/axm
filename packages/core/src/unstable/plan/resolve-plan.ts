@@ -2,13 +2,16 @@
  * Plan preview/apply function.
  *
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
- * and `applyPlan` with `displayPlan` and interactive prompts.
+ * and `applyPlan` with `displayPlan` and interactive prompts, and produces
+ * one `OperationResolution` at every termination path. Channels project the
+ * returned resolution; this boundary renders only transient planning output.
  *
  * This is a free function, not a method on WorkspaceMutationsService.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Cause from "effect/Cause";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -24,8 +27,41 @@ import {
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
 import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
-import type { CancelledPlan, ExecutedPlan, FailedPlan, Plan, PreviewedPlan } from "./plan.js";
+import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
+import {
+  declaredAtomicity,
+  executedUnits,
+  makeOperationResolution,
+  plannedUnits,
+  unitIdOf,
+  type OperationBlock,
+  type OperationResolution,
+  type ResolvedUnit,
+} from "./operation-resolution.js";
+import {
+  appendResolvedUnit,
+  appendStartedUnit,
+  recordJournalPhase,
+  recordOperationJournal,
+} from "./operation-journal.js";
+import {
+  publishLifecycleEvent,
+  publishPhaseStarted,
+  subscribeToLifecycle,
+} from "./operation-events.js";
+import type { OperationPhase } from "./operation-resolution.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import {
+  readPendingClosureRestorationFailures,
+  restorationIncompleteToAppError,
+  rollbackWorkspaceClosure,
+  settleWorkspaceClosure,
+  withWorkspaceClosure,
+  WorkspaceRestorationIncomplete,
+} from "../workspace/transaction.js";
+import { requestedInterruptionSignal } from "../cli-runtime/interruption.js";
+import { readFootprint } from "../workspace/footprint-recorder.js";
+import type { OperationFootprintEntry } from "./operation-resolution.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
@@ -41,10 +77,18 @@ import {
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import type { ConfiguredAgentOutcome } from "./plan.js";
 
+/** Publish a phase transition to the lifecycle stream and the journal. */
+const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
+  publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
+
 interface PlanApplyFailure<Output> {
   readonly error: AppError;
   readonly attemptedExecution?: ExecutedPlan<Output>;
+  /** The typed restoration-failure fact; present only when rollback did not complete. */
+  readonly restoration?: WorkspaceRestorationIncomplete;
 }
+
+export const STALE_CANDIDATE_DETAIL = "The execution candidate became stale before apply.";
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -114,12 +158,13 @@ const withExecutedAgentOutcomes = <Output>(
  * 4. Fail closed on blockers and missing named policies
  * 5. Preview or approve confirmable semantic risk
  * 6. Revalidate and apply the same candidate
+ *
+ * Every termination path resolves to one `OperationResolution`.
  */
 export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options: {
     execution: PlanExecution;
-    displayApplied?: boolean;
     beforeApply?: (
       candidate: ExecutionCandidate<Requirements, Output>,
     ) => Effect.Effect<void, AppError, Requirements>;
@@ -135,10 +180,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     Layer.succeed(Path.Path, path),
   );
 
+  const mode = options.execution.request.mode;
+
   const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
 
-  const showPlan = (targetPlan: Plan<Requirements, Output> | ExecutedPlan<Output>) =>
-    displayPlan(targetPlan).pipe(Effect.provide(Layer.succeed(CliRenderer, renderer)));
+  yield* publishPhaseStarted("planning");
 
   // Step 1: Lockfile reconciliation
   const augmented = yield* renderer.withSpinner(
@@ -245,91 +291,105 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const candidatePlan: Plan<Requirements, Output> = {
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
-    ...(riskConditions.length === 0
-      ? {}
-      : {
-          sections: [
-            ...(augmentedPlan.sections ?? []),
-            {
-              title: "Execution conditions",
-              items: riskConditions.map((condition) => condition.detail),
-            },
-          ],
-        }),
   };
   const candidate = yield* makeExecutionCandidate(candidatePlan, ws.path, ws.baseDir).pipe(
     Effect.provide(fsLayer),
   );
 
-  const failedPlan = (options: {
-    readonly reason: FailedPlan["reason"];
-    readonly errorCode: FailedPlan["errorCode"];
-    readonly failure?: AppError;
-    readonly suggestions?: FailedPlan["suggestions"];
-    readonly executionSteps?: FailedPlan["executionSteps"];
-  }): FailedPlan<Requirements, Output> => ({
-    _tag: "FailedPlan",
+  const atomicity = declaredAtomicity(candidatePlan);
+  const resolutionBase = {
     name: candidatePlan.name,
     description: candidatePlan.description,
+    mode,
+    candidateId: candidate.id,
+    releaseAge: candidatePlan.releaseAge,
+    preconditions: candidatePlan.preconditions,
+    riskConditions: riskConditions.length === 0 ? undefined : riskConditions,
+    presentation: candidatePlan.presentation,
+  };
+
+  yield* recordOperationJournal({
+    name: candidatePlan.name,
+    description: candidatePlan.description,
+    mode,
+    candidateId: candidate.id,
+    atomicity: { declared: atomicity, applied: atomicity },
+    ...(candidatePlan.presentation === undefined
+      ? {}
+      : { presentation: candidatePlan.presentation }),
     ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-    jobs: candidatePlan.jobs,
-    reason: options.reason,
-    errorCode: options.errorCode,
-    ...(options.failure === undefined ? {} : { failure: options.failure }),
     ...(candidatePlan.preconditions === undefined
       ? {}
       : { preconditions: candidatePlan.preconditions }),
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
-    candidateId: candidate.id,
-    ...(options.suggestions === undefined ? {} : { suggestions: options.suggestions }),
-    ...(options.executionSteps === undefined ? {} : { executionSteps: options.executionSteps }),
+    plannedUnits: plannedUnits(candidatePlan.jobs),
+    phase: "planning",
+    startedUnitIds: [],
+    resolved: [],
+    restoresOnFailure: candidatePlan.executionCapabilities?.rollback !== "non-rollbackable",
   });
 
+  const notExecuted = (over: {
+    readonly blocking?: OperationBlock;
+    readonly declined?: boolean;
+    readonly failure?: AppError;
+    readonly units?: ReadonlyArray<ResolvedUnit<Output>>;
+  }): OperationResolution<Output> =>
+    makeOperationResolution<Output>({
+      ...resolutionBase,
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
+      units: over.units ?? plannedUnits(candidatePlan.jobs),
+      blocking: over.blocking,
+      declined: over.declined,
+      failure: over.failure,
+      suggestions: candidatePlan.failureSuggestions,
+    });
+
   // Step 3: Display the immutable candidate before any policy terminal or effect.
+  if (mode === "preview") {
+    yield* enterPhase("preview");
+  }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
-  if (
-    options.execution.request.mode === "preview" ||
-    verbosity.level !== "quiet" ||
-    hasConfirmableRisk
-  ) {
-    yield* showPlan(candidatePlan);
+  if (mode === "preview" || verbosity.level !== "quiet" || hasConfirmableRisk) {
+    yield* displayPlan(candidatePlan, { mode }).pipe(
+      Effect.provide(Layer.succeed(CliRenderer, renderer)),
+    );
   }
 
   // Step 4: Hard blockers dominate preview, overrides, and confirmation.
   if (readiness.hasErrors) {
-    return failedPlan({
-      reason: "hard-blocked",
-      errorCode: "conflict",
-      ...(candidatePlan.failureSuggestions === undefined
-        ? {}
-        : { suggestions: candidatePlan.failureSuggestions }),
+    const firstError = readinessBlockers[0];
+    return notExecuted({
+      blocking: {
+        class: "precondition-unmet",
+        subject: firstError?.id ?? candidatePlan.name,
+        phase: "planning",
+        detail: firstError?.detail ?? readiness.errorMessages[0] ?? "The plan cannot proceed.",
+        causeCode: firstError?.errorCode ?? "conflict",
+      },
     });
   }
   const blocked = riskConditions.find((condition) => condition.level === "blocked");
   if (blocked !== undefined) {
-    return failedPlan({
-      reason: "hard-blocked",
-      errorCode: blocked.errorCode,
-      ...(candidatePlan.failureSuggestions === undefined
-        ? {}
-        : { suggestions: candidatePlan.failureSuggestions }),
+    return notExecuted({
+      blocking: {
+        class: "precondition-unmet",
+        subject: blocked.id,
+        phase: "planning",
+        detail: blocked.detail,
+        causeCode: blocked.errorCode,
+        reference: blocked.id,
+      },
     });
   }
 
   // Step 5: Preview is speculative and never grants approval to a later invocation.
   if (options.execution.request.mode === "preview") {
-    return {
-      _tag: "PreviewedPlan",
-      name: candidatePlan.name,
-      description: candidatePlan.description,
-      ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-      ...(candidatePlan.preconditions === undefined
-        ? {}
-        : { preconditions: candidatePlan.preconditions }),
-      ...(riskConditions.length === 0 ? {} : { riskConditions }),
-      candidateId: candidate.id,
-      jobs: candidatePlan.jobs,
-    } satisfies PreviewedPlan<Requirements, Output>;
+    return makeOperationResolution<Output>({
+      ...resolutionBase,
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
+      units: plannedUnits(candidatePlan.jobs),
+    });
   }
 
   if (!("approvalRecovery" in options.execution)) {
@@ -352,13 +412,23 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     (condition) => !applyExecution.request.acceptedPolicies.has(condition.policy),
   );
   if (missingOverrides.length > 0) {
-    return failedPlan({
-      reason: "override-required",
-      errorCode: "usage",
-      suggestions: namedPolicyRecoverySuggestions(
-        applyExecution.approvalRecovery,
-        missingOverrides.map((condition) => condition.requiredFlag),
-      ),
+    const first = missingOverrides[0];
+    const escapes = namedPolicyRecoverySuggestions(
+      applyExecution.approvalRecovery,
+      missingOverrides.map((condition) => condition.requiredFlag),
+    );
+    return makeOperationResolution<Output>({
+      ...resolutionBase,
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
+      units: plannedUnits(candidatePlan.jobs),
+      blocking: {
+        class: "override-required",
+        subject: first?.id ?? candidatePlan.name,
+        phase: "confirmation",
+        detail: first?.detail ?? "A named policy override is required.",
+        ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
+      },
+      suggestions: escapes,
     });
   }
 
@@ -369,38 +439,54 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     applyExecution.request.confirmableRiskApproval === "prompt-if-interactive"
   ) {
     if (yield* isNonInteractiveOptional) {
-      return failedPlan({
-        reason: "approval-required",
-        errorCode: "usage",
-        suggestions: confirmationRecoverySuggestions(applyExecution.approvalRecovery),
+      const confirmable = riskConditions.find((condition) => condition.level === "confirmable");
+      const escapes = confirmationRecoverySuggestions(applyExecution.approvalRecovery);
+      return makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: { declared: atomicity, applied: "closure-atomic" },
+        units: plannedUnits(candidatePlan.jobs),
+        blocking: {
+          class: "approval-required",
+          subject: confirmable?.id ?? candidatePlan.name,
+          phase: "confirmation",
+          detail: confirmable?.detail ?? "This plan requires confirmation before it can apply.",
+          ...(escapes[0] === undefined ? {} : { escape: escapes[0] }),
+        },
+        suggestions: escapes,
       });
     }
     const interaction = yield* ResolvePlanInteraction;
+    yield* enterPhase("confirmation");
     const confirmed = yield* interaction
       .confirmApplyChanges(applyExecution.approvalRecovery)
       .pipe(Effect.catchTag("PromptCancelled", (_error: PromptCancelled) => Effect.succeed(false)));
     if (!confirmed) {
-      return {
-        _tag: "CancelledPlan",
-        name: candidatePlan.name,
-        description: candidatePlan.description,
-        ...(candidatePlan.releaseAge === undefined ? {} : { releaseAge: candidatePlan.releaseAge }),
-        ...(candidatePlan.preconditions === undefined
-          ? {}
-          : { preconditions: candidatePlan.preconditions }),
-        ...(riskConditions.length === 0 ? {} : { riskConditions }),
-        candidateId: candidate.id,
-        jobs: candidatePlan.jobs,
-      } satisfies CancelledPlan<Requirements, Output>;
+      return notExecuted({ declined: true });
     }
   }
 
-  // Step 6: Revalidate under the local transaction lock and apply the exact candidate.
+  // Step 6: Acquire the workspace transition — planning, network acquisition,
+  // preview, and confirmation ran without it — then revalidate every material
+  // candidate preimage and apply the exact candidate while holding it.
+  const totalUnits = candidate.plan.jobs.reduce((count, job) => count + job.steps.length, 0);
+  const resolvedUnitState = (step: CompletedJobStep<Output>) =>
+    executedUnits<Output>(
+      {
+        _tag: "ExecutedPlan",
+        name: candidatePlan.name,
+        description: candidatePlan.description,
+        jobs: [{ concurrency: 1, steps: [step] }],
+      },
+      { restored: false },
+    )[0]?.state ?? "committed";
+  let startedUnits = 0;
+  let resolvedUnits = 0;
   const applyFreshCandidate = Effect.gen(function* () {
+    yield* enterPhase("validation");
     if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
       return yield* makeAppError({
         code: "conflict",
-        detail: "The execution candidate became stale before apply.",
+        detail: STALE_CANDIDATE_DETAIL,
       });
     }
     if (options.beforeApply !== undefined) {
@@ -408,11 +494,65 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
         return yield* makeAppError({
           code: "conflict",
-          detail: "The execution candidate became stale before apply.",
+          detail: STALE_CANDIDATE_DETAIL,
         });
       }
     }
-    return yield* applyPlan(candidate.plan);
+    yield* enterPhase("apply");
+    // Each unit is one semantic closure: its run executes under its closure
+    // identity so the transaction attributes every snapshot to it, and its
+    // settlement (below) either commits or rolls back exactly that closure.
+    const closureScopedPlan: Plan<Requirements, Output> = {
+      ...candidate.plan,
+      jobs: candidate.plan.jobs.map((job) => ({
+        ...job,
+        steps: job.steps.map((step) =>
+          step.readiness === "error"
+            ? step
+            : { ...step, run: withWorkspaceClosure(unitIdOf(step))(step.run) },
+        ),
+      })),
+    };
+    return yield* applyPlan(closureScopedPlan, {
+      // The started fact is journaled before the run's first effect, so an
+      // interruption mid-run reports the unit in flight, never not attempted.
+      onStepStarted: (step) =>
+        appendStartedUnit(unitIdOf(step)).pipe(
+          Effect.andThen(
+            publishLifecycleEvent((atNanos) => ({
+              _tag: "UnitStarted",
+              unitId: unitIdOf(step),
+              label: step.label,
+              index: startedUnits++,
+              total: totalUnits,
+              atNanos,
+            })),
+          ),
+        ),
+      // Settlement runs before the next interruptible boundary: the journal
+      // fact and the closure's snapshot disposition are recorded together —
+      // a settled closure's commits stand, a failed closure restores only
+      // itself, and later ready closures continue.
+      onStepCompleted: (step) =>
+        appendResolvedUnit(step).pipe(
+          Effect.andThen(
+            step.result.result === "error"
+              ? rollbackWorkspaceClosure(unitIdOf(step))
+              : settleWorkspaceClosure(unitIdOf(step)),
+          ),
+          Effect.andThen(
+            publishLifecycleEvent((atNanos) => ({
+              _tag: "UnitResolved",
+              unitId: unitIdOf(step),
+              label: step.label,
+              state: resolvedUnitState(step),
+              index: resolvedUnits++,
+              total: totalUnits,
+              atNanos,
+            })),
+          ),
+        ),
+    });
   });
   const applyCandidate = Effect.gen(function* () {
     const result = yield* applyFreshCandidate.pipe(
@@ -421,22 +561,39 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     const failedStep = result.jobs
       .flatMap((job) => job.steps)
       .find((step) => step.result.result === "error");
-    if (
-      candidatePlan.executionCapabilities?.rollback !== "non-rollbackable" &&
-      failedStep !== undefined &&
-      failedStep.result.result === "error"
-    ) {
+    // Closures settle independently: a failed closure rolled back only
+    // itself at its settlement boundary, and settled commits stand. The one
+    // apply-level failure is a closure rollback that did not complete and
+    // verify — the typed restoration fact derives the retained truth from
+    // the in-memory pending record alone.
+    const pendingRestoration = yield* readPendingClosureRestorationFailures;
+    if (Option.isSome(pendingRestoration) && pendingRestoration.value.failures.length > 0) {
+      const pending = pendingRestoration.value;
+      const first = pending.failures[0];
+      const stepError =
+        failedStep !== undefined && failedStep.result.result === "error"
+          ? failedStep.result.error
+          : makeAppError({
+              code: "internal",
+              detail: "a closure rollback did not complete",
+            });
       return yield* Effect.fail({
         error: makeAppError({
-          code: failedStep.result.error.code,
-          detail: failedStep.result.message,
-          cause: failedStep.result.error,
-          ...(failedStep.result.error.suggestions === undefined
-            ? {}
-            : { suggestions: failedStep.result.error.suggestions }),
+          code: stepError.code,
+          detail:
+            failedStep?.result.result === "error" ? failedStep.result.message : stepError.detail,
+          cause: stepError,
         }),
         attemptedExecution: result,
-      });
+        restoration: new WorkspaceRestorationIncomplete({
+          terminationCause: "failure",
+          transitionCause: Cause.fail(stepError),
+          restorationCause: first?.restorationCause,
+          snapshotDir: pending.snapshotDir,
+          retained: pending.failures.flatMap((failure) => failure.retained),
+          closureIds: pending.failures.map((failure) => failure.closureId),
+        }),
+      } satisfies PlanApplyFailure<Output>);
     }
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
@@ -495,6 +652,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       candidateId: candidate.id,
     } satisfies ExecutedPlan<Output>;
   });
+  const isPlanApplyFailureShape = (value: unknown): value is PlanApplyFailure<Output> =>
+    typeof value === "object" &&
+    value !== null &&
+    "error" in value &&
+    typeof value.error === "object" &&
+    value.error !== null &&
+    "_tag" in value.error &&
+    value.error._tag === "AppError";
   const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"
       ? applyCandidate
@@ -502,58 +667,272 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           targets: [],
           transition: applyCandidate,
           validate: () => Effect.void,
+          onRestorationStarted: enterPhase("restoration"),
+          // Closures protect the shared settings and lockfile at their own
+          // first touch; claiming them here would let a late failure tear an
+          // earlier closure's settled commit out of the shared files.
+          claimDefaultTargets: false,
         })
   ).pipe(
-    Effect.mapError((failure): PlanApplyFailure<Output> =>
-      "error" in failure ? failure : { error: failure },
-    ),
+    Effect.mapError((failure): PlanApplyFailure<Output> => {
+      if (failure instanceof WorkspaceRestorationIncomplete) {
+        // The transition's own failure travels inside the typed value; the
+        // resolution derives units and failure from it, and the recovery
+        // requirement from the restoration fact — never from disk.
+        const transitionFailure = Cause.findErrorOption(failure.transitionCause);
+        const inner = Option.getOrUndefined(transitionFailure);
+        const innerApplyFailure = isPlanApplyFailureShape(inner) ? inner : undefined;
+        return {
+          error: innerApplyFailure?.error ?? restorationIncompleteToAppError(failure),
+          ...(innerApplyFailure?.attemptedExecution === undefined
+            ? {}
+            : { attemptedExecution: innerApplyFailure.attemptedExecution }),
+          restoration: failure,
+        };
+      }
+      return "error" in failure ? failure : { error: failure };
+    }),
   );
-  const applyResult = yield* renderer.withSpinner(
-    `Applying ${candidatePlan.name}`,
-    () =>
-      guardedApply.pipe(
-        Effect.match({
-          onFailure: (error) => ({ type: "failure", error }) as const,
-          onSuccess: (value) => ({ type: "success", value }) as const,
-        }),
-      ),
-    { successMessage: `Processed ${candidatePlan.name}` },
+  const applyResult = yield* Effect.scoped(
+    Effect.gen(function* () {
+      const contention = yield* ws.acquireTransition({
+        command: applyExecution.approvalRecovery.command.join(" "),
+        candidateId: candidate.id,
+        onWaiting: (holder) =>
+          renderer.step(
+            `Waiting: resource-conflict — workspace transition held by ${Option.match(holder, {
+              onNone: () => "another operation",
+              onSome: (value) => `${value.command} (pid ${value.pid})`,
+            })}`,
+          ),
+      });
+      if (Option.isSome(contention)) {
+        return { type: "contention", contention: contention.value } as const;
+      }
+      return yield* renderer.withSpinner(
+        `Applying ${candidatePlan.name}`,
+        (handle) =>
+          Effect.scoped(
+            subscribeToLifecycle((event) => {
+              switch (event._tag) {
+                case "UnitStarted":
+                  return handle.update(
+                    `Applying ${candidatePlan.name} — ${event.label} (${event.index + 1}/${event.total})`,
+                    { unit: event.unitId, atMs: Number(event.atNanos / 1_000_000n) },
+                  );
+                case "UnitResolved":
+                  return handle.update(
+                    `Applying ${candidatePlan.name} — ${event.label}: ${event.state} (${event.index + 1}/${event.total})`,
+                    {
+                      unit: event.unitId,
+                      state: event.state,
+                      atMs: Number(event.atNanos / 1_000_000n),
+                    },
+                  );
+                case "PhaseStarted":
+                  return event.phase === "restoration"
+                    ? handle.update(`Rolling back ${candidatePlan.name}`)
+                    : Effect.void;
+                case "Waiting":
+                  return Effect.void;
+              }
+            }).pipe(
+              Effect.andThen(
+                guardedApply.pipe(
+                  Effect.match({
+                    onFailure: (error) => ({ type: "failure", error }) as const,
+                    onSuccess: (value) => ({ type: "success", value }) as const,
+                  }),
+                ),
+              ),
+            ),
+          ),
+        { successMessage: `Processed ${candidatePlan.name}` },
+      );
+    }),
   );
+  if (applyResult.type === "contention") {
+    const reference = Option.match(applyResult.contention.holder, {
+      onNone: () => undefined,
+      onSome: (holder) => `${holder.command} (pid ${holder.pid})`,
+    });
+    const escape = { description: "Wait for the holding operation to finish, then rerun." };
+    return makeOperationResolution<Output>({
+      ...resolutionBase,
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
+      units: plannedUnits(candidatePlan.jobs),
+      blocking: {
+        class: "resource-conflict",
+        subject: candidatePlan.name,
+        phase: "validation",
+        detail: `another operation holds the workspace transition${
+          reference === undefined ? "" : ` (${reference})`
+        }; waited ${Math.round(applyResult.contention.waitedMillis / 1000)}s`,
+        causeCode: "conflict",
+        ...(reference === undefined ? {} : { reference }),
+        escape,
+      },
+      suggestions: [escape],
+    });
+  }
+  const observedFootprint: ReadonlyArray<OperationFootprintEntry> = (yield* readFootprint)
+    .map((entry) => ({
+      path: path.isAbsolute(entry.path) ? path.relative(ws.baseDir, entry.path) : entry.path,
+      change: entry.change,
+    }))
+    // The footprint reports durable workspace changes; scratch outside the
+    // workspace base (scoped temp staging) is removed with the invocation.
+    .filter((entry) => !entry.path.startsWith(".."));
+  const footprint =
+    observedFootprint.length === 0
+      ? undefined
+      : observedFootprint
+          .filter(
+            (entry, index) =>
+              observedFootprint.findIndex(
+                (other) => other.path === entry.path && other.change === entry.change,
+              ) === index,
+          )
+          // Identity order (code-unit), so twin runs report identical bytes
+          // regardless of concurrent write scheduling.
+          .sort((left, right) =>
+            left.path < right.path
+              ? -1
+              : left.path > right.path
+                ? 1
+                : left.change < right.change
+                  ? -1
+                  : left.change > right.change
+                    ? 1
+                    : 0,
+          );
+
   if (applyResult.type === "failure") {
     const failure = applyResult.error.error;
-    const staleCandidate =
-      failure.code === "conflict" &&
-      failure.detail === "The execution candidate became stale before apply.";
-    const executionSteps = applyResult.error.attemptedExecution?.jobs.flatMap((job) =>
-      job.steps.map((step) => {
-        if (step.result.result === "success") {
-          return {
-            label: step.label,
-            status: "rolled-back" as const,
-            message: `${step.result.message}; rolled back`,
+    const attempted = applyResult.error.attemptedExecution;
+    // Restoration failure is a typed fact on the transaction's error channel;
+    // the resolution derives the retained set, disposition, and exit from
+    // that value alone — never from re-reading disk. Nothing persists in the
+    // workspace: the next mutation plans from the current workspace state.
+    const restoration = applyResult.error.restoration;
+    const rollbackFailed = restoration !== undefined;
+    const restorationRecovery =
+      restoration === undefined
+        ? undefined
+        : {
+            retained: [...restoration.retained],
+            ...(restoration.snapshotDir === undefined
+              ? {}
+              : { snapshotDir: restoration.snapshotDir }),
+            actions: [
+              {
+                description:
+                  "Re-run the command; the next mutation plans from the current workspace state.",
+              },
+            ],
           };
-        }
-        const unapplied = step.result.message.includes("blocked by");
+    const restoring = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
+    const executed =
+      attempted === undefined
+        ? plannedUnits<Requirements, Output>(candidatePlan.jobs)
+        : executedUnits(attempted);
+    // Closures settled independently: commits stand, and each failed closure
+    // restored only itself. A closure named by the restoration fact kept the
+    // state its rollback could not undo; every other failed closure's
+    // effects were restored.
+    const retainedClosures = new Set(restoration?.closureIds ?? []);
+    const units = executed.map((unit) => {
+      if (unit.state === "failed" && restoring) {
         return {
-          label: step.label,
-          status: unapplied ? ("unapplied" as const) : ("failed" as const),
-          message: step.result.message,
+          ...unit,
+          disposition: retainedClosures.has(unit.id)
+            ? ("retained" as const)
+            : ("restored" as const),
         };
-      }),
-    );
-    return failedPlan({
-      reason: staleCandidate ? "stale-candidate" : "execution-failed",
-      errorCode: failure.code,
+      }
+      if (unit.state === "committed" && rollbackFailed && restoration?.closureIds === undefined) {
+        // An operation-level restoration failure (not scoped to closures):
+        // committed effects were retained as the failure left them.
+        return { ...unit, disposition: "retained" as const };
+      }
+      return unit;
+    });
+    const staleCandidate = failure.code === "conflict" && failure.detail === STALE_CANDIDATE_DETAIL;
+    const staleUnit = units.find((unit) => unit.blocking?.class === "stale-candidate");
+    if (staleCandidate || staleUnit !== undefined) {
+      return makeOperationResolution<Output>({
+        ...resolutionBase,
+        atomicity: { declared: atomicity, applied: "closure-atomic" },
+        units,
+        blocking: {
+          class: "stale-candidate",
+          subject: staleUnit?.id ?? candidatePlan.name,
+          phase: "validation",
+          detail: staleUnit?.blocking?.detail ?? STALE_CANDIDATE_DETAIL,
+          escape: { description: "Rerun the command to resolve a fresh candidate." },
+        },
+        suggestions: [{ description: "Rerun the command to resolve a fresh candidate." }],
+      });
+    }
+    return makeOperationResolution<Output>({
+      ...resolutionBase,
+      atomicity: {
+        declared: atomicity,
+        applied: rollbackFailed ? "non-rollbackable" : atomicity,
+      },
+      units,
       failure,
-      suggestions: staleCandidate
-        ? [{ description: "Rerun the command to resolve a fresh candidate." }]
-        : failure.suggestions,
-      ...(executionSteps === undefined ? {} : { executionSteps }),
+      footprint,
+      ...(restorationRecovery === undefined ? {} : { recovery: restorationRecovery }),
+      ...(restoration?.terminationCause === "interruption"
+        ? {
+            interruption: {
+              signal: requestedInterruptionSignal() ?? "SIGINT",
+              disposition: "retained",
+            },
+          }
+        : {}),
+      suggestions: failure.suggestions ?? candidatePlan.failureSuggestions,
     });
   }
   const executed = applyResult.value;
-  if (options.displayApplied !== false) {
-    yield* showPlan(executed);
-  }
-  return executed;
+  const restoringPlan = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
+  // Mixed commits and failures are a first-class partial outcome: settled
+  // closures stand, and each failed closure of a restoring plan rolled back
+  // only itself — its disposition says so.
+  const executedResolved = executedUnits(executed).map((unit) =>
+    unit.state === "failed" && restoringPlan ? { ...unit, disposition: "restored" as const } : unit,
+  );
+  // A restoring plan's first failed closure supplies the operation-level
+  // failure so the cause class keeps deciding the exit and the human summary
+  // names the failure. Non-rollbackable families (remote mutations such as
+  // publish) keep their long-standing behavior: unit outcomes alone carry the
+  // failures, and an operation-level failure still means the plan itself
+  // could not execute.
+  const firstFailed = restoringPlan
+    ? executedResolved.find((unit) => unit.state === "failed")
+    : undefined;
+  const failure =
+    firstFailed?.error === undefined
+      ? undefined
+      : makeAppError({
+          code: firstFailed.error.code,
+          detail: firstFailed.message ?? firstFailed.error.detail,
+          cause: firstFailed.error,
+          ...(firstFailed.error.suggestions === undefined
+            ? {}
+            : { suggestions: firstFailed.error.suggestions }),
+        });
+  return makeOperationResolution<Output>({
+    ...resolutionBase,
+    atomicity: { declared: atomicity, applied: atomicity },
+    units: executedResolved,
+    ...(failure === undefined ? {} : { failure }),
+    footprint,
+    ...(firstFailed === undefined
+      ? {}
+      : {
+          suggestions: firstFailed.error?.suggestions ?? candidatePlan.failureSuggestions,
+        }),
+  });
 });

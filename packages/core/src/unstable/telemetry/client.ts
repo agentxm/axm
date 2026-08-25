@@ -17,7 +17,14 @@ export type TelemetryProperties = Record<string, TelemetryPropertyValue>;
 export type TelemetryErrorClass = "internal" | "user" | "external";
 
 export interface TelemetryClientService {
-  readonly trackEvent: (event: string, properties?: TelemetryProperties) => Effect.Effect<void>;
+  readonly trackEvent: (
+    event: string,
+    properties?: TelemetryProperties,
+    options?: {
+      /** Await the send (bounded) so the event lands before process exit. */
+      readonly bounded?: boolean;
+    },
+  ) => Effect.Effect<void>;
   readonly reportError: (error: {
     readonly name: string;
     readonly message: string;
@@ -106,7 +113,7 @@ export const makeTelemetryClient = (
       httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
     );
 
-    const trackEvent: TelemetryClientService["trackEvent"] = (event, properties) => {
+    const trackEvent: TelemetryClientService["trackEvent"] = (event, properties, sendOptions) => {
       if (options.mode === "errors") return Effect.void;
 
       return Effect.gen(function* () {
@@ -124,7 +131,17 @@ export const makeTelemetryClient = (
           context,
         };
 
-        return yield* fireAndForget(client.EventsIngest({ payload }));
+        const send = client.EventsIngest({ payload });
+        // A bounded send completes (or times out) before the caller proceeds,
+        // so a terminal event lands before process exit on die paths too.
+        if (sendOptions?.bounded === true) {
+          return yield* send.pipe(
+            Effect.timeoutOption(TELEMETRY_EVENT_TIMEOUT),
+            swallowFailure,
+            Effect.asVoid,
+          );
+        }
+        return yield* fireAndForget(send);
       }).pipe(Effect.withSpan("TelemetryClient.trackEvent"));
     };
 

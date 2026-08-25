@@ -155,17 +155,18 @@ describe("version command handler", () => {
         const result = expectRecord(property(data, "result"));
         expect(property(result, "outcome")).toBe("applied");
         expect(property(result, "planName")).toBe("Update extension version");
-        expect(property(result, "appliedCount")).toBe(1);
+        const counts = expectRecord(property(result, "counts"));
+        expect(property(counts, "committed")).toBe(1);
 
-        const steps = property(result, "steps");
-        if (!Array.isArray(steps)) {
-          throw new Error("Expected plan result steps");
+        const units = property(result, "units");
+        if (!Array.isArray(units)) {
+          throw new Error("Expected plan result units");
         }
-        const step = expectRecord(at(steps, 0));
-        expect(property(step, "status")).toBe("applied");
-        expect(property(step, "message")).toBe("1.2.3 -> 1.2.4");
+        const unit = expectRecord(at(units, 0));
+        expect(property(unit, "state")).toBe("committed");
+        expect(property(unit, "message")).toBe("1.2.3 -> 1.2.4");
 
-        const artifact = expectRecord(property(step, "artifact"));
+        const artifact = expectRecord(property(unit, "artifact"));
         expect(property(artifact, "path")).toBe(
           ".axm/extensions/@test/skills/code-review/skill.json",
         );
@@ -196,16 +197,17 @@ describe("version command handler", () => {
         const data = expectRecord(at(rendererState.results, 0).data);
         const result = expectRecord(property(data, "result"));
         expect(property(result, "outcome")).toBe("no-op");
-        expect(property(result, "appliedCount")).toBe(0);
+        const counts = expectRecord(property(result, "counts"));
+        expect(property(counts, "committed")).toBe(0);
 
-        const steps = property(result, "steps");
-        if (!Array.isArray(steps)) {
-          throw new Error("Expected plan result steps");
+        const units = property(result, "units");
+        if (!Array.isArray(units)) {
+          throw new Error("Expected plan result units");
         }
-        const step = expectRecord(at(steps, 0));
-        expect(property(step, "status")).toBe("unchanged");
+        const unit = expectRecord(at(units, 0));
+        expect(property(unit, "state")).toBe("unchanged");
 
-        const artifact = expectRecord(property(step, "artifact"));
+        const artifact = expectRecord(property(unit, "artifact"));
         expect(property(artifact, "change")).toBe("unchanged");
         expect(property(artifact, "version")).toBe("1.2.3");
       }),
@@ -274,7 +276,7 @@ describe("root version command handler", () => {
 
   it.effect("infers subagent type from FQN and bumps patch", () => {
     const manifestPath = writeManifest(tempDir, "subagents", "researcher", "0.1.0");
-    const { provide, logs } = makeWorkspaceHandlerTestContext();
+    const { provide, logs, rendererState } = makeWorkspaceHandlerTestContext();
 
     return provide(
       Effect.gen(function* () {
@@ -287,9 +289,10 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("0.1.1");
-        expect(logs.success).toContain(
-          "Updated subagent @test/subagents/researcher 0.1.0 -> 0.1.1",
-        );
+        expect(logs.success).toContain("Updated 1 subagent");
+        expect(rendererState.summaries).toEqual([
+          "@test/subagents/researcher   0.1.1   updated   1 file   .axm/extensions/@test/subagents/researcher/subagent.json",
+        ]);
       }),
     );
   });
@@ -309,7 +312,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.1.0");
-        expect(logs.success).toContain("Updated MCP server @test/mcps/my-server 1.0.0 -> 1.1.0");
+        expect(logs.success).toContain("Updated 1 MCP server");
       }),
     );
   });
@@ -329,7 +332,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("2.0.0");
-        expect(logs.success).toContain("Updated pack @test/packs/frontend-tools 0.1.0 -> 2.0.0");
+        expect(logs.success).toContain("Updated 1 pack");
       }),
     );
   });
@@ -349,7 +352,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("0.1.1");
-        expect(logs.success).toContain("Updated rule @test/rules/commit-style 0.1.0 -> 0.1.1");
+        expect(logs.success).toContain("Updated 1 rule");
       }),
     );
   });
@@ -369,9 +372,7 @@ describe("root version command handler", () => {
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
         expect(manifest.version).toBe("1.1.0");
-        expect(logs.success).toContain(
-          "Updated knowledge bundle @test/knowledge/handbook 1.0.0 -> 1.1.0",
-        );
+        expect(logs.success).toContain("Updated 1 knowledge bundle");
       }),
     );
   });

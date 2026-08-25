@@ -51,6 +51,7 @@ import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/client-core/unstable/skills";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
@@ -63,7 +64,8 @@ import {
   type PackConstraint,
   type SkillConstraints,
 } from "./constraint-resolution.js";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
@@ -121,6 +123,7 @@ const skippedSkillStep = (
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
     result: "success",
+    disposition: "skipped",
     message: outcome.reason,
   } satisfies JobStepResult),
 });
@@ -150,7 +153,21 @@ const toRegistrySkillPattern = (source: string) => {
   return Option.some(parsed);
 };
 
-export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
+export const handleUpdate = (args: UpdateHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "skills.update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update skills",
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        "skill",
+      ),
+    },
+    handleUpdateBody(args),
+  );
+
+const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
@@ -721,25 +738,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     Option.some("Update installed skills"),
     makeRunClosure,
   );
-  const basePlan =
-    warningsBySkill.size === 0
-      ? rawPlan
-      : {
-          ...rawPlan,
-          sections: [
-            ...(rawPlan.sections ?? []),
-            {
-              title: "Publisher ownership changes",
-              items: [...warningsBySkill.entries()].flatMap(([name, warnings]) =>
-                warnings
-                  .filter((warning) => warning.startsWith("Publisher identity changed"))
-                  .map((warning) => `${name}: ${warning}`),
-              ),
-            },
-          ],
-        };
   const basePlanWithWarnings: Plan = {
-    ...basePlan,
+    ...rawPlan,
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      "skill",
+    ),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks: normalizeReleaseAgeRecords([
@@ -748,7 +752,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       ]),
       bypasses: normalizeReleaseAgeRecords(resolved.flatMap((item) => item.bypasses ?? [])),
     },
-    jobs: basePlan.jobs.map((job) => ({
+    jobs: rawPlan.jobs.map((job) => ({
       ...job,
       steps: job.steps.map((step) => {
         if (step.readiness !== "ready") {
@@ -830,7 +834,9 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     ],
   };
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitPlanResolutionResult("skills.update", resolution);
+  yield* emitOperationResolution("skills.update", resolution, {
+    suggestions: [LIST_INSTALLED_SKILLS],
+  });
 });
 
 /** Collect per-skill constraints from the authoritative desired pack graph. */

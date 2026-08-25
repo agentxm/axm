@@ -18,7 +18,8 @@ import {
   collectHelpFiles,
 } from "./command-tree-test-helpers.js";
 import { makeAxmFormatter } from "./formatter.js";
-import { PlanResolutionDocumentSchema, PublishResultSchema } from "./json-output.js";
+import { PublishResultSchema } from "./json-output.js";
+import { PlanResolutionDocumentSchema } from "./operation-output.js";
 import {
   FORMATTER_VERSION_CONTRACT,
   MACHINE_OUTPUT_CONTRACT_ROWS,

@@ -12,6 +12,7 @@ import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
   WorkspaceTransactionRunner,
+  WorkspaceTransitionAcquirer,
   ExtensionInventory,
   PackagingKind,
   ReadModelRecordRow,
@@ -52,6 +53,10 @@ export const runWorkspaceTransactionStub: WorkspaceTransactionRunner = (args) =>
     yield* args.validate(value);
     return value;
   });
+
+/** Acquires nothing: unit tests share literal workspace paths. */
+export const acquireTransitionStub: WorkspaceTransitionAcquirer = () =>
+  Effect.succeed(Option.none());
 
 export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
@@ -202,6 +207,7 @@ export const makeBaseWorkspaceMock = (
     baseDir,
     records,
     runTransaction: runWorkspaceTransactionStub,
+    acquireTransition: acquireTransitionStub,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: () =>
       Effect.succeed({

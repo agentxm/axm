@@ -6,11 +6,12 @@ import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { DisableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
 import { disableSubagent } from "@agentxm/client-core/unstable/subagents";
-import { emitAppliedPlanOutcome } from "../../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 
@@ -20,7 +21,17 @@ export interface DisableSubagentHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(function* (
+export const handleDisableSubagent = (args: DisableSubagentHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable subagent",
+    },
+    handleDisableSubagentBody(args),
+  );
+
+const handleDisableSubagentBody = Effect.fn("DisableSubagent.handle")(function* (
   args: DisableSubagentHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -84,6 +95,10 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     _tag: "Plan",
     name: "Disable subagent",
     description: Option.some(`Disable ${subagentName}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "subagent",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
@@ -92,11 +107,8 @@ export const handleDisableSubagent = Effect.fn("DisableSubagent.handle")(functio
     ["subagents", "disable"],
     [subagentName],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "subagents.disable",
-    headline: `Disabled subagent ${subagentName}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("subagents.disable", resolution, {
     suggestions: [
       { description: "Inspect installed subagents", cmd: "axm subagents list" },
       { description: "Undo", cmd: `axm subagents enable ${subagentName}` },

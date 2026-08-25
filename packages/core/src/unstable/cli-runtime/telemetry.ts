@@ -59,14 +59,20 @@ export const trackCliCommandCompleted = (
 ): Effect.Effect<void, never, TelemetryClient> =>
   Effect.gen(function* () {
     const telemetry = yield* TelemetryClient;
-    yield* telemetry.trackEvent("command_completed", {
-      "cli.command": options.command,
-      "cli.result": options.result,
-      "cli.duration_ms": options.durationMs,
-      ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
-      ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
-      ...(options.semanticProperties ?? {}),
-    });
+    yield* telemetry.trackEvent(
+      "command_completed",
+      {
+        "cli.command": options.command,
+        "cli.result": options.result,
+        "cli.duration_ms": options.durationMs,
+        ...(options.errorCode !== undefined && { "cli.error_code": options.errorCode }),
+        ...(options.errorCategory !== undefined && { "cli.error_category": options.errorCategory }),
+        ...(options.semanticProperties ?? {}),
+      },
+      // The completion event orders before process exit on every termination
+      // path, bounded by the client's event timeout.
+      { bounded: true },
+    );
   }).pipe(Effect.catchCause(() => Effect.void));
 
 // ---------------------------------------------------------------------------

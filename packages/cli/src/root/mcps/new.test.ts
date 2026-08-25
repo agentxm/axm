@@ -14,7 +14,7 @@ import {
   expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../test-helpers.js";
 import { handleMcpServersNew } from "./new.js";
@@ -82,10 +82,7 @@ describe("mcps-new.handler", () => {
           fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
         );
         expect(lockfile.mcpServers?.context).toBeUndefined();
-        expect(logs.success).toEqual([
-          "  + @acme/mcps/context",
-          "Created MCP server @acme/mcps/context with 2 targets",
-        ]);
+        expect(logs.success).toEqual(["Created 1 MCP server"]);
         expect(rendererState.suggestions).toEqual([
           {
             description:
@@ -110,17 +107,14 @@ describe("mcps-new.handler", () => {
           preview: false,
         });
 
-        expect(logs.success).toEqual([
-          "  + @acme/mcps/context",
-          "Created MCP server @acme/mcps/context for 1 agent",
-        ]);
+        expect(logs.success).toEqual(["Created 1 MCP server"]);
         const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
         const result = expectAppliedPlanResult(renderedResult.data, {
           planName: "New MCP server",
         });
-        const steps = planResultSteps(result);
-        const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-        const artifact = expectRecord(property(firstStep, "artifact"));
+        const units = planResultUnits(result);
+        const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+        const artifact = expectRecord(property(firstUnit, "artifact"));
         const targets = property(artifact, "targets");
         if (!Array.isArray(targets)) {
           throw new Error("Expected artifact.targets array");

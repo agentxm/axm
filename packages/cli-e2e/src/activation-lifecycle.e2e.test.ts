@@ -45,26 +45,30 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
     throw new Error("Expected a JSON command result with a plan");
   }
   const result = document["result"];
-  const steps = result["steps"];
-  if (!Array.isArray(steps)) {
-    throw new Error("Expected a JSON command result with plan steps");
+  if (result["contract"] !== "plan-result-v3") {
+    throw new Error("Expected a plan-result-v3 command result");
   }
+  const units = result["units"];
+  if (!Array.isArray(units)) {
+    throw new Error("Expected a JSON command result with operation units");
+  }
+  const counts = result["counts"];
   return {
-    totalSteps: result["totalSteps"],
-    labels: steps.map((step) => (isRecord(step) ? step["label"] : undefined)),
+    total: isRecord(counts) ? counts["total"] : undefined,
+    labels: units.map((unit) => (isRecord(unit) ? unit["label"] : undefined)),
   };
 };
 
 const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return [];
-  const steps = document["result"]["steps"];
-  if (!Array.isArray(steps)) return [];
-  return steps.flatMap((step) => {
-    if (!isRecord(step)) return [];
-    const direct = step["agentOutcomes"];
+  const units = document["result"]["units"];
+  if (!Array.isArray(units)) return [];
+  return units.flatMap((unit) => {
+    if (!isRecord(unit)) return [];
+    const direct = unit["agentOutcomes"];
     if (Array.isArray(direct)) return direct.filter(isRecord);
-    const artifact = step["artifact"];
+    const artifact = unit["artifact"];
     if (!isRecord(artifact) || !Array.isArray(artifact["agentOutcomes"])) return [];
     return artifact["agentOutcomes"].filter(isRecord);
   });

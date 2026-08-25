@@ -3,7 +3,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectCreatedAncestors, protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 
 /**
@@ -73,6 +74,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
 
     // Create parent directories
     const linkParent = p.dirname(opts.link);
+    yield* protectCreatedAncestors(fs, p, linkParent);
     yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeAppError({
@@ -93,6 +95,10 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
         }),
       ),
     );
+    yield* recordFootprint({
+      path: opts.link,
+      change: existingResult === "replace" ? "modified" : "created",
+    });
 
     return existingResult === "replace" ? ("replaced" as const) : ("created" as const);
   });

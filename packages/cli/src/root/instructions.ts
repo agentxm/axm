@@ -20,14 +20,21 @@ import {
   registerEntity,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type {
+  JobStepResult,
+  OperationPresentation,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../json-output.js";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { previewOrApplyLocalPlan } from "./shared/local-plan.js";
+import { withOperationLifecycle } from "./shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import {
   disableInstructionManagement,
@@ -125,11 +132,16 @@ const rawInstructionsConfigEquals = (
 const makeInstructionsConfigPlan = (args: {
   readonly name: string;
   readonly description: string;
+  readonly verb: OperationPresentation["verb"];
   readonly step: PlannedJobStep;
 }): Plan => ({
   _tag: "Plan",
   name: args.name,
   description: Option.some(args.description),
+  presentation: {
+    verb: args.verb,
+    subject: { singular: "instruction file", plural: "instruction files" },
+  },
   jobs: [
     {
       concurrency: 1,
@@ -188,7 +200,21 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
   });
 });
 
-export const handleInstructionsEnable = Effect.fn("Instructions.enable")(function* (args: {
+export const handleInstructionsEnable = (args: {
+  readonly fileName: string;
+  readonly gitignore: boolean;
+  readonly preview?: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "instructions.enable",
+      mode: args.preview === true ? "preview" : "apply",
+      planName: "Enable instruction-file management",
+    },
+    handleInstructionsEnableBody(args),
+  );
+
+const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* (args: {
   readonly fileName: string;
   readonly gitignore: boolean;
   readonly preview?: boolean;
@@ -266,6 +292,7 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
           ),
           validate: () => Effect.void,
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.as({
             result: "success",
@@ -288,14 +315,25 @@ export const handleInstructionsEnable = Effect.fn("Instructions.enable")(functio
     makeInstructionsConfigPlan({
       name: "Enable instruction-file management",
       description: `Use ${config.fileName} as the source instruction file`,
+      verb: { imperative: "enable", past: "Enabled", gerund: "Enabling" },
       step,
     }),
     { preview: args.preview === true },
   );
-  yield* emitPlanResolutionResult("instructions.enable", resolution);
+  yield* emitOperationResolution("instructions.enable", resolution);
 });
 
-export const handleInstructionsDisable = Effect.fn("Instructions.disable")(function* (args?: {
+export const handleInstructionsDisable = (args?: { readonly preview?: boolean }) =>
+  withOperationLifecycle(
+    {
+      command: "instructions.disable",
+      mode: args?.preview === true ? "preview" : "apply",
+      planName: "Disable instruction-file management",
+    },
+    handleInstructionsDisableBody(args),
+  );
+
+const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function* (args?: {
   readonly preview?: boolean;
 }) {
   const ws = yield* WorkspaceMutations;
@@ -332,6 +370,7 @@ export const handleInstructionsDisable = Effect.fn("Instructions.disable")(funct
           ),
           validate: () => Effect.void,
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.as({
             result: "success",
@@ -354,11 +393,12 @@ export const handleInstructionsDisable = Effect.fn("Instructions.disable")(funct
     makeInstructionsConfigPlan({
       name: "Disable instruction-file management",
       description: "Turn off instruction-file propagation",
+      verb: { imperative: "disable", past: "Disabled", gerund: "Disabling" },
       step,
     }),
     { preview: args?.preview === true },
   );
-  yield* emitPlanResolutionResult("instructions.disable", resolution);
+  yield* emitOperationResolution("instructions.disable", resolution);
 });
 
 const instructionsStatusConfig = {

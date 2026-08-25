@@ -13,7 +13,8 @@ import { makeAppError } from "../app-error/index.js";
 import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectCreatedAncestors, protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import type { ExtensionName, ExtensionType } from "./common.js";
 import type { Handle } from "./handle.js";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
@@ -133,6 +134,7 @@ export const replaceCanonicalDirectory = <R>(
     const { stagingPath, backupPath } = canonicalMaterializationPaths(args.canonicalPath);
 
     yield* recoverCanonicalDirectory(args);
+    yield* protectCreatedAncestors(fs, path, path.dirname(args.canonicalPath));
     yield* fs.makeDirectory(path.dirname(args.canonicalPath), { recursive: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -195,6 +197,10 @@ export const replaceCanonicalDirectory = <R>(
         }),
       ),
     );
+    yield* recordFootprint({
+      path: args.canonicalPath,
+      change: hadCanonical ? "modified" : "created",
+    });
 
     return args.canonicalPath;
   });
@@ -243,7 +249,6 @@ const registryLocationForClient = (location: URL): string =>
 
 export interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;
-  readonly integrityMismatchCode: AppErrorCode;
 }
 
 export interface CanReuseInstalledPackageArgs {
@@ -361,8 +366,8 @@ export const materializeRegistryPackage = (args: MaterializeRegistryPackageArgs)
       const actualIntegrity = yield* computeIntegrity(archive);
       if (actualIntegrity !== args.integrity.value) {
         return yield* makeAppError({
-          code: args.messages.integrityMismatchCode,
-          detail: args.messages.integrityMismatchDetail,
+          code: "validation",
+          detail: `${args.messages.integrityMismatchDetail} — the fetched archive does not match the accepted integrity. Verify the source and rerun, or update to accept a republished version.`,
         });
       }
     }

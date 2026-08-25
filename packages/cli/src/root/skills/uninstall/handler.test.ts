@@ -553,7 +553,7 @@ describe("uninstall.handler", () => {
             expect(settings.skills?.["my-skill"]).toBeDefined();
 
             // Preview outcome should be displayed
-            expect(logs.info.some((m) => m.includes("Would remove 1 skill"))).toBe(true);
+            expect(logs.info.some((m) => m.includes("Would uninstall 1 skill"))).toBe(true);
             expect(logs.message).toEqual(
               expect.arrayContaining([
                 "    updated: .axm/axm-lock.yaml",

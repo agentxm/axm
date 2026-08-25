@@ -105,12 +105,14 @@ import {
   type SkillPathSource,
   type ExtensionTarget,
   type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
 } from "./service-interface.js";
 import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { runWorkspaceTransaction } from "./transaction.js";
+import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
@@ -178,12 +180,17 @@ const contextReadErrorToAppError = (
     });
   }
 
+  // An unreadable or corrupt lockfile is actionable workspace state, not a
+  // violated invariant.
+  const lockfileFailure =
+    error._tag === "LockfileIoError" ||
+    error._tag === "LockfileParseError" ||
+    error._tag === "LockfileDecodeError";
   return makeAppError({
-    code:
-      error._tag === "LockfileParseError" || error._tag === "LockfileDecodeError"
-        ? "validation"
-        : "internal",
-    detail: `Failed to read workspace ${source}`,
+    code: lockfileFailure ? "validation" : "internal",
+    detail: lockfileFailure
+      ? `Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.`
+      : `Failed to read workspace ${source}`,
     cause: error,
   });
 };
@@ -327,9 +334,28 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       runWorkspaceTransaction({
         workspaceDir,
         semaphore: transactionSemaphore,
-        targets: [settingsPath, path.join(workspaceDir, LOCKFILE_NAME), ...(args.targets ?? [])],
+        targets: [
+          ...(args.claimDefaultTargets === false
+            ? []
+            : [settingsPath, path.join(workspaceDir, LOCKFILE_NAME)]),
+          ...(args.targets ?? []),
+        ],
         transition: args.transition,
         validate: args.validate,
+        ...(args.onRestorationStarted === undefined
+          ? {}
+          : { onRestorationStarted: args.onRestorationStarted }),
+      }).pipe(Effect.provide(fsLayer));
+
+    const acquireTransition: WorkspaceTransitionAcquirer = (request) =>
+      acquireWorkspaceTransitionLock({
+        workspaceDir,
+        holder: {
+          command: request.command,
+          pid: process.pid,
+          ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
+        },
+        ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
       }).pipe(Effect.provide(fsLayer));
 
     /**
@@ -481,6 +507,8 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       baseDir,
 
       runTransaction,
+
+      acquireTransition,
 
       getLockfileState,
 

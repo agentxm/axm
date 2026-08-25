@@ -193,6 +193,8 @@ export {
   type ExtensionTargetFor,
   type ExtensionManager,
   type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
+  type WorkspaceTransitionRequest,
   type WorkspaceLifecycleTransactionArgs,
   type SkillExtensionTarget,
   type PackExtensionTarget,
@@ -206,8 +208,16 @@ export {
 // Workspace mutation service implementation (layer)
 export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 export {
+  protectCreatedAncestors,
   protectWorkspacePath,
+  readPendingClosureRestorationFailures,
+  restorationIncompleteToAppError,
+  rollbackWorkspaceClosure,
   runWorkspaceTransaction,
+  settleWorkspaceClosure,
+  surfaceRestorationIncomplete,
+  withWorkspaceClosure,
+  WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";
 
@@ -253,7 +263,26 @@ export {
   ResolvePlanInteractionTest,
 } from "./resolve-plan-interaction.js";
 // Plan display
-export { displayPlan } from "./display-plan.js";
+export { defaultOperationPresentation, displayPlan, presentationOf } from "./display-plan.js";
+export {
+  FootprintRecorder,
+  makeFootprintRecorder,
+  readFootprint,
+  recordFootprint,
+  type FootprintObservation,
+  type FootprintRecorderService,
+} from "./footprint-recorder.js";
+export {
+  TRANSITION_WAIT_BOUND_MILLIS,
+  acquireWorkspaceTransitionLock,
+  heldWorkspaceTransition,
+  isWorkspaceTransitionHeldByThisInvocation,
+  transitionLockPath,
+  WorkspaceTransitionCompromised,
+  type HeldWorkspaceTransition,
+  type TransitionContention,
+  type TransitionLockHolder,
+} from "./transition-lock.js";
 
 // Version currency
 export {

@@ -12,9 +12,12 @@
 import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
+import type { WorkspaceRestorationIncomplete } from "./transaction.js";
+import type { TransitionContention, TransitionLockHolder } from "./transition-lock.js";
 import type { InstallableExtensionType } from "../extensions/installable-types.js";
 import type { ExtensionVisibility } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
@@ -169,11 +172,39 @@ export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly targets?: ReadonlyArray<string>;
   readonly transition: Effect.Effect<A, E, R>;
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
+  /** Observes the start of rollback restoration; never controls it. */
+  readonly onRestorationStarted?: Effect.Effect<void>;
+  /**
+   * When `false`, the transaction does not claim the shared settings and
+   * lockfile targets up front. A closure-scoped plan apply passes `false`:
+   * each closure protects the shared files at its own first touch, so a
+   * closure's rollback restores only its own delta and never tears an
+   * earlier closure's settled commit out of the shared files. Defaults to
+   * `true` — a direct transaction is one closure and claims them itself.
+   */
+  readonly claimDefaultTargets?: boolean;
 }
 
 export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(
   args: WorkspaceLifecycleTransactionArgs<A, E, R>,
-) => Effect.Effect<A, AppError | E, R>;
+) => Effect.Effect<A, AppError | WorkspaceRestorationIncomplete | E, R>;
+
+/** What a post-confirmation apply records as the workspace transition holder. */
+export interface WorkspaceTransitionRequest {
+  readonly command: string;
+  readonly candidateId?: string;
+  /** Called once when the invocation starts waiting on another holder. */
+  readonly onWaiting?: (holder: Option.Option<TransitionLockHolder>) => Effect.Effect<void>;
+}
+
+/**
+ * Acquire the workspace transition for the calling scope's lifetime. Resolves
+ * `None` when acquired (release is a scope finalizer) and `Some(contention)`
+ * when the wait bound elapsed while another invocation held it.
+ */
+export type WorkspaceTransitionAcquirer = (
+  request: WorkspaceTransitionRequest,
+) => Effect.Effect<Option.Option<TransitionContention>, AppError, Scope.Scope>;
 
 // ---------------------------------------------------------------------------
 // Extension Manager Interface
@@ -344,6 +375,8 @@ export interface WorkspaceMutationsService {
   readonly baseDir: string;
   /** Run one coupled authoritative workspace transition under the workspace lock. */
   readonly runTransaction: WorkspaceTransactionRunner;
+  /** Acquire the workspace transition for a post-confirmation apply. */
+  readonly acquireTransition: WorkspaceTransitionAcquirer;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
   /** Build the authoritative desired extension graph from settings and installed pack manifests. */

@@ -262,7 +262,6 @@ export const SubagentManagerLive = Layer.effect(
               version: ref.version,
               integrity: ref.integrity,
               messages: {
-                integrityMismatchCode: "internal",
                 integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
               },
             }),

@@ -23,7 +23,7 @@ import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import { expectAppliedPlanResult, expectNoOpPlanResult } from "../../test-helpers.js";
+import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogin } from "./login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -174,11 +174,17 @@ describe("auth login handler", () => {
           },
         );
         expect(promptCalls).toBe(0);
-        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        // Login keeps the legacy single-step operation-plan document shape.
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
+        expect(result).toMatchObject({
+          outcome: "no-op",
           planName: "Log in to AXM registry",
           totalSteps: 1,
+          status: "already-logged-in",
+          handle: ALICE,
         });
-        expect(result).toMatchObject({ status: "already-logged-in", handle: ALICE });
       }),
     );
   });
@@ -396,10 +402,12 @@ describe("auth login handler", () => {
         expect(instructions).toContain(
           "This environment appears to be remote or headless; using device-code sign-in.",
         );
-        const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-          planName: "Log in to AXM registry",
-        });
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
         expect(result).toMatchObject({
+          outcome: "applied",
+          planName: "Log in to AXM registry",
           steps: [
             {
               label: "Registry credentials",
@@ -447,10 +455,12 @@ describe("auth login handler", () => {
           expect(instructions).toContain(
             "Could not start a local callback server; using device-code sign-in instead.",
           );
-          const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
-            planName: "Log in to AXM registry",
-          });
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
           expect(result).toMatchObject({
+            outcome: "applied",
+            planName: "Log in to AXM registry",
             steps: [
               {
                 label: "Registry credentials",
@@ -601,11 +611,13 @@ describe("auth login handler", () => {
         expect(
           rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),
         ).toEqual([]);
-        const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        const result = expectRecord(
+          property(expectRecord(rendererState.results[0]?.data), "result"),
+        );
+        expect(result).toMatchObject({
+          outcome: "no-op",
           planName: "Log in to AXM registry",
           totalSteps: 1,
-        });
-        expect(result).toMatchObject({
           steps: [
             {
               label: "Registry credentials",

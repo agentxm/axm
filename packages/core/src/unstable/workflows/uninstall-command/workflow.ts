@@ -9,7 +9,8 @@
 
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
-import type { Plan, PlanResolution } from "../../plan/plan.js";
+import type { Plan } from "../../plan/plan.js";
+import type { OperationResolution } from "../../plan/operation-resolution.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
 import type { PlanExecution } from "../../cli-runtime/confirmation-recovery.js";
 
@@ -38,7 +39,6 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 
 export interface UninstallWorkflowFlags {
   readonly execution: PlanExecution;
-  readonly displayApplied?: boolean;
   /** Optional delayed gate; candidate freshness is checked again after it completes. */
   readonly beforeApply?: () => Effect.Effect<void, AppError>;
 }
@@ -64,7 +64,6 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const plan = yield* actions.buildUninstallPlan(intent, flags);
     return yield* previewOrApplyPlan(plan, {
       execution: flags.execution,
-      ...(flags.displayApplied === undefined ? {} : { displayApplied: flags.displayApplied }),
       ...(flags.beforeApply === undefined ? {} : { beforeApply: flags.beforeApply }),
     });
-  }).pipe(Effect.map((resolution): PlanResolution => resolution));
+  }).pipe(Effect.map((resolution): OperationResolution => resolution));

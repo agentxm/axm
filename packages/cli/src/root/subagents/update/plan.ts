@@ -94,6 +94,7 @@ export const buildUpdatePlan = (
             label: op.ref.subagent.name,
             run: Effect.succeed<JobStepResult>({
               result: "success",
+              disposition: "unchanged",
               message: "already up to date",
             }),
           };

@@ -4,21 +4,32 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   protectWorkspacePath,
   runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
+  WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";
+import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
 
 let transactionSemaphore: Semaphore.Semaphore;
 
 const runWorkspaceTransaction = <A, E, R>(
   args: Omit<WorkspaceTransactionArgs<A, E, R>, "semaphore">,
 ) => runWorkspaceTransactionWithSemaphore({ ...args, semaphore: transactionSemaphore });
+
+const detailOf = (error: AppError | WorkspaceRestorationIncomplete): string =>
+  error._tag === "AppError"
+    ? error.detail
+    : `restoration-incomplete:${error.snapshotDir ?? "<none>"}`;
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -67,11 +78,13 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("injected transition failure");
+            expect(detailOf(error)).toBe("injected transition failure");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
             expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
               "before\n",
             );
+            // No recovery state persists in the workspace, ever.
+            expect(nodeFs.existsSync(nodePath.join(workspaceDir, "tmp", "recovery"))).toBe(false);
           }),
         ),
       ),
@@ -111,7 +124,7 @@ describe("runWorkspaceTransaction", () => {
             Effect.flip,
             Effect.tap((error) =>
               Effect.sync(() => {
-                expect(error.detail).toBe(`${family} failure`);
+                expect(detailOf(error)).toBe(`${family} failure`);
                 expect(nodeFs.readFileSync(target, "utf8"), family).toBe(before);
               }),
             ),
@@ -177,7 +190,7 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("postcondition invalid");
+            expect(detailOf(error)).toBe("postcondition invalid");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
           }),
         ),
@@ -219,7 +232,7 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toBe("injected later-target failure");
+            expect(detailOf(error)).toBe("injected later-target failure");
             expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
             expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "content.txt"), "utf8")).toBe(
               "before\n",
@@ -231,9 +244,10 @@ describe("runWorkspaceTransaction", () => {
     );
   });
 
-  it.effect("retains a usable backup path when exact rollback fails", () => {
+  it.effect("fails typed with retained snapshots when exact rollback fails", () => {
     const parent = nodePath.dirname(settingsPath);
     const movedParent = `${parent}-moved`;
+    let snapshotDir: string | undefined;
     return withContext(
       runWorkspaceTransaction({
         workspaceDir,
@@ -251,19 +265,212 @@ describe("runWorkspaceTransaction", () => {
         Effect.flip,
         Effect.tap((error) =>
           Effect.sync(() => {
-            expect(error.detail).toContain("Workspace rollback failed");
-            const marker = "Rollback backup retained at: ";
-            const backupPath = error.detail.slice(error.detail.indexOf(marker) + marker.length);
-            expect(nodeFs.existsSync(backupPath.trim())).toBe(true);
+            // Restoration failure is a typed fact on the error channel; the
+            // fixture's flip makes every post-failure workspace write fail
+            // too (the workspace path is now a plain file), so the value —
+            // not any later write or workspace record — must carry the truth.
+            expect(error._tag).toBe("WorkspaceRestorationIncomplete");
+            if (error._tag !== "WorkspaceRestorationIncomplete") return;
+            snapshotDir = error.snapshotDir;
+            expect(error.terminationCause).toBe("failure");
+            expect(error.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+            expect(nodeFs.statSync(parent).isFile()).toBe(true);
+            // The snapshot-before-write invariant put the pre-change bytes in
+            // OS-temporary storage before the mutation, outside the
+            // workspace, so the hostile rename cannot touch them — and the
+            // failure preserves them for manual inspection.
+            expect(snapshotDir).toBeDefined();
+            expect(snapshotDir?.startsWith(tempDir)).toBe(false);
+            expect(nodeFs.readFileSync(nodePath.join(snapshotDir ?? "", "0.snap"), "utf8")).toBe(
+              '{"future":{"value":1}}\n',
+            );
           }),
         ),
         Effect.ensuring(
           Effect.sync(() => {
             nodeFs.rmSync(parent, { force: true });
             nodeFs.renameSync(movedParent, parent);
+            if (snapshotDir !== undefined) {
+              nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
+            }
           }),
         ),
       ),
+    );
+  });
+
+  it.live("stops a compromised mutation without restoring over the successor", () => {
+    const lockPath = nodePath.join(workspaceDir, "tmp", "workspace-transition.lock");
+    let continued = false;
+    let snapshotDir: string | undefined;
+    return withContext(
+      Effect.scoped(
+        Effect.gen(function* () {
+          // The invocation-level hold, with fast staleness so compromise
+          // detection is prompt enough for a deterministic test.
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+            timingMillis: { stale: 2000, update: 1000 },
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          const failure = yield* runWorkspaceTransaction({
+            workspaceDir,
+            targets: [settingsPath],
+            transition: Effect.gen(function* () {
+              yield* Effect.sync(() => {
+                nodeFs.writeFileSync(settingsPath, '{"changed":true}\n');
+                // A successor reclaims the stale hold mid-mutation, carrying
+                // a distinct mtime as any real post-staleness reclaim would.
+                nodeFs.rmSync(lockPath, { recursive: true, force: true });
+                nodeFs.mkdirSync(lockPath, { recursive: true });
+                const reclaimedAt = new Date(Date.now() + 60_000);
+                nodeFs.utimesSync(lockPath, reclaimedAt, reclaimedAt);
+              });
+              // The compromise race interrupts this wait; nothing after it
+              // may run once ownership is lost.
+              yield* Effect.sleep("30 seconds");
+              continued = true;
+            }),
+            validate: () => Effect.void,
+          }).pipe(Effect.flip);
+          expect(failure._tag).toBe("WorkspaceRestorationIncomplete");
+          if (failure._tag !== "WorkspaceRestorationIncomplete") return;
+          snapshotDir = failure.snapshotDir;
+          expect(continued).toBe(false);
+          const restoration: unknown = failure.restorationCause;
+          expect(
+            typeof restoration === "object" &&
+              restoration !== null &&
+              "_tag" in restoration &&
+              restoration._tag === "WorkspaceTransitionCompromised",
+          ).toBe(true);
+          // No split-brain writes: the mutation stopped where it was, and
+          // restoration was not attempted over the successor's workspace.
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+          expect(failure.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+          // The pre-change snapshot is preserved for manual recovery.
+          expect(snapshotDir).toBeDefined();
+          if (snapshotDir !== undefined) {
+            expect(nodeFs.readFileSync(nodePath.join(snapshotDir, "0.snap"), "utf8")).toBe(
+              '{"future":{"value":1}}\n',
+            );
+          }
+        }),
+      ).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (snapshotDir !== undefined) {
+              nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
+            }
+          }),
+        ),
+      ),
+    );
+  });
+
+  // Restoration must stage before it publishes: a restore that removes the
+  // target and then fails to copy has destroyed the only durable copy of the
+  // failure-time state. A failed staging leaves the target exactly as the
+  // failure left it.
+  it.effect("a failed restoration copy leaves the target as the failure left it", () => {
+    const restoreCopyFailingServices = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        return {
+          ...real,
+          copy: (...args: Parameters<FileSystem.FileSystem["copy"]>) =>
+            // The restore direction copies out of the OS-temporary snapshot
+            // store; the snapshot direction copies into it.
+            args[0].includes("axm-rollback-")
+              ? Effect.fail(
+                  PlatformError.badArgument({
+                    module: "FileSystem",
+                    method: "copy",
+                    description: "injected restoration copy failure",
+                  }),
+                )
+              : real.copy(...args),
+        };
+      }),
+    ).pipe(Layer.provideMerge(NodeServices.layer));
+    let snapshotDir: string | undefined;
+    return runWorkspaceTransaction({
+      workspaceDir,
+      targets: [settingsPath],
+      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
+        Effect.andThen(
+          Effect.fail(makeAppError({ code: "internal", detail: "injected transition failure" })),
+        ),
+      ),
+      validate: () => Effect.void,
+    }).pipe(
+      Effect.flip,
+      Effect.tap((error) =>
+        Effect.sync(() => {
+          expect(error._tag).toBe("WorkspaceRestorationIncomplete");
+          if (error._tag !== "WorkspaceRestorationIncomplete") return;
+          snapshotDir = error.snapshotDir;
+          // The target keeps the failure-time state: staging failed before
+          // publication, so the mutated bytes were never destroyed.
+          expect(nodeFs.existsSync(settingsPath)).toBe(true);
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+          // No staging residue survives beside the target.
+          const siblings = nodeFs.readdirSync(nodePath.dirname(settingsPath));
+          expect(siblings.filter((name) => name.startsWith("settings.json.tmp."))).toEqual([]);
+        }),
+      ),
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (snapshotDir !== undefined) {
+            nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
+          }
+        }),
+      ),
+      Effect.provide(restoreCopyFailingServices),
+    );
+  });
+
+  // A file target is republished with one atomic rename: no interleaving of
+  // operations may leave the authoritative path absent or partially written,
+  // because abrupt termination can strike between any two of them.
+  it.effect("file restoration publishes atomically without removing the target first", () => {
+    const removed: Array<string> = [];
+    const recordingServices = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        return {
+          ...real,
+          remove: (...args: Parameters<FileSystem.FileSystem["remove"]>) =>
+            Effect.sync(() => {
+              removed.push(args[0]);
+            }).pipe(Effect.andThen(real.remove(...args))),
+        };
+      }),
+    ).pipe(Layer.provideMerge(NodeServices.layer));
+    return runWorkspaceTransaction({
+      workspaceDir,
+      targets: [settingsPath],
+      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
+        Effect.andThen(
+          Effect.fail(makeAppError({ code: "internal", detail: "injected transition failure" })),
+        ),
+      ),
+      validate: () => Effect.void,
+    }).pipe(
+      Effect.flip,
+      Effect.tap((error) =>
+        Effect.sync(() => {
+          expect(detailOf(error)).toBe("injected transition failure");
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
+          // The authoritative path itself was never removed; only owned
+          // `.tmp.` siblings and the snapshot store may be.
+          expect(removed.filter((path) => path === settingsPath)).toEqual([]);
+        }),
+      ),
+      Effect.provide(recordingServices),
     );
   });
 

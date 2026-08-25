@@ -36,11 +36,14 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(addPreview.stdout)).toMatchObject({
         ok: true,
         result: {
+          contract: "plan-result-v3",
           outcome: "previewed",
-          steps: expect.arrayContaining([
-            expect.objectContaining({ label: "Add opencode", status: "ready" }),
+          mode: "preview",
+          counts: { failed: 0, blocked: 0 },
+          units: expect.arrayContaining([
+            expect.objectContaining({ label: "Add opencode", state: "ready" }),
             expect.objectContaining({
-              status: "ready",
+              state: "ready",
               artifact: expect.objectContaining({
                 path: ".opencode/skills/axm",
                 agents: ["opencode"],
@@ -65,6 +68,10 @@ describe("atomic agent membership lifecycle", () => {
       });
       expect(removePreview.exitCode, `${removePreview.stderr}\n${removePreview.stdout}`).toBe(0);
       expect(removePreview.stdout).toContain(".opencode/skills/axm");
+      expect(JSON.parse(removePreview.stdout)).toMatchObject({
+        ok: true,
+        result: { contract: "plan-result-v3", outcome: "previewed", mode: "preview" },
+      });
       expect(readAgents(temp.path)).toEqual(["claude-code", "opencode"]);
       expect(fs.existsSync(opencodeSkill)).toBe(true);
 
@@ -104,9 +111,15 @@ describe("atomic agent membership lifecycle", () => {
       expect(JSON.parse(remove.stdout)).toMatchObject({
         ok: true,
         result: {
-          steps: expect.arrayContaining([
+          contract: "plan-result-v3",
+          outcome: "applied",
+          mode: "apply",
+          counts: { total: 2, committed: 2, failed: 0, blocked: 0 },
+          units: expect.arrayContaining([
             expect.objectContaining({
               label: "Remove managed agent artifacts",
+              state: "committed",
+              message: "Removed 1 managed artifact; preserved 1 unowned artifact",
               artifact: expect.objectContaining({
                 targets: expect.arrayContaining([
                   expect.objectContaining({ path: ".opencode/skills/manual", change: "unchanged" }),

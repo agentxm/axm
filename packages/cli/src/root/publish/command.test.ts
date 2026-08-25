@@ -29,8 +29,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
@@ -786,6 +788,280 @@ describe("root publish", () => {
         });
       }),
     );
+  });
+
+  // The registry may commit an upload before its response is recorded. An
+  // interruption landing in that window must report the item's outcome as
+  // indeterminate — only evidenced states — with a credential-free recovery
+  // command that verifies or re-runs, never an auto-retry of a replay-unsafe
+  // mutation.
+  it.effect(
+    "C-15: interruption after upload dispatch reports an indeterminate registry outcome",
+    () => {
+      writeReviewSkill();
+      const context = makeWorkspaceHandlerTestContext({
+        machine: true,
+        wsOptions: { projectRoot: tempDir },
+      });
+      const registryUrl = "https://registry.example.com";
+      let authorizationRequest: CreatePublishAuthorizationRequestParams | undefined;
+      const authClient = AuthClientTest({
+        createPublishAuthorizationRequest: (request) => {
+          authorizationRequest = request;
+          return Effect.succeed({
+            requestId: "pubreq_exact",
+            authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_exact",
+            expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
+          });
+        },
+        exchangePublishAuthorizationCode: () =>
+          Effect.sync(() => {
+            if (authorizationRequest === undefined) {
+              throw new Error("Expected a publication authorization request");
+            }
+            const descriptor = authorizationRequest.publicationSet.candidates[0];
+            if (descriptor === undefined) throw new Error("Expected a publication descriptor");
+            const setDigest = publicationSetDigest(authorizationRequest.publicationSet.candidates);
+            return {
+              status: "admitted" as const,
+              preview: {
+                contract: "publication-set-v2" as const,
+                publicationSetDigest: setDigest,
+                status: "admitted" as const,
+                candidates: authorizationRequest.publicationSet.candidates.map((candidate) => ({
+                  kind: "resolved" as const,
+                  target: candidate.target,
+                  participation: candidate.participation,
+                  descriptorDigest: publicationDescriptorDigest(candidate),
+                  visibility: {
+                    target: formatFqn(candidate.target),
+                    intent: candidate.visibility.intent,
+                    request: candidate.visibility.request,
+                    resolved: {
+                      value: "private" as const,
+                      disposition: "establish" as const,
+                      source: "explicit" as const,
+                    },
+                    actual: null,
+                    comparison: "not-established" as const,
+                    findings: [],
+                  },
+                  condition: '"pv2-reviewed"',
+                })),
+                packs: [],
+              },
+              grants: [
+                {
+                  accessToken: "axm_pub_capability",
+                  expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
+                  scope: "extensions:publish:new",
+                  publishRequestId: "pubreq_exact",
+                  visibilityContract: "v2" as const,
+                  visibility: {
+                    value: "private" as const,
+                    disposition: "establish" as const,
+                    source: "explicit" as const,
+                  },
+                  condition: '"pv2-reviewed"',
+                  publicationSetDigest: setDigest,
+                  publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
+                },
+              ],
+            };
+          }),
+      });
+      const interaction = DeviceLoginInteractionTest({
+        openBrowser: () =>
+          Effect.sync(() => {
+            if (authorizationRequest === undefined) return false;
+            const callback = new URL(authorizationRequest.redirectUri);
+            callback.searchParams.set("code", "axm_pubac_code");
+            callback.searchParams.set("state", authorizationRequest.state);
+            callback.searchParams.set("iss", "https://agentxm.ai");
+            scheduleCallback(callback.href);
+            return true;
+          }),
+      });
+
+      return Effect.gen(function* () {
+        const uploadDispatched = yield* Deferred.make<void>();
+        // The upload request reaches the registry and never gets a response:
+        // the server may commit the version while the client records nothing.
+        const httpClient = HttpClient.make((request) => {
+          const url = new URL(request.url);
+          if (request.method === "PUT") {
+            return Deferred.succeed(uploadDispatched, void 0).pipe(Effect.andThen(Effect.never));
+          }
+          return Effect.sync(() => {
+            if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+              return HttpClientResponse.fromWeb(
+                request,
+                new Response(JSON.stringify({ displayName: "Acme" }), {
+                  status: 200,
+                  headers: { "content-type": "application/json" },
+                }),
+              );
+            }
+            return HttpClientResponse.fromWeb(
+              request,
+              new Response(
+                JSON.stringify({
+                  type: "about:blank",
+                  title: "Not Found",
+                  status: 404,
+                  detail: "Extension not found",
+                  code: "not_found",
+                }),
+                { status: 404, headers: { "content-type": "application/json" } },
+              ),
+            );
+          });
+        });
+        const provide = makeEffectProvide(
+          Layer.mergeAll(
+            context.fullLayer,
+            authClient,
+            interaction.layer,
+            Layer.succeed(HttpClient.HttpClient, httpClient),
+          ),
+        );
+        const fiber = yield* Effect.forkChild(
+          provide(
+            handleRootPublish(
+              args(registryUrl, {
+                preview: false,
+                visibility: Option.some("private"),
+              }),
+            ),
+          ),
+        );
+        yield* Deferred.await(uploadDispatched);
+        yield* Fiber.interrupt(fiber);
+        const exit = yield* Fiber.await(fiber);
+        // The invocation resolved the interruption itself: a publish document
+        // and the signal's exit code, not a generic termination notice.
+        expect(Exit.isSuccess(exit)).toBe(false);
+        if (Exit.isFailure(exit)) {
+          const squashed = Cause.squash(exit.cause);
+          expect(isEffectCliExit(squashed) && squashed.exitCode === 130).toBe(true);
+        }
+        const result = expectRecord(context.rendererState.results.at(-1)?.data);
+        expect(property(result, "contract")).toBe("publish-result-v3");
+        expect(property(result, "interruption")).toEqual({ signal: "SIGINT" });
+        const execution = expectRecord(property(result, "execution"));
+        expect(property(execution, "status")).toBe("partial");
+        const outcomes = property(execution, "outcomes");
+        if (!Array.isArray(outcomes)) throw new Error("Expected execution outcomes");
+        const item = expectRecord(
+          outcomes.find((entry) => expectRecord(entry)["name"] === "review"),
+        );
+        expect(item["action"]).toBe("publish");
+        expect(item["status"]).toBe("unknown");
+        expect(item["reason"]).toBe("interrupted");
+        expect(item["phase"]).toBe("upload_execution");
+        const counts = expectRecord(property(result, "counts"));
+        expect(counts["unknown"]).toBe(1);
+        expect(counts["published"]).toBe(0);
+        expect(counts["failed"]).toBe(0);
+        // Credential-free recovery that verifies or re-runs the exact set.
+        const recovery = expectRecord(property(result, "recovery"));
+        expect(String(recovery["cmd"])).toContain("axm publish");
+        expect(String(recovery["cmd"])).not.toContain("token");
+        expect(recovery["remainingItems"]).toEqual(["@acme/skills/review"]);
+      });
+    },
+  );
+
+  // Interruption before any upload was dispatched is evidenced differently:
+  // nothing left the process, so the item is pending — never indeterminate.
+  it.effect("C-15: interruption before upload dispatch reports pending items", () => {
+    writeReviewSkill();
+    const context = makeWorkspaceHandlerTestContext({
+      machine: true,
+      wsOptions: { projectRoot: tempDir },
+    });
+    const registryUrl = "https://registry.example.com";
+    let authorizationRequested: (() => void) | undefined;
+    const authClient = AuthClientTest({
+      createPublishAuthorizationRequest: () =>
+        Effect.gen(function* () {
+          authorizationRequested?.();
+          // The authorization wait never completes; interruption lands here,
+          // before any upload could be dispatched.
+          return yield* Effect.never;
+        }),
+    });
+    const interaction = DeviceLoginInteractionTest({
+      openBrowser: () => Effect.succeed(false),
+    });
+
+    return Effect.gen(function* () {
+      const authorizationEntered = yield* Deferred.make<void>();
+      authorizationRequested = () => {
+        // eslint-disable-next-line no-restricted-syntax -- Test-only bridge from a sync callback into the running fiber tree.
+        Effect.runFork(Deferred.succeed(authorizationEntered, void 0));
+      };
+      const httpClient = HttpClient.make((request) =>
+        Effect.sync(() => {
+          const url = new URL(request.url);
+          if (request.method === "GET" && url.pathname === "/v1/owners/@acme") {
+            return HttpClientResponse.fromWeb(
+              request,
+              new Response(JSON.stringify({ displayName: "Acme" }), {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              }),
+            );
+          }
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify({
+                type: "about:blank",
+                title: "Not Found",
+                status: 404,
+                detail: "Extension not found",
+                code: "not_found",
+              }),
+              { status: 404, headers: { "content-type": "application/json" } },
+            ),
+          );
+        }),
+      );
+      const provide = makeEffectProvide(
+        Layer.mergeAll(
+          context.fullLayer,
+          authClient,
+          interaction.layer,
+          Layer.succeed(HttpClient.HttpClient, httpClient),
+        ),
+      );
+      const fiber = yield* Effect.forkChild(
+        provide(
+          handleRootPublish(
+            args(registryUrl, {
+              preview: false,
+              visibility: Option.some("private"),
+            }),
+          ),
+        ),
+      );
+      yield* Deferred.await(authorizationEntered);
+      yield* Fiber.interrupt(fiber);
+      const exit = yield* Fiber.await(fiber);
+      expect(Exit.isSuccess(exit)).toBe(false);
+      const result = expectRecord(context.rendererState.results.at(-1)?.data);
+      expect(property(result, "contract")).toBe("publish-result-v3");
+      expect(property(result, "interruption")).toEqual({ signal: "SIGINT" });
+      const execution = expectRecord(property(result, "execution"));
+      const outcomes = property(execution, "outcomes");
+      if (!Array.isArray(outcomes)) throw new Error("Expected execution outcomes");
+      const item = expectRecord(outcomes.find((entry) => expectRecord(entry)["name"] === "review"));
+      expect(item["status"]).toBe("pending");
+      expect(item["reason"]).toBe("interrupted");
+      const counts = expectRecord(property(result, "counts"));
+      expect(counts["unknown"]).toBe(0);
+    });
   });
 
   it.effect("does not create exact authority during an unauthenticated preview", () => {

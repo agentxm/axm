@@ -7,6 +7,7 @@ import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type Plan,
@@ -18,9 +19,11 @@ import {
   resolveConfiguredRule,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
@@ -30,7 +33,21 @@ import {
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
 
-export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: {
+export const handleEnableRule = (args: {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "rules.enable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Enable rules",
+    },
+    handleEnableRuleBody(args),
+  );
+
+const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
   readonly preview: boolean;
@@ -101,7 +118,9 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
                   Effect.provideService(Path.Path, path),
                 )
               : installStep.run;
-            const run = ruleManager.runTransaction({ transition, validate: () => Effect.void });
+            const run = ruleManager
+              .runTransaction({ transition, validate: () => Effect.void })
+              .pipe(surfaceRestorationIncomplete);
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,
@@ -120,6 +139,10 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     _tag: "Plan",
     name: "Enable rules",
     description: Option.some(`Enable rule ${args.name}`),
+    presentation: operationPresentation(
+      { imperative: "enable", past: "Enabled", gerund: "Enabling" },
+      "rule",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -132,11 +155,8 @@ export const handleEnableRule = Effect.fn("EnableRule.handle")(function* (args: 
     ["rules", "enable"],
     [args.name],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "rules.enable",
-    headline: `Enabled rule ${args.name}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("rules.enable", resolution, {
     suggestions: [
       { description: "Inspect installed rules", cmd: "axm rules list" },
       { description: "Undo", cmd: `axm rules disable ${args.name}` },

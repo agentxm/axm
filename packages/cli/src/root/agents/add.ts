@@ -5,13 +5,14 @@ import { detectAgentsForScope } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import {
+  deriveOperationOutcome,
+  previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  previewOrApplyPlan,
 } from "@agentxm/client-core/unstable/plan";
 import {
   WorkspaceMutations,
@@ -19,7 +20,8 @@ import {
 } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
@@ -159,10 +161,24 @@ const makePlan = <Requirements, Output>(
   _tag: "Plan",
   name: "Add coding agents",
   description: Option.some(`Configure ${agentIds.join(", ")} and materialize installed extensions`),
+  presentation: {
+    verb: { imperative: "configure", past: "Configured", gerund: "Configuring" },
+    subject: { singular: "agent", plural: "agents" },
+  },
   jobs: [{ concurrency: 1, executionPolicy: "best-effort", steps }],
 });
 
-export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
+export const handleAgentsAdd = (args: AgentsAddArgs) =>
+  withOperationLifecycle(
+    {
+      command: "agents.add",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Add coding agents",
+    },
+    handleAgentsAddBody(args),
+  );
+
+const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddArgs) {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
 
@@ -288,15 +304,11 @@ export const handleAgentsAdd = Effect.fn("Agents.add")(function* (args: AgentsAd
     agentIds,
     args.force ? ["accept-warnings"] : [],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  const outcome = deriveOperationOutcome(resolution);
   const suggestions =
-    resolution._tag === "ExecutedPlan" ? buildPermissionSuggestions(agentIds) : [];
-  yield* emitAppliedPlanOutcome({
-    command: "agents.add",
-    headline: `Configured ${count(agentIds.length, "agent")}`,
-    resolution,
-    suggestions,
-  });
+    outcome === "applied" || outcome === "partial" ? buildPermissionSuggestions(agentIds) : [];
+  yield* emitOperationResolution("agents.add", resolution, { suggestions });
 });
 
 const addConfig = {

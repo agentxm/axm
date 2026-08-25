@@ -16,7 +16,10 @@ interface PackPublishOptions {
 
 interface JsonCommandResult {
   readonly exitCode: number;
+  /** Parity-comparable machine document: invocation-specific fields removed. */
   readonly stdout: unknown;
+  /** The raw `result` payload for direct document assertions. */
+  readonly result: Readonly<Record<string, unknown>>;
   readonly stderr: string;
 }
 
@@ -199,6 +202,9 @@ const publishPackToRegistry = async (
   }
 };
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const normalizeJsonValue = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map((entry) => normalizeJsonValue(entry));
@@ -225,15 +231,43 @@ const readLockfile = (workspacePath: string): unknown =>
     YAML.parse(fs.readFileSync(path.join(workspacePath, ".axm", "axm-lock.yaml"), "utf-8")),
   );
 
+const documentResult = (document: unknown): Readonly<Record<string, unknown>> => {
+  if (!isRecord(document) || !isRecord(document["result"])) {
+    throw new Error(`machine document has no result payload: ${JSON.stringify(document)}`);
+  }
+  return document["result"];
+};
+
+// Progress events carry a monotonic `atMs` timestamp by design; parity between
+// two invocations is over the event sequence with that free field folded out.
+const comparableStderr = (stderr: string): string =>
+  stderr
+    .split("\n")
+    .map((line) => {
+      try {
+        const event: unknown = JSON.parse(line);
+        if (typeof event === "object" && event !== null && "atMs" in event) {
+          const { atMs: _atMs, ...rest } = event;
+          return JSON.stringify(rest);
+        }
+        return line;
+      } catch {
+        return line;
+      }
+    })
+    .join("\n");
+
 const runJsonCommand = async (
   workspacePath: string,
   args: ReadonlyArray<string>,
 ): Promise<JsonCommandResult> => {
   const result = await runCli([...args, "--yes", "--json"], { cwd: workspacePath });
+  const document: unknown = JSON.parse(result.stdout);
 
   return {
     exitCode: result.exitCode,
-    stdout: normalizeJsonValue(JSON.parse(result.stdout)),
+    stdout: normalizeJsonValue(document),
+    result: documentResult(document),
     stderr: result.stderr,
   };
 };
@@ -245,6 +279,33 @@ const installRegistryExtension = async (
 ) => {
   const result = await runCli([surface, "install", source, "--yes"], { cwd: workspacePath });
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
+};
+
+const expectAppliedUninstallDocument = (result: JsonCommandResult) => {
+  expect(result.result).toMatchObject({
+    contract: "plan-result-v3",
+    outcome: "applied",
+    mode: "apply",
+    counts: {
+      total: 1,
+      committed: 1,
+      failed: 0,
+      blocked: 0,
+      rolledBack: 0,
+      cancelled: 0,
+    },
+    units: [expect.objectContaining({ state: "committed" })],
+  });
+  expect(result.result["candidateId"]).toMatch(/^[0-9a-f]{64}$/);
+};
+
+const expectUninstallFootprint = (result: JsonCommandResult) => {
+  expect(result.result["footprint"]).toEqual(
+    expect.arrayContaining([
+      { path: ".axm/settings.json", change: "modified" },
+      { path: ".axm/axm-lock.yaml", change: "modified" },
+    ]),
+  );
 };
 
 const expectWorkspaceStateEquivalent = (rootWorkspacePath: string, typedWorkspacePath: string) => {
@@ -357,8 +418,11 @@ describe("axm uninstall", () => {
 
         expect(rootResult.exitCode).toBe(0);
         expect(typedResult.exitCode).toBe(0);
+        expectAppliedUninstallDocument(rootResult);
+        expectAppliedUninstallDocument(typedResult);
+        expectUninstallFootprint(rootResult);
         expect(rootResult.stdout).toEqual(typedResult.stdout);
-        expect(rootResult.stderr).toBe(typedResult.stderr);
+        expect(comparableStderr(rootResult.stderr)).toBe(comparableStderr(typedResult.stderr));
         expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path);
         expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, surface, name);
         assertAdditionalCleanup?.(rootWorkspace.path, typedWorkspace.path);
@@ -373,9 +437,17 @@ describe("axm uninstall", () => {
           name,
         ]);
 
-        expect(rootSecondPass.exitCode).toBe(typedSecondPass.exitCode);
+        expect(rootSecondPass.exitCode).toBe(0);
+        expect(typedSecondPass.exitCode).toBe(0);
+        expect(rootSecondPass.result).toMatchObject({
+          contract: "plan-result-v3",
+          outcome: "no-op",
+          counts: { total: 0, committed: 0 },
+        });
         expect(rootSecondPass.stdout).toEqual(typedSecondPass.stdout);
-        expect(rootSecondPass.stderr).toBe(typedSecondPass.stderr);
+        expect(comparableStderr(rootSecondPass.stderr)).toBe(
+          comparableStderr(typedSecondPass.stderr),
+        );
         expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path);
         expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, surface, name);
         assertAdditionalCleanup?.(rootWorkspace.path, typedWorkspace.path);
@@ -427,9 +499,21 @@ describe("axm uninstall", () => {
 
       expect(rootResult.exitCode, `${rootResult.stderr}\n${rootResult.stdout}`).toBe(0);
       expect(typedResult.exitCode, `${typedResult.stderr}\n${typedResult.stdout}`).toBe(0);
-      expect(normalizeJsonValue(JSON.parse(rootResult.stdout))).toEqual(
-        normalizeJsonValue(JSON.parse(typedResult.stdout)),
-      );
+      const rootDocument: unknown = JSON.parse(rootResult.stdout);
+      const typedDocument: unknown = JSON.parse(typedResult.stdout);
+      for (const result of [rootDocument, typedDocument]) {
+        expect(documentResult(result)).toMatchObject({
+          contract: "plan-result-v3",
+          outcome: "applied",
+          mode: "apply",
+          counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
+        });
+        expect(documentResult(result)["candidateId"]).toMatch(/^[0-9a-f]{64}$/);
+      }
+      // Candidate id and footprint compare too: identity is content-addressed
+      // relative to the workspace base, and every mutating surface runs under
+      // the operation lifecycle that records the footprint.
+      expect(normalizeJsonValue(rootDocument)).toEqual(normalizeJsonValue(typedDocument));
       expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path);
       expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, "skills", name);
     } finally {

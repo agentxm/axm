@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepResult,
@@ -14,9 +15,11 @@ import {
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import {
@@ -26,7 +29,21 @@ import {
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
 
-export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args: {
+export const handleDisableRule = (args: {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+}) =>
+  withOperationLifecycle(
+    {
+      command: "rules.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Disable rules",
+    },
+    handleDisableRuleBody(args),
+  );
+
+const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
   readonly name: string;
   readonly yes: boolean;
   readonly preview: boolean;
@@ -87,25 +104,31 @@ export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args
     onNone: () => ({
       readiness: "ready",
       label: args.name,
-      run: ruleManager.runTransaction({
-        transition: Option.isSome(instructionsConfig)
-          ? reconcileInstructionTransition({
-              ws,
-              config: instructionsConfig.value,
-              transition: disableTransition,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            )
-          : disableTransition,
-        validate: () => Effect.void,
-      }),
+      run: ruleManager
+        .runTransaction({
+          transition: Option.isSome(instructionsConfig)
+            ? reconcileInstructionTransition({
+                ws,
+                config: instructionsConfig.value,
+                transition: disableTransition,
+              }).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              )
+            : disableTransition,
+          validate: () => Effect.void,
+        })
+        .pipe(surfaceRestorationIncomplete),
     }),
   });
   const plan: Plan = {
     _tag: "Plan",
     name: "Disable rules",
     description: Option.some(`Disable rule ${args.name}`),
+    presentation: operationPresentation(
+      { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "rule",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -118,11 +141,8 @@ export const handleDisableRule = Effect.fn("DisableRule.handle")(function* (args
     ["rules", "disable"],
     [args.name],
   );
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: "rules.disable",
-    headline: `Disabled rule ${args.name}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution("rules.disable", resolution, {
     suggestions: [
       { description: "Inspect installed rules", cmd: "axm rules list" },
       { description: "Undo", cmd: `axm rules enable ${args.name}` },

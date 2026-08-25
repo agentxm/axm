@@ -65,6 +65,8 @@ export interface HttpRegistry {
   readonly url: string;
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
+  /** Resolves when the next commit-then-hang upload has been stored. */
+  readonly nextHungPublish: () => Promise<string>;
   readonly copyVersion: (
     owner: string,
     plural: string,
@@ -81,6 +83,12 @@ export interface HttpRegistryOptions {
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
   /** Fail the first upload for each plural/name key, then allow recovery. */
   readonly failPublishOnce?: ReadonlyArray<string>;
+  /**
+   * Store the first upload for each plural/name key and never respond — the
+   * commit-before-response ambiguity a client cannot distinguish from a lost
+   * request.
+   */
+  readonly commitThenHangPublishOnce?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
   /** Require and complete the durable step-up flow for POST /v1/tokens. */
@@ -316,6 +324,13 @@ export const startHttpRegistry = async (
   >();
   const publishes: Array<PublishRecord> = [];
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
+  const pendingPublishHangs = new Set(options.commitThenHangPublishOnce ?? []);
+  let hangWaiters: Array<(key: string) => void> = [];
+  const notifyHungPublish = (hungKey: string) => {
+    const waiters = hangWaiters;
+    hangWaiters = [];
+    for (const resolve of waiters) resolve(hungKey);
+  };
   const requests: Array<RequestRecord> = [];
   const tokenOwners: Readonly<Record<string, string>> = {
     "e2e-test-token": TEST_OWNER,
@@ -624,6 +639,14 @@ export const startHttpRegistry = async (
           byteLength: archive.byteLength,
         });
 
+        // Commit-then-hang: the version is durably stored above, but the
+        // response is never written — from the client's side this upload is
+        // indistinguishable from one the registry never processed.
+        if (pendingPublishHangs.delete(failureKey)) {
+          notifyHungPublish(failureKey);
+          return;
+        }
+
         sendJson(response, 201, {
           owner,
           type,
@@ -813,8 +836,15 @@ export const startHttpRegistry = async (
         ),
       );
     },
+    nextHungPublish: () =>
+      new Promise<string>((resolve) => {
+        hangWaiters.push(resolve);
+      }),
     close: () =>
       new Promise<void>((resolve, reject) => {
+        // A commit-then-hang upload leaves its socket open on purpose; close
+        // must not wait for it.
+        server.closeAllConnections();
         server.close((error) => (error ? reject(error) : resolve()));
       }),
   };

@@ -13,25 +13,21 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
-import {
-  PACK_MANIFEST_FILENAME,
-  packManifestArtifact,
-  packManifestPath,
-} from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME, packManifestArtifact } from "@agentxm/client-core/unstable/packs";
 import type { NewPackOperation, WorkspacePackRef } from "@agentxm/client-core/unstable/packs";
 import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
+import { operationPresentation, type Plan } from "@agentxm/client-core/unstable/plan";
 import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
-import { emitScaffoldSuccess } from "../shared/scaffold-success.js";
 import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
 
 export interface PacksNewHandlerArgs {
@@ -41,7 +37,17 @@ export interface PacksNewHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
+export const handlePacksNew = (args: PacksNewHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.new",
+      mode: args.preview ? "preview" : "apply",
+      planName: "New pack",
+    },
+    handlePacksNewBody(args),
+  );
+
+const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -53,7 +59,6 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     : yield* resolveOwnerForNewContent("pack creation");
 
   const fqn = formatFqn({ owner, type: "pack", name: args.name });
-  const manifestDisplayPath = packManifestPath(owner, args.name);
   const base = ws.baseDir;
 
   // Check if pack already exists
@@ -129,37 +134,25 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     _tag: "Plan",
     name: "New pack",
     description: Option.some(`Create ${fqn}`),
+    presentation: operationPresentation(
+      { imperative: "create", past: "Created", gerund: "Creating" },
+      "pack",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
   });
 
-  const suggestions = [
-    {
-      description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
-    },
-  ];
-
-  const emitted = yield* emitPlanResolutionResult(
-    "packs.new",
-    resolution,
-    resolution._tag === "ExecutedPlan"
-      ? { summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`, suggestions }
-      : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    yield* emitScaffoldSuccess({
-      message: `Created pack ${fqn}`,
-      summary: `-> ${manifestDisplayPath}   0.0.1 | 1 file`,
-      suggestions,
-      withoutSuggestions: emitted,
-    });
-  }
+  yield* emitOperationResolution("packs.new", resolution, {
+    suggestions: [
+      {
+        description: `Edit \`${joinDisplayPath(path, ".axm", "extensions", owner, "packs", args.name, PACK_MANIFEST_FILENAME)}\` to fill in pack contents`,
+      },
+    ],
+  });
 });
 
 const newConfig = {

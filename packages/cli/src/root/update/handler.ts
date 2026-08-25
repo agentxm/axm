@@ -9,8 +9,12 @@ import {
   summarizeCommandOutcome,
   type PlanExecution,
 } from "@agentxm/client-core/unstable/cli-runtime";
-import type { Plan, PlanResolution } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import type { OperationResolution, Plan } from "@agentxm/client-core/unstable/plan";
+import {
+  makeOperationResolution,
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -36,7 +40,8 @@ import {
 } from "@agentxm/client-core/unstable/version-constraints";
 import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
 
-import { emitPlanResolutionResult, planResolutionToSummary } from "../../json-output.js";
+import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
@@ -221,10 +226,13 @@ const releaseAgeRecord = (args: {
   minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
 });
 
+const updatePresentation = (type: RootUpdateIntent["type"]) =>
+  operationPresentation({ imperative: "update", past: "Updated", gerund: "Updating" }, type);
+
 const withReleaseAge = (
-  resolution: PlanResolution,
+  resolution: OperationResolution,
   releaseAge: ReleaseAgeOperationEvidence,
-): PlanResolution => ({ ...resolution, releaseAge });
+): OperationResolution => ({ ...resolution, releaseAge });
 
 const normalizedPackIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -318,34 +326,43 @@ const heldTargetResolution = (args: {
       bypasses: [],
     } satisfies ReleaseAgeOperationEvidence;
     if (Option.isSome(currentVersion)) {
-      return {
-        _tag: "ExecutedPlan",
+      return makeOperationResolution({
         name: `Update ${args.intent.target}`,
         description: Option.some(
           `Preserve ${args.intent.target} until its selected release is eligible`,
         ),
-        jobs: [{ concurrency: 1, steps: [] }],
+        mode: "apply",
+        atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+        units: [],
+        presentation: updatePresentation(args.intent.type),
         releaseAge,
-      } satisfies PlanResolution;
+      });
     }
-    return {
-      _tag: "FailedPlan",
+    return makeOperationResolution({
       name: `Update ${args.intent.target}`,
       description: Option.some(`Update ${args.intent.target}`),
-      jobs: [],
+      mode: "apply",
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [],
+      presentation: updatePresentation(args.intent.type),
       releaseAge,
-      reason: "hard-blocked",
-      errorCode: "conflict",
+      blocking: {
+        class: "policy-excluded",
+        subject: args.intent.target,
+        phase: "planning",
+        detail: `${args.intent.target}'s selected release is held by the minimum release age until ${args.evidence.eligibleAt}`,
+        causeCode: "conflict",
+      },
       suggestions: [
         {
           description: `Wait until ${args.evidence.eligibleAt}, request an eligible older version, or retry with --ignore-release-age.`,
         },
       ],
-    } satisfies PlanResolution;
+    });
   });
 
 interface TargetedUpdateResolution {
-  readonly resolution: PlanResolution;
+  readonly resolution: OperationResolution;
   readonly context?: TargetedUpdatePublicContext;
 }
 
@@ -432,15 +449,51 @@ const blockerSuggestions = (
   }
 };
 
-const blockedTargetedUpdate = (context: TargetedUpdatePublicContext): PlanResolution => ({
-  _tag: "FailedPlan",
-  name: `Update ${context.target.fqn}`,
-  description: Option.some(blockerDetail(context)),
-  jobs: [],
-  reason: "hard-blocked",
-  errorCode: "conflict",
-  suggestions: blockerSuggestions(context),
-});
+const blockerClass = (
+  context: TargetedUpdatePublicContext,
+): "precondition-unmet" | "policy-excluded" | "stale-candidate" => {
+  switch (context.blocker) {
+    case "pack-owned-constraint":
+    case "source-authority":
+      return "policy-excluded";
+    case "stale-plan":
+      return "stale-candidate";
+    default:
+      return "precondition-unmet";
+  }
+};
+
+const blockedTargetedUpdate = (
+  context: TargetedUpdatePublicContext,
+  mode: "preview" | "apply",
+): OperationResolution => {
+  const suggestions = blockerSuggestions(context);
+  return makeOperationResolution({
+    name: `Update ${context.target.fqn}`,
+    description: Option.some(blockerDetail(context)),
+    mode,
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+    units: [],
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      context.target.type,
+    ),
+    blocking: {
+      class: blockerClass(context),
+      subject: context.target.fqn,
+      phase: "planning",
+      detail: blockerDetail(context),
+      causeCode: "conflict",
+      ...(context.blocker === undefined ? {} : { reference: context.blocker }),
+      ...(suggestions[0] === undefined
+        ? {}
+        : {
+            escape: suggestions[0],
+          }),
+    },
+    suggestions,
+  });
+};
 
 const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdatePublicContext => ({
   ...context,
@@ -458,16 +511,9 @@ const staleOutputContext = (context: TargetedUpdatePublicContext): TargetedUpdat
 
 const contextForResolution = (
   context: TargetedUpdatePublicContext,
-  resolution: PlanResolution,
-): TargetedUpdatePublicContext => {
-  const targetedStale =
-    resolution._tag === "FailedPlan" &&
-    (resolution.reason === "stale-candidate" ||
-      resolution.executionSteps?.some((step) =>
-        step.message.includes(TARGETED_UPDATE_STALE_DETAIL),
-      ) === true);
-  return targetedStale ? staleOutputContext(context) : context;
-};
+  resolution: OperationResolution,
+): TargetedUpdatePublicContext =>
+  resolution.blocking?.class === "stale-candidate" ? staleOutputContext(context) : context;
 
 const resolveTargetedUpdate = (
   intent: RootUpdateIntent,
@@ -483,7 +529,7 @@ const resolveTargetedUpdate = (
       });
       if (targetedContext.public.blocker !== undefined) {
         return {
-          resolution: blockedTargetedUpdate(targetedContext.public),
+          resolution: blockedTargetedUpdate(targetedContext.public, execution.request.mode),
           context: targetedContext.public,
         } satisfies TargetedUpdateResolution;
       }
@@ -535,7 +581,7 @@ const resolveTargetedUpdate = (
       } satisfies TargetedUpdateResolution;
     }
 
-    let resolution: PlanResolution;
+    let resolution: OperationResolution;
     if (targetedContext?.public.authority === "pack-aware") {
       if (selected.ref.type === "pack") {
         return yield* makeAppError({
@@ -581,7 +627,11 @@ const resolveTargetedUpdate = (
         execution,
         releaseAgeEvaluation,
         targetedContext === undefined
-          ? undefined
+          ? (plan) =>
+              Effect.succeed({
+                ...plan,
+                presentation: updatePresentation(intent.type),
+              } satisfies Plan)
           : (plan) =>
               wrapTargetedUpdatePlan({
                 plan,
@@ -638,6 +688,21 @@ const resolveTargetedUpdate = (
   });
 
 export const handleUpdate = (args: RootUpdateHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update configured extensions",
+      presentation: operationPresentation({
+        imperative: "update",
+        past: "Updated",
+        gerund: "Updating",
+      }),
+    },
+    handleUpdateBody(args),
+  );
+
+const handleUpdateBody = (args: RootUpdateHandlerArgs) =>
   Option.match(args.source, {
     onNone: () =>
       handleWorkspaceUpdate({
@@ -666,13 +731,14 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         const outputResolution = resolved.resolution;
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
-            planResolutionToSummary(outputResolution, {
+            operationResolutionSummary(outputResolution, {
               subjectType: intent.type,
               sourceKind: "registry",
             }),
           ),
         );
-        yield* emitPlanResolutionResult("update", outputResolution, {
+        yield* emitOperationResolution("update", outputResolution, {
+          suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
           ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
         });
       }),

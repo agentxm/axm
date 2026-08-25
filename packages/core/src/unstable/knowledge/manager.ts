@@ -31,6 +31,7 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import type { KnowledgeMap } from "../settings/index.js";
 import { knowledgeLockEntryToRef, printSourceParams } from "../sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { makeWorkspaceRelativePath } from "../utils/path-types.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import type { VersionRange } from "../version-constraints/version-constraints.js";
@@ -40,6 +41,7 @@ import {
 } from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
+import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { acceptedCanonicalObservation } from "../workspace/accepted-canonical-ref.js";
@@ -189,7 +191,6 @@ export const KnowledgeManagerLive = Layer.effect(
                 version: ref.version,
                 integrity: ref.integrity,
                 messages: {
-                  integrityMismatchCode: "network",
                   integrityMismatchDetail: `Integrity mismatch for knowledge:${ref.name}@${ref.version}`,
                 },
               }),
@@ -399,6 +400,10 @@ export const KnowledgeManagerLive = Layer.effect(
             yield* Ref.set(stageState, { phase: "staged", hadCanonical });
           }),
         );
+        yield* recordFootprint({
+          path: canonicalPath,
+          change: hadCanonical ? "modified" : "created",
+        });
         return {
           root: canonicalPath,
           sourceHash,
@@ -840,6 +845,7 @@ export const KnowledgeManagerLive = Layer.effect(
               ),
             ),
         })
+        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.scoped,
           Effect.tapError(() =>
@@ -892,18 +898,22 @@ export const KnowledgeManagerLive = Layer.effect(
       projectionPlans,
       runTransaction: ws.runTransaction,
       refreshCatalog: () =>
-        ws.runTransaction({
-          transition: applyKnowledgeProjection,
-          validate: () => Effect.void,
-        }),
+        ws
+          .runTransaction({
+            transition: applyKnowledgeProjection,
+            validate: () => Effect.void,
+          })
+          .pipe(surfaceRestorationIncomplete),
       sync: ({ dryRun }) =>
         dryRun
           ? Effect.scoped(syncLocked(true))
           : Effect.scoped(
-              ws.runTransaction({
-                transition: syncLocked(false),
-                validate: () => Effect.void,
-              }),
+              ws
+                .runTransaction({
+                  transition: syncLocked(false),
+                  validate: () => Effect.void,
+                })
+                .pipe(surfaceRestorationIncomplete),
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>

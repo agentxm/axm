@@ -188,7 +188,7 @@ describe("hooks enable/disable no-op output", () => {
           preview: false,
         });
 
-        expect(logs.success).toContain("Enabled hooks package workspace-baseline");
+        expect(logs.success).toContain("Enabled 1 hook");
         const settings = JSON.parse(
           fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
         );

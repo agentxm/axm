@@ -16,6 +16,7 @@ import type {
   ExtensionTarget,
   ExtensionTargetFor,
 } from "../workspace/service-interface.js";
+import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
@@ -252,44 +253,46 @@ const runInstallOperation = <TRef extends ExtensionRef>(
     }
     const installedBefore =
       args.installedBefore === undefined ? false : yield* args.installedBefore;
-    yield* manager.runTransaction({
-      transition: Effect.gen(function* () {
-        yield* manager.materializeInstall({
-          ref: args.ref,
-          ...(args.force === undefined ? {} : { force: args.force }),
-        });
-        if (!args.skipSettings) {
-          yield* manager.upsertSettingsEntry({
+    yield* manager
+      .runTransaction({
+        transition: Effect.gen(function* () {
+          yield* manager.materializeInstall({
             ref: args.ref,
-            versionRange: args.versionRange,
+            ...(args.force === undefined ? {} : { force: args.force }),
           });
-        }
-        yield* manager.upsertLockfileEntry({ ref: args.ref });
-        // Desired state and canonical content are committed; render every
-        // shared aggregate unit once from the complete contributor set.
-        if (args.skipProjections !== true) yield* applyManagerProjectionPlans(manager);
-        return installedBefore;
-      }),
-      validate: () =>
-        Effect.gen(function* () {
-          const installed = yield* manager.isInstalled({ target });
-          if (!installed) {
-            return yield* makeAppError({
-              code: "internal",
-              detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
+          if (!args.skipSettings) {
+            yield* manager.upsertSettingsEntry({
+              ref: args.ref,
+              versionRange: args.versionRange,
             });
           }
-          if (args.skipSettings !== true && manager.getConfiguredSource !== undefined) {
-            const configured = yield* manager.getConfiguredSource({ target });
-            if (Option.isNone(configured)) {
+          yield* manager.upsertLockfileEntry({ ref: args.ref });
+          // Desired state and canonical content are committed; render every
+          // shared aggregate unit once from the complete contributor set.
+          if (args.skipProjections !== true) yield* applyManagerProjectionPlans(manager);
+          return installedBefore;
+        }),
+        validate: () =>
+          Effect.gen(function* () {
+            const installed = yield* manager.isInstalled({ target });
+            if (!installed) {
               return yield* makeAppError({
                 code: "internal",
-                detail: `Installed ${target.type} "${target.name}" has no desired-state declaration`,
+                detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
               });
             }
-          }
-        }),
-    });
+            if (args.skipSettings !== true && manager.getConfiguredSource !== undefined) {
+              const configured = yield* manager.getConfiguredSource({ target });
+              if (Option.isNone(configured)) {
+                return yield* makeAppError({
+                  code: "internal",
+                  detail: `Installed ${target.type} "${target.name}" has no desired-state declaration`,
+                });
+              }
+            }
+          }),
+      })
+      .pipe(surfaceRestorationIncomplete);
     const artifact =
       args.buildArtifact === undefined ? undefined : yield* args.buildArtifact({ installedBefore });
     const artifactWithLifecycle =
@@ -358,64 +361,68 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
       : manager.listMaterializable()
     ).pipe(
       Effect.andThen(
-        manager.runTransaction({
-          targets: Array.from(new Set([args.location, ...(args.transactionTargets ?? [])])).sort(),
-          transition: Effect.gen(function* () {
-            if (args.preflight !== undefined) yield* args.preflight;
-            yield* args.scaffold;
-            yield* args.markAuthored;
-            const materializable = yield* manager.listMaterializable();
-            const ref = materializable.find(
-              (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
-            );
-            if (ref === undefined) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
-              });
-            }
-            const installedBefore =
-              args.installedBefore === undefined ? false : yield* args.installedBefore;
-            if (args.enabled !== false || args.materializeWhenDisabled === true) {
-              if (args.materializeInstall === undefined) {
-                yield* manager.materializeInstall({ ref });
-              } else {
-                yield* args.materializeInstall(ref);
-              }
-            }
-            yield* manager.upsertSettingsEntry({ ref, versionRange: args.versionRange });
-            if (args.finalizeAuthored !== undefined) {
-              yield* args.finalizeAuthored;
-            }
-            if (args.enabled === false && args.materializeWhenDisabled === true) {
-              yield* manager.materializeDeactivate({ target });
-            } else if (args.enabled !== false) {
-              // Desired state is committed; render shared aggregate units once
-              // from the complete contributor set.
-              yield* applyManagerProjectionPlans(manager);
-            }
-            return { ref, installedBefore };
-          }),
-          validate: () =>
-            Effect.gen(function* () {
-              const installed = yield* manager.isInstalled({ target });
-              if (args.enabled !== false && !installed) {
+        manager
+          .runTransaction({
+            targets: Array.from(
+              new Set([args.location, ...(args.transactionTargets ?? [])]),
+            ).sort(),
+            transition: Effect.gen(function* () {
+              if (args.preflight !== undefined) yield* args.preflight;
+              yield* args.scaffold;
+              yield* args.markAuthored;
+              const materializable = yield* manager.listMaterializable();
+              const ref = materializable.find(
+                (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
+              );
+              if (ref === undefined) {
                 return yield* makeAppError({
-                  code: "internal",
-                  detail: `New ${target.type} "${target.name}" did not satisfy its observable contract`,
+                  code: "not_found",
+                  detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
                 });
               }
-              if (manager.getConfiguredSource !== undefined) {
-                const configured = yield* manager.getConfiguredSource({ target });
-                if (Option.isNone(configured)) {
-                  return yield* makeAppError({
-                    code: "internal",
-                    detail: `New ${target.type} "${target.name}" has no desired-state declaration`,
-                  });
+              const installedBefore =
+                args.installedBefore === undefined ? false : yield* args.installedBefore;
+              if (args.enabled !== false || args.materializeWhenDisabled === true) {
+                if (args.materializeInstall === undefined) {
+                  yield* manager.materializeInstall({ ref });
+                } else {
+                  yield* args.materializeInstall(ref);
                 }
               }
+              yield* manager.upsertSettingsEntry({ ref, versionRange: args.versionRange });
+              if (args.finalizeAuthored !== undefined) {
+                yield* args.finalizeAuthored;
+              }
+              if (args.enabled === false && args.materializeWhenDisabled === true) {
+                yield* manager.materializeDeactivate({ target });
+              } else if (args.enabled !== false) {
+                // Desired state is committed; render shared aggregate units once
+                // from the complete contributor set.
+                yield* applyManagerProjectionPlans(manager);
+              }
+              return { ref, installedBefore };
             }),
-        }),
+            validate: () =>
+              Effect.gen(function* () {
+                const installed = yield* manager.isInstalled({ target });
+                if (args.enabled !== false && !installed) {
+                  return yield* makeAppError({
+                    code: "internal",
+                    detail: `New ${target.type} "${target.name}" did not satisfy its observable contract`,
+                  });
+                }
+                if (manager.getConfiguredSource !== undefined) {
+                  const configured = yield* manager.getConfiguredSource({ target });
+                  if (Option.isNone(configured)) {
+                    return yield* makeAppError({
+                      code: "internal",
+                      detail: `New ${target.type} "${target.name}" has no desired-state declaration`,
+                    });
+                  }
+                }
+              }),
+          })
+          .pipe(surfaceRestorationIncomplete),
       ),
       Effect.flatMap(({ installedBefore }) =>
         Effect.gen(function* () {
@@ -481,26 +488,28 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
 ): Effect.Effect<JobStepResult, AppError, never> =>
   Effect.gen(function* () {
     const target = targetFromRef(args.ref);
-    yield* manager.runTransaction({
-      transition: Effect.gen(function* () {
-        yield* manager.materializeInstall({
-          ref: args.ref,
-          ...(args.force === undefined ? {} : { force: args.force }),
-        });
-        yield* manager.upsertLockfileEntry({ ref: args.ref });
-      }),
-      validate: () =>
-        manager.isInstalled({ target }).pipe(
-          Effect.flatMap((installed) =>
-            installed
-              ? Effect.void
-              : makeAppError({
-                  code: "internal",
-                  detail: `Reconciled ${target.type} "${target.name}" did not satisfy its observable contract`,
-                }),
+    yield* manager
+      .runTransaction({
+        transition: Effect.gen(function* () {
+          yield* manager.materializeInstall({
+            ref: args.ref,
+            ...(args.force === undefined ? {} : { force: args.force }),
+          });
+          yield* manager.upsertLockfileEntry({ ref: args.ref });
+        }),
+        validate: () =>
+          manager.isInstalled({ target }).pipe(
+            Effect.flatMap((installed) =>
+              installed
+                ? Effect.void
+                : makeAppError({
+                    code: "internal",
+                    detail: `Reconciled ${target.type} "${target.name}" did not satisfy its observable contract`,
+                  }),
+            ),
           ),
-        ),
-    });
+      })
+      .pipe(surfaceRestorationIncomplete);
     const artifact = args.buildArtifact === undefined ? undefined : yield* args.buildArtifact();
     return {
       result: "success" as const,
@@ -615,28 +624,30 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       };
     });
 
-    const result = yield* manager.runTransaction({
-      transition,
-      validate: (outcome) =>
-        Effect.gen(function* () {
-          if (manager.getConfiguredSource !== undefined) {
-            const configured = yield* manager.getConfiguredSource({ target: args.target });
-            if (Option.isSome(configured)) {
+    const result = yield* manager
+      .runTransaction({
+        transition,
+        validate: (outcome) =>
+          Effect.gen(function* () {
+            if (manager.getConfiguredSource !== undefined) {
+              const configured = yield* manager.getConfiguredSource({ target: args.target });
+              if (Option.isSome(configured)) {
+                return yield* makeAppError({
+                  code: "internal",
+                  detail: `Uninstalled ${args.target.type} "${args.target.name}" remains declared`,
+                });
+              }
+            }
+            const installed = yield* manager.isInstalled({ target: args.target });
+            if (installed !== outcome.expectedInstalled) {
               return yield* makeAppError({
                 code: "internal",
-                detail: `Uninstalled ${args.target.type} "${args.target.name}" remains declared`,
+                detail: `Uninstalled ${args.target.type} "${args.target.name}" has an invalid observed postcondition`,
               });
             }
-          }
-          const installed = yield* manager.isInstalled({ target: args.target });
-          if (installed !== outcome.expectedInstalled) {
-            return yield* makeAppError({
-              code: "internal",
-              detail: `Uninstalled ${args.target.type} "${args.target.name}" has an invalid observed postcondition`,
-            });
-          }
-        }),
-    });
+          }),
+      })
+      .pipe(surfaceRestorationIncomplete);
     return result.job;
   });
 

@@ -19,6 +19,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
@@ -80,57 +81,59 @@ export const disableSkill: OperationHandler<
       yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
         Effect.provideService(WorkspaceMutations, ws),
       );
-    const installableTargetOptions = yield* ws.runTransaction({
-      transition: Effect.gen(function* () {
-        if (isImplicit) {
-          const source =
-            desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
-          if (source === undefined) {
-            return yield* makeAppError({
-              code: "internal",
-              detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
-              suggestions: [{ description: "Provide a source when disabling this skill" }],
-            });
+    const installableTargetOptions = yield* ws
+      .runTransaction({
+        transition: Effect.gen(function* () {
+          if (isImplicit) {
+            const source =
+              desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
+            if (source === undefined) {
+              return yield* makeAppError({
+                code: "internal",
+                detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
+                suggestions: [{ description: "Provide a source when disabling this skill" }],
+              });
+            }
+            yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
+          } else {
+            yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
+              ...entry,
+              enabled: false,
+            }));
           }
-          yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
-        } else {
-          yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
-            ...entry,
-            enabled: false,
-          }));
-        }
 
-        return yield* Effect.forEach(
-          materializationAgents,
-          (agent) =>
-            agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-              Effect.provide(fsPathLayer),
-              Effect.flatMap((outcome) =>
-                outcome._tag === "supported"
-                  ? Effect.gen(function* () {
-                      const targetDir = path.normalize(outcome.dir);
-                      yield* removeSkillAgentArtifact({
-                        fs,
-                        pathService: path,
-                        targetDir,
-                        sanitizedName,
-                      });
-                      return Option.some({
-                        agentId: agent.id,
-                        targetDir,
-                      } satisfies InstallableSkillTarget);
-                    })
-                  : Effect.succeed(Option.none<InstallableSkillTarget>()),
+          return yield* Effect.forEach(
+            materializationAgents,
+            (agent) =>
+              agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+                Effect.provide(fsPathLayer),
+                Effect.flatMap((outcome) =>
+                  outcome._tag === "supported"
+                    ? Effect.gen(function* () {
+                        const targetDir = path.normalize(outcome.dir);
+                        yield* removeSkillAgentArtifact({
+                          fs,
+                          pathService: path,
+                          targetDir,
+                          sanitizedName,
+                        });
+                        return Option.some({
+                          agentId: agent.id,
+                          targetDir,
+                        } satisfies InstallableSkillTarget);
+                      })
+                    : Effect.succeed(Option.none<InstallableSkillTarget>()),
+                ),
               ),
-            ),
-          { concurrency: "unbounded" },
-        );
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
-      validate: () => Effect.void,
-    });
+            { concurrency: "unbounded" },
+          );
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fs),
+          Effect.provideService(Path.Path, path),
+        ),
+        validate: () => Effect.void,
+      })
+      .pipe(surfaceRestorationIncomplete);
     const installableTargets = Array.getSomes(installableTargetOptions);
 
     const artifact = yield* skillArtifactFromTargets({

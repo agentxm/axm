@@ -26,7 +26,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../test-helpers.js";
 import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
@@ -161,7 +161,10 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(symlinkPath)).toBe(true);
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
-          expect(logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
+          expect(logs.success).toEqual(["Created 1 skill"]);
+          expect(rendererState.summaries.some((m) => m.includes("@acme/skills/my-skill"))).toBe(
+            true,
+          );
           // Skills are symlinked into every agent dir on creation, so edits to
           // the canonical SKILL.md propagate automatically — no `axm sync` hint.
           expect(rendererState.suggestions).toEqual([
@@ -185,17 +188,14 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSkillsNew(defaultArgs("audit-skill"));
 
-          expect(logs.success).toEqual([
-            "  + @acme/skills/audit-skill",
-            "Created skill @acme/skills/audit-skill",
-          ]);
+          expect(logs.success).toEqual(["Created 1 skill"]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New skill",
           });
-          const steps = planResultSteps(result);
-          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-          const artifact = expectRecord(property(firstStep, "artifact"));
+          const units = planResultUnits(result);
+          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+          const artifact = expectRecord(property(firstUnit, "artifact"));
           const agents = property(artifact, "agents");
           expect(agents).toEqual(["antigravity", "amp", "claude-code"]);
           const targets = property(artifact, "targets");

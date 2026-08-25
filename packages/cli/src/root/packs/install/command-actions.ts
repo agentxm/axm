@@ -77,11 +77,12 @@ import {
   toLabel,
 } from "@agentxm/client-core/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-  Plan,
-  PlannedJobStep,
+import {
+  operationPresentation,
+  type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type Plan,
+  type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
   parseMinimumReleaseAge,
@@ -142,7 +143,6 @@ export interface PackSourceRequest {
 
 interface PackDiscoveryResult {
   readonly ref: PackRef;
-  readonly diagnosticLines?: ReadonlyArray<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -851,19 +851,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               }
 
               const registryHosts = yield* ws.getRegistrySourceHosts();
-              const diagnosticLines = verbose
-                ? [
-                    `Pack: ${req.owner}/packs/${req.packName}`,
-                    ...(req.sourceResolution !== undefined
-                      ? [`Source resolution: ${req.sourceResolution}`]
-                      : []),
-                    ...(probes.length > 0
-                      ? [`Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`]
-                      : []),
-                    `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
-                    "Found pack",
-                  ]
-                : undefined;
 
               if (!resolvedRefs || resolvedRefs.length === 0) {
                 const loginSuggestions = yield* loginSuggestionsFor(
@@ -881,10 +868,24 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 });
               }
 
-              return resolvedRefs.map((ref) => ({
-                ref,
-                ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
-              }));
+              if (verbose) {
+                const diagnosticLines = [
+                  `Pack: ${req.owner}/packs/${req.packName}`,
+                  ...(req.sourceResolution !== undefined
+                    ? [`Source resolution: ${req.sourceResolution}`]
+                    : []),
+                  ...(probes.length > 0
+                    ? [`Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`]
+                    : []),
+                  `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
+                  "Found pack",
+                ];
+                for (const line of diagnosticLines) {
+                  yield* renderer.info(line);
+                }
+              }
+
+              return resolvedRefs.map((ref) => ({ ref }));
             });
           }),
         ),
@@ -926,9 +927,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           ...(parsed.releaseAgeHoldbackBehavior === undefined
             ? {}
             : { releaseAgeHoldbackBehavior: parsed.releaseAgeHoldbackBehavior }),
-          ...(discovery.diagnosticLines !== undefined
-            ? { diagnosticLines: discovery.diagnosticLines }
-            : {}),
         };
       });
 
@@ -970,6 +968,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
                 ],
               },
             ],
+            presentation: operationPresentation(
+              { imperative: "install", past: "Installed", gerund: "Installing" },
+              "pack",
+            ),
             riskConditions: authority.blockers.map((fact) => ({
               level: "blocked" as const,
               id: fact.id,
@@ -977,12 +979,6 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               errorCode: "conflict" as const,
             })),
             failureSuggestions: suggestions,
-            sections: [
-              {
-                title: "Workspace authority conflicts",
-                items: authority.blockers.map((fact) => fact.detail),
-              },
-            ],
           } satisfies Plan;
         }
         const minimumReleaseAge = yield* resolveMinimumReleaseAge(ws, intent.unattended ?? false);
@@ -1293,30 +1289,28 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
           }),
         }).pipe(Effect.provideService(WorkspaceMutations, ws));
 
+        yield* renderer.info("Pack activation:");
+        yield* renderer.info(
+          `  ${packIdentity}: preserve ${preservedPackActivation ? "enabled" : "disabled"} activation`,
+        );
+        yield* renderer.info("Pack graph transition:");
+        for (const line of [
+          ...installSteps.map((step) => `${step.label} (${step.readiness})`),
+          ...droppedTargets.map(({ target }) => `remove ${target.type}: ${target.name}`),
+        ]) {
+          yield* renderer.info(`  ${line}`);
+        }
+
         return {
           _tag: "Plan",
           name: "Install pack",
-          description:
-            intent.diagnosticLines === undefined
-              ? Option.none()
-              : Option.some(intent.diagnosticLines.join("\n")),
+          description: Option.none(),
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "pack",
+          ),
           jobs: [{ concurrency: 1, steps: [graphStep] }],
           ...(releaseAge === undefined ? {} : { releaseAge }),
-          sections: [
-            {
-              title: "Pack activation",
-              items: [
-                `${packIdentity}: preserve ${preservedPackActivation ? "enabled" : "disabled"} activation`,
-              ],
-            },
-            {
-              title: "Pack graph transition",
-              items: [
-                ...installSteps.map((step) => `${step.label} (${step.readiness})`),
-                ...droppedTargets.map(({ target }) => `remove ${target.type}: ${target.name}`),
-              ],
-            },
-          ],
         } satisfies Plan;
       });
 

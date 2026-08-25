@@ -104,10 +104,11 @@ describe("mcps enable/disable output", () => {
           planName: "Enable MCP server",
         });
         expect(result).toMatchObject({
-          steps: [
+          units: [
             {
+              id: "context",
               label: "context",
-              status: "applied",
+              state: "committed",
               artifact: {
                 path: ".axm (config/lockfile)",
                 scope: "project",
@@ -132,9 +133,9 @@ describe("mcps enable/disable output", () => {
           preview: false,
         });
 
-        expect(logs.success).toEqual(["  + context", "Enabled MCP server context"]);
+        expect(logs.success).toEqual(["Enabled 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "context   updated   2 files   .axm (config/lockfile) (updated), .mcp.json (created) [claude-code]\n  claude-code: current — Claude Code has an AXM-managed project-scope MCP target.",
+          "context   updated   2 files   .axm (config/lockfile), .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
@@ -181,10 +182,11 @@ describe("mcps enable/disable output", () => {
           planName: "Disable MCP server",
         });
         expect(result).toMatchObject({
-          steps: [
+          units: [
             {
+              id: "context",
               label: "context",
-              status: "applied",
+              state: "committed",
               artifact: {
                 path: ".axm (config/lockfile)",
                 scope: "project",

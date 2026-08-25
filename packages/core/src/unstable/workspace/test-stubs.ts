@@ -12,9 +12,11 @@ import YAML from "yaml";
 import type {
   WorkspaceMutationsService,
   WorkspaceTransactionRunner,
+  WorkspaceTransitionAcquirer,
   ReadModelRecordRow,
   PackagingKind,
 } from "./index.js";
+import type { TransitionContention } from "./transition-lock.js";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
@@ -272,6 +274,11 @@ export const makeBaseWorkspaceMock = (
       yield* args.validate(value);
       return value;
     });
+  // The mock acquires nothing: unit tests share literal workspace paths, and
+  // a real lock would contend across parallel test files. Tests exercising
+  // real transition semantics override this with the real acquirer.
+  const acquireTransition: WorkspaceTransitionAcquirer = () =>
+    Effect.succeed(Option.none<TransitionContention>());
   const entryFrom =
     <A>(read: () => Effect.Effect<Readonly<Record<string, A>>, AppError>) =>
     (name: string): Effect.Effect<Option.Option<A>, AppError> =>
@@ -289,6 +296,7 @@ export const makeBaseWorkspaceMock = (
     baseDir,
     records,
     runTransaction,
+    acquireTransition,
     getLockfileState: () => Effect.succeed("ok" as const),
     getDesiredStateGraph: getSynthesizedDesiredStateGraph,
     getConfiguredSources: () => Effect.succeed([]),

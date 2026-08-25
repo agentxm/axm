@@ -32,12 +32,14 @@ import {
   type ReleaseAgeRecord,
 } from "@agentxm/client-core/unstable/registry";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { emitPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import {
@@ -89,6 +91,7 @@ const skippedSubagentStep = (
   label: `Skip ${outcome.name}`,
   run: Effect.succeed({
     result: "success",
+    disposition: "skipped",
     message: outcome.reason,
     artifact: {
       path: outcome.source,
@@ -125,9 +128,21 @@ const releaseAgeRecord = (args: {
   minimumReleaseAgeSeconds: args.evidence.minimumReleaseAgeSeconds,
 });
 
-export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
-  args: UpdateHandlerArgs,
-) {
+export const handleUpdate = (args: UpdateHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "subagents.update",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Update subagents",
+      presentation: operationPresentation(
+        { imperative: "update", past: "Updated", gerund: "Updating" },
+        "subagent",
+      ),
+    },
+    handleUpdateBody(args),
+  );
+
+const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
@@ -390,23 +405,12 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     Option.some("Update installed subagents"),
     makeRunClosure,
   );
-  const basePlan: Plan =
-    warningsBySubagent.size === 0
-      ? rawPlan
-      : {
-          ...rawPlan,
-          sections: [
-            ...(rawPlan.sections ?? []),
-            {
-              title: "Publisher ownership changes",
-              items: [...warningsBySubagent.entries()].map(
-                ([name, warning]) => `${name}: ${warning}`,
-              ),
-            },
-          ],
-        };
   const basePlanWithReleaseAge: Plan = {
-    ...basePlan,
+    ...rawPlan,
+    presentation: operationPresentation(
+      { imperative: "update", past: "Updated", gerund: "Updating" },
+      "subagent",
+    ),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
       holdbacks: normalizeReleaseAgeRecords([
@@ -485,5 +489,7 @@ export const handleUpdate = Effect.fn("SubagentsUpdate.handle")(function* (
     ],
   };
   const resolution = yield* previewOrApplyPlan(executionPlan, { execution });
-  yield* emitPlanResolutionResult("subagents.update", resolution);
+  yield* emitOperationResolution("subagents.update", resolution, {
+    suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+  });
 });

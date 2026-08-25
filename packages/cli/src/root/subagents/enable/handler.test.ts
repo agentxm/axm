@@ -182,7 +182,14 @@ describe("subagents enable.handler", () => {
         Effect.gen(function* () {
           yield* handleEnableSubagent(defaultArgs("my-agent"));
 
-          expect(logs.success).toEqual(["  + my-agent"]);
+          // Apply mode renders no planned block; the refusal is the terminal
+          // failed-outcome block.
+          expect(logs.success).toEqual([]);
+          expect(logs.error).toEqual([
+            "Failed to enable 1 subagent",
+            '  Accepted subagent content for "my-agent" is not usable (not_found)',
+            '  my-agent: Accepted subagent content for "my-agent" is not usable (not_found)',
+          ]);
 
           // Settings should show re-enabled (collapsed to string form)
           const settingsContent = fs.readFileSync(

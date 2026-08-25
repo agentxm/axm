@@ -429,15 +429,16 @@ describe("packs uninstall handler", () => {
           const preview = property(rendererState.results[0]?.data, "result");
           const apply = property(rendererState.results[1]?.data, "result");
           const decision = {
-            outcome: "failed",
-            reason: "hard-blocked",
-            errorCode: "conflict",
-            readyCount: 0,
-            errorCount: 1,
-            blockedCount: 1,
-            steps: [
+            outcome: "blocked",
+            blocking: expect.objectContaining({
+              class: "precondition-unmet",
+              phase: "planning",
+              causeCode: "conflict",
+            }),
+            counts: expect.objectContaining({ total: 1, ready: 0, blocked: 1 }),
+            units: [
               expect.objectContaining({
-                status: "error",
+                state: "blocked",
                 message: expect.stringContaining("pack-manifest-unavailable"),
               }),
             ],
@@ -515,11 +516,12 @@ describe("packs uninstall handler", () => {
           );
 
           expect(property(rendererState.results[0]?.data, "result")).toMatchObject({
-            outcome: "failed",
-            reason: "stale-candidate",
-            errorCode: "conflict",
-            appliedCount: 0,
-            blockedCount: 0,
+            outcome: "blocked",
+            blocking: expect.objectContaining({
+              class: "stale-candidate",
+              phase: "validation",
+            }),
+            counts: expect.objectContaining({ committed: 0, blocked: 0 }),
           });
           expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
           expect(fs.readFileSync(lockfilePath, "utf8")).toBe(before.lockfile);
@@ -631,7 +633,7 @@ describe("packs uninstall handler", () => {
     });
 
     it.effect("preserves skills referenced by another pack", () => {
-      const { provide, logs } = makeLayers();
+      const { provide, logs, rendererState } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
           "pack-a": "@acme/packs/pack-a",
@@ -658,8 +660,9 @@ describe("packs uninstall handler", () => {
             preview: false,
           });
 
-          // shared-skill is retained by pack-b, should not appear as a step
+          // shared-skill is retained by pack-b, should not appear as a unit
           expect(logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
+          expect(rendererState.summaries.some((m) => m.includes("shared-skill"))).toBe(false);
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.packs?.["pack-a"]).toBeUndefined();

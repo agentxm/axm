@@ -8,11 +8,12 @@ import type { TelemetryProperties } from "../telemetry/client.js";
 export type CommandOutcome =
   | "applied"
   | "previewed"
-  | "reconciliation-required"
   | "no-op"
   | "cancelled"
   | "partial"
-  | "failed";
+  | "failed"
+  | "blocked"
+  | "interrupted";
 
 /**
  * What a command acted on, for telemetry and JSON output. Derived from the

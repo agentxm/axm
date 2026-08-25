@@ -51,11 +51,11 @@ import {
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/client-core/unstable/plan";
-import type {
-  JobStepResult,
-  Plan,
-  PlanSection,
-  PlannedJobStep,
+import {
+  operationPresentation,
+  type JobStepResult,
+  type Plan,
+  type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
   formatPackageDisplay,
@@ -264,15 +264,21 @@ export const getCompanionPackages = (ref: SkillExtensionRef): ReadonlyArray<Pack
   });
 };
 
+/** Companion-package orientation rendered at planning time. */
+export interface CompanionPackagesSection {
+  readonly title: string;
+  readonly items: ReadonlyArray<string>;
+}
+
 /**
- * Build the "Compatible packages" plan section from skill refs.
+ * Build the "Compatible packages" orientation block from skill refs.
  * Returns undefined when no skill has compatible packages.
  *
  * @internal Exported for testing only.
  */
 export const buildCompanionPackagesSection = (
   refs: ReadonlyArray<SkillExtensionRef>,
-): PlanSection | undefined => {
+): CompanionPackagesSection | undefined => {
   const allPackages = refs.flatMap((ref) => getCompanionPackages(ref));
   if (allPackages.length === 0) return undefined;
 
@@ -593,17 +599,20 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             return { skillsToInstall: [] } satisfies InstallSkillCommandIntent;
           }
 
-          const diagnosticLines = verbose
-            ? [
-                `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
-                ...(parsed.resolutionProbes.length > 0
-                  ? [
-                      `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
-                    ]
-                  : []),
-                `Found ${count(discoveredRefs.length, "skill")}`,
-              ]
-            : undefined;
+          if (verbose) {
+            const diagnosticLines = [
+              `Source: ${sources.origin(parsed.source)} (${parsed.source.type})`,
+              ...(parsed.resolutionProbes.length > 0
+                ? [
+                    `Resolution: ${parsed.resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
+                  ]
+                : []),
+              `Found ${count(discoveredRefs.length, "skill")}`,
+            ];
+            for (const line of diagnosticLines) {
+              yield* renderer.info(line);
+            }
+          }
 
           return {
             skillsToInstall: selectedSkills.map((ref) => ({
@@ -611,7 +620,6 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               versionRange:
                 ref.refType === "registry" ? parsed.versionRange : Option.none<VersionRange>(),
             })),
-            ...(diagnosticLines !== undefined ? { diagnosticLines } : {}),
             force: parsed.force,
           } satisfies InstallSkillCommandIntent;
         }),
@@ -622,7 +630,12 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
         const compatSection = buildCompanionPackagesSection(
           intent.skillsToInstall.map((entry) => entry.ref),
         );
-        const sections = compatSection !== undefined ? [compatSection] : undefined;
+        if (compatSection !== undefined) {
+          yield* renderer.info(`${compatSection.title}:`);
+          for (const item of compatSection.items) {
+            yield* renderer.info(`  ${item}`);
+          }
+        }
         const steps = yield* Effect.forEach(
           intent.skillsToInstall,
           (entry) =>
@@ -765,17 +778,17 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               : intent.skillsToInstall.length === 1
                 ? "Install skill"
                 : `Install ${count(intent.skillsToInstall.length, "skill")}`,
-          description:
-            intent.diagnosticLines === undefined
-              ? Option.none()
-              : Option.some(intent.diagnosticLines.join("\n")),
+          description: Option.none(),
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            "skill",
+          ),
           jobs: [
             {
               concurrency: 1 as const,
               steps,
             },
           ],
-          ...(sections !== undefined && { sections }),
         } satisfies Plan;
       });
 

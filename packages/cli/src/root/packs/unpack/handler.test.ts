@@ -33,7 +33,7 @@ import {
   getErrorResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
   property,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
@@ -359,10 +359,10 @@ describe("packs unpack.handler", () => {
           const lockPacks = lockContent.packs ?? {};
           expect(Object.keys(lockPacks)).not.toContain("frontend-tools");
 
-          const steps = planResultSteps(result);
-          const graphStep = expectRecord(expectDefined(steps[0], "Expected graph step"));
-          expect(property(graphStep, "status")).toBe("applied");
-          expect(property(graphStep, "message")).toContain("Unpacked @test/packs/frontend-tools");
+          const units = planResultUnits(result);
+          const graphUnit = expectRecord(expectDefined(units[0], "Expected graph unit"));
+          expect(property(graphUnit, "state")).toBe("committed");
+          expect(property(graphUnit, "message")).toContain("Unpacked @test/packs/frontend-tools");
         }),
       );
     });

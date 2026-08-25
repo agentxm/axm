@@ -1,4 +1,5 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — publication lint translates opaque extension accessor failures into AppError
+import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as ServiceMap from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -36,10 +37,12 @@ import {
   credentialFreeLocatorRecoveryValue,
   effectCliExit,
   publicRecoveryValue,
+  recordCommandCompletion,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
+  requestedInterruptionSignal,
   withArgvTracking,
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
@@ -69,7 +72,14 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
-import { previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import {
+  OperationJournal,
+  getOperationJournal,
+  makeOperationJournal,
+  previewOrApplyPlan,
+  unitIdOf,
+  type OperationJournalState,
+} from "@agentxm/client-core/unstable/plan";
 import {
   extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,
@@ -542,13 +552,92 @@ export const publishRecoverySelection = (
   readonly remainingItems: ReadonlyArray<string>;
   readonly blockedDependents: ReadonlyArray<string>;
 } => ({
+  // The continuation set covers everything not definitively published:
+  // failures, blocked dependents, indeterminate uploads (the re-run verifies
+  // byte-identical versions before retrying), and interrupted pending items.
   remainingItems: results
-    .filter((result) => result.status === "failed" || result.status === "blocked")
+    .filter(
+      (result) =>
+        result.status === "failed" ||
+        result.status === "blocked" ||
+        result.status === "unknown" ||
+        (result.status === "pending" && result.reason === "interrupted"),
+    )
     .map((result) => result.id),
   blockedDependents: results
     .filter((result) => result.status === "blocked")
     .map((result) => result.id),
 });
+
+/**
+ * Per-item evidenced states for an externally interrupted publish apply. The
+ * journal's settlement facts and the dispatch evidence separate four cases:
+ * a recorded response (success or failure stands), a dispatched upload with
+ * no recorded response (the registry may have committed — indeterminate),
+ * and work the interruption prevented (pending; nothing left the process).
+ *
+ * @internal Exported for direct tests.
+ */
+export const interruptedPublishResults = (
+  base: ReadonlyArray<PublishResultItem>,
+  journal: Option.Option<OperationJournalState>,
+  dispatched: ReadonlySet<string>,
+): ReadonlyArray<PublishResultItem> => {
+  const resolvedByUnit = new Map(
+    Option.match(journal, {
+      onNone: () => [],
+      onSome: (state) => state.resolved.map((step) => [unitIdOf(step), step] as const),
+    }),
+  );
+  const started = new Set(
+    Option.match(journal, { onNone: () => [], onSome: (state) => state.startedUnitIds }),
+  );
+  return base.map((result): PublishResultItem => {
+    if (result.action !== "publish") return result;
+    const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
+    const step = resolvedByUnit.get(fqn);
+    if (step !== undefined && step.result.result === "success") {
+      return {
+        ...result,
+        phase: "upload_execution",
+        status: "success",
+        ...(step.result.message.length === 0 ? {} : { message: step.result.message }),
+        ...(step.result.links === undefined ? {} : { links: step.result.links }),
+      };
+    }
+    if (step !== undefined && step.result.result === "error") {
+      return {
+        ...result,
+        action: "error",
+        phase: "upload_execution",
+        reason:
+          step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+            ? "publish_precondition_changed"
+            : "upload_failed",
+        status: "failed",
+        ...(step.result.message.length === 0 ? {} : { message: step.result.message }),
+        cause: publicPublishCause(step.result.error),
+      };
+    }
+    if (started.has(fqn) && dispatched.has(fqn)) {
+      return {
+        ...result,
+        phase: "upload_execution",
+        status: "unknown",
+        reason: "interrupted",
+        message:
+          "The upload was dispatched but no response was recorded; the registry may have committed this version. Re-run publish to verify.",
+      };
+    }
+    return {
+      ...result,
+      phase: "upload_execution",
+      status: "pending",
+      reason: "interrupted",
+      message: "Interrupted before the upload was dispatched.",
+    };
+  });
+};
 
 export const publishAuthenticationPreconditions = (options: {
   readonly preview: boolean;
@@ -1553,6 +1642,13 @@ const publishCandidate = (
   registry: TargetRegistry,
   exactCapability: PublishCapabilityResponse | undefined,
   exactVisibilityInput: PublicationVisibilityInput | undefined,
+  /**
+   * Records that the upload request is being dispatched, before the response
+   * wait — the invocation-local evidence that separates "nothing left the
+   * process" from "the registry may have committed before its response was
+   * recorded".
+   */
+  onUploadDispatched: Effect.Effect<void> = Effect.void,
 ) =>
   Effect.gen(function* () {
     const client = yield* createRegistryClient(registry.url);
@@ -1586,15 +1682,27 @@ const publishCandidate = (
             })
           : previewPublishUploadBinding(publishPreview)
         : exactPublishUploadBinding(exactCapability, visibilityInput);
-    const response = yield* client.publishExtension({
-      owner: candidate.owner,
-      type: candidate.type,
-      name: candidate.name,
-      version: candidate.version,
-      archive: candidate.archive,
-      metadata,
-      ...uploadBinding,
-    });
+    // The dispatch evidence is recorded before the request can leave the
+    // process; the response wait itself stays interruptible. Publication is
+    // replay-unsafe, so an unrecorded response is never auto-retried — it is
+    // reported indeterminate and recovery verifies before re-running.
+    const response = yield* Effect.uninterruptibleMask((restore) =>
+      onUploadDispatched.pipe(
+        Effect.andThen(
+          restore(
+            client.publishExtension({
+              owner: candidate.owner,
+              type: candidate.type,
+              name: candidate.name,
+              version: candidate.version,
+              archive: candidate.archive,
+              metadata,
+              ...uploadBinding,
+            }),
+          ),
+        ),
+      ),
+    );
     return {
       stepResult: {
         result: "success",
@@ -2144,6 +2252,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
       { concurrency: 4, discard: true },
     );
 
+  // Invocation-local evidence of dispatched uploads: which candidates'
+  // requests were released toward the registry before termination.
+  const dispatchedUploads = yield* Ref.make<ReadonlySet<string>>(new Set());
   const candidateStep = (
     candidate: PublishCandidate,
   ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
@@ -2168,6 +2279,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         registry,
         exactCapability,
         visibilityInputsByTarget.get(publishTargetKey(candidate)),
+        Ref.update(dispatchedUploads, (dispatched) => new Set([...dispatched, candidate.fqn])),
       );
       return {
         ...published.stepResult,
@@ -2247,7 +2359,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
     candidates.map((candidate) => candidate.fqn),
   );
   const execution = yield* makePlanExecution(args, exactRecovery);
-  const resolution = yield* Effect.scoped(
+  // The journal records per-unit started and resolved facts through the plan
+  // apply; with the dispatch evidence it lets an external termination
+  // request resolve into a publish document of evidenced states — success
+  // and failure where a response was recorded, indeterminate where the
+  // registry may have committed first, pending where nothing was dispatched.
+  const operationJournal = yield* makeOperationJournal;
+  const resolveCandidatePlan = Effect.scoped(
     Effect.gen(function* () {
       const authorizationDeferred = yield* Deferred.make<PublishAuthorizationState, AppError>();
       const acquiredAuthorization = yield* Ref.make(Option.none<PublishAuthorizationState>());
@@ -2277,21 +2395,76 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
       return yield* previewOrApplyPlan(plan, {
         execution,
-        displayApplied: false,
         beforeApply: () => authorization.authorize,
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
+  ).pipe(Effect.provideService(OperationJournal, operationJournal));
+  const resolution = yield* Effect.uninterruptibleMask((restoreInterruptibility) =>
+    restoreInterruptibility(resolveCandidatePlan).pipe(
+      Effect.catchCause((cause) =>
+        Cause.hasInterruptsOnly(cause)
+          ? Effect.gen(function* () {
+              const journalState = yield* getOperationJournal.pipe(
+                Effect.provideService(OperationJournal, operationJournal),
+              );
+              const dispatched = yield* Ref.get(dispatchedUploads);
+              const results = interruptedPublishResults(preflightResults, journalState, dispatched);
+              const recoverySelection = publishRecoverySelection(results);
+              const recoveryExecution =
+                recoverySelection.remainingItems.length > 0
+                  ? yield* makePlanExecution(
+                      args,
+                      makeExactPublishRecovery(args, recoverySelection.remainingItems),
+                    )
+                  : undefined;
+              const recoveryCmd =
+                recoveryExecution !== undefined && "approvalRecovery" in recoveryExecution
+                  ? renderConfirmationRecoveryCommand(recoveryExecution.approvalRecovery)
+                  : undefined;
+              const signal = requestedInterruptionSignal() ?? "SIGINT";
+              const exitCode = signal === "SIGTERM" ? 143 : 130;
+              yield* emitPublishResult("publish", {
+                mode: "apply",
+                selection: selectionOutput,
+                publicationSet: publicationSetOutput,
+                results,
+                interruption: { signal },
+                ...(recoveryCmd === undefined
+                  ? {}
+                  : {
+                      recovery: {
+                        description:
+                          "Verify or re-publish the items the interruption left unsettled.",
+                        cmd: recoveryCmd,
+                        remainingItems: recoverySelection.remainingItems,
+                        blockedDependents: recoverySelection.blockedDependents,
+                      },
+                    }),
+              });
+              // Inside the mask: the completion event lands before the die
+              // releases the pending interrupt.
+              yield* recordCommandCompletion(exitCode);
+              return yield* Effect.die(effectCliExit(exitCode));
+            })
+          : Effect.failCause(cause),
+      ),
+    ),
   );
-  const executionOutputs =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs.flatMap((job) =>
-          job.steps.flatMap((step) =>
-            step.result.result === "success" && step.result.output !== undefined
-              ? [step.result.output]
-              : [],
-          ),
-        )
-      : [];
+  const planBlocking = resolution.blocking;
+  const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
+  const staleCandidate = planBlocking?.class === "stale-candidate";
+  const planFailureCode: AppErrorCode =
+    resolution.failure?.code ??
+    (planBlocking === undefined
+      ? "internal"
+      : planBlocking.class === "approval-required" || planBlocking.class === "override-required"
+        ? "usage"
+        : (planBlocking.causeCode ?? "conflict"));
+  const planFailureReason = planBlocking?.class ?? "execution-failed";
+  const applyExecuted = resolution.mode === "apply" && resolution.declined !== true && !planFailed;
+  const executionOutputs = resolution.units.flatMap((unit) =>
+    unit.output === undefined ? [] : [unit.output],
+  );
   const authorizationOutput = executionOutputs.find(
     (output) => output._tag === "PublishAuthorizationOutput",
   );
@@ -2300,41 +2473,36 @@ const runPublish = Effect.fn("Publish.run")(function* (
       output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
     ),
   );
-  const failedStepErrors =
-    resolution._tag === "ExecutedPlan"
-      ? resolution.jobs
-          .flatMap((job) => job.steps)
-          .flatMap((step) =>
-            step.result.result === "error" && step.blockedBy === undefined
-              ? [step.result.error]
-              : [],
-          )
-      : [];
+  const failedStepErrors = resolution.units.flatMap((unit) =>
+    unit.state === "failed" && unit.error !== undefined ? [unit.error] : [],
+  );
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
-  if (resolution._tag === "ExecutedPlan") {
-    const byLabel = new Map(
-      resolution.jobs.flatMap((job) => job.steps).map((step) => [step.label, step]),
-    );
+  if (applyExecuted) {
+    const unitsById = new Map(resolution.units.map((unit) => [unit.id, unit] as const));
     results = baseResults.map((result) => {
       if (result.action !== "publish") return result;
       const fqn = formatFqn({ owner: result.owner, type: result.type, name: result.name });
       const candidate = candidates.find((item) => item.fqn === fqn);
-      const step =
-        candidate === undefined
-          ? undefined
-          : byLabel.get(`${candidate.backfill ? "Backfill" : "Publish"} ${fqn}`);
-      if (step === undefined) return result;
-      if (step.result.result === "error") {
-        if (step.blockedBy !== undefined) {
+      const unit = candidate === undefined ? undefined : unitsById.get(candidate.fqn);
+      if (unit === undefined) return result;
+      if (unit.state === "failed" || unit.state === "blocked") {
+        if (unit.state === "blocked" && unit.blocking?.class === "dependency-failed") {
+          const blockedBy = Object.keys(candidate?.dependencies ?? {}).filter((dependencyFqn) => {
+            const dependencyUnit = unitsById.get(dependencyFqn);
+            return (
+              dependencyUnit !== undefined &&
+              (dependencyUnit.state === "failed" || dependencyUnit.state === "blocked")
+            );
+          });
           return {
             ...result,
             action: "error",
             phase: "dependency_execution",
             reason: "blocked_by_dependency",
             status: "blocked",
-            message: step.result.message,
-            blockedBy: step.blockedBy,
+            ...(unit.message === undefined ? {} : { message: unit.message }),
+            blockedBy,
           };
         }
         const failedResult: PublishResultItem = {
@@ -2349,12 +2517,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
           action: "error",
           phase: "upload_execution",
           reason:
-            step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+            unit.error?.metadata?.response?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
               : "upload_failed",
           status: "failed",
-          message: step.result.message,
-          cause: publicPublishCause(step.result.error),
+          ...(unit.message === undefined ? {} : { message: unit.message }),
+          ...(unit.error === undefined ? {} : { cause: publicPublishCause(unit.error) }),
         };
         return failedResult;
       }
@@ -2376,9 +2544,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
         ...result,
         phase: "upload_execution",
         status: "success",
-        message: step.result.message,
+        ...(unit.message === undefined ? {} : { message: unit.message }),
         ...(publishedOutput === undefined ? {} : { visibility: publishedOutput.visibility }),
-        ...(step.result.links === undefined ? {} : { links: step.result.links }),
+        ...(unit.links === undefined ? {} : { links: unit.links }),
         ...(findings.length === 0 ? {} : { findings }),
       };
     });
@@ -2389,7 +2557,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   }
   const recoverySelection = publishRecoverySelection(results);
   const recoveryExecution =
-    resolution._tag === "ExecutedPlan" && recoverySelection.remainingItems.length > 0
+    applyExecuted && recoverySelection.remainingItems.length > 0
       ? yield* makePlanExecution(
           args,
           makeExactPublishRecovery(args, recoverySelection.remainingItems),
@@ -2406,12 +2574,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
       : publicationSetResult({
           candidates,
           preview: authorizedPublicationPreview,
-          ...(authorizedPublicationPreview.status === "blocked" && resolution._tag === "FailedPlan"
+          ...(authorizedPublicationPreview.status === "blocked" && planFailed
             ? {
                 blockedError:
                   resolution.failure ??
                   makeAppError({
-                    code: resolution.errorCode,
+                    code: planFailureCode,
                     detail: "The reviewed publication set was blocked before upload.",
                   }),
               }
@@ -2437,34 +2605,31 @@ const runPublish = Effect.fn("Publish.run")(function* (
               blockedDependents: recoverySelection.blockedDependents,
             },
           }),
-      ...(resolution._tag === "FailedPlan" && !args.preview
+      ...(planFailed && !args.preview
         ? {
             failure:
-              resolution.reason === "stale-candidate" || resolution.failure === undefined
+              staleCandidate || resolution.failure === undefined
                 ? publicPublishCause(
                     makeAppError({
-                      code: resolution.errorCode,
-                      detail:
-                        resolution.reason === "stale-candidate"
-                          ? "Workspace material changed after authorization; no upload was attempted."
-                          : `Publish execution did not start: ${resolution.reason}.`,
+                      code: planFailureCode,
+                      detail: staleCandidate
+                        ? "Workspace material changed after authorization; no upload was attempted."
+                        : `Publish execution did not start: ${planFailureReason}.`,
                     }),
                   )
                 : publicPublishCause(resolution.failure),
           }
         : {}),
     },
-    resolution._tag === "FailedPlan" ? { suggestions: resolution.suggestions ?? [] } : undefined,
+    planFailed ? { suggestions: resolution.suggestions ?? [] } : undefined,
   );
   const failed = results.filter((result) => result.status === "failed");
-  if (resolution._tag === "FailedPlan" && !args.preview) {
+  if (planFailed && !args.preview) {
     const failure = makeAppError({
-      code: resolution.errorCode,
-      detail:
-        resolution.reason === "stale-candidate"
-          ? "Workspace material changed after authorization; no upload was attempted."
-          : (resolution.failure?.detail ??
-            `Publish execution did not start: ${resolution.reason}.`),
+      code: planFailureCode,
+      detail: staleCandidate
+        ? "Workspace material changed after authorization; no upload was attempted."
+        : (resolution.failure?.detail ?? `Publish execution did not start: ${planFailureReason}.`),
       suggestions: resolution.suggestions ?? [],
     });
     return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;

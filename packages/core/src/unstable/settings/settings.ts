@@ -13,6 +13,7 @@ import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
 import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,
@@ -268,6 +269,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
 
     yield* protectWorkspacePath(settingsPath);
 
+    const existed = yield* fs.exists(settingsPath).pipe(Effect.orElseSucceed(() => true));
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
@@ -285,4 +287,5 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
           cause: failure.cause,
         }),
     });
+    yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
   });

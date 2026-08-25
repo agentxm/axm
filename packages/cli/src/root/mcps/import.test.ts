@@ -64,9 +64,7 @@ describe("mcps import output", () => {
       Effect.gen(function* () {
         yield* handleMcpsImport({ yes: true, preview: false });
 
-        expect(logs.success).toEqual([
-          "No unmanaged MCP servers imported (0 skipped, 0 conflicts).",
-        ]);
+        expect(logs.success).toEqual(["No unmanaged MCP servers imported."]);
       }),
     );
   });
@@ -101,13 +99,12 @@ describe("mcps import output", () => {
           planName: "Import MCP servers",
         });
         expect(result).toMatchObject({
-          importedCount: 1,
-          skippedCount: 0,
-          conflictingCount: 0,
-          steps: [
+          imports: { imported: 1, skipped: 0, conflicting: 0 },
+          units: [
             {
+              id: "Import 1 MCP server",
               label: "Import 1 MCP server",
-              status: "applied",
+              state: "committed",
               message: "Imported 1 MCP server",
               artifact: {
                 path: ".axm/settings.json",
@@ -159,10 +156,8 @@ describe("mcps import output", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             outcome: "previewed",
-            importedCount: 0,
-            skippedCount: 0,
-            conflictingCount: 0,
-            steps: [{ label: "Import 2 MCP servers", message: "Candidates: alpha, zebra" }],
+            imports: { imported: 0, skipped: 0, conflicting: 0 },
+            units: [{ label: "Import 2 MCP servers", message: "Candidates: alpha, zebra" }],
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");
@@ -188,9 +183,7 @@ describe("mcps import output", () => {
         expect(rendererState.results[1]?.data).toMatchObject({
           result: {
             outcome: "no-op",
-            importedCount: 0,
-            skippedCount: 1,
-            conflictingCount: 0,
+            imports: { imported: 0, skipped: 1, conflicting: 0 },
           },
         });
         expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
@@ -218,9 +211,7 @@ describe("mcps import output", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             outcome: "no-op",
-            importedCount: 0,
-            skippedCount: 1,
-            conflictingCount: 0,
+            imports: { imported: 0, skipped: 1, conflicting: 0 },
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");
@@ -238,12 +229,9 @@ describe("mcps import output", () => {
       Effect.gen(function* () {
         yield* handleMcpsImport({ yes: true, preview: false });
 
-        expect(logs.success).toEqual([
-          "  + Import 1 MCP server (Candidates: demo)",
-          "Imported 1 MCP server (0 skipped, 0 conflicts)",
-        ]);
+        expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "demo   created   2 files   .axm/settings.json (updated), .mcp.json (updated)",
+          "Import 1 MCP server   updated   2 files   .axm/settings.json, .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },
@@ -283,10 +271,9 @@ describe("mcps import output", () => {
           expect(promptState.confirmCalls).toEqual([]);
           expect(rendererState.results[0]?.data).toMatchObject({
             result: {
-              outcome: "failed",
-              importedCount: 0,
-              skippedCount: 0,
-              conflictingCount: 1,
+              outcome: "blocked",
+              blocking: { class: "precondition-unmet" },
+              imports: { imported: 0, skipped: 0, conflicting: 1 },
             },
           });
           expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("first-secret");
@@ -333,7 +320,7 @@ describe("mcps import output", () => {
         );
 
         expect(rendererState.results[0]?.data).toMatchObject({
-          result: { outcome: "failed", importedCount: 0, conflictingCount: 0 },
+          result: { outcome: "failed", imports: { imported: 0, conflicting: 0 } },
         });
         expect(fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf8")).toBe(
           originalSettings,
@@ -360,7 +347,7 @@ describe("mcps import output", () => {
 
         expect(promptState.confirmCalls).toEqual([]);
         expect(rendererState.results[0]?.data).toMatchObject({
-          result: { outcome: "applied", importedCount: 1 },
+          result: { outcome: "applied", imports: { imported: 1 } },
         });
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo).toEqual({

@@ -12,17 +12,17 @@ import {
 } from "@agentxm/client-core/unstable/extensions";
 import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
 import { removeFromPack } from "@agentxm/client-core/unstable/packs";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-  packManifestPath,
-} from "@agentxm/client-core/unstable/packs";
+import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
 import { computePackPaths } from "@agentxm/client-core/unstable/packs";
 import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { previewFlag, Verbosity, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import {
+  operationPresentation,
+  type Plan,
+  type PlannedJobStep,
+} from "@agentxm/client-core/unstable/plan";
+import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
@@ -30,7 +30,8 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
@@ -45,7 +46,17 @@ export interface PacksRemoveHandlerArgs {
 
 const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
-export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
+export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
+  withOperationLifecycle(
+    {
+      command: "packs.remove",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Remove from pack",
+    },
+    handlePacksRemoveBody(args),
+  );
+
+const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
   args: PacksRemoveHandlerArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -201,13 +212,16 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     _tag: "Plan",
     name: "Remove from pack",
     description: Option.some(`Remove ${count(matchedNames.length, "extension")} from ${packName}`),
+    presentation: operationPresentation(
+      { imperative: "remove", past: "Removed", gerund: "Removing" },
+      "pack",
+    ),
     jobs: [{ concurrency: 1 as const, steps: [step] }],
   };
 
   const resolution = yield* previewOrApplyLocalPlan(plan, {
     preview: args.preview,
     yes: args.yes,
-    displayApplied: false,
     recovery: makeConfirmationRecovery(
       ["packs", "remove"],
       [
@@ -216,34 +230,15 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       ],
     ),
   });
-  const suggestions = [
-    { description: "Inspect installed packs", cmd: "axm packs list" },
-    {
-      description: "Add to pack",
-      cmd: `axm packs add ${packName} <extension>`,
-    },
-  ];
-  const summary = `-> ${packManifestPath(packOwner, packName)}   1 file`;
-  const emitted = yield* emitPlanResolutionResult(
-    "packs.remove",
-    resolution,
-    resolution._tag === "ExecutedPlan" ? { summary, suggestions } : undefined,
-  );
-
-  if (resolution._tag === "ExecutedPlan") {
-    const renderer = yield* CliRenderer;
-    const verbosity = yield* Verbosity;
-    yield* renderer.success(
-      `Removed ${count(matchedNames.length, "extension")} from pack ${packName}`,
-      verbosity.level === "quiet"
-        ? undefined
-        : {
-            summary,
-            suggestions,
-            withoutSuggestions: emitted,
-          },
-    );
-  }
+  yield* emitOperationResolution("packs.remove", resolution, {
+    suggestions: [
+      { description: "Inspect installed packs", cmd: "axm packs list" },
+      {
+        description: "Add to pack",
+        cmd: `axm packs add ${packName} <extension>`,
+      },
+    ],
+  });
 });
 
 const removeConfig = {

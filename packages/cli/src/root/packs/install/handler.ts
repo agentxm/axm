@@ -1,10 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { deriveOperationOutcome } from "@agentxm/client-core/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
 
-import { toPlanResolutionResult } from "../../../json-output.js";
+import { emitOperationResolution } from "../../../operation-output.js";
+import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
-import { emitAppliedPlanOutcome, unchangedPlanHeadline } from "../../shared/applied-plan-output.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import {
@@ -23,6 +24,16 @@ export interface PackInstallHandlerArgs {
 }
 
 export const handleInstallPack = (args: PackInstallHandlerArgs, flags: InstallPackFlags) =>
+  withOperationLifecycle(
+    {
+      command: "packs.install",
+      mode: flags.preview ? "preview" : "apply",
+      planName: "Install packs",
+    },
+    handleInstallPackBody(args, flags),
+  );
+
+const handleInstallPackBody = (args: PackInstallHandlerArgs, flags: InstallPackFlags) =>
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
       return yield* handleWorkspaceInstall({
@@ -43,24 +54,15 @@ export const handleInstallPack = (args: PackInstallHandlerArgs, flags: InstallPa
     );
     const resolution = yield* runInstallCommandWorkflow(sourceArgs, actions, {
       execution,
-      displayApplied: false,
     });
-    const result = toPlanResolutionResult(resolution);
-    if (result.outcome === "no-op" && result.totalSteps === 0) {
+    if (deriveOperationOutcome(resolution) === "no-op" && resolution.units.length === 0) {
       yield* emitNoOpOutcome("packs.install", {
-        planName: result.planName,
+        planName: resolution.name,
         message: "No packs installed.",
       });
       return;
     }
-    yield* emitAppliedPlanOutcome({
-      command: "packs.install",
-      headline:
-        result.outcome === "no-op"
-          ? unchangedPlanHeadline(resolution, "No packs installed.")
-          : "Installed pack " + args.source.value,
-      resolution,
-      reportInstallationCoverage: true,
+    yield* emitOperationResolution("packs.install", resolution, {
       suggestions: [{ description: "Inspect installed packs", cmd: "axm packs list" }],
     });
   });

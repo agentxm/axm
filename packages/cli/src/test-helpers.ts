@@ -146,14 +146,32 @@ export const property = (value: unknown, key: string, message?: string): unknown
     message ?? `Expected property ${key}`,
   );
 
-export const planResultSteps = (result: unknown): ReadonlyArray<unknown> => {
-  const steps = property(result, "steps");
+export const planResultUnits = (result: unknown): ReadonlyArray<unknown> => {
+  const units = property(result, "units");
 
-  if (!Array.isArray(steps)) {
-    throw new Error("Expected result.steps array");
+  if (!Array.isArray(units)) {
+    throw new Error("Expected result.units array");
   }
 
-  return steps;
+  return units;
+};
+
+const expectPlanCounts = (result: unknown, expected: Readonly<Record<string, number>>): void => {
+  const counts = expectRecord(property(result, "counts"));
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    const actual = property(counts, key);
+    if (actual !== expectedValue) {
+      throw new Error(
+        `Expected plan result counts.${key} to be ${String(expectedValue)}, received ${String(actual)}`,
+      );
+    }
+  }
+};
+
+const expectPlanContract = (result: unknown): void => {
+  if (property(result, "contract") !== "plan-result-v3") {
+    throw new Error("Expected plan-result-v3 contract");
+  }
 };
 
 export const expectAppliedPlanResult = (
@@ -167,30 +185,22 @@ export const expectAppliedPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const totalSteps = options.totalSteps ?? 1;
-  const appliedCount = options.appliedCount ?? totalSteps;
-  const expected = {
-    outcome: "applied",
-    planName: options.planName,
-    totalSteps,
-    readyCount: 0,
-    warningCount: options.warningCount ?? 0,
-    errorCount: 0,
-    appliedCount,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(
-        `Expected plan result ${key} to be ${String(expectedValue)}, received ${String(actual)}`,
-      );
-    }
+  const total = options.totalSteps ?? 1;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "applied") {
+    throw new Error(`Expected plan result outcome to be applied`);
   }
-
-  planResultSteps(result);
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total,
+    ...(options.appliedCount === undefined ? {} : { committed: options.appliedCount }),
+    failed: 0,
+    blocked: 0,
+    ...(options.warningCount === undefined ? {} : { warnings: options.warningCount }),
+  });
+  planResultUnits(result);
   return result;
 };
 
@@ -233,33 +243,23 @@ export const expectNoOpPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const totalSteps = options.totalSteps ?? 0;
-  const expected = {
-    outcome: "no-op",
-    planName: options.planName,
-    totalSteps,
-    readyCount: 0,
-    warningCount: 0,
-    errorCount: 0,
-    appliedCount: 0,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(`Expected no-op plan result ${key} to be ${String(expectedValue)}`);
-    }
+  const total = options.totalSteps ?? 0;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "no-op") {
+    throw new Error(`Expected plan result outcome to be no-op`);
   }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, { total, committed: 0, failed: 0, blocked: 0 });
 
   if (options.message !== undefined && property(result, "message") !== options.message) {
     throw new Error(`Expected no-op plan result message to be ${options.message}`);
   }
 
-  const steps = planResultSteps(result);
-  if (steps.length !== totalSteps) {
-    throw new Error(`Expected no-op plan result to contain ${String(totalSteps)} steps`);
+  const units = planResultUnits(result);
+  if (units.length !== total) {
+    throw new Error(`Expected no-op plan result to contain ${String(total)} units`);
   }
 
   return result;
@@ -275,30 +275,25 @@ export const expectPreviewedPlanResult = (
 ): Readonly<Record<string, unknown>> => {
   const payload = expectRecord(value);
   const result = expectRecord(property(payload, "result"));
-  const readyCount = options.readyCount ?? options.totalSteps;
-  const expected = {
-    outcome: "previewed",
-    planName: options.planName,
-    totalSteps: options.totalSteps,
-    readyCount,
-    warningCount: 0,
-    errorCount: 0,
-    appliedCount: 0,
-    failedCount: 0,
-    blockedCount: 0,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expected)) {
-    const actual = property(result, key);
-    if (actual !== expectedValue) {
-      throw new Error(`Expected previewed plan result ${key} to be ${String(expectedValue)}`);
-    }
+  const ready = options.readyCount ?? options.totalSteps;
+  expectPlanContract(result);
+  if (property(result, "outcome") !== "previewed") {
+    throw new Error(`Expected plan result outcome to be previewed`);
   }
+  if (property(result, "planName") !== options.planName) {
+    throw new Error(`Expected plan result planName to be ${options.planName}`);
+  }
+  expectPlanCounts(result, {
+    total: options.totalSteps,
+    ready,
+    committed: 0,
+    failed: 0,
+  });
 
-  const steps = planResultSteps(result);
-  if (steps.length !== options.totalSteps) {
+  const units = planResultUnits(result);
+  if (units.length !== options.totalSteps) {
     throw new Error(
-      `Expected previewed plan result to contain ${String(options.totalSteps)} steps`,
+      `Expected previewed plan result to contain ${String(options.totalSteps)} units`,
     );
   }
 
@@ -307,7 +302,7 @@ export const expectPreviewedPlanResult = (
 
 export const expectNoPlanEnvelope = (value: unknown): void => {
   const record = expectRecord(value);
-  const planFields = ["result", "outcome", "planName", "steps"];
+  const planFields = ["result", "outcome", "planName", "units"];
 
   for (const field of planFields) {
     if (field in record) {

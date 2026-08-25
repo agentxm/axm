@@ -132,7 +132,17 @@ describe("global directory flag", () => {
         cwd: invoking.path,
       });
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
-      expect(JSON.parse(second.stdout).result).toMatchObject({ totalSteps: 0 });
+      expect(JSON.parse(second.stdout)).toMatchObject({
+        ok: true,
+        result: {
+          contract: "plan-result-v3",
+          outcome: "no-op",
+          mode: "apply",
+          counts: { total: 0, committed: 0 },
+          units: [],
+          message: "Workspace materialization is up to date",
+        },
+      });
     } finally {
       invoking.cleanup();
       workspace.cleanup();

@@ -2,9 +2,20 @@ import * as Schema from "effect/Schema";
 import {
   ArtifactChangeSchema,
   OperationPreconditionSchema,
-  PlanExecutionReasonSchema,
   PlanRiskConditionSchema,
 } from "../plan/plan.js";
+
+// Reason vocabulary retained locally: this schema-only model is superseded by
+// the plan family's operation resolution and is scheduled for retirement with
+// its consumers, so it no longer shares the plan module's vocabulary.
+const OperationPlanReasonSchema = Schema.Literals([
+  "approval-required",
+  "override-required",
+  "stale-candidate",
+  "hard-blocked",
+  "interrupted",
+  "execution-failed",
+] as const);
 
 const OperationPlanStepStatusSchema = Schema.Literals([
   "ready",
@@ -60,7 +71,7 @@ export const OperationPlanFields = {
     "failed",
     "no-op",
   ] as const),
-  reason: Schema.optional(PlanExecutionReasonSchema),
+  reason: Schema.optional(OperationPlanReasonSchema),
   errorCode: Schema.optional(Schema.String),
   candidateId: Schema.optional(Schema.String),
   evaluatedAt: Schema.optional(Schema.String),

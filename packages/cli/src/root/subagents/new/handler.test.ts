@@ -25,7 +25,7 @@ import {
   getAppError,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
-  planResultSteps,
+  planResultUnits,
 } from "../../../test-helpers.js";
 import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 
@@ -145,7 +145,10 @@ describe("subagents-new.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
           expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 
-          expect(logs.success.some((m) => m.includes("@acme/subagents/my-subagent"))).toBe(true);
+          expect(logs.success).toEqual(["Created 1 subagent"]);
+          expect(
+            rendererState.summaries.some((m) => m.includes("@acme/subagents/my-subagent")),
+          ).toBe(true);
           expect(rendererState.suggestions).toEqual([
             {
               description:
@@ -164,22 +167,19 @@ describe("subagents-new.handler", () => {
         Effect.gen(function* () {
           yield* handleSubagentsNew(defaultArgs("machine-subagent"));
 
-          expect(logs.success).toEqual([
-            "  + @acme/subagents/machine-subagent",
-            "Created subagent @acme/subagents/machine-subagent",
-          ]);
-          expect(rendererState.summaries).toEqual([
-            "-> .axm/extensions/@acme/subagents/machine-subagent   0.0.1 | 2 files",
-          ]);
+          // Machine mode terminates at the emitted document — no human render.
+          expect(logs.success).toEqual([]);
+          expect(rendererState.summaries).toEqual([]);
           const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
           const result = expectAppliedPlanResult(renderedResult.data, {
             planName: "New subagent",
           });
-          const steps = planResultSteps(result);
-          const firstStep = expectRecord(expectDefined(steps[0], "Expected first step"));
-          expect(firstStep).toMatchObject({
+          const units = planResultUnits(result);
+          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+          expect(firstUnit).toMatchObject({
+            id: "subagent:machine-subagent",
             label: "@acme/subagents/machine-subagent",
-            status: "applied",
+            state: "committed",
             message: "Created subagent @acme/subagents/machine-subagent",
             artifact: {
               path: ".axm/extensions/@acme/subagents/machine-subagent",

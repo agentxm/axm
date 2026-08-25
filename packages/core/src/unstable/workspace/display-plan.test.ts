@@ -1,7 +1,10 @@
 /**
  * Unit tests for displayPlan.
  *
- * Tests the shared plan display module that renders plan summaries via Log.
+ * displayPlan renders planning-time orientation only: the preview block in
+ * preview mode, and the pre-confirmation block in apply mode when the
+ * candidate carries confirmable risk. Executed outcomes render from the
+ * `OperationResolution` at the emit boundary, not here.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -16,9 +19,8 @@ import {
   logsByTag,
 } from "../cli-renderer/index.js";
 import { type Verbosity, TestFlagsLayer } from "../cli-flags/index.js";
-import { makeAppError } from "../app-error/index.js";
 import { displayPlan } from "./display-plan.js";
-import type { Plan, ExecutedPlan } from "../plan/plan.js";
+import type { OperationPresentation, Plan } from "../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -32,13 +34,10 @@ const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
   ...overrides,
 });
 
-const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan => ({
-  _tag: "ExecutedPlan",
-  name: "Install skills",
-  description: Option.none(),
-  jobs: [],
-  ...overrides,
-});
+const installSkillPresentation: OperationPresentation = {
+  verb: { imperative: "install", past: "Installed", gerund: "Installing" },
+  subject: { singular: "skill", plural: "skills" },
+};
 
 /** Creates a fresh renderer + Verbosity test layer and runs the effect, returning the state for inspection. */
 const withOutput = <A, E>(
@@ -62,12 +61,13 @@ describe("displayPlan", () => {
     expect(source).not.toContain("\u26A0");
   });
 
-  it.effect("renders an unapplied plan with a would-do outcome heading", () =>
+  it.effect("renders the preview heading from the plan's presentation vocabulary", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
             name: "Install skills",
+            presentation: installSkillPresentation,
             jobs: [
               {
                 concurrency: "unbounded",
@@ -96,6 +96,10 @@ describe("displayPlan", () => {
             makePlan({
               name: "Publish skill",
               description: Option.some('Publish @acme/skills/review to registry "default"'),
+              presentation: {
+                verb: { imperative: "publish", past: "Published", gerund: "Publishing" },
+                subject: { singular: "skill", plural: "skills" },
+              },
               jobs: [
                 {
                   concurrency: "unbounded",
@@ -119,7 +123,47 @@ describe("displayPlan", () => {
     ),
   );
 
-  it.effect("counts MCP add preview steps as changes, not MCP servers", () =>
+  it.effect("quiet preview keeps risk-condition warnings with the one-line heading", () =>
+    withOutput(
+      (state) =>
+        Effect.gen(function* () {
+          yield* displayPlan(
+            makePlan({
+              name: "Install skills",
+              description: Option.some("Install code-review from the registry"),
+              presentation: installSkillPresentation,
+              riskConditions: [
+                {
+                  level: "confirmable",
+                  id: "replace-unmanaged-target",
+                  detail: "Replace an unmanaged target",
+                },
+              ],
+              jobs: [
+                {
+                  concurrency: "unbounded",
+                  steps: [
+                    {
+                      readiness: "ready",
+                      label: "code-review",
+                      run: Effect.succeed({ result: "success", message: "ok" }),
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+
+          expect(logsByTag(state).success).toEqual(["Would install 1 skill"]);
+          expect(logsByTag(state).warn).toEqual(["Replace an unmanaged target"]);
+          expect(logsByTag(state).info).toEqual([]);
+          expect(logsByTag(state).message).toEqual([]);
+        }),
+      { quiet: true },
+    ),
+  );
+
+  it.effect("falls back to apply/changes wording when the plan declares no presentation", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
@@ -423,902 +467,78 @@ describe("displayPlan", () => {
     ),
   );
 
-  it.effect("keeps MCP add artifact plans outcome-specific with summaries and undo", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Add MCP server",
-            description: Option.some("Configure demo and sync agent MCP configs"),
-            jobs: [
-              {
-                concurrency: 1,
-                steps: [
-                  {
-                    label: "Configure demo",
-                    result: {
-                      result: "success",
-                      message: "Configured demo",
-                      artifact: {
-                        path: ".axm (config/lockfile)",
-                        scope: "project",
-                        change: "created",
-                        targets: [{ path: ".axm (config/lockfile)", change: "created" }],
-                      },
-                    },
-                  },
-                  {
-                    label: "Sync demo to configured agents",
-                    result: {
-                      result: "success",
-                      message: "Synced demo to 1 agent",
-                      artifact: {
-                        path: ".mcp.json",
-                        scope: "project",
-                        agents: ["claude-code"],
-                        change: "created",
-                        fileCount: 1,
-                        targets: [
-                          {
-                            path: ".mcp.json",
-                            change: "created",
-                            agentIds: ["claude-code"],
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success[0]).toBe("Configured demo; Synced demo to 1 agent");
-        expect(state.summaries.join("\n")).toContain("Configure demo");
-        expect(state.summaries.join("\n")).toContain(".axm (config/lockfile)");
-        expect(state.summaries.join("\n")).toContain("Sync demo to configured agents");
-        expect(state.summaries.join("\n")).toContain(".mcp.json");
-        expect(state.suggestions).toEqual([
-          { description: "Inspect MCP servers", cmd: "axm mcps list" },
-          { description: "Undo", cmd: "axm mcps uninstall demo" },
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("shows success step detail for applied plan in verbose mode", () =>
-    withOutput(
-      (state) =>
-        Effect.gen(function* () {
-          yield* displayPlan(
-            makeExecutedPlan({
-              jobs: [
-                {
-                  concurrency: "unbounded",
-                  steps: [
-                    {
-                      label: "commit",
-                      result: { result: "success", message: "Applied commit" },
-                    },
-                  ],
-                },
-              ],
-            }),
-          );
-
-          expect(logsByTag(state).success.some((m) => m.includes("commit"))).toBe(true);
-          expect(logsByTag(state).success.some((m) => m.includes("\u2713"))).toBe(false);
-        }),
-      { verbose: true },
-    ),
-  );
-
-  it.effect("shows error items for applied plan", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "commit",
-                    result: {
-                      result: "error",
-                      message: "failed to apply",
-                      error: makeAppError({
-                        code: "internal",
-                        detail: "failed to apply",
-                      }),
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(
-          logsByTag(state).error.some(
-            (m) => m.includes("commit") && m.includes("failed to apply") && !m.includes("\u2717"),
-          ),
-        ).toBe(true);
-        expect(logsByTag(state).error[0]).toBe("1 step failed in Install skills");
-        expect(
-          logsByTag(state).error.some(
-            (m) => m.includes("commit:") && m.includes("failed to apply"),
-          ),
-        ).toBe(true);
-      }),
-    ),
-  );
-
-  it.effect("shows cause lines for step errors in debug mode", () =>
-    withOutput(
-      (state) =>
-        Effect.gen(function* () {
-          yield* displayPlan(
-            makeExecutedPlan({
-              jobs: [
-                {
-                  concurrency: "unbounded",
-                  steps: [
-                    {
-                      label: "publish",
-                      result: {
-                        result: "error",
-                        message: "failed to publish",
-                        error: makeAppError({
-                          code: "internal",
-                          detail: "Failed to publish",
-                          cause: new Error("connection refused"),
-                        }),
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-          );
-
-          expect(
-            logsByTag(state).error.some((m) => m.includes("Cause: Error: connection refused")),
-          ).toBe(true);
-        }),
-      { verbose: true, debug: true },
-    ),
-  );
-
-  it.effect("shows past tense summary for applied plan", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "commit",
-                    result: { result: "success", message: "Applied commit" },
-                  },
-                  {
-                    label: "review-pr",
-                    result: {
-                      result: "error",
-                      message: "failed",
-                      error: makeAppError({
-                        code: "internal",
-                        detail: "failed",
-                      }),
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        const summary = logsByTag(state).message.find((m) => m.includes("applied"));
-        expect(summary).toBeDefined();
-        expect(summary).toContain("1 applied");
-        expect(summary).toContain("1 failed");
-      }),
-    ),
-  );
-
-  it.effect("omits zero counts in applied summary", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "commit",
-                    result: { result: "success", message: "Applied commit" },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toEqual(["Installed 1 skill"]);
-        expect(logsByTag(state).message).not.toContain("1 applied");
-      }),
-    ),
-  );
-
-  it.effect("uses _tag discriminant to distinguish Plan from ExecutedPlan", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        // An ExecutedPlan with _tag should render completed steps, not planned steps.
-        yield* displayPlan(
-          makeExecutedPlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "my-step",
-                    result: { result: "success", message: "done" },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toEqual(["Installed 1 skill"]);
-        expect(logsByTag(state).success.some((m) => m.includes("+"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("renders single artifact blast radius and suggestions", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install skill",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "code-review",
-                    result: {
-                      result: "success",
-                      message: "Applied install operation",
-                      artifact: {
-                        path: ".claude/skills/code-review",
-                        scope: "project",
-                        agents: ["antigravity", "claude-code"],
-                        version: "1.2.3",
-                        change: "created",
-                        fileCount: 4,
-                        targets: [
-                          {
-                            path: ".agents/skills/code-review",
-                            change: "created",
-                            agentIds: ["antigravity"],
-                          },
-                          {
-                            path: ".claude/skills/code-review",
-                            change: "created",
-                            agentIds: ["claude-code"],
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(
-          logsByTag(state).success.some((m) =>
-            m.includes("Installed skill code-review for 2 agents"),
-          ),
-        ).toBe(true);
-        expect(state.summaries).toEqual(["-> 2 locations   1.2.3 | 4 files"]);
-        expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
-          "Inspect installed skills",
-          "Undo",
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("renders applied step warnings as success summary context", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install skill",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "code-review",
-                    result: {
-                      result: "success",
-                      message: "Applied install operation",
-                      warnings: ["Overwriting drifted instruction file for claude-code"],
-                      artifact: {
-                        path: ".claude/skills/code-review",
-                        scope: "project",
-                        version: "1.2.3",
-                        change: "created",
-                        fileCount: 4,
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).warn).toEqual([]);
-        expect(state.summaries[0]).toContain("-> .claude/skills/code-review");
-        expect(state.summaries[0]).toContain(
-          "code-review: Overwriting drifted instruction file for claude-code",
-        );
-      }),
-    ),
-  );
-
-  it.effect("renders unchanged single artifact as already up to date", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install skill",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "code-review",
-                    result: {
-                      result: "success",
-                      message: "code-review already installed",
-                      artifact: {
-                        path: ".claude/skills/code-review",
-                        scope: "project",
-                        version: "1.2.3",
-                        change: "unchanged",
-                        fileCount: 4,
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toEqual(["Already up to date — code-review 1.2.3"]);
-        expect(state.summaries).toEqual([]);
-      }),
-    ),
-  );
-
-  it.effect("renders removed single artifact with removed target locations", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Uninstall skill",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "code-review",
-                    result: {
-                      result: "success",
-                      message: "Applied uninstall operation",
-                      artifact: {
-                        path: ".agents/skills/code-review",
-                        scope: "project",
-                        agents: ["antigravity", "claude-code"],
-                        change: "removed",
-                        targets: [
-                          {
-                            path: ".agents/skills/code-review",
-                            change: "removed",
-                            agentIds: ["antigravity"],
-                          },
-                          {
-                            path: ".claude/skills/code-review",
-                            change: "removed",
-                            agentIds: ["claude-code"],
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toContain("Uninstalled skill code-review for 2 agents");
-        expect(state.summaries).toEqual(["-> 2 locations"]);
-        expect(state.suggestions).toEqual([
-          { description: "Inspect installed skills", cmd: "axm skills list" },
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("renders unpacked pack artifacts with an unpack outcome", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Unpack pack",
-            jobs: [
-              {
-                concurrency: 1,
-                steps: [
-                  {
-                    label: "frontend-tools",
-                    result: {
-                      result: "success",
-                      message: "Uninstalled pack frontend-tools",
-                      artifact: {
-                        path: ".axm/extensions/@acme/packs/frontend-tools",
-                        scope: "project",
-                        version: "1.0.0",
-                        change: "removed",
-                        targets: [
-                          {
-                            path: ".axm/extensions/@acme/packs/frontend-tools",
-                            change: "removed",
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toContain("Unpacked pack frontend-tools for 1 location");
-        expect(state.summaries).toEqual(["-> 1 location   1.0.0"]);
-      }),
-    ),
-  );
-
-  it.effect("preserves configured scope in single artifact install headlines", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install configured skills",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "axm",
-                    result: {
-                      result: "success",
-                      message: "Applied install operation",
-                      artifact: {
-                        path: ".agents/skills/axm",
-                        scope: "project",
-                        version: "0.2.2",
-                        change: "created",
-                        fileCount: 1,
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toContain(
-          "Installed configured skill axm to this project",
-        );
-      }),
-    ),
-  );
-
-  it.effect("describes root configured extension plans as extensions, not steps", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install configured extensions",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "axm",
-                    result: {
-                      result: "success",
-                      message: "Applied install operation",
-                      artifact: {
-                        path: ".agents/skills/axm",
-                        scope: "project",
-                        agents: ["claude-code"],
-                        version: "0.2.2",
-                        change: "created",
-                        fileCount: 1,
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toContain(
-          "Installed configured extension axm for 1 agent",
-        );
-      }),
-    ),
-  );
-
-  it.effect("uses clean skill names for single artifact suggestions", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Install skill",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "cpp-conan-tinyflags-add-flag (pkg:conan/agentxm-example-tinyflags)",
-                    result: {
-                      result: "success",
-                      message: "Installed cpp-conan-tinyflags-add-flag",
-                      artifact: {
-                        path: ".claude/skills/cpp-conan-tinyflags-add-flag",
-                        scope: "project",
-                        version: "0.1.3",
-                        change: "created",
-                        fileCount: 1,
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(state.suggestions).toContainEqual({
-          description: "Undo",
-          cmd: "axm skills uninstall cpp-conan-tinyflags-add-flag",
-        });
-        expect(logsByTag(state).success.join("\n")).not.toContain("pkg:");
-        expect(logsByTag(state).success.join("\n")).not.toContain("(skill)");
-      }),
-    ),
-  );
-
-  it.effect("renders enable and disable suggestions as inverse commands", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Enable hook",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "identity-check",
-                    result: {
-                      result: "success",
-                      message: "Enabled identity-check",
-                      artifact: {
-                        path: ".axm/settings.json",
-                        scope: "project",
-                        change: "updated",
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Disable hook",
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    label: "identity-check",
-                    result: {
-                      result: "success",
-                      message: "Disabled identity-check",
-                      artifact: {
-                        path: ".axm/settings.json",
-                        scope: "project",
-                        change: "updated",
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(state.suggestions).toEqual([
-          { description: "Inspect installed hooks", cmd: "axm hooks list" },
-          { description: "Undo", cmd: "axm hooks disable identity-check" },
-          { description: "Inspect installed hooks", cmd: "axm hooks list" },
-          { description: "Undo", cmd: "axm hooks enable identity-check" },
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("renders rules affordances for instruction-file management", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makeExecutedPlan({
-            name: "Enable instruction-file management",
-            jobs: [
-              {
-                concurrency: 1,
-                steps: [
-                  {
-                    label: "Enable instruction-file management",
-                    result: {
-                      result: "success",
-                      message: "Enabled instruction-file management",
-                      artifact: {
-                        path: ".axm/settings.json",
-                        scope: "project",
-                        change: "updated",
-                      },
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        );
-
-        expect(logsByTag(state).success).toContain(
-          "Enabled instruction-file management to this project",
-        );
-        expect(state.suggestions).toEqual([
-          { description: "Inspect instruction-file management", cmd: "axm instructions" },
-          { description: "Undo", cmd: "axm instructions disable" },
-        ]);
-      }),
-    ),
-  );
-
-  it.effect("quiet output suppresses summaries and suggestions but keeps outcome", () =>
-    withOutput(
-      (state) =>
-        Effect.gen(function* () {
-          yield* displayPlan(
-            makeExecutedPlan({
-              name: "Install skill",
-              jobs: [
-                {
-                  concurrency: "unbounded",
-                  steps: [
-                    {
-                      label: "code-review",
-                      result: {
-                        result: "success",
-                        message: "Applied install operation",
-                        artifact: {
-                          path: ".claude/skills/code-review",
-                          scope: "project",
-                          agents: ["claude-code"],
-                          version: "1.2.3",
-                          change: "created",
-                          fileCount: 4,
-                          targets: [
-                            {
-                              path: ".claude/skills/code-review",
-                              change: "created",
-                              agentIds: ["claude-code"],
-                            },
-                          ],
-                        },
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-          );
-
-          expect(logsByTag(state).success).toEqual(["Installed skill code-review for 1 agent"]);
-          expect(state.summaries).toEqual([]);
-          expect(state.suggestions).toEqual([]);
-        }),
-      { quiet: true },
-    ),
-  );
-
-  it.effect("verbose output keeps outcome and affordances plus step detail", () =>
-    withOutput(
-      (state) =>
-        Effect.gen(function* () {
-          yield* displayPlan(
-            makeExecutedPlan({
-              name: "Install skill",
-              jobs: [
-                {
-                  concurrency: "unbounded",
-                  steps: [
-                    {
-                      label: "code-review",
-                      result: {
-                        result: "success",
-                        message: "Applied install operation",
-                        artifact: {
-                          path: ".claude/skills/code-review",
-                          scope: "project",
-                          agents: ["antigravity", "claude-code"],
-                          version: "1.2.3",
-                          change: "created",
-                          fileCount: 4,
-                          targets: [
-                            {
-                              path: ".agents/skills/code-review",
-                              change: "created",
-                              agentIds: ["antigravity"],
-                            },
-                            {
-                              path: ".claude/skills/code-review",
-                              change: "created",
-                              agentIds: ["claude-code"],
-                            },
-                          ],
-                        },
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-          );
-
-          expect(
-            logsByTag(state).success.some((m) =>
-              m.includes("Installed skill code-review for 2 agents"),
-            ),
-          ).toBe(true);
-          expect(
-            logsByTag(state).success.some((m) => m.includes("Applied install operation")),
-          ).toBe(true);
-          expect(state.summaries).toEqual([
-            [
-              "-> 2 locations   1.2.3 | 4 files",
-              "   -> .agents/skills/code-review   created   antigravity",
-              "   -> .claude/skills/code-review   created   claude-code",
-            ].join("\n"),
-          ]);
-          expect(state.suggestions.map((suggestion) => suggestion.description)).toEqual([
-            "Inspect installed skills",
-            "Undo",
-          ]);
-        }),
-      { verbose: true },
-    ),
-  );
-
-  it.effect("renders plan sections after step summary", () =>
+  it.effect("C-23: apply mode with confirmable risk states readiness without preview wording", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
+            name: "Install skills",
+            presentation: installSkillPresentation,
+            riskConditions: [
+              {
+                level: "confirmable",
+                id: "replace-unmanaged-target",
+                detail: "Replace an unmanaged target",
+              },
+            ],
             jobs: [
               {
                 concurrency: "unbounded",
                 steps: [
                   {
                     readiness: "ready",
-                    label: "react-testing",
+                    label: "code-review",
                     run: Effect.succeed({ result: "success", message: "ok" }),
                   },
                 ],
               },
             ],
-            sections: [
-              {
-                title: "Compatible packages",
-                items: ["react (npm)", "react-dom (npm)"],
-              },
-            ],
           }),
+          { mode: "apply" },
         );
 
-        const messages = logsByTag(state).message;
-        expect(messages.some((m) => m.includes("Compatible packages:"))).toBe(true);
-        expect(messages.some((m) => m.includes("react (npm)"))).toBe(true);
-        expect(messages.some((m) => m.includes("react-dom (npm)"))).toBe(true);
+        expect(logsByTag(state).info[0]).toBe("Ready to install 1 skill");
+        expect(logsByTag(state).warn).toEqual(["Replace an unmanaged target"]);
+        const rendered = state.logs.map((entry) => entry.message).join("\n");
+        expect(rendered).not.toContain("Would");
+        expect(rendered).not.toContain("to apply");
       }),
     ),
   );
 
-  it.effect("omits sections when not provided", () =>
+  it.effect("apply mode without confirmable risk renders nothing", () =>
     withOutput((state) =>
       Effect.gen(function* () {
         yield* displayPlan(
           makePlan({
+            name: "Install skills",
+            presentation: installSkillPresentation,
+            riskConditions: [
+              {
+                level: "override-required",
+                id: "installed-dependents",
+                policy: "accept-warnings",
+                requiredFlag: "--accept-warnings",
+                detail: "The plan has unresolved warnings",
+              },
+            ],
             jobs: [
               {
                 concurrency: "unbounded",
                 steps: [
                   {
                     readiness: "ready",
-                    label: "general-review",
+                    label: "code-review",
                     run: Effect.succeed({ result: "success", message: "ok" }),
                   },
                 ],
               },
             ],
           }),
+          { mode: "apply" },
         );
 
-        const messages = logsByTag(state).message;
-        expect(messages.some((m) => m.includes("Compatible packages"))).toBe(false);
-      }),
-    ),
-  );
-
-  it.effect("omits section with empty items", () =>
-    withOutput((state) =>
-      Effect.gen(function* () {
-        yield* displayPlan(
-          makePlan({
-            jobs: [
-              {
-                concurrency: "unbounded",
-                steps: [
-                  {
-                    readiness: "ready",
-                    label: "general-review",
-                    run: Effect.succeed({ result: "success", message: "ok" }),
-                  },
-                ],
-              },
-            ],
-            sections: [{ title: "Compatible packages", items: [] }],
-          }),
-        );
-
-        const messages = logsByTag(state).message;
-        expect(messages.some((m) => m.includes("Compatible packages"))).toBe(false);
+        expect(state.logs).toEqual([]);
       }),
     ),
   );

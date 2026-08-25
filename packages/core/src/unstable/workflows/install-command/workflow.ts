@@ -12,7 +12,8 @@ import type * as Scope from "effect/Scope";
 import type { AppError } from "../../app-error/index.js";
 import { CliRenderer } from "../../cli-renderer/index.js";
 import type { PromptCancelled } from "../../cli-prompt/prompt-cancelled.js";
-import type { Plan, PlanResolution } from "../../plan/plan.js";
+import type { Plan } from "../../plan/plan.js";
+import type { OperationResolution } from "../../plan/operation-resolution.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
 import type { PlanExecution } from "../../cli-runtime/confirmation-recovery.js";
 
@@ -100,7 +101,6 @@ export const runInstallCommandWorkflow = <
   actions: InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent>,
   options: {
     readonly execution: PlanExecution;
-    readonly displayApplied?: boolean;
     readonly transformIntent?: (intent: Intent) => Intent;
     readonly transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, TransformRequirements>;
   },
@@ -112,11 +112,8 @@ export const runInstallCommandWorkflow = <
       () => buildInstallCommandPlan(args, actions, options),
       { successMessage: "Resolved extension sources" },
     );
-    return yield* previewOrApplyPlan(plan, {
-      execution: options.execution,
-      ...(options.displayApplied === undefined ? {} : { displayApplied: options.displayApplied }),
-    });
+    return yield* previewOrApplyPlan(plan, { execution: options.execution });
   }).pipe(
     Effect.scoped,
-    Effect.map((resolution): PlanResolution => resolution),
+    Effect.map((resolution): OperationResolution => resolution),
   );

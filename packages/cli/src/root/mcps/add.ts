@@ -14,6 +14,7 @@ import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/u
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { count } from "@agentxm/client-core/unstable/cli-renderer";
 import {
+  operationPresentation,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
@@ -24,11 +25,12 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/client-core/unstable/workspace";
-import { emitPlanResolutionResult } from "../../json-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import type { InlineMcpDefinition } from "./import-preflight.js";
 
 export interface McpsAddArgs {
@@ -330,10 +332,24 @@ const makePlan = (name: string, steps: ReadonlyArray<PlannedJobStep>): Plan => (
   _tag: "Plan",
   name: "Add MCP server",
   description: Option.some(`Configure ${name} and sync agent MCP configs`),
+  presentation: operationPresentation(
+    { imperative: "configure", past: "Configured", gerund: "Configuring" },
+    "mcp-server",
+  ),
   jobs: [{ concurrency: 1, steps }],
 });
 
-export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
+export const handleMcpsAdd = (args: McpsAddArgs) =>
+  withOperationLifecycle(
+    {
+      command: "mcps.add",
+      mode: args.preview ? "preview" : "apply",
+      planName: "Add MCP server",
+    },
+    handleMcpsAddBody(args),
+  );
+
+const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
   if (Option.isNone(args.command) && Option.isNone(args.url)) {
     return yield* makeAppError({
       code: "usage",
@@ -407,7 +423,7 @@ export const handleMcpsAdd = Effect.fn("Mcps.add")(function* (args: McpsAddArgs)
     yes: args.yes,
     acceptedPolicies: args.force ? ["accept-warnings"] : [],
   });
-  yield* emitPlanResolutionResult("mcps.add", resolution);
+  yield* emitOperationResolution("mcps.add", resolution);
 });
 
 const addConfig = {

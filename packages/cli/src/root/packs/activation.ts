@@ -18,6 +18,7 @@ import { HookManager } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import {
+  operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
@@ -38,10 +39,12 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { emitAppliedPlanOutcome } from "../shared/applied-plan-output.js";
+import { emitOperationResolution } from "../../operation-output.js";
+import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
@@ -220,7 +223,17 @@ interface PackActivationArgs {
   readonly preview: boolean;
 }
 
-export const handlePackActivation = Effect.fn("PacksActivation.handle")(function* (
+export const handlePackActivation = (args: PackActivationArgs) =>
+  withOperationLifecycle(
+    {
+      command: args.enabled ? "packs.enable" : "packs.disable",
+      mode: args.preview ? "preview" : "apply",
+      planName: args.enabled ? "Enable pack" : "Disable pack",
+    },
+    handlePackActivationBody(args),
+  );
+
+const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   args: PackActivationArgs,
 ) {
   const ws = yield* WorkspaceMutations;
@@ -307,14 +320,12 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
     _tag: "Plan",
     name: `${titleVerb} pack`,
     description: Option.some(`${titleVerb} ${packIdentity} without changing locked versions`),
-    sections: [
-      {
-        title: args.enabled
-          ? "Retained dependency resolutions considered for restoration"
-          : "Exclusive dependencies deactivated",
-        items: previewItems.length === 0 ? ["(none)"] : previewItems,
-      },
-    ],
+    presentation: operationPresentation(
+      args.enabled
+        ? { imperative: "enable", past: "Enabled", gerund: "Enabling" }
+        : { imperative: "disable", past: "Disabled", gerund: "Disabling" },
+      "pack",
+    ),
     jobs: [
       {
         concurrency: 1,
@@ -324,50 +335,53 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
             label: packIdentity,
             artifact: activationArtifact,
             run: Effect.gen(function* () {
-              yield* ws.runTransaction({
-                transition: Effect.gen(function* () {
-                  yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
-                  const memberTypes = args.enabled
-                    ? new Set(
-                        graph.nodes
-                          .filter(
-                            (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
-                          )
-                          .map((node) => node.type),
-                      )
-                    : new Set(affected.map((node) => node.type));
-                  if (args.enabled) {
-                    yield* runMaterializeSteps(packIdentity);
-                  } else {
-                    // Aggregate units are re-rendered once below instead of
-                    // per contributor.
-                    yield* Effect.forEach(
-                      affected.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
-                      dematerializeNode,
-                      { concurrency: 1 },
-                    );
-                  }
-                  yield* reconcileAggregateProjections(memberTypes);
-                }).pipe(Effect.provide(runServices)),
-                validate: () =>
-                  validatePackGraphPostcondition({
-                    requiredPacks: [
-                      {
-                        name: args.name,
-                        identity: packIdentity,
-                        enabled: args.enabled,
-                      },
-                    ],
-                    ...(args.enabled
-                      ? {}
-                      : {
-                          inactive: affected.map((node) => ({
-                            type: node.type,
-                            name: node.name,
-                          })),
-                        }),
-                  }).pipe(Effect.provideService(WorkspaceMutations, ws)),
-              });
+              yield* ws
+                .runTransaction({
+                  transition: Effect.gen(function* () {
+                    yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                    const memberTypes = args.enabled
+                      ? new Set(
+                          graph.nodes
+                            .filter(
+                              (node) =>
+                                node.type !== "pack" && packContributesTo(node, packIdentity),
+                            )
+                            .map((node) => node.type),
+                        )
+                      : new Set(affected.map((node) => node.type));
+                    if (args.enabled) {
+                      yield* runMaterializeSteps(packIdentity);
+                    } else {
+                      // Aggregate units are re-rendered once below instead of
+                      // per contributor.
+                      yield* Effect.forEach(
+                        affected.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
+                        dematerializeNode,
+                        { concurrency: 1 },
+                      );
+                    }
+                    yield* reconcileAggregateProjections(memberTypes);
+                  }).pipe(Effect.provide(runServices)),
+                  validate: () =>
+                    validatePackGraphPostcondition({
+                      requiredPacks: [
+                        {
+                          name: args.name,
+                          identity: packIdentity,
+                          enabled: args.enabled,
+                        },
+                      ],
+                      ...(args.enabled
+                        ? {}
+                        : {
+                            inactive: affected.map((node) => ({
+                              type: node.type,
+                              name: node.name,
+                            })),
+                          }),
+                    }).pipe(Effect.provideService(WorkspaceMutations, ws)),
+                })
+                .pipe(surfaceRestorationIncomplete);
               return {
                 result: "success",
                 message: `${titleVerb}d ${packIdentity}`,
@@ -381,11 +395,8 @@ export const handlePackActivation = Effect.fn("PacksActivation.handle")(function
   };
 
   const execution = yield* makePublicPositionalPlanExecution(args, ["packs", verb], [args.name]);
-  const resolution = yield* previewOrApplyPlan(plan, { execution, displayApplied: false });
-  yield* emitAppliedPlanOutcome({
-    command: `packs.${verb}`,
-    headline: `${titleVerb}d pack ${args.name}`,
-    resolution,
+  const resolution = yield* previewOrApplyPlan(plan, { execution });
+  yield* emitOperationResolution(`packs.${verb}`, resolution, {
     suggestions: [
       { description: "Inspect installed packs", cmd: "axm packs list" },
       { description: "Undo", cmd: `axm packs ${args.enabled ? "disable" : "enable"} ${args.name}` },

@@ -15,6 +15,7 @@ import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import {
   sweepStaleAtomicWriteTemps,
   writeFileAtomic,
@@ -163,8 +164,8 @@ const readLockfileIfPresent = (
     const exists = yield* fs.exists(lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "internal",
-          detail: `Failed to check lockfile at ${lockfilePath}`,
+          code: "validation",
+          detail: `Failed to check the lockfile at ${lockfilePath}. Fix the file's permissions or restore it from version control, then rerun.`,
           cause: error,
         }),
       ),
@@ -174,8 +175,8 @@ const readLockfileIfPresent = (
     const raw = yield* fs.readFileString(lockfilePath).pipe(
       Effect.mapError((error) =>
         makeAppError({
-          code: "internal",
-          detail: `Failed to read lockfile at ${lockfilePath}`,
+          code: "validation",
+          detail: `Failed to read the lockfile at ${lockfilePath}. Fix the file's permissions or restore it from version control, then rerun.`,
           cause: error,
         }),
       ),
@@ -236,18 +237,22 @@ const writeLockfileUnlocked = (axmDir: string, lockfile: Lockfile) =>
     const path = yield* Path.Path;
     const lockfilePath = lockfilePathFor(path, axmDir);
     const yamlContent = yield* encodeLockfileYaml(lockfile);
+    const existed = yield* fs.exists(lockfilePath).pipe(Effect.orElseSucceed(() => true));
     yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
-    yield* writeFileAtomic(fs, {
+    const written = yield* writeFileAtomic(fs, {
       targetPath: lockfilePath,
       content: yamlContent,
       skipIfUnchanged: "fail-on-read-error",
       mapError: (failure) =>
         makeAppError({
-          code: "internal",
-          detail: lockfileWriteErrorDetail(lockfilePath, failure),
+          code: "validation",
+          detail: `${lockfileWriteErrorDetail(lockfilePath, failure)}. Fix the path's permissions or remove whatever occupies it, then rerun.`,
           cause: failure.cause,
         }),
     });
+    if (written === "written") {
+      yield* recordFootprint({ path: lockfilePath, change: existed ? "modified" : "created" });
+    }
   });
 
 // -----------------------------------------------------------------------------

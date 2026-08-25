@@ -19,9 +19,17 @@ export type LogMessage =
   | { readonly _tag: "warn"; readonly message: string }
   | { readonly _tag: "error"; readonly message: string };
 
+/** Structured detail a lifecycle observer attaches to a spinner update; machine mode forwards it on the progress event. */
+export interface SpinnerUpdateDetail {
+  readonly unit?: string;
+  readonly state?: string;
+  readonly reason?: string;
+  readonly atMs?: number;
+}
+
 export interface SpinnerHandle {
   readonly stop: (message?: string) => Effect.Effect<void>;
-  readonly update: (message?: string) => Effect.Effect<void>;
+  readonly update: (message?: string, detail?: SpinnerUpdateDetail) => Effect.Effect<void>;
   readonly cancel: (message?: string) => Effect.Effect<void>;
   readonly error: (message?: string) => Effect.Effect<void>;
   readonly clear: () => Effect.Effect<void>;

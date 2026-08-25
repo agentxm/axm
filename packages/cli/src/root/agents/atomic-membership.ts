@@ -1,6 +1,7 @@
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
 import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 
@@ -97,6 +98,7 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
       }),
       validate: args.validate,
     })
+    .pipe(surfaceRestorationIncomplete)
     .pipe(
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(

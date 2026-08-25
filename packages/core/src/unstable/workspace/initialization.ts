@@ -230,7 +230,7 @@ const ensureStaticWorkspacePolicy = (workspaceRoot: string) =>
       },
       {
         file: ".gitattributes",
-        lines: ["/agent_extensions/** -text"],
+        lines: ["/agent_extensions/** -text -whitespace"],
       },
     ] as const;
     for (const policy of policies) {

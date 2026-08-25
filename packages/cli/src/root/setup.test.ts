@@ -564,6 +564,9 @@ describe("setup.handler", () => {
           expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
             "/CLAUDE.md",
           );
+          expect(fs.readFileSync(path.join(tempDir, ".gitattributes"), "utf-8")).toContain(
+            "/agent_extensions/** -text -whitespace",
+          );
         }),
       );
     });

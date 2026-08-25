@@ -1,4 +1,4 @@
 **/__generated__/** linguist-generated=true
 
 # AXM-acquired packages preserve immutable upstream bytes.
-agent_extensions/** -whitespace
+/agent_extensions/** -text -whitespace

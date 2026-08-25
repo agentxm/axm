@@ -10,8 +10,9 @@ depends-on:
 
 # Effect in AXM
 
-AXM consumes the installed `@craigsmitham/packs/effect-v4` for portable Effect
-4.0.0-rc.110 guidance. This guide owns only AXM-specific policy. Use the
+AXM pins Effect `4.0.0-rc.112` and consumes the installed
+`@craigsmitham/packs/effect-v4`, whose portable guidance currently targets
+`4.0.0-rc.111`. This guide owns only AXM-specific policy. Use the
 installed `craft-effect-v4` skill to select the relevant guide in the
 [Effect v4 Knowledge bundle](../../agent_extensions/@craigsmitham/knowledge/effect-v4/src/index.md).
 

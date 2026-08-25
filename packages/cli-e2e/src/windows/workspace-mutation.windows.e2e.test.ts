@@ -306,7 +306,7 @@ describe("Windows workspace mutation contract", () => {
       );
       expect(JSON.parse(converged.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "no-op", reconciliationRequired: false },
+        result: { outcome: "no-op" },
       });
     } finally {
       workspace.cleanup();

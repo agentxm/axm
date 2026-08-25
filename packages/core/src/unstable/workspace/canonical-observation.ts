@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -15,7 +16,7 @@ import { KnowledgeManifestSchema } from "../knowledge/index.js";
 import { McpServerManifestSchema } from "../mcps/index.js";
 import { PackManifestSchema } from "../packs/index.js";
 import { RuleManifestSchema } from "../rules/index.js";
-import { SkillManifestSchema } from "../skills/index.js";
+import { parseSkillMd, SkillManifestSchema } from "../skills/index.js";
 import { SubagentManifestSchema } from "../subagents/index.js";
 import type {
   HookLockEntry,
@@ -275,6 +276,51 @@ export const observeCanonicalExtension = ({
         });
       }
       return { type: desired.type, name: desired.name, status: "missing", path: root };
+    }
+
+    if (accepted?.packageFormat === "agent-skill") {
+      if (acceptedConstraintMismatch) {
+        return constraintMismatchObservation({
+          path,
+          desired,
+          canonicalPath: root,
+          ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+        });
+      }
+
+      const skillMdPath = path.join(root, "SKILL.md");
+      const skillMdExists = yield* fs.exists(skillMdPath).pipe(Effect.orElseSucceed(() => false));
+      if (!skillMdExists) {
+        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+      }
+
+      const raw = yield* fs.readFileString(skillMdPath).pipe(Effect.result);
+      if (Result.isFailure(raw)) {
+        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+      }
+      if (Option.isNone(parseSkillMd(raw.success, accepted.packageName))) {
+        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
+      }
+
+      const observedIntegrity = yield* Effect.result(computeMaterializedTreeIntegrity(root));
+      if (
+        Result.isFailure(observedIntegrity) ||
+        observedIntegrity.success !== accepted.treeIntegrity
+      ) {
+        return {
+          type: desired.type,
+          name: desired.name,
+          status: "materialization-mismatch",
+          path: root,
+        };
+      }
+
+      return {
+        type: desired.type,
+        name: desired.name,
+        status: "usable",
+        path: root,
+      };
     }
 
     const contract = MANIFEST_CONTRACTS[desired.type];

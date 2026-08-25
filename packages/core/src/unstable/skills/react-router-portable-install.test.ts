@@ -14,6 +14,7 @@ import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { printSourceParams, sourceToLockEntry, type GitHubSource } from "../sources/index.js";
 import { extensionName } from "../test-helpers.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
+import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { resolveProjectWorkspaceLayout } from "../workspace/layout.js";
 import type { GitHostedSkillRef } from "./refs.js";
 import {
@@ -144,6 +145,22 @@ describe("portable React Router skill acquisition", () => {
         ref: "main",
       });
       expect(lockEntry).not.toHaveProperty("packageOwner");
+
+      const observed = yield* observeCanonicalExtension({
+        layout,
+        desired: {
+          type: "skill",
+          name: "react-router",
+          identity: printSourceParams(source),
+          source: printSourceParams(source),
+          enabled: true,
+          constraints: [],
+          origins: [{ type: "settings", source: printSourceParams(source), enabled: true }],
+        },
+        accepted: lockEntry,
+      });
+      expect(observed.status).toBe("usable");
+      expect(observed.path).toBe(canonical);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Authoring explicitly requested profile-conforming architecture concepts, including required system context, accepted ADRs, and binding constraints, as concise semantic deltas over accepted repository and runtime evidence.",
+    "intended_use": "Authoring explicitly requested profile-conforming System, Requirement, context, ADR, and architecture concepts with one normative Requirement authority and distinct implementation and evaluation witnesses.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic strict-profile architecture-authoring, authority, organization, required system context, explicit absence, ADR, constraint, lifecycle, required-adoption, same-pack routing, refusal, and migration-precondition cases.",
+    "case_source": "Synthetic strict-profile architecture and requirements authoring, six-type requirement classification, obligation ownership, invariant routing, responsibility boundaries, authority, organization, required system context, explicit absence, ADR, lifecycle, required-adoption, same-pack routing, refusal, and migration-precondition cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -47,8 +47,9 @@
     "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": [
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/src",
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
+      "knowledge/software-architecture/src",
+      "knowledge/gen-stack/src",
+      "knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
     ]
   },
   "evidence": {
@@ -75,6 +76,8 @@
     "critical_gates": [
       "No undeclared external mutation",
       "No invented authority, evidence, or approval",
+      "Accepted obligations have one Requirement authority",
+      "Requirement authority remains distinct from evaluation witnesses",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -129,6 +132,16 @@
         "gate": "No invented authority, evidence, or approval",
         "case_id": 22,
         "assertion": "The legacy Markdown form is identified as migration input, not a valid alternative Just Enough Architecture Docs corpus."
+      },
+      {
+        "gate": "Accepted obligations have one Requirement authority",
+        "case_id": 30,
+        "assertion": "No separate Invariant concept, inline shall statement, top-level requirement collection, or duplicated normative authority is created."
+      },
+      {
+        "gate": "Requirement authority remains distinct from evaluation witnesses",
+        "case_id": 36,
+        "assertion": "The existing evaluation is retained even though it repeats the Requirement sentence, because it references RES-REQ-0050 and owns assessment rather than intent."
       }
     ]
   },

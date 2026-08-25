@@ -174,7 +174,7 @@
       "expected_output": "A read-only conformance review that recognizes version 0.8.0 as requiring migration to the current profile, reports the missing required kernel and metadata violation as current-profile failures, reports OKF separately, and preserves unknown where semantic evidence cannot decide.",
       "assertions": [
         "OKF v0.2 and software-architecture-docs profile results are reported separately.",
-        "The obsolete adoption version, missing four required root concepts, and Feature metadata problem are classified as current-profile nonconformance.",
+        "The obsolete adoption version, missing five required root concepts, and Feature metadata problem are classified as current-profile nonconformance.",
         "None of the violations is accepted as a repository-local waiver or harmless format deviation.",
         "Unavailable structural or semantic evidence remains unknown rather than pass.",
         "No repository file is changed in review-only mode."
@@ -207,17 +207,41 @@
     {
       "id": 17,
       "stage": "execution",
-      "prompt": "Migrate our established architecture corpus from software-architecture-docs 0.8.0 to the current profile. You are authorized to split the accepted lifecycle, maintenance, decision-policy, and ordinary-review assurance meaning out of overview.md into the required root concepts, replace duplicated C4 prose with links, migrate two accepted ADRs from decisions.md into named records under decisions/, and split three binding external constraints from constraints.md into named constraints under constraints/. Preserve proposals outside the ADR collection and remove the old catch-alls.",
-      "expected_output": "An authorized semantic migration to the current profile with four required root concepts, atomic accepted ADR and external-constraint collections, updated navigation and adoption, proposals preserved outside ADRs, duplicates removed, and separate OKF and profile verification.",
+      "prompt": "Migrate our established architecture corpus from software-architecture-docs 0.9.0 to the current profile. You are authorized to create System from the accepted boundary, preserve the other root concepts, migrate two accepted ADRs into named records, convert three binding external constraints and two product quality requirements into subject-colocated Requirements with stable IDs, and remove the old top-level constraints and quality forms. Preserve proposals outside accepted architecture.",
+      "expected_output": "An authorized semantic migration to the current profile with five required root concepts, atomic accepted ADRs, subject-colocated Requirements, updated navigation and adoption, proposals preserved outside accepted architecture, duplicates removed, and separate OKF and profile verification.",
       "assertions": [
         "The accepted system context moves to lifecycle.md, ownership.md, decisions.md as policy, and assurance.md without leaving duplicated overview or C4 ownership.",
         "Only accepted decisions become named Architecture Decision Records under decisions/; proposals retain their original lifecycle.",
-        "Each binding external constraint becomes one named Architecture Constraint under constraints/, and constraints.md is removed.",
+        "Each binding external constraint becomes one named Requirement with requirement_type constraint beneath its explicit subject, and old constraint forms are removed.",
         "Indexes, inbound links, log, and root adoption are updated to the current profile version.",
         "The handoff reports base OKF and structural plus manual semantic profile results separately."
       ]
+    },
+    {
+      "id": 18,
+      "stage": "execution",
+      "prompt": "Reconcile our established corpus against the current software-architecture-docs profile. You are explicitly authorized to move an accepted obligation to its canonical owner. The Orders C4 Container currently says it shall never publish an order before payment authorization, and the same guarantee is repeated in a use-case extension. Preserve the container's publication responsibility and boundary response, create the one required subject-colocated Requirement with traceability to the use case, remove both duplicate normative formulations, and repair navigation.",
+      "expected_output": "An authorized semantic-ownership migration that gives the accepted publication prohibition one Requirement authority while preserving useful C4 and use-case context through links and repairing earned navigation.",
+      "assertions": [
+        "The hidden accepted prohibition becomes one subject-colocated Requirement with stable ID, explicit subject, suitable requirement type, source traceability, and a singular shall-not statement.",
+        "The C4 Container retains publication responsibility and architectural boundary response but links rather than repeats the prohibition.",
+        "The use-case extension retains scenario context and links the Requirement without maintaining a second normative formulation.",
+        "Duplicate inline obligation text is removed and earned requirement navigation is repaired without unrelated semantic changes."
+      ]
+    },
+    {
+      "id": 19,
+      "stage": "execution",
+      "prompt": "Review our established corpus against the current profile. Requirement PAY-REQ-009 says a captured payment shall never exceed its authorized amount. A property evaluation references PAY-REQ-009 and repeats the exact predicate. A reviewer called the two files duplicate and asked you to delete one. No other inconsistency exists.",
+      "expected_output": "A no-removal reconciliation result that keeps the Requirement as normative authority and the property evaluation as a distinct linked witness, while rejecting semantic MECE across authority and evidence.",
+      "assertions": [
+        "PAY-REQ-009 remains the single normative Requirement authority.",
+        "The property evaluation remains because its repeated predicate is assessment logic linked by requirement_id, not competing desired-state authority.",
+        "No duplicate-authority finding is reported solely from identical wording across the two roles.",
+        "The handoff distinguishes authority, evaluation definition, execution evidence, and any future governance decision."
+      ]
     }
   ],
-  "suite_version": "0.3.0",
+  "suite_version": "0.5.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

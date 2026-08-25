@@ -9,7 +9,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: ../architecture-documentation/software-architecture-application-profile.md#use-case
     title: Software architecture docs application profile — Use Case
-generated: { by: codex/gpt-5.6, at: 2026-08-21T23:00:52Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting use cases
@@ -50,17 +50,20 @@ Be Done may explain motivating demand, but it does not replace the use case.
    protocol messages, component calls, or data-field inventories unless they
    are themselves durable architectural decisions.
 6. List the extension conditions that expose consequential policy, state,
-   failure, trust, recovery, or collaborator behavior. Then state their
-   handling or terminal outcome. Do not enumerate every test variation.
+   failure, trust, recovery, or collaborator behavior. Then describe their
+   handling or terminal outcome as scenario context. When the outcome is an
+   independently accepted obligation, link its Requirement rather than using a
+   binding `shall` statement or maintaining a second normative formulation. Do
+   not enumerate every test variation.
 7. State exclusions and connect the use case to the relevant capabilities it
    exercises, independently meaningful features that enable it, surfaces
    through which it is enacted, bounded contexts whose authority it uses, C4
    elements that realize it, and dynamic views that illustrate selected
    scenarios.
-8. Link requirements, contracts, tests, executable examples, and runtime
-   evidence that own precise or current facts. Review the result with both
-   domain or value participants and technical participants, then update
-   `use-cases/index.md`.
+8. Link Requirements that own accepted obligations and contracts, tests,
+   executable examples, and runtime evidence that own precise or current
+   facts. Review the result with both domain or value participants and
+   technical participants, then update `use-cases/index.md`.
 
 ## Suggested body
 
@@ -92,8 +95,9 @@ only when its meaning is genuinely inapplicable, not merely unknown.
 
 - At step 2, the hold has expired: the platform refuses confirmation, releases
   any remaining provisional state, and reports that the goal was not achieved.
-- At step 2, the payment provider is unavailable: the platform preserves the
-  accepted recovery policy and reports the resulting reservation state.
+- At step 2, the payment provider is unavailable: the linked recovery
+  Requirements govern the terminal outcome and the platform reports the
+  resulting reservation state.
 
 ## Architecture relationships and evidence
 
@@ -113,6 +117,7 @@ only when its meaning is genuinely inapplicable, not merely unknown.
 - Actor remains contextual; Audience, external system, and actor role are not
   treated as synonyms.
 - Related architecture views are connected with meaningful prose links.
+- Accepted scenario obligations have one linked Requirement authority.
 - Exact permutations and current facts remain with their better authorities.
 - The use case is neither the underlying Job to Be Done nor a delivery story.
 

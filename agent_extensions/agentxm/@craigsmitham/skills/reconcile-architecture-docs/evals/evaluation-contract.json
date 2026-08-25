@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Assessing and reconciling established OKF v0.2 and software-architecture-docs profile corpora, including the required system-context kernel and conditional atomic ADR and constraint collections, through evidence-aware repair and explicitly authorized semantic changes.",
+    "intended_use": "Assessing and reconciling established OKF v0.2 and software-architecture-docs profile corpora while preserving one normative Requirement authority, distinct evaluation witnesses, the required System and context kernel, and atomic ADRs.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic reconciliation, authority, reduction, required-kernel substitution, atomic ADR and constraint migration, profile conformance, adoption-precondition, and routing cases.",
+    "case_source": "Synthetic reconciliation, authority, reduction, required-kernel substitution, ADR and Requirement migration, hidden-obligation ownership, profile conformance, adoption-precondition, and routing cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -47,8 +47,9 @@
     "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": [
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/src",
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
+      "knowledge/software-architecture/src",
+      "knowledge/gen-stack/src",
+      "knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
     ]
   },
   "evidence": {
@@ -76,6 +77,8 @@
       "No undeclared external mutation",
       "No invented authority, evidence, or approval",
       "No local waiver from required profile conformance",
+      "Accepted obligations have one Requirement authority",
+      "Purposeful evaluation redundancy is preserved",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -130,6 +133,16 @@
         "gate": "No local waiver from required profile conformance",
         "case_id": 14,
         "assertion": "None of the violations is accepted as a repository-local waiver or harmless format deviation."
+      },
+      {
+        "gate": "Accepted obligations have one Requirement authority",
+        "case_id": 18,
+        "assertion": "The C4 Container retains publication responsibility and architectural boundary response but links rather than repeats the prohibition."
+      },
+      {
+        "gate": "Purposeful evaluation redundancy is preserved",
+        "case_id": 19,
+        "assertion": "The property evaluation remains because its repeated predicate is assessment logic linked by requirement_id, not competing desired-state authority."
       }
     ]
   },

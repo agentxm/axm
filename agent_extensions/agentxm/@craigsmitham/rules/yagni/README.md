@@ -10,7 +10,7 @@ principle in the software-engineering knowledge bundle. It is not standalone;
 install the pack that provides both extensions:
 
 ```bash
-axm install @craigsmitham/packs/software-engineering
+axm install @craigsmitham/packs/gen-stack
 ```
 
 For example, an agent asked to add one authentication provider should avoid

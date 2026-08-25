@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: ../architecture-documentation/software-architecture-application-profile.md#feature
     title: Software architecture docs application profile — Feature
-generated: { by: codex/gpt-5.6, at: 2026-08-21T22:12:04Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting features
@@ -39,8 +39,9 @@ implementation tasks in delivery authorities.
    the [application profile](../architecture-documentation/software-architecture-application-profile.md#feature).
 3. State the actors, conditions, recognizable behavior, and intended outcome.
    Explain why this behavior has durable identity independent of one use case.
-4. Explain material exclusions and failure semantics that several use cases,
-   surfaces, or implementations must preserve.
+4. Explain material exclusions and failure context shared across use cases,
+   surfaces, or implementations. Link accepted behavior, invariant, failure,
+   or recovery Requirements rather than restating their binding outcomes.
 5. Link the use cases it enables, capabilities it contributes to, surfaces
    through which it is available, domain authorities governing it, and C4
    elements realizing it.
@@ -53,6 +54,8 @@ implementation tasks in delivery authorities.
 - It has independent meaning rather than restating one actor goal and scenario.
 - Its meaning survives completion of the delivery work item.
 - It remains distinct from provider capability and interaction surface.
+- Accepted behavior and failure obligations have one linked Requirement
+  authority.
 - Exact behavior inventories remain with executable evidence.
 
 ## Related

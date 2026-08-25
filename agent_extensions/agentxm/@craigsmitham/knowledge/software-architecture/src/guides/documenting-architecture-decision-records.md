@@ -9,7 +9,7 @@ sources:
     title: Software architecture docs application profile — Architecture Decision Record
   - resource: documenting-architecture-decision-policies.md
     title: Documenting architecture decision policies
-generated: { by: codex/gpt-5.6, at: 2026-08-23T02:10:17Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting architecture decision records
@@ -38,8 +38,11 @@ order to make a decision appear complete.
 4. State the accepted choice and the authority or event that accepted it.
 5. Record the rationale and material alternatives only to the extent needed to
    preserve why this option was chosen.
-6. State positive and negative consequences, including constraints imposed on
-   later change and affected concepts.
+6. State positive and negative consequences and affected concepts. Distinguish
+   the chosen response from an independently binding limitation: when the
+   decision creates such a limitation, admit a constraint Requirement with the
+   ADR as a `requirement_sources` authority instead of leaving the obligation
+   only in the consequences.
 7. State the assumptions, events, or evidence that require reconsideration or
    supersession.
 8. When superseded, retain the record, link its replacement, and keep it
@@ -52,6 +55,9 @@ order to make a decision appear complete.
 - The named path is stable and `decisions/index.md` remains navigational.
 - `decisions.md` still owns policy rather than serving as an ADR catch-all.
 - Superseded records remain reachable and point to their replacements.
+- Any independently binding limitation produced by the decision has one
+  constraint Requirement authority; the ADR continues to own the choice and
+  rationale.
 
 ## Related
 

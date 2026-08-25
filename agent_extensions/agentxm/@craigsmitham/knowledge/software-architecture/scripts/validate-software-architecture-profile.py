@@ -19,10 +19,11 @@ except ImportError:  # pragma: no cover - environment failure path
 
 
 PROFILE_ID = "software-architecture-docs"
-PROFILE_VERSION = "0.9.0"
+PROFILE_VERSION = "0.10.2"
 COMMON_FIELDS = ("type", "title", "description", "status")
 VALID_STATUSES = {"draft", "stable", "deprecated"}
 REQUIRED_ROOT_CONCEPTS = {
+    "system.md": "System",
     "lifecycle.md": "System Lifecycle",
     "ownership.md": "System Ownership",
     "decisions.md": "Architecture Decision Policy",
@@ -31,14 +32,13 @@ REQUIRED_ROOT_CONCEPTS = {
 GOVERNED_TYPES = {
     *REQUIRED_ROOT_CONCEPTS.values(),
     "Architecture Decision Record",
-    "Architecture Constraint",
+    "Requirement",
     "Offering",
     "Audience",
     "Need",
     "Job to Be Done",
     "Value Proposition",
     "Use Case",
-    "Product Quality Requirement",
     "Capability",
     "Feature",
     "Surface",
@@ -51,10 +51,33 @@ GOVERNED_TYPES = {
     "C4 View",
 }
 PROHIBITED_PROFILE_LIKE_TYPES = {
+    "Architecture Constraint",
     "Architecture Overview",
     "Constraint Set",
+    "Product Quality Requirement",
+    "Product Quality View",
+    "Quality Concern",
     "Risk Driver",
     "Risk Driver Set",
+}
+REQUIREMENT_TYPES = {
+    "functional",
+    "quality",
+    "process",
+    "human-factors",
+    "usability",
+    "constraint",
+}
+REQUIREMENT_SUBJECT_TYPES = {
+    "System",
+    "Offering",
+    "Capability",
+    "Feature",
+    "Surface",
+    "Bounded Context",
+    "C4 Software System",
+    "C4 Container",
+    "C4 Component",
 }
 QUALITY_CHARACTERISTICS = {
     "functional-suitability",
@@ -74,6 +97,7 @@ PLURAL_CATCH_ALLS = {
     "jobs.md",
     "value-propositions.md",
     "use-cases.md",
+    "requirements.md",
     "product-quality-requirements.md",
     "capabilities.md",
     "features.md",
@@ -110,8 +134,8 @@ def path_matches(concept_type: str, relative: PurePosixPath) -> bool:
         return relative == PurePosixPath(required_path)
     if concept_type == "Architecture Decision Record":
         return len(parts) == 2 and parts[0] == "decisions"
-    if concept_type == "Architecture Constraint":
-        return len(parts) == 2 and parts[0] == "constraints"
+    if concept_type == "Requirement":
+        return "requirements" in parts
     exact_collections = {
         "Offering": ("value", "offerings"),
         "Audience": ("value", "audiences"),
@@ -121,7 +145,6 @@ def path_matches(concept_type: str, relative: PurePosixPath) -> bool:
         "Use Case": ("use-cases",),
         "Capability": ("capabilities",),
         "Feature": ("features",),
-        "Surface": ("surfaces",),
         "Bounded Context": ("domains", "contexts"),
         "Context Map": ("domains", "context-maps"),
         "C4 Software System": ("structure", "systems"),
@@ -129,12 +152,8 @@ def path_matches(concept_type: str, relative: PurePosixPath) -> bool:
     if concept_type in exact_collections:
         prefix = exact_collections[concept_type]
         return len(parts) == len(prefix) + 1 and parts[:-1] == prefix
-    if concept_type == "Product Quality Requirement":
-        return (
-            len(parts) == 4
-            and parts[0] == "quality"
-            and parts[1] in QUALITY_CHARACTERISTICS
-        )
+    if concept_type == "Surface":
+        return len(parts) >= 2 and parts[0] == "surfaces" and "requirements" not in parts
     if concept_type == "Subdomain":
         return len(parts) == 3 and parts[:2] in {
             ("domains", "core"),
@@ -152,17 +171,13 @@ def path_matches(concept_type: str, relative: PurePosixPath) -> bool:
         )
     if concept_type == "C4 View":
         if len(parts) == 3 and parts[:2] == ("structure", "views"):
-            return parts[2] in {
-                "system-landscape.md",
-                "system-context.md",
-                "containers.md",
-            }
+            return parts[2] in {"system-landscape.md", "system-context.md", "containers.md"}
         return (
             len(parts) == 4
             and parts[:2] == ("structure", "views")
             and parts[2] in {"components", "dynamics", "deployments", "code"}
         )
-    return True  # Open-world OKF concept outside the governed type vocabulary.
+    return True
 
 
 def local_markdown_targets(path: Path, root: Path) -> set[Path]:
@@ -239,54 +254,75 @@ def validate(root: Path) -> dict[str, object]:
         except (OSError, ValueError, yaml.YAMLError):
             continue
         if meta.get("type") != concept_type:
+            error("required-root-type", path, f"{filename} must have the exact profile type {concept_type}.")
+
+    for forbidden_collection in ("constraints", "quality"):
+        path = root / forbidden_collection
+        if path.exists():
             error(
-                "required-root-type",
+                "superseded-collection",
                 path,
-                f"{filename} must have the exact profile type {concept_type}.",
+                f"{forbidden_collection}/ is superseded; requirements must be colocated with their subject.",
             )
+    if (root / "constraints.md").exists():
+        error("superseded-collection", root / "constraints.md", "constraints.md is superseded by Requirement concepts.")
 
-    forbidden_constraints_file = root / "constraints.md"
-    if forbidden_constraints_file.exists():
-        error(
-            "constraint-collection",
-            forbidden_constraints_file,
-            "Architecture constraints must be named concepts under constraints/; constraints.md is prohibited.",
-        )
-
-    for collection, concept_type in (
-        ("decisions", "Architecture Decision Record"),
-        ("constraints", "Architecture Constraint"),
-    ):
-        collection_path = root / collection
-        if not collection_path.exists():
-            continue
-        named_files = sorted(
-            path for path in collection_path.glob("*.md") if path.name != "index.md"
-        )
+    decisions = root / "decisions"
+    if decisions.exists():
+        named_files = sorted(path for path in decisions.glob("*.md") if path.name != "index.md")
         if not named_files:
             error(
                 "empty-collection",
-                collection_path,
-                f"{collection}/ must be omitted until its first {concept_type} is admitted.",
+                decisions,
+                "decisions/ must be omitted until its first Architecture Decision Record is admitted.",
             )
         for path in named_files:
             try:
                 meta, _ = parse_frontmatter(path)
             except (OSError, ValueError, yaml.YAMLError):
                 continue
-            if meta.get("type") != concept_type:
+            if meta.get("type") != "Architecture Decision Record":
                 error(
                     "collection-type",
                     path,
-                    f"Every named concept directly under {collection}/ must have type {concept_type}.",
+                    "Every named concept directly under decisions/ must have type Architecture Decision Record.",
+                )
+
+    for requirement_root in root.rglob("requirements"):
+        if not requirement_root.is_dir():
+            continue
+        type_directories = sorted(path for path in requirement_root.iterdir() if path.is_dir())
+        if not type_directories:
+            error(
+                "empty-requirement-collection",
+                requirement_root,
+                "requirements/ must be omitted until its first Requirement is admitted.",
+            )
+        for type_directory in type_directories:
+            if type_directory.name not in REQUIREMENT_TYPES:
+                error(
+                    "requirement-type-directory",
+                    type_directory,
+                    "Requirement type directory must use one of the six profile requirement_type values.",
+                )
+                continue
+            named_files = sorted(
+                path for path in type_directory.glob("*.md") if path.name != "index.md"
+            )
+            if not named_files:
+                error(
+                    "empty-requirement-type",
+                    type_directory,
+                    "A Requirement type directory must be omitted until it contains a named Requirement.",
                 )
 
     concept_files = sorted(
-        path
-        for path in root.rglob("*.md")
-        if path.name not in {"index.md", "log.md"}
+        path for path in root.rglob("*.md") if path.name not in {"index.md", "log.md"}
     )
     governed_count = 0
+    concept_metadata: dict[PurePosixPath, dict[str, object]] = {}
+    requirement_ids: dict[str, Path] = {}
+
     for path in concept_files:
         relative = PurePosixPath(path.relative_to(root).as_posix())
         try:
@@ -302,10 +338,11 @@ def validate(root: Path) -> dict[str, object]:
             error(
                 "profile-type-prohibited",
                 path,
-                f"{concept_type} is not a profile concept type; use the concept that owns the meaning.",
+                f"{concept_type} is not a current profile concept type; use Requirement or the concept that owns the meaning.",
             )
         if concept_type in GOVERNED_TYPES:
             governed_count += 1
+            concept_metadata[relative] = meta
             for field in COMMON_FIELDS[1:]:
                 value = meta.get(field)
                 if not isinstance(value, str) or not value.strip():
@@ -313,19 +350,11 @@ def validate(root: Path) -> dict[str, object]:
             if meta.get("status") not in VALID_STATUSES:
                 error("common-frontmatter", path, "status must be draft, stable, or deprecated.")
             if not path_matches(concept_type, relative):
-                error(
-                    "canonical-path",
-                    path,
-                    f"{concept_type} is not at a profile-defined canonical path.",
-                )
+                error("canonical-path", path, f"{concept_type} is not at a profile-defined canonical path.")
             if path.name in PLURAL_CATCH_ALLS:
                 error("stable-identity", path, "Plural catch-all concept files are prohibited.")
             if relative.as_posix() in REQUIRED_ROOT_CONCEPTS and not body.strip():
-                error(
-                    "required-root-body",
-                    path,
-                    "A required root concept must contain a substantive body.",
-                )
+                error("required-root-body", path, "A required root concept must contain a substantive body.")
             if concept_type == "Subdomain":
                 expected = relative.parts[1] if len(relative.parts) > 1 else None
                 if meta.get("classification") != expected:
@@ -334,6 +363,8 @@ def validate(root: Path) -> dict[str, object]:
                         path,
                         "Subdomain classification must match its canonical directory.",
                     )
+            if concept_type == "Requirement":
+                validate_requirement(path, relative, meta, body, requirement_ids, error)
 
         current = path.parent
         while current != root:
@@ -342,7 +373,9 @@ def validate(root: Path) -> dict[str, object]:
                 error("collection-index", index, "Every present concept collection requires index.md.")
             current = current.parent
 
-    markdown_files = {root_index, *root.rglob("*.md")}
+    validate_requirement_relations(root, concept_files, concept_metadata, requirement_ids, error)
+
+    markdown_files = {root_index.resolve(), *(path.resolve() for path in root.rglob("*.md"))}
     reachable: set[Path] = set()
     queue: deque[Path] = deque([root_index.resolve()])
     while queue:
@@ -351,13 +384,135 @@ def validate(root: Path) -> dict[str, object]:
             continue
         reachable.add(path)
         for target in local_markdown_targets(path, root):
-            if target in markdown_files or target.resolve() in {item.resolve() for item in markdown_files}:
+            if target.resolve() in markdown_files:
                 queue.append(target.resolve())
     for path in concept_files:
         if path.resolve() not in reachable:
             error("root-reachability", path, "Concept is not reachable from the root index.")
 
     return result(root, errors, governed_count)
+
+
+def validate_requirement(
+    path: Path,
+    relative: PurePosixPath,
+    meta: dict[str, object],
+    body: str,
+    requirement_ids: dict[str, Path],
+    error: object,
+) -> None:
+    report = error
+    requirement_id = meta.get("requirement_id")
+    requirement_type = meta.get("requirement_type")
+    subject = meta.get("subject")
+    if not isinstance(requirement_id, str) or not requirement_id.strip():
+        report("requirement-id", path, "Requirement requires a non-empty requirement_id.")
+    elif requirement_id in requirement_ids:
+        report("requirement-id-unique", path, f"requirement_id duplicates {requirement_ids[requirement_id].name}.")
+    else:
+        requirement_ids[requirement_id] = path
+    if requirement_type not in REQUIREMENT_TYPES:
+        report(
+            "requirement-type",
+            path,
+            "requirement_type must be functional, quality, process, human-factors, usability, or constraint.",
+        )
+    if not isinstance(subject, str) or not subject.strip():
+        report("requirement-subject", path, "Requirement requires one bundle-relative subject link.")
+    elif isinstance(requirement_type, str):
+        subject_path = PurePosixPath(subject.lstrip("/"))
+        expected_parent = subject_path.with_suffix("").parts + ("requirements", requirement_type)
+        if relative.parts[:-1] != expected_parent:
+            report(
+                "requirement-colocation",
+                path,
+                "Requirement path must be <subject-without-.md>/requirements/<requirement_type>/<requirement>.md.",
+            )
+    if not re.search(r"^## Requirement\s*$", body, flags=re.MULTILINE):
+        report("requirement-body", path, "Requirement body requires a ## Requirement section.")
+    if not re.search(r"^## Rationale\s*$", body, flags=re.MULTILINE):
+        report("requirement-rationale", path, "Requirement body requires a ## Rationale section.")
+    if requirement_type == "quality":
+        for field in ("quality_model", "quality_characteristic", "quality_subcharacteristic"):
+            value = meta.get(field)
+            if not isinstance(value, str) or not value.strip():
+                report("quality-requirement-metadata", path, f"Quality requirement requires {field}.")
+        if (
+            meta.get("quality_model") == "ISO/IEC 25010:2023"
+            and meta.get("quality_characteristic") not in QUALITY_CHARACTERISTICS
+        ):
+            report(
+                "quality-characteristic",
+                path,
+                "ISO/IEC 25010:2023 quality_characteristic is not recognized by this profile.",
+            )
+    for field in ("requirement_sources", "derived_from"):
+        value = meta.get(field)
+        if value is not None and (
+            not isinstance(value, list)
+            or any(not isinstance(item, str) or not item.strip() for item in value)
+        ):
+            report("requirement-relation", path, f"{field} must be a list of non-empty strings.")
+
+
+def validate_requirement_relations(
+    root: Path,
+    concept_files: list[Path],
+    concept_metadata: dict[PurePosixPath, dict[str, object]],
+    requirement_ids: dict[str, Path],
+    error: object,
+) -> None:
+    report = error
+    parents_by_id: dict[str, list[str]] = {}
+    for path in concept_files:
+        relative = PurePosixPath(path.relative_to(root).as_posix())
+        meta = concept_metadata.get(relative)
+        if meta is None or meta.get("type") != "Requirement":
+            continue
+        subject = meta.get("subject")
+        if isinstance(subject, str):
+            subject_meta = concept_metadata.get(PurePosixPath(subject.lstrip("/")))
+            if subject_meta is None:
+                report("requirement-subject-resolves", path, "subject must resolve to a maintained concept.")
+            elif subject_meta.get("type") not in REQUIREMENT_SUBJECT_TYPES:
+                report(
+                    "requirement-subject-type",
+                    path,
+                    "subject must be a System, Offering, Capability, Feature, Surface, Bounded Context, or C4 element.",
+                )
+        requirement_id = meta.get("requirement_id")
+        parents = meta.get("derived_from", [])
+        if isinstance(requirement_id, str) and isinstance(parents, list):
+            typed_parents = [item for item in parents if isinstance(item, str)]
+            parents_by_id[requirement_id] = typed_parents
+            for parent in typed_parents:
+                if parent == requirement_id:
+                    report("requirement-derivation", path, "A requirement cannot derive from itself.")
+                elif parent not in requirement_ids:
+                    report("requirement-derivation", path, f"derived_from references unknown requirement_id {parent}.")
+
+    def has_cycle(node: str, active: set[str], visited: set[str]) -> bool:
+        if node in active:
+            return True
+        if node in visited:
+            return False
+        active.add(node)
+        for parent in parents_by_id.get(node, []):
+            if parent in parents_by_id and has_cycle(parent, active, visited):
+                return True
+        active.remove(node)
+        visited.add(node)
+        return False
+
+    visited: set[str] = set()
+    for requirement_id in parents_by_id:
+        if has_cycle(requirement_id, set(), visited):
+            report(
+                "requirement-derivation-cycle",
+                requirement_ids[requirement_id],
+                "derived_from relationships must not contain a cycle.",
+            )
+            break
 
 
 def result(root: Path, errors: list[dict[str, str]], governed_count: int) -> dict[str, object]:

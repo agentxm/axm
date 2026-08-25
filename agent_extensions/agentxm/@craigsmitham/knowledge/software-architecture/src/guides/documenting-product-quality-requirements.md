@@ -1,138 +1,180 @@
 ---
 type: Guide
-title: Documenting product quality requirements
-description: How to create one named, architecture-significant Product Quality Requirement with an ISO/IEC 25010 classification, explicit target and conditions, architectural consequences, and an authoritative assessment route.
-tags: [architecture-documentation, product-quality, quality-requirements, iso-25010, square, evidence, authoring]
+title: Documenting quality requirements
+description: How to engineer and document one accepted, assessable system, product, service, or data quality obligation using the unified Requirement model and an applicable quality classification.
+tags: [architecture-documentation, requirements, quality, iso-25010, iso-25030]
 status: draft
 sources:
-  - resource: ../foundations/product-quality.md
-    title: Product quality in software architecture
-  - resource: ../architecture-documentation/software-architecture-application-profile.md#product-quality-requirement
-    title: Software architecture docs application profile — Product Quality Requirement
-generated: { by: codex/gpt-5.6, at: 2026-08-22T00:17:07Z }
+  - id: documenting-requirements
+    resource: documenting-requirements.md
+    title: Documenting requirements
+  - id: product-quality
+    resource: ../foundations/product-quality.md
+    title: Quality requirements in software architecture
+  - id: requirement-classification
+    resource: ../foundations/requirement-classification.md
+    title: Classifying requirements in software architecture
+  - id: iso-25030
+    resource: https://www.iso.org/standard/72116.html
+    title: ISO/IEC 25030:2019 — Quality requirements framework
+generated:
+  by: codex/gpt-5.6
+  at: 2026-08-25T19:47:49Z
 ---
 
-# Documenting product quality requirements
+# Documenting quality requirements
 
-## Goal
+Use this guide after a system, software product, service, or data quality
+concern has an accepted authority and needs one assessable obligation on a
+durable architecture subject. A quality-model classification helps readers
+find and compare the requirement; it does not supply its need, target, or
+evidence.[^product-quality]
 
-Create one `Product Quality Requirement` concept whose accepted outcome and
-architectural consequences cannot be inferred reliably enough from existing
-authorities.
+## 1. Engineer the quality outcome
 
-## Before you begin
+Follow [Documenting requirements](documenting-requirements.md) to establish the
+source, subject, abstraction level, rationale, feasibility, and correctness.
+Then make the quality-specific content explicit:[^documenting-requirements]
 
-Obtain lawful access to the exact ISO/IEC 25010:2023 product-quality
-subcharacteristic names before selecting or validating a classification. This
-bundle names the top-level characteristics for orientation but does not
-reproduce the standard's complete copyrighted taxonomy.
+- relevant context, state, workload, actor, or operating condition;
+- the quality outcome required of the subject;
+- the accepted criterion, threshold, tolerance, or boundary when one is
+  necessary to make the outcome assessable; and
+- material exclusions or maintenance windows when they change the meaning.
 
-Identify the proposed target, originating quality need, risk, obligation, or
-use case, and the authority that accepts the requirement. Confirm that the
-requirement passes the [Just Enough Architecture Docs admission
-test](../architecture-documentation/just-enough-architecture-docs.md#apply-the-admission-test)
-and materially constrains architecture. If another requirements or policy
-system already owns the requirement, link it from the affected architecture
-concept instead of creating a shadow copy.
+Do not begin from an ISO/IEC 25010 category and invent a requirement to fill
+it. Do not copy a familiar percentage, latency, severity, or rating from
+another system without source authority and feasibility analysis.
 
-## Steps
+This need-first, assessable-outcome progression adapts ISO/IEC
+25030.[^iso-25030]
 
-1. **Confirm accepted meaning.** Separate an accepted desired outcome from a
-   stakeholder wish, observed implementation, unresolved target, risk, or
-   proposal. Do not infer acceptance from code or current telemetry.
-2. **Apply the architecture-significance test.** Name the responsibility,
-   boundary, state, dependency, invariant, deployment choice, change property,
-   or material tradeoff the requirement constrains. If none is durable and
-   consequential, leave the requirement with its natural authority.
-3. **Name the outcome.** Use a stable outcome phrase such as “Resume
-   interrupted imports,” not a generic label such as “Reliability” or a
-   numerical target likely to change.
-4. **Choose the primary classification.** Select the most useful ISO/IEC
-   25010:2023 characteristic and subcharacteristic. Create
-   `quality/<characteristic>/index.md`,
-   `quality/<characteristic>/<subcharacteristic>/index.md`, and the named
-   requirement file only when admitting the first requirement at that path.
-   Link consequential secondary classifications; never duplicate the concept.
-5. **Create the canonical concept.** Use the `Product Quality Requirement`
-   type and common fields from the [application
-   profile](../architecture-documentation/software-architecture-application-profile.md#product-quality-requirement).
-   Do not begin with a plural `quality-requirements.md` inventory or create
-   empty ISO taxonomy directories.
-6. **State target, conditions, and outcome.** Identify or link the system or
-   constituent being qualified. State the event or operating conditions and
-   the required response clearly enough for different readers to reach the
-   same interpretation.
-7. **Explain why it belongs in architecture.** Link the accepted need, risk,
-   obligation, or use case and state the durable architectural consequences.
-   Avoid cataloging the current implementation.
-8. **Route assessment to its owner.** State an unambiguous assessment criterion
-   or link the authoritative measure, target, test, benchmark, evaluation, or
-   telemetry source. Do not copy volatile observations or invent a numerical
-   target. Explain what the linked evidence establishes.
-9. **Record material tradeoffs and relationships.** Link affected capabilities,
-   use cases, bounded contexts, C4 elements, invariants, or other requirements
-   only when the relationship helps a maintainer reason about change.
-10. **Update navigation.** Add the canonical title and description to the
-    immediate subcharacteristic index and make each new parent collection
-    reachable from `quality/index.md` and the architecture root.
+ISO/IEC 25030 distinguishes quality-in-use, product-quality, and data-quality
+requirements.[^iso-25030] Distinguish the eligible architecture subject that
+is obligated from the product, service, data, or use outcome whose quality is
+being required, then select a model. Do not force a data-quality or
+quality-in-use concern into product-quality metadata merely because that is
+the profile's currently validated model.
 
-## Suggested body
+## 2. Distinguish quality from neighboring types
 
-Use this shape when the repository has no stronger local template. Omit empty
-sections rather than preserving form for its own sake.
+Choose `quality` when the primary obligation is an assessable degree or
+condition of system, product, service, or data quality.
 
-```markdown
-# Resume interrupted imports
+- What the subject does is `functional`; how well it does it is usually
+  `quality`.
+- A mandated mechanism, protocol, region, or platform is `constraint`, even
+  when it exists to protect quality.
+- An outcome of use for specified users and goals is `usability` when that
+  navigation best communicates the obligation.
+- A workload, safety, capability, or limitation concern at the human-system
+  boundary is `human-factors` when that is primary.
+- A required review, approval, assessment, or operational exercise is
+  `process`; the quality outcome it helps assure remains separate.
 
-## Requirement
+Performance is normally `quality` when a workload, population, distribution,
+window, or tolerance qualifies how well behavior must be delivered. A timing
+rule can instead be functional when it is part of the domain behavior itself.
 
-After a worker stops during an accepted import, the import resumes from its
-last durable checkpoint without accepting a record twice.
+## 3. Draft the statement
 
-## Context and target
+Use the ordinary profile form:
 
-- Target: Import execution capability
-- Primary classification: Reliability / Recoverability
-- Applies when: A worker stops after the system accepts an import and before
-  that import reaches a terminal state.
-- Justified by: Complete an accepted import use case; duplicate-acceptance risk
+> When `[relevant quality context]`, `[subject]` shall `[assessable quality
+> outcome]` `[within accepted bounds]`.
 
-## Architectural consequences
+Prefer one quality factor per Requirement. A single outcome can have several
+conditions or bounds when they qualify the same obligation. Split statements
+when the outcomes can be accepted, changed, or evaluated independently.
 
-- Checkpoint state has one declared authority independent of worker lifetime.
-- Recovery preserves the accepted-record invariant across replacement workers.
-- Worker-local progress cannot be the only recovery source.
+A numerical target is not always required. A qualitative statement can be
+valid when defined terms and observable consequences make it unambiguous and
+verifiable. Conversely, a precise number is not sufficient when its workload,
+population, observation window, percentile, exclusions, or other context is
+undefined.
 
-## Assessment and evidence
+## 4. Classify after the obligation is known
 
-- Recovery integration test — establishes resume behavior after worker loss.
-- Accepted-record invariant — establishes the no-duplicate obligation.
+Set:
 
-## Tradeoffs
-
-Durable checkpoints add write and storage cost; checkpoint frequency balances
-that cost against repeated processing after failure.
+```yaml
+requirement_type: quality
+quality_model: ISO/IEC 25010:2023
+quality_characteristic: reliability
+quality_subcharacteristic: availability
 ```
 
-## Final check
+Use the exact characteristic and subcharacteristic names required by the
+profile and ensure they accurately describe the accepted outcome. The metadata
+classifies the Requirement; its path remains under the subject's
+`requirements/quality/` collection.
 
-- The document represents one named requirement, not a characteristic summary
-  or collection of peers.
-- Accepted desired state is distinguishable from needs, risks, proposals,
-  current implementation, and observed operation.
-- The target, conditions, required outcome, primary classification, and
-  architecture significance are explicit.
-- The assessment route is unambiguous and owned by the appropriate source.
-- Numerical targets and evidence results are linked rather than copied when
-  another authority owns them.
-- Additional classifications and architecture relationships use meaningful
-  links rather than duplicate documents or folder containment.
-- Every created collection contains admitted content and every index remains
-  navigational.
+The profile currently defines mechanically validated classification fields
+for ISO/IEC 25010:2023 product quality. A quality Requirement outside that
+model still needs an applicable accepted representation; do not misclassify it
+to satisfy the example. Resolve the profile gap or use a profile-permitted
+model only when its vocabulary and validation contract are available.
 
-## Related
+## 5. Separate desired state from evaluation
 
-- [Product quality in software architecture](../foundations/product-quality.md)
-- [Just Enough Architecture Docs](../architecture-documentation/just-enough-architecture-docs.md)
-- [Software architecture docs application profile for OKF v0.2](../architecture-documentation/software-architecture-application-profile.md)
-- [Organizing an architecture docs corpus](organizing-an-architecture-docs-corpus.md)
+Include a measure or criterion in the Requirement when it is part of what must
+be achieved. Keep the following with the evidence or assurance authority unless
+they are themselves accepted constraints:
+
+- verification or validation method;
+- test, benchmark, inspection, or analysis procedure;
+- tooling and environment provisioning;
+- sample selection and execution schedule;
+- current measurement or observed result; and
+- volatile links to individual test files or dashboards.
+
+Those authorities reference the stable `requirement_id` and can evolve without
+silently changing desired state.
+
+## 6. Review both kinds of quality
+
+Review the Requirement against all nine individual characteristics in
+[Documenting requirements](documenting-requirements.md#5-verify-the-individual-requirement).
+Then ask:
+
+- Does the statement identify the obligated subject and quality-bearing outcome rather
+  than merely naming an “ility”?
+- Is the context sufficient to interpret the criterion or target?
+- Could appropriate evidence distinguish satisfaction from failure?
+- Is the quality classification accurate but not carrying meaning that belongs
+  in the statement?
+- Are tradeoffs with other requirements and combined feasibility understood?
+
+Review interacting quality requirements as a declared set when targets can
+conflict or consume shared resources.
+
+## Example
+
+Vague:
+
+> The reservation service shall be highly available.
+
+Synthetic, assessable example:
+
+> During declared booking hours, the reservation service shall accept or
+> reject valid reservation requests during at least 99.9 percent of one-minute
+> observation intervals in each calendar month, excluding declared maintenance
+> windows.
+
+The percentage, interval, calendar boundary, and exclusions are synthetic
+example decisions, not portable defaults. A real Requirement needs source
+authority, feasibility analysis, stakeholder validation, an eligible subject,
+and an evidence authority that defines the exact evaluation procedure.
+
+Do not create a top-level `quality/` taxonomy, a `Product Quality Requirement`
+type, a verification-method field, or a copied test inventory. Colocate the
+Requirement under its subject and let evidence reference its
+`requirement_id`.
+
+[^documenting-requirements]: Documenting requirements supplies the common
+    engineering, statement, review, placement, and change procedure.
+[^iso-25030]: ISO/IEC 25030:2019 supplies the quality-requirements framework
+    adapted by this focused procedure.
+[^product-quality]: Quality requirements in software architecture explains the
+    distinction between quality concerns, accepted quality Requirements,
+    classifications, architecture responses, and evidence.

@@ -1,47 +1,74 @@
 ---
 type: Guide
 title: Expressing invariants
-description: How to distinguish an invariant from neighboring requirements, state its scope and observation boundary precisely, and connect it to preservation obligations and evidence.
-tags: [invariants, requirements, specification, acceptance-criteria, domain-rules, consistency, verification, documentation]
+description: How to classify an invariant, admit accepted preservation obligations as Requirements, and connect their scope and observation boundary to architecture, enforcement, and evidence.
+tags: [invariants, requirements, specification, domain-rules, consistency, verification, documentation]
 status: draft
 sources:
+  - id: software-architecture-profile
+    resource: ../architecture-documentation/software-architecture-application-profile.md#requirement
+    title: Software architecture docs application profile — Requirement
+  - id: documenting-requirements
+    resource: documenting-requirements.md
+    title: Documenting requirements
   - id: nasa-requirements
     resource: https://www.nasa.gov/reference/appendix-c-how-to-write-a-good-requirement/
     title: NASA — How to Write a Good Requirement
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:43:26Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Expressing invariants
 
-Use this guide when a requirement, domain model, design, or architecture needs
-to state a property that must survive every permitted change. For the concept
-and its relationship to safety, liveness, contracts, and enforcement, read
+Use this guide when a requirement, domain model, design, proof, or
+implementation needs to state a property that must survive every permitted
+change. It first routes the invariant to its semantic owner; it does not create
+a separate architecture “Invariant record.” For the concept and its
+relationship to safety, liveness, contracts, and enforcement, read
 [Invariants, preservation, and
 enforcement](../foundations/invariants-and-enforcement.md).
 
 ## Goal
 
-Produce an invariant whose subject, predicate, scope, observation boundary,
-preservation obligations, rationale, and evidence are clear enough to guide
-design and reveal a violation.
+Place the invariant with the authority that owns its role. For an accepted
+obligation, produce one subject-centered Requirement whose predicate and
+observation boundary are clear enough to guide architecture and reveal a
+violation.
 
 ## Before you begin
 
 Gather:
 
-- the domain rule, requirement, risk, or authority from which the invariant
-  comes;
+- the domain rule, need, policy, risk, decision, parent Requirement, or other
+  authority from which the invariant comes;
 - the system or model states it may govern;
-- the operations that can affect it; and
-- the existing source of truth for requirements and enforcement.
+- the operations that can affect it;
+- the eligible architecture subject, when it is accepted desired state; and
+- the existing authorities for architecture, proof, implementation, and
+  evidence.
 
 Do not invent a mandatory invariant merely because a stronger system sounds
-desirable. Confirm its authority and consequences with the people or sources
-that own the governed domain.
+desirable. Confirm its authority, necessity, feasibility, and consequences.
 
-## 1. Confirm that preservation is the intended claim
+## 1. Classify the invariant's role
+
+Use the role, not the word *invariant*, to select its canonical owner:
+
+| Role | Canonical owner |
+| --- | --- |
+| Accepted desired state of the documented System or an eligible architecture subject | Requirement |
+| Domain definition that explains valid state | Domain model or source concept |
+| Loop, object, representation, or database condition used by the realization | Code, schema, or executable contract |
+| Stronger inductive or auxiliary property used to establish another claim | Proof or formal model |
+| Scenario condition used to clarify one case | Use Case, example, or test, without claiming universal satisfaction |
+
+*Invariant* describes preservation semantics; it is not a competing profile
+concept or requirement type. If the claim is an accepted obligation, continue
+with the Requirement route below. Otherwise preserve it with its identified
+authority and link any Requirement it helps define, realize, or establish.
+
+## 2. Confirm that preservation is the intended claim
 
 Ask: **Must this condition hold at every relevant observation point, regardless
 of which permitted operation led there?**
@@ -53,41 +80,26 @@ If not, choose the narrower statement:
 | must hold before one operation | a precondition |
 | must hold after one operation | a postcondition |
 | describes an allowed change | a transition constraint |
-| must eventually become true | a liveness, progress, or convergence requirement |
-| is the future condition being pursued | a target state or outcome |
-| defines an acceptable measurable level | a threshold, performance requirement, or SLO |
-| decides whether one scenario is accepted | an acceptance criterion |
+| must eventually become true | a liveness, progress, or convergence Requirement when accepted |
+| is a future condition being pursued | a target state or outcome source |
+| defines an acceptable measurable level | a quality or performance Requirement when accepted |
+| decides whether one scenario is accepted | an acceptance criterion or evidence rule |
 
-An invariant can also be a requirement, acceptance criterion, or design
-constraint. These terms classify different things: *invariant* describes the
-condition's preservation semantics, while the others describe its role in a
-development or governance process.
+Do not force every prohibition or progress property into an invariant. Preserve
+the semantics the authority actually requires.
 
-## 2. Identify the protected truth and its authority
+## 3. Identify the protected truth, subject, and boundary
 
-Write one sentence explaining:
+Explain in working notes:
 
-- what domain truth, responsibility, boundary, or quality the invariant
+- which domain truth, responsibility, boundary, or quality the invariant
   protects;
-- what failure becomes possible without it; and
-- which source or owner decides whether the statement is valid.
+- what failure becomes possible without it;
+- which source or owner decides whether it is valid;
+- the smallest eligible architecture subject that is obligated; and
+- the relevant states or observation points.
 
-This rationale is not part of the predicate, but it prevents arbitrary rules
-from masquerading as invariants and helps reviewers judge whether enforcement
-cost is proportionate.
-
-## 3. Bound the subject and state space
-
-Name the smallest scope over which the preservation claim is actually true:
-
-- one value or entity;
-- all instances of a type;
-- one aggregate or transaction;
-- one component or dependency graph;
-- one deployed subsystem; or
-- the whole system.
-
-Then name the relevant states. Common observation boundaries include:
+Common observation boundaries include:
 
 - after creation and after every public operation;
 - before each loop test;
@@ -96,64 +108,78 @@ Then name the relevant states. Common observation boundaries include:
 - in every buildable repository revision; or
 - in every externally observable system state.
 
-Avoid an unqualified “always.” Name the stable boundary explicitly. When
-reconciliation is asynchronous, specify a local invariant plus a separate
-convergence requirement. [Invariants expose boundaries and
-authority](../foundations/invariants-and-enforcement.md#invariants-expose-boundaries-and-authority)
-explains why these distinctions change the architectural claim.
+Avoid an unqualified “always.” When reconciliation is asynchronous, use a
+local invariant Requirement plus a distinct progress or convergence
+Requirement rather than claiming consistency over intermediate states.
 
-## 4. State one precise predicate
+## 4. Draft one invariant Requirement
 
-Use this basic form:
+Follow [Documenting requirements](documenting-requirements.md) and use this
+specialized pattern:
 
-> For every **[subject]** within **[scope]**, at every **[relevant state or
-> observation point]**, **[predicate]** must hold.
+> At every **[relevant state or observation point]**, **[subject]** shall
+> preserve **[predicate]** within **[scope or bounds]**.
 
 Prefer domain terms and explicit quantifiers such as *every*, *exactly one*,
-*at most one*, or *no*. Define tolerances and exceptional states. Keep rationale,
-mechanism, and multiple independent predicates out of the normative sentence.
-NASA's requirements guidance similarly recommends a clear subject and
-predicate, one thought per statement, explicit tolerances, rationale, and a
-verifiable formulation.[^nasa-requirements]
+*at most one*, or *no*. Define tolerances and exceptional states. Keep
+rationale, mechanism, examples, and independently changeable predicates out of
+the binding statement. NASA's requirements guidance likewise recommends a
+clear subject and predicate, one thought per statement, explicit tolerances,
+rationale, and a verifiable formulation.[^nasa-requirements]
 
-Weak:
+Weak Requirement:
 
-> Invoice totals must be consistent.
+> The Billing context shall keep invoice totals consistent.
 
-Stronger:
+Stronger Requirement:
 
-> At every committed state, each posted invoice's total equals the sum of its
-> posted line amounts in the invoice currency.
+> At every committed state, the Billing context shall preserve each posted
+> invoice's total as the sum of its posted line amounts in the invoice
+> currency.
 
-The stronger version gives a reviewer a concrete counterexample to look for.
+Choose `functional`, `quality`, `process`, `human-factors`, `usability`, or
+`constraint` according to what is required. Do not add an `invariant`
+requirement type.
 
-## 5. Record establishment and preservation obligations
+## 5. Analyze establishment and preservation
 
-List:
+For architecture and evidence planning, identify:
 
-1. how newly created or migrated state first satisfies the invariant;
+1. how newly created or migrated state first satisfies the Requirement;
 2. every class of operation that could affect its predicate; and
-3. which boundary or authority must restore or reject a violating change.
+3. which boundary or authority restores or rejects a violating change.
 
-This step often reveals missing ownership. If preserving the predicate requires
-coordinated updates across independently authoritative components, reconsider
-the ownership, transaction, or consistency boundary instead of leaving an
-unfunded promise in prose.
+This analysis often reveals missing responsibility, an infeasible subject, or
+derived Requirements. If preservation requires coordinated updates across
+independently authoritative components, reconsider the ownership, transaction,
+or consistency boundary. Keep implementation-specific auxiliary invariants
+with their proof or realization authority.
 
 ## 6. Add examples and counterexamples
 
 Give at least one representative satisfying state and one violation. Include a
 boundary case when quantifiers, nullability, empty collections, rounding,
-concurrency, or failure recovery could change the interpretation.
+concurrency, or failure recovery could change interpretation.
 
-Counterexamples are especially useful for qualitative architectural
-invariants. “Policy code does not depend on adapter implementations” becomes
-clearer when the document names a forbidden policy-to-adapter import and an
-allowed adapter-to-policy import.
+Examples clarify the Requirement; they do not become its semantic authority.
+Tests and executable examples own the precise cases they exercise.
 
-## 7. Choose evidence or enforcement
+## 7. Explain the architecture response
 
-Select the mechanism that matches the claim's scope and consequence:
+Link the Requirement from architecture concepts that identify:
+
+- the subject and state authority;
+- the transaction, consistency, or observation boundary;
+- coordination across independently authoritative elements;
+- dependency direction or encapsulation that supports preservation; and
+- accepted decisions that respond to the obligation.
+
+Do not repeat the binding predicate in the architecture concept. Explain why
+the structure can preserve it and what consequence the response addresses.
+
+## 8. Choose evidence or enforcement
+
+Select mechanisms that match the claim's scope and consequence:
 
 | Mechanism | What it can contribute |
 | --- | --- |
@@ -166,63 +192,46 @@ Select the mechanism that matches the claim's scope and consequence:
 | Monitoring or audit | Detect violations in observed operation after they occur |
 | Human review | Judge contextual properties that resist sound automation |
 
-Use [Enforcement and
-evidence](../foundations/invariants-and-enforcement.md#enforcement-and-evidence)
-to distinguish prevention, proof, counterexample search, and detection. Record
-only what the selected mechanism guarantees. Let prose own the invariant's
-meaning, boundary, rationale, and source; link to the executable mechanism that
-owns detailed enforcement logic rather than maintaining two independently
-editable formulas.
+Record only what each mechanism establishes. Let the Requirement own the
+accepted predicate, subject, conditions, bounds, and rationale; architecture
+own the preservation response; and executable mechanisms own detailed
+enforcement logic. Evidence that claims satisfaction should reference the
+stable `requirement_id`.
 
-## 8. Place, trace, and maintain it
+## 9. Place, trace, and maintain each role
 
-Keep the invariant near the authority it constrains:
+- Place an accepted invariant Requirement beneath its eligible architecture
+  subject with the profile's required identity, type, statement, rationale,
+  and proportionate source or derivation links.
+- Keep domain definitions with the relevant model and link them as
+  `requirement_sources` when they justify the obligation.
+- Keep data and implementation invariants with schema, type, code, or
+  migration authority.
+- Keep inductive and auxiliary invariants with their proof or formal model.
+- Let architecture concepts link the Requirement while explaining state
+  authority, observation boundary, coordination, transaction, or dependency
+  response.
 
-- domain invariants with the relevant model or aggregate;
-- data invariants with schema and migration authority;
-- architectural invariants with the affected boundary or architecture view;
-- externally imposed invariants with their requirement and source.
-
-Give it a stable identifier when other requirements, decisions, tests, or
-checks must trace to it. Record an owner and review trigger when domain rules,
-state boundaries, consistency models, or enforcement mechanisms can change.
-Retire or revise an obsolete invariant rather than preserving its guardrail
-after the underlying authority has changed.
-
-## Invariant record
-
-Use only the fields the host repository needs, but cover these questions:
-
-| Field | Question |
-| --- | --- |
-| Name or ID | How will related artifacts refer to it? |
-| Statement | What predicate must remain true? |
-| Scope | Which subjects and system boundary does it quantify over? |
-| Observation boundary | At which states must it hold? |
-| Rationale | What truth or risk does it protect? |
-| Authority | Who or what makes it normative? |
-| Establishment | How do initial and migrated states satisfy it? |
-| Preservation | Which operations and owners must maintain it? |
-| Examples | What satisfying and violating cases clarify it? |
-| Evidence or enforcement | How is conformance proved, prevented, detected, or reviewed? |
-| Exceptions | Which explicit cases are outside the claim? |
-| Lifecycle | Who reviews it, and what changes trigger review? |
+Do not add an `Invariant` concept, custom invariant record, or second stable ID
+for the same accepted obligation. Retire or revise an obsolete Requirement and
+reconsider its architecture response and guardrails together.
 
 ## Final check
 
-Before accepting the invariant, verify:
+Before accepting an invariant Requirement, verify:
 
-- it makes a preservation claim rather than merely naming an aspiration;
-- its subject, quantifiers, predicate, scope, and observation boundary are
-  explicit;
+- it is an accepted obligation of one eligible subject rather than an
+  aspiration, definition, proof aid, or implementation condition;
+- it makes a preservation claim;
+- its quantifiers, predicate, scope, and observation boundary are explicit;
 - initial states establish it and permitted transitions preserve it;
-- progress requirements are stated separately;
+- progress Requirements are stated separately;
 - synchronous and eventual consistency are not conflated;
 - a counterexample would be recognizable;
-- evidence or enforcement matches the claim without overstating assurance; and
-- the statement is traceable to its authority and maintained near the system
-  boundary it governs.
+- the Requirement is traceable to its source and colocated with its subject;
+- architecture links it without duplicating the normative predicate; and
+- implementation invariants and evidence remain with their exact authorities.
 
-[^nasa-requirements]: NASA's checklist asks for atomic, unambiguous requirements with a
-    clear subject and predicate, rationale, traceability, tolerances where
-    applicable, and a feasible verification method.
+[^nasa-requirements]: NASA's checklist asks for atomic, unambiguous
+    requirements with a clear subject and predicate, rationale, traceability,
+    tolerances where applicable, and a feasible verification method.

@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-container
     title: Software architecture docs application profile — C4 Container
-generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting C4 containers
@@ -32,7 +32,7 @@ node, infrastructure tier, team, or bounded context.
 2. Create its canonical file using the `C4 Container` type and common fields
    from the [application profile](../architecture-documentation/software-architecture-application-profile.md#c4-container).
 3. State its runtime boundary, containing software system, and one concise
-   active responsibility naming the outcome, policy, state, or invariant it
+   active responsibility naming the outcome, policy, state, or authority it
    owns. Add material non-responsibilities rather than inventorying functions.
 4. Record consequential technology choices only when they help explain the
    boundary or constrain change.
@@ -42,8 +42,10 @@ node, infrastructure tier, team, or bounded context.
    the containing system's required root concepts. Record only a consequential
    exception, such as a distinct owner, lifecycle, criticality, support policy,
    or retirement path.
-7. Link capabilities, surfaces, bounded contexts, deployment evidence, and
-   selected views. Add the concept to `structure/containers/index.md`.
+7. Link capabilities, surfaces, bounded contexts, accepted Requirements,
+   deployment evidence, and selected views. Explain how the boundary responds
+   to linked invariant or guarantee Requirements without repeating their
+   binding statements. Add the concept to `structure/containers/index.md`.
 
 ## Final check
 

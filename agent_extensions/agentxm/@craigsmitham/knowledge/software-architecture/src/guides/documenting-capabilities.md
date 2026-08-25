@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: ../architecture-documentation/software-architecture-application-profile.md#capability
     title: Software architecture docs application profile — Capability
-generated: { by: codex/gpt-5.6, at: 2026-08-21T22:12:04Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting capabilities
@@ -40,13 +40,16 @@ feature, application, process, team, goal, or planned work item.
    level. Use an adjacent same-named directory only when that hierarchy serves
    a real browsing need.
 6. Link consequential jobs, use cases that exercise the ability, features,
-   surfaces, domain authorities, C4 realization, constraints, and evidence,
-   then update `capabilities/index.md`.
+   surfaces, domain authorities, C4 realization, accepted Requirements, and
+   evidence, then update `capabilities/index.md`. Do not make the Capability
+   statement a second normative formulation of those obligations.
 
 ## Final check
 
 - The bearer and level are explicit.
 - The capability is an ability, not its desired result or implementation.
+- Responsibility assignments and accepted Requirement obligations remain
+  distinct from the ability.
 - Decomposition preserves ability semantics and consistent scope.
 - Relationships show realization without making another view subordinate.
 - Related use cases exercise the ability without redefining it as a goal or

@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Planning or establishing a minimal, discoverable, OKF v0.2 and software-architecture-docs profile-conforming architecture-documentation adoption with the required lifecycle, ownership, decision-policy, and assurance kernel, explicit system-to-corpus mappings, conditional collections, and no invented semantic state.",
+    "intended_use": "Planning or establishing a minimal, discoverable, OKF v0.2 and software-architecture-docs profile-conforming architecture-documentation adoption with the required System, lifecycle, ownership, decision-policy, and assurance kernel, explicit system-to-corpus mappings, conditional collections, and no invented semantic state.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic strict-kernel bootstrap, connection, federation, required-profile migration, conditional-collection, assessment-only, system-boundary, maintenance-boundary, outcome-verification, read-only check-authority, decision-presentation, and routing cases.",
+    "case_source": "Synthetic strict-kernel bootstrap, connection, federation, required-profile and obligation-owner migration, conditional-collection, assessment-only, system-boundary, maintenance-boundary, outcome-verification, read-only check-authority, decision-presentation, and routing cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -47,8 +47,9 @@
     "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": [
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/src",
-      ".axm/extensions/@craigsmitham/knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
+      "knowledge/software-architecture/src",
+      "knowledge/gen-stack/src",
+      "knowledge/software-architecture/scripts/validate-software-architecture-profile.py"
     ]
   },
   "evidence": {
@@ -77,6 +78,8 @@
       "No unknown-side-effect repository check execution",
       "No invented authority, evidence, or approval",
       "No local waiver from required OKF or profile conformance",
+      "Accepted obligations have one Requirement authority",
+      "Tests do not substitute for Requirement authority",
       "Routing and execution claims remain distinct",
       "Decision presentation remains neutral and complete"
     ],
@@ -126,7 +129,7 @@
       {
         "gate": "No invented authority, evidence, or approval",
         "case_id": 1,
-        "assertion": "The four required concepts faithfully express the supplied accepted context, including the bounded ordinary-review assurance conclusion and its reassessment trigger."
+        "assertion": "The five required concepts faithfully express the supplied accepted System and context, including the bounded ordinary-review assurance conclusion and its reassessment trigger."
       },
       {
         "gate": "No local waiver from required OKF or profile conformance",
@@ -142,6 +145,16 @@
         "gate": "Decision presentation remains neutral and complete",
         "case_id": 19,
         "assertion": "No option is labeled or emphasized as recommended inside Options, and the evidence-supported recommendation for the middle option appears exactly once after Material exclusions."
+      },
+      {
+        "gate": "Accepted obligations have one Requirement authority",
+        "case_id": 22,
+        "assertion": "The Payments context retains settlement-policy authority and the architectural transaction-boundary response while linking the Requirement rather than duplicating its shall statement."
+      },
+      {
+        "gate": "Tests do not substitute for Requirement authority",
+        "case_id": 23,
+        "assertion": "The accepted policy, not the test, establishes the Requirement's normative authority and traceability."
       }
     ]
   },

@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-software-work-items",
-  "version": "0.1.7",
-  "description": "Create and revise evidence-rich software work items while preserving supplied technical design and delivery context",
+  "version": "1.0.0",
+  "description": "Create and revise evidence-rich software work items with explicit Requirement, architecture, and evaluation impact",
   "keywords": [
     "work-items",
     "issue-tracker",
@@ -17,17 +17,19 @@
     "backlog",
     "technical-design",
     "implementation-plan",
-    "testing-strategy"
+    "testing-strategy",
+    "requirement-impact",
+    "evaluation-impact"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/author-software-work-items"
+    "directory": "skills/author-software-work-items"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
   "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
+    "@craigsmitham/packs/gen-stack"
   ],
   "standalone": false
 }

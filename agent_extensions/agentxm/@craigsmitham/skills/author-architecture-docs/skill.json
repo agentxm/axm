@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-architecture-docs",
-  "version": "3.1.0",
-  "description": "Create concise profile-conforming system-context, decision, constraint, and architecture docs as an authorized semantic delta over repository and runtime evidence",
+  "version": "4.1.0",
+  "description": "Create concise profile-conforming system, requirement, decision, and architecture docs as an authorized semantic delta over repository and runtime evidence",
   "keywords": [
     "software-architecture",
     "architecture-documentation",
@@ -23,13 +23,19 @@
     "system-ownership",
     "architecture-decisions",
     "system-assurance",
-    "architecture-constraints",
+    "requirements-engineering",
+    "requirement-classification",
+    "functional-requirements",
+    "process-requirements",
+    "human-factors-requirements",
+    "usability-requirements",
+    "constraint-requirements",
     "capabilities",
     "features",
     "surfaces",
     "system-design",
     "quality-attributes",
-    "product-quality-requirements",
+    "subject-colocated-requirements",
     "boundaries",
     "invariants",
     "documentation"
@@ -37,12 +43,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/author-architecture-docs"
+    "directory": "skills/author-architecture-docs"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",
   "recommendedPacks": [
-    "@craigsmitham/packs/software-architecture"
+    "@craigsmitham/packs/gen-stack"
   ],
   "standalone": false
 }

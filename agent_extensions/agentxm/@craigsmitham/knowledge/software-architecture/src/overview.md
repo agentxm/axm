@@ -10,7 +10,7 @@ sources:
     title: ISO/IEC/IEEE 42010:2022 — Architecture description
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-22T00:14:30Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Software architecture overview
@@ -21,8 +21,10 @@ as its implementation changes. An architecture description expresses selected
 parts of that architecture for particular stakeholders and concerns; the
 architecture and its description are not the same thing.[^iso-42010]
 
-Within this bundle, maintained architecture documentation records accepted
-desired architectural state. A system also has an effective architecture
+Within this bundle, architecture concepts record accepted subject,
+responsibility, relationship, decision, and response meaning. Requirement
+concepts alone record accepted obligations of the documented System and
+eligible architecture subjects. A system also has an effective architecture
 expressed through its implemented structure and behavior. Source code and
 configuration show current implementation, tests and contracts establish
 supported behavior, and a proposal explores a possible future. When these
@@ -37,7 +39,7 @@ executable source can provide more accurately.
 Architecture may include strategic, demand-and-value, capability, behavior,
 interaction, domain-authority, structural, dynamic, deployment, and quality
 views when they answer real stakeholder concerns. These views describe one
-system of interest; their directories and diagrams are discovery mechanisms
+documented System; their directories and diagrams are discovery mechanisms
 rather than one universal containment model.
 
 ## Non-responsibilities
@@ -45,7 +47,8 @@ rather than one universal containment model.
 Architecture does not specify every implementation decision, catalog all
 features, reproduce exact interfaces, or record all historical proposals. It
 does not replace detailed design near the code. It preserves the meaning and
-constraints that are difficult to infer locally and expensive to rediscover.
+structural response that are difficult to infer locally and expensive to
+rediscover, while accepted binding constraints remain Requirements.
 
 Architecture documentation is selective by necessity. ISO 42010 frames an
 architecture description around stakeholders, concerns, viewpoints, and

@@ -10,7 +10,7 @@ architecture concepts over authoritative repository and live sources.
 
 ## Organize the corpus
 
-- [Organizing an architecture docs corpus](../guides/organizing-an-architecture-docs-corpus.md) - How to grow a concise, navigable architecture docs corpus while giving every admitted concept a stable named identity from its first appearance.
+- [Organizing an architecture docs corpus](../guides/organizing-an-architecture-docs-corpus.md) - How to organize a concise subject-first OKF architecture corpus with stable concepts and requirements colocated beneath their architecture subjects.
 
 ## Author individual architecture concepts
 
@@ -18,5 +18,5 @@ architecture concepts over authoritative repository and live sources.
 
 ## Apply the OKF application profile
 
-- [Software architecture docs application profile for OKF v0.2](software-architecture-application-profile.md) - The application profile for representing required system context, decisions, constraints, demand and value, behavior, product quality requirements, capabilities, interactions, domain architecture, and C4 structure in OKF v0.2 software architecture docs.
+- [Software architecture docs application profile for OKF v0.2](software-architecture-application-profile.md) - The application profile for representing a system, its accepted requirements, context, decisions, value, behavior, boundaries, and selected architecture views in OKF v0.2.
 - [Minimal conforming architecture corpus](minimal-conforming-architecture-corpus.md) - A complete synthetic OKF corpus and dated manual report demonstrating the smallest nontrivial adoption of the software architecture docs profile.

@@ -12,7 +12,7 @@ sources:
   - id: parnas-decomposition
     resource: https://doi.org/10.1145/361598.361623
     title: D. L. Parnas — On the Criteria To Be Used in Decomposing Systems into Modules
-generated: { by: codex/gpt-5.6, at: 2026-08-22T00:14:30Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Reviewing responsibilities with scenarios
@@ -23,11 +23,17 @@ Test whether the names, responsibilities, boundaries, authority, state, and
 collaborations of accepted architectural elements remain coherent under
 representative behavior and likely change.
 
-A responsibility states the durable outcome, policy, decision, state, or
-invariant an architectural element owns. A material non-responsibility states
-what it deliberately leaves to another owner. Neither should become a list of
-current functions. Several elements may participate in one behavior, but each
-authoritative decision or fact needs one understandable owner.
+A responsibility assigns the durable outcome, policy, decision, state, or
+authority an architectural element owns. A material non-responsibility states
+what it deliberately leaves to another owner. Neither is itself the normative
+statement of what the element shall do or preserve, and neither should become a
+list of current functions. Several elements may participate in one behavior,
+but each authoritative decision or fact needs one understandable owner.
+
+When a scenario exposes an accepted behavior, invariant, guarantee,
+prohibition, boundary rule, or required failure or recovery outcome, treat it
+as a candidate Requirement. The architecture review identifies its subject and
+response; the Requirement owns the obligation.
 
 ## Before you begin
 
@@ -40,8 +46,9 @@ boundaries. This is a semantic architecture review, not profile validation.
 ## Steps
 
 1. For every element, write one concise active responsibility and its material
-   non-responsibilities. Name the outcome, policy, state, decision, or invariant
-   it owns rather than listing its current functions.
+   non-responsibilities. Name the outcome, policy, state, decision, or authority
+   it owns rather than listing its current functions or embedding `shall`
+   statements.
 2. Walk each scenario from its initiating actor to its outcome. At every step,
    assign the decision, state transition, policy, information need, external
    call, and recovery action to one responsible element.
@@ -59,9 +66,10 @@ boundaries. This is a semantic architecture review, not profile validation.
    change spreads. Reconsider responsibilities that change for unrelated
    reasons or require coordinated edits across several claimed owners.
 6. Check **communication and information reachability**. At each material
-   boundary, state what may cross, the guarantees that apply, and what must be
-   validated when an external actor enters, authority changes, or a weaker
-   guarantee becomes stronger. Look for excessive coordination, knowledge of
+   boundary, state what may cross, link the Requirements that define accepted
+   guarantees, and identify what the receiving boundary validates when an
+   external actor enters, authority changes, or a weaker guarantee becomes
+   stronger. Look for excessive coordination, knowledge of
    collaborators' internals, or an owner that cannot legitimately reach the
    information needed for its decision. Let dependency direction preserve
    policy ownership and hide volatile knowledge rather than obeying a
@@ -76,15 +84,17 @@ boundaries. This is a semantic architecture review, not profile validation.
    insufficient evidence, or unresolved architecture decision. Do not let the
    newest artifact silently win.
 9. Update accepted responsibilities, non-responsibilities, relationships, use
-   cases, and selected dynamic views together. Keep proposed restructures in
-   their proper decision lifecycle until accepted.
+   cases, linked Requirements, and selected dynamic views together. Keep
+   proposed restructures and candidate Requirements in their proper lifecycle
+   until accepted.
 
 ## Final check
 
 - Every consequential decision, state transition, policy, and recovery action
   has one understandable owner.
-- Material exclusions, authoritative state, copies, and boundary guarantees
-  are explicit.
+- Material exclusions, authoritative state, and copies are explicit; accepted
+  boundary guarantees have one linked Requirement authority.
+- Responsibility assignments and Requirement obligations remain distinct.
 - Names, responsibilities, interfaces, state, and dependencies agree.
 - Likely changes do not spread through accidental knowledge or overlapping
   authority.

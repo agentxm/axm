@@ -1,0 +1,36 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "gen-stack",
+  "version": "0.1.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Opinionated software change guidance connecting intent, authoritative requirements, architecture, implementation, evaluations, and operational feedback",
+  "keywords": [
+    "generative-stack",
+    "software-change",
+    "requirements",
+    "software-architecture",
+    "evaluations",
+    "feedback-loops",
+    "regenerative-software",
+    "provenance",
+    "compaction",
+    "reversibility"
+  ],
+  "license": "CC-BY-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "knowledge/gen-stack"
+  }
+}

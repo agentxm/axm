@@ -232,8 +232,44 @@
         "The source is attributed to the authoritative Sentry family rather than to the derived summary.",
         "No raw event body, stack trace, secret, or personal data is copied."
       ]
+    },
+    {
+      "id": 17,
+      "stage": "execution",
+      "prompt": "Draft a defect report. Requirement RES-REQ-0042 says that when a confirmed reservation is restored after process loss, its capacity shall not also remain consumed. A recovery evaluation carrying RES-REQ-0042 repeats that predicate and failed on build 412. The Requirement is still accepted; nobody has diagnosed whether the implementation or evaluator is wrong.",
+      "expected_output": "A defect report that links the authoritative Requirement and the failed evaluation as distinct artifacts, classifies possible non-satisfaction plus an evidence or interpretation gap, and does not remove either deliberately redundant predicate or rewrite desired state.",
+      "assertions": [
+        "RES-REQ-0042 remains the sole normative authority and is identified under Applicable Requirements.",
+        "The evaluation may retain the same predicate as an independent witness rather than being treated as duplicate Requirement authority.",
+        "Relationship to desired state includes possible non-satisfaction and an evidence or interpretation gap without asserting a Requirement change.",
+        "The report preserves the unresolved implementation-versus-evaluator diagnosis and identifies the authority needed to resolve it."
+      ]
+    },
+    {
+      "id": 18,
+      "stage": "execution",
+      "prompt": "Write a feature request from one customer interview asking for automatic reservation expiry. No accepted Requirement, architecture response, usage evidence, or delivery commitment exists. Include the Gen Stack Requirement-impact analysis without advancing the request.",
+      "expected_output": "A feature request that preserves one source request, marks a candidate new obligation or unresolved desired-state relationship, and names unknown architecture and evidence impact without inventing a Requirement or acceptance test.",
+      "assertions": [
+        "The request remains intake and does not create or accept a Requirement.",
+        "Requirement impact is classified as candidate new obligation or unresolved rather than implementation-only or accepted desired state.",
+        "Architecture and evidence impact remain unknown or proposed instead of being independently designed.",
+        "One interview is not generalized into priority, broad demand, or delivery authority."
+      ]
+    },
+    {
+      "id": 19,
+      "stage": "execution",
+      "prompt": "Revise an accepted delivery work item for replacing the invoice CSV library. INV-REQ-0011 and INV-REQ-0017 remain unchanged, the serializer boundary is unchanged, and the existing Requirement evaluations must be rerun against the replacement. The supplied design already establishes those facts; do not redesign it.",
+      "expected_output": "A faithful delivery-item revision classifying the change as implementation-only, preserving the unchanged Requirement and architecture links, and recording the required evaluation reruns without inventing new desired state.",
+      "assertions": [
+        "INV-REQ-0011 and INV-REQ-0017 are linked as applicable Requirements and explicitly remain unchanged.",
+        "Relationship to desired state is implementation-only.",
+        "Architecture impact records the unchanged serializer boundary and evidence impact records the evaluation reruns.",
+        "No new Requirement, architecture decision, implementation sequence, or testing method is invented."
+      ]
     }
   ],
-  "suite_version": "0.1.7",
+  "suite_version": "1.0.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

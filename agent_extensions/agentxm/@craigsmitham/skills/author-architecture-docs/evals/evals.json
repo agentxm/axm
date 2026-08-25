@@ -55,7 +55,7 @@
       "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Organize architecture docs for a system that has capabilities, individual feature documents, web and CLI surfaces, DDD bounded contexts, and C4 containers. Put every feature beneath its primary app so ownership is obvious.",
       "expected_output": "A scale-neutral, view-oriented documentation set that gives each feature one canonical document and represents its many-to-many relationships to capabilities, surfaces, contexts, and structure explicitly instead of nesting it beneath an app.",
       "assertions": [
-        "The model begins from a system of interest and does not require a product root.",
+        "The model begins from the documented System and does not require a product root.",
         "Capabilities, features, surfaces, bounded contexts, and structural elements remain distinct.",
         "Each feature has one canonical home and cross-view relationships are explicit.",
         "Applications may be both surfaces and containers without owning all feature documents."
@@ -198,12 +198,12 @@
     {
       "id": 17,
       "prompt": "Our repository explicitly adopts the software architecture docs application profile. Create the accepted product quality requirement that interrupted imports resume after worker loss without accepting a record twice. It is architecture-significant because checkpoint authority must outlive a worker. Classify it under ISO/IEC 25010:2023 reliability/recoverability. Our SLO system owns the current recovery-time target and integration tests own exact failure cases. Also create documents for every other ISO quality characteristic and fill in reasonable targets so the quality view is complete.",
-      "expected_output": "One named Product Quality Requirement under quality/reliability/recoverability/ with earned navigation, explicit target, conditions, architectural consequences, and links to the SLO and tests, while refusing the quality catalog, invented targets, Quality Concern, and Product Quality View artifacts.",
+      "expected_output": "One quality Requirement colocated beneath its explicit architecture subject with earned navigation, stable requirement_id, ISO/IEC 25010 metadata, clear conditions and outcome, and evidence left to reference the ID, while refusing a quality catalog and invented targets.",
       "assertions": [
-        "The artifact uses the exact Product Quality Requirement type and canonical quality/reliability/recoverability/resume-interrupted-imports.md path.",
+        "The artifact uses the exact Requirement type and the subject-colocated requirements/quality/resume-interrupted-imports.md path.",
         "The target, worker-loss condition, required outcome, and checkpoint-authority consequence are explicit.",
         "The current numerical target and exact failure cases remain with the SLO and integration-test authorities rather than being copied or invented.",
-        "Only the quality/, reliability/, and recoverability/ indexes earned by the named requirement are created; no empty ISO taxonomy is generated.",
+        "Only the subject, requirements/, and quality/ indexes earned by the named requirement are created; no ISO taxonomy tree is generated.",
         "No Quality Concern or Product Quality View concept is created."
       ],
       "stage": "execution"
@@ -356,9 +356,9 @@
       "id": 26,
       "stage": "execution",
       "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Document the binding contractual requirement that reservation data remain in its processing region. The signed data-processing agreement is authoritative, the constraint applies to persistence and backups, and legal review releases or changes it. Create only this constraint and earned navigation.",
-      "expected_output": "One Architecture Constraint at constraints/regional-reservation-data-residency.md plus constraints/index.md navigation, with its authority, scope, architectural consequences, and release or review conditions and no constraints.md file.",
+      "expected_output": "One constraint Requirement colocated beneath its explicit architecture subject with a stable requirement_id, authority, scope, rationale, and release or review conditions and no top-level constraints collection.",
       "assertions": [
-        "The exact Architecture Constraint type and a stable named path under constraints/ are used.",
+        "The exact Requirement type, requirement_type constraint, explicit subject, and stable subject-colocated path are used.",
         "The signed agreement, affected persistence and backup scope, consequences, and legal release route are explicit.",
         "No constraints.md or Constraint Set concept is created.",
         "The constraint is not confused with an internal decision, preference, assumption, or current implementation property."
@@ -387,8 +387,110 @@
         "The current absence of ADRs is bounded and justified rather than stated as a bare none or N/A.",
         "No decisions/ directory or Architecture Decision Record is created before an accepted decision crosses the policy threshold."
       ]
+    },
+    {
+      "id": 29,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create system.md for a synthetic command-line extension manager. Its purpose is to manage agent extensions in one workspace. The workspace and installed extensions are inside the documented boundary; the package registry and agent hosts are external. Create no optional concepts or requirements.",
+      "expected_output": "One concise System concept at system.md that names the documented subject, purpose, boundary, external relationships, and exclusions without turning it into a C4 system, implementation inventory, or speculative requirement collection.",
+      "assertions": [
+        "The exact System type and system.md path are used.",
+        "The workspace and installed-extension boundary is explicit, and the registry and agent hosts remain external relationships.",
+        "The concept does not substitute for or create a C4 Software System.",
+        "No system/requirements/ collection or other optional concept is created without accepted content."
+      ]
+    },
+    {
+      "id": 30,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise the accepted Billing context and its C4 container. The accepted invariant is that after every committed billing transition, a posted invoice total equals its immutable line-item total. The Billing context owns invoice policy and the container enforces commits transactionally. Give the invariant one canonical normative home and keep the architecture explanation useful without duplicating the binding statement.",
+      "expected_output": "One subject-colocated invariant-shaped Requirement with a stable ID and precise observation boundary, linked from the Billing context and C4 container while those architecture concepts retain policy authority, responsibility, and enforcement response without a second normative formulation.",
+      "assertions": [
+        "The accepted preservation obligation is represented by exactly one Requirement with a stable requirement_id, explicit eligible subject, requirement_type functional, and a singular shall statement.",
+        "The Requirement states the committed-state observation boundary and the posted-invoice predicate precisely enough to evaluate.",
+        "The Billing context retains invoice-policy authority and the C4 container retains the transactional enforcement response, each linking the Requirement without restating its binding predicate.",
+        "No separate Invariant concept, inline shall statement, top-level requirement collection, or duplicated normative authority is created."
+      ]
+    },
+    {
+      "id": 31,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Revise the accepted Reservation service C4 Container so it says the container owns reservation-state authority and coordinates confirmation with the capacity provider. No independently accepted behavior, guarantee, prohibition, quality target, or process obligation has been supplied. Do not invent adjacent concepts.",
+      "expected_output": "One concise C4 Container revision that records responsibility, authority, boundary interaction, and exclusions without manufacturing a Requirement from the assignment itself.",
+      "assertions": [
+        "Reservation-state authority is retained as an architectural responsibility assignment rather than rewritten as a shall obligation.",
+        "The capacity-provider interaction is described directionally without inventing a boundary guarantee.",
+        "No Requirement or requirements collection is created because no independently accepted obligation was supplied.",
+        "The response distinguishes architecture ownership from Requirement ownership instead of treating every architecture statement as a Requirement."
+      ]
+    },
+    {
+      "id": 32,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create the accepted requirement that when a reservation is confirmed, the Reservation API returns the confirmation identifier and committed status to its caller. The HTTP framework and wire format are not mandated. Create only this requirement and earned navigation.",
+      "expected_output": "One functional Requirement colocated beneath the Reservation API subject, expressing the required interface behavior without inventing a protocol constraint or quality target.",
+      "assertions": [
+        "The artifact uses the exact Requirement type, requirement_type functional, an explicit eligible subject, and a stable subject-colocated functional path.",
+        "The trigger, returned information, and observable confirmation outcome are stated as one interface behavior.",
+        "No constraint Requirement is created merely because the behavior crosses an interface.",
+        "No HTTP framework, wire format, quality target, or verification method is invented."
+      ]
+    },
+    {
+      "id": 33,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create the accepted obligation that before any change to the authorization boundary is released, the Access system change process receives approval from a role independent of the author and retains that approval with the release record. Tooling and exact review steps may change. Create only this requirement and earned navigation.",
+      "expected_output": "One durable process Requirement colocated beneath the Access system subject, preserving the independent approval and retained-record outcome while leaving procedure and tooling external.",
+      "assertions": [
+        "The artifact uses the exact Requirement type, requirement_type process, an explicit eligible subject, and a stable subject-colocated process path.",
+        "The release trigger, independence condition, approval outcome, and retained record are explicit.",
+        "The Requirement does not freeze current tools, ticket fields, meetings, or review steps.",
+        "The profile's own documentation rules are not represented as Requirements of the Access system."
+      ]
+    },
+    {
+      "id": 34,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create the accepted human-factors requirement that during a four-hour monitoring interval, when critical alarms exceed the accepted one-operator workload limit, the Operations console groups correlated alarms and preserves every unacknowledged critical condition for reassignment. The workload study owns the numerical limit. Create only this requirement and earned navigation.",
+      "expected_output": "One human-factors Requirement colocated beneath the Operations console subject, preserving the workload condition and protective human-system outcome while leaving the numerical study and evaluation method external.",
+      "assertions": [
+        "The artifact uses the exact Requirement type, requirement_type human-factors, an explicit eligible subject, and a stable subject-colocated human-factors path.",
+        "The monitoring duration, workload condition, grouping response, and preservation outcome are explicit without claiming control over an operator's internal state.",
+        "The numerical limit remains owned by the workload study and is not invented or copied as volatile evidence.",
+        "The obligation is not reduced to a generic usability or product-quality label."
+      ]
+    },
+    {
+      "id": 35,
+      "stage": "execution",
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create the accepted usability requirement that during an active incident, an on-call engineer familiar with the incident process identifies the affected production region from the Incident console without consulting another system. Evaluation research owns participant sampling and the current completion-time measure. Create only this requirement and earned navigation.",
+      "expected_output": "One usability Requirement colocated beneath the Incident console subject, defining the specified user, goal, task context, and effectiveness outcome while leaving the evaluation protocol and current measure external.",
+      "assertions": [
+        "The artifact uses the exact Requirement type, requirement_type usability, an explicit eligible subject, and a stable subject-colocated usability path.",
+        "The specified user, active-incident context, task goal, console, and no-other-system effectiveness outcome are explicit.",
+        "Participant sampling, evaluation procedure, and current completion-time result remain with the research authority.",
+        "No vague intuitive or user-friendly claim, invented target, human-factors duplicate, or quality duplicate is created."
+      ]
+    },
+    {
+      "id": 36,
+      "stage": "execution",
+      "files": [
+        {
+          "source": "evals/files/case-36/tests/reservation-recovery.md",
+          "target": "tests/reservation-recovery.md"
+        }
+      ],
+      "prompt": "Our corpus explicitly adopts the current software-architecture-docs profile. Create the accepted Requirement RES-REQ-0050: when reservation recovery completes after process loss, restored capacity shall equal the pre-confirmation capacity. tests/reservation-recovery.md already contains an evaluation with the same sentence and is explicitly tagged RES-REQ-0050. Keep both useful representations and create only the Requirement and earned navigation.",
+      "expected_output": "One authoritative subject-colocated Requirement plus the retained linked evaluation whose repeated predicate remains assessment logic rather than duplicate normative authority.",
+      "assertions": [
+        "RES-REQ-0050 is created as the sole normative Requirement authority with an explicit subject, suitable requirement type, rationale, and canonical path.",
+        "The existing evaluation is retained even though it repeats the Requirement sentence, because it references RES-REQ-0050 and owns assessment rather than intent.",
+        "Architecture prose links the Requirement without adding another binding shall statement.",
+        "No attempt is made to infer that the Requirement is unnecessary merely because the evaluation already expresses and checks the predicate."
+      ]
     }
   ],
-  "suite_version": "3.1.0",
+  "suite_version": "4.1.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

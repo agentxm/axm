@@ -9,7 +9,7 @@ sources:
     title: Domain-driven design
   - resource: ../architecture-documentation/software-architecture-application-profile.md#bounded-context
     title: Software architecture docs application profile — Bounded Context
-generated: { by: codex/gpt-5.6, at: 2026-08-21T21:13:34Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting bounded contexts
@@ -35,8 +35,10 @@ that model; none establishes a bounded context by itself.
    state authority, and material exclusions.
 4. Identify the subdomains it models, allowing many-to-many mappings. Link
    reciprocally without nesting the context beneath a subdomain.
-5. Link the context map that owns complete inter-context relationships; keep
-   only the context's consequential local relationships here.
+5. Link the context map that owns the complete inter-context relationship
+   view; keep only the context's consequential local relationships here. Link
+   accepted invariant and boundary Requirements colocated beneath this context
+   or another eligible subject.
 6. Link code, schemas, configuration, tests, or architecture checks as current
    realization or conformance evidence, then update `domains/contexts/index.md`.
 
@@ -45,7 +47,8 @@ that model; none establishes a bounded context by itself.
 - Purpose, model, language, authority, and exclusions are explicit.
 - The context is not classified as core, supporting, or generic.
 - Implementation structure is evidence rather than the definition.
-- Inter-context obligations are not copied from the context map.
+- Inter-context obligations have one Requirement authority and are not copied
+  from the Context Map.
 
 ## Related
 

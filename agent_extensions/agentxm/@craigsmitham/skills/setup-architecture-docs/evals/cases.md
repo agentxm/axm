@@ -1,7 +1,7 @@
 # Behavioral evaluation cases
 
-Run each prompt in a fresh agent context with the skill and the
-software-architecture knowledge bundle. Do not provide the expected output or
+Run each prompt in a fresh agent context with the skill and the Gen Stack
+pack's knowledge bundles. Do not provide the expected output or
 assertions to the test agent. `evals.json` is the machine-readable authority.
 
 The cases cover one-turn bootstrap, preservation and connection of established
@@ -19,6 +19,8 @@ conforming. Read-only cases distinguish observed
 side-effect evidence from narrative claims, forbid an advertised check whose
 provenance and effects are unknown, and exercise both the supported-recommendation
 and no-recommendation forms of the exact decision-presentation contract.
+Migration also preserves an identically worded test as a linked witness while
+using accepted policy—not executable evidence—as Requirement authority.
 
 The suite passes when setup leaves an explicit, discoverable mapping from every
 documented system to one canonical architecture-doc root, records only accepted

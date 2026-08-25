@@ -1,8 +1,8 @@
 ---
 type: Explanation
-title: Product quality in software architecture
-description: How ISO/IEC 25010 product quality characteristics classify accepted, assessable requirements whose consequences matter to architecture without creating a quality catalog or duplicating stronger authorities.
-tags: [product-quality, quality-requirements, iso-25010, square, architecture-significant-requirements, quality-scenarios, software-architecture]
+title: Quality requirements in software architecture
+description: How accepted system, product, service, and data quality outcomes become assessable, subject-centered Requirements that applicable quality models classify without generating obligations or owning evidence.
+tags: [product-quality, data-quality, quality-in-use, quality-requirements, iso-25010, iso-25030, requirements-engineering, software-architecture]
 status: draft
 sources:
   - id: iso-25010
@@ -11,163 +11,135 @@ sources:
   - id: iso-25030
     resource: https://www.iso.org/standard/72116.html
     title: ISO/IEC 25030:2019 — Quality requirements framework
-  - id: sei-qaw
-    resource: https://www.sei.cmu.edu/library/quality-attribute-workshops-qaws-third-edition/
-    title: Software Engineering Institute — Quality Attribute Workshops
+  - id: requirements-engineering
+    resource: requirements-engineering.md
+    title: Requirements engineering in software architecture
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:53:22Z
+  at: 2026-08-25T19:47:49Z
 ---
 
-# Product quality in software architecture
+# Quality requirements in software architecture
 
-Product quality describes properties of an ICT or software product that can be
-specified, measured, and evaluated. ISO/IEC 25010:2023 supplies a reference
-model of nine characteristics and their subcharacteristics; ISO/IEC 25030:2019
-uses quality models to categorize quality requirements derived from
-stakeholder quality needs.[^iso-25010][^iso-25030]
+System, software-product, service, data, and quality-in-use outcomes can be the
+concern of an accepted quality Requirement. The Requirement still obligates
+one eligible architecture subject. A quality model supplies vocabulary for
+classifying the required outcome; it does not create the obligation, identify
+its subject, choose its target, or prove that a realization satisfies
+it.[^iso-25010]
 
-Architecture documentation needs only a selective projection of that larger
-requirements practice. Its first-class unit is a named **Product Quality
-Requirement**: an accepted, assessable expectation for the quality of a target
-system or constituent whose satisfaction materially constrains architecture.
+Do not confuse a **quality Requirement** with the **quality of a Requirement**.
+Every Requirement, including a quality one, should be necessary, appropriate,
+unambiguous, complete, singular, feasible, verifiable, correct, and conforming.
+A quality Requirement additionally states an assessable degree or condition of
+system, product, service, data, or use quality.[^requirements-engineering]
 
-## Keep the concepts concrete
+The useful flow is:
 
-| Concept | Role |
+> stakeholder quality need, context of use, risk, policy, or higher-level
+> obligation → analyzed and accepted quality Requirement → architecture
+> response → evaluation evidence
+
+Each stage has its own authority. The Requirement owns desired state. The
+architecture explains consequential boundaries, responsibilities, state,
+dependencies, or tradeoffs. Tests, benchmarks, telemetry, and assessments own
+current evidence.
+
+## Choose the quality-bearing subject
+
+ISO/IEC 25030 distinguishes three related quality-requirement perspectives:
+
+| Perspective | Quality-bearing object or outcome |
 | --- | --- |
-| Stakeholder quality need, risk, or obligation | Explains why an outcome matters; it may not yet be accepted or assessable. |
-| Characteristic and subcharacteristic | Classify the requirement using shared ISO/IEC 25010 vocabulary. |
-| Product Quality Requirement | States the accepted quality outcome for a named target under relevant conditions. |
-| Architectural response | Explains the consequential responsibilities, boundaries, state, dependencies, invariants, deployment choices, or tradeoffs. |
-| Measure and evidence | Establish how satisfaction is assessed through an owning requirement, test, benchmark, objective, evaluation, or telemetry source. |
+| Quality in use | Outcomes experienced when specified users pursue goals in a context of use |
+| Product quality | Characteristics of a system or software product that affect its behavior and suitability |
+| Data quality | Characteristics of data for stated needs and conditions |
 
-The useful progression is therefore:
+The perspectives can interact but should not be collapsed. A product-quality
+requirement about interaction capability does not automatically state whether
+a particular user achieves a goal in context. A data-quality requirement does
+not become product quality merely because software stores the data. Name the
+obligated architecture subject, quality-bearing object, and accepted outcome
+first.[^iso-25030]
 
-> quality need, risk, or obligation → Product Quality Requirement →
-> architectural response → evidence
+This profile gives `usability` separate primary navigation for human outcomes
+of use. Use that type when it communicates the obligation better, while
+preserving the same need-first and evidence-separated discipline.
 
-The general architecture-description word *concern* may still describe
-something a stakeholder cares about. It is not a separate product-quality
-concept, document type, or maturity stage. A vague concern becomes durable
-architecture knowledge only after accepted meaning passes the admission test.
+## From quality concern to requirement
 
-## Use the product quality model as classification
+Words such as *reliable*, *secure*, *usable*, or *maintainable* can identify a
+concern without yet establishing an obligation. Engineering the concern
+requires determining:
 
-ISO/IEC 25010:2023 defines functional suitability, performance efficiency,
-compatibility, interaction capability, reliability, security, maintainability,
-flexibility, and safety.[^iso-25010] These characteristics and their
-subcharacteristics are a reference vocabulary, not a checklist or set of
-mandatory document headings.
+- the subject whose quality matters;
+- the stakeholder need, risk, policy, or other authority;
+- the relevant context, state, workload, actors, or conditions;
+- the assessable quality outcome and any accepted criterion, threshold,
+  tolerance, or boundary; and
+- the tradeoffs and feasibility of requiring that outcome.
 
-This guidance deliberately covers the **product quality** model. Quality in
-use, data quality, process quality, service management, and organizational
-quality have different scopes and authorities. Link them when they justify or
-assess a product quality requirement; do not pull them into the architecture
-corpus merely to complete the SQuaRE family.
+ISO/IEC 25030 provides the quality-requirements framework behind this
+progression from quality need to defined and governed quality
+requirement.[^iso-25030]
 
-A requirement can apply to the whole system or to one constituent. Its target
-relationship expresses that scope. Do not create parallel system-wide and
-localized taxonomies. When one requirement maps to several
-subcharacteristics, give it one canonical primary classification and link the
-additional classifications instead of copying the document.
+The quality model helps name the kind of outcome after this analysis. It must
+not be used as a checklist that generates one requirement per characteristic
+or subcharacteristic.
 
-## Admit only architecture-significant requirements
+## When quality belongs here
 
-A Product Quality Requirement belongs in architecture documentation only when
-it is:
+Maintain a quality Requirement when it is accepted, assessable, and worth
+understanding relative to a durable architecture subject. The obligation may
+be qualitative before it has a numerical target when its conditions and
+required response are still unambiguous and verifiable. Do not infer desired
+state from an implementation, passing test, observed metric, taxonomy entry,
+or generic industry target.
 
-- accepted desired state rather than an unresolved option;
-- consequential to the architecture;
-- durable through ordinary implementation change;
-- difficult to infer reliably enough from authoritative repository, generated,
-  or live sources;
-- sufficiently clear to assess; and
-- worth its reading, review, reconciliation, and drift cost.
+Use `requirement_type: quality`, keep the Requirement beside its subject, and
+pin the applied quality model in metadata. ISO/IEC 25010:2023 product quality
+is the profile's mechanically constrained model. Authors need lawful access to
+its exact taxonomy. Do not label a data-quality or quality-in-use obligation
+as product quality merely to reuse that taxonomy.
 
-It is architecture-significant when satisfying it materially constrains one or
-more of:
+## Classification is not organization
 
-- responsibility, authority, state ownership, or lifecycle;
-- boundaries, dependencies, or permitted interactions;
-- consistency, trust, failure, or recovery models;
-- technology, deployment, scaling, or observability structure;
-- the system's ability to change; or
-- a consequential tradeoff among these choices.
+Organizing every quality requirement under a top-level taxonomy makes the
+classification easy to browse but separates the obligation from the thing it
+qualifies. Subject colocation keeps a reader's primary question intact: “What
+must this command, feature, capability, context, or component do or be?”
 
-A local validation rule or current timeout may be important without needing a
-durable architectural explanation. Conversely, an accepted qualitative
-requirement can be architecture-significant before a numerical target exists
-when its conditions, required response, assessment criterion, and structural
-consequences are clear. Do not invent a number to make it appear measurable.
-If the outcome or acceptance remains undecided, keep it as a need, risk,
-proposal, or requirements gap rather than architecture truth.
+Generated views may group requirements by quality characteristic, risk,
+evidence status, or any other useful lens. Those projections should resolve
+stable `requirement_id` values rather than become parallel authorities.
 
-## State the requirement and its consequences
+## Quality and usability
 
-A useful requirement makes these relationships easy to find:
+Usability may be modeled within a quality model and intersects human factors.
+This profile nevertheless provides `usability` as a primary requirement type
+because product-surface readers frequently need that navigation directly.
+Choose the type that best communicates the accepted obligation and use quality
+metadata only when a quality-model classification materially helps.
 
-- **Target:** the system, container, component, capability, feature, use case,
-  or other constituent whose quality is constrained;
-- **Classification:** the primary ISO/IEC 25010 characteristic and
-  subcharacteristic, plus any consequential secondary classifications;
-- **Outcome and conditions:** what must hold, when, and in which relevant
-  environment or event;
-- **Justification:** the accepted need, risk, obligation, or use case that
-  makes the outcome important;
-- **Architecture significance:** why the requirement belongs in architecture
-  documentation and which choices it constrains;
-- **Assessment:** the criterion or authoritative measure and evidence route;
-  and
-- **Tradeoffs:** only the tensions or accepted compromises that affect change.
+## Keep evidence strategy separate
 
-Quality-attribute scenarios can expose these relationships when a broad label
-permits competing interpretations. The Software Engineering Institute's
-Quality Attribute Workshop elicits and prioritizes scenarios around a stimulus,
-environment, affected artifact, response, and response measure.[^sei-qaw] Use
-that structure as a reasoning aid, not as mandatory six-field bureaucracy.
+A quality requirement must be verifiable, but the Requirement need not
+prescribe a verification method. The evidence strategy can evolve without
+changing desired state. Let tests, evaluations, measures, telemetry, or
+assurance plans reference `requirement_id`; generate reverse trace views when
+readers need them.
 
-For example, *reliability* alone supplies no decision guidance. “After a worker
-stops during an accepted import, a replacement resumes from the last durable
-checkpoint without accepting a record twice” identifies a target, event,
-response, and architectural implications for state ownership and recovery.
+The measure and acceptance criterion may belong in the Requirement when they
+are part of desired state. The procedure, tool, sample design, environment
+provisioning, and current result normally belong to the evaluation authority.
 
-## Keep precision with its authority
-
-Architecture prose should own the durable required outcome and architectural
-consequences only when it is the appropriate authority. Other sources retain
-their strengths:
-
-| Authority | What it should own |
-| --- | --- |
-| Requirement or policy system | Contractual, regulatory, or otherwise externally governed requirement text |
-| Tests and executable examples | Exact exercised scenarios and regression evidence |
-| Service-objective configuration | Current numerical objectives and alert thresholds |
-| Code, schemas, and configuration | Current implementation, contracts, and wiring |
-| Telemetry and evaluation results | Observed or measured quality at a point in time |
-| Architecture documentation | Durable architectural interpretation, constraints, and tradeoffs not reliably inferable elsewhere |
-
-When another source already owns the requirement, do not create a shadow
-Product Quality Requirement. Link the authority from the affected architecture
-concept and state only the architectural consequence that the source does not
-explain. When architecture documentation does own the requirement, link its
-assessment evidence instead of copying volatile values or results. State what
-each link establishes and do not claim more evidence than it provides.
-
-The result is not a quality catalog, a mandatory product-quality view, or a
-second requirements system. It is the smallest set of named,
-architecture-significant Product Quality Requirements needed to understand and
-change the system safely.
-
-For the authoring procedure, see [Documenting product quality
+For the focused procedure, see [Documenting quality
 requirements](../guides/documenting-product-quality-requirements.md).
 
-[^iso-25010]: ISO/IEC 25010:2023 defines a product quality model with nine
-    characteristics and their subcharacteristics as a reference for specifying,
-    measuring, and evaluating ICT and software product quality.
-[^iso-25030]: ISO/IEC 25030:2019 defines a framework for eliciting stakeholder
-    quality needs and defining, analyzing, using, and governing quality
-    requirements categorized by applicable quality models.
-[^sei-qaw]: The SEI describes the Quality Attribute Workshop as a method for
-    identifying, refining, and prioritizing stakeholder scenarios that reveal
-    architecture-driving quality attributes.
+[^iso-25010]: ISO/IEC 25010:2023 supplies the product-quality model used for
+    classification when that model is selected.
+[^iso-25030]: ISO/IEC 25030:2019 supplies the framework for eliciting,
+    defining, using, and governing quality requirements.
+[^requirements-engineering]: Requirements engineering in software architecture
+    defines the individual requirement-quality characteristics and the
+    authority boundaries applied here.

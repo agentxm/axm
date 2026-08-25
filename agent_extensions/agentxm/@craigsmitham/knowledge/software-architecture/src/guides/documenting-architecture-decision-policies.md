@@ -9,7 +9,7 @@ sources:
     title: Software architecture docs application profile — Architecture Decision Policy
   - resource: ../architecture-documentation/just-enough-architecture-docs.md
     title: Just Enough Architecture Docs
-generated: { by: codex/gpt-5.6, at: 2026-08-23T02:10:17Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting architecture decision policies
@@ -42,6 +42,10 @@ currently justified.
 6. If no local ADRs are justified, state the bounded rationale, alternative
    decision authority, consequence, and trigger that would require records.
 7. Create no `decisions/` directory until the first accepted ADR is admitted.
+8. Keep corpus-governance mechanics in the policy. When a rule creates an
+   independently maintained obligation on system development, operation, or
+   governance, admit a process Requirement and link it instead of maintaining
+   a second binding statement here.
 
 ## Final check
 
@@ -50,6 +54,8 @@ currently justified.
 - `decisions.md` contains policy rather than several decision records.
 - A no-local-ADR conclusion is justified and has a reassessment trigger.
 - Proposals and unresolved choices remain outside the ADR collection.
+- Linked process Requirements, when present, own system-work obligations;
+  `decisions.md` continues to own the corpus decision policy.
 - The conditional `decisions/` directory exists only when it contains an
   accepted named record.
 

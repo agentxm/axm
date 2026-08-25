@@ -15,26 +15,31 @@ repair an established corpus, or maintain existing architecture docs.
 Existing unprofiled documentation is preserved as migration input rather than
 accepted as an alternative Just Enough Architecture Docs format.
 
-This skill is a non-standalone member of the software-architecture pack because
+This skill is a non-standalone member of the Gen Stack pack because
 it loads that pack's software-architecture knowledge.
 
-## Revision 0.5.0
+## Revision 0.7.0
 
-- Establishes the required lifecycle, ownership, decision-policy, and assurance
+- Establishes the required System, lifecycle, ownership, decision-policy, and assurance
   concepts at every system corpus root.
 - Blocks a conforming setup claim when accepted kernel meaning is unavailable
   rather than inventing placeholders or inferring it from implementation.
-- Creates `decisions/` and `constraints/` only when accepted named concepts
-  require those collections.
+- Creates `decisions/` and subject-colocated Requirement collections only when
+  accepted named concepts require them.
+- Treats migration of accepted obligations embedded in architecture prose as
+  an explicit semantic-ownership change, preserving architectural context
+  while moving the normative statement to one Requirement.
+- Treats existing tests and evaluations as potential linked witnesses rather
+  than substitutes for accepted Requirement authority.
 
-This is a breaking change from `0.4.0`. Existing profile `0.8.0` corpora require
-an evidence-backed migration to the required context kernel; rollback is to
-`0.4.0`.
+This is a breaking change from `0.5.0`. Existing profile `0.9.0` corpora require
+an evidence-backed migration to the System root and Requirement model; rollback
+is to `0.5.0`.
 
 ## Install
 
 ```bash
-axm install @craigsmitham/packs/software-architecture
+axm install @craigsmitham/packs/gen-stack
 ```
 
 ## Example

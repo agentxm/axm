@@ -13,10 +13,10 @@ sources:
     title: ISO/IEC/IEEE 42010:2022 — Architecture description
   - id: product-quality
     resource: ../foundations/product-quality.md
-    title: Product quality in software architecture
+    title: Quality requirements in software architecture
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-23T01:30:58Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Just Enough Architecture Docs
@@ -46,8 +46,9 @@ Code, tests, types, schemas, configuration, and runtime evidence already reveal
 much of the system. They are often the most precise and current authority for
 what the implementation accepts and does. Yet some accepted meaning remains
 hard to infer: why a behavior matters, which business distinctions are
-intentional, what quality risk drives a boundary, or which responsibility and
-invariant must survive a rewrite.
+intentional, what quality risk drives a boundary, which responsibility and
+authority allocation must survive a rewrite, or which accepted obligation the
+architecture must preserve.
 
 ## Problem
 
@@ -88,19 +89,24 @@ meaning without documenting everything the repository already says better?
 ## Solution
 
 Maintain one cohesive, human-readable set of architecture docs for each system
-or bounded authority. Treat it as a **semantic delta over the repository and
-its operational authorities**: admit only accepted, durable meaning that is
-consequential to the system's value or architecture and cannot be inferred
-reliably enough from code, tests, schemas, configuration, repository structure,
-generated views, or live evidence.
+or bounded authority. Treat its **architecture description** as a semantic
+delta over the repository and its operational authorities: admit only accepted,
+durable architectural meaning that is consequential and cannot be inferred
+reliably enough from code, schemas, configuration, repository structure,
+generated views, or live evidence. Treat accepted Requirements differently:
+retain their normative authority even when implementation or evaluations make
+the same predicate easy to infer, because observed or executable state does not
+establish `shall`.
 
 Optimize first for a maintainer who must understand the system well enough to
 make or review a change. Prefer a short explanation, a small table, or a
 purposeful diagram when it reduces reading effort. Do not optimize for document
 count, taxonomy completeness, or the amount of context available to an agent.
-Aim for mutually exclusive ownership and collectively sufficient coverage of
-the consequential reader questions in scope. Do not force architecture
-concepts themselves into a mutually exclusive hierarchy: use cases,
+Aim for one normative owner for each accepted obligation and collectively
+sufficient coverage of the consequential reader questions in scope. Allow
+architecture, implementation, evaluations, and observations to overlap as
+distinct representations and witnesses. Do not force architecture concepts
+themselves into a mutually exclusive hierarchy: use cases,
 capabilities, domain contexts, and structural elements legitimately overlap
 through explicit relationships.
 
@@ -113,19 +119,26 @@ validation, and permitted representation variance. Unprofiled architecture
 material may inform migration, but it is not an alternative conforming form of
 Just Enough Architecture Docs.
 
-### Apply the admission test
+### Apply the architecture-description admission test
 
 Keep a claim in the architecture docs when all of these are true:
 
-1. It expresses accepted desired state, not an unaccepted proposal.
-2. It matters to functional meaning, a consequential quality, or architecture.
+1. It expresses accepted architecture meaning, not an unaccepted proposal or
+   a second normative obligation.
+2. It matters to functional understanding, a consequential quality, or architecture.
 3. It is likely to remain useful through ordinary implementation change.
 4. Authoritative repository, generated, and runtime sources do not reveal it
    reliably enough, unambiguously enough, and with reasonable effort.
 5. The risk reduced by retaining it outweighs its reading, discovery, review,
    reconciliation, and drift cost.
 
-If a claim fails the test, leave it with the source that naturally owns it.
+This inferability test does not decide whether an accepted Requirement should
+exist. Admit an accepted obligation as one subject-colocated Requirement when
+it belongs to the documented System or an eligible architecture subject,
+regardless of whether code or tests reveal the same predicate. Use the
+Requirement admission and representation contract in the application profile.
+
+If an architecture-description claim fails the test, leave it with the source that naturally owns it.
 Temporary design options belong in proposals or work records; exact mechanics
 belong in executable artifacts; observed operation belongs in live evidence.
 
@@ -149,30 +162,36 @@ smallest safe response may be one sentence, a named concept, a relationship, a
 diagram, or an evidence link rather than another document.
 
 This scales by risk rather than organization size. A solo hobby project may
-express the required lifecycle, ownership, decision-policy, and assurance
-context in only a few sentences each. A large system may warrant more
+express the required System, lifecycle, ownership, decision-policy, and
+assurance context in only a few sentences each. A large system may warrant more
 independently owned concepts and views because its change surface, coordination
 cost, constraints, or assurance obligations are greater. Neither scale earns a
 complete optional taxonomy by default.
 
 ### Assign authority by information kind
 
-Use prose for durable meaning: purpose, stakeholder concerns, business
-distinctions, responsibilities, non-responsibilities, rationale, invariants,
-accepted product quality requirements, and architectural consequences.
+Use architecture concepts for durable subject and response meaning: purpose,
+stakeholder concerns, business distinctions, responsibilities,
+non-responsibilities, authority, boundaries, relationships, rationale,
+decisions, and architectural consequences. Use Requirement concepts as the
+sole normative owner of accepted obligations, including admitted invariants,
+guarantees, prohibitions, required failure or recovery outcomes, and binding
+limitations.
 
 Let the other authorities retain their strengths:
 
 | Authority | What it should own |
 | --- | --- |
-| Tests and executable examples | Exact supported scenarios and regression evidence |
+| Tests and executable examples | Evaluation definitions, exact scenarios, and regression evidence; they may repeat a Requirement predicate while referencing its stable ID |
 | Types, schemas, and interface definitions | Exact machine-consumed contracts |
 | Code and configuration | Current implementation and wiring |
 | Runtime and observability systems | Current deployed and observed state |
 | Work tracking and proposals | Delivery state and unaccepted future choices |
 
-Link to those sources when they support a durable claim. Do not transcribe them
-into prose merely to make a document look complete.
+Link to those sources when they support a durable architectural claim. Do not
+transcribe current mechanics into architecture prose merely to make a document
+look complete. This does not prohibit an evaluation from repeating a
+Requirement predicate for its distinct assessment role.
 
 When a current inventory or structural view is useful for comprehension,
 prefer a generated artifact or a stable query/tool route over a manually
@@ -218,10 +237,11 @@ not be replaced by one folder hierarchy.
 
 Treat the directory tree as a route into the architecture, not as the
 architecture model itself. The application profile requires a small root
-system-context kernel. Conditional collections for ADRs, constraints, value,
-use cases, capabilities, features, surfaces, domains, structure, and quality
+system-context kernel. Conditional collections for ADRs, value, use cases,
+capabilities, features, surfaces, domains, structure, and subject requirements
 appear only when an admitted concept earns them. Omit a conditional collection
-when no current claim passes the admission test; add another top-level
+when no current architecture claim or accepted obligation passes its applicable
+admission test; add another top-level
 collection only when it serves a consequential reader question that none of
 the profile routes can represent coherently.
 
@@ -234,15 +254,13 @@ shared model and distinctions from capabilities, features, domains, and
 structure; [Jobs to Be Done](../foundations/jobs-to-be-done.md) owns the deeper
 explanation of jobs as evidence-backed progress in circumstances.
 
-Use `quality/` only for named, accepted, architecture-significant Product
-Quality Requirements. Classify each beneath one primary ISO/IEC 25010:2023
-characteristic and subcharacteristic, create only the paths earned by admitted
-requirements, and link secondary classifications rather than duplicate the
-concept. Keep `quality/index.md` navigational. Put cross-requirement priorities
-and tradeoffs in the accepted decisions and affected concepts that own them;
-do not invent a mandatory Product Quality View. The [Product quality in software
-architecture](../foundations/product-quality.md) foundation owns the model and
-its distinction from quality needs, risks, architecture responses, and
+Colocate each accepted Requirement beneath its canonical architecture subject
+and primary requirement-type folder. Use quality-model metadata to classify a
+quality Requirement without creating a top-level taxonomy. Put
+cross-requirement priorities and tradeoffs in the decisions and affected
+concepts that own them. The [Product quality in software
+architecture](../foundations/product-quality.md) foundation explains the
+distinction among quality needs, requirements, architecture responses, and
 assessment evidence.[^product-quality]
 
 Within `domains/`, classify subdomain knowledge under `generic/`, `core/`, or
@@ -277,29 +295,37 @@ container—without turning every other relationship into structural nesting.
 The same profile owns the exact types, metadata, paths, containment, view
 distinctions, and profile-conformance rules for C4 structural concepts.
 
-### Keep functional, product quality, architecture, and evidence distinct
+### Keep functional meaning, requirements, architecture, and evidence distinct
 
 Within a subject, include only the information roles that carry material
 meaning:
 
 - **Functional:** outcomes, business distinctions, rules, state transitions,
-  permissions, failure semantics, and cross-surface interactions that code
-  cannot explain reliably by itself.
-- **Product quality:** accepted requirements, conditions, assessment routes,
-  tradeoffs, and risks that constrain the solution.
+  permissions, scenario context, failure context, and cross-surface
+  interactions that explain the subject without becoming a second normative
+  formulation of an admitted obligation.
+- **Requirements:** accepted obligations, conditions, rationale, and
+  traceability that constrain a named architecture subject.
 - **Architecture:** responsibilities, non-responsibilities, authority,
-  boundaries, dependencies, invariants, and the structural response to the
-  functional behavior and product quality requirements.
+  boundaries, dependencies, relationships, decisions, and the structural
+  response that preserves accepted Requirements.
 - **Evidence:** links to tests, contracts, schemas, checks, telemetry, or code
   that provide current detail or conformance evidence.
 
 These are distinctions in meaning, not mandatory view types or document
 headings. Functional and architectural meaning may be sections in one cohesive
-subject document. An admitted Product Quality Requirement receives its own
-stable named concept; a requirement owned elsewhere is linked from the
-affected architecture concept. Co-locate meaning when it changes and is
+subject document. An admitted Requirement receives its own stable named concept
+beneath its subject; a requirement owned elsewhere is linked from the affected
+architecture concept. Co-locate meaning when it changes and is
 reviewed together, and separate it when its authority or lifecycle differs.
 Never add an empty heading merely to satisfy a template.
+
+Use independent acceptance and satisfaction as the boundary. “The Billing
+context owns posted-invoice state” is architecture meaning. “At every commit,
+the Billing context shall preserve the posted-invoice total” is a Requirement.
+An implementation guard, test, or proof may repeat, enforce, or establish that
+Requirement while referencing its ID, but it does not become another normative
+owner.
 
 Use a visualization when spatial relationships, ownership, sequence, state
 change, or several mappings become materially easier to understand than prose.
@@ -325,6 +351,12 @@ and components inherit this context unless a distinct exception is
 consequential. OKF `status` continues to describe the document lifecycle and
 must not be overloaded for system lifecycle.
 
+The required kernel also governs the documentation corpus. Its profile and
+corpus-governance rules are not Requirements of the documented System. When a
+kernel concept introduces an independently maintained obligation on system
+development, operation, or governance, represent it as a linked process
+Requirement rather than duplicating it in the kernel prose.
+
 ### Keep semantic changes under human authority
 
 An agent may identify that a document should be added, reduced, merged,
@@ -336,16 +368,16 @@ accept it. Mechanical link or navigation repair is different from deciding
 what architecture meaning deserves to exist.
 
 An agent may use the ISO/IEC 25010 model to recommend investigation or expose a
-possible omission. It must not generate Product Quality Requirements from the
-taxonomy, infer accepted desired state from code or telemetry, invent a target,
-create empty quality collections, or turn an unresolved need or risk into
+possible omission. It must not generate quality Requirements from the taxonomy,
+infer accepted desired state from code or telemetry, invent a target, create
+empty Requirement collections, or turn an unresolved need or risk into
 architecture truth without the same semantic authority.
 
 ISO/IEC/IEEE 42010 organizes architecture descriptions around stakeholders,
 concerns, viewpoints, and views without prescribing one document format.[^iso-42010]
 The information distinctions here serve the same selection purpose while
-making functional and product quality context explicit. Product Quality
-Requirement is a narrower application-profile concept, not a replacement for
+making functional and quality context explicit. Requirement is a narrower
+application-profile concept, not a replacement for
 the general stakeholder-concern vocabulary.
 
 ### Reconcile disagreement explicitly
@@ -363,9 +395,9 @@ be correct.
 
 The architecture docs become small enough to review and portable enough to survive
 refactoring. Readers can understand not only how the system is divided, but
-which functional behavior and product quality requirements justify the
-division. The approach avoids
-exhaustive requirements duplication and traceability machinery.
+which functional behavior and accepted requirements justify the
+division. The approach avoids duplicate Requirement authorities and exhaustive
+traceability machinery while permitting purposeful evaluation redundancy.
 
 The selectivity requires judgment. Some important context will be omitted until
 its absence causes friction. Documents can still drift, and teams must resolve
@@ -403,8 +435,12 @@ specification set; use those required artifacts when the context demands them.
 - **Forced symmetry:** every subject gets identical headings and empty views.
 - **Folder ontology:** directory ancestry is mistaken for the many-to-many
   relationships among architecture views.
-- **Split-view drift:** functional, quality, and architecture documents describe
-  the same claim independently instead of linking to one owner.
+- **Split-view drift:** architecture or Requirement-like documents maintain
+  competing normative formulations instead of linking to one Requirement
+  owner; distinct evaluations that repeat the predicate are not this failure.
+- **Hidden obligations:** an invariant, guarantee, prohibition, boundary rule,
+  failure outcome, or process rule remains binding architecture prose instead
+  of a subject-colocated Requirement.
 - **Prose as executable truth:** examples or copied contracts become a second
   implementation specification.
 - **Invisible system context:** readers cannot tell the lifecycle, ownership,
@@ -430,7 +466,7 @@ here as a candidate pending independent known uses.
 
 - [Software architecture overview](../overview.md)
 - [Invariants, preservation, and enforcement](../foundations/invariants-and-enforcement.md)
-- [Product quality in software architecture](../foundations/product-quality.md)
+- [Quality requirements in software architecture](../foundations/product-quality.md)
 - [Reviewing responsibilities with scenarios](../guides/reviewing-responsibilities-with-scenarios.md)
 - [Organizing an architecture docs corpus](../guides/organizing-an-architecture-docs-corpus.md)
 - [Software architecture docs application profile for OKF v0.2](software-architecture-application-profile.md)
@@ -445,7 +481,7 @@ here as a candidate pending independent known uses.
     risk rather than applying the same documentation burden to every project.
 [^iso-42010]: ISO/IEC/IEEE 42010 defines requirements for architecture
     descriptions and relates stakeholder concerns to viewpoints and views.
-[^product-quality]: Product quality in software architecture applies the
-    ISO/IEC 25010 product quality model selectively to accepted,
-    architecture-significant requirements and routes precise measures and
-    evidence to their owning authorities.
+[^product-quality]: Quality requirements in software architecture distinguishes
+    system, product, service, data, and use outcomes, applies quality models
+    selectively, and routes precise measures and evidence to their owning
+    authorities.

@@ -28,7 +28,7 @@ sources:
     title: "Danny Buerkli — Where the map ends: understanding Wardley maps' limitations"
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:53:22Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Wardley mapping
@@ -156,8 +156,8 @@ layers distinct:
 2. **Strategic choice** — where to invest, standardize, source, migrate,
    preserve optionality, or seek advantage.
 3. **Architectural consequence** — the accepted boundary, interface,
-   ownership, dependency direction, resilience measure, or reversibility
-   requirement produced by that choice.
+   ownership, dependency direction, or response produced by that choice, plus
+   any Requirement the choice sources, such as a reversibility obligation.
 4. **Evidence and review** — what supports the hypothesis and what change
    should reopen the choice.
 
@@ -193,9 +193,10 @@ Use [Capabilities in software
 architecture](capabilities.md) for outcome and interaction
 meaning, [Domain-driven design](domain-driven-design.md) for semantic and
 authority boundaries, the [C4 model](c4-model.md) for software structure, and
-[Product quality in software architecture](product-quality.md) for the
-accepted product quality requirements and architectural constraints that
-strategic choices must satisfy.
+[Quality requirements in software architecture](product-quality.md) for accepted
+quality Requirements, and [Documenting constraint
+requirements](../guides/documenting-architecture-constraints.md) for binding
+limitations that strategic choices must satisfy.
 
 [^wardley-map-grammar]: Wardley's introductory mapping chapter constructs a
     value chain from user needs and dependencies, then maps its components

@@ -22,7 +22,7 @@ sources:
     title: Context Mapper — Validating the Implementation against the Model
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-23T01:30:58Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Domain-driven design
@@ -134,19 +134,23 @@ on the subdomains and state the context's investment priority separately.
 ### Bounded contexts
 
 A **bounded context** defines where a particular model and its ubiquitous
-language apply. Inside the boundary, terms, policies, invariants, and sources of
-authority should be coherent. At the boundary, differences must be translated,
-validated, or deliberately shared.
+language apply. Inside the boundary, terms, policies, valid-state definitions,
+and sources of authority should be coherent. At the boundary, differences must
+be translated, validated, or deliberately shared. Accepted invariant and
+boundary obligations are Requirements of an eligible subject, normally the
+Bounded Context or a structural element; the context explains the model and
+authority that make those Requirements meaningful.
 
 Describe a bounded context through durable meaning:
 
-- the responsibility and outcomes it owns;
+- the responsibility and authority it owns;
 - its language and model;
 - the policy and state for which it is authoritative;
 - what it deliberately does not own;
-- facts it accepts from upstream contexts and promises it makes downstream;
-  and
-- translation, consistency, and failure obligations at material boundaries.
+- facts it accepts from upstream contexts and the relationships it maintains
+  downstream; and
+- linked Requirements for accepted translation, consistency, compatibility,
+  failure, recovery, or coordination obligations at material boundaries.
 
 A bounded context is not automatically a service, deployable, package, team,
 repository, or database schema. Those boundaries can align when doing so
@@ -226,13 +230,20 @@ objects refer to the aggregate through that root, and changes inside the
 boundary are coordinated through the root or another explicitly designated
 mechanism.[^evans-ddd-reference]
 
+An aggregate invariant may be an implementation or model condition, or it may
+realize an accepted Requirement. When the architecture corpus admits the
+preservation claim as desired state, the Requirement owns its normative
+predicate and the domain model explains the aggregate response.
+
 The aggregate is a consistency and authority boundary, not a convenient object
 graph. Make it only large enough to preserve the rules that require one
 synchronous decision. Rules spanning independently owned aggregates need an
 honest coordination model, narrower observation boundary, or progress
 guarantee; they should not be called immediately consistent by aspiration. See
 [Invariants, preservation, and enforcement](invariants-and-enforcement.md) for
-how to state those guarantees precisely.
+the preservation semantics and [Expressing
+invariants](../guides/expressing-invariants.md) for routing accepted guarantees
+to Requirements.
 
 ### Domain services, repositories, and factories
 
@@ -260,7 +271,7 @@ history, notification, or coordination depend on it.[^evans-ddd-reference]
 
 The domain event is not automatically an integration event. Crossing a bounded
 context may require translation into a published contract with different
-stability, privacy, delivery, and compatibility obligations. Nor does using
+stability, privacy, delivery, and compatibility Requirements. Nor does using
 domain events require storing state through event sourcing.
 
 ## Strategic and tactical design together

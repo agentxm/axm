@@ -1,5 +1,61 @@
 # Software architecture update log
 
+## 2026-08-25
+
+- **Profile 0.10.2 authority and witnesses**: Clarified that each accepted
+  obligation has one normative Requirement authority while tests and
+  evaluations may intentionally repeat its predicate as distinct witnesses;
+  split evaluation definitions, executions, results, observations, and
+  governance decisions without adding a representation migration.
+- **Profile 0.10.1 requirement classification**: Clarified that type follows
+  the primary accepted obligation rather than its source label, clause form,
+  concern name, or verification technique; no type, field, or path migration
+  is required.
+- **Standards crosswalk**: Added an ISO/IEC/IEEE 29148 and ISO/IEC 25030
+  crosswalk for functional, interface, performance, process, quality,
+  human-factors, usability, and constraint concerns, including invariant and
+  security boundary cases.
+- **Focused type guidance**: Added practical functional, process,
+  human-factors, and usability guides and expanded the quality and constraint
+  guides so all six profile types have a focused procedure.
+- **Human-centred boundary**: Added shared context-of-use guidance based on ISO
+  9241-11 to distinguish usability outcomes from broader human capabilities,
+  limitations, workload, safety, health, and environmental concerns.
+- **Quality scope**: Expanded the quality foundation beyond product quality to
+  distinguish quality in use, product quality, and data quality without
+  forcing every concern into ISO/IEC 25010 product-quality metadata.
+- **Profile 0.10.0**: Added the required root `System` concept and made
+  `Requirement` the single accepted-obligation type with `requirement_id`,
+  `requirement_type`, and explicit `subject`.
+- **Subject-centered requirements**: Colocated requirements beneath their
+  architecture subjects and organized them by functional, quality, process,
+  human-factors, usability, or constraint type; recursive surfaces now support
+  CLI command and subcommand navigation.
+- **Traceability**: Defined optional `requirement_sources` and `derived_from`
+  relations while keeping implementation and evidence backlinks out of the
+  authoritative requirement model.
+- **Consolidation**: Superseded Architecture Constraint, Product Quality
+  Requirement, and top-level `constraints/` and `quality/` collections without
+  compatibility aliases.
+- **Verification boundary**: Kept requirements verifiable but removed
+  verification-method metadata; evaluations reference stable requirement IDs
+  and generated living documentation remains a projection.
+- **Requirements engineering**: Added the iterative path from source concerns
+  through analysis, requirement verification and validation, acceptance,
+  architecture response, evidence, and controlled change.
+- **Requirement quality**: Turned the nine individual characteristics into
+  actionable review questions and repairs, distinguished them from product
+  quality Requirements, and added synthetic weak-to-strong examples.
+- **Set review**: Added bounded review for completeness, consistency, combined
+  feasibility, comprehensibility, and ability to satisfy source needs without
+  treating an open-world architecture corpus as a complete specification.
+- **Standards lifecycle**: Pinned the guidance to ISO/IEC/IEEE 29148:2018,
+  stated the narrower profile-conformance boundary, and added reassessment when
+  a successor edition or requirements model is published.
+- **Validation and example**: Extended the checker and synthetic corpus for the
+  five-concept kernel, requirement colocation, quality metadata, derivation
+  integrity, and removal of superseded representations.
+
 ## 2026-08-22
 
 - **Focused authoring coverage**: Added dedicated guides for every profile

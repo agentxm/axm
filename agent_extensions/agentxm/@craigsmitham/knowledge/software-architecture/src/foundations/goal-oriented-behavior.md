@@ -16,7 +16,7 @@ sources:
     title: Alistair Cockburn — Books
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-22T00:14:30Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Goal-oriented behavior and use cases
@@ -160,8 +160,11 @@ create a C4 Dynamic View for one named main or extension scenario. Identify:
 - the recovery or terminal outcome for an extension scenario.
 
 The use case owns the goal-oriented behavioral context. The dynamic view owns
-the selected collaboration. Tests, requirements, contracts, and runtime
-evidence own the exact cases and current facts they express better.
+the selected collaboration. Requirements own accepted obligations. Tests,
+contracts, and runtime evidence own the exact cases and current facts they
+express better. When a scenario exposes an independently accepted outcome, the
+Use Case links the Requirement rather than becoming its second normative
+authority.
 
 ## Relationship to architecture documentation
 

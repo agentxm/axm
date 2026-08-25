@@ -20,6 +20,12 @@ planning, or testing detail.
 
 - [Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md) - How to retain supplied findings, constraints, decisions, architecture and code sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
 
+When this bundle is used through the Gen Stack pack, every material item also
+receives a proportional Requirement-impact analysis. That cross-cutting guide
+lives in the Gen Stack knowledge bundle so its desired-state, architecture,
+and evaluation classifications have one authority rather than being repeated
+in each work-item type.
+
 ## Operational incidents
 
 - [Operational incident records](operational-incident-records.md) - How operational impact, service state, response state, and understanding evolve independently; how one incident identity coordinates several response surfaces; and why impact end, restoration, recovery, closure, and follow-up remain distinct.

@@ -1,25 +1,29 @@
 ---
 name: author-architecture-docs
-description: Creates, revises, organizes, and reviews explicitly requested repository software architecture concepts as a concise semantic delta within a required OKF v0.2 and software-architecture-docs profile corpus. Use for system lifecycle, ownership, decision policy, assurance, accepted ADRs, binding constraints, offerings, audiences, needs, jobs to be done, value propositions, use cases, product quality requirements, capabilities, features, surfaces, DDD bounded contexts, C4 systems/containers/components, Wardley views, and documentation structure. Not for initial architecture-doc setup or profile adoption, maintaining an established corpus, choosing an architecture, recording an unaccepted proposal as architecture, or implementing the system.
+description: Creates, revises, organizes, and reviews explicitly requested repository software architecture and Requirement concepts as a concise semantic delta within a required OKF v0.2 and software-architecture-docs profile corpus. Use for the System root, lifecycle, ownership, decision policy, assurance, accepted ADRs, requirements, value, behavior, capabilities, surfaces, DDD, C4, Wardley views, and documentation structure. Not for initial setup or profile adoption, maintaining an established corpus, choosing an architecture, recording an unaccepted proposal as architecture, or implementing the system.
 ---
 
 # Author architecture docs
 
 Create the smallest architecture-documentation improvement that preserves the
-accepted meaning needed to change a system safely without copying facts that
-executable or live sources own better.
+accepted meaning needed to change a system safely, keeps one normative owner
+for every obligation, and permits distinct implementation and evaluation
+witnesses.
 
-This skill is coupled to the software-architecture pack. From the active AXM
+This skill is coupled to the Gen Stack pack. From the active AXM
 scope root, choose the narrowest route below. For a named profile artifact,
 open its focused guide first; that guide routes to the normative profile and
 relevant foundation. Use the corpus-organization guide only when the requested
 artifact is the multi-view corpus itself; setup and ongoing maintenance belong
 to their dedicated skills. The bundle root is
-`.axm/extensions/@craigsmitham/knowledge/software-architecture/src/`.
+`knowledge/software-architecture/src/`.
 Always read
 `architecture-documentation/software-architecture-application-profile.md`
 for its current identity, conformance, corpus-wide, path, and validation rules;
-focused guides supply the narrower semantic procedure.
+focused guides supply the narrower semantic procedure. Read
+`knowledge/gen-stack/src/foundations/one-authority-many-witnesses.md` whenever
+the work distinguishes Requirements from tests, evaluations, implementation,
+or operational observations.
 
 The bundle currently labels itself Candidate, and its concept documents remain
 draft and not human-verified. That maturity label limits confidence in its
@@ -50,18 +54,25 @@ shared pack membership alone does not authorize composition.
 
 | Need | Concept path from the bundle root |
 | --- | --- |
+| Author or revise the documented System | `guides/documenting-systems.md` |
 | Author or revise system lifecycle | `guides/documenting-system-lifecycle.md` |
 | Author or revise system ownership | `guides/documenting-system-ownership.md` |
 | Author or revise architecture decision policy | `guides/documenting-architecture-decision-policies.md` |
 | Author or revise system assurance | `guides/documenting-system-assurance.md` |
 | Record one accepted architecture decision | `guides/documenting-architecture-decision-records.md` |
-| Document one binding architecture constraint | `guides/documenting-architecture-constraints.md` |
+| Author one Requirement | `guides/documenting-requirements.md` |
+| Classify a Requirement or resolve interface, performance, process, human-centred, usability, or constraint boundaries | `foundations/requirement-classification.md` |
+| Specialize a functional Requirement | `guides/documenting-functional-requirements.md` |
+| Specialize a process Requirement | `guides/documenting-process-requirements.md` |
+| Specialize a human-factors Requirement | `foundations/human-centred-requirements.md`, then `guides/documenting-human-factors-requirements.md` |
+| Specialize a usability Requirement | `foundations/human-centred-requirements.md`, then `guides/documenting-usability-requirements.md` |
+| Specialize a constraint Requirement | `guides/documenting-architecture-constraints.md` |
 | Understand what this knowledge bundle owns | `overview.md` |
 | Apply or explain the architecture-doc pattern | `architecture-documentation/just-enough-architecture-docs.md` |
 | State or review responsibilities, exclusions, authority, boundaries, state ownership, or dependency direction | `guides/reviewing-responsibilities-with-scenarios.md` |
-| Define or express an invariant | `foundations/invariants-and-enforcement.md`, then `guides/expressing-invariants.md` when authoring it |
+| Classify an invariant and author its Requirement or architecture response | `foundations/invariants-and-enforcement.md`, then `guides/expressing-invariants.md` |
 | Select stakeholder concerns or documentation views | `architecture-documentation/just-enough-architecture-docs.md` |
-| Author one Product Quality Requirement | `guides/documenting-product-quality-requirements.md` |
+| Specialize a quality Requirement | `guides/documenting-product-quality-requirements.md` |
 | Author one Offering | `guides/documenting-offerings.md` |
 | Author one Audience | `guides/documenting-audiences.md` |
 | Author one Need | `guides/documenting-needs.md` |
@@ -80,7 +91,7 @@ shared pack membership alone does not authorize composition.
 | Author one C4 View | `guides/documenting-c4-views.md` |
 | Clarify offerings, audiences, needs, value propositions, or use cases | `foundations/offerings-and-value.md` |
 | Clarify jobs, circumstances, forces of progress, or job maps | `foundations/jobs-to-be-done.md` |
-| Clarify product quality, ISO/IEC 25010 classification, architecture significance, measures, or evidence | `foundations/product-quality.md` |
+| Clarify system, product, service, data, or quality-in-use requirements; ISO/IEC 25010 classification; measures; or evidence | `foundations/product-quality.md` |
 | Clarify capabilities, features, applications, or actor-facing surfaces | `foundations/capabilities.md` |
 | Clarify DDD concepts and their relationships | `foundations/domain-driven-design.md` |
 | Clarify C4 abstractions, diagrams, dynamics, deployment, or shared modules | `foundations/c4-model.md` |
@@ -102,12 +113,19 @@ shared pack membership alone does not authorize composition.
    `reconcile-architecture-docs`. A validation result that is unavailable or
    cannot decide remains `unknown` in the handoff rather than becoming a
    different workflow or an inferred pass.
-2. **Confirm accepted meaning.** Architecture prose describes accepted desired
-   state. Keep an unaccepted option, proposed decision, investigation, or
-   delivery status in its own lifecycle. If a material responsibility,
-   boundary, behavior, quality constraint, or tradeoff is undecided, name the
-   gap and do not choose it merely to complete the document.
-3. **Choose the system, subject, and view.** Define the system of interest, then
+2. **Confirm accepted meaning and its owner.** Architecture concepts describe
+   accepted subjects, responsibility allocation, authority, boundaries,
+   relationships, decisions, and architectural responses. Requirement
+   concepts are the sole normative owner for accepted obligations of the
+   documented System and eligible architecture subjects. Treat an accepted
+   invariant, guarantee, prohibition, boundary rule, required failure or
+   recovery outcome, binding dependency direction, or independently maintained
+   system-work policy as a candidate Requirement even when existing prose does
+   not call it one. Keep an unaccepted option, proposed decision,
+   investigation, or delivery status in its own lifecycle. If material meaning
+   is undecided, name the gap and do not choose it merely to complete the
+   document.
+3. **Choose the system, subject, and view.** Define the documented System, then
    the outcome or policy the subject owns, its exclusions, and stakeholders.
    Distinguish offerings and value, capabilities, features, surfaces, domain
    contexts, and C4 elements; connect them with explicit relationships instead
@@ -118,7 +136,8 @@ shared pack membership alone does not authorize composition.
    passes the
    admission test, recommend it with rationale; do not create it without the
    user's explicit authoring intent. Do not create a taxonomy for symmetry.
-4. **Apply the admission test.** Include a claim only when it is accepted,
+4. **Apply the architecture-description admission test.** Include an
+   architecture claim only when it is accepted,
    consequential, durable through ordinary implementation change, difficult to
    infer reliably, unambiguously, and with reasonable effort from authoritative
    repository, generated, or live sources, and worth maintaining. Weigh the
@@ -126,24 +145,38 @@ shared pack membership alone does not authorize composition.
    cost. Exclude proposals, procedures, inventories, and transient
    implementation detail that fail this test. Recommend reduction or
    relocation beyond the authorized artifact; do not silently widen the edit.
+   Do not apply inferability as a reason to omit an accepted Requirement. An
+   obligation in the governed scope retains one Requirement authority even
+   when code or evaluations express the same predicate.
 5. **Write for human comprehension.** Lead with the subject's purpose,
    responsibility, boundary, and consequences. Prefer the shortest cohesive
    explanation and use a small table or diagram only when it materially makes
    relationships, hierarchy, or sequence easier to scan. Keep one
    independently addressable entity per concept document.
-6. **Write only useful functional and product quality meaning.** Connect
-   durable functional meaning and accepted Product Quality Requirements to
-   responsibilities, authority, boundaries, dependencies, state, invariants,
-   and accepted tradeoffs. Omit empty views. Never generate Product Quality
+6. **Write only useful requirement meaning.** Route each accepted obligation
+   to one subject-colocated Requirement. Classify it from the obligation's
+   primary meaning rather than its source label, clause form, concern name, or
+   verification technique; use the focused guide for its selected type. Let architecture explain
+   which subject owns the relevant responsibility, authority, boundary,
+   dependency, state, decision, tradeoff, and response, and link the
+   Requirement without repeating its binding predicate. An invariant is a
+   preservation semantic, not a parallel concept type: its accepted desired
+   state belongs in a Requirement, while domain models, schemas, code, tests,
+   or proofs may repeat, define, enforce, or establish it at their own
+   precision without becoming normative authority.
+   Omit empty views. Never generate quality
    Requirements from the ISO/IEC 25010 taxonomy, infer their acceptance from
-   code or telemetry, invent targets, or create empty quality collections.
+   code or telemetry, invent targets, or create empty Requirement collections.
    Explain why structure exists rather than cataloging components.
-7. **Route precision to its owner.** Link tests and examples for exact
-   scenarios, types and schemas for contracts, code and configuration for
-   current implementation, and telemetry for observed operation. Generate
-   current realization views when practical. State what each link establishes;
-   do not claim more evidence than it provides.
-8. **Preserve the required system-context kernel.** Keep lifecycle,
+7. **Route precision to its owner.** Link tests and examples for evaluation
+   definitions and exact scenarios, types and schemas for contracts, code and
+   configuration for current implementation, and telemetry for observed
+   operation. A test or evaluation that claims Requirement coverage MUST
+   reference `requirement_id` and MAY intentionally repeat its predicate.
+   Preserve that useful redundancy. Generate current realization views when
+   practical. State what each link establishes; do not claim more evidence
+   than it provides.
+8. **Preserve the required system-context kernel.** Keep System, lifecycle,
    ownership, architecture decision policy, and assurance in their exact root
    concepts. A bounded authoring request may revise one of them but MUST NOT
    move its meaning into an overview or C4 system. Containers and components
@@ -151,9 +184,10 @@ shared pack membership alone does not authorize composition.
    OKF `status` as system lifecycle or decision status, copy a volatile roster,
    represent a proposal as an ADR, or turn an internal choice into a binding
    constraint.
-9. **Reconcile disagreement explicitly.** When prose and observed evidence
-   differ, determine whether the implementation is wrong, the document is
-   obsolete, the evidence is insufficient, or accepted intent changed. Do not
+9. **Reconcile disagreement explicitly.** When authority and evidence differ,
+   determine whether the implementation is wrong, the evaluation is stale or
+   faulty, the Requirement is ambiguous, obsolete, or incorrect, evidence is
+   insufficient, external conditions changed, or accepted intent changed. Do not
    let the newest artifact silently win. Stop when resolution requires a new
    product or architecture decision.
 10. **Organize for progressive disclosure.** Preserve profile-permitted local
@@ -163,8 +197,9 @@ shared pack membership alone does not authorize composition.
    `use-cases/index.md` and `use-cases/<named-use-case>.md`, never
    `use-cases.md`. Keep the required `decisions.md` policy while adding the
    adjacent `decisions/` collection only with the first accepted ADR. Add
-   `constraints/` only with the first admitted constraint and never create
-   `constraints.md`. Omit all empty conditional collections. A same-named
+   subject-colocated `requirements/` only with the first accepted obligation;
+   never create top-level `constraints/` or `quality/`. Omit all empty
+   conditional collections. A same-named
    directory may elaborate one cohesive concept but must not conceal several
    peer entities.
    Keep C4 components beneath their owning container; model shared code as

@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-component
     title: Software architecture docs application profile — C4 Component
-generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting C4 components
@@ -37,15 +37,17 @@ a C4 component.
 4. State one concise active responsibility, its defined interface, material
    non-responsibilities, and consequential technology. Check that the name,
    interface, state, and dependencies align with the outcome, policy, state,
-   or invariant the component claims to own.
+   or authority the component claims to own.
 5. Identify dependencies and interactions by direction and meaning. Do not
    recursively contain components or duplicate one component under several
    containers.
 6. Inherit lifecycle, ownership, decision-policy, and assurance context through
    the owning container from the system's required root concepts. Record only
    a consequential exception.
-7. Link domain authority, capabilities, features, code evidence, and selected
-   component views, then update the owning components index.
+7. Link domain authority, capabilities, features, accepted Requirements, code
+   evidence, and selected component views. Explain the component's structural
+   response to linked invariant or guarantee Requirements without restating
+   their binding predicates, then update the owning components index.
 
 ## Final check
 

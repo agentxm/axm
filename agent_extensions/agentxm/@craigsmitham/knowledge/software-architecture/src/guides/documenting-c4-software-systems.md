@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-software-system
     title: Software architecture docs application profile — C4 Software System
-generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting C4 software systems
@@ -22,7 +22,7 @@ highest-level software boundary being described.
 ## Before you begin
 
 Confirm that the subject is a software system whose interactions matter to the
-chosen system of interest. Do not equate it automatically with an offering,
+documented System. Do not equate it automatically with an offering,
 capability, bounded context, repository, or organizational unit.
 
 ## Steps
@@ -32,18 +32,20 @@ capability, bounded context, repository, or organizational unit.
 2. Create its canonical file using the `C4 Software System` type and common
    fields from the [application profile](../architecture-documentation/software-architecture-application-profile.md#c4-software-system).
 3. State the value it delivers, its software boundary, and one concise active
-   responsibility naming the outcome, policy, state, or invariant it owns.
+   responsibility naming the outcome, policy, state, or authority it owns.
    Add material non-responsibilities instead of a list of current functions.
-4. Declare whether it is the system of interest or an external system relative
+4. Declare whether it is the primary software system or an external system relative
    to the documented scope.
 5. Identify people and software systems that interact directly with it and
    label the meaning of consequential interactions.
-6. For the system of interest, link the required root System Lifecycle, System
-   Ownership, Architecture Decision Policy, and System Assurance concepts.
+6. For the primary software system, link the required root System, System
+   Lifecycle, System Ownership, Architecture Decision Policy, and System Assurance concepts.
    Do not repeat their content here. For an external system, link a stable
    external authority only when its context is consequential and available.
-7. Link offerings, capabilities, domain concepts, current implementation
-   evidence, and selected views without making them C4 children. Update the
+7. Link offerings, capabilities, domain concepts, accepted Requirements,
+   current implementation evidence, and selected views without making them C4
+   children. An accepted invariant or guarantee is a Requirement of an
+   eligible subject, not part of the responsibility sentence. Update the
    systems index.
 
 ## Final check
@@ -51,7 +53,7 @@ capability, bounded context, repository, or organizational unit.
 - The concept is a software boundary with a clear responsibility.
 - Its material non-responsibilities keep adjacent ownership outside the
   boundary.
-- Its system-of-interest or external role is explicit.
+- Its primary or external role is explicit.
 - Interactors and relationship meanings are understandable.
 - The required root system context is discoverable without duplication.
 

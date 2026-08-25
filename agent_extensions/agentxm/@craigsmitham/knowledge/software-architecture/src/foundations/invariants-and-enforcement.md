@@ -31,7 +31,7 @@ sources:
     title: PostgreSQL — Constraints
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:43:26Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Invariants, preservation, and enforcement
@@ -52,6 +52,26 @@ exceed ordered quantity” can be one.
 
 For a practical authoring process, see [Expressing
 invariants](../guides/expressing-invariants.md).
+
+## Invariance is semantics, not a documentation authority
+
+An invariant describes preservation semantics. Its canonical owner depends on
+the role the claim plays:
+
+- an accepted condition that the documented System or an eligible
+  architecture subject must preserve is a Requirement;
+- a domain definition can be a source that explains valid state without
+  becoming a second binding formulation;
+- a loop, object, representation, or database invariant normally belongs to
+  the executable implementation authority; and
+- a stronger inductive or auxiliary invariant belongs to the proof or model
+  that uses it.
+
+Architecture identifies the subject, responsibility, state authority,
+observation boundary, and structural response. When the invariant is accepted
+desired state, the Requirement alone owns its normative predicate and stable
+identity. Architecture, enforcement, and evidence link to it rather than
+maintaining parallel formulas.
 
 ## An invariant is a predicate over named states
 
@@ -97,11 +117,12 @@ establish data invariants, and dependency rules preserve architectural
 invariants across implementation changes.
 
 The property people want to establish is not always strong enough to support
-an inductive argument. A **desired invariant** says what must always be true; an
-**inductive invariant** contains enough additional information to show that
-every transition preserves it. Proofs and model checkers may therefore need a
-stronger auxiliary invariant even when the public requirement should continue
-to state only the domain truth it protects.[^lamport-proving-safety]
+an inductive argument. A **desired invariant** says what the accepted
+Requirement obliges its subject to preserve; an **inductive invariant**
+contains enough additional information to show that every transition
+preserves it. Proofs and model checkers may therefore need a stronger auxiliary
+invariant even when the Requirement should continue to state only the domain
+truth it protects.[^lamport-proving-safety]
 
 ## Related correctness statements
 
@@ -188,9 +209,11 @@ Mechanically decidable architectural constraints belong in executable checks
 when practical, but enforcement should remain proportionate. Automate when
 violations are consequential, plausible, and objectively detectable. Leave
 judgment to review when context is essential or the mechanism would be more
-complex than the risk it controls. Prose should own the invariant's meaning,
-rationale, and scope; executable mechanisms should own their exact detection
-or enforcement logic rather than being copied into a second drifting formula.
+complex than the risk it controls. An admitted Requirement should own the
+invariant's normative predicate, rationale, and subject; architecture should
+explain its boundary and preservation response; executable mechanisms should
+own their exact detection or enforcement logic rather than being copied into a
+second drifting formula.
 
 An invariant without automatic enforcement can still be valid. Its owner
 should nevertheless know what evidence could reveal conformance or violation.

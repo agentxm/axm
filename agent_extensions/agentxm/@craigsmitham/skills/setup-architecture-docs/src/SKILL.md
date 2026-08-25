@@ -1,6 +1,6 @@
 ---
 name: setup-architecture-docs
-description: Plans or establishes the smallest discoverable, OKF v0.2 and software-architecture-docs profile-conforming architecture-documentation adoption with the required lifecycle, ownership, decision-policy, and assurance kernel for one or more repository systems. Use when asked to set up, adopt, initialize, migrate, plan, or connect architecture docs or Just Enough Architecture Docs. Not for choosing an architecture, inventing missing system context, assessing or repairing an established conforming corpus, or maintaining existing architecture docs.
+description: Plans or establishes the smallest discoverable, OKF v0.2 and software-architecture-docs profile-conforming architecture-documentation adoption with the required System, lifecycle, ownership, decision-policy, and assurance kernel for one or more repository systems. Use when asked to set up, adopt, initialize, migrate, plan, or connect architecture docs or Just Enough Architecture Docs. Not for choosing an architecture, inventing missing system context, assessing or repairing an established conforming corpus, or maintaining existing architecture docs.
 ---
 
 # Set up architecture docs
@@ -11,21 +11,23 @@ meaning or generating a documentation taxonomy.
 
 Setup succeeds when a future contributor or agent can discover which system or
 bounded authority each corpus describes, reach its one canonical root, find the
-required lifecycle, ownership, decision-policy, and assurance concepts plus any
+required System, lifecycle, ownership, decision-policy, and assurance concepts plus any
 admitted optional subjects, distinguish gaps and proposals from accepted
 meaning, and select the appropriate authoring or maintenance workflow. Every
 established corpus must also conform to OKF v0.2
 and the `software-architecture-docs` application profile. Files are evidence of
 that outcome, not the outcome by themselves.
 
-This skill is a non-standalone member of the software-architecture pack. From
+This skill is a non-standalone member of the Gen Stack pack. From
 the active AXM scope root, begin with
-`.axm/extensions/@craigsmitham/knowledge/software-architecture/src/guides/organizing-an-architecture-docs-corpus.md`.
+`knowledge/software-architecture/src/guides/organizing-an-architecture-docs-corpus.md`.
 Always open
 `architecture-documentation/software-architecture-application-profile.md`
 because it defines the required adoption and conformance contract.
 Open `architecture-documentation/just-enough-architecture-docs.md` when the
 adoption boundary, authority model, or admission test needs explanation.
+Read `knowledge/gen-stack/src/foundations/one-authority-many-witnesses.md` when
+mapping accepted obligations to existing tests or evaluations.
 
 ## Authority and modes
 
@@ -61,6 +63,8 @@ configuration, deployment boundaries, and workspace structure to identify
 plausible systems and the authorities that already own exact facts. Repository
 structure and implementation evidence may identify candidates; they do not by
 themselves accept a system boundary, desired-state claim, owner, or format.
+Tests and evaluations may repeat an accepted predicate and become linked
+witnesses, but they are not substitutes for its Requirement authority.
 
 Build one working adoption brief with these fields:
 
@@ -74,8 +78,11 @@ Build one working adoption brief with these fields:
   escalation routes;
 - architecture decision policy, including its record threshold, acceptance
   authority, location, minimum content, and reconsideration triggers;
-- assurance obligations, evidence authorities, required review or approval,
-  and reassessment triggers;
+- assurance confidence, evidence authorities, review or approval routes,
+  linked process Requirements when accepted, and reassessment triggers;
+- accepted obligations currently embedded in architecture prose, including
+  invariants, guarantees, prohibitions, boundary rules, required failure or
+  recovery outcomes, binding dependency directions, and system-work policies;
 - profile-permitted local choices and documentation review triggers; and
 - requested mode, expected effects, and repository-state playbook.
 
@@ -118,8 +125,8 @@ safe defaults. Do not create a competing repository-specific format, profile,
 instruction authority, or multi-system layout merely for symmetry or
 automation.
 
-Missing accepted lifecycle, ownership, decision-policy, or assurance meaning
-does not authorize invention. It is non-blocking for a read-only recommendation
+Missing accepted System, lifecycle, ownership, decision-policy, or assurance
+meaning does not authorize invention. It is non-blocking for a read-only recommendation
 or truthful migration assessment, but it blocks a claim that setup produced a
 profile-conforming corpus. Use accepted stable authorities when available;
 otherwise present the missing semantic decision or route it for bounded
@@ -163,7 +170,7 @@ before emitting the single **Recommendation** section.
 ## Apply the selected playbook
 
 For **Bootstrap**, create the canonical root `index.md`, the required
-`lifecycle.md`, `ownership.md`, `decisions.md`, and `assurance.md` concepts, and
+`system.md`, `lifecycle.md`, `ownership.md`, `decisions.md`, and `assurance.md` concepts, and
 the concise instruction discovery route. Populate every required concept only
 from accepted meaning or a bounded, justified absence. If any required meaning
 is unavailable, use **Recommend** or stop at the applicable decision gate; do
@@ -172,7 +179,7 @@ overview or conditional collection until accepted content passes the admission
 test.
 
 For **Connect**, preserve useful existing files and local organization. Create
-or populate the four required root concepts only by transferring accepted
+or populate the five required root concepts only by transferring accepted
 meaning from its current authority, then link other accepted material from the
 canonical root without moving, renaming, or rewriting it merely for cosmetic
 consistency. Treat material as an admitted profile concept only when repository
@@ -190,11 +197,17 @@ taxonomy unless separately accepted and authorized.
 For **Migrate**, preserve the established system boundary, corpus root,
 accepted meaning, and external authority routes. Add the required OKF and
 profile declaration, then repair only unambiguous metadata, navigation, and
-profile placement within the authorized setup surface. Establish the four
+profile placement within the authorized setup surface. Establish the five
 required root concepts only from accepted authority. Stop before any path,
 classification, split, merger, semantic-ownership transfer, ADR conversion, or
 constraint conversion unless the user explicitly authorized that migration
-class and scope. Until both conformance results pass, describe the material as
+class and scope. Treat moving an accepted invariant, guarantee, prohibition,
+boundary rule, required outcome, binding dependency direction, or system-work
+policy from architecture prose into a subject-colocated Requirement as a
+semantic-ownership transfer. When authorized, preserve the architecture
+subject's responsibility, boundary, decision, and response; link the new
+Requirement and remove only the duplicate normative formulation. Until both
+conformance results pass, describe the material as
 a corpus requiring migration rather than a valid alternative adoption.
 
 For **Recommend**, make no changes. Return the evidence-status adoption brief,
@@ -220,24 +233,25 @@ Create or revise each selected root `index.md` so it:
   violation as a deviation or waiver;
 - links every existing admitted architecture subject and states what each
   external authority route establishes;
-- links the required `lifecycle.md`, `ownership.md`, `decisions.md`, and
+- links the required `system.md`, `lifecycle.md`, `ownership.md`, `decisions.md`, and
   `assurance.md` concepts; and
-- requires review when accepted behavior, responsibility, boundary, Product
-  Quality Requirement, architecture consequence, or an evidence route changes.
+- requires review when accepted behavior, responsibility, boundary,
+  Requirement, architecture consequence, or an evidence route changes.
 
 Keep the root navigational; do not place substantive architecture entities in
 it or use `overview.md` as a catch-all. Create each required root singleton;
 do not create conditional collection directories without accepted content
-that passes the admission test. When a first accepted optional concept
+that passes its applicable architecture-description or Requirement admission
+test. When a first accepted optional concept
 already exists, preserve or recommend its stable canonical named file and add
 only the collection navigation it needs. Never create a plural catch-all such
-as `use-cases.md` for later splitting. Setup must not generate ISO/IEC 25010
-characteristic directories, Product Quality Requirements, a Product Quality
-View, or any other apparently complete taxonomy.
+as `use-cases.md` for later splitting. Setup must not generate empty
+Requirement collections, quality taxonomies, or any apparently complete
+specification.
 
 Add or update one concise route in the canonical persistent repository
 instructions. Map each documented system to its root and route contributors to
-the software-architecture pack. Preserve unrelated instructions and update an
+the Gen Stack pack. Preserve unrelated instructions and update an
 existing route in place. Do not copy the shared method, templates, or folder
 tree into repository instructions, and do not create competing host-specific
 instruction authorities.
@@ -253,11 +267,14 @@ existence:
   and the shared method;
 - every existing admitted subject is reachable and proposals remain outside
   accepted architecture;
-- the four required root concepts exist at their exact paths, are linked from
+- the five required root concepts exist at their exact paths, are linked from
   the root, and satisfy their semantic contracts from accepted authority;
 - a justified no-ADR policy has no empty `decisions/` collection, every local
-  ADR is a named accepted record under `decisions/`, every admitted constraint
-  is a named concept under `constraints/`, and `constraints.md` is absent;
+  ADR is a named accepted record under `decisions/`, and every Requirement is
+  colocated with its explicit eligible subject;
+- every accepted obligation has one Requirement authority, while architecture
+  concepts retain their distinct responsibility, authority, boundary,
+  decision, relationship, and response meaning;
 - no empty taxonomy, speculative overview, copied volatile inventory, inferred
   desired state, or competing setup was created;
 - the root explicitly adopts the installed profile version and every admitted
@@ -277,7 +294,7 @@ observation channel is unavailable, report the limitation and do not claim more
 than the retained evidence establishes.
 
 The pack-owned structural profile checker is
-`.axm/extensions/@craigsmitham/knowledge/software-architecture/scripts/validate-software-architecture-profile.py`.
+`knowledge/software-architecture/scripts/validate-software-architecture-profile.py`.
 Run it only after establishing its installed identity, dependency availability,
 and non-mutating behavior. It does not replace the separate base OKF result or
 the named manual semantic review required by the profile.

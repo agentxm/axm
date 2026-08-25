@@ -4,7 +4,7 @@ title: Confirm a reservation
 description: How a requester turns an eligible capacity hold into a confirmed reservation.
 tags: [reservation, requester, actor-goal]
 status: draft
-generated: { by: codex/gpt-5.6, at: 2026-08-22T00:17:07Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Confirm a reservation
@@ -22,6 +22,14 @@ generated: { by: codex/gpt-5.6, at: 2026-08-22T00:17:07Z }
 2. The platform confirms that the hold remains eligible.
 3. The platform records the reservation as confirmed.
 4. The platform returns the confirmation reference.
+
+## Material extension
+
+A confirmation rejected before confirmed state is a material extension. The
+required capacity-state outcome is owned by
+[RES-REQ-0001](../system/requirements/functional/rejected-confirmation-preserves-capacity.md);
+this use case supplies the actor-goal context and source scenario without
+duplicating the binding statement.
 
 Exact eligibility cases and interface contracts belong to executable tests and
 schemas; this concept owns only the durable actor goal and outcome.

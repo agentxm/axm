@@ -31,7 +31,7 @@ sources:
     title: Scaled Agile Framework — Features and Capabilities
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T23:53:22Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Capabilities in software architecture
@@ -47,8 +47,8 @@ software structure.
 
 ## A capability is an ability of a bearer
 
-A **capability** is an outcome-oriented ability that an identified bearer
-possesses or must possess. A useful capability therefore has four parts:
+A **capability** is an outcome-oriented ability of an identified bearer. A
+useful capability therefore has four parts:
 
 - a **bearer**, such as an organization, system, or subsystem;
 - an **ability**, expressed without prescribing its realization;
@@ -59,22 +59,23 @@ possesses or must possess. A useful capability therefore has four parts:
 Business-architecture sources commonly describe capabilities as what an
 organization must be able to do, independently of the processes, people, or
 technology that realize them.[^aws-caf][^sap-business-capability] Software
-architecture can apply the same distinction to a system of interest. For
+architecture can apply the same distinction to a documented System. For
 example, *capacity allocation* may be a capability of a reservation platform
 even though several organizational capabilities, product features, domain
 models, and runtime elements participate in providing it.
 
 An ability is not the same as its result. *Detect potentially fraudulent
 payments* is a capability; *reduce fraudulent loss* is an intended outcome.
-Nor is an ability the same as its assignment: a system may be responsible for
-providing a capability, but the responsibility is the obligation and the
-capability is the ability.
+Nor is an ability the same as its assignment or obligation: architecture may
+assign responsibility for providing a capability, while a Requirement states
+what an eligible subject shall do or be. The capability remains the ability.
 
-A capability may describe accepted desired state even when its realization is
+A capability may have durable identity even when its realization is
 incomplete. Maturity, capacity, current performance, and confidence are
-assessments of the capability, not part of its identity. Likewise, quality
-concerns such as latency, availability, and recoverability constrain how well
-the ability must be provided rather than becoming capabilities themselves.
+assessments of the capability, not part of its identity. A Requirement may
+oblige an eligible subject to provide the ability or constrain how well it is
+provided. Quality concerns such as latency, availability, and recoverability
+do not become capabilities themselves.
 
 ## Complementary architecture questions
 
@@ -240,7 +241,7 @@ Use the focused guides for [capabilities](../guides/documenting-capabilities.md)
 - [Domain-driven design](domain-driven-design.md)
 - [C4 model](c4-model.md)
 - [Wardley mapping](wardley-mapping.md)
-- [Product quality in software architecture](product-quality.md)
+- [Quality requirements in software architecture](product-quality.md)
 - [Organizing an architecture docs corpus](../guides/organizing-an-architecture-docs-corpus.md)
 
 [^aws-caf]: AWS Cloud Adoption Framework — Platform perspective

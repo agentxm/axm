@@ -1,8 +1,8 @@
 # Behavioral evaluation cases
 
-Run each prompt in a fresh agent context with the skill and the
-software-engineering knowledge bundle. Do not provide the expected output or
-assertions to the test agent. `evals.json` is the machine-readable authority.
+Run each prompt in a fresh agent context with the skill and the Gen Stack
+pack's knowledge bundles. Do not provide the expected output or assertions to
+the test agent. `evals.json` is the machine-readable authority.
 
 The cases cover defect evidence and hypotheses, feature-request need versus
 solution, a changing incident record, a brief-only rewrite, refusal to turn
@@ -15,10 +15,13 @@ question. Provenance cases cover a delayed Sentry investigation-to-Linear
 handoff, individually traceable source occurrences, explicit unavailable
 evidence, a non-monitoring defect without irrelevant monitoring fields,
 persisted-item readback that lost a source link, and a research summary that
-must not replace the authoritative source pointer.
+must not replace the authoritative source pointer. Gen Stack cases cover a
+failed evaluation that intentionally repeats an authoritative Requirement, a
+feature request whose Requirement impact remains provisional, and an
+implementation-only delivery change whose existing evaluations must be rerun.
 
 The suite passes when the selected artifact matches its lifecycle, facts and
 unknowns remain honest, supplied context is retained at its actual authority
 state, the brief is derived from the body, every material source remains
 traceable or explicitly unavailable, persisted readback is checked, and no
-product, design, priority, or delivery decision is invented.
+product, Requirement, design, priority, or delivery decision is invented.

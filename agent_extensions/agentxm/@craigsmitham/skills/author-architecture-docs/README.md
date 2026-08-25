@@ -3,9 +3,10 @@
 Creates and revises human-readable software architecture docs that preserve
 the smallest accepted semantic delta over repository and runtime authorities.
 
-Use it for required system lifecycle, ownership, decision-policy, and assurance
-concepts; accepted ADRs and binding constraints; responsibility and boundary
-documents; product quality requirements; corpus organization; offering and
+Use it for the required System, lifecycle, ownership, decision-policy, and assurance
+concepts; accepted ADRs and subject-colocated functional, quality, process,
+human-factors, usability, and constraint Requirements; responsibility and boundary
+documents; corpus organization; offering and
 value models; capability, feature, and surface models; DDD context views; C4
 model views; Wardley-informed strategic views; and focused document reviews.
 Do not use it for initial setup or whole-set maintenance, to choose among
@@ -32,34 +33,40 @@ Within the pack, initial adoption and system-to-corpus mapping belong to
 artifact belongs here; established-corpus health and repair belong to
 `reconcile-architecture-docs`.
 
-This skill is a non-standalone member of the software-architecture pack because
+This skill is a non-standalone member of the Gen Stack pack because
 it loads that pack's software-architecture knowledge.
 
-## Revision 3.1.0
+## Revision 4.1.0
 
-- Routes all six system-context, decision, and constraint types through focused
-  one-artifact guides rather than profile sections alone.
-- Adds behavioral coverage for concise System Ownership and Architecture
-  Decision Policy authoring, completing focused coverage for those six types.
-- Retains strict OKF v0.2 and profile `0.9.0` conformance without changing the
-  profile contract.
+- Routes the required System concept and unified Requirement type through
+  focused guides alongside the existing context and decision concepts.
+- Applies subject colocation, stable requirement IDs, six requirement types,
+  and restrained traceability without verification-method metadata.
+- Routes accepted invariants, guarantees, prohibitions, boundary rules, and
+  required failure or recovery outcomes to Requirements while architecture
+  concepts retain responsibility, authority, boundary, decision, and response.
+- Enforces OKF v0.2 and profile `0.10.2` conformance.
+- Keeps accepted Requirements even when code or tests expose the same
+  predicate, and preserves linked evaluation redundancy without creating a
+  second normative authority.
+- Routes classification and all six requirement types through focused guidance,
+  including explicit usability and human-factors boundaries.
 
-This is a nonbreaking authoring-guidance addition to `3.0.0`; rollback is to
-`3.0.0`.
-Behavioral regression and closure audit evidence must remain bound to the exact
-`3.1.0` package and suite identities.
+This is a breaking change from `3.1.0`; rollback is to `3.1.0` and profile
+`0.9.0`.
 
 ## Install
 
 ```bash
-axm install @craigsmitham/packs/software-architecture
+axm install @craigsmitham/packs/gen-stack
 ```
 
 ## Example
 
-> Revise `docs/architecture/reservations.md` so it preserves the accepted
-> reservation responsibility, recovery invariant, and evidence routes without
-> duplicating the state-machine tests.
+> Revise the reservation architecture docs so the C4 concept retains
+> reservation-state responsibility, the accepted recovery invariant has one
+> subject-colocated Requirement authority, and executable evidence remains
+> linked rather than copied.
 
 ## License
 

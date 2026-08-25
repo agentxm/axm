@@ -4,11 +4,11 @@
     {
       "id": 1,
       "prompt": "Set up Just Enough Architecture Docs in this repository. AGENTS.md already exists, the deployable application is the clear system boundary, and there are no architecture docs yet. The application is active with an ongoing change horizon, repository owners are the accepted maintenance and escalation route, repository review accepts architecture changes and requires an ADR only for durable consequential choices, and ordinary repository review is the accepted assurance obligation unless regulated or safety-relevant behavior enters scope. Keep it minimal.",
-      "expected_output": "A minimal conforming OKF v0.2 docs/architecture corpus with explicit software-architecture-docs profile adoption, the four required root context concepts, and a concise AGENTS.md discovery route, without invented meaning or empty conditional collections.",
+      "expected_output": "A minimal conforming OKF v0.2 docs/architecture corpus with explicit software-architecture-docs profile adoption, the five required root concepts, and a concise AGENTS.md discovery route, without invented meaning or empty conditional collections.",
       "assertions": [
         "The deployable application is recorded as the documented system boundary.",
         "The root index declares OKF v0.2, explicitly adopts and links the installed software-architecture-docs profile version, and links lifecycle.md, ownership.md, decisions.md, and assurance.md.",
-        "The four required concepts faithfully express the supplied accepted context, including the bounded ordinary-review assurance conclusion and its reassessment trigger.",
+        "The five required concepts faithfully express the supplied accepted System and context, including the bounded ordinary-review assurance conclusion and its reassessment trigger.",
         "AGENTS.md points to the architecture-doc root and shared pack without copying the portable method.",
         "No empty decisions, constraints, value, capability, feature, domain, structure, concern, or overview collection is created.",
         "The handoff states the resulting system-to-root mapping, verification performed, unresolved gaps, and appropriate next workflow in terms of what is now true."
@@ -49,13 +49,13 @@
         "The placement menu and graduated examples are treated as conditional guidance rather than mandatory scaffolding.",
         "No empty documentation collections are created.",
         "Microservices are not recorded as accepted architecture without authority.",
-        "The smallest valid adoption surface includes the four required root concepts but no unearned optional collection."
+        "The smallest valid adoption surface includes the five required root concepts but no unearned optional collection."
       ],
       "stage": "execution"
     },
     {
       "id": 5,
-      "prompt": "Connect our existing OKF v0.2 architecture docs to the software-architecture pack. They already declare the software architecture application profile and use docs/architecture/.",
+      "prompt": "Connect our existing OKF v0.2 architecture docs to the Gen Stack pack. They already declare the software architecture application profile and use docs/architecture/.",
       "expected_output": "Setup preserves the required OKF and profile contract and verifies base and profile conformance separately without treating either as optional.",
       "assertions": [
         "Existing OKF and current profile adoption are recognized as the required representation contract.",
@@ -144,7 +144,7 @@
       "assertions": [
         "The repository is classified as a connection case rather than a blank bootstrap or established-corpus maintenance case.",
         "One canonical system-to-root mapping is established without moving or rewriting the accepted input material.",
-        "The accepted boundary and decision route remain sources rather than substitutes for all four required root concepts.",
+        "The accepted boundary and decision route remain sources rather than substitutes for all five required root concepts.",
         "The missing lifecycle, ownership, and assurance conclusions remain visible and setup is not reported conforming.",
         "AGENTS.md gains one concise discovery route and no empty taxonomy is created."
       ],
@@ -322,8 +322,32 @@
         "Identity-changing splits or moves are presented as a required migration decision and are not performed without explicit authority.",
         "Setup is not reported complete while OKF or profile conformance fails or remains unknown."
       ]
+    },
+    {
+      "id": 22,
+      "stage": "execution",
+      "prompt": "Migrate our coherent legacy architecture corpus to the current software-architecture-docs profile. The accepted System boundary and all five kernel concepts are established. You are explicitly authorized to transfer semantic ownership of one accepted statement: the Payments context currently says that after every committed settlement, captured amount shall equal the sum of immutable allocations. Preserve the context's settlement-policy authority and the transaction-boundary response, move the binding invariant to one subject-colocated Requirement, update links and navigation, and leave unrelated prose unchanged.",
+      "expected_output": "A bounded profile migration that preserves the Payments context as architecture, gives the accepted invariant one subject-colocated Requirement authority, removes the duplicated normative formulation, and verifies the resulting adoption without widening scope.",
+      "assertions": [
+        "The accepted invariant becomes one Requirement with a stable ID, explicit Payments context subject, suitable requirement type, and committed-state observation boundary.",
+        "The Payments context retains settlement-policy authority and the architectural transaction-boundary response while linking the Requirement rather than duplicating its shall statement.",
+        "Only the earned requirement indexes and links are added, and unrelated architecture prose remains unchanged.",
+        "The handoff reports the semantic-ownership transfer separately from mechanical migration and reports OKF and profile verification independently."
+      ]
+    },
+    {
+      "id": 23,
+      "stage": "execution",
+      "prompt": "Migrate a coherent legacy corpus to the current profile. An accepted operations policy says failed deployment shall leave the active release unchanged, and a deployment test repeats that sentence with policy ID OPS-17. You are authorized to transfer the accepted obligation to a Requirement. Preserve the test as a linked evaluation witness and do not infer desired state from the test itself.",
+      "expected_output": "A migration that creates one Requirement authority from the accepted policy, preserves the identically worded test as a linked witness, removes only duplicate normative architecture prose, and verifies the new profile structure.",
+      "assertions": [
+        "The accepted policy, not the test, establishes the Requirement's normative authority and traceability.",
+        "The identically worded test is retained and linked to the stable requirement_id as an evaluation witness.",
+        "Only competing normative formulations are removed; purposeful evaluation redundancy remains.",
+        "The handoff reports OKF and profile results separately and does not claim the test proves Requirement acceptance."
+      ]
     }
   ],
-  "suite_version": "0.5.0",
+  "suite_version": "0.7.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

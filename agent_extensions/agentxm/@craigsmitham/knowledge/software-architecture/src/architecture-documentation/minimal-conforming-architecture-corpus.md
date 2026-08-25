@@ -13,33 +13,44 @@ sources:
     title: Just Enough Architecture Docs
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-23T01:30:58Z
+  at: 2026-08-25T19:19:59Z
 ---
 
 # Minimal conforming architecture corpus
 
 This reference gives profile authors and validators one complete, inspectable
-example rather than isolated fragments. It applies version 0.9.0 of the
+example rather than isolated fragments. It applies version 0.10.2 of the
 software architecture docs profile[^software-architecture-docs-profile] and
 keeps only meaning that passes the Just Enough Architecture Docs admission
 test.[^just-enough-architecture-docs]
 
-The subject is synthetic. It contains the four required root context concepts,
-one use case, one C4 Software System, one C4 Container, and one C4 Component:
-enough to exercise the mandatory kernel, behavioral identity, navigation, and
-both C4 containment rules without adding speculative concepts. The decision
-policy justifies why no local ADR is maintained. Architecture Constraints and
-Product Quality Requirements are deliberately absent, so their conditional
-collection and classification rules do not apply to this corpus.
+The subject is synthetic. It contains the five required root concepts, one
+system-wide functional Requirement, one use case, and three C4 elements: enough
+to exercise the mandatory kernel, requirement colocation, behavioral identity,
+navigation, and both C4 containment rules. The decision policy justifies why no
+local ADR is maintained.
+
+“Complete” describes the fixture as an inspectable profile example, not its
+requirements as a complete specification of the synthetic system. The one
+Requirement is a selected architecture-significant obligation; the fixture
+makes no bounded requirement-set completeness claim.
 
 ## Corpus tree
 
 ```text
 index.md
+system.md
 lifecycle.md
 ownership.md
 decisions.md
 assurance.md
+system/
+├── index.md
+└── requirements/
+    ├── index.md
+    └── functional/
+        ├── index.md
+        └── rejected-confirmation-preserves-capacity.md
 use-cases/
 ├── index.md
 └── confirm-reservation.md
@@ -69,12 +80,12 @@ examples from this document.
 
 | Property | Result |
 | --- | --- |
-| Assessment date | 2026-08-22 (America/Chicago) |
+| Assessment date | 2026-08-25 (America/Chicago) |
 | Assessor | `codex/gpt-5.6` |
 | Assessment kind | Author self-assessment; not independent verification |
 | OKF v0.2 result | Conforms for the linked fixture files |
-| Structural checker result | Passes `validate-software-architecture-profile.py` for version 0.9.0 |
-| Profile result | Conforms to applicable `software-architecture-docs` version 0.9.0 rules |
+| Structural checker result | Passes `validate-software-architecture-profile.py` for version 0.10.2 |
+| Profile result | Conforms to applicable `software-architecture-docs` version 0.10.2 rules |
 
 The assessment examined these rules manually:
 
@@ -83,7 +94,7 @@ The assessment examined these rules manually:
 - Every non-reserved concept file has a path-derived identity and the required
   `type`, `title`, `description`, and `status`; reserved `index.md` files remain
   navigational.
-- The root contains the required System Lifecycle, System Ownership,
+- The root contains the required System, System Lifecycle, System Ownership,
   Architecture Decision Policy, and System Assurance concepts at their exact
   paths, and the root index links each one.
 - The lifecycle states the support state, change horizon, expected evolution,
@@ -93,25 +104,43 @@ The assessment examined these rules manually:
 - The decision policy defines the ADR threshold, authority, minimum content,
   and reconsideration route, and justifies why no local ADR collection is
   currently required.
-- Assurance defines the applicable evidence and review obligations, explicitly
-  bounds its “no additional assurance” conclusion, and gives reassessment
-  triggers.
+- Assurance defines the applicable evidence and review route, explicitly
+  bounds its “no additional assurance” conclusion, and gives corpus-level
+  reassessment triggers without inventing a System obligation.
+- The Requirement has a unique stable identifier, valid functional type,
+  explicit System subject, matching subject-colocated path, singular `shall`
+  statement, rationale, and source link to the maintained Use Case.
+- The functional type follows the accepted state-preservation behavior rather
+  than the clause form, source heading, or comparison technique; no competing
+  quality, process, human-factors, usability, or constraint meaning is primary.
+- Individual manual review found the Requirement necessary relative to the
+  use-case extension, appropriate to the System subject, unambiguous and
+  complete for its synthetic condition and outcome, singular, feasible within
+  the stated synthetic boundary, verifiable by comparing the capacity
+  commitment before and after rejection, correct relative to its source, and
+  conforming to the profile style. This is author self-assessment, not
+  independent stakeholder validation or production feasibility evidence.
+- The fixture presents a selected requirement and does not claim that its
+  system requirements are complete, so the profile's bounded set-review rule
+  is not applicable.
 - Every concept is reachable from the root, and each present collection links
   its immediate concepts or narrower collection.
 - The Use Case states its subject boundary, primary actor role, actor goal,
-  successful outcome, goal scope, and main success scenario.
+  successful outcome, goal scope, and main success scenario. Its material
+  extension links the normative Requirement rather than restating its binding
+  predicate.
 - The C4 Software System states its boundary, responsibility, and material
   exclusions and links the required root context concepts rather than
-  duplicating their meaning.
+  duplicating their meaning. It links the System requirements as the normative
+  authority for accepted obligations.
 - The C4 Container identifies exactly one containing C4 Software System and
   does not contain another container.
 - The C4 Component's canonical path and body identify exactly one owning C4
   Container; it does not contain another component.
 - Current interfaces, protocols, deployments, packages, and test details are
   left with executable authorities rather than copied into the corpus.
-- No Architecture Decision Record, Architecture Constraint, or Product Quality
-  Requirement is present, so their conditional collection, exact ISO/IEC 25010
-  classification, and source-access rules are not applicable.
+- No Architecture Decision Record or quality Requirement is present, so their
+  conditional collection and quality-model classification rules do not apply.
 
 This report is evidence that the written example was checked against the named
 rules on the stated date. The structural result is executable authoring

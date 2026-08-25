@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "software-engineering",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
@@ -33,11 +33,11 @@
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "standalone": true,
   "recommendedPacks": [
-    "@craigsmitham/packs/software-engineering"
+    "@craigsmitham/packs/gen-stack"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/knowledge/software-engineering"
+    "directory": "knowledge/software-engineering"
   }
 }

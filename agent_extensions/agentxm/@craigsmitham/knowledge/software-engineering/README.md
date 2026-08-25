@@ -17,6 +17,13 @@ Install it with:
 axm install @craigsmitham/knowledge/software-engineering
 ```
 
+For the integrated Requirement, architecture, evaluation, and feedback method,
+install the recommended Gen Stack pack instead:
+
+```bash
+axm install @craigsmitham/packs/gen-stack
+```
+
 Then browse its discovery index or search installed concepts, for example:
 
 ```bash

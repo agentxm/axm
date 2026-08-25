@@ -2,14 +2,14 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "software-architecture",
-  "version": "3.1.0",
+  "version": "4.1.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views",
+  "description": "Human-first software architecture and requirements guidance with an OKF profile for systems, subject-colocated obligations, decisions, boundaries, and selected views",
   "keywords": [
     "software-architecture",
     "system-design",
@@ -21,7 +21,13 @@
     "system-ownership",
     "architecture-decisions",
     "architecture-assurance",
-    "architecture-constraints",
+    "requirements-engineering",
+    "requirement-traceability",
+    "requirement-classification",
+    "functional-requirements",
+    "process-requirements",
+    "human-factors-requirements",
+    "usability-requirements",
     "c4-model",
     "domain-driven-design",
     "capability-modeling",
@@ -32,6 +38,8 @@
     "use-cases",
     "quality-attributes",
     "product-quality",
+    "data-quality",
+    "constraint-requirements",
     "quality-requirements",
     "functional-semantics",
     "boundaries",
@@ -43,11 +51,11 @@
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "standalone": true,
   "recommendedPacks": [
-    "@craigsmitham/packs/software-architecture"
+    "@craigsmitham/packs/gen-stack"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/knowledge/software-architecture"
+    "directory": "knowledge/software-architecture"
   }
 }

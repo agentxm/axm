@@ -1,15 +1,15 @@
 ---
 type: Guide
 title: Documenting system assurance
-description: How to create the required System Assurance concept with explicit confidence, evidence, review or approval obligations, and reassessment triggers.
+description: How to create the required System Assurance concept with explicit confidence, evidence authorities, linked review or approval Requirements when applicable, and reassessment triggers.
 tags: [architecture-documentation, system-assurance, confidence, evidence, review, approval, authoring]
 status: draft
 sources:
   - resource: ../architecture-documentation/software-architecture-application-profile.md#system-assurance
     title: Software architecture docs application profile — System Assurance
   - resource: ../foundations/product-quality.md
-    title: Product quality in software architecture
-generated: { by: codex/gpt-5.6, at: 2026-08-23T02:10:17Z }
+    title: Quality requirements in software architecture
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting system assurance
@@ -22,10 +22,11 @@ which authorities establish it.
 
 ## Before you begin
 
-Identify accepted assurance obligations and the evidence, review, approval, or
-compliance authorities that own their exact criteria and current results. Do
-not infer an obligation from available tests or treat a passing check as proof
-that an assurance policy was accepted.
+Identify the accepted assurance context and the evidence, review, approval, or
+compliance authorities that own exact criteria and current results. Separate
+corpus-governance policy from independently maintained obligations on system
+work. Do not infer an obligation from available tests or treat a passing check
+as proof that an assurance policy was accepted.
 
 ## Steps
 
@@ -33,10 +34,12 @@ that an assurance policy was accepted.
    fields from the [application profile](../architecture-documentation/software-architecture-application-profile.md#system-assurance).
 2. State the confidence that must be established for architecture-significant
    change and the scope to which it applies.
-3. Link the authoritative tests, evaluations, Product Quality Requirements,
+3. Link the authoritative tests, evaluations, Requirements,
    compliance records, operational evidence, or other evidence routes.
-4. State any required review, approval, independence, or sign-off obligation
-   and the authority that owns it.
+4. For required review, approval, independence, or sign-off on system work,
+   link the process Requirement that owns the obligation. If no Requirement is
+   admitted because the rule is only corpus-governance policy, identify that
+   policy authority without presenting it as a system obligation.
 5. Name events that require reassessment, such as regulated data, safety
    relevance, external audit, changed criticality, or a new failure mode.
 6. When ordinary repository review is sufficient, state the bounded rationale,
@@ -47,7 +50,8 @@ that an assurance policy was accepted.
 ## Final check
 
 - Required confidence and affected scope are explicit.
-- Evidence routes and review or approval obligations have named authorities.
+- Evidence routes have named authorities, and independently maintained review
+  or approval obligations have one linked process Requirement authority.
 - A no-additional-assurance conclusion is bounded and justified, not bare
   `none` or `not applicable`.
 - Reassessment triggers are event-driven and consequential.
@@ -56,7 +60,7 @@ that an assurance policy was accepted.
 
 ## Related
 
-- [Product quality in software architecture](../foundations/product-quality.md)
+- [Quality requirements in software architecture](../foundations/product-quality.md)
 - [Documenting product quality requirements](documenting-product-quality-requirements.md)
 - [Documenting system lifecycle](documenting-system-lifecycle.md)
 - [Documenting architecture decision policies](documenting-architecture-decision-policies.md)

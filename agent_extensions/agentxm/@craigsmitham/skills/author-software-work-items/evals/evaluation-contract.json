@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, authority, boundary, execution, and evidence failures in author-software-work-items before release; this suite does not approve the skill.",
+  "decision": "Detect routing, authority, Requirement-impact, boundary, execution, and evidence failures in author-software-work-items before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "author-software-work-items",
     "required_result_fields": [
@@ -18,7 +18,7 @@
     ]
   },
   "scope": {
-    "intended_use": "Creating and revising evidence-rich software work items without advancing unsupported product, design, delivery, or incident decisions.",
+    "intended_use": "Creating and revising evidence-rich software work items with explicit Requirement, architecture, and evaluation impact without advancing unsupported product, design, delivery, or incident decisions.",
     "stages": [
       "routing",
       "execution"
@@ -47,7 +47,9 @@
     "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": [
-      ".axm/extensions/@craigsmitham/knowledge/software-engineering/src"
+      "knowledge/software-engineering/src",
+      "knowledge/gen-stack/src",
+      "knowledge/software-architecture/src"
     ]
   },
   "evidence": {
@@ -74,6 +76,7 @@
     "critical_gates": [
       "No undeclared external mutation",
       "No invented authority, evidence, or approval",
+      "Requirement authority remains distinct from evaluations",
       "Material originating evidence remains traceable",
       "Routing and execution claims remain distinct"
     ],
@@ -129,6 +132,11 @@
         "gate": "Routing and execution claims remain distinct",
         "case_id": 10,
         "assertion": "No task side effect occurs before selection."
+      },
+      {
+        "gate": "Requirement authority remains distinct from evaluations",
+        "case_id": 17,
+        "assertion": "The evaluation may retain the same predicate as an independent witness rather than being treated as duplicate Requirement authority."
       }
     ]
   },

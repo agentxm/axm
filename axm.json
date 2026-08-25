@@ -21,9 +21,8 @@
     "field-notes": "agentxm:@craigsmitham/packs/field-notes",
     "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
-    "software-engineering": "agentxm:@craigsmitham/packs/software-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
-    "software-architecture": "agentxm:@craigsmitham/packs/software-architecture",
-    "qrspi": "agentxm:@craigsmitham/packs/qrspi"
+    "qrspi": "agentxm:@craigsmitham/packs/qrspi",
+    "gen-stack": "agentxm:@craigsmitham/packs/gen-stack"
   }
 }

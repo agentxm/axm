@@ -9,7 +9,7 @@ sources:
     title: Software architecture docs application profile — System Ownership
   - resource: reviewing-responsibilities-with-scenarios.md
     title: Reviewing responsibilities with scenarios
-generated: { by: codex/gpt-5.6, at: 2026-08-23T02:10:17Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-25T19:19:59Z }
 ---
 
 # Documenting system ownership
@@ -34,11 +34,16 @@ owner.
 2. Name the stable role, team, or mechanism accountable for maintaining the
    documented system and its architecture meaning.
 3. Define the stewardship boundary: what this owner can decide or maintain and
-   which adjacent responsibilities remain elsewhere.
+   which adjacent responsibilities remain elsewhere. This assigns
+   accountability and authority; it is not a substitute for Requirements that
+   state independently maintained process obligations.
 4. State the continuity, transfer, or escalation route used when ownership is
    unavailable, disputed, or changing.
 5. Record only ownership conditions that materially affect safe change, such
    as a distinct subsystem owner or an external approval boundary.
+   Link a process Requirement when such a condition obliges system work to
+   obtain review, approval, transfer, or another independently evaluated
+   outcome.
 6. Link service catalogs, repository ownership rules, or team directories for
    current people and contact detail instead of copying them.
 7. Keep ADR thresholds and acceptance authority in `decisions.md`; ownership
@@ -51,6 +56,8 @@ owner.
 - Continuity, transfer, or escalation has a usable route.
 - No private individual, volatile roster, or on-call schedule is duplicated.
 - Ownership remains distinct from lifecycle, decision policy, and assurance.
+- Accountability assignments remain distinct from linked process
+  Requirements.
 
 ## Related
 

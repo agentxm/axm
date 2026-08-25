@@ -1,5 +1,12 @@
 # Software engineering update log
 
+## 2026-08-25
+
+- **Gen Stack composition**: Made the Gen Stack pack the recommended entry
+  point and connected work-item guidance to its single authoritative
+  Requirement-impact analysis rather than duplicating that classification in
+  every artifact guide.
+
 ## 2026-08-24
 
 - **Originating evidence**: Strengthened defect-report provenance so multiple

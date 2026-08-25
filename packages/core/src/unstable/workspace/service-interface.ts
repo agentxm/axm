@@ -174,6 +174,15 @@ export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
   /** Observes the start of rollback restoration; never controls it. */
   readonly onRestorationStarted?: Effect.Effect<void>;
+  /**
+   * When `false`, the transaction does not claim the shared settings and
+   * lockfile targets up front. A closure-scoped plan apply passes `false`:
+   * each closure protects the shared files at its own first touch, so a
+   * closure's rollback restores only its own delta and never tears an
+   * earlier closure's settled commit out of the shared files. Defaults to
+   * `true` — a direct transaction is one closure and claims them itself.
+   */
+  readonly claimDefaultTargets?: boolean;
 }
 
 export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(

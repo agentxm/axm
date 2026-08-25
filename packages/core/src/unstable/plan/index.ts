@@ -90,7 +90,9 @@ export type {
 // Operation journal — invocation-scoped progress record for interruption.
 export {
   OperationJournal,
-  appendCompletedUnit,
+  appendResolvedUnit,
+  appendStartedUnit,
+  recordJournalPhase,
   getOperationJournal,
   makeOperationJournal,
   recordOperationJournal,

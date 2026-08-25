@@ -210,9 +210,13 @@ export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
 export {
   protectCreatedAncestors,
   protectWorkspacePath,
+  readPendingClosureRestorationFailures,
   restorationIncompleteToAppError,
+  rollbackWorkspaceClosure,
   runWorkspaceTransaction,
+  settleWorkspaceClosure,
   surfaceRestorationIncomplete,
+  withWorkspaceClosure,
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";

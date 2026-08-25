@@ -57,7 +57,7 @@ export interface OperationLifecycleArgs {
   readonly planName: string;
   /**
    * The command family's statically declared atomicity, for a resolution
-   * produced before the journal exists. Defaults to `candidate-atomic`.
+   * produced before the journal exists. Defaults to `closure-atomic`.
    */
   readonly declaredAtomicity?: AtomicityClass;
   readonly presentation?: OperationPresentation;
@@ -69,7 +69,7 @@ const replayCommand = (command: string): string => `axm ${command.split(".").joi
  * Derive the terminal resolution for an externally interrupted invocation.
  * Before the journal exists nothing was planned or attempted: the resolution
  * carries the requested mode and the command family's declared atomicity —
- * never a hardcoded apply/candidate-atomic claim. Exported for direct tests
+ * never a hardcoded apply/closure-atomic claim. Exported for direct tests
  * of this mapping; not part of the module's public surface.
  *
  * @internal
@@ -90,9 +90,9 @@ export const interruptionResolution = (
       description: Option.none(),
       mode: args.mode,
       atomicity: {
-        declared: args.declaredAtomicity ?? "candidate-atomic",
+        declared: args.declaredAtomicity ?? "closure-atomic",
         // Nothing was attempted, so no durable effect was made or retained.
-        applied: "candidate-atomic",
+        applied: "closure-atomic",
       },
       units: [],
       presentation: args.presentation,
@@ -101,43 +101,85 @@ export const interruptionResolution = (
     });
   }
   const state = journal.value;
-  const completedUnits = executedUnits(
-    {
-      _tag: "ExecutedPlan",
+  const applying = state.phase === "apply" || state.phase === "restoration";
+  if (!applying) {
+    // Planning, preview, confirmation, or validation: nothing was attempted
+    // and the planned units stand as planned.
+    return makeOperationResolution<unknown>({
       name: state.name,
       description: state.description,
-      jobs: [{ concurrency: 1, steps: state.completed }],
-    },
-    { restored: state.restoresOnFailure },
+      mode: state.mode,
+      candidateId: state.candidateId,
+      atomicity: { declared: state.atomicity.declared, applied: "closure-atomic" },
+      units: state.plannedUnits,
+      presentation: state.presentation ?? args.presentation,
+      releaseAge: state.releaseAge,
+      preconditions: state.preconditions,
+      riskConditions: state.riskConditions,
+      interruption: { signal, disposition: "none" },
+      ...observedFootprint,
+    });
+  }
+  const resolvedUnits = executedUnits({
+    _tag: "ExecutedPlan",
+    name: state.name,
+    description: state.description,
+    jobs: [{ concurrency: 1, steps: state.resolved }],
+  });
+  // Closures settle independently: a settled commit stands as retained
+  // durable state regardless of the interruption, and a settled failure of a
+  // restoring apply had already rolled back only its own closure.
+  const settledUnits = resolvedUnits.map((unit) =>
+    unit.state === "committed"
+      ? { ...unit, disposition: "retained" as const }
+      : unit.state === "failed" && state.restoresOnFailure
+        ? { ...unit, disposition: "restored" as const }
+        : unit,
   );
-  const completedIds = new Set(state.completed.map((step) => unitIdOf(step)));
-  const notRun: ReadonlyArray<ResolvedUnit<unknown>> = state.applying
-    ? state.plannedUnits
-        .filter((unit) => !completedIds.has(unit.id))
-        .map((unit) => ({
-          ...unit,
-          state: "blocked",
-          message: "not attempted: the operation was interrupted",
-          blocking: {
-            class: "operation-aborted",
-            subject: unit.id,
-            phase: "apply",
-            detail: "not attempted: the operation was interrupted",
-            reference: "interruption",
-          },
-        }))
-    : state.plannedUnits;
-  const units = [...completedUnits, ...notRun];
-  const committed = completedUnits.filter((unit) => unit.state === "committed");
-  const disposition = state.restoresOnFailure
-    ? state.applying
-      ? "restored"
-      : "none"
-    : committed.length > 0
-      ? "retained"
-      : "none";
+  const resolvedIds = new Set(state.resolved.map((step) => unitIdOf(step)));
+  const startedIds = new Set(state.startedUnitIds);
+  // A started unit missing a settlement fact was in flight at the stopping
+  // point: its effects were restored by the closure's rollback, or their
+  // settlement was simply not observed — never "not attempted".
+  const inFlight: ReadonlyArray<ResolvedUnit<unknown>> = state.plannedUnits
+    .filter((unit) => startedIds.has(unit.id) && !resolvedIds.has(unit.id))
+    .map((unit) => ({
+      ...unit,
+      state: "interrupted",
+      disposition: state.restoresOnFailure ? "restored" : "unknown",
+      message: state.restoresOnFailure
+        ? "interrupted while in flight; effects were restored"
+        : "interrupted while in flight; settlement was not observed",
+    }));
+  const notStarted: ReadonlyArray<ResolvedUnit<unknown>> = state.plannedUnits
+    .filter((unit) => !startedIds.has(unit.id) && !resolvedIds.has(unit.id))
+    .map((unit) => ({
+      ...unit,
+      state: "blocked",
+      message: "not attempted: the operation was interrupted",
+      blocking: {
+        class: "operation-aborted",
+        subject: unit.id,
+        phase: "apply",
+        detail: "not attempted: the operation was interrupted",
+        reference: "interruption",
+      },
+    }));
+  const units = [...settledUnits, ...inFlight, ...notStarted];
+  const committed = settledUnits.filter((unit) => unit.state === "committed");
+  // Unknown dominates — durable state may exist beyond what settled. With
+  // everything settled or restored, retained commits are the headline;
+  // restored in-flight work without commits reports restored.
+  const disposition =
+    inFlight.length > 0 && !state.restoresOnFailure
+      ? "unknown"
+      : committed.length > 0
+        ? "retained"
+        : inFlight.length > 0 || (state.resolved.length > 0 && state.restoresOnFailure)
+          ? "restored"
+          : "none";
   const recovery: OperationRecovery | undefined =
-    disposition === "retained"
+    disposition === "retained" || disposition === "unknown"
       ? {
           retained: committed.flatMap((unit) =>
             unit.artifact === undefined ? [unit.id] : [unit.artifact.path],
@@ -157,7 +199,14 @@ export const interruptionResolution = (
     candidateId: state.candidateId,
     atomicity: {
       declared: state.atomicity.declared,
-      applied: disposition === "retained" ? "non-rollbackable" : "candidate-atomic",
+      // A restoring apply keeps its closure-atomic promise: settled commits
+      // stand and everything else was restored. Only unobserved settlement
+      // or non-rollbackable retention downgrade the applied class.
+      applied: state.restoresOnFailure
+        ? "closure-atomic"
+        : disposition === "retained" || disposition === "unknown"
+          ? "non-rollbackable"
+          : "closure-atomic",
     },
     units,
     presentation: state.presentation ?? args.presentation,

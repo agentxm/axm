@@ -169,8 +169,8 @@ const expectPlanCounts = (result: unknown, expected: Readonly<Record<string, num
 };
 
 const expectPlanContract = (result: unknown): void => {
-  if (property(result, "contract") !== "plan-result-v2") {
-    throw new Error("Expected plan-result-v2 contract");
+  if (property(result, "contract") !== "plan-result-v3") {
+    throw new Error("Expected plan-result-v3 contract");
   }
 };
 

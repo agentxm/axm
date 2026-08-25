@@ -83,7 +83,7 @@ describe("axm sync configured GitHub skills", () => {
       expect(JSON.parse(assertion.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "previewed",
           mode: "preview",
           divergence: true,
@@ -124,7 +124,7 @@ describe("axm sync configured GitHub skills", () => {
       expect(convergedDocument).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "no-op",
           counts: { total: 0, committed: 0 },
         },

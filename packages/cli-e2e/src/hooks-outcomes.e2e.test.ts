@@ -108,7 +108,7 @@ describe("hook configured-agent outcomes", () => {
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       expect(JSON.parse(preview.stdout)).toMatchObject({
         ok: true,
-        result: { contract: "plan-result-v2", outcome: "previewed", mode: "preview" },
+        result: { contract: "plan-result-v3", outcome: "previewed", mode: "preview" },
       });
       expect(agentOutcomes(preview.stdout)).toMatchObject([
         { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
@@ -128,7 +128,7 @@ describe("hook configured-agent outcomes", () => {
       expect(JSON.parse(applied.stdout)).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "applied",
           mode: "apply",
           counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
@@ -208,7 +208,7 @@ describe("hook configured-agent outcomes", () => {
       expect(JSON.parse(blockedApply.stdout)).toMatchObject({
         ok: false,
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "blocked",
           blocking: { class: "precondition-unmet", subject: "hook:enforce" },
           counts: { committed: 0 },

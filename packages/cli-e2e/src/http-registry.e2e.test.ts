@@ -1,6 +1,8 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -749,6 +751,120 @@ describe("HTTP registry transport", () => {
     } finally {
       await registry.close();
       workspace.cleanup();
+    }
+  });
+
+  // The registry stores the version but its response never arrives, and the
+  // interruption lands in exactly that window. Only evidenced states may be
+  // reported: the upload's outcome is indeterminate, and the credential-free
+  // recovery command verifies the committed version instead of blindly
+  // re-uploading a replay-unsafe mutation.
+  it("C-15: reports an indeterminate outcome when the registry commits before its response", async () => {
+    const registry = await startHttpRegistry({
+      commitThenHangPublishOnce: ["skills/ambiguous"],
+    });
+    const workspace = createTempDir();
+    const userHome = createTempDir();
+
+    const cliPath = fileURLToPath(new URL("../../cli/dist/src/main.js", import.meta.url));
+    const interruptOnHungPublish = (
+      args: ReadonlyArray<string>,
+      hung: Promise<string>,
+    ): Promise<{
+      readonly code: number | null;
+      readonly stdout: string;
+      readonly stderr: string;
+    }> =>
+      new Promise((resolve, reject) => {
+        const { FORCE_COLOR: _forceColor, ...parentEnv } = process.env;
+        const child = spawn("bun", ["run", cliPath, ...args], {
+          cwd: workspace.path,
+          env: {
+            ...parentEnv,
+            ...registryEnv(registry.url),
+            AXM_TELEMETRY: "0",
+            AXM_USER_HOME: userHome.path,
+            HOME: userHome.path,
+            NO_COLOR: "1",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk: Buffer | string) => {
+          stdout += chunk.toString();
+        });
+        child.stderr.on("data", (chunk: Buffer | string) => {
+          stderr += chunk.toString();
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+        void hung.then(() => child.kill("SIGINT"));
+      });
+
+    try {
+      await initWorkspace(workspace.path, registry.url);
+      const created = await runCli(
+        ["skills", "new", "ambiguous", "--owner", OWNER, "--agent", "claude-code", "--yes"],
+        { cwd: workspace.path, env: registryEnv(registry.url) },
+      );
+      expect(created.exitCode, created.stderr).toBe(0);
+
+      const hung = registry.nextHungPublish();
+      const interrupted = await interruptOnHungPublish(
+        ["publish", `${OWNER}/skills/ambiguous`, "--yes", "--json"],
+        hung,
+      );
+      expect(interrupted.code, interrupted.stdout + interrupted.stderr).toBe(130);
+      // The registry committed the version even though no response was
+      // recorded on the client.
+      expect(registry.publishes).toHaveLength(1);
+
+      const output: unknown = JSON.parse(interrupted.stdout);
+      if (!isRecord(output) || !isRecord(output["result"])) {
+        throw new Error("Expected an interrupted publish result document");
+      }
+      const result = output["result"];
+      expect(result["contract"]).toBe("publish-result-v3");
+      expect(result["interruption"]).toEqual({ signal: "SIGINT" });
+      expect(result["execution"]).toMatchObject({
+        status: "partial",
+        outcomes: [
+          {
+            name: "ambiguous",
+            action: "publish",
+            status: "unknown",
+            reason: "interrupted",
+          },
+        ],
+      });
+      expect(result["counts"]).toMatchObject({ published: 0, failed: 0, unknown: 1 });
+      const recovery = result["recovery"];
+      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
+        throw new Error("Expected a credential-free recovery command");
+      }
+      expect(recovery["cmd"]).toContain("axm publish");
+      expect(recovery["remainingItems"]).toEqual([`${OWNER}/skills/ambiguous`]);
+
+      // The recovery run verifies the committed version byte-for-byte
+      // instead of re-uploading: no second publish reaches the registry.
+      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
+      const recovered = await runCli(recoveryArgs, {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(recovered.exitCode, recovered.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(1);
+      expect(JSON.parse(recovered.stdout).result.counts).toMatchObject({
+        published: 0,
+        alreadyPublished: 1,
+        failed: 0,
+        unknown: 0,
+      });
+    } finally {
+      userHome.cleanup();
+      workspace.cleanup();
+      await registry.close();
     }
   });
 

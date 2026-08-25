@@ -166,6 +166,23 @@ const applyReadinessGate = <Output>(
     ),
   );
 
+/**
+ * Run one unit with its start and settlement observations. The started fact
+ * is recorded before the run begins, and the settlement fact is recorded
+ * before any interruptible boundary follows the run's completion — an
+ * interrupt arriving with the completion can otherwise erase the only
+ * in-memory evidence that the unit's durable effect was committed. The run
+ * itself stays interruptible; the mask covers only the observations.
+ */
+const runStepObserved = <Requirements, Output>(
+  step: PlannedJobStep<Requirements, Output>,
+  observeStart: (step: StartedJobStep) => Effect.Effect<void>,
+  observeStep: (step: CompletedJobStep<Output>) => Effect.Effect<void>,
+): Effect.Effect<CompletedJobStep<Output>, never, Requirements> =>
+  Effect.uninterruptibleMask((restore) =>
+    observeStart(step).pipe(Effect.andThen(restore(executeStep(step))), Effect.tap(observeStep)),
+  );
+
 const executeFailFastJob = <Requirements, Output>(
   job: Job<Requirements, Output>,
   observeStart: (step: StartedJobStep) => Effect.Effect<void>,
@@ -182,13 +199,11 @@ const executeFailFastJob = <Requirements, Output>(
           ...(failedStepId === undefined ? {} : { reference: failedStepId }),
         });
         completed.push(blocked);
-        yield* observeStep(blocked);
+        yield* Effect.uninterruptible(observeStep(blocked));
         continue;
       }
-      yield* observeStart(step);
-      const result = yield* executeStep(step);
+      const result = yield* runStepObserved(step, observeStart, observeStep);
       completed.push(result);
-      yield* observeStep(result);
       if (result.result.result === "error" && !failed) {
         failed = true;
         failedStepId = result.key ?? result.label;
@@ -202,11 +217,9 @@ const executeBestEffortJob = <Requirements, Output>(
   observeStart: (step: StartedJobStep) => Effect.Effect<void>,
   observeStep: (step: CompletedJobStep<Output>) => Effect.Effect<void>,
 ): Effect.Effect<ReadonlyArray<CompletedJobStep<Output>>, never, Requirements> =>
-  Effect.forEach(
-    job.steps,
-    (step) => observeStart(step).pipe(Effect.andThen(executeStep(step)), Effect.tap(observeStep)),
-    { concurrency: job.concurrency },
-  );
+  Effect.forEach(job.steps, (step) => runStepObserved(step, observeStart, observeStep), {
+    concurrency: job.concurrency,
+  });
 
 const executeDependencyAwareJob = <Requirements, Output>(
   job: Job<Requirements, Output>,
@@ -220,10 +233,8 @@ const executeDependencyAwareJob = <Requirements, Output>(
     const completed = new Map<string, CompletedJobStep<Output>>();
     const unkeyed = job.steps.filter((step) => step.key === undefined);
     for (const step of unkeyed) {
-      yield* observeStart(step);
-      const result = yield* executeStep(step);
+      const result = yield* runStepObserved(step, observeStart, observeStep);
       completed.set(`label:${step.label}`, result);
-      yield* observeStep(result);
     }
 
     while ([...stepsByKey.keys()].some((key) => !completed.has(key))) {
@@ -249,7 +260,7 @@ const executeDependencyAwareJob = <Requirements, Output>(
           blockedBy,
         );
         completed.set(key, blocked);
-        yield* observeStep(blocked);
+        yield* Effect.uninterruptible(observeStep(blocked));
       }
 
       const ready = remaining.filter(
@@ -279,8 +290,7 @@ const executeDependencyAwareJob = <Requirements, Output>(
       }
       const results = yield* Effect.forEach(
         ready,
-        ([, step]) =>
-          observeStart(step).pipe(Effect.andThen(executeStep(step)), Effect.tap(observeStep)),
+        ([, step]) => runStepObserved(step, observeStart, observeStep),
         { concurrency: job.concurrency },
       );
       for (const result of results) {

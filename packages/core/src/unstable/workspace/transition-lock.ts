@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off — proper-lockfile requires a callback-style fs; the adapter is confined to the lock path
 /**
  * Workspace transition lock.
  *
@@ -18,9 +19,16 @@
  * The lock file lives at `.axm/tmp/workspace-transition.lock`; its path is
  * load-bearing for operational tooling and must not move casually.
  *
+ * Acquisition is atomic with respect to interruption: the narrow region from
+ * the library granting the hold through finalizer registration is masked, so
+ * an interrupt can never strand a granted lock, while contention waits stay
+ * interruptible. Only the lock-is-held error class is absorbed by the bounded
+ * wait; any other acquisition error surfaces immediately as a typed failure.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as nodeFs from "node:fs";
 import { randomBytes } from "node:crypto";
 
 import * as Data from "effect/Data";
@@ -111,6 +119,50 @@ const errorCode = (cause: unknown): string | undefined =>
 
 export const transitionLockPath = (path: Path.Path, workspaceDir: string): string =>
   path.join(workspaceDir, "tmp", TRANSITION_LOCK_FILENAME);
+
+/**
+ * The filesystem handed to `proper-lockfile`. Identical to the platform fs
+ * except that removing a transition-lock directory first clears the tool's
+ * own holder metadata inside it. The library reclaims a stale lock and
+ * releases a held one with a non-recursive `rmdir`; without this, a lock
+ * directory left by a crashed process — which always still contains
+ * `holder.json` — could never be reclaimed, and every later mutation would
+ * wait out its bound and report a false contention. Removal stays
+ * non-recursive past that one owned name, so foreign content keeps blocking
+ * removal the way it always did.
+ */
+const lockDirectoryFs = {
+  ...nodeFs,
+  rmdir: (target: nodeFs.PathLike, callback: nodeFs.NoParamCallback): void => {
+    if (typeof target === "string" && target.endsWith(TRANSITION_LOCK_FILENAME)) {
+      nodeFs.unlink(`${target}/holder.json`, () => {
+        nodeFs.rmdir(target, callback);
+      });
+      return;
+    }
+    nodeFs.rmdir(target, callback);
+  },
+  rmdirSync: (target: nodeFs.PathLike): void => {
+    if (typeof target === "string" && target.endsWith(TRANSITION_LOCK_FILENAME)) {
+      try {
+        nodeFs.unlinkSync(`${target}/holder.json`);
+      } catch {
+        // Absent metadata blocks nothing; foreign content still blocks rmdir.
+      }
+    }
+    nodeFs.rmdirSync(target);
+  },
+};
+
+/**
+ * Acquisition-error classes the bounded contention wait absorbs: the lock is
+ * held (`ELOCKED`), or the attempt raced the holder's own acquire, release,
+ * or staleness sweep (`ENOENT`/`EEXIST` from proper-lockfile's internal
+ * stat-remove-retry). Every other class — permissions, foreign state
+ * squatting the path — is not resolved by waiting and surfaces immediately.
+ */
+const isContentionErrorCode = (code: string | undefined): boolean =>
+  code === "ELOCKED" || code === "ENOENT" || code === "EEXIST";
 
 const readHolder = (
   fs: FileSystem.FileSystem,
@@ -232,96 +284,125 @@ export const acquireWorkspaceTransitionLock = (args: {
     let waitedMillis = 0;
     let reportedWaiting = false;
     while (true) {
-      const attempt = yield* Effect.tryPromise({
-        try: () =>
-          lockfile.lock(workspaceDir, {
-            lockfilePath: lockPath,
-            realpath: false,
-            retries: 0,
-            stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
-            update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
-            // The default handler throws inside a timer: an uncatchable crash
-            // that sprays raw frames on stderr. Complete the typed compromise
-            // signal instead — the workspace transaction races against it and
-            // never continues mutating after ownership is lost.
-            onCompromised: (cause) => {
-              Deferred.doneUnsafe(
-                compromisedSignal,
-                Effect.fail(new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause })),
-              );
-            },
-          }),
-        catch: (cause) => ({ cause, code: errorCode(cause) }),
-      }).pipe(Effect.result);
-      if (attempt._tag === "Success") {
-        const release = attempt.success;
-        const token = randomBytes(16).toString("hex");
-        const holderWrite = yield* writeHolder(fs, path, lockPath, {
-          ...args.holder,
-          token,
-        }).pipe(Effect.result);
-        if (holderWrite._tag === "Failure") {
-          // The holder metadata is the only ownership evidence this
-          // acquisition will ever have; holding without it would be
-          // indistinguishable from a successor's half-written acquisition.
-          // Release the lock and fail rather than hold anonymously.
-          yield* Effect.tryPromise({
-            try: () => release(),
-            catch: (cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to release workspace transition lock at ${lockPath}`,
-                cause,
+      // One attempt is atomic with respect to interruption: from the library
+      // granting the hold through finalizer registration there is no
+      // interruptible gap, so an interrupt requested mid-acquisition defers
+      // until the release finalizer exists and then releases through it. The
+      // mask stays narrow — a single no-retry grant plus two local writes —
+      // and the contention wait below remains interruptible.
+      const attempt = yield* Effect.uninterruptible(
+        Effect.gen(function* () {
+          const granted = yield* Effect.tryPromise({
+            try: () =>
+              lockfile.lock(workspaceDir, {
+                lockfilePath: lockPath,
+                realpath: false,
+                retries: 0,
+                fs: lockDirectoryFs,
+                stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
+                update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
+                // The default handler throws inside a timer: an uncatchable
+                // crash that sprays raw frames on stderr. Complete the typed
+                // compromise signal instead — the workspace transaction races
+                // against it and never continues mutating after ownership is
+                // lost.
+                onCompromised: (cause) => {
+                  Deferred.doneUnsafe(
+                    compromisedSignal,
+                    Effect.fail(
+                      new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause }),
+                    ),
+                  );
+                },
               }),
-          }).pipe(Effect.ignore);
-          yield* removeEmptyScratch;
-          yield* removeNewEmptyWorkspace;
-          return yield* holderWrite.failure;
-        }
-        heldTransitions.set(workspaceDir, {
-          compromised: Deferred.await(compromisedSignal),
-          isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
-        });
-        yield* Effect.addFinalizer(() =>
-          Effect.gen(function* () {
-            heldTransitions.delete(workspaceDir);
-            // Removal requires an exact owner-token match, proven before
-            // release() — which would remove the directory unconditionally.
-            // Absent or unreadable holder metadata is indistinguishable from
-            // a successor that reclaimed the stale hold but has not yet
-            // written its holder file, and is never license to remove; the
-            // unowned in-process bookkeeping self-resolves as compromised on
-            // its next update tick without touching the directory.
-            const residualHolder = yield* readHolder(fs, path, lockPath);
-            const ownsResidual = Option.match(residualHolder, {
-              onNone: () => false,
-              onSome: (value) => value.token === token,
-            });
-            if (ownsResidual) {
-              yield* Effect.tryPromise({
-                try: () => release(),
-                catch: (cause) =>
-                  makeAppError({
-                    code: "internal",
-                    detail: `Failed to release workspace transition lock at ${lockPath}`,
-                    cause,
-                  }),
-              }).pipe(Effect.ignore);
-              // A compromised hold makes release() refuse; the directory is
-              // still ours by exact token match — remove it directly.
-              yield* fs.remove(lockPath, { recursive: true, force: true }).pipe(Effect.ignore);
+            catch: (cause) => ({ cause, code: errorCode(cause) }),
+          }).pipe(Effect.result);
+          if (granted._tag === "Failure") {
+            if (isContentionErrorCode(granted.failure.code)) {
+              return { _tag: "held" } as const;
             }
-            yield* removeEmptyScratch;
-            yield* removeNewEmptyWorkspace;
-          }),
-        );
+            return {
+              _tag: "failed",
+              error: makeAppError({
+                code: "internal",
+                detail: `Failed to acquire the workspace transition lock at ${lockPath}`,
+                cause: granted.failure.cause,
+              }),
+            } as const;
+          }
+          const release = granted.success;
+          const token = randomBytes(16).toString("hex");
+          const holderWrite = yield* writeHolder(fs, path, lockPath, {
+            ...args.holder,
+            token,
+          }).pipe(Effect.result);
+          if (holderWrite._tag === "Failure") {
+            // The holder metadata is the only ownership evidence this
+            // acquisition will ever have; holding without it would be
+            // indistinguishable from a successor's half-written acquisition.
+            // Release the lock and fail rather than hold anonymously.
+            yield* Effect.tryPromise({
+              try: () => release(),
+              catch: (cause) =>
+                makeAppError({
+                  code: "internal",
+                  detail: `Failed to release workspace transition lock at ${lockPath}`,
+                  cause,
+                }),
+            }).pipe(Effect.ignore);
+            return { _tag: "failed", error: holderWrite.failure } as const;
+          }
+          heldTransitions.set(workspaceDir, {
+            compromised: Deferred.await(compromisedSignal),
+            isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
+          });
+          yield* Effect.addFinalizer(() =>
+            Effect.gen(function* () {
+              heldTransitions.delete(workspaceDir);
+              // Removal requires an exact owner-token match, proven before
+              // release() — which would remove the directory unconditionally.
+              // Absent or unreadable holder metadata is indistinguishable from
+              // a successor that reclaimed the stale hold but has not yet
+              // written its holder file, and is never license to remove; the
+              // unowned in-process bookkeeping self-resolves as compromised on
+              // its next update tick without touching the directory.
+              const residualHolder = yield* readHolder(fs, path, lockPath);
+              const ownsResidual = Option.match(residualHolder, {
+                onNone: () => false,
+                onSome: (value) => value.token === token,
+              });
+              if (ownsResidual) {
+                yield* Effect.tryPromise({
+                  try: () => release(),
+                  catch: (cause) =>
+                    makeAppError({
+                      code: "internal",
+                      detail: `Failed to release workspace transition lock at ${lockPath}`,
+                      cause,
+                    }),
+                }).pipe(Effect.ignore);
+                // A compromised hold makes release() refuse; the directory is
+                // still ours by exact token match — remove it directly.
+                yield* fs.remove(lockPath, { recursive: true, force: true }).pipe(Effect.ignore);
+              }
+              yield* removeEmptyScratch;
+              yield* removeNewEmptyWorkspace;
+            }),
+          );
+          return { _tag: "acquired" } as const;
+        }),
+      );
+      if (attempt._tag === "acquired") {
         return Option.none<TransitionContention>();
       }
-      // ELOCKED is contention outright; any other acquisition error is a race
-      // window against the holder's own acquire, release, or staleness sweep
-      // (ENOENT/EEXIST from proper-lockfile's internal stat-remove-retry), and
-      // the bounded wait absorbs those the same way — the loser serializes or
-      // times out into a categorized blocked, never an internal crash.
+      if (attempt._tag === "failed") {
+        yield* removeEmptyScratch;
+        yield* removeNewEmptyWorkspace;
+        return yield* attempt.error;
+      }
+      // The lock is held: serialize behind the holder with a visible reason,
+      // up to the bound — the loser serializes or times out into a
+      // categorized blocked, never an internal crash.
       const holder = yield* readHolder(fs, path, lockPath);
       if (!reportedWaiting && args.onWaiting !== undefined) {
         reportedWaiting = true;

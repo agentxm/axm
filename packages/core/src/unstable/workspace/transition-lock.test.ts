@@ -3,7 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -223,6 +225,151 @@ describe("workspace transition lock", () => {
       expect(fs.existsSync(lockPath)).toBe(false);
       expect(isWorkspaceTransitionHeldByThisInvocation(path.resolve(workspaceDir))).toBe(false);
     }).pipe(Effect.provide(holderWriteFailingServices)),
+  );
+
+  // The gap between the lock library granting the hold and the release
+  // finalizer registering must not be interruptible: an interrupt landing
+  // there would leave a lock nobody releases until staleness.
+  it.live("C-20: interruption during acquisition never leaks the lock", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      const reachedHolderWrite = yield* Deferred.make<void>();
+      // A FileSystem whose holder write parks long enough for the test to
+      // interrupt the acquiring fiber mid-acquisition, deterministically.
+      const gatedServices = Layer.effect(
+        FileSystem.FileSystem,
+        Effect.gen(function* () {
+          const real = yield* FileSystem.FileSystem;
+          return {
+            ...real,
+            writeFileString: (...args: Parameters<FileSystem.FileSystem["writeFileString"]>) =>
+              args[0].endsWith("holder.json")
+                ? Deferred.succeed(reachedHolderWrite, void 0).pipe(
+                    Effect.andThen(Effect.sleep("50 millis")),
+                    Effect.andThen(real.writeFileString(...args)),
+                  )
+                : real.writeFileString(...args),
+          };
+        }),
+      ).pipe(Layer.provideMerge(NodeServices.layer));
+      const fiber = yield* Effect.forkChild(
+        Effect.scoped(
+          acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+          }).pipe(Effect.andThen(Effect.never)),
+        ).pipe(Effect.provide(gatedServices)),
+      );
+      yield* Deferred.await(reachedHolderWrite);
+      yield* Fiber.interrupt(fiber);
+      expect(fs.existsSync(lockPath)).toBe(false);
+      expect(isWorkspaceTransitionHeldByThisInvocation(path.resolve(workspaceDir))).toBe(false);
+    }).pipe(Effect.provide(services)),
+  );
+
+  // A crashed holder leaves its lock directory with the holder metadata still
+  // inside. Staleness reclamation must clear the tool's own metadata; a stale
+  // lock that can never be reclaimed turns every later mutation into a
+  // permanent bounded wait ending in a false contention report.
+  it.live("C-20: a stale lock left by a crashed process is reclaimed despite holder metadata", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      fs.mkdirSync(lockPath, { recursive: true });
+      fs.writeFileSync(
+        path.join(lockPath, "holder.json"),
+        JSON.stringify({ command: "crashed", pid: 999999, token: "c".repeat(32) }),
+      );
+      const past = new Date(Date.now() - 120_000);
+      fs.utimesSync(lockPath, past, past);
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const contention = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+            waitBoundMillis: 500,
+          });
+          expect(Option.isNone(contention)).toBe(true);
+          const holder = JSON.parse(
+            fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
+          ) as { command: string };
+          expect(holder.command).toBe("update");
+        }),
+      );
+      expect(fs.existsSync(lockPath)).toBe(false);
+    }).pipe(Effect.provide(services)),
+  );
+
+  // Contention waits absorb only the lock-is-held class of errors. Anything
+  // else — permissions, corrupt squatting state — is not resolved by waiting
+  // and must surface as a typed failure immediately.
+  it.live("C-20: a non-contention acquisition error surfaces immediately as a typed failure", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const scratchDir = path.join(workspaceDir, "tmp");
+      const lockPath = path.join(scratchDir, "workspace-transition.lock");
+      fs.mkdirSync(scratchDir, { recursive: true });
+      // A stale regular file squatting the lock path: reclamation cannot
+      // rmdir it, and no amount of waiting resolves it.
+      fs.writeFileSync(lockPath, "not a lock directory");
+      const past = new Date(Date.now() - 120_000);
+      fs.utimesSync(lockPath, past, past);
+      const started = Date.now();
+      const result = yield* Effect.result(
+        Effect.scoped(
+          acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "update", pid: process.pid },
+            waitBoundMillis: 10_000,
+          }),
+        ),
+      );
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure._tag).toBe("AppError");
+        expect(result.failure.detail).toContain("workspace transition lock");
+      }
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(fs.existsSync(lockPath)).toBe(true);
+    }).pipe(Effect.provide(services)),
+  );
+
+  // The acquisition mask must stay narrow: a contender parked on the bounded
+  // wait interrupts promptly and leaves the holder's lock untouched.
+  it.live("C-20: a contender's wait is interruptible and leaves the holder's lock intact", () =>
+    Effect.gen(function* () {
+      const workspaceDir = path.join(tempDir, ".axm");
+      const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const first = yield* acquireWorkspaceTransitionLock({
+            workspaceDir,
+            holder: { command: "install", pid: process.pid },
+          });
+          expect(Option.isNone(first)).toBe(true);
+          const waiting = yield* Deferred.make<void>();
+          const contender = yield* Effect.forkChild(
+            Effect.scoped(
+              acquireWorkspaceTransitionLock({
+                workspaceDir,
+                holder: { command: "update", pid: process.pid },
+                waitBoundMillis: 30_000,
+                onWaiting: () => Deferred.succeed(waiting, void 0),
+              }),
+            ),
+          );
+          yield* Deferred.await(waiting);
+          const interruptStarted = Date.now();
+          yield* Fiber.interrupt(contender);
+          expect(Date.now() - interruptStarted).toBeLessThan(2_000);
+          const holder = JSON.parse(
+            fs.readFileSync(path.join(lockPath, "holder.json"), "utf8"),
+          ) as { command: string };
+          expect(holder.command).toBe("install");
+        }),
+      );
+    }).pipe(Effect.provide(services)),
   );
 
   it.effect("transitionLockPath names the load-bearing location", () =>

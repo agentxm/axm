@@ -90,9 +90,12 @@ target preimage state and rejects a stale candidate before its first write.
 Application holds one atomic process lock per workspace at
 `.axm/tmp/workspace-transition.lock`. Settings, accepted
 lock state, canonical content, and owned outputs needed by one closure commit
-together. A handled failure or interruption restores protected targets. The
-lock is refreshed while its owner runs and reclaimed after abrupt process
-death; a later mutation converges surviving authoritative and owned state.
+together, and closures settle independently: a handled failure or
+interruption restores the affected closure's protected targets — staged and
+published by rename, never leaving a partial target — while closures that
+already committed stand. The lock is refreshed while its owner runs and
+reclaimed after abrupt process death; a later mutation converges surviving
+authoritative and owned state.
 
 AXM prepares and validates package content in a sibling staging directory, then
 publishes it into the canonical directory by rename, so a canonical directory

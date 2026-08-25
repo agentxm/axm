@@ -39,18 +39,24 @@ import {
   type ResolvedUnit,
 } from "./operation-resolution.js";
 import {
-  appendCompletedUnit,
+  appendResolvedUnit,
+  appendStartedUnit,
+  recordJournalPhase,
   recordOperationJournal,
-  updateOperationJournal,
 } from "./operation-journal.js";
 import {
   publishLifecycleEvent,
   publishPhaseStarted,
   subscribeToLifecycle,
 } from "./operation-events.js";
+import type { OperationPhase } from "./operation-resolution.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
+  readPendingClosureRestorationFailures,
   restorationIncompleteToAppError,
+  rollbackWorkspaceClosure,
+  settleWorkspaceClosure,
+  withWorkspaceClosure,
   WorkspaceRestorationIncomplete,
 } from "../workspace/transaction.js";
 import { requestedInterruptionSignal } from "../cli-runtime/interruption.js";
@@ -70,6 +76,10 @@ import {
 } from "../cli-runtime/confirmation-recovery.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import type { ConfiguredAgentOutcome } from "./plan.js";
+
+/** Publish a phase transition to the lifecycle stream and the journal. */
+const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
+  publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
 
 interface PlanApplyFailure<Output> {
   readonly error: AppError;
@@ -313,9 +323,10 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       : { preconditions: candidatePlan.preconditions }),
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
     plannedUnits: plannedUnits(candidatePlan.jobs),
-    completed: [],
+    phase: "planning",
+    startedUnitIds: [],
+    resolved: [],
     restoresOnFailure: candidatePlan.executionCapabilities?.rollback !== "non-rollbackable",
-    applying: false,
   });
 
   const notExecuted = (over: {
@@ -326,7 +337,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   }): OperationResolution<Output> =>
     makeOperationResolution<Output>({
       ...resolutionBase,
-      atomicity: { declared: atomicity, applied: "candidate-atomic" },
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
       units: over.units ?? plannedUnits(candidatePlan.jobs),
       blocking: over.blocking,
       declined: over.declined,
@@ -336,7 +347,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   // Step 3: Display the immutable candidate before any policy terminal or effect.
   if (mode === "preview") {
-    yield* publishPhaseStarted("preview");
+    yield* enterPhase("preview");
   }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
   if (mode === "preview" || verbosity.level !== "quiet" || hasConfirmableRisk) {
@@ -376,7 +387,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   if (options.execution.request.mode === "preview") {
     return makeOperationResolution<Output>({
       ...resolutionBase,
-      atomicity: { declared: atomicity, applied: "candidate-atomic" },
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
       units: plannedUnits(candidatePlan.jobs),
     });
   }
@@ -408,7 +419,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     );
     return makeOperationResolution<Output>({
       ...resolutionBase,
-      atomicity: { declared: atomicity, applied: "candidate-atomic" },
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
       units: plannedUnits(candidatePlan.jobs),
       blocking: {
         class: "override-required",
@@ -432,7 +443,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       const escapes = confirmationRecoverySuggestions(applyExecution.approvalRecovery);
       return makeOperationResolution<Output>({
         ...resolutionBase,
-        atomicity: { declared: atomicity, applied: "candidate-atomic" },
+        atomicity: { declared: atomicity, applied: "closure-atomic" },
         units: plannedUnits(candidatePlan.jobs),
         blocking: {
           class: "approval-required",
@@ -445,7 +456,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       });
     }
     const interaction = yield* ResolvePlanInteraction;
-    yield* publishPhaseStarted("confirmation");
+    yield* enterPhase("confirmation");
     const confirmed = yield* interaction
       .confirmApplyChanges(applyExecution.approvalRecovery)
       .pipe(Effect.catchTag("PromptCancelled", (_error: PromptCancelled) => Effect.succeed(false)));
@@ -471,7 +482,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   let startedUnits = 0;
   let resolvedUnits = 0;
   const applyFreshCandidate = Effect.gen(function* () {
-    yield* publishPhaseStarted("validation");
+    yield* enterPhase("validation");
     if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
       return yield* makeAppError({
         code: "conflict",
@@ -487,20 +498,48 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         });
       }
     }
-    yield* updateOperationJournal((state) => ({ ...state, applying: true }));
-    yield* publishPhaseStarted("apply");
-    return yield* applyPlan(candidate.plan, {
+    yield* enterPhase("apply");
+    // Each unit is one semantic closure: its run executes under its closure
+    // identity so the transaction attributes every snapshot to it, and its
+    // settlement (below) either commits or rolls back exactly that closure.
+    const closureScopedPlan: Plan<Requirements, Output> = {
+      ...candidate.plan,
+      jobs: candidate.plan.jobs.map((job) => ({
+        ...job,
+        steps: job.steps.map((step) =>
+          step.readiness === "error"
+            ? step
+            : { ...step, run: withWorkspaceClosure(unitIdOf(step))(step.run) },
+        ),
+      })),
+    };
+    return yield* applyPlan(closureScopedPlan, {
+      // The started fact is journaled before the run's first effect, so an
+      // interruption mid-run reports the unit in flight, never not attempted.
       onStepStarted: (step) =>
-        publishLifecycleEvent((atNanos) => ({
-          _tag: "UnitStarted",
-          unitId: step.key ?? step.label,
-          label: step.label,
-          index: startedUnits++,
-          total: totalUnits,
-          atNanos,
-        })),
+        appendStartedUnit(unitIdOf(step)).pipe(
+          Effect.andThen(
+            publishLifecycleEvent((atNanos) => ({
+              _tag: "UnitStarted",
+              unitId: unitIdOf(step),
+              label: step.label,
+              index: startedUnits++,
+              total: totalUnits,
+              atNanos,
+            })),
+          ),
+        ),
+      // Settlement runs before the next interruptible boundary: the journal
+      // fact and the closure's snapshot disposition are recorded together —
+      // a settled closure's commits stand, a failed closure restores only
+      // itself, and later ready closures continue.
       onStepCompleted: (step) =>
-        appendCompletedUnit(step).pipe(
+        appendResolvedUnit(step).pipe(
+          Effect.andThen(
+            step.result.result === "error"
+              ? rollbackWorkspaceClosure(unitIdOf(step))
+              : settleWorkspaceClosure(unitIdOf(step)),
+          ),
           Effect.andThen(
             publishLifecycleEvent((atNanos) => ({
               _tag: "UnitResolved",
@@ -522,22 +561,39 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     const failedStep = result.jobs
       .flatMap((job) => job.steps)
       .find((step) => step.result.result === "error");
-    if (
-      candidatePlan.executionCapabilities?.rollback !== "non-rollbackable" &&
-      failedStep !== undefined &&
-      failedStep.result.result === "error"
-    ) {
+    // Closures settle independently: a failed closure rolled back only
+    // itself at its settlement boundary, and settled commits stand. The one
+    // apply-level failure is a closure rollback that did not complete and
+    // verify — the typed restoration fact derives the retained truth from
+    // the in-memory pending record alone.
+    const pendingRestoration = yield* readPendingClosureRestorationFailures;
+    if (Option.isSome(pendingRestoration) && pendingRestoration.value.failures.length > 0) {
+      const pending = pendingRestoration.value;
+      const first = pending.failures[0];
+      const stepError =
+        failedStep !== undefined && failedStep.result.result === "error"
+          ? failedStep.result.error
+          : makeAppError({
+              code: "internal",
+              detail: "a closure rollback did not complete",
+            });
       return yield* Effect.fail({
         error: makeAppError({
-          code: failedStep.result.error.code,
-          detail: failedStep.result.message,
-          cause: failedStep.result.error,
-          ...(failedStep.result.error.suggestions === undefined
-            ? {}
-            : { suggestions: failedStep.result.error.suggestions }),
+          code: stepError.code,
+          detail:
+            failedStep?.result.result === "error" ? failedStep.result.message : stepError.detail,
+          cause: stepError,
         }),
         attemptedExecution: result,
-      });
+        restoration: new WorkspaceRestorationIncomplete({
+          terminationCause: "failure",
+          transitionCause: Cause.fail(stepError),
+          restorationCause: first?.restorationCause,
+          snapshotDir: pending.snapshotDir,
+          retained: pending.failures.flatMap((failure) => failure.retained),
+          closureIds: pending.failures.map((failure) => failure.closureId),
+        }),
+      } satisfies PlanApplyFailure<Output>);
     }
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
@@ -611,7 +667,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           targets: [],
           transition: applyCandidate,
           validate: () => Effect.void,
-          onRestorationStarted: publishPhaseStarted("restoration"),
+          onRestorationStarted: enterPhase("restoration"),
+          // Closures protect the shared settings and lockfile at their own
+          // first touch; claiming them here would let a late failure tear an
+          // earlier closure's settled commit out of the shared files.
+          claimDefaultTargets: false,
         })
   ).pipe(
     Effect.mapError((failure): PlanApplyFailure<Output> => {
@@ -699,7 +759,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     const escape = { description: "Wait for the holding operation to finish, then rerun." };
     return makeOperationResolution<Output>({
       ...resolutionBase,
-      atomicity: { declared: atomicity, applied: "candidate-atomic" },
+      atomicity: { declared: atomicity, applied: "closure-atomic" },
       units: plannedUnits(candidatePlan.jobs),
       blocking: {
         class: "resource-conflict",
@@ -771,25 +831,38 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
               },
             ],
           };
-    const restored =
-      candidatePlan.executionCapabilities?.rollback !== "non-rollbackable" && !rollbackFailed;
+    const restoring = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
     const executed =
       attempted === undefined
         ? plannedUnits<Requirements, Output>(candidatePlan.jobs)
-        : executedUnits(attempted, { restored });
-    // When rollback failed, committed effects were retained as the failure
-    // left them rather than restored — the unit disposition says so.
-    const units = rollbackFailed
-      ? executed.map((unit) =>
-          unit.state === "committed" ? { ...unit, disposition: "retained" as const } : unit,
-        )
-      : executed;
+        : executedUnits(attempted);
+    // Closures settled independently: commits stand, and each failed closure
+    // restored only itself. A closure named by the restoration fact kept the
+    // state its rollback could not undo; every other failed closure's
+    // effects were restored.
+    const retainedClosures = new Set(restoration?.closureIds ?? []);
+    const units = executed.map((unit) => {
+      if (unit.state === "failed" && restoring) {
+        return {
+          ...unit,
+          disposition: retainedClosures.has(unit.id)
+            ? ("retained" as const)
+            : ("restored" as const),
+        };
+      }
+      if (unit.state === "committed" && rollbackFailed && restoration?.closureIds === undefined) {
+        // An operation-level restoration failure (not scoped to closures):
+        // committed effects were retained as the failure left them.
+        return { ...unit, disposition: "retained" as const };
+      }
+      return unit;
+    });
     const staleCandidate = failure.code === "conflict" && failure.detail === STALE_CANDIDATE_DETAIL;
     const staleUnit = units.find((unit) => unit.blocking?.class === "stale-candidate");
     if (staleCandidate || staleUnit !== undefined) {
       return makeOperationResolution<Output>({
         ...resolutionBase,
-        atomicity: { declared: atomicity, applied: "candidate-atomic" },
+        atomicity: { declared: atomicity, applied: "closure-atomic" },
         units,
         blocking: {
           class: "stale-candidate",
@@ -805,11 +878,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       ...resolutionBase,
       atomicity: {
         declared: atomicity,
-        applied: rollbackFailed
-          ? "non-rollbackable"
-          : restored && attempted !== undefined
-            ? "candidate-atomic"
-            : atomicity,
+        applied: rollbackFailed ? "non-rollbackable" : atomicity,
       },
       units,
       failure,
@@ -827,10 +896,43 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     });
   }
   const executed = applyResult.value;
+  const restoringPlan = candidatePlan.executionCapabilities?.rollback !== "non-rollbackable";
+  // Mixed commits and failures are a first-class partial outcome: settled
+  // closures stand, and each failed closure of a restoring plan rolled back
+  // only itself — its disposition says so.
+  const executedResolved = executedUnits(executed).map((unit) =>
+    unit.state === "failed" && restoringPlan ? { ...unit, disposition: "restored" as const } : unit,
+  );
+  // A restoring plan's first failed closure supplies the operation-level
+  // failure so the cause class keeps deciding the exit and the human summary
+  // names the failure. Non-rollbackable families (remote mutations such as
+  // publish) keep their long-standing behavior: unit outcomes alone carry the
+  // failures, and an operation-level failure still means the plan itself
+  // could not execute.
+  const firstFailed = restoringPlan
+    ? executedResolved.find((unit) => unit.state === "failed")
+    : undefined;
+  const failure =
+    firstFailed?.error === undefined
+      ? undefined
+      : makeAppError({
+          code: firstFailed.error.code,
+          detail: firstFailed.message ?? firstFailed.error.detail,
+          cause: firstFailed.error,
+          ...(firstFailed.error.suggestions === undefined
+            ? {}
+            : { suggestions: firstFailed.error.suggestions }),
+        });
   return makeOperationResolution<Output>({
     ...resolutionBase,
     atomicity: { declared: atomicity, applied: atomicity },
-    units: executedUnits(executed),
+    units: executedResolved,
+    ...(failure === undefined ? {} : { failure }),
     footprint,
+    ...(firstFailed === undefined
+      ? {}
+      : {
+          suggestions: firstFailed.error?.suggestions ?? candidatePlan.failureSuggestions,
+        }),
   });
 });

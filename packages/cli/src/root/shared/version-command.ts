@@ -111,7 +111,7 @@ const previewVersionResolution = (result: BumpManifestVersionResult) =>
     name: "Update extension version",
     description: Option.none(),
     mode: "preview",
-    atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
     units: [
       {
         id: result.fqn,
@@ -130,7 +130,7 @@ const executedVersionResolution = (result: BumpManifestVersionResult) =>
       name: "Update extension version",
       description: Option.none(),
       mode: "apply",
-      atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
       units: [
         {
           id: result.fqn,

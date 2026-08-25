@@ -310,10 +310,12 @@ describe("mcps add output", () => {
           preview: false,
         });
 
+        // Closures settle independently: the workspace entry committed while
+        // the incapable agent's projection failed — a truthful partial.
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             planName: "Add MCP server",
-            outcome: "failed",
+            outcome: "partial",
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).toContain(

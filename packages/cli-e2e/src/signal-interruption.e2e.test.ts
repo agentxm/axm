@@ -81,7 +81,7 @@ describe("signal interruption", () => {
       expect(result.code, result.stdout + result.stderr).toBe(130);
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(false);
-      expect(document.result.contract).toBe("plan-result-v2");
+      expect(document.result.contract).toBe("plan-result-v3");
       expect(document.result.outcome).toBe("interrupted");
       expect(document.result.interruption).toEqual({ signal: "SIGINT", disposition: "none" });
     } finally {

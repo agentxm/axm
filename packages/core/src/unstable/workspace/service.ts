@@ -334,7 +334,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       runWorkspaceTransaction({
         workspaceDir,
         semaphore: transactionSemaphore,
-        targets: [settingsPath, path.join(workspaceDir, LOCKFILE_NAME), ...(args.targets ?? [])],
+        targets: [
+          ...(args.claimDefaultTargets === false
+            ? []
+            : [settingsPath, path.join(workspaceDir, LOCKFILE_NAME)]),
+          ...(args.targets ?? []),
+        ],
         transition: args.transition,
         validate: args.validate,
         ...(args.onRestorationStarted === undefined

@@ -54,6 +54,7 @@ interface PlanResultCounts {
   readonly blocked: number;
   readonly skipped: number;
   readonly cancelled: number;
+  readonly interrupted: number;
   readonly warnings: number;
 }
 
@@ -389,7 +390,8 @@ const expectReconciledUnits = (result: PlanResult) => {
     counts.rolledBack +
     counts.blocked +
     counts.skipped +
-    counts.cancelled;
+    counts.cancelled +
+    counts.interrupted;
   expect(partitioned).toBe(counts.total);
   expect(units).toHaveLength(counts.total);
   const ids = units.map((unit) => unit.id);
@@ -408,7 +410,7 @@ const runJsonCommand = async (
   expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
   const stdout: JsonCommandResult["stdout"] = JSON.parse(result.stdout);
   expect(stdout.ok).toBe(true);
-  expect(stdout.result.contract).toBe("plan-result-v2");
+  expect(stdout.result.contract).toBe("plan-result-v3");
   expectReconciledUnits(stdout.result);
   return {
     exitCode: result.exitCode,

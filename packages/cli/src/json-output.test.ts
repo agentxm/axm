@@ -49,16 +49,24 @@ describe("classifyPublishResults", () => {
         status: "pending",
         reason: "selected",
       },
+      {
+        ...base,
+        name: extensionName("indeterminate"),
+        action: "publish",
+        status: "unknown",
+        reason: "interrupted",
+      },
     ];
 
     expect(classifyPublishResults(results)).toEqual({
-      selected: 6,
+      selected: 7,
       published: 1,
       alreadyPublished: 1,
       skipped: 1,
       blocked: 1,
       failed: 1,
       pending: 1,
+      unknown: 1,
     });
   });
 });

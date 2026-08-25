@@ -45,8 +45,8 @@ const planFrom = (stdout: string): Readonly<Record<string, unknown>> => {
     throw new Error("Expected a JSON command result with a plan");
   }
   const result = document["result"];
-  if (result["contract"] !== "plan-result-v2") {
-    throw new Error("Expected a plan-result-v2 command result");
+  if (result["contract"] !== "plan-result-v3") {
+    throw new Error("Expected a plan-result-v3 command result");
   }
   const units = result["units"];
   if (!Array.isArray(units)) {

@@ -135,7 +135,7 @@ describe("global directory flag", () => {
       expect(JSON.parse(second.stdout)).toMatchObject({
         ok: true,
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "no-op",
           mode: "apply",
           counts: { total: 0, committed: 0 },

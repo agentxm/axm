@@ -1,7 +1,9 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -258,11 +260,13 @@ describe("previewOrApplyPlan", () => {
         }),
       });
 
-      expect(deriveOperationOutcome(result)).toBe("failed");
+      // The settled closure's commit stands; the missing projection readback
+      // is a truthful partial outcome, and the next sync converges it.
+      expect(deriveOperationOutcome(result)).toBe("partial");
+      expect(operationExitCode(result)).toBe(1);
       expect(result.failure?.code).toBe("conflict");
       expect(result.failure?.detail).toContain("did not converge for claude-code");
-      expect(result.units.map((unit) => unit.state)).toEqual(["rolled-back"]);
-      expect(result.units[0]?.disposition).toBe("restored");
+      expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
     }).pipe(Effect.provide(context.layer));
   });
 
@@ -619,14 +623,122 @@ describe("previewOrApplyPlan", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("C-06: rolls back the complete local candidate when a later step fails", () =>
+  it.effect(
+    "C-06: a failed closure in a fail-fast job rolls back itself and blocks dependents",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-rollback-" });
+        const workspaceDir = path.join(directory, ".axm");
+        const target = path.join(directory, "managed.txt");
+        yield* fs.writeFileString(target, "original");
+        const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+        const semaphore = Semaphore.makeUnsafe(1);
+        const workspace: WorkspaceMutationsService = {
+          ...baseWorkspace,
+          runTransaction: (args) =>
+            runWorkspaceTransaction({
+              semaphore,
+              workspaceDir,
+              targets: args.targets ?? [],
+              transition: args.transition,
+              validate: args.validate,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            ),
+        };
+        const context = makeTestContext(undefined, undefined, workspace);
+        const plan: Plan = {
+          _tag: "Plan",
+          name: "Update managed files",
+          description: Option.none(),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                {
+                  readiness: "ready",
+                  label: "first",
+                  run: protectWorkspacePath(target).pipe(
+                    Effect.andThen(
+                      fs
+                        .writeFileString(target, "changed")
+                        .pipe(
+                          Effect.mapError((cause) =>
+                            makeAppError({ code: "internal", detail: "write failed", cause }),
+                          ),
+                        ),
+                    ),
+                    Effect.as({ result: "success" as const, message: "changed" }),
+                  ),
+                },
+                {
+                  readiness: "ready",
+                  label: "second",
+                  run: Effect.succeed({
+                    result: "error" as const,
+                    message: "second step failed",
+                    error: makeAppError({
+                      code: "internal",
+                      detail: "second step failed",
+                      suggestions: [{ description: "Repair the failed step." }],
+                    }),
+                  }),
+                },
+                {
+                  readiness: "ready",
+                  label: "third",
+                  run: Effect.succeed({ result: "success", message: "should not run" }),
+                },
+              ],
+            },
+          ],
+        };
+
+        const result = yield* previewOrApplyPlan(plan, {
+          execution: preapprovedPlanExecution,
+        }).pipe(Effect.provide(context.layer));
+
+        // Closures settle independently: the settled first closure stands, the
+        // failed closure rolled back only itself, and the dependent third step
+        // is blocked truthfully. Mixed commits and failures yield partial.
+        expect(deriveOperationOutcome(result)).toBe("partial");
+        expect(operationExitCode(result)).toBe(1);
+        expect(result.failure?.detail).toBe("second step failed");
+        expect(result.atomicity).toEqual({
+          declared: "closure-atomic",
+          applied: "closure-atomic",
+        });
+        expect(result.suggestions).toEqual([{ description: "Repair the failed step." }]);
+        expect(result.units.map((unit) => [unit.id, unit.state])).toEqual([
+          ["first", "committed"],
+          ["second", "failed"],
+          ["third", "blocked"],
+        ]);
+        expect(result.units[0]?.disposition).toBeUndefined();
+        expect(result.units[1]?.disposition).toBe("restored");
+        expect(result.units[2]?.blocking?.class).toBe("operation-aborted");
+        expect(result.units[2]?.blocking?.reference).toBe("second");
+        // The first closure's commit survives; nothing of the failed closure
+        // remains.
+        expect(yield* fs.readFileString(target)).toBe("changed");
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("C-06: a failed closure rolls back only itself while ready closures continue", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-rollback-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-closure-" });
       const workspaceDir = path.join(directory, ".axm");
-      const target = path.join(directory, "managed.txt");
-      yield* fs.writeFileString(target, "original");
+      const fileA = path.join(directory, "a.txt");
+      const fileB = path.join(directory, "b.txt");
+      const fileC = path.join(directory, "c.txt");
+      yield* fs.writeFileString(fileA, "a-original");
+      yield* fs.writeFileString(fileB, "b-original");
+      yield* fs.writeFileString(fileC, "c-original");
       const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const semaphore = Semaphore.makeUnsafe(1);
       const workspace: WorkspaceMutationsService = {
@@ -644,47 +756,54 @@ describe("previewOrApplyPlan", () => {
           ),
       };
       const context = makeTestContext(undefined, undefined, workspace);
+      const write = (target: string, content: string) =>
+        protectWorkspacePath(target).pipe(
+          Effect.andThen(
+            fs
+              .writeFileString(target, content)
+              .pipe(
+                Effect.mapError((cause) =>
+                  makeAppError({ code: "internal", detail: "write failed", cause }),
+                ),
+              ),
+          ),
+        );
       const plan: Plan = {
         _tag: "Plan",
-        name: "Update managed files",
+        name: "Update independent extensions",
         description: Option.none(),
         jobs: [
           {
             concurrency: 1,
+            executionPolicy: "best-effort",
             steps: [
               {
                 readiness: "ready",
-                label: "first",
-                run: protectWorkspacePath(target).pipe(
-                  Effect.andThen(
-                    fs
-                      .writeFileString(target, "changed")
-                      .pipe(
-                        Effect.mapError((cause) =>
-                          makeAppError({ code: "internal", detail: "write failed", cause }),
-                        ),
-                      ),
-                  ),
-                  Effect.as({ result: "success" as const, message: "changed" }),
+                key: "skill:a",
+                label: "a",
+                run: write(fileA, "a-changed").pipe(
+                  Effect.as({ result: "success" as const, message: "updated" }),
                 ),
               },
               {
                 readiness: "ready",
-                label: "second",
-                run: Effect.succeed({
-                  result: "error" as const,
-                  message: "second step failed",
-                  error: makeAppError({
-                    code: "internal",
-                    detail: "second step failed",
-                    suggestions: [{ description: "Repair the failed step." }],
+                key: "skill:b",
+                label: "b",
+                run: write(fileB, "b-changed").pipe(
+                  Effect.as({
+                    result: "error" as const,
+                    message: "b failed after writing",
+                    error: makeAppError({ code: "internal", detail: "b failed after writing" }),
                   }),
-                }),
+                ),
               },
               {
                 readiness: "ready",
-                label: "third",
-                run: Effect.succeed({ result: "success", message: "should not run" }),
+                key: "skill:c",
+                label: "c",
+                run: write(fileC, "c-changed").pipe(
+                  Effect.as({ result: "success" as const, message: "updated" }),
+                ),
               },
             ],
           },
@@ -695,24 +814,107 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
-      expect(deriveOperationOutcome(result)).toBe("failed");
-      expect(result.failure?.detail).toBe("second step failed");
-      expect(result.atomicity).toEqual({
-        declared: "candidate-atomic",
-        applied: "candidate-atomic",
-      });
-      expect(result.suggestions).toEqual([{ description: "Repair the failed step." }]);
+      expect(deriveOperationOutcome(result)).toBe("partial");
       expect(result.units.map((unit) => [unit.id, unit.state])).toEqual([
-        ["first", "rolled-back"],
-        ["second", "failed"],
-        ["third", "blocked"],
+        ["skill:a", "committed"],
+        ["skill:b", "failed"],
+        ["skill:c", "committed"],
       ]);
-      expect(result.units[0]?.disposition).toBe("restored");
       expect(result.units[1]?.disposition).toBe("restored");
-      expect(result.units[2]?.disposition).toBe("untouched");
-      expect(result.units[2]?.blocking?.class).toBe("operation-aborted");
-      expect(result.units[2]?.blocking?.reference).toBe("second");
-      expect(yield* fs.readFileString(target)).toBe("original");
+      // Settled closures stand; only the failed closure was restored.
+      expect(yield* fs.readFileString(fileA)).toBe("a-changed");
+      expect(yield* fs.readFileString(fileB)).toBe("b-original");
+      expect(yield* fs.readFileString(fileC)).toBe("c-changed");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.live("C-15: interruption mid-apply restores only the in-flight closure", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-closure-int-" });
+      const workspaceDir = path.join(directory, ".axm");
+      const fileA = path.join(directory, "a.txt");
+      const fileB = path.join(directory, "b.txt");
+      yield* fs.writeFileString(fileA, "a-original");
+      yield* fs.writeFileString(fileB, "b-original");
+      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
+      const semaphore = Semaphore.makeUnsafe(1);
+      const workspace: WorkspaceMutationsService = {
+        ...baseWorkspace,
+        runTransaction: (args) =>
+          runWorkspaceTransaction({
+            semaphore,
+            workspaceDir,
+            targets: args.targets ?? [],
+            transition: args.transition,
+            validate: args.validate,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          ),
+      };
+      const context = makeTestContext(undefined, undefined, workspace);
+      const inFlight = yield* Deferred.make<void>();
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Update extensions",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "skill:a",
+                label: "a",
+                run: protectWorkspacePath(fileA).pipe(
+                  Effect.andThen(
+                    fs
+                      .writeFileString(fileA, "a-changed")
+                      .pipe(
+                        Effect.mapError((cause) =>
+                          makeAppError({ code: "internal", detail: "write failed", cause }),
+                        ),
+                      ),
+                  ),
+                  Effect.as({ result: "success" as const, message: "updated" }),
+                ),
+              },
+              {
+                readiness: "ready",
+                key: "skill:b",
+                label: "b",
+                run: protectWorkspacePath(fileB).pipe(
+                  Effect.andThen(
+                    fs
+                      .writeFileString(fileB, "b-changed")
+                      .pipe(
+                        Effect.mapError((cause) =>
+                          makeAppError({ code: "internal", detail: "write failed", cause }),
+                        ),
+                      ),
+                  ),
+                  Effect.andThen(Deferred.succeed(inFlight, void 0)),
+                  Effect.andThen(Effect.never),
+                  Effect.as({ result: "success" as const, message: "updated" }),
+                ),
+              },
+            ],
+          },
+        ],
+      };
+
+      const fiber = yield* Effect.forkChild(
+        previewOrApplyPlan(plan, { execution: preapprovedPlanExecution }).pipe(
+          Effect.provide(context.layer),
+        ),
+      );
+      yield* Deferred.await(inFlight);
+      yield* Fiber.interrupt(fiber);
+      // The settled first closure stands; the in-flight closure was restored.
+      expect(yield* fs.readFileString(fileA)).toBe("a-changed");
+      expect(yield* fs.readFileString(fileB)).toBe("b-original");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -760,25 +962,26 @@ describe("previewOrApplyPlan", () => {
               {
                 readiness: "ready",
                 label: "first",
-                run: protectWorkspacePath(target).pipe(
-                  Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
-                  // Restoration cannot recreate the target afterwards: its
-                  // parent directory is replaced by a plain file.
-                  Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
-                  Effect.andThen(
-                    fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
-                  ),
-                  Effect.as({ result: "success" as const, message: "changed" }),
-                ),
+                run: Effect.succeed({ result: "success" as const, message: "unrelated commit" }),
               },
               {
                 readiness: "ready",
                 label: "second",
-                run: Effect.succeed({
-                  result: "error" as const,
-                  message: "second step failed",
-                  error: makeAppError({ code: "internal", detail: "second step failed" }),
-                }),
+                // The failing closure mutated the target and then made its
+                // own restoration impossible: the parent directory is
+                // replaced by a plain file before the step reports failure.
+                run: protectWorkspacePath(target).pipe(
+                  Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
+                  Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
+                  Effect.andThen(
+                    fs.writeFileString(managedDir, "blocks restoration").pipe(Effect.orDie),
+                  ),
+                  Effect.as({
+                    result: "error" as const,
+                    message: "second step failed",
+                    error: makeAppError({ code: "internal", detail: "second step failed" }),
+                  }),
+                ),
               },
             ],
           },
@@ -789,12 +992,16 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provide(context.layer));
 
-      // The committed unit's effects survive unrestored: partial, nonzero
-      // exit, retained disposition, and non-rollbackable applied atomicity.
+      // The failed closure's effects survive unrestored: partial, nonzero
+      // exit, retained disposition on that closure, non-rollbackable applied
+      // atomicity — while the settled first closure stands as an ordinary
+      // commit.
       expect(deriveOperationOutcome(result)).toBe("partial");
       expect(operationExitCode(result)).not.toBe(0);
       expect(result.atomicity.applied).toBe("non-rollbackable");
-      expect(result.units.find((unit) => unit.id === "first")?.disposition).toBe("retained");
+      expect(result.units.find((unit) => unit.id === "first")?.state).toBe("committed");
+      expect(result.units.find((unit) => unit.id === "second")?.state).toBe("failed");
+      expect(result.units.find((unit) => unit.id === "second")?.disposition).toBe("retained");
       expect(result.recovery?.retained).toEqual([path.join("managed", "managed.txt")]);
       // The pre-change snapshots survive outside the workspace, in
       // OS-temporary storage, and the recovery content names them.

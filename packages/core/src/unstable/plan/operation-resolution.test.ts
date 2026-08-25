@@ -39,7 +39,7 @@ const resolution = (
     name: "Update skills",
     description: Option.none(),
     mode: "apply",
-    atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
     units: [],
     ...over,
   });

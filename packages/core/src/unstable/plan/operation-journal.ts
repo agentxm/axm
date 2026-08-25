@@ -2,11 +2,14 @@
  * Operation journal — the invocation-scoped record of a plan-family
  * operation's progress.
  *
- * The resolution boundary writes the frozen candidate's facts at apply start
- * and appends each completed unit as it terminates. When an external
- * termination request interrupts the invocation, the lifecycle wrapper reads
- * this journal to resolve the interruption truthfully: which units committed,
- * which were prevented, and what the durable-state disposition is.
+ * The resolution boundary writes the frozen candidate's facts at planning,
+ * records each phase transition, and records per-unit started and resolved
+ * facts as execution reaches them — settlement is recorded before the next
+ * interruptible boundary. When an external termination request interrupts the
+ * invocation, the lifecycle wrapper reads this journal to resolve the
+ * interruption truthfully: which units settled, which were in flight, which
+ * were never attempted, and what the durable-state disposition of each is.
+ * The journal is invocation-local; nothing here persists past the process.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,7 +22,7 @@ import * as ServiceMap from "effect/Context";
 import type { CompletedJobStep, OperationPresentation, PlanRiskCondition } from "./plan.js";
 import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
 import type { OperationPrecondition } from "./plan.js";
-import type { OperationAtomicity, ResolvedUnit } from "./operation-resolution.js";
+import type { OperationAtomicity, OperationPhase, ResolvedUnit } from "./operation-resolution.js";
 
 export interface OperationJournalState {
   readonly name: string;
@@ -33,12 +36,19 @@ export interface OperationJournalState {
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   /** Units of the frozen candidate, in planned states. */
   readonly plannedUnits: ReadonlyArray<ResolvedUnit<unknown>>;
-  /** Units completed so far during apply, in execution order. */
-  readonly completed: ReadonlyArray<CompletedJobStep<unknown>>;
-  /** True while the apply runs inside a restoring (candidate-atomic) guard. */
+  /** The lifecycle phase the invocation had reached when last recorded. */
+  readonly phase: OperationPhase;
+  /** Ids of units whose run began, in start order. */
+  readonly startedUnitIds: ReadonlyArray<string>;
+  /**
+   * Settlement facts, recorded the moment each unit resolved — before any
+   * interruptible boundary — in execution order. A started unit missing here
+   * is in flight: its durable effects are restored by the closure's rollback
+   * or unknown, never "not attempted".
+   */
+  readonly resolved: ReadonlyArray<CompletedJobStep<unknown>>;
+  /** True while the apply runs inside a restoring (closure-atomic) guard. */
   readonly restoresOnFailure: boolean;
-  /** True once apply has begun. */
-  readonly applying: boolean;
 }
 
 export interface OperationJournalService {
@@ -68,9 +78,20 @@ export const updateOperationJournal = (
     yield* Ref.update(service.value.ref, Option.map(update));
   });
 
-/** Append one completed unit to the journal. */
-export const appendCompletedUnit = (step: CompletedJobStep<unknown>): Effect.Effect<void> =>
-  updateOperationJournal((state) => ({ ...state, completed: [...state.completed, step] }));
+/** Record the lifecycle phase the invocation has entered. */
+export const recordJournalPhase = (phase: OperationPhase): Effect.Effect<void> =>
+  updateOperationJournal((state) => ({ ...state, phase }));
+
+/** Record that a unit's run began. */
+export const appendStartedUnit = (unitId: string): Effect.Effect<void> =>
+  updateOperationJournal((state) => ({
+    ...state,
+    startedUnitIds: [...state.startedUnitIds, unitId],
+  }));
+
+/** Record one unit's settlement fact. */
+export const appendResolvedUnit = (step: CompletedJobStep<unknown>): Effect.Effect<void> =>
+  updateOperationJournal((state) => ({ ...state, resolved: [...state.resolved, step] }));
 
 export const getOperationJournal: Effect.Effect<Option.Option<OperationJournalState>> = Effect.gen(
   function* () {

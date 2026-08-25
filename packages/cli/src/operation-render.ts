@@ -277,6 +277,17 @@ const renderFailureUnits = (
         case "rolled-back":
           yield* renderer.warn(`  ${unit.label}: rolled back`);
           break;
+        case "interrupted":
+          yield* renderer.warn(
+            `  ${unit.label}: interrupted in flight — ${
+              unit.disposition === "restored"
+                ? "effects were restored"
+                : unit.disposition === "unknown"
+                  ? "settlement was not observed"
+                  : "stopped"
+            }`,
+          );
+          break;
         default:
           break;
       }

@@ -51,6 +51,9 @@ export const UnitStateSchema = Schema.Literals([
   "blocked",
   "skipped",
   "cancelled",
+  // Started but not settled when the operation stopped; the disposition
+  // carries the durable-effect fact (restored, retained, or unknown).
+  "interrupted",
 ] as const).annotate({
   identifier: "UnitState",
   title: "Unit State",
@@ -92,7 +95,7 @@ export type OperationOutcome = typeof OperationOutcomeSchema.Type;
 
 /** Atomicity class that a closure declares and that an execution applies. */
 export const AtomicityClassSchema = Schema.Literals([
-  "candidate-atomic",
+  "closure-atomic",
   "non-rollbackable",
 ] as const).annotate({
   identifier: "AtomicityClass",
@@ -106,6 +109,10 @@ export const UnitDispositionSchema = Schema.Literals([
   "restored",
   "retained",
   "untouched",
+  // Settlement was not observed before the operation stopped: the unit's
+  // durable effects may or may not exist. Only evidenced states are reported;
+  // unknown is the evidenced absence of settlement, never a guess.
+  "unknown",
 ] as const).annotate({
   identifier: "UnitDisposition",
   title: "Unit Disposition",
@@ -167,8 +174,13 @@ export interface ResolvedUnit<Output = never> {
 
 export interface OperationInterruption {
   readonly signal: "SIGINT" | "SIGTERM";
-  /** Durable-state disposition of in-flight work at the stopping point. */
-  readonly disposition: "restored" | "retained" | "none";
+  /**
+   * Durable-state disposition of attempted work at the stopping point:
+   * `restored` when the closure rolled it back, `retained` when settled
+   * commits stand, `unknown` when a started unit's settlement was not
+   * observed, and `none` when nothing was attempted.
+   */
+  readonly disposition: "restored" | "retained" | "unknown" | "none";
 }
 
 /** One observed durable change or restoration. */
@@ -198,7 +210,7 @@ export interface OperationAtomicity {
   /** The class the operation's closures declared. */
   readonly declared: AtomicityClass;
   /**
-   * The class that actually applied to durable effects: `candidate-atomic`
+   * The class that actually applied to durable effects: `closure-atomic`
    * when effects were fully restored or never made; `non-rollbackable` when
    * effects were retained, by design or because restoration failed.
    */
@@ -247,6 +259,7 @@ export interface UnitStateCounts {
   readonly blocked: number;
   readonly skipped: number;
   readonly cancelled: number;
+  readonly interrupted: number;
   /** Annotation count, outside the state partition. */
   readonly warnings: number;
 }
@@ -261,6 +274,7 @@ export const countUnitStates = (units: ReadonlyArray<ResolvedUnit<unknown>>): Un
   let blocked = 0;
   let skipped = 0;
   let cancelled = 0;
+  let interrupted = 0;
   let warnings = 0;
   for (const unit of units) {
     warnings += unit.warnings?.length ?? 0;
@@ -292,6 +306,9 @@ export const countUnitStates = (units: ReadonlyArray<ResolvedUnit<unknown>>): Un
       case "cancelled":
         cancelled += 1;
         break;
+      case "interrupted":
+        interrupted += 1;
+        break;
     }
   }
   return {
@@ -305,6 +322,7 @@ export const countUnitStates = (units: ReadonlyArray<ResolvedUnit<unknown>>): Un
     blocked,
     skipped,
     cancelled,
+    interrupted,
     warnings,
   };
 };
@@ -442,7 +460,7 @@ export const plannedUnits = <Requirements, Output>(
   );
 
 /**
- * Units of an executed plan. `restored: true` marks the candidate-atomic
+ * Units of an executed plan. `restored: true` marks the closure-atomic
  * failure path where every committed effect was rolled back.
  */
 export const executedUnits = <Output>(
@@ -570,10 +588,10 @@ export const makeOperationResolution = <Output = never>(
   ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
 });
 
-/** The atomicity class a plan declares; local plans default candidate-atomic. */
+/** The atomicity class a plan declares; local plans default closure-atomic. */
 export const declaredAtomicity = (plan: {
   readonly executionCapabilities?: { readonly rollback: "local-atomic" | "non-rollbackable" };
 }): AtomicityClass =>
   plan.executionCapabilities?.rollback === "non-rollbackable"
     ? "non-rollbackable"
-    : "candidate-atomic";
+    : "closure-atomic";

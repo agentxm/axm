@@ -1,5 +1,5 @@
 /**
- * Plan-family machine document (`plan-result-v2`) and the emit boundary.
+ * Plan-family machine document (`plan-result-v3`) and the emit boundary.
  *
  * `emitOperationResolution` is the one place a plan-family command terminates:
  * it derives the outcome and exit code from the resolution with the shared
@@ -61,7 +61,7 @@ import { renderOperationOutcome, resolutionAgentCoverage } from "./operation-ren
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "./root/update/targeted-update-context.js";
 
-export const PLAN_RESULT_CONTRACT = "plan-result-v2";
+export const PLAN_RESULT_CONTRACT = "plan-result-v3";
 
 // -----------------------------------------------------------------------------
 // Wire schemas
@@ -210,6 +210,7 @@ const UnitCountsSchema = Schema.Struct({
   blocked: Schema.Number,
   skipped: Schema.Number,
   cancelled: Schema.Number,
+  interrupted: Schema.Number,
   warnings: Schema.Number,
 }).annotate({
   identifier: "UnitCounts",
@@ -229,7 +230,7 @@ const OperationAtomicitySchema = Schema.Struct({
 
 const OperationInterruptionSchema = Schema.Struct({
   signal: Schema.Literals(["SIGINT", "SIGTERM"] as const),
-  disposition: Schema.Literals(["restored", "retained", "none"] as const),
+  disposition: Schema.Literals(["restored", "retained", "unknown", "none"] as const),
 }).annotate({
   identifier: "OperationInterruption",
   title: "Operation Interruption",
@@ -555,6 +556,7 @@ export const toPlanResolutionResult = (
       blocked: counts.blocked,
       skipped: counts.skipped,
       cancelled: counts.cancelled,
+      interrupted: counts.interrupted,
       warnings: counts.warnings,
     },
     units,
@@ -781,7 +783,7 @@ export const emitNoOpOperation = (
       description:
         args.planDescription === undefined ? Option.none() : Option.some(args.planDescription),
       mode: "apply",
-      atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
       units: [],
     }),
     {

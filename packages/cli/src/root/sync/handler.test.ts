@@ -659,7 +659,7 @@ describe("root sync handler", () => {
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));
       expect(result).toMatchObject({
-        contract: "plan-result-v2",
+        contract: "plan-result-v3",
         outcome: "no-op",
         counts: { total: 0 },
       });
@@ -699,7 +699,7 @@ describe("root sync handler", () => {
       expect(rendererState.results[0]?.ok).toBe(false);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "previewed",
           mode: "preview",
           divergence: true,
@@ -1474,7 +1474,7 @@ describe("root sync handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "blocked",
           blocking: {
             class: "precondition-unmet",

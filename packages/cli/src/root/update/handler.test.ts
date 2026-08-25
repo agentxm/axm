@@ -549,7 +549,7 @@ describe("root update handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "blocked",
           blocking: {
             class: "precondition-unmet",
@@ -618,7 +618,7 @@ describe("root update handler", () => {
       expect(fs.readFileSync(path.join(axmDir, "settings.json"), "utf8")).toBe(settingsBefore);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "previewed",
           mode: "preview",
           counts: { total: 1 },
@@ -708,7 +708,7 @@ describe("root update handler", () => {
 
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
-          contract: "plan-result-v2",
+          contract: "plan-result-v3",
           outcome: "no-op",
           counts: { total: 0 },
           holdbacks: [

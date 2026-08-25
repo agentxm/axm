@@ -4,7 +4,10 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
@@ -363,6 +366,111 @@ describe("runWorkspaceTransaction", () => {
           }),
         ),
       ),
+    );
+  });
+
+  // Restoration must stage before it publishes: a restore that removes the
+  // target and then fails to copy has destroyed the only durable copy of the
+  // failure-time state. A failed staging leaves the target exactly as the
+  // failure left it.
+  it.effect("a failed restoration copy leaves the target as the failure left it", () => {
+    const restoreCopyFailingServices = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        return {
+          ...real,
+          copy: (...args: Parameters<FileSystem.FileSystem["copy"]>) =>
+            // The restore direction copies out of the OS-temporary snapshot
+            // store; the snapshot direction copies into it.
+            args[0].includes("axm-rollback-")
+              ? Effect.fail(
+                  PlatformError.badArgument({
+                    module: "FileSystem",
+                    method: "copy",
+                    description: "injected restoration copy failure",
+                  }),
+                )
+              : real.copy(...args),
+        };
+      }),
+    ).pipe(Layer.provideMerge(NodeServices.layer));
+    let snapshotDir: string | undefined;
+    return runWorkspaceTransaction({
+      workspaceDir,
+      targets: [settingsPath],
+      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
+        Effect.andThen(
+          Effect.fail(makeAppError({ code: "internal", detail: "injected transition failure" })),
+        ),
+      ),
+      validate: () => Effect.void,
+    }).pipe(
+      Effect.flip,
+      Effect.tap((error) =>
+        Effect.sync(() => {
+          expect(error._tag).toBe("WorkspaceRestorationIncomplete");
+          if (error._tag !== "WorkspaceRestorationIncomplete") return;
+          snapshotDir = error.snapshotDir;
+          // The target keeps the failure-time state: staging failed before
+          // publication, so the mutated bytes were never destroyed.
+          expect(nodeFs.existsSync(settingsPath)).toBe(true);
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
+          // No staging residue survives beside the target.
+          const siblings = nodeFs.readdirSync(nodePath.dirname(settingsPath));
+          expect(siblings.filter((name) => name.startsWith("settings.json.tmp."))).toEqual([]);
+        }),
+      ),
+      Effect.ensuring(
+        Effect.sync(() => {
+          if (snapshotDir !== undefined) {
+            nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
+          }
+        }),
+      ),
+      Effect.provide(restoreCopyFailingServices),
+    );
+  });
+
+  // A file target is republished with one atomic rename: no interleaving of
+  // operations may leave the authoritative path absent or partially written,
+  // because abrupt termination can strike between any two of them.
+  it.effect("file restoration publishes atomically without removing the target first", () => {
+    const removed: Array<string> = [];
+    const recordingServices = Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        return {
+          ...real,
+          remove: (...args: Parameters<FileSystem.FileSystem["remove"]>) =>
+            Effect.sync(() => {
+              removed.push(args[0]);
+            }).pipe(Effect.andThen(real.remove(...args))),
+        };
+      }),
+    ).pipe(Layer.provideMerge(NodeServices.layer));
+    return runWorkspaceTransaction({
+      workspaceDir,
+      targets: [settingsPath],
+      transition: Effect.sync(() => nodeFs.writeFileSync(settingsPath, '{"changed":true}\n')).pipe(
+        Effect.andThen(
+          Effect.fail(makeAppError({ code: "internal", detail: "injected transition failure" })),
+        ),
+      ),
+      validate: () => Effect.void,
+    }).pipe(
+      Effect.flip,
+      Effect.tap((error) =>
+        Effect.sync(() => {
+          expect(detailOf(error)).toBe("injected transition failure");
+          expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
+          // The authoritative path itself was never removed; only owned
+          // `.tmp.` siblings and the snapshot store may be.
+          expect(removed.filter((path) => path === settingsPath)).toEqual([]);
+        }),
+      ),
+      Effect.provide(recordingServices),
     );
   });
 

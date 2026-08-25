@@ -7,7 +7,10 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { at } from "../test-helpers.js";
@@ -378,6 +381,90 @@ describe("applyPlan", () => {
       expect(executed.jobs).toHaveLength(2);
       expect(at(executed.jobs, 0).steps).toHaveLength(1);
       expect(at(executed.jobs, 1).steps).toHaveLength(2);
+    }),
+  );
+});
+
+// -----------------------------------------------------------------------------
+// Settlement is recorded before an interruptible boundary
+// -----------------------------------------------------------------------------
+
+describe("applyPlan interruption boundaries", () => {
+  // Once a unit's run completes, its settlement observation must be recorded
+  // before any interruptible boundary: an interrupt arriving with the
+  // completion can otherwise erase the only in-memory evidence that the
+  // unit's durable effect was committed.
+  it.live("records settlement before an interruptible boundary", () =>
+    Effect.gen(function* () {
+      const settlementEntered = yield* Deferred.make<void>();
+      const settled: Array<string> = [];
+      const fiber = yield* Effect.forkChild(
+        applyPlan(
+          makePlan({
+            jobs: [{ concurrency: 1, steps: [makeReadyStep("a")] }],
+          }),
+          {
+            // The suspension inside the observation guarantees the interrupt
+            // is delivered while settlement is still being recorded.
+            onStepCompleted: (step) =>
+              Deferred.succeed(settlementEntered, void 0).pipe(
+                Effect.andThen(Effect.sleep("50 millis")),
+                Effect.andThen(
+                  Effect.sync(() => {
+                    settled.push(step.label);
+                  }),
+                ),
+              ),
+          },
+        ),
+      );
+      yield* Deferred.await(settlementEntered);
+      yield* Fiber.interrupt(fiber);
+      expect(settled).toEqual(["a"]);
+    }),
+  );
+
+  // The settlement mask must stay narrow: a unit's own run remains
+  // interruptible, and an interrupt during the run leaves it unsettled.
+  it.effect("keeps a unit's run interruptible", () =>
+    Effect.gen(function* () {
+      const runEntered = yield* Deferred.make<void>();
+      const started: Array<string> = [];
+      const settled: Array<string> = [];
+      const fiber = yield* Effect.forkChild(
+        applyPlan(
+          makePlan({
+            jobs: [
+              {
+                concurrency: 1,
+                steps: [
+                  {
+                    readiness: "ready",
+                    label: "parked",
+                    run: Deferred.succeed(runEntered, void 0).pipe(Effect.andThen(Effect.never)),
+                  },
+                ],
+              },
+            ],
+          }),
+          {
+            onStepStarted: (step) =>
+              Effect.sync(() => {
+                started.push(step.label);
+              }),
+            onStepCompleted: (step) =>
+              Effect.sync(() => {
+                settled.push(step.label);
+              }),
+          },
+        ),
+      );
+      yield* Deferred.await(runEntered);
+      yield* Fiber.interrupt(fiber);
+      const exit = yield* Fiber.await(fiber);
+      expect(Exit.isSuccess(exit)).toBe(false);
+      expect(started).toEqual(["parked"]);
+      expect(settled).toEqual([]);
     }),
   );
 });

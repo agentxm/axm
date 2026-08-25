@@ -37,13 +37,13 @@ const resolution = (
     name: "Update skills",
     description: Option.none(),
     mode: "apply",
-    atomicity: { declared: "candidate-atomic", applied: "candidate-atomic" },
+    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
     units: [],
     ...over,
   });
 
 describe("toPlanResolutionResult", () => {
-  it("emits the plan-result-v2 contract with plan identity in a schema-backed document", () => {
+  it("emits the plan-result-v3 contract with plan identity in a schema-backed document", () => {
     const value = resolution({
       description: Option.some("Update installed skills"),
       units: [unit("a", "committed")],
@@ -53,7 +53,7 @@ describe("toPlanResolutionResult", () => {
       toPlanResolutionResult(value),
     );
 
-    expect(result.contract).toBe("plan-result-v2");
+    expect(result.contract).toBe("plan-result-v3");
     expect(result.planName).toBe("Update skills");
     expect(result.planDescription).toBe("Update installed skills");
     expect(result.mode).toBe("apply");
@@ -182,7 +182,7 @@ describe("toPlanResolutionResult", () => {
 
   it("C-06: atomicity carries declared and applied classes and unit dispositions appear", () => {
     const value = resolution({
-      atomicity: { declared: "candidate-atomic", applied: "non-rollbackable" },
+      atomicity: { declared: "closure-atomic", applied: "non-rollbackable" },
       units: [unit("a", "committed"), unit("b", "failed", { disposition: "retained" })],
       failure: makeAppError({ code: "internal", detail: "restoration failed" }),
     });
@@ -190,7 +190,7 @@ describe("toPlanResolutionResult", () => {
     const result = toPlanResolutionResult(value);
 
     expect(result.atomicity).toEqual({
-      declared: "candidate-atomic",
+      declared: "closure-atomic",
       applied: "non-rollbackable",
     });
     expect(result.units).toEqual([

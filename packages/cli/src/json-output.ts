@@ -45,6 +45,10 @@ const PublishStatusSchema = Schema.Literals([
   "pending",
   "blocked",
   "skipped",
+  // The upload request was dispatched but no response was recorded: the
+  // registry may have committed the version. Only evidenced states are
+  // reported — recovery verifies before it re-runs.
+  "unknown",
 ] as const).annotate({
   identifier: "PublishStatus",
   title: "Publish Status",
@@ -274,6 +278,10 @@ export const PublishResultSchema = Schema.Struct({
   publicationSet: PublishPublicationSetSchema,
   execution: PublishExecutionSchema,
   recovery: Schema.optional(PublishRecoverySchema),
+  /** Present when an external termination request stopped the invocation. */
+  interruption: Schema.optional(
+    Schema.Struct({ signal: Schema.Literals(["SIGINT", "SIGTERM"] as const) }),
+  ),
   counts: Schema.Struct({
     selected: Schema.Number,
     published: Schema.Number,
@@ -282,6 +290,7 @@ export const PublishResultSchema = Schema.Struct({
     blocked: Schema.Number,
     failed: Schema.Number,
     pending: Schema.Number,
+    unknown: Schema.Number,
   }),
 }).annotate({
   identifier: "PublishResult",
@@ -304,6 +313,7 @@ interface PublishResultInput {
   readonly results: ReadonlyArray<PublishResultItem>;
   readonly failure?: PublishResult["execution"]["failure"];
   readonly recovery?: PublishResult["recovery"];
+  readonly interruption?: PublishResult["interruption"];
 }
 
 export const classifyPublishResults = (
@@ -321,7 +331,9 @@ export const classifyPublishResults = (
   const blocked = results.filter((item) => item.status === "blocked").length;
   const failed = results.filter((item) => item.status === "failed").length;
   const pending = results.filter((item) => item.status === "pending").length;
-  const skipped = results.length - published - alreadyPublished - blocked - failed - pending;
+  const unknown = results.filter((item) => item.status === "unknown").length;
+  const skipped =
+    results.length - published - alreadyPublished - blocked - failed - pending - unknown;
   return {
     selected: results.length,
     published,
@@ -330,6 +342,7 @@ export const classifyPublishResults = (
     blocked,
     failed,
     pending,
+    unknown,
   };
 };
 
@@ -352,8 +365,11 @@ const executionStatus = (
   const failed = results.some((item) => item.status === "failed");
   const blocked = results.some((item) => item.status === "blocked");
   const succeeded = results.some((item) => item.status === "success");
-  if (failure !== undefined || ((failed || blocked) && !succeeded)) return "failed";
-  if (failed || blocked) return "partial";
+  const unknown = results.some((item) => item.status === "unknown");
+  if (failure !== undefined || ((failed || blocked) && !succeeded && !unknown)) return "failed";
+  // An indeterminate outcome is never definitive failure: the registry may
+  // have committed the version before its response was recorded.
+  if (failed || blocked || unknown) return "partial";
   return "completed";
 };
 
@@ -386,6 +402,7 @@ const normalizePublishResult = (result: PublishResultInput): PublishResult => {
     },
     counts,
     ...(result.recovery === undefined ? {} : { recovery: result.recovery }),
+    ...(result.interruption === undefined ? {} : { interruption: result.interruption }),
   };
 };
 
@@ -745,17 +762,19 @@ export const publishResultToSummary = (result: PublishResult): CommandOutcomeSum
     onlyType === undefined ? "unknown" : types.size === 1 ? onlyType : "mixed";
   return {
     outcome:
-      result.mode === "preview"
-        ? "previewed"
-        : appliedCount > 0 && (failedCount > 0 || blockedCount > 0)
-          ? "partial"
-          : failedCount > 0
-            ? "failed"
-            : blockedCount > 0
-              ? "blocked"
-              : appliedCount === 0
-                ? "no-op"
-                : "applied",
+      result.interruption !== undefined
+        ? "interrupted"
+        : result.mode === "preview"
+          ? "previewed"
+          : appliedCount > 0 && (failedCount > 0 || blockedCount > 0)
+            ? "partial"
+            : failedCount > 0
+              ? "failed"
+              : blockedCount > 0
+                ? "blocked"
+                : appliedCount === 0
+                  ? "no-op"
+                  : "applied",
     subjectType,
     sourceKind: "workspace",
     appliedCount,

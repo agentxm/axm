@@ -93,7 +93,7 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(true);
-      expect(document.result.contract).toBe("plan-result-v2");
+      expect(document.result.contract).toBe("plan-result-v3");
       expect(document.result.outcome).toBe("applied");
       expect(document.result.mode).toBe("apply");
       expect(document.result.counts).toEqual({
@@ -107,6 +107,7 @@ describe("axm skills install output UX", () => {
         blocked: 0,
         skipped: 0,
         cancelled: 0,
+        interrupted: 0,
         warnings: 0,
       });
       expect(document.result.units).toHaveLength(1);
@@ -196,7 +197,7 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(true);
-      expect(document.result.contract).toBe("plan-result-v2");
+      expect(document.result.contract).toBe("plan-result-v3");
       expect(document.result.outcome).toBe("no-op");
       expect(document.result.counts).toEqual({
         total: 1,
@@ -209,6 +210,7 @@ describe("axm skills install output UX", () => {
         blocked: 0,
         skipped: 0,
         cancelled: 0,
+        interrupted: 0,
         warnings: 0,
       });
       const unit = document.result.units[0];

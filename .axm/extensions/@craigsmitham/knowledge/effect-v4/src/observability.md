@@ -22,38 +22,38 @@ tags:
 status: stable
 sources:
   - id: docs-logging
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/08_observability/10_logging.ts
-    title: Official Effect docs — Logger.layer composition, MinimumLogLevel filtering, log annotations (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/08_observability/10_logging.ts
+    title: Official Effect docs — Logger.layer composition, MinimumLogLevel filtering, log annotations (effect 4.0.0-rc.111)
   - id: docs-otlp-tracing
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/08_observability/20_otlp-tracing.ts
-    title: Official Effect docs — spans at boundaries and the Otlp exporter layer provided last (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/08_observability/20_otlp-tracing.ts
+    title: Official Effect docs — spans at boundaries and the Otlp exporter layer provided last (effect 4.0.0-rc.111)
   - id: src-metric
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Metric.ts
-    title: Metric module source — attribute options and withAttributes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Metric.ts
+    title: Metric module source — attribute options and withAttributes (effect 4.0.0-rc.111)
   - id: src-tracer
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Tracer.ts
-    title: Tracer module source — Ended span status carries the full Exit (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Tracer.ts
+    title: Tracer module source — Ended span status carries the full Exit (effect 4.0.0-rc.111)
   - id: src-formatter
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Formatter.ts
-    title: Formatter module source — automatic redaction of Redactable values in formatted output (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Formatter.ts
+    title: Formatter module source — automatic redaction of Redactable values in formatted output (effect 4.0.0-rc.111)
   - id: src-console
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Console.ts
-    title: Console module source — Console.Console is a Context.Reference over the ambient console and is substitutable per fiber (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Console.ts
+    title: Console module source — Console.Console is a Context.Reference over the ambient console and is substitutable per fiber (effect 4.0.0-rc.111)
   - id: src-console-ref
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/internal/effect.ts
-    title: Effect internals — ConsoleRef defaults to globalThis.console, and defaultLogger writes through that same reference (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/internal/effect.ts
+    title: Effect internals — ConsoleRef defaults to globalThis.console, and defaultLogger writes through that same reference (effect 4.0.0-rc.111)
   - id: src-stdio
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Stdio.ts
-    title: Stdio module source — stdout and stderr as Sinks, stdin as a byte Stream, for byte-level and piped I/O (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Stdio.ts
+    title: Stdio module source — stdout and stderr as Sinks, stdin as a byte Stream, for byte-level and piped I/O (effect 4.0.0-rc.111)
   - id: src-cli-command
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/cli/Command.ts
-    title: Unstable CLI Command source — help and errors printed through Console, with a documented silent-console substitution (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/cli/Command.ts
+    title: Unstable CLI Command source — help and errors printed through Console, with a documented silent-console substitution (effect 4.0.0-rc.111)
   - id: src-effect-span
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — withSpan accepts span options as a function of the wrapped arguments; Effect.fn takes a literal name (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — withSpan accepts span options as a function of the wrapped arguments; Effect.fn takes a literal name (effect 4.0.0-rc.111)
   - id: src-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/http/HttpClient.ts
-    title: HttpClient source — default client span name is method-only, with the full URL carried as an attribute (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/http/HttpClient.ts
+    title: HttpClient source — default client span name is method-only, with the full URL carried as an attribute (effect 4.0.0-rc.111)
   - id: otel-http-spans
     resource: https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/http/http-spans.md
     title: OpenTelemetry semantic conventions v1.44.0 — HTTP span names are {method} plus a low-cardinality target; instrumentation MUST NOT default to the URI path
@@ -96,13 +96,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-observability/src/SKILL.md
     title: effect-v4-observability skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:49Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:49Z
   - by: claude/opus-5
     at: 2026-08-17T22:05:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Observability
@@ -215,7 +217,7 @@ Text output has three destinations; choose by audience, not convenience.
 - Provide the exporter layer last in the layer graph so everything the
   application emits is exported; assemble it once, at the edge, from
   deployment configuration.[^docs-otlp-tracing] [^applied-opencode]
-- The `Otlp*` family lives under `effect/unstable/observability` at rc.110;
+- The `Otlp*` family lives under `effect/unstable/observability` at rc.111;
   expect higher churn than core modules and re-verify names against the
   installed version.
 
@@ -253,27 +255,27 @@ Telemetry should support a concrete diagnosis or decision; omit noise that canno
 - Loggers, level filtering, and exporters are provided once, last, at the
   application edge.
 
-[^docs-logging]: `ai-docs/src/08_observability/10_logging.ts` at `effect@4.0.0-rc.110` — `Logger.layer`, `Logger.consoleJson`/`toFile`/`batched`, `References.MinimumLogLevel`, `Effect.annotateLogs`, `Effect.withLogSpan`.
+[^docs-logging]: `ai-docs/src/08_observability/10_logging.ts` at `effect@4.0.0-rc.111` — `Logger.layer`, `Logger.consoleJson`/`toFile`/`batched`, `References.MinimumLogLevel`, `Effect.annotateLogs`, `Effect.withLogSpan`.
 
-[^docs-otlp-tracing]: `ai-docs/src/08_observability/20_otlp-tracing.ts` at `effect@4.0.0-rc.110` — `Effect.withSpan`/`annotateSpans`, `Effect.fn` named operations, `OtlpTracer`/`OtlpLogger` + `OtlpSerialization.layerJson` + `FetchHttpClient.layer`, observability layer provided last; module family at `packages/effect/src/unstable/observability/`.
+[^docs-otlp-tracing]: `ai-docs/src/08_observability/20_otlp-tracing.ts` at `effect@4.0.0-rc.111` — `Effect.withSpan`/`annotateSpans`, `Effect.fn` named operations, `OtlpTracer`/`OtlpLogger` + `OtlpSerialization.layerJson` + `FetchHttpClient.layer`, observability layer provided last; module family at `packages/effect/src/unstable/observability/`.
 
-[^src-metric]: `packages/effect/src/Metric.ts` at `effect@4.0.0-rc.110` — attribute options on metric constructors and `Metric.withAttributes`.
+[^src-metric]: `packages/effect/src/Metric.ts` at `effect@4.0.0-rc.111` — attribute options on metric constructors and `Metric.withAttributes`.
 
-[^src-tracer]: `packages/effect/src/Tracer.ts` at `effect@4.0.0-rc.110` — the `Ended` span status records `exit: Exit<unknown, unknown>`.
+[^src-tracer]: `packages/effect/src/Tracer.ts` at `effect@4.0.0-rc.111` — the `Ended` span status records `exit: Exit<unknown, unknown>`.
 
-[^src-formatter]: `packages/effect/src/Formatter.ts` at `effect@4.0.0-rc.110` — formatting redacts `Redacted`/`Redactable` values in log and inspection output.
+[^src-formatter]: `packages/effect/src/Formatter.ts` at `effect@4.0.0-rc.111` — formatting redacts `Redacted`/`Redactable` values in log and inspection output.
 
-[^src-console]: `packages/effect/src/Console.ts` at `effect@4.0.0-rc.110` — `Console.Console` is `effect.ConsoleRef`, a `Context.Reference`; `consoleWith` reads it off the fiber, and `Console.log` writes through whatever is in scope. The module's own examples substitute a capturing console via `Effect.provideService`.
+[^src-console]: `packages/effect/src/Console.ts` at `effect@4.0.0-rc.111` — `Console.Console` is `effect.ConsoleRef`, a `Context.Reference`; `consoleWith` reads it off the fiber, and `Console.log` writes through whatever is in scope. The module's own examples substitute a capturing console via `Effect.provideService`.
 
-[^src-console-ref]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.110` — `ConsoleRef` is declared with `defaultValue: () => globalThis.console`; `defaultLogger` then does `const console = fiber.getRef(ConsoleRef)` and selects `console.error` or `console.log` from `fiber.getRef(LogToStderr)`. Same reference, both channels.
+[^src-console-ref]: `packages/effect/src/internal/effect.ts` at `effect@4.0.0-rc.111` — `ConsoleRef` is declared with `defaultValue: () => globalThis.console`; `defaultLogger` then does `const console = fiber.getRef(ConsoleRef)` and selects `console.error` or `console.log` from `fiber.getRef(LogToStderr)`. Same reference, both channels.
 
-[^src-cli-command]: `packages/effect/src/unstable/cli/Command.ts` at `effect@4.0.0-rc.110` — imports `Console` and prints help, errors, and wizard output through it; the module docs demonstrate a `silentConsole` supplied with `Effect.provideService(Console.Console, …)`.
+[^src-cli-command]: `packages/effect/src/unstable/cli/Command.ts` at `effect@4.0.0-rc.111` — imports `Console` and prints help, errors, and wizard output through it; the module docs demonstrate a `silentConsole` supplied with `Effect.provideService(Console.Console, …)`.
 
-[^src-stdio]: `packages/effect/src/Stdio.ts` at `effect@4.0.0-rc.110` — service contract for argv and standard I/O: stdout and stderr as `Sink`s accepting strings or bytes, stdin as a byte `Stream`, plus a test layer. Explicitly the alternative to writing to global process handles directly.
+[^src-stdio]: `packages/effect/src/Stdio.ts` at `effect@4.0.0-rc.111` — service contract for argv and standard I/O: stdout and stderr as `Sink`s accepting strings or bytes, stdin as a byte `Stream`, plus a test layer. Explicitly the alternative to writing to global process handles directly.
 
-[^src-effect-span]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `withSpan(name, options?, traceOptions?)` where `options` may be `SpanOptionsNoTrace | ((...args: Args) => SpanOptionsNoTrace)`; `Effect.fn` is `fn.Traced & ((name: string, options?: SpanOptionsNoTrace) => fn.Traced)`. The name is always a plain `string`; only options see the arguments. Upstream uses the options-function form in `unstable/workflow/WorkflowEngine.ts`.
+[^src-effect-span]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `withSpan(name, options?, traceOptions?)` where `options` may be `SpanOptionsNoTrace | ((...args: Args) => SpanOptionsNoTrace)`; `Effect.fn` is `fn.Traced & ((name: string, options?: SpanOptionsNoTrace) => fn.Traced)`. The name is always a plain `string`; only options see the arguments. Upstream uses the options-function form in `unstable/workflow/WorkflowEngine.ts`.
 
-[^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.110` — `SpanNameGenerator` defaults to `` (request) => `http.client ${request.method}` ``; the request span sets `url.full`, `url.path`, `url.scheme`, `url.query`, `server.address`, and `server.port` as attributes.
+[^src-http-client]: `packages/effect/src/unstable/http/HttpClient.ts` at `effect@4.0.0-rc.111` — `SpanNameGenerator` defaults to `` (request) => `http.client ${request.method}` ``; the request span sets `url.full`, `url.path`, `url.scheme`, `url.query`, `server.address`, and `server.port` as attributes.
 
 [^otel-http-spans]: OpenTelemetry semantic conventions `v1.44.0`, `docs/http/http-spans.md` — "HTTP span names SHOULD be `{method} {target}` if there is a (low-cardinality) `target` available"; "Instrumentation MUST NOT default to using URI path as a `{target}`."
 

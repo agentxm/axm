@@ -40,5 +40,4 @@ Do not convert “not observed” into “cannot happen.” A small suite can re
 large regression without supporting a precise population estimate.
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
-
 [^nist-rmf]: NIST — AI RMF Core

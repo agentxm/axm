@@ -56,7 +56,5 @@ delegation, preserve required audit evidence, dispose of memory under policy,
 and give affected people a transition and redress path.
 
 [^otel-agent-observability]: OpenTelemetry — AI agent observability
-
 [^otel-genai]: OpenTelemetry — Generative AI semantic convention attributes
-
 [^nist-rmf]: NIST — AI Risk Management Framework

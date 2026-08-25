@@ -6,20 +6,20 @@ tags: [effect, effect-v4, request, requestresolver, cache, batching, ttl, n-plus
 status: stable
 sources:
   - id: docs-batching
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/05_batching/10_request-resolver.ts
-    title: Official Effect docs — end-to-end Request and RequestResolver batching (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/05_batching/10_request-resolver.ts
+    title: Official Effect docs — end-to-end Request and RequestResolver batching (effect 4.0.0-rc.111)
   - id: src-request-resolver
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/RequestResolver.ts
-    title: RequestResolver source — entry completion contract, batchN, grouped resolvers (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/RequestResolver.ts
+    title: RequestResolver source — entry completion contract, batchN, grouped resolvers (effect 4.0.0-rc.111)
   - id: src-cache
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Cache.ts
-    title: Cache source — failed exits cached, infinite default timeToLive, exit-aware makeWith (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Cache.ts
+    title: Cache source — failed exits cached, infinite default timeToLive, exit-aware makeWith (effect 4.0.0-rc.111)
   - id: src-scoped-cache
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/ScopedCache.ts
-    title: ScopedCache source — per-entry scopes released on expiry, eviction, invalidation, close (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/ScopedCache.ts
+    title: ScopedCache source — per-entry scopes released on expiry, eviction, invalidation, close (effect 4.0.0-rc.111)
   - id: test-request
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Request.test.ts
-    title: Request tests — batching behavior, batchN sizing, grouped resolvers (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Request.test.ts
+    title: Request tests — batching behavior, batchN sizing, grouped resolvers (effect 4.0.0-rc.111)
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/opencode/src/account/account.ts
     title: opencode@2cba7e2 — Cache with zero TTL for pure in-flight sharing
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-request-batching-and-cache/src/SKILL.md
     title: effect-v4-request-batching-and-cache skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:16Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:16Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Request batching and cache
@@ -78,7 +80,7 @@ layers](services-and-layers.md) for placing the cache at the owning boundary.
   Missing identity fields create incorrect reuse.
 - Set capacity, TTL, and invalidation from freshness and memory requirements,
   not arbitrary defaults.
-- Decide failure caching explicitly: rc.110 caches failed lookup exits, and
+- Decide failure caching explicitly: rc.111 caches failed lookup exits, and
   the default TTL is infinite, so an error is retained forever unless policy
   says otherwise. `Cache.makeWith`'s `timeToLive: (exit, key) => Duration`
   is the lever — return `Duration.zero` or a short duration for failure
@@ -117,13 +119,13 @@ sharing, expiry, and safe invalidation.
 - No plain `Map` holds Effect results that need in-flight sharing, expiry, or
   invalidation.
 
-[^docs-batching]: `ai-docs/src/05_batching/10_request-resolver.ts` at `effect@4.0.0-rc.110` — `Request.Class`, `RequestResolver.make` with `entry.completeUnsafe(Exit...)`, `setDelay`, `withCache`, `Effect.request`, and per-entry captured context.
+[^docs-batching]: `ai-docs/src/05_batching/10_request-resolver.ts` at `effect@4.0.0-rc.111` — `Request.Class`, `RequestResolver.make` with `entry.completeUnsafe(Exit...)`, `setDelay`, `withCache`, `Effect.request`, and per-entry captured context.
 
-[^src-request-resolver]: `packages/effect/src/RequestResolver.ts` at `effect@4.0.0-rc.110` — `makeWith` gotcha ("Accepted entries must be completed. If `runAll` succeeds with incomplete entries, waiting requests fail."), `batchN`, `makeGrouped`/`grouped`; behavior exercised in `packages/effect/test/Request.test.ts`.
+[^src-request-resolver]: `packages/effect/src/RequestResolver.ts` at `effect@4.0.0-rc.111` — `makeWith` gotcha ("Accepted entries must be completed. If `runAll` succeeds with incomplete entries, waiting requests fail."), `batchN`, `makeGrouped`/`grouped`; behavior exercised in `packages/effect/test/Request.test.ts`.
 
-[^src-cache]: `packages/effect/src/Cache.ts` at `effect@4.0.0-rc.110` — the module stores successful and failed results and shares in-progress lookups; `makeWith` takes `timeToLive: (exit, key) => Duration.Input`; the default returns `Duration.infinity` for all exits.
+[^src-cache]: `packages/effect/src/Cache.ts` at `effect@4.0.0-rc.111` — the module stores successful and failed results and shares in-progress lookups; `makeWith` takes `timeToLive: (exit, key) => Duration.Input`; the default returns `Duration.infinity` for all exits.
 
-[^src-scoped-cache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.110` — per-entry `Scope` released on expiry, eviction, invalidation, or cache close.
+[^src-scoped-cache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.111` — per-entry `Scope` released on expiry, eviction, invalidation, or cache close.
 
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/opencode/src/account/account.ts` (effect 4.0.0-beta.83) — `Cache.make` with `timeToLive: Duration.zero` collapses concurrent token refreshes per account with no retention.
 

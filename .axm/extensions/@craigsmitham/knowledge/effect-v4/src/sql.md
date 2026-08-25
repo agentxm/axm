@@ -19,56 +19,56 @@ tags:
 status: stable
 sources:
   - id: src-sql-error
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlError.ts
-    title: SqlError module source — one tagged error, eleven reasons, isRetryable, classifySqliteError (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlError.ts
+    title: SqlError module source — one tagged error, eleven reasons, isRetryable, classifySqliteError (effect 4.0.0-rc.111)
   - id: src-sql-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlClient.ts
-    title: SqlClient module source — service interface, make, makeWithTransaction, TransactionConnection, SafeIntegers (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlClient.ts
+    title: SqlClient module source — service interface, make, makeWithTransaction, TransactionConnection, SafeIntegers (effect 4.0.0-rc.111)
   - id: src-statement
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/Statement.ts
-    title: Statement module source — Constructor helpers, Statement as Effect, compile, span attributes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/Statement.ts
+    title: Statement module source — Constructor helpers, Statement as Effect, compile, span attributes (effect 4.0.0-rc.111)
   - id: src-sql-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlSchema.ts
-    title: SqlSchema module source — findAll, findNonEmpty, findOne, findOneOption, void alias (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlSchema.ts
+    title: SqlSchema module source — findAll, findNonEmpty, findOne, findOneOption, void alias (effect 4.0.0-rc.111)
   - id: src-sql-resolver
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlResolver.ts
-    title: SqlResolver module source — transaction-aware batching key (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlResolver.ts
+    title: SqlResolver module source — transaction-aware batching key (effect 4.0.0-rc.111)
   - id: src-sql-stream
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlStream.ts
-    title: SqlStream module source — asyncPauseResume driver interop helper (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlStream.ts
+    title: SqlStream module source — asyncPauseResume driver interop helper (effect 4.0.0-rc.111)
   - id: src-migrator
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/Migrator.ts
-    title: Migrator module source — loader, lock via constraint conflict, transactional run (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/Migrator.ts
+    title: Migrator module source — loader, lock via constraint conflict, transactional run (effect 4.0.0-rc.111)
   - id: src-sql-connection
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/sql/SqlConnection.ts
-    title: SqlConnection module source — Connection interface and Acquirer (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/sql/SqlConnection.ts
+    title: SqlConnection module source — Connection interface and Acquirer (effect 4.0.0-rc.111)
   - id: src-pg-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/pg/src/PgClient.ts
-    title: "@effect/sql-pg source — SQLSTATE classification and layers providing both tags (effect 4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/pg/src/PgClient.ts
+    title: "@effect/sql-pg source — SQLSTATE classification and layers providing both tags (effect 4.0.0-rc.111)"
   - id: src-d1-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/d1/src/D1Client.ts
-    title: "@effect/sql-d1 source — transaction acquirer dies, atomic batch, no migrator (effect 4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/d1/src/D1Client.ts
+    title: "@effect/sql-d1 source — transaction acquirer dies, atomic batch, no migrator (effect 4.0.0-rc.111)"
   - id: src-sqlite-do
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/sqlite-do/src/SqliteClient.ts
-    title: "@effect/sql-sqlite-do source — storage-backed transactions, nested transactions rejected (effect 4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/sqlite-do/src/SqliteClient.ts
+    title: "@effect/sql-sqlite-do source — storage-backed transactions, nested transactions rejected (effect 4.0.0-rc.111)"
   - id: src-eventlog
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts
-    title: First-party SQL consumer — branching on reason._tag to absorb a constraint conflict (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts
+    title: First-party SQL consumer — branching on reason._tag to absorb a constraint conflict (effect 4.0.0-rc.111)
   - id: src-eventlog-encrypted
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts
-    title: First-party SQL consumer — ON CONFLICT DO NOTHING instead of catching a violation (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts
+    title: First-party SQL consumer — ON CONFLICT DO NOTHING instead of catching a violation (effect 4.0.0-rc.111)
   - id: src-effect-catch-reason
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — catchReason, catchReasons, unwrapReason, retry options (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — catchReason, catchReasons, unwrapReason, retry options (effect 4.0.0-rc.111)
   - id: docs-effect-tsgo
     resource: https://github.com/Effect-TS/tsgo/blob/83b8e2ae6707d67764da179523af07d23542bb27/README.md
     title: Effect language service diagnostics — catchTagToCatchReason, redundantMapError, redundantOrDie (83b8e2a)
   - id: docs-sql-basics
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/40_sql/10_basics.ts
-    title: Official Effect docs — the Model.Class / Migrator / SqlModel spine and SqlError as a defect at the repository boundary (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/40_sql/10_basics.ts
+    title: Official Effect docs — the Model.Class / Migrator / SqlModel spine and SqlError as a defect at the repository boundary (effect 4.0.0-rc.111)
   - id: test-pg-classification
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/sql/pg/test/SqlErrorClassification.test.ts
-    title: PostgreSQL classification tests — constraint trimming and the "unknown" fallback (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/sql/pg/test/SqlErrorClassification.test.ts
+    title: PostgreSQL classification tests — constraint trimming and the "unknown" fallback (effect 4.0.0-rc.111)
   - id: otel-db-spans
     resource: https://github.com/open-telemetry/semantic-conventions/blob/v1.44.0/docs/db/database-spans.md
     title: OpenTelemetry semantic conventions v1.44.0 — database spans, db.operation.name, db.query.text sanitization
@@ -107,11 +107,13 @@ sources:
     resource: https://github.com/anomalyco/opencode/blob/65c35977bd564e23c0e9cf124b3e3e3b9308e9e8/packages/effect-drizzle-sqlite/src/effect-sqlite/session.ts
     title: opencode@65c3597 — independent reimplementation of the savepoint protocol that also releases savepoints
 generated:
-  by: codex/gpt-5
-  at: 2026-08-18T00:50:56Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/opus-5
     at: 2026-08-17T21:36:42Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # SQL
@@ -350,7 +352,7 @@ default.[^applied-effect-local-store]
   signature can carry.[^applied-effect-local-store]
 - Nested calls emit `SAVEPOINT effect_sql_<depth>` and serialize on a one-permit
   semaphore added to the transaction context, so concurrent children run
-  sequentially. Savepoints are never released at rc.110 — nested success runs
+  sequentially. Savepoints are never released at rc.111 — nested success runs
   `Effect.void`, not `RELEASE SAVEPOINT` — so a long transaction accumulates
   them. An independent reimplementation of the same protocol issues the release
   explicitly, marking this as a gap rather than a
@@ -440,39 +442,39 @@ everything above this section is the consumer's contract.
   client instance.
 - Decode failures from `SqlSchema` are handled separately from driver failures.
 
-[^src-sql-error]: `packages/effect/src/unstable/sql/SqlError.ts` at `effect@4.0.0-rc.110` — `SqlError` is a `Schema.TaggedError` with tag `"SqlError"` and a single `reason` field; `SqlErrorReason` is an eleven-member union; `ReasonFields` is `{ cause, message?, operation? }` and `UniqueViolation` adds `constraint: Schema.String`; each reason defines `get isRetryable()`, `true` for `ConnectionError`, `DeadlockError`, `SerializationError`, `LockTimeoutError`, `StatementTimeoutError` and `false` for the rest, including `UnknownError`; `SqlError.isRetryable` delegates to the reason. Also exports `isSqlError`, `isSqlErrorReason`, `classifySqliteError`, `ResultLengthMismatch`.
+[^src-sql-error]: `packages/effect/src/unstable/sql/SqlError.ts` at `effect@4.0.0-rc.111` — `SqlError` is a `Schema.TaggedError` with tag `"SqlError"` and a single `reason` field; `SqlErrorReason` is an eleven-member union; `ReasonFields` is `{ cause, message?, operation? }` and `UniqueViolation` adds `constraint: Schema.String`; each reason defines `get isRetryable()`, `true` for `ConnectionError`, `DeadlockError`, `SerializationError`, `LockTimeoutError`, `StatementTimeoutError` and `false` for the rest, including `UnknownError`; `SqlError.isRetryable` delegates to the reason. Also exports `isSqlError`, `isSqlErrorReason`, `classifySqliteError`, `ResultLengthMismatch`.
 
-[^src-sql-client]: `packages/effect/src/unstable/sql/SqlClient.ts` at `effect@4.0.0-rc.110` — `SqlClient extends Constructor` with `reserve`, `withTransaction: <R, E, A>(self: Effect<A, E, R>) => Effect<A, E | SqlError, R>`, `transactionService`, `reactive`, `reactiveMailbox`; `makeWithTransaction` opens the `sql.transaction` span, emits `db.transaction.commit`/`savepoint`/`rollback` events, `Effect.orDie`s commit and rollback, adds a one-permit `Semaphore` to the transaction context so nested blocks serialize, and on nested success sets `effect = Effect.void` (no `RELEASE SAVEPOINT`); `TransactionConnection(clientId)` mints the tag `effect/sql/SqlClient/TransactionConnection/<clientId>` from a per-process counter; `SafeIntegers` is a `Context.Reference` defaulting to `false`.
+[^src-sql-client]: `packages/effect/src/unstable/sql/SqlClient.ts` at `effect@4.0.0-rc.111` — `SqlClient extends Constructor` with `reserve`, `withTransaction: <R, E, A>(self: Effect<A, E, R>) => Effect<A, E | SqlError, R>`, `transactionService`, `reactive`, `reactiveMailbox`; `makeWithTransaction` opens the `sql.transaction` span, emits `db.transaction.commit`/`savepoint`/`rollback` events, `Effect.orDie`s commit and rollback, adds a one-permit `Semaphore` to the transaction context so nested blocks serialize, and on nested success sets `effect = Effect.void` (no `RELEASE SAVEPOINT`); `TransactionConnection(clientId)` mints the tag `effect/sql/SqlClient/TransactionConnection/<clientId>` from a per-process counter; `SafeIntegers` is a `Context.Reference` defaulting to `false`.
 
-[^src-statement]: `packages/effect/src/unstable/sql/Statement.ts` at `effect@4.0.0-rc.110` — `Statement<A> extends Fragment, Effect<ReadonlyArray<A>, SqlError>` with `raw`, `values`, `unprepared`, `stream`, `withoutTransform`, `compile()`; `Constructor` exposes the template call, identifier call, `unsafe`, `literal`, `in`, `insert`, `update`, `updateValues` (documented unsupported on SQLite), `and`, `or`, `csv`, `join`, `onDialect`; execution opens `Effect.useSpan("sql.execute", { kind: "client" })` and sets `db.operation.name` and `db.query.text` from the compiled SQL, with parameters passed separately to the connection. Driver-facing exports: `makeCompiler`, `makeCompilerSqlite`, `defaultTransforms`.
+[^src-statement]: `packages/effect/src/unstable/sql/Statement.ts` at `effect@4.0.0-rc.111` — `Statement<A> extends Fragment, Effect<ReadonlyArray<A>, SqlError>` with `raw`, `values`, `unprepared`, `stream`, `withoutTransform`, `compile()`; `Constructor` exposes the template call, identifier call, `unsafe`, `literal`, `in`, `insert`, `update`, `updateValues` (documented unsupported on SQLite), `and`, `or`, `csv`, `join`, `onDialect`; execution opens `Effect.useSpan("sql.execute", { kind: "client" })` and sets `db.operation.name` and `db.query.text` from the compiled SQL, with parameters passed separately to the connection. Driver-facing exports: `makeCompiler`, `makeCompilerSqlite`, `defaultTransforms`.
 
-[^src-sql-schema]: `packages/effect/src/unstable/sql/SqlSchema.ts` at `effect@4.0.0-rc.110` — `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void_` re-exported as `void`; each takes `{ Request, Result, execute }`, adds `Schema.SchemaError` to the error channel, and `findOne`/`findNonEmpty` additionally fail with `Cause.NoSuchElementError`.
+[^src-sql-schema]: `packages/effect/src/unstable/sql/SqlSchema.ts` at `effect@4.0.0-rc.111` — `findAll`, `findNonEmpty`, `findOne`, `findOneOption`, and `void_` re-exported as `void`; each takes `{ Request, Result, execute }`, adds `Schema.SchemaError` to the error channel, and `findOne`/`findNonEmpty` additionally fail with `Cause.NoSuchElementError`.
 
-[^src-sql-resolver]: `packages/effect/src/unstable/sql/SqlResolver.ts` at `effect@4.0.0-rc.110` — every resolver constructor passes `key: transactionKey`, which reads the active `TransactionConnection` out of the request's context and keys by reference.
+[^src-sql-resolver]: `packages/effect/src/unstable/sql/SqlResolver.ts` at `effect@4.0.0-rc.111` — every resolver constructor passes `key: transactionKey`, which reads the active `TransactionConnection` out of the request's context and keys by reference.
 
-[^src-sql-stream]: `packages/effect/src/unstable/sql/SqlStream.ts` at `effect@4.0.0-rc.110` — 81 lines, sole export `asyncPauseResume`, documented as the interop layer used by SQL integrations to implement `Statement.stream` and `Connection.executeStream`.
+[^src-sql-stream]: `packages/effect/src/unstable/sql/SqlStream.ts` at `effect@4.0.0-rc.111` — 81 lines, sole export `asyncPauseResume`, documented as the interop layer used by SQL integrations to implement `Statement.stream` and `Connection.executeStream`.
 
-[^src-migrator]: `packages/effect/src/unstable/sql/Migrator.ts` at `effect@4.0.0-rc.110` — `fromGlob`/`fromRecord` loaders, migrations run inside a transaction, and the concurrency lock is an insert whose failure is inspected with `isConstraintConflict` (`reason._tag === "ConstraintError" || "UniqueViolation"`) and mapped to `MigrationError({ kind: "Locked" })`. Dialect bindings exist for clickhouse, libsql, mssql, mysql2, pg, pglite, sqlite-bun, sqlite-do, sqlite-node, and sqlite-react-native — ten of twelve; d1 and sqlite-wasm ship none.
+[^src-migrator]: `packages/effect/src/unstable/sql/Migrator.ts` at `effect@4.0.0-rc.111` — `fromGlob`/`fromRecord` loaders, migrations run inside a transaction, and the concurrency lock is an insert whose failure is inspected with `isConstraintConflict` (`reason._tag === "ConstraintError" || "UniqueViolation"`) and mapped to `MigrationError({ kind: "Locked" })`. Dialect bindings exist for clickhouse, libsql, mssql, mysql2, pg, pglite, sqlite-bun, sqlite-do, sqlite-node, and sqlite-react-native — ten of twelve; d1 and sqlite-wasm ship none.
 
-[^src-sql-connection]: `packages/effect/src/unstable/sql/SqlConnection.ts` at `effect@4.0.0-rc.110` — `Connection` interface and `Acquirer = Effect<Connection, SqlError, Scope>`.
+[^src-sql-connection]: `packages/effect/src/unstable/sql/SqlConnection.ts` at `effect@4.0.0-rc.111` — `Connection` interface and `Acquirer = Effect<Connection, SqlError, Scope>`.
 
-[^src-pg-client]: `packages/sql/pg/src/PgClient.ts` at `effect@4.0.0-rc.110` — `classifyError` branches on SQLSTATE in order (`08*`, `28*`, `42501`, `42*`, `23505`, `23*`, `40P01`, `40001`, `55P03`, `57014`) and falls through to `UnknownError`; span attributes include `db.system.name` and `db.namespace`; `layerFrom`/`layerConfig`/`layer` all return `Layer<PgClient | SqlClient, …>` from a single `make`.
+[^src-pg-client]: `packages/sql/pg/src/PgClient.ts` at `effect@4.0.0-rc.111` — `classifyError` branches on SQLSTATE in order (`08*`, `28*`, `42501`, `42*`, `23505`, `23*`, `40P01`, `40001`, `55P03`, `57014`) and falls through to `UnknownError`; span attributes include `db.system.name` and `db.namespace`; `layerFrom`/`layerConfig`/`layer` all return `Layer<PgClient | SqlClient, …>` from a single `make`.
 
-[^src-d1-client]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.110` — `const transactionAcquirer = Effect.die("transactions are not supported in D1")`; `batch` is documented as executing statements "as a single atomic D1 batch"; `updateValues: never`; `executeStream` returns `Stream.die("executeStream not implemented")`, as it does in libsql, mssql, sqlite-bun, sqlite-node, sqlite-react-native, and sqlite-wasm.
+[^src-d1-client]: `packages/sql/d1/src/D1Client.ts` at `effect@4.0.0-rc.111` — `const transactionAcquirer = Effect.die("transactions are not supported in D1")`; `batch` is documented as executing statements "as a single atomic D1 batch"; `updateValues: never`; `executeStream` returns `Stream.die("executeStream not implemented")`, as it does in libsql, mssql, sqlite-bun, sqlite-node, sqlite-react-native, and sqlite-wasm.
 
-[^src-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.110` — the storage-backed `withTransaction` fails with "Nested transactions are not supported by Cloudflare Durable Object SQLite storage" when a transaction connection is already in context.
+[^src-sqlite-do]: `packages/sql/sqlite-do/src/SqliteClient.ts` at `effect@4.0.0-rc.111` — the storage-backed `withTransaction` fails with "Nested transactions are not supported by Cloudflare Durable Object SQLite storage" when a transaction connection is already in context.
 
-[^src-eventlog]: `packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts` at `effect@4.0.0-rc.110` — a first-party rc.110 consumer that absorbs an insert race with `Effect.catchIf(isConstraintConflict, () => Effect.void)`, where the predicate reads `error.reason._tag`.
+[^src-eventlog]: `packages/effect/src/unstable/eventlog/SqlEventLogServerUnencrypted.ts` at `effect@4.0.0-rc.111` — a first-party rc.111 consumer that absorbs an insert race with `Effect.catchIf(isConstraintConflict, () => Effect.void)`, where the predicate reads `error.reason._tag`.
 
-[^src-eventlog-encrypted]: `packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts` at `effect@4.0.0-rc.110` — the same insert expressed as `sql.insert(batch.entries)` with `ON CONFLICT DO NOTHING`, so no violation is raised.
+[^src-eventlog-encrypted]: `packages/effect/src/unstable/eventlog/SqlEventLogServerEncrypted.ts` at `effect@4.0.0-rc.111` — the same insert expressed as `sql.insert(batch.entries)` with `ON CONFLICT DO NOTHING`, so no violation is raised.
 
-[^src-effect-catch-reason]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `catchReason(errorTag, reasonTag, f, orElse?)`, `catchReasons(errorTag, cases, orElse?)`, and `unwrapReason(errorTag)`; `retry` accepts `{ while, schedule, times, until }`. The reason machinery is generic over any tagged error carrying a `reason` union, not SQL-specific.
+[^src-effect-catch-reason]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `catchReason(errorTag, reasonTag, f, orElse?)`, `catchReasons(errorTag, cases, orElse?)`, and `unwrapReason(errorTag)`; `retry` accepts `{ while, schedule, times, until }`. The reason machinery is generic over any tagged error carrying a `reason` union, not SQL-specific.
 
 [^docs-effect-tsgo]: Effect language service README at `Effect-TS/tsgo@83b8e2a` — `catchTagToCatchReason` recommends reason-specific combinators when a handler re-fails unmatched reasons; `redundantMapError` and `redundantOrDie` recommend hoisting repeated trailing transformations from individual `Effect.gen` yields.
 
-[^docs-sql-basics]: `ai-docs/src/40_sql/10_basics.ts` and `ai-docs/src/40_sql/index.md` at `effect@4.0.0-rc.110` — the only official SQL walkthrough: `Model.Class`, `SqliteMigrator.layer`, `SqlModel.makeRepository`, one `SqlSchema.findAll`, and a repository boundary that maps `NoSuchElementError` to a domain error while dying on `SchemaError` and `SqlError`.
+[^docs-sql-basics]: `ai-docs/src/40_sql/10_basics.ts` and `ai-docs/src/40_sql/index.md` at `effect@4.0.0-rc.111` — the only official SQL walkthrough: `Model.Class`, `SqliteMigrator.layer`, `SqlModel.makeRepository`, one `SqlSchema.findAll`, and a repository boundary that maps `NoSuchElementError` to a domain error while dying on `SchemaError` and `SqlError`.
 
-[^test-pg-classification]: `packages/sql/pg/test/SqlErrorClassification.test.ts` at `effect@4.0.0-rc.110` — 23505 yields a trimmed constraint name; missing, non-string, and blank constraints all yield `"unknown"`; 23503 stays a `ConstraintError`.
+[^test-pg-classification]: `packages/sql/pg/test/SqlErrorClassification.test.ts` at `effect@4.0.0-rc.111` — 23505 yields a trimmed constraint name; missing, non-string, and blank constraints all yield `"unknown"`; 23503 stays a `ConstraintError`.
 
 [^otel-db-spans]: OpenTelemetry semantic conventions `docs/db/database-spans.md` at tag `v1.44.0` — `db.operation.name` and `db.query.text` are Stable; note [15] states non-parameterized query text SHOULD NOT be collected by default without sanitization, and note [16] states parameterized query text SHOULD NOT be sanitized. No `db.transaction.*` event is defined.
 

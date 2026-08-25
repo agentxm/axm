@@ -50,14 +50,14 @@ exception is justified, and when migration or retirement is acceptable.
 
 Report separate measures rather than one score:
 
-| Dimension   | Representative signals                                                         |
-| ----------- | ------------------------------------------------------------------------------ |
-| Stewardship | Owned, orphaned, overdue review, unresolved escalation                         |
-| Evidence    | Evaluation and audit coverage, freshness, unsupported claims                   |
-| Coherence   | Misses, false positives, collisions, ambiguous routes, bundle recall           |
-| Risk        | Capability outliers, exceptions, policy mismatch, incidents                    |
-| Lifecycle   | Version skew, deprecated active, migration overdue, revocation propagation     |
-| Utility     | Qualified use, outcome support, marginal value over baseline, repeated failure |
+| Dimension | Representative signals |
+| --- | --- |
+| Stewardship | Owned, orphaned, overdue review, unresolved escalation |
+| Evidence | Evaluation and audit coverage, freshness, unsupported claims |
+| Coherence | Misses, false positives, collisions, ambiguous routes, bundle recall |
+| Risk | Capability outliers, exceptions, policy mismatch, incidents |
+| Lifecycle | Version skew, deprecated active, migration overdue, revocation propagation |
+| Utility | Qualified use, outcome support, marginal value over baseline, repeated failure |
 
 Use semantic neighborhoods and active cohorts to prioritize coexistence tests
 rather than treating every possible pair as equally relevant. Current lifecycle
@@ -70,7 +70,6 @@ Catalog observations inform decisions; they do not silently rewrite source or
 approve a package.
 
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-
 [^dynamic-agent-skills]: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
-
 [^backstage-entity-lifecycle]: Backstage — The life of an entity
+

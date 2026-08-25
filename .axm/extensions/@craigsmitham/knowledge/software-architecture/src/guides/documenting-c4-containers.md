@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-container
     title: Software architecture docs application profile — C4 Container
-generated: { by: codex/gpt-5.6, at: 2026-08-22T00:17:07Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
 ---
 
 # Documenting C4 containers
@@ -38,9 +38,10 @@ node, infrastructure tier, team, or bounded context.
    boundary or constrain change.
 5. Identify boundary-crossing interactions by direction and meaning. Do not
    represent another container as contained within it.
-6. Inherit lifecycle, support, maintenance, and decision-authority context from
-   the containing system. Record only a consequential exception, such as a
-   distinct owner, lifecycle, criticality, support policy, or retirement path.
+6. Inherit lifecycle, ownership, decision-policy, and assurance context from
+   the containing system's required root concepts. Record only a consequential
+   exception, such as a distinct owner, lifecycle, criticality, support policy,
+   or retirement path.
 7. Link capabilities, surfaces, bounded contexts, deployment evidence, and
    selected views. Add the concept to `structure/containers/index.md`.
 
@@ -50,7 +51,7 @@ node, infrastructure tier, team, or bounded context.
 - It contains no other C4 containers.
 - Responsibility and runtime boundary are clearer than technology alone.
 - Material non-responsibilities keep adjacent ownership outside the boundary.
-- Parent stewardship and lifecycle are not repeated without a meaningful
+- Parent system context is not repeated without a meaningful
   exception.
 - Infrastructure placement remains in deployment views.
 

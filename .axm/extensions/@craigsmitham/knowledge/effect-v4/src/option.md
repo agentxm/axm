@@ -6,17 +6,17 @@ tags: [effect, effect-v4, option, absence, nullable, optionality, boundaries]
 status: stable
 sources:
   - id: src-option
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Option.ts
-    title: Option module source — fromNullishOr/fromNullOr/fromUndefinedOr, getOrNull/getOrUndefined, match/map/flatMap (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Option.ts
+    title: Option module source — fromNullishOr/fromNullOr/fromUndefinedOr, getOrNull/getOrUndefined, match/map/flatMap (effect 4.0.0-rc.111)
   - id: schema-md
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/SCHEMA.md
-    title: Official SCHEMA.md guide — "Optional Fields as Options" nullability and optional-key bridges (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/SCHEMA.md
+    title: Official SCHEMA.md guide — "Optional Fields as Options" nullability and optional-key bridges (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — OptionFromNullOr, OptionFromNullishOr, OptionFromUndefinedOr, OptionFromOptionalKey (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — OptionFromNullOr, OptionFromNullishOr, OptionFromUndefinedOr, OptionFromOptionalKey (effect 4.0.0-rc.111)
   - id: test-option
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Option.test.ts
-    title: Option tests — version-matched combinator and conversion behavior (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Option.test.ts
+    title: Option tests — version-matched combinator and conversion behavior (effect 4.0.0-rc.111)
   - id: applied-livestore
     resource: https://github.com/livestorejs/livestore/blob/31e8d71134c5f4d89c21f6b1e3b6b5b39eeacd4e/packages/%40livestore/common/src/leader-thread/eventlog.ts
     title: livestore@31e8d71 — Option.fromNullishOr converting a nullable SQL column at the persistence edge
@@ -27,11 +27,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-option/src/SKILL.md
     title: effect-v4-option skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:21:09Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:21:09Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Option
@@ -106,9 +108,9 @@ const encodedValue = Option.getOrNull(domainValue);
   null/undefined semantics.
 - Types within one public interface use a consistent optionality convention.
 
-[^src-option]: `packages/effect/src/Option.ts` at `effect@4.0.0-rc.110` — `fromNullishOr` (`@since 4.0.0`; null/undefined to `None`, other values to `Some<NonNullable<A>>`), `fromNullOr`, `fromUndefinedOr`, `getOrNull`, `getOrUndefined`, `match`, `map`, `flatMap`.
+[^src-option]: `packages/effect/src/Option.ts` at `effect@4.0.0-rc.111` — `fromNullishOr` (`@since 4.0.0`; null/undefined to `None`, other values to `Some<NonNullable<A>>`), `fromNullOr`, `fromUndefinedOr`, `getOrNull`, `getOrUndefined`, `match`, `map`, `flatMap`.
 
-[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `OptionFromNullOr`, `OptionFromUndefinedOr`, `OptionFromNullishOr` (with `onNoneEncoding`), `OptionFromOptionalKey`; documented in `packages/effect/SCHEMA.md` "Optional Fields as Options".
+[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.111` — `OptionFromNullOr`, `OptionFromUndefinedOr`, `OptionFromNullishOr` (with `onNoneEncoding`), `OptionFromOptionalKey`; documented in `packages/effect/SCHEMA.md` "Optional Fields as Options".
 
 [^applied-livestore]: Observed in livestore@31e8d71 `packages/@livestore/common/src/leader-thread/eventlog.ts` (effect 4.0.0-beta.99).
 

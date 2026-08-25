@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-component
     title: Software architecture docs application profile — C4 Component
-generated: { by: codex/gpt-5.6, at: 2026-08-21T23:46:55Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
 ---
 
 # Documenting C4 components
@@ -41,8 +41,9 @@ a C4 component.
 5. Identify dependencies and interactions by direction and meaning. Do not
    recursively contain components or duplicate one component under several
    containers.
-6. Inherit lifecycle, support, maintenance, and decision-authority context
-   through the owning container. Record only a consequential exception.
+6. Inherit lifecycle, ownership, decision-policy, and assurance context through
+   the owning container from the system's required root concepts. Record only
+   a consequential exception.
 7. Link domain authority, capabilities, features, code evidence, and selected
    component views, then update the owning components index.
 
@@ -53,7 +54,7 @@ a C4 component.
   boundary.
 - Its path proves exactly one owning container.
 - It contains no C4 components recursively.
-- Parent stewardship and lifecycle are not repeated without a meaningful
+- Parent system context is not repeated without a meaningful
   exception.
 - Shared code remains a dependency unless it has the required component boundary.
 

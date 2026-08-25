@@ -4,7 +4,7 @@ title: Routing evaluations
 description: Cases, trigger-rate measurement, and holdout discipline for implicit selection, rejection, ambiguity, and catalog collisions.
 tags: [agent-skills, evaluation, routing, activation, trigger-rate, holdout, case-realism]
 status: stable
-generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
+generated: { by: "codex/gpt-5.6", at: 2026-08-22T22:33:39Z }
 stale_after: 2027-02-22
 sources:
   - id: openai-build-skills
@@ -39,6 +39,13 @@ Record the selected skill or abstention, alternatives exposed by the host, and
 whether selection occurred before task-specific evidence was available. Report
 misses and false positives separately; improving recall by selecting for nearly
 everything is not progress.
+
+A catalog neighbor tests selection and coexistence; its presence does not imply
+that either package must invoke, defer to, compose with, or depend on the other.
+Test ordered composition only when a declared package relationship, host
+contract, or supplied workflow independently requires it. When a collision is
+real, attribute it to the smallest responsible description, catalog policy, or
+composition contract instead of manufacturing a cross-package dependency.
 
 Compare revisions against an unchanged case set, but add a regression case for
 every confirmed routing failure.
@@ -106,7 +113,5 @@ decision cases in
 [Task distributions and case suites](task-distributions-and-case-suites.md).
 
 [^openai-build-skills]: OpenAI — Build skills
-
 [^anthropic-skill-creator]: Anthropic — Skill Creator
-
 [^anthropic-skill-creator-run-loop]: Anthropic — Skill Creator description optimization loop

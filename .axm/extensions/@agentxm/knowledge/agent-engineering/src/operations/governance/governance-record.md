@@ -27,16 +27,16 @@ according to who has authority to change them.
 
 ## Minimum record
 
-| Class             | Fields                                                                                                                  |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Identity          | Canonical name, version, source revision, archive digest, publisher, acquisition path                                   |
+| Class | Fields |
+| --- | --- |
+| Identity | Canonical name, version, source revision, archive digest, publisher, acquisition path |
 | Authored contract | Purpose, positive and negative scope, public contract, requested capabilities, dependencies, supported hosts and models |
-| Stewardship       | Responsible team, backup or escalation route, support expectation, review cadence                                       |
-| Governance        | Lifecycle state, risk tier, effective capability policy, reviewers, decision, conditions, exceptions, expiry            |
-| Evidence          | Evaluation and audit identities, environments, dates, results, raw-evidence locators, unresolved claims                 |
-| Relationships     | Replaces, supersedes, conflicts with, composes with, consumers, active cohorts                                          |
-| Change            | Previous identity, compatibility class, risk delta, changelog, migration and rollback                                   |
-| Operation         | Deployment or installation versions, activation and outcome signals, incidents, last observed use                       |
+| Stewardship | Responsible team, backup or escalation route, support expectation, review cadence |
+| Governance | Lifecycle state, risk tier, effective capability policy, reviewers, decision, conditions, exceptions, expiry |
+| Evidence | Evaluation and audit identities, environments, dates, results, raw-evidence locators, unresolved claims |
+| Relationships | Replaces, supersedes, conflicts with, composes with, consumers, active cohorts |
+| Change | Previous identity, compatibility class, risk delta, changelog, migration and rollback |
+| Operation | Deployment or installation versions, activation and outcome signals, incidents, last observed use |
 
 Anthropic's enterprise registry guidance names purpose, owner, version,
 dependencies, and evaluation status as core catalog fields.[^anthropic-enterprise]
@@ -60,7 +60,6 @@ Recommended lifecycle states are `candidate`, `experimental`, `approved`,
 orthogonal deployment facts, not lifecycle approval states.
 
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-
 [^backstage-catalog]: Backstage Software Catalog
-
 [^slsa-provenance]: SLSA provenance
+

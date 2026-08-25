@@ -6,14 +6,14 @@ tags: [effect, effect-v4, wrapping, promise, callbacks, interop, adapters, cance
 status: stable
 sources:
   - id: docs-creating-effects
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/01_basics/10_creating-effects.ts
-    title: Official Effect docs — the wrap-construct set (sync, try, tryPromise, fromNullishOr, callback with finalizer) (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/01_basics/10_creating-effects.ts
+    title: Official Effect docs — the wrap-construct set (sync, try, tryPromise, fromNullishOr, callback with finalizer) (effect 4.0.0-rc.111)
   - id: src-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — tryPromise AbortSignal contract, callback constructor, throwing-catch defect gotcha (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — tryPromise AbortSignal contract, callback constructor, throwing-catch defect gotcha (effect 4.0.0-rc.111)
   - id: test-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Effect.test.ts
-    title: Effect tests — tryPromise aborts its AbortSignal and callback cleanup runs on interruption (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Effect.test.ts
+    title: Effect tests — tryPromise aborts its AbortSignal and callback cleanup runs on interruption (effect 4.0.0-rc.111)
   - id: applied-dfx
     resource: https://github.com/tim-smart/dfx/blob/23988a4f182eb5cebc6c3bbac3f3c35fd303168f/src/Interactions/webhook.ts
     title: dfx@23988a4 — Effect.try translating a thrown parse once into a typed error carrying the cause
@@ -21,8 +21,8 @@ sources:
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/core/src/fs-util.ts
     title: opencode@2cba7e2 — tryPromise-wrapped platform API exposed as a small typed capability
   - id: docs-managed-runtime
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/04_integration/10_managed-runtime.ts
-    title: Official Effect docs — the canonical outbound bridge, catchTag to a domain sentinel before runPromise (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/04_integration/10_managed-runtime.ts
+    title: Official Effect docs — the canonical outbound bridge, catchTag to a domain sentinel before runPromise (effect 4.0.0-rc.111)
   - id: applied-alchemy-rpc
     resource: https://github.com/alchemy-run/alchemy-effect/blob/1596e503b8d0cb06463ac676defe351b8e0e131a/packages/alchemy/src/Local/RpcSerialization.ts
     title: alchemy-effect@1596e50 — Effect.exit plus a hand-serialized Cause, reconstructed symmetrically on the far side
@@ -35,13 +35,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-wrapping/src/SKILL.md
     title: effect-v4-wrapping skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:12Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:12Z
   - by: claude/opus-5
     at: 2026-08-17T22:10:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Wrapping
@@ -134,18 +136,19 @@ const nextMessage = Effect.callback<Message, SocketClosed>((resume) => {
 ## Cross back out
 
 A wrapper has two directions. Inbound, it narrows `unknown` into typed failure.
-Outbound, it decides what a non-Effect caller sees when the Effect fails — and
-that choice is between exactly two shapes.
+Outbound, it decides what a non-Effect caller sees when the Effect fails. Choose
+the shape from the caller's contract and required fidelity.
 
 - Default to a domain value the caller already understands. Recover the named
   failures with `catchTag` first, then run: upstream's own bridge answers
   `Effect.catchTag("TodoNotFound", () => Effect.succeed(null))` before
   `runtime.runPromise`, and does input decoding separately with
   `Schema.decodeUnknownSync` inside a plain `try`/`catch`.[^docs-managed-runtime]
-- Do **not** convert the error channel to a `Result` at the crossing. `Result`
-  cannot carry a defect or an interruption, so the far side loses the
-  distinction between a bug and a business failure precisely where it can no
-  longer recover it. [Error modeling](error-modeling.md) owns the rule.
+- A `Result` is appropriate when the boundary intentionally exposes expected,
+  recoverable failure as data and handles defects and interruption by another
+  stated policy. Do not present it as a lossless capture of the Effect: it
+  cannot carry a defect or interruption. [Error modeling](error-modeling.md)
+  owns that distinction.
 - When the far side needs full fidelity — an RPC transport, a worker bridge, a
   recorder — take `Effect.exit` and hand-serialize the `Cause`: switch on
   `Fail` / `Die` / `Interrupt` and give each reason its own wire
@@ -170,21 +173,22 @@ that choice is between exactly two shapes.
 - The adapter surface is smaller and more stable than the wrapped SDK, and
   raw SDK values do not escape it.
 - Retries occur only for bounded, typed, and safe-to-repeat operations.
-- What crosses out to a non-Effect caller is a domain value or a serialized
-  `Exit`/`Cause` — never a `Result` standing in for the error channel.
+- What crosses out to a non-Effect caller matches an explicit contract: a
+  domain value, a `Result` limited to expected failure, or a serialized
+  `Exit`/`Cause` when full fidelity matters.
 - A fidelity-preserving crossing handles `Fail`, `Die`, and `Interrupt`
   explicitly and reconstructs them symmetrically.
 
-[^docs-creating-effects]: `ai-docs/src/01_effect/01_basics/10_creating-effects.ts` at `effect@4.0.0-rc.110` — `Effect.sync`, `Effect.try`, `Effect.tryPromise`, `Effect.fromNullishOr`, and `Effect.callback` with a returned finalizer.
+[^docs-creating-effects]: `ai-docs/src/01_effect/01_basics/10_creating-effects.ts` at `effect@4.0.0-rc.111` — `Effect.sync`, `Effect.try`, `Effect.tryPromise`, `Effect.fromNullishOr`, and `Effect.callback` with a returned finalizer.
 
-[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `tryPromise` receives an `AbortSignal` and "the underlying asynchronous operation only stops if it observes that signal"; a throwing `catch` mapper is treated as a defect; `callback` resumes at most once and may return a cleanup effect.
+[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `tryPromise` receives an `AbortSignal` and "the underlying asynchronous operation only stops if it observes that signal"; a throwing `catch` mapper is treated as a defect; `callback` resumes at most once and may return a cleanup effect.
 
-[^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.110` — "aborts the provided AbortSignal on interruption" and "callback cleanup effect runs on interrupt".
+[^test-effect]: `packages/effect/test/Effect.test.ts` at `effect@4.0.0-rc.111` — "aborts the provided AbortSignal on interruption" and "callback cleanup effect runs on interrupt".
 
 [^applied-dfx]: Observed in dfx@23988a4 `src/Interactions/webhook.ts` (effect peer `>=4.0.0-beta.101`, dev `4.0.0-beta.105`).
 
 [^applied-opencode]: Observed in opencode@2cba7e2 `packages/core/src/fs-util.ts` (effect 4.0.0-beta.83).
 
-[^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.110` — a Hono host driving a `ManagedRuntime`: `Effect.catchTag("TodoNotFound", () => Effect.succeed(null))` before `runtime.runPromise` (:86-89), the `null` sentinel turned into a 404 by the host (:92-93), and `Schema.decodeUnknownSync` (:99) called inside a plain `try`/`catch` (:105-107). No `Result` appears anywhere in the bridge.
+[^docs-managed-runtime]: `ai-docs/src/04_integration/10_managed-runtime.ts` at `effect@4.0.0-rc.111` — a Hono host driving a `ManagedRuntime`: `Effect.catchTag("TodoNotFound", () => Effect.succeed(null))` before `runtime.runPromise` (:86-89), the `null` sentinel turned into a 404 by the host (:92-93), and `Schema.decodeUnknownSync` (:99) called inside a plain `try`/`catch` (:105-107). No `Result` appears anywhere in the bridge.
 
 [^applied-alchemy-rpc]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Local/RpcSerialization.ts` (effect 4.0.0-rc.110) — the handler wrapper pipes through `Effect.exit` (:102), maps `exit.cause.reasons` with `switch (reason._tag)` over `Fail` / `Die` / `Interrupt` (:117-127) into a `RpcSerializedCause` union, and only then reaches `Effect.runPromise` (:131); the unwrap side rebuilds the `Exit` from the same union (:159-164).

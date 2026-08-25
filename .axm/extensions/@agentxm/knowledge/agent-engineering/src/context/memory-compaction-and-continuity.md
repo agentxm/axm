@@ -67,5 +67,4 @@ authority, current state, evidence, and next action without silently reviving
 superseded context?
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
-
 [^anthropic-harness]: Anthropic — Effective harnesses for long-running agents

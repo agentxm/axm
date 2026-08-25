@@ -32,15 +32,15 @@ Use responsibility boundaries rather than vendor package boundaries. One
 product or process may implement several layers; a distributed deployment may
 split one layer across several services.
 
-| Layer                       | Primary responsibility                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Agent                       | Own the goal contract, decision and planning policy, capability selection, recovery, delegation, and termination behavior |
-| Harness core                | Assemble model interactions, implement tools, advance the loop, persist run state, and enforce controls                   |
-| Environment adaptation      | Make a target environment legible, actionable, bounded, and verifiable for agents                                         |
-| Runtime substrate           | Supply compute, processes, isolation, dependencies, lifecycle, and durable execution facilities                           |
-| Orchestration plane         | Admit and dispatch work, coordinate workers, manage dependencies, and reconcile results                                   |
-| Governance or control plane | Enforce identity, policy, approvals, budgets, audit, and organization-wide authority                                      |
-| Evaluation harness          | Administer cases and trials around a named target, collect evidence, invoke graders, and aggregate results                |
+| Layer | Primary responsibility |
+| --- | --- |
+| Agent | Own the goal contract, decision and planning policy, capability selection, recovery, delegation, and termination behavior |
+| Harness core | Assemble model interactions, implement tools, advance the loop, persist run state, and enforce controls |
+| Environment adaptation | Make a target environment legible, actionable, bounded, and verifiable for agents |
+| Runtime substrate | Supply compute, processes, isolation, dependencies, lifecycle, and durable execution facilities |
+| Orchestration plane | Admit and dispatch work, coordinate workers, manage dependencies, and reconcile results |
+| Governance or control plane | Enforce identity, policy, approvals, budgets, audit, and organization-wide authority |
+| Evaluation harness | Administer cases and trials around a named target, collect evidence, invoke graders, and aggregate results |
 
 An **agent host** is the process or service that runs an agent and its harness
 core. An **agent platform** supplies reusable facilities across multiple agent
@@ -83,9 +83,6 @@ Use [Harness classification](../harness/harness-classification.md) to describe a
 system along independent axes rather than forcing it into one overloaded noun.
 
 [^microsoft-agent-harness]: Microsoft Agent Framework — Agent harness
-
 [^aws-harness-runtime]: Amazon Bedrock AgentCore — Agent harnesses and agent runtimes
-
 [^cloudflare-harnesses]: Cloudflare Agents — Harnesses
-
 [^anthropic-agents]: Anthropic — Building effective agents

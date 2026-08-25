@@ -6,17 +6,17 @@ tags: [effect, effect-v4, schema, decoding, encoding, validation, boundaries, un
 status: stable
 sources:
   - id: docs-schema-basics
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/02_schema/10_schema-basics.ts
-    title: Official Effect docs — decode unknown at edges, encode back through one schema, Schema.Class as domain carrier (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/02_schema/10_schema-basics.ts
+    title: Official Effect docs — decode unknown at edges, encode back through one schema, Schema.Class as domain carrier (effect 4.0.0-rc.111)
   - id: schema-md
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/SCHEMA.md
-    title: Official SCHEMA.md guide — constructors, transformations, classes and opaque structs, filters (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/SCHEMA.md
+    title: Official SCHEMA.md guide — constructors, transformations, classes and opaque structs, filters (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — decodeUnknownEffect, encodeEffect, instance .make/.makeOption/.makeEffect, SchemaError (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — decodeUnknownEffect, encodeEffect, instance .make/.makeOption/.makeEffect, SchemaError (effect 4.0.0-rc.111)
   - id: src-schema-ast
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/SchemaAST.ts
-    title: SchemaAST module source — ParseOptions strictness including onExcessProperty (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/SchemaAST.ts
+    title: SchemaAST module source — ParseOptions strictness including onExcessProperty (effect 4.0.0-rc.111)
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local-browser/src/internal/wireCodec.ts
     title: effect-local@faa52d9 — wire-boundary codec translating SchemaError to a domain error
@@ -27,11 +27,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-schema-boundaries/src/SKILL.md
     title: effect-v4-schema-boundaries skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:21:09Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:21:09Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Schema boundaries
@@ -133,13 +135,13 @@ export class Account extends Schema.Class<Account>("app/Account")({
   direction and compatibility rules.
 - Error translation preserves useful schema paths at the protocol boundary.
 
-[^docs-schema-basics]: `ai-docs/src/01_effect/02_schema/10_schema-basics.ts` at `effect@4.0.0-rc.110` — decode unknown at edges, encode back through the same schema, `Schema.Class` "for domain models that should only be constructed from valid data".
+[^docs-schema-basics]: `ai-docs/src/01_effect/02_schema/10_schema-basics.ts` at `effect@4.0.0-rc.111` — decode unknown at edges, encode back through the same schema, `Schema.Class` "for domain models that should only be constructed from valid data".
 
-[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — instance `.make`/`.makeOption`/`.makeEffect`; module-level `Schema.make(ast)`; `decodeUnknownEffect` carries `DecodingServices` and fails with `SchemaError` wrapping a structured issue.
+[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.111` — instance `.make`/`.makeOption`/`.makeEffect`; module-level `Schema.make(ast)`; `decodeUnknownEffect` carries `DecodingServices` and fails with `SchemaError` wrapping a structured issue.
 
-[^src-schema-ast]: `packages/effect/src/SchemaAST.ts` at `effect@4.0.0-rc.110` — `ParseOptions.onExcessProperty`.
+[^src-schema-ast]: `packages/effect/src/SchemaAST.ts` at `effect@4.0.0-rc.111` — `ParseOptions.onExcessProperty`.
 
-[^schema-md]: `packages/effect/SCHEMA.md` at `effect@4.0.0-rc.110` — "Classes and Opaque Types", "Class API", "Constructors in Composed Schemas".
+[^schema-md]: `packages/effect/SCHEMA.md` at `effect@4.0.0-rc.111` — "Classes and Opaque Types", "Class API", "Constructors in Composed Schemas".
 
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-browser/src/internal/wireCodec.ts` (effect 4.0.0-beta.103).
 

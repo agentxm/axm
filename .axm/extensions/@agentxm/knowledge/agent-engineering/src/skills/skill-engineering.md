@@ -67,5 +67,4 @@ For AXM's concrete management layer, read the
 [AXM extension-management profile](platforms/axm.md).
 
 [^agent-skills-spec]: Agent Skills specification
-
 [^dynamic-agent-skills]: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries

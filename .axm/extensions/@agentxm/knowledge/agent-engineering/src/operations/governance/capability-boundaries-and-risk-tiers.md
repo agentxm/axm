@@ -22,12 +22,12 @@ sources:
 
 Govern four different capability sets:
 
-| Set       | Meaning                                                      |
-| --------- | ------------------------------------------------------------ |
-| Requested | What the package says the job needs                          |
-| Approved  | What reviewers authorize for an exact artifact and use       |
+| Set | Meaning |
+| --- | --- |
+| Requested | What the package says the job needs |
+| Approved | What reviewers authorize for an exact artifact and use |
 | Effective | What the host, identity, sandbox, and policy actually permit |
-| Observed  | What execution evidence shows the skill attempted or used    |
+| Observed | What execution evidence shows the skill attempted or used |
 
 The effective set must be no broader than the approved set. A mismatch is a
 deployment defect even when the skill behaves safely in one evaluation.
@@ -66,7 +66,6 @@ effective policy matches it. Harness engineering owns the runtime policy engine,
 identity, sandbox, approval middleware, and telemetry implementation.
 
 [^agent-skills-spec]: Agent Skills specification
-
 [^google-governance]: Google Cloud — Governing Agent Skills
-
 [^microsoft-agent-skills]: Microsoft Agent Framework — Agent Skills
+

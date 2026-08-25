@@ -1,0 +1,15 @@
+{
+  "source_system": "Sentry",
+  "queried_at": "2026-08-24T15:00:00Z",
+  "organization": "example-org",
+  "project": "checkout-web",
+  "environment": "production",
+  "occurrences": [
+    {
+      "short_id": "CHECKOUT-WEB-482",
+      "url": "https://example-org.sentry.io/issues/CHECKOUT-WEB-482/",
+      "observed_at": "2026-08-19T09:14:00Z",
+      "safe_correlation_id": "trace-example-482"
+    }
+  ]
+}

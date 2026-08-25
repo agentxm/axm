@@ -2,14 +2,14 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "software-architecture",
-  "version": "1.1.1",
+  "version": "3.1.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Human-first, risk-driven software architecture guidance for durable system meaning, product quality requirements, lifecycle, stewardship, boundaries, invariants, and selected views",
+  "description": "Human-first software architecture guidance and the required OKF profile for system context, decisions, constraints, product quality requirements, boundaries, and selected views",
   "keywords": [
     "software-architecture",
     "system-design",
@@ -18,6 +18,10 @@
     "human-comprehension",
     "semantic-delta",
     "system-lifecycle",
+    "system-ownership",
+    "architecture-decisions",
+    "architecture-assurance",
+    "architecture-constraints",
     "c4-model",
     "domain-driven-design",
     "capability-modeling",

@@ -4,8 +4,8 @@ title: How to maintain and evolve a skill
 description: How observed failures become bounded revisions, regression cases, releases, and rollback decisions without fitting the skill to its own case set.
 tags: [agent-skills, maintenance, evolution, regression, releases, generalization]
 status: stable
-generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
-stale_after: 2027-02-22
+generated: { by: "codex/gpt-5.6", at: 2026-08-24T13:32:38Z }
+stale_after: 2027-02-24
 sources:
   - id: dynamic-lifecycle
     resource: https://arxiv.org/abs/2607.10113
@@ -57,16 +57,16 @@ A revision is derived from a handful of observed failures but runs against every
 future request, so those cases are a sample rather than the specification. A
 skill that satisfies only the examples it was tuned on has been fitted to them.
 
-Prefer a reframing that conveys the underlying reason over another constraint
-bolted onto the symptom, and exercise a candidate revision against cases it was
-not derived from before accepting it. Repeated tightening that fails to move a
-stubborn behavior usually indicates an unclear instruction rather than an
-insufficiently forceful one; see
+Choose the smallest reframing that clarifies the applicable condition, decision
+criterion, or underlying reason, and exercise a candidate revision against cases
+it was not derived from before accepting it. Do not assume a rationale alone
+will generalize. Repeated tightening that fails to move a stubborn behavior is a
+signal to inspect ambiguity, conflict, scope, context, tool semantics,
+enforcement, model capability, and evaluation validity; see
 [Instruction structure and examples](../prompts/instruction-structure-and-examples.md).
 
 Read the trials, not only their outcomes. Work the skill caused that produced no
 value is a reason to remove instructions, and it is invisible in a pass rate.
 
 [^dynamic-lifecycle]: Dynamic lifecycle management for Agent Skills
-
 [^anthropic-skill-creator]: Anthropic — Skill Creator

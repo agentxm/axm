@@ -4,7 +4,7 @@ title: Agent Skill evaluation model
 description: How skill evaluation specializes general evaluation through independent routing, activated execution, and coexistence evidence.
 tags: [agent-skills, evaluation, evidence, contracts]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
+generated: { by: "codex/gpt-5.6", at: 2026-08-22T22:33:39Z }
 stale_after: 2027-02-14
 sources:
   - id: anthropic-best-practices
@@ -30,7 +30,11 @@ Evaluate two independent stages:
 Then grade the skill-specific contract: outcome, instruction adherence,
 packaged-resource use, presentation when contractual, efficiency, authority,
 recovery, and robustness. For library claims, evaluate isolation, semantic
-neighbors, the actual active cohort, and the previous accepted revision.
+neighbors, the actual active cohort, and the previous accepted revision. The
+active cohort is observation context for routing, coexistence, and compatibility
+claims, not authority for dependency or composition claims. Required
+collaboration must have independent authority in a package declaration, host
+contract, or supplied workflow.
 
 ## Defensible conclusions
 

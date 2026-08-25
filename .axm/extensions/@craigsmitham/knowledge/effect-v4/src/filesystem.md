@@ -6,20 +6,20 @@ tags: [effect, effect-v4, filesystem, path, platform, io, platform-error, testin
 status: stable
 sources:
   - id: src-filesystem
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/FileSystem.ts
-    title: FileSystem module source — core service, readFileString, makeDirectory, scoped temp resources, layerNoop/makeNoop (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/FileSystem.ts
+    title: FileSystem module source — core service, readFileString, makeDirectory, scoped temp resources, layerNoop/makeNoop (effect 4.0.0-rc.111)
   - id: src-path
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Path.ts
-    title: Path module source — core service and built-in POSIX Path.layer (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Path.ts
+    title: Path module source — core service and built-in POSIX Path.layer (effect 4.0.0-rc.111)
   - id: src-platform-error
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/PlatformError.ts
-    title: PlatformError module source — reason-structured failure with module/method/path context (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/PlatformError.ts
+    title: PlatformError module source — reason-structured failure with module/method/path context (effect 4.0.0-rc.111)
   - id: src-node-filesystem
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/platform/node/src/NodeFileSystem.ts
-    title: "@effect/platform-node source — NodeFileSystem.layer, with NodePath and NodeServices siblings (effect 4.0.0-rc.110)"
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/platform/node/src/NodeFileSystem.ts
+    title: "@effect/platform-node source — NodeFileSystem.layer, with NodePath and NodeServices siblings (effect 4.0.0-rc.111)"
   - id: test-filesystem-conformance
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/FileSystem.test-utils.ts
-    title: Shared FileSystem conformance tests run against every platform layer (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/FileSystem.test-utils.ts
+    title: Shared FileSystem conformance tests run against every platform layer (effect 4.0.0-rc.111)
   - id: applied-browser-control
     resource: https://github.com/anomalyco/browser-control/blob/0110939f584362df2cba1f4f167dc5867c7f6e27/src/session-store.ts
     title: browser-control@0110939 — one-time PlatformError translation with operation context and composition-root NodeServices.layer
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-filesystem/src/SKILL.md
     title: effect-v4-filesystem skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:53Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:53Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Filesystem
@@ -126,15 +128,15 @@ const main = readText("app.json").pipe(Effect.provide([NodeFileSystem.layer, Nod
 - Read/decode and encode/write failures remain distinguishable.
 - Directory creation, overwrite, concurrency, and cleanup policies are explicit.
 
-[^src-filesystem]: `packages/effect/src/FileSystem.ts` at `effect@4.0.0-rc.110` — core `Context.Service`, `layerNoop`/`makeNoop` defaults, and `makeTempDirectoryScoped`/`makeTempFileScoped`; the module header states platform packages provide the concrete layers.
+[^src-filesystem]: `packages/effect/src/FileSystem.ts` at `effect@4.0.0-rc.111` — core `Context.Service`, `layerNoop`/`makeNoop` defaults, and `makeTempDirectoryScoped`/`makeTempFileScoped`; the module header states platform packages provide the concrete layers.
 
-[^src-path]: `packages/effect/src/Path.ts` at `effect@4.0.0-rc.110` — `Path.layer` is the built-in POSIX implementation; the service doc shows `Layer.succeed(Path.Path)(custom)`.
+[^src-path]: `packages/effect/src/Path.ts` at `effect@4.0.0-rc.111` — `Path.layer` is the built-in POSIX implementation; the service doc shows `Layer.succeed(Path.Path)(custom)`.
 
-[^src-platform-error]: `packages/effect/src/PlatformError.ts` at `effect@4.0.0-rc.110` — wraps a `BadArgument | SystemError` reason carrying module, method, path, and cause.
+[^src-platform-error]: `packages/effect/src/PlatformError.ts` at `effect@4.0.0-rc.111` — wraps a `BadArgument | SystemError` reason carrying module, method, path, and cause.
 
-[^src-node-filesystem]: `packages/platform/node/src/NodeFileSystem.ts`, `NodePath.ts`, `NodeServices.ts` at `effect@4.0.0-rc.110`; Bun and Deno equivalents in `packages/platform/{bun,deno}/src`.
+[^src-node-filesystem]: `packages/platform/node/src/NodeFileSystem.ts`, `NodePath.ts`, `NodeServices.ts` at `effect@4.0.0-rc.111`; Bun and Deno equivalents in `packages/platform/{bun,deno}/src`.
 
-[^test-filesystem-conformance]: `packages/effect/test/FileSystem.test-utils.ts` at `effect@4.0.0-rc.110` — shared behavioral suite run against each platform layer.
+[^test-filesystem-conformance]: `packages/effect/test/FileSystem.test-utils.ts` at `effect@4.0.0-rc.111` — shared behavioral suite run against each platform layer.
 
 [^applied-browser-control]: Observed in browser-control@0110939 `src/session-store.ts` and `src/cli.ts` (effect 4.0.0-beta.97).
 

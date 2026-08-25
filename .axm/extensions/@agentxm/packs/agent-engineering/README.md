@@ -21,15 +21,15 @@ axm install @agentxm/packs/agent-engineering
 
 ## Contents
 
-| Extension                                   | Purpose                                                                                           |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `@agentxm/knowledge/agent-engineering`      | The knowledge bundle                                                                              |
-| `@agentxm/skills/author-agent-instructions` | Create or revise AGENTS.md, CLAUDE.md, and scoped instruction files                               |
-| `@agentxm/skills/audit-agent-instructions`  | Audit an instruction system against the knowledge                                                 |
-| `@agentxm/skills/author-agent-skill`        | Create or revise a portable Agent Skill                                                           |
-| `@agentxm/skills/agent-skill-evaluator`     | Default provider-neutral Agent Skill evaluation runner; independently installable and replaceable |
-| `@agentxm/skills/evaluate-agent-skill`      | Run attributable routing and activated-execution evaluations for an exact Agent Skill revision    |
-| `@agentxm/skills/audit-agent-skill`         | Audit an Agent Skill against the knowledge                                                        |
+| Extension | Purpose |
+| --- | --- |
+| `@agentxm/knowledge/agent-engineering` | The knowledge bundle |
+| `@agentxm/skills/author-agent-instructions` | Create or revise AGENTS.md, CLAUDE.md, and scoped instruction files |
+| `@agentxm/skills/audit-agent-instructions` | Audit an instruction system against the knowledge |
+| `@agentxm/skills/author-agent-skill` | Create or revise a portable Agent Skill |
+| `@agentxm/skills/agent-skill-evaluator` | Default provider-neutral Agent Skill evaluation runner; independently installable and replaceable |
+| `@agentxm/skills/evaluate-agent-skill` | Run attributable routing and activated-execution evaluations for an exact Agent Skill revision |
+| `@agentxm/skills/audit-agent-skill` | Audit an Agent Skill against the knowledge |
 
 After installation, browse the workspace Knowledge Base or search for concepts
 such as agency choice, control loops, tool-use policy, memory policy, handoffs,
@@ -62,6 +62,24 @@ runner's CLI, and the workflow never auto-discovers or runs two mechanisms.
 
 The pack metadata is MIT licensed. Each dependency retains the license in its
 own manifest.
+
+## Revision 0.10.6
+
+- Previous version: `0.10.5`
+- Contract delta: selects agent-engineering knowledge `>=0.9.2` and instruction
+  authoring and audit skills `>=0.1.6` so structural validation and demonstrated
+  behavioral value remain coherent across the pack
+- Compatibility and cohort: other member lower bounds are unchanged; instruction
+  workflows gain evidence-calibrated value claims without removing existing
+  authoring or conformance-audit behavior
+- Migration: update the pack as a unit before relying on the new instruction-
+  evaluation contract
+- Rollback: restore pack `0.10.5` and the prior knowledge and instruction-skill
+  versions together
+- Evidence: knowledge lint and OKF validation pass with pre-existing index
+  warnings; every workspace Agent Skill suite validates; the two new selected
+  execution cases pass one same-author smoke trial each after one authoring
+  refinement; no release-tier or independent approval is claimed
 
 ## Revision 0.10.3
 

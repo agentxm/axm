@@ -2,7 +2,6 @@
 name: audit-agent-instructions
 description: Audits repository agent instruction systems such as AGENTS.md, CLAUDE.md, and scoped local instruction files against context-engineering guidance and active harness behavior. Use when asked to audit, review, assess, check conformity, inspect scope or precedence, verify remediation, or audit and fix agent instructions. Not for silently changing instructions during an assessment-only audit or reviewing general documentation and product design.
 ---
-
 # Audit Agent Instructions
 
 Assess an exact effective instruction system against an explicit guidance
@@ -65,12 +64,19 @@ approval.
    verify commands, links, and owners where locally discoverable.
 6. **Assess conformity.** Apply the guide's finding classes and also identify
    unknown harness contract, authority drift, projection drift, applicability
-   mismatch, unresolved conflict, and ineffective entry point. Require exact
-   evidence and reject proposed cuts that would strand useful depth.
+   mismatch, unresolved conflict, ineffective entry point, and unproven
+   accretion. Require exact evidence and reject proposed cuts that would strand
+   useful depth. Do not infer behavioral value or harm from length, loading, or
+   adherence alone.
 7. **Evaluate the interface.** Confirm broad guidance appears where intended,
    narrower guidance appears only for matching work, adjacent work excludes
    irrelevant detail, routes resolve, and documented precedence behaves as
    expected. A well-written file that is not selected correctly is a finding.
+   When the audit scope includes helpfulness or effectiveness, seek a prior,
+   smaller, or absent-guidance baseline across representative and held-out
+   tasks, with separate outcome, adherence, trajectory, economy, safety, and
+   unnecessary-work measures. Structural conformity is not demonstrated
+   behavioral value.
 8. **Report findings.** Use `references/audit-report.md`. Each finding names its
    class, applicable guidance, exact source and line or entry-point evidence,
    consequence, smallest responsible owner, and required remediation or
@@ -95,7 +101,8 @@ approval.
 - **Revise** — correctable content, scope, authority, projection, routing, or
   conflict defects remain.
 - **Inconclusive** — the source identity, harness contract, representative
-  surface, or other material evidence is unavailable.
+  surface, behavioral comparison required by the claim, or other material
+  evidence is unavailable.
 
 ## Done when
 
@@ -103,4 +110,5 @@ The report binds exact sources, guide revision, harness behavior, and tested
 entry points; distinguishes scope, applicability, composition, and precedence;
 traces every finding to concrete evidence; protects useful discovery; preserves
 pre- and post-change identities when remediation occurs; and does not mistake
-same-agent verification for independent approval.
+structural conformity for demonstrated value or same-agent verification for
+independent approval.

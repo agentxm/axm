@@ -14,10 +14,10 @@ sources:
 
 # Capability and regression suites
 
-| Suite      | Question                                                | Expected shape                                    |
-| ---------- | ------------------------------------------------------- | ------------------------------------------------- |
+| Suite | Question | Expected shape |
+| --- | --- | --- |
 | Capability | What valuable behavior can the system learn or improve? | Difficult representative tasks with room to climb |
-| Regression | Does accepted behavior remain reliable?                 | High expected pass rate and continuous execution  |
+| Regression | Does accepted behavior remain reliable? | High expected pass rate and continuous execution |
 
 Anthropic recommends operating both suite types: capability cases expose room
 for improvement, while regression cases protect behavior already achieved.

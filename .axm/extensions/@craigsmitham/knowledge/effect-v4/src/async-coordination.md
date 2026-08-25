@@ -20,23 +20,23 @@ tags:
 status: stable
 sources:
   - id: src-queue
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Queue.ts
-    title: Queue module source — Queue<A, E>, loss policies, Enqueue/Dequeue narrowing, end vs shutdown (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Queue.ts
+    title: Queue module source — Queue<A, E>, loss policies, Enqueue/Dequeue narrowing, end vs shutdown (effect 4.0.0-rc.111)
   - id: src-pubsub
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/PubSub.ts
-    title: PubSub module source — bounded/dropping/sliding/unbounded, replay, scoped subscribe (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/PubSub.ts
+    title: PubSub module source — bounded/dropping/sliding/unbounded, replay, scoped subscribe (effect 4.0.0-rc.111)
   - id: src-semaphore
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Semaphore.ts
-    title: Semaphore module source — top-level v4 module, withPermit/withPermits (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Semaphore.ts
+    title: Semaphore module source — top-level v4 module, withPermit/withPermits (effect 4.0.0-rc.111)
   - id: src-latch
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Latch.ts
-    title: Latch module source — reusable open/closed gate with open, release, close (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Latch.ts
+    title: Latch module source — reusable open/closed gate with open, release, close (effect 4.0.0-rc.111)
   - id: src-subscriptionref
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/SubscriptionRef.ts
-    title: SubscriptionRef module source — serialized state whose committed updates publish as a stream (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/SubscriptionRef.ts
+    title: SubscriptionRef module source — serialized state whose committed updates publish as a stream (effect 4.0.0-rc.111)
   - id: src-txqueue
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/TxQueue.ts
-    title: TxQueue module source — transactional Tx* coordination family inside Effect.tx (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/TxQueue.ts
+    title: TxQueue module source — transactional Tx* coordination family inside Effect.tx (effect 4.0.0-rc.111)
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local-rpc/src/EphemeralHub.ts
     title: effect-local@faa52d9 — sliding PubSub with Semaphore admission and a Deferred departure signal
@@ -50,11 +50,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-async-coordination/src/SKILL.md
     title: effect-v4-async-coordination skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:23:56Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:23:56Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Async coordination
@@ -93,7 +95,7 @@ incrementally, [Resource safety](resource-safety.md) for scoped subscriptions.
   transactional state inside an `Effect.tx`
   boundary.[^src-txqueue] [^applied-livestore]
 
-Do not emulate one primitive with another plus mutable flags: rc.110 ships a
+Do not emulate one primitive with another plus mutable flags: rc.111 ships a
 gate (`Latch`), observable state (`SubscriptionRef`), fair keyed admission
 (`PartitionedSemaphore`), and multi-primitive atomicity (Tx*) directly.
 
@@ -158,17 +160,17 @@ owned by [Structured concurrency](structured-concurrency.md).
 - Permits are never held across unrelated waiting, and coordination sits
   inside an owning scope.
 
-[^src-queue]: `packages/effect/src/Queue.ts` at `effect@4.0.0-rc.110` — `Queue<A, E>` hands each value to one consumer in offer order; bounded queues suspend, drop, or slide; `Enqueue`/`Dequeue` interfaces; `end` fails with `Cause.Done` after draining, `shutdown` discards immediately.
+[^src-queue]: `packages/effect/src/Queue.ts` at `effect@4.0.0-rc.111` — `Queue<A, E>` hands each value to one consumer in offer order; bounded queues suspend, drop, or slide; `Enqueue`/`Dequeue` interfaces; `end` fails with `Cause.Done` after draining, `shutdown` discards immediately.
 
-[^src-pubsub]: `packages/effect/src/PubSub.ts` at `effect@4.0.0-rc.110` — bounded/dropping/sliding/unbounded constructors with replay; `subscribe` returns an effect requiring `Scope`.
+[^src-pubsub]: `packages/effect/src/PubSub.ts` at `effect@4.0.0-rc.111` — bounded/dropping/sliding/unbounded constructors with replay; `subscribe` returns an effect requiring `Scope`.
 
-[^src-semaphore]: `Semaphore` (top-level module, since 4.0.0): `packages/effect/src/Semaphore.ts`; `PartitionedSemaphore` (since 4.0.0): `packages/effect/src/PartitionedSemaphore.ts`, both at `effect@4.0.0-rc.110`.
+[^src-semaphore]: `Semaphore` (top-level module, since 4.0.0): `packages/effect/src/Semaphore.ts`; `PartitionedSemaphore` (since 4.0.0): `packages/effect/src/PartitionedSemaphore.ts`, both at `effect@4.0.0-rc.111`.
 
-[^src-latch]: `packages/effect/src/Latch.ts` at `effect@4.0.0-rc.110` (since 4.0.0) — `await`/`whenOpen` suspend while closed; `open`, `release`, `close`.
+[^src-latch]: `packages/effect/src/Latch.ts` at `effect@4.0.0-rc.111` (since 4.0.0) — `await`/`whenOpen` suspend while closed; `open`, `release`, `close`.
 
-[^src-subscriptionref]: `packages/effect/src/SubscriptionRef.ts` at `effect@4.0.0-rc.110` — serialized updates; `changes` publishes the current value and every committed update as a `Stream`.
+[^src-subscriptionref]: `packages/effect/src/SubscriptionRef.ts` at `effect@4.0.0-rc.111` — serialized updates; `changes` publishes the current value and every committed update as a `Stream`.
 
-[^src-txqueue]: `packages/effect/src/TxQueue.ts` at `effect@4.0.0-rc.110` (Tx* family since 4.0.0) — transactional operations retry and commit together inside `Effect.tx` (`packages/effect/src/Effect.ts`); siblings include `TxRef.ts`, `TxPubSub.ts`, `TxSemaphore.ts`.
+[^src-txqueue]: `packages/effect/src/TxQueue.ts` at `effect@4.0.0-rc.111` (Tx* family since 4.0.0) — transactional operations retry and commit together inside `Effect.tx` (`packages/effect/src/Effect.ts`); siblings include `TxRef.ts`, `TxPubSub.ts`, `TxSemaphore.ts`.
 
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/EphemeralHub.ts` (effect 4.0.0-beta.103).
 

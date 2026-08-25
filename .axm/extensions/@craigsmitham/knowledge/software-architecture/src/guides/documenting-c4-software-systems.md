@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: ../architecture-documentation/software-architecture-application-profile.md#c4-software-system
     title: Software architecture docs application profile — C4 Software System
-generated: { by: codex/gpt-5.6, at: 2026-08-21T23:46:55Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
 ---
 
 # Documenting C4 software systems
@@ -27,7 +27,7 @@ capability, bounded context, repository, or organizational unit.
 
 ## Steps
 
-1. Name the software system consistently with the architecture overview and
+1. Name the software system consistently with the documented system scope and
    existing C4 views.
 2. Create its canonical file using the `C4 Software System` type and common
    fields from the [application profile](../architecture-documentation/software-architecture-application-profile.md#c4-software-system).
@@ -38,11 +38,10 @@ capability, bounded context, repository, or organizational unit.
    to the documented scope.
 5. Identify people and software systems that interact directly with it and
    label the meaning of consequential interactions.
-6. State the lifecycle or support state using locally accepted terms, how a
-   reader reaches the maintainer and architecture decision authority, and the
-   changes or events that trigger documentation review. Link a stable local
-   authority instead of copying volatile team rosters or schedules. Do not use
-   OKF `status` for the system lifecycle.
+6. For the system of interest, link the required root System Lifecycle, System
+   Ownership, Architecture Decision Policy, and System Assurance concepts.
+   Do not repeat their content here. For an external system, link a stable
+   external authority only when its context is consequential and available.
 7. Link offerings, capabilities, domain concepts, current implementation
    evidence, and selected views without making them C4 children. Update the
    systems index.
@@ -54,9 +53,7 @@ capability, bounded context, repository, or organizational unit.
   boundary.
 - Its system-of-interest or external role is explicit.
 - Interactors and relationship meanings are understandable.
-- Lifecycle, stewardship, decision authority, and review triggers are
-  discoverable directly or through stable links.
-- It does not duplicate the overview when the overview already owns the same meaning.
+- The required root system context is discoverable without duplication.
 
 ## Related
 

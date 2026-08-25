@@ -6,20 +6,20 @@ tags: [effect, effect-v4, stream, sink, channel, backpressure, buffering, increm
 status: stable
 sources:
   - id: docs-stream-creating
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/03_stream/10_creating-streams.ts
-    title: Official Effect docs — stream constructor catalogue, Stream.callback with acquireRelease unregistration (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/03_stream/10_creating-streams.ts
+    title: Official Effect docs — stream constructor catalogue, Stream.callback with acquireRelease unregistration (effect 4.0.0-rc.111)
   - id: docs-stream-consuming
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/03_stream/20_consuming-streams.ts
-    title: Official Effect docs — transforming and consuming streams, run* terminals, Sink (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/03_stream/20_consuming-streams.ts
+    title: Official Effect docs — transforming and consuming streams, run* terminals, Sink (effect 4.0.0-rc.111)
   - id: src-stream
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Stream.ts
-    title: Stream module source — callback, fromQueue Done exclusion, mapEffect concurrency, groupedWithin, buffer strategies, runCollect (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Stream.ts
+    title: Stream module source — callback, fromQueue Done exclusion, mapEffect concurrency, groupedWithin, buffer strategies, runCollect (effect 4.0.0-rc.111)
   - id: src-sink
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Sink.ts
-    title: Sink module source — composable stream consumers with leftovers (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Sink.ts
+    title: Sink module source — composable stream consumers with leftovers (effect 4.0.0-rc.111)
   - id: src-channel
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Channel.ts
-    title: Channel module source — low-level substrate beneath Stream and Sink (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Channel.ts
+    title: Channel module source — low-level substrate beneath Stream and Sink (effect 4.0.0-rc.111)
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local-rpc/src/SyncClient.ts
     title: effect-local@faa52d9 — queue bridged into a stream with scoped acquisition and typed failure mapping
@@ -33,11 +33,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-streams/src/SKILL.md
     title: effect-v4-streams skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:23:56Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:23:56Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Streams
@@ -63,7 +65,7 @@ Related: [Iteration](iteration.md) for the finite traversal alternative,
   time.
 - Adapt queues, pub-sub, async iterables, platform streams, and callbacks at
   the edge; the v4 callback adapter is `Stream.callback` — v3's `Stream.async`
-  does not exist in rc.110.[^src-stream] [^applied-dfx]
+  does not exist in rc.111.[^src-stream] [^applied-dfx]
 - Represent normal completion separately from failure: `Stream.fromQueue`
   excludes the queue's `Done` completion signal from the stream's error
   channel.[^src-stream]
@@ -127,15 +129,15 @@ const program = Stream.fromIterable(ids).pipe(
 - Constructor and terminal names have been verified against the installed v4
   version, not remembered from v3.
 
-[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — `callback` (no `async` export), `fromQueue` returning `Stream<A, Exclude<E, Cause.Done>>`, `mapEffect` with `{ concurrency, unordered }`, `groupedWithin(chunkSize, duration)`, `buffer` with `"suspend" | "dropping" | "sliding"`, `throttle`/`debounce`.
+[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.111` — `callback` (no `async` export), `fromQueue` returning `Stream<A, Exclude<E, Cause.Done>>`, `mapEffect` with `{ concurrency, unordered }`, `groupedWithin(chunkSize, duration)`, `buffer` with `"suspend" | "dropping" | "sliding"`, `throttle`/`debounce`.
 
-[^docs-stream-creating]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.110` — `Stream.callback` registers listeners via `Effect.acquireRelease` so removal runs when the stream finishes.
+[^docs-stream-creating]: `ai-docs/src/03_stream/10_creating-streams.ts` at `effect@4.0.0-rc.111` — `Stream.callback` registers listeners via `Effect.acquireRelease` so removal runs when the stream finishes.
 
-[^docs-stream-consuming]: `ai-docs/src/03_stream/20_consuming-streams.ts` at `effect@4.0.0-rc.110`; `runCollect` returns `Effect<Array<A>, E, R>` at `packages/effect/src/Stream.ts`.
+[^docs-stream-consuming]: `ai-docs/src/03_stream/20_consuming-streams.ts` at `effect@4.0.0-rc.111`; `runCollect` returns `Effect<Array<A>, E, R>` at `packages/effect/src/Stream.ts`.
 
-[^src-sink]: `packages/effect/src/Sink.ts` at `effect@4.0.0-rc.110`.
+[^src-sink]: `packages/effect/src/Sink.ts` at `effect@4.0.0-rc.111`.
 
-[^src-channel]: `packages/effect/src/Channel.ts` at `effect@4.0.0-rc.110` — "most application code uses those higher-level modules instead."
+[^src-channel]: `packages/effect/src/Channel.ts` at `effect@4.0.0-rc.111` — "most application code uses those higher-level modules instead."
 
 [^applied-effect-local]: Observed in effect-local@faa52d9 `packages/local-rpc/src/SyncClient.ts` (effect 4.0.0-beta.103).
 

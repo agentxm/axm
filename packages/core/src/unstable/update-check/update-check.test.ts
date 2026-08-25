@@ -17,6 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
+import { resolveAxmCacheRootPure } from "../registry/cache-root.js";
 import {
   type SkipCheckContext,
   UpdateCheck,
@@ -481,12 +482,15 @@ describe("UpdateCheck service via UpdateCheckTest layer", () => {
     ),
   );
 
-  it.effect("UpdateCheckLive writes under AXM_USER_HOME", () =>
+  it.effect("UpdateCheckLive writes under the platform cache root for AXM_USER_HOME", () =>
     Effect.gen(function* () {
       const service = yield* UpdateCheck;
       yield* service.writeCache("1.0.0");
 
-      const cachePath = nodePath.join(tempDir, ".cache", "axm", "update-check.json");
+      const cacheRoot = resolveAxmCacheRootPure(nodePath.join, process.platform, os.homedir(), {
+        axmUserHome: tempDir,
+      });
+      const cachePath = nodePath.join(cacheRoot, "update-check.json");
       expect(nodeFs.existsSync(cachePath)).toBe(true);
     }).pipe(
       Effect.provide(

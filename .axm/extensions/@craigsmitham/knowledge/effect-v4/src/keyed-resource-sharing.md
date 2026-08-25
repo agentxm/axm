@@ -7,20 +7,20 @@ tags:
 status: stable
 sources:
   - id: src-rcmap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/RcMap.ts
-    title: RcMap module source — make options, get, idle TTL, capacity, invalidate, resource-vs-cache boundary (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/RcMap.ts
+    title: RcMap module source — make options, get, idle TTL, capacity, invalidate, resource-vs-cache boundary (effect 4.0.0-rc.111)
   - id: docs-layer-map
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/05_resources/30_layer-map.ts
-    title: Official Effect docs — per-tenant service layers with LayerMap.Service (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/05_resources/30_layer-map.ts
+    title: Official Effect docs — per-tenant service layers with LayerMap.Service (effect 4.0.0-rc.111)
   - id: src-layermap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/LayerMap.ts
-    title: LayerMap module source — make, Service, get, contextEffect, invalidate (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/LayerMap.ts
+    title: LayerMap module source — make, Service, get, contextEffect, invalidate (effect 4.0.0-rc.111)
   - id: src-pool
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Pool.ts
-    title: Pool module source — make, makeWithTTL, get, invalidate, concurrency (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Pool.ts
+    title: Pool module source — make, makeWithTTL, get, invalidate, concurrency (effect 4.0.0-rc.111)
   - id: src-scopedcache
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/ScopedCache.ts
-    title: ScopedCache module source — policy-driven eviction of scoped entries (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/ScopedCache.ts
+    title: ScopedCache module source — policy-driven eviction of scoped entries (effect 4.0.0-rc.111)
   - id: applied-opencode-layermap
     resource: https://github.com/anomalyco/opencode/blob/2cba7e227d68a7e7e4a2aa9c85b808e8ecb14daf/packages/core/src/location-services.ts
     title: opencode@2cba7e2 — LayerMap building one service graph per location key
@@ -34,11 +34,13 @@ sources:
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local-rpc/src/EphemeralHub.ts
     title: effect-local@faa52d9 — capacity-bounded RcMap of per-space runtimes
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:20:27Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:22:07Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Keyed resource sharing
@@ -177,15 +179,15 @@ const program = Effect.gen(function* () {
 - Broken entries are invalidated per key, not fixed by restarting the map.
 - Plain values with no release action live in a cache, not an RcMap.
 
-[^src-rcmap]: `packages/effect/src/RcMap.ts` at `effect@4.0.0-rc.110` — `make` takes `lookup`, optional `idleTimeToLive` (`Duration.Input` or per-key function), and optional `capacity`, requires `Scope`; with `capacity` set, `get` can fail with `Cause.ExceededCapacityError`. The module doc scopes RcMap to resource lifecycles, "not as a general mutable cache".
+[^src-rcmap]: `packages/effect/src/RcMap.ts` at `effect@4.0.0-rc.111` — `make` takes `lookup`, optional `idleTimeToLive` (`Duration.Input` or per-key function), and optional `capacity`, requires `Scope`; with `capacity` set, `get` can fail with `Cause.ExceededCapacityError`. The module doc scopes RcMap to resource lifecycles, "not as a general mutable cache".
 
-[^src-layermap]: `packages/effect/src/LayerMap.ts` at `effect@4.0.0-rc.110` — `LayerMap.make`/`LayerMap.Service` wrap an internal `RcMap` of built layer contexts; the service class exposes `layer`, `layerNoDeps`, `get`, `contextEffect`, `invalidate`.
+[^src-layermap]: `packages/effect/src/LayerMap.ts` at `effect@4.0.0-rc.111` — `LayerMap.make`/`LayerMap.Service` wrap an internal `RcMap` of built layer contexts; the service class exposes `layer`, `layerNoDeps`, `get`, `contextEffect`, `invalidate`.
 
-[^docs-layer-map]: `ai-docs/src/01_effect/05_resources/30_layer-map.ts` at `effect@4.0.0-rc.110` — per-tenant `DatabasePool` provided through `PoolMap.get(tenantId)`.
+[^docs-layer-map]: `ai-docs/src/01_effect/05_resources/30_layer-map.ts` at `effect@4.0.0-rc.111` — per-tenant `DatabasePool` provided through `PoolMap.get(tenantId)`.
 
-[^src-pool]: `packages/effect/src/Pool.ts` at `effect@4.0.0-rc.110` — `make` (fixed `size`), `makeWithTTL` (`min`/`max`/`timeToLive`, `timeToLiveStrategy` `"creation" | "usage"`), scoped `get`, `invalidate`, per-item `concurrency`, `targetUtilization`.
+[^src-pool]: `packages/effect/src/Pool.ts` at `effect@4.0.0-rc.111` — `make` (fixed `size`), `makeWithTTL` (`min`/`max`/`timeToLive`, `timeToLiveStrategy` `"creation" | "usage"`), scoped `get`, `invalidate`, per-item `concurrency`, `targetUtilization`.
 
-[^src-scopedcache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.110` — each entry owns a scope released when the entry is removed by expiry, refresh, invalidation, or capacity eviction.
+[^src-scopedcache]: `packages/effect/src/ScopedCache.ts` at `effect@4.0.0-rc.111` — each entry owns a scope released when the entry is removed by expiry, refresh, invalidation, or capacity eviction.
 
 [^applied-opencode-locks]: Observed in opencode@2cba7e2 `packages/opencode/src/storage/storage.ts` (effect 4.0.0-beta.83) — `RcMap.make({ lookup: () => TxReentrantLock.make(), idleTimeToLive: 0 })`.
 

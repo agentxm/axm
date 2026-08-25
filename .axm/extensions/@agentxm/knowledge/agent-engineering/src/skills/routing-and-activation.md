@@ -46,14 +46,13 @@ attention and can make the route less legible.
 
 ## Failure classes
 
-| Failure               | Evidence                                                      | Likely correction                                           |
-| --------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| Miss                  | Clear positive does not select the skill                      | Add recognizable capability or trigger language             |
-| False positive        | Adjacent negative selects the skill                           | Narrow capability or add a negative boundary                |
-| Collision             | Several skills plausibly match                                | Differentiate responsibility, artifacts, or lifecycle stage |
-| Keyword stuffing      | Description selects broadly but destination cannot fulfill it | Align metadata with actual capability                       |
-| Explicit-only success | Manual invocation works, implicit does not                    | Fix routing; do not bloat the body                          |
+| Failure | Evidence | Likely correction |
+| --- | --- | --- |
+| Miss | Clear positive does not select the skill | Add recognizable capability or trigger language |
+| False positive | Adjacent negative selects the skill | Narrow capability or add a negative boundary |
+| Collision | Several skills plausibly match | Differentiate responsibility, artifacts, or lifecycle stage |
+| Keyword stuffing | Description selects broadly but destination cannot fulfill it | Align metadata with actual capability |
+| Explicit-only success | Manual invocation works, implicit does not | Fix routing; do not bloat the body |
 
 [^openai-build-skills]: OpenAI — Build skills
-
 [^anthropic-best-practices]: Anthropic — Skill authoring best practices

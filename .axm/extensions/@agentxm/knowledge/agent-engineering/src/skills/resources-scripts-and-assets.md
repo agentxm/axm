@@ -20,11 +20,11 @@ sources:
 Optional directories exist to serve different semantics. Create only the
 resources the workflow actually needs.[^agent-skills-spec]
 
-| Need                                                       | Artifact      | Design obligation                                                      |
-| ---------------------------------------------------------- | ------------- | ---------------------------------------------------------------------- |
-| Conditional facts, schemas, policies, or detailed examples | `references/` | Focus the file and route to it from the relevant step                  |
-| Exact repeated mechanics                                   | `scripts/`    | Declare inputs, dependencies, outputs, side effects, errors, and tests |
-| Templates or material copied into outputs                  | `assets/`     | Preserve licensing and distinguish output material from instructions   |
+| Need | Artifact | Design obligation |
+| --- | --- | --- |
+| Conditional facts, schemas, policies, or detailed examples | `references/` | Focus the file and route to it from the relevant step |
+| Exact repeated mechanics | `scripts/` | Declare inputs, dependencies, outputs, side effects, errors, and tests |
+| Templates or material copied into outputs | `assets/` | Preserve licensing and distinguish output material from instructions |
 
 ## Script quality
 
@@ -55,5 +55,4 @@ every invocation.[^anthropic-skill-creator]
   mislead, or violate redistribution rights.
 
 [^agent-skills-spec]: Agent Skills specification
-
 [^anthropic-skill-creator]: Anthropic — Skill Creator

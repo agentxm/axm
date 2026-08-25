@@ -1,0 +1,29 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@craigsmitham",
+  "type": "subagent",
+  "name": "researcher",
+  "version": "0.0.1",
+  "description": "Performs isolated, read-only Research Brief framing and evidence-backed research for QRSPI",
+  "keywords": [
+    "research",
+    "delegation",
+    "evidence",
+    "citations",
+    "framing",
+    "isolation",
+    "read-only"
+  ],
+  "fallback": "auto",
+  "recommendedPacks": [
+    "@craigsmitham/packs/qrspi"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": ".axm/extensions/@craigsmitham/subagents/researcher"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

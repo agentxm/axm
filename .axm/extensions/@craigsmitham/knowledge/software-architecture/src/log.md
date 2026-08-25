@@ -1,5 +1,30 @@
 # Software architecture update log
 
+## 2026-08-22
+
+- **Focused authoring coverage**: Added dedicated guides for every profile
+  `0.9.0` system-context, decision, and constraint type and linked each guide
+  from the normative type definition and guide index.
+- **Profile 0.9.0**: Required root System Lifecycle, System Ownership,
+  Architecture Decision Policy, and System Assurance concepts; added
+  conditional atomic Architecture Decision Record and Architecture Constraint
+  collections; and prohibited overview, risk-driver, and constraint-set
+  catch-alls from substituting for their owning concepts.
+- **Reference and validation**: Migrated the synthetic conforming corpus to the
+  required kernel and extended the structural checker for exact root paths,
+  conditional decision and constraint collections, and the absence of
+  `constraints.md`.
+- **Profile 0.8.0**: Made OKF v0.2 and the software-architecture-docs profile
+  the required representation contract for every Just Enough Architecture Docs
+  corpus, limited local variation to profile-permitted choices, and preserved
+  separate OKF and profile conformance results including `unknown`.
+- **Pattern authority**: Clarified that Just Enough Architecture Docs supplies
+  the philosophy, admission test, authority model, and maintenance discipline;
+  it is not an alternative format to the profile that operationalizes it.
+- **Validation**: Added a deterministic structural profile checker and retained
+  named manual review for semantic requirements that executable checks cannot
+  establish.
+
 ## 2026-08-21
 
 - **Profile 0.7.0**: Required explicit root-index adoption language, exactly

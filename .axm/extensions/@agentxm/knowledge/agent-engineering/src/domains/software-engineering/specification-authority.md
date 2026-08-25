@@ -14,12 +14,12 @@ stale_after: 2027-02-14
 change flows. Determine the relationship from repository evidence before
 treating a specification as current context.
 
-| Model             | Authority and change flow                                                           | Lifecycle                                                   |
-| ----------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Spec-first        | A bounded specification guides implementation and then becomes historical evidence  | New change starts a new or revised record                   |
-| Spec-anchored     | A maintained specification remains authoritative beside human-edited implementation | Intent and implementation changes reconcile both directions |
-| Spec-as-source    | A canonical specification generates implementation or contracts                     | Changes begin in the spec and flow through generation       |
-| No explicit model | Authority is distributed or unresolved                                              | Surface ambiguity; do not invent policy                     |
+| Model | Authority and change flow | Lifecycle |
+| --- | --- | --- |
+| Spec-first | A bounded specification guides implementation and then becomes historical evidence | New change starts a new or revised record |
+| Spec-anchored | A maintained specification remains authoritative beside human-edited implementation | Intent and implementation changes reconcile both directions |
+| Spec-as-source | A canonical specification generates implementation or contracts | Changes begin in the spec and flow through generation |
+| No explicit model | Authority is distributed or unresolved | Surface ambiguity; do not invent policy |
 
 ## Evidence to inspect
 

@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "improve-whatever",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "description": "Evaluates anything through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommends improvements",
   "keywords": [
     "evaluation",

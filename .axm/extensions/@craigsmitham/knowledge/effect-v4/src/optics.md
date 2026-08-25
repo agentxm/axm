@@ -6,26 +6,28 @@ tags: [effect, effect-v4, optic, lens, prism, optional, iso, traversal, immutabi
 status: stable
 sources:
   - id: docs-optic
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/OPTIC.md
-    title: Official Optic module guide — mental model, key/optionalKey semantics, traversals, Schema.toIso, plain-objects limitation (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/OPTIC.md
+    title: Official Optic module guide — mental model, key/optionalKey semantics, traversals, Schema.toIso, plain-objects limitation (effect 4.0.0-rc.111)
   - id: src-optic
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Optic.ts
-    title: Optic module source — type hierarchy, failure semantics, check/refine setters, structural sharing (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Optic.ts
+    title: Optic module source — type hierarchy, failure semantics, check/refine setters, structural sharing (effect 4.0.0-rc.111)
   - id: test-optic
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Optic.test.ts
-    title: Optic tests — key/optionalKey/check/refine/tag/at/forEach behavior, non-plain-object throw (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Optic.test.ts
+    title: Optic tests — key/optionalKey/check/refine/tag/at/forEach behavior, non-plain-object throw (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — Schema.toIso returning Optic.Iso (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — Schema.toIso returning Optic.Iso (effect 4.0.0-rc.111)
   - id: origin-skill
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-optics/src/SKILL.md
     title: effect-v4-optics skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:19:38Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:19:38Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Optics
@@ -80,6 +82,11 @@ Use `get` only on total focuses. Use `getResult` or `replaceResult` when callers
 must distinguish absence from success. Plain `replace` and `modify` return the
 original source when focus fails, which is useful for conditional updates but
 can hide a business error.[^src-optic]
+
+rc.111 exposes these operations both as optic methods and as dual standalone
+functions: `Optic.get`, `getResult`, `set`, `replace`, `replaceResult`,
+`modify`, `getAll`, and `modifyAll`. Prefer the form that fits the local
+pipeline; the focus and failure semantics are the same.[^src-optic]
 
 `check` and `refine` decide whether the **current** value is in focus. Their
 setter accepts any replacement, so they are filters, not write validation.
@@ -145,10 +152,10 @@ synchronously; `Effect` can load the value and persist the result around it.
 - Custom optics have law tests, and unrelated references remain shared where
   structural sharing matters.
 
-[^docs-optic]: `packages/effect/OPTIC.md` at `effect@4.0.0-rc.110` — glossary, `key` vs `optionalKey` undefined semantics, traversals, `Schema.toIso` including `Schema.Class`, plain-objects-only limitation.
+[^docs-optic]: `packages/effect/OPTIC.md` at `effect@4.0.0-rc.111` — glossary, `key` vs `optionalKey` undefined semantics, traversals, `Schema.toIso` including `Schema.Class`, plain-objects-only limitation.
 
-[^src-optic]: `packages/effect/src/Optic.ts` at `effect@4.0.0-rc.110` — `get` declared only on `Lens`; `Optional` exposes `getResult`/`replaceResult`; `replace`/`modify` return the original source when the optic cannot focus; `CheckNode.set` is identity, so `check`/`refine` never validate writes; compose overloads keep Iso/Lens/Prism where earned; `PathNode.set` shallow-copies only the focus spine.
+[^src-optic]: `packages/effect/src/Optic.ts` at `effect@4.0.0-rc.111` — `get` accepts only a `Lens`; `Optional` exposes `getResult`/`replaceResult`; the module exports dual standalone `get`, `getResult`, `set`, `replace`, `replaceResult`, `modify`, `getAll`, and `modifyAll`; `replace`/`modify` return the original source when the optic cannot focus; `CheckNode.set` is identity, so `check`/`refine` never validate writes; compose overloads keep Iso/Lens/Prism where earned; `PathNode.set` shallow-copies only the focus spine.
 
-[^test-optic]: `packages/effect/test/Optic.test.ts` at `effect@4.0.0-rc.110` — behavior tests including the runtime throw when replacing inside a non-plain object.
+[^test-optic]: `packages/effect/test/Optic.test.ts` at `effect@4.0.0-rc.111` — behavior tests including the runtime throw when replacing inside a non-plain object.
 
-[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.110` — `toIso` returns `Optic.Iso<S["Type"], S["Iso"]>`, with `toIsoSource`/`toIsoFocus` variants.
+[^src-schema]: `packages/effect/src/Schema.ts` at `effect@4.0.0-rc.111` — `toIso` returns `Optic.Iso<S["Type"], S["Iso"]>`, with `toIsoSource`/`toIsoFocus` variants.

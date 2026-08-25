@@ -21,7 +21,7 @@ sources:
   - id: software-architecture-docs-profile
     resource: ../architecture-documentation/software-architecture-application-profile.md
     title: Software architecture docs application profile for OKF v0.2
-generated: { by: codex/gpt-5.6, at: 2026-08-21T23:53:22Z }
+generated: { by: codex/gpt-5.6, at: 2026-08-23T01:30:58Z }
 ---
 
 # Organizing an architecture docs corpus
@@ -57,10 +57,11 @@ not create empty collections to anticipate future content.
    relationship one boundary document while each concept retains its positive
    definition. Express many-to-many relationships with meaningful prose links
    instead of duplicate files or invented folder containment.
-6. Apply the [software architecture docs application
-   profile](../architecture-documentation/software-architecture-application-profile.md)
-   when the corpus adopts OKF. Its paths and containment rules are normative
-   for governed concepts.[^software-architecture-docs-profile]
+6. Represent the corpus as OKF v0.2 and explicitly adopt the [software
+   architecture docs application
+   profile](../architecture-documentation/software-architecture-application-profile.md).
+   Its types, metadata, paths, containment, validation rules, and permitted
+   representation variance are normative.[^software-architecture-docs-profile]
 7. Add, move, or merge one subject at a time. Update the relevant indexes and
    inbound links in the same change.
 
@@ -70,17 +71,23 @@ These examples are stages, not completeness targets.
 
 ### Minimum adoption
 
-When no substantive architecture concept has yet passed the admission test,
-the root may be the whole corpus:
+Every conforming corpus begins with the mandatory system-context kernel. Each
+required concept may be extremely concise, but it must state accepted meaning
+or a bounded, justified absence rather than act as empty scaffolding:
 
 ```text
 docs/architecture/
-└── index.md
+├── index.md
+├── lifecycle.md
+├── ownership.md
+├── decisions.md
+└── assurance.md
 ```
 
-The root identifies the documented system or authority, adoption and local
-authority routes, existing admitted subjects, and maintenance triggers. It is
-not a substitute for a substantive overview.
+The root index identifies the documented system or authority, adopts the
+profile, and links the four concepts. It stays navigational. If accepted
+meaning cannot establish a required concept, preserve that semantic result as
+`unknown`; do not treat a placeholder as conforming setup.
 
 ### First admitted concept
 
@@ -90,6 +97,10 @@ file:
 ```text
 docs/architecture/
 ├── index.md
+├── lifecycle.md
+├── ownership.md
+├── decisions.md
+├── assurance.md
 └── use-cases/
     ├── index.md
     └── confirm-reservation.md
@@ -105,7 +116,16 @@ A growing corpus adds only views that answer current reader questions:
 ```text
 docs/architecture/
 ├── index.md
-├── overview.md
+├── lifecycle.md
+├── ownership.md
+├── decisions.md
+├── assurance.md
+├── decisions/
+│   ├── index.md
+│   └── preserve-reservation-state-in-postgresql.md
+├── constraints/
+│   ├── index.md
+│   └── regional-reservation-data-residency.md
 ├── use-cases/
 │   ├── index.md
 │   └── confirm-reservation.md
@@ -144,26 +164,31 @@ They simply have not earned a maintained route in this corpus.
 The following paths are a placement menu, not a template. A path appears only
 when it contains admitted content.
 
-| Path                                            | Owns                                                                                                             |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `index.md`                                      | Navigation from the documented system to each maintained view                                                    |
-| `overview.md`                                   | System boundary, purpose, responsibilities, exclusions, lifecycle and stewardship route, and major relationships |
-| `strategy/`                                     | Strategic position, evolution, inertia, and accepted architecture consequences                                   |
-| `value/`                                        | Offerings, audiences, needs, jobs, and value propositions                                                        |
-| `use-cases/`                                    | Goal-oriented behavior of named subjects for contextual actors                                                   |
-| `capabilities/`                                 | Stable abilities of a declared organization, system, or subsystem                                                |
-| `features/`                                     | Independently recognizable behavior meaningful across one or more use cases, surfaces, or realizations           |
-| `surfaces/`                                     | Actor-facing encounter points for system behavior                                                                |
-| `quality/<characteristic>/<subcharacteristic>/` | Named, architecture-significant Product Quality Requirements under one primary ISO/IEC 25010:2023 classification |
-| `domains/generic/`                              | Necessary problem knowledge normally obtained rather than differentiated                                         |
-| `domains/core/`                                 | Differentiating problem knowledge on which distinctive value depends                                             |
-| `domains/supporting/`                           | Necessary domain-specific knowledge that enables the core                                                        |
-| `domains/contexts/`                             | Bounded models, languages, authorities, exclusions, and relationships                                            |
-| `domains/context-maps/`                         | Directional relationships and obligations among bounded contexts                                                 |
-| `structure/systems/`                            | Canonical C4 software-system elements                                                                            |
-| `structure/containers/`                         | Canonical C4 applications and data stores                                                                        |
-| `structure/containers/<container>/components/`  | Significant components owned by exactly one container                                                            |
-| `structure/views/`                              | Selected C4 structural, dynamic, deployment, and code views                                                      |
+| Path                                            | Owns                                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `index.md`                                      | Navigation from the documented system to each maintained view                                                      |
+| `lifecycle.md`                                  | Required system lifecycle, support state, change horizon, expected evolution, and review triggers                  |
+| `ownership.md`                                  | Required maintenance accountability, stewardship boundary, continuity, and escalation route                        |
+| `decisions.md`                                  | Required architecture decision policy, including the ADR threshold, authority, location, and reconsideration rules |
+| `assurance.md`                                  | Required confidence, evidence, review, approval, and reassessment obligations                                      |
+| `decisions/`                                    | Individually accepted Architecture Decision Records governed by `decisions.md`                                     |
+| `constraints/`                                  | Individually binding Architecture Constraints and their authoritative consequences                                 |
+| `strategy/`                                     | Strategic position, evolution, inertia, and accepted architecture consequences                                     |
+| `value/`                                        | Offerings, audiences, needs, jobs, and value propositions                                                          |
+| `use-cases/`                                    | Goal-oriented behavior of named subjects for contextual actors                                                     |
+| `capabilities/`                                 | Stable abilities of a declared organization, system, or subsystem                                                  |
+| `features/`                                     | Independently recognizable behavior meaningful across one or more use cases, surfaces, or realizations             |
+| `surfaces/`                                     | Actor-facing encounter points for system behavior                                                                  |
+| `quality/<characteristic>/<subcharacteristic>/` | Named, architecture-significant Product Quality Requirements under one primary ISO/IEC 25010:2023 classification   |
+| `domains/generic/`                              | Necessary problem knowledge normally obtained rather than differentiated                                           |
+| `domains/core/`                                 | Differentiating problem knowledge on which distinctive value depends                                               |
+| `domains/supporting/`                           | Necessary domain-specific knowledge that enables the core                                                          |
+| `domains/contexts/`                             | Bounded models, languages, authorities, exclusions, and relationships                                              |
+| `domains/context-maps/`                         | Directional relationships and obligations among bounded contexts                                                   |
+| `structure/systems/`                            | Canonical C4 software-system elements                                                                              |
+| `structure/containers/`                         | Canonical C4 applications and data stores                                                                          |
+| `structure/containers/<container>/components/`  | Significant components owned by exactly one container                                                              |
+| `structure/views/`                              | Selected C4 structural, dynamic, deployment, and code views                                                        |
 
 Within `value/`, keep its five demand-and-value concept collections as
 siblings. Keep `use-cases/` separate as the behavioral bridge to capabilities,
@@ -175,9 +200,16 @@ containment and keep views separate from the canonical elements they show.
 Within `quality/`, let the first named Product Quality Requirement earn its
 primary characteristic and subcharacteristic route. Keep every index
 navigational, link additional classifications rather than duplicating the
-requirement, and keep cross-requirement priorities and tradeoffs in the system
-overview. Do not add Product Quality View or Quality Concern documents to make
-the taxonomy appear complete.
+requirement, and keep cross-requirement priorities and tradeoffs in the
+accepted decisions and affected concepts that own them. Do not add Product
+Quality View or Quality Concern documents to make the taxonomy appear
+complete.
+
+Keep `decisions.md` even when no ADR is justified. Add `decisions/` only with
+the first accepted record, and keep every proposal outside that collection
+until the applicable authority accepts it. Add `constraints/` only with the
+first admitted binding constraint. Never create `constraints.md`, a constraint
+set concept, or an empty decision or constraint collection.
 
 When a concept gains cohesive subordinate documents, retain its canonical
 `<concept>.md` and add a same-named adjacent directory. For example,
@@ -190,9 +222,9 @@ give each one its own canonical file from the start.
 
 ## Optimize the reading path
 
-Keep the common path short: root index, overview when needed, then one named
-concept or selected view. Lead with purpose, responsibility, boundary,
-lifecycle or stewardship exceptions, and the implications a maintainer needs.
+Keep the common path short: root index, the relevant required context concept,
+then one named optional concept or selected view. Lead with the meaning and
+implications a maintainer needs.
 Move precision to its authoritative evidence instead of copying it.
 
 Use a small diagram or table when it makes several relationships, a hierarchy,
@@ -235,11 +267,22 @@ in a real corpus and omit routes that have no admitted content.
 ```markdown
 # Reservation platform architecture
 
-Accepted, durable meaning for the reservation platform. Begin with the system
-overview, then choose the architecture question relevant to your change.
+Accepted, durable meaning for the reservation platform. Begin with the
+system-context concept relevant to your change, then choose any applicable
+conditional architecture view.
 
-- System overview — `overview.md` — Purpose, boundary, responsibilities,
-  exclusions, lifecycle, stewardship, and major relationships.
+- System lifecycle — `lifecycle.md` — Support state, change horizon, expected
+  evolution, and review triggers.
+- System ownership — `ownership.md` — Maintenance accountability,
+  stewardship, continuity, and escalation.
+- Architecture decision policy — `decisions.md` — Which accepted choices need
+  ADRs and how those records are governed.
+- System assurance — `assurance.md` — Confidence, evidence, review, approval,
+  and reassessment obligations.
+- Architecture decisions — `decisions/` — Accepted, durable architecture
+  choices when any have earned records.
+- Architecture constraints — `constraints/` — Binding external limitations
+  when any have been admitted.
 - Use cases — `use-cases/` — Goal-oriented subject behavior for contextual
   actors.
 - Product quality requirements — `quality/` — Named, accepted quality outcomes
@@ -253,6 +296,8 @@ overview, then choose the architecture question relevant to your change.
 
 - Every present collection contains admitted content and earns a browsing
   decision.
+- The four required root concepts are present, semantically meaningful, and
+  linked from the root; no overview or C4 concept substitutes for them.
 - Every concept is reachable from the architecture root, has one canonical
   named file from first admission, and is not embedded in a plural inventory.
 - Value, goal-oriented behavior, Product Quality Requirements, capability,
@@ -262,11 +307,13 @@ overview, then choose the architecture question relevant to your change.
 - Indexes navigate; concept files own substantive meaning.
 - Current repository facts are linked or generated; prose owns their durable
   interpretation rather than a copied inventory.
-- System lifecycle, maintenance responsibility, decision authority, and review
-  triggers are discoverable without duplicating volatile rosters.
+- System lifecycle, ownership, decision policy, and assurance stay MECE and
+  discoverable without duplicating volatile rosters or their downstream
+  concepts.
 - Recurring comparisons have one boundary authority while each concept retains
   its positive definition.
-- Repository-specific deviations are explicit and preserve reader discovery.
+- Repository-specific choices stay within profile-permitted variance and
+  preserve reader discovery.
 
 ## Related
 
@@ -281,4 +328,4 @@ overview, then choose the architecture question relevant to your change.
 [^software-architecture-docs-profile]:
     The application profile makes the
     governed concept types, paths, metadata, and containment rules normative
-    for adopting OKF corpora.
+    for every Just Enough Architecture Docs corpus.

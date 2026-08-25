@@ -6,17 +6,17 @@ tags: [effect, effect-v4, brand, branded-types, invariants, nominal-typing, scal
 status: stable
 sources:
   - id: src-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Brand.ts
-    title: Brand module source — Branded, Constructor failure forms, check, nominal, all, BrandError (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Brand.ts
+    title: Brand module source — Branded, Constructor failure forms, check, nominal, all, BrandError (effect 4.0.0-rc.111)
   - id: schema-md
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/SCHEMA.md
-    title: Official SCHEMA.md guide — "Branding" section with Schema.brand via pipe and composed checks (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/SCHEMA.md
+    title: Official SCHEMA.md guide — "Branding" section with Schema.brand via pipe and composed checks (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — brand, fromBrand, .check, isUUID, isInt, isBetween, decodeUnknownEffect (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — brand, fromBrand, .check, isUUID, isInt, isBetween, decodeUnknownEffect (effect 4.0.0-rc.111)
   - id: test-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/test/Brand.test.ts
-    title: Brand tests — nominal brands perform no runtime validation; check/make failure forms (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/test/Brand.test.ts
+    title: Brand tests — nominal brands perform no runtime validation; check/make failure forms (effect 4.0.0-rc.111)
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/faa52d91faad10817906750c8cf02c71852a5521/packages/local/src/Identity.ts
     title: effect-local@faa52d9 — schema-owned brands with checks-then-brand and domain-qualified keys
@@ -30,11 +30,13 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-branded-types/src/SKILL.md
     title: effect-v4-branded-types skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:21:09Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:21:09Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Branded types

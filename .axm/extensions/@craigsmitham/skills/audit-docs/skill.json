@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "audit-docs",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Audit documentation collections for evidence-backed findings about quality, discovery, accuracy, coverage, and maintenance",
   "keywords": [
     "docs",

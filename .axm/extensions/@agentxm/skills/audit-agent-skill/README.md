@@ -16,6 +16,12 @@ and current CLI help, uses native lint and pack-state inspection as bounded
 read-only evidence, and never treats clean structural validation as overall
 conformity.
 
+The audit distinguishes declared package relationships and supported host or
+workflow cohorts from an incidental active catalog. Catalog neighbors inform
+routing and coexistence checks but do not create dependencies, composition
+requirements, or target defects; any collision is attributed to its smallest
+responsible surface.
+
 ## Evaluation
 
 `evals/evals.json` contains separate routing and activated-execution cases.
@@ -45,6 +51,36 @@ axm install @agentxm/packs/agent-engineering
 > Audit this Agent Skill against the current skill-engineering guidance,
 > remediate supported findings, and verify the resulting revision. Do not
 > publish or claim independent approval.
+
+## Revision 0.7.4
+
+- Previous version: `0.7.3`
+- Contract delta: relationship authority is now explicit; declared package,
+  host, and workflow relationships are separated from incidental active-catalog
+  neighbors, findings must be assigned to the smallest owning surface, and a
+  bounded input omission remains unverified unless the complete target proves
+  the required surface absent
+- Compatibility and cohort: audit inputs remain compatible; reports gain
+  explicit relationship fields and an external-condition section, while three
+  synthetic regression cases cover incidental, undeclared, and declared
+  cross-package relationships
+- Risk delta: prevents a co-installed generic skill from being converted into
+  a target dependency, composition mandate, or target-owned defect
+- Migration: update the `agent-engineering` pack to `0.10.5` and treat active
+  catalog identity as coexistence evidence rather than relationship authority
+- Rollback: restore skill and suite `0.7.3` together and accept the risk of
+  cross-pack misattribution
+- Evidence: same-agent `gpt-5.4` regression run
+  `2026-08-22T22-36-03-148Z-42fbba20` passed 8/9 selected trials and exposed
+  one case-21 target misattribution; after the evidence-ownership correction,
+  focused run `2026-08-22T22-51-20-802Z-ce65edb6` passed case 21 three times.
+  A later full-matrix run found no target failures but surfaced one conditional
+  case-21 assertion as undecidable; that suite defect was corrected before the
+  final validation. The next matrix exposed one remaining external-condition
+  ownership error without a cross-pack dependency or critical-gate failure;
+  condition ownership was tightened before closure. These are
+  ignored-workspace, no-baseline, network-unobserved results rather than release
+  evidence or independent approval
 
 ## Revision 0.7.3
 

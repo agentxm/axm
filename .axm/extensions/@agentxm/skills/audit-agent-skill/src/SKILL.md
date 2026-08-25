@@ -2,7 +2,6 @@
 name: audit-agent-skill
 description: Audits an Agent Skill against applicable skill-engineering guidance and produces snapshot-bound findings about design, routing, execution, portability, authority, provenance, licensing, packaging, and lifecycle integrity. Use when asked to audit, review, assess, check conformity, verify remediation, or audit and fix an Agent Skill or SKILL.md package. Not for running a behavioral evaluation suite, silently modifying a skill during an assessment-only audit, or independently approving it.
 ---
-
 # Audit an Agent Skill
 
 Assess an exact Agent Skill revision against an explicit guidance baseline and
@@ -117,19 +116,32 @@ not an independent audit or approval.
 
 1. **Bind the audit.** Record the canonical skill identity, exact version or
    content revision, source and acquisition path, inspected path, intended use,
-   hosts, available active cohort, audit time, requested mode, exclusions, and
-   the exact guidance baseline or knowledge revision.
+   hosts, declared package relationships, supported cohort or host contract,
+   observed active catalog, audit time, requested mode, exclusions, and the
+   exact guidance baseline or knowledge revision. Keep these three relationship
+   surfaces distinct: a co-installed catalog neighbor is observation context,
+   not dependency or composition authority.
 2. **Resolve applicability.** Turn relevant guidance into observable
    expectations. Mark each expectation applicable, not applicable with reason,
    or unverified. Do not convert preferences or unavailable evidence into
-   mandatory defects.
+   mandatory defects. Apply package declarations, host contracts, and supplied
+   workflow requirements as relationship authority; use the observed catalog
+   only to assess coexistence and routing. Never infer required composition from
+   incidental activation alone. When a bounded input does not supply a target
+   artifact, mark the affected expectation unverified and name the evidence
+   needed. Treat absence as a target defect only when a complete package
+   inventory or other bound authority establishes that the target itself omits
+   a required surface; an audit-input limitation is not target-owned.
 3. **Inventory the complete package.** Include manifests, `SKILL.md`, scripts,
    references, assets, symlinks, generated metadata, examples, evaluations,
    dependencies, licenses, and projections. Classify evaluation source,
    generated run evidence, aggregate analysis, promoted decision evidence, and
    governance records separately. For AXM-managed targets, distinguish desired,
    accepted-resolution, canonical, and projected state and inspect declared pack
-   reachability. When versioned Agent Skill evaluation source is present,
+   reachability. Classify every neighboring extension as a declared direct pack
+   sibling, another supported relationship, or an incidental active neighbor;
+   do not promote the last category into a dependency. When versioned Agent
+   Skill evaluation source is present,
    apply the runner-selection contract under the direct
    `.axm/extensions/@agentxm/skills/evaluate-agent-skill/src/references/runner-selection.md`
    sibling. Use an explicitly bound trusted read-only validator when supplied;
@@ -142,7 +154,9 @@ not an independent audit or approval.
 4. **Assess design and routing.** Check candidate evidence, one-job boundaries,
    trigger language, negative boundaries, workflow contracts, progressive
    disclosure, resource necessity, references, host claims, and agreement
-   between model-facing and registry-facing promises.
+   between model-facing and registry-facing promises. Use active neighbors to
+   test selection collisions, but require independent package, host, or workflow
+   authority before expecting invocation, deference, composition, or dependency.
 5. **Assess behavior where claimed.** Keep routing and activated execution
    separate. Verify that existing evidence binds clean target, suite, harness,
    host, model, configuration, catalog, authority, grader, trial, baseline, and
@@ -176,14 +190,26 @@ not an independent audit or approval.
 8. **Report findings.** Use `references/audit-report.md`. Every finding names a
    guideline or expectation, applicability, severity, exact evidence,
    consequence, smallest responsible surface, and required remediation or
-   condition. Separate absence of evidence from evidence of absence.
+   condition. Separate absence of evidence from evidence of absence. A target
+   finding requires a defect on a surface the target owns or a declared
+   relationship it violates. Record catalog, host, or neighboring-package
+   conditions separately and refer them to their owning surface; do not require
+   the target to gain a cross-pack dependency merely because another active
+   package has broader or overlapping metadata. Keep unavailable evidence in
+   the conformity matrix, behavioral-evidence limits, or external conditions;
+   never manufacture a target finding merely to carry an unverified
+   expectation. When a collision is not established and bounded inputs withhold
+   the artifacts or trials needed to assess it, assign the limitation to the
+   audit-input or evidence surface. Name target metadata, host behavior, or
+   workflow state only as evidence to test; do not label those hypothetical
+   surfaces as owners of a defect or condition not yet observed.
 9. **Remediate when authorized.** Freeze the pre-change identity and findings,
    then apply the authoring workflow to accepted findings. Preserve supported
    behavior, validate mechanically, run affected regressions, and record each
    authoring disposition without calling it audit closure.
 10. **Verify closure.** Bind the revised identity, rerun affected expectations
     and neighboring regressions, and mark each finding `Closed`, `Partially
-closed`, `Open`, `Accepted exception`, or `Inconclusive`. Stop when the
+    closed`, `Open`, `Accepted exception`, or `Inconclusive`. Stop when the
     scope conforms, remaining work needs external evidence or human authority,
     a finding is intentionally deferred, or another pass makes no progress.
 

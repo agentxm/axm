@@ -7,29 +7,29 @@ tags:
 status: stable
 sources:
   - id: docs-error-handling
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/04_errors/01_error-handling.ts
-    title: Official Effect docs — defining and recovering typed errors (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/04_errors/01_error-handling.ts
+    title: Official Effect docs — defining and recovering typed errors (effect 4.0.0-rc.111)
   - id: docs-reason-errors
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/ai-docs/src/01_effect/04_errors/20_reason-errors.ts
-    title: Official Effect docs — reason-structured errors (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/ai-docs/src/01_effect/04_errors/20_reason-errors.ts
+    title: Official Effect docs — reason-structured errors (effect 4.0.0-rc.111)
   - id: src-data
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Data.ts
-    title: Data module source — Data.TaggedError (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Data.ts
+    title: Data module source — Data.TaggedError (effect 4.0.0-rc.111)
   - id: src-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Schema.ts
-    title: Schema module source — Schema.TaggedError, Schema.Defect, decodeResult throwing on non-schema causes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Schema.ts
+    title: Schema module source — Schema.TaggedError, Schema.Defect, decodeResult throwing on non-schema causes (effect 4.0.0-rc.111)
   - id: src-cause
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Cause.ts
-    title: Cause module source — Fail, Die, Interrupt (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Cause.ts
+    title: Cause module source — Fail, Die, Interrupt (effect 4.0.0-rc.111)
   - id: src-result
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Result.ts
-    title: Result module source — Result<A, E = never> success-first, .success/.failure, isSuccess/isFailure (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Result.ts
+    title: Result module source — Result<A, E = never> success-first, .success/.failure, isSuccess/isFailure (effect 4.0.0-rc.111)
   - id: src-effect
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Effect.ts
-    title: Effect module source — Effect.result gotcha and Effect.exit as the full-fidelity alternative (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Effect.ts
+    title: Effect module source — Effect.result gotcha and Effect.exit as the full-fidelity alternative (effect 4.0.0-rc.111)
   - id: src-stream
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.110/packages/effect/src/Stream.ts
-    title: Stream module source — Stream.result and Result-keyed partitioning as per-element outcomes (effect 4.0.0-rc.110)
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.111/packages/effect/src/Stream.ts
+    title: Stream module source — Stream.result and Result-keyed partitioning as per-element outcomes (effect 4.0.0-rc.111)
   - id: applied-alchemy-consume
     resource: https://github.com/alchemy-run/alchemy-effect/blob/1596e503b8d0cb06463ac676defe351b8e0e131a/packages/alchemy/src/Cloudflare/Workers/Fetch.ts
     title: alchemy-effect@1596e50 — Result from a non-Effect helper branched back into the Effect channel in place
@@ -60,13 +60,15 @@ sources:
     resource: https://github.com/craigsmitham/agent-extensions/blob/48dc2f0293bfec9f4ad27144e9cd8e9bcbbe203e/.axm/extensions/%40craigsmitham/skills/effect-v4-error-modeling/src/SKILL.md
     title: effect-v4-error-modeling skill 0.1.0 (retired into this bundle; lineage only)
 generated:
-  by: claude/fable-5
-  at: 2026-08-17T14:10:36Z
+  by: codex/gpt-5.6
+  at: 2026-08-24T16:00:57Z
 verified:
   - by: claude/fable-5
     at: 2026-08-17T14:10:36Z
   - by: claude/opus-5
     at: 2026-08-17T22:10:00Z
+  - by: codex/gpt-5.6
+    at: 2026-08-24T16:00:57Z
 ---
 
 # Error modeling
@@ -117,41 +119,41 @@ Do not expose raw `unknown`, third-party exceptions, or transport errors beyond 
 
 Avoid a single catch-all application error that removes the distinctions Effect can enforce.
 
-## Keep `Result` out of Effect-owned signatures
+## Use `Result` as data, not as a hidden error channel
 
-rc.110 has no `Either` module. `Result<A, E = never>` is success-first, its
+rc.111 has no `Either` module. `Result<A, E = never>` is success-first, its
 members are `.success`/`.failure`, and its guards are
 `Result.isSuccess`/`isFailure`.[^src-result]
 
-- A `Result` is strictly lossier than an error channel. `Effect.result`
-  captures only typed, recoverable failure; defects and interruption are _not_
-  captured and still fail the effect. That is enforced by the type, so no
-  convention can widen it.[^src-effect]
-- Therefore keep `Result` out of service, Layer, and handler signatures between
-  Effect-owned modules. Both sides already speak `Effect<A, E, R>`, which
-  carries `E` _and_ preserves `Die` and `Interrupt`; handing over a `Result`
-  drives `E` to `never` and discards exactly the two cases the caller cannot
-  reconstruct.
-- Consume a `Result` immediately where a non-Effect helper hands you one:
-  branch on `isFailure`/`isSuccess` and return to the Effect channel in the
-  same expression, so the `Result` never becomes a return
-  type.[^applied-alchemy-consume] [^applied-alchemy-globals]
-  [^applied-opencode-cursor]
-- The absence is the norm, not an accident: dfx publishes an Effect and Layer
-  surface and uses the `Result` module nowhere at all.[^applied-dfx-no-result]
-- Carve-out — per-element outcomes in `Stream` and `Queue`. A stream's terminal
-  error channel cannot express "this item failed, the rest are fine".
-  `Stream.result` deliberately moves the failure into the element type and
-  leaves `E = never`, and `Stream.partitionEffect` routes each element on a
-  `Result`. Here the `Result` _is_ the payload, not a substitute
-  channel.[^src-stream]
+- `Effect.result` captures only typed, recoverable failure. Defects and
+  interruption remain failures of the surrounding effect, so a `Result` is
+  lossier only when it is presented as a substitute for the full Effect
+  outcome.[^src-effect]
+- Keep service, Layer, and handler operations in `Effect<A, E, R>` by default
+  when both sides are Effect-owned and the caller still needs execution,
+  cancellation, environment, or recovery semantics. Do not add a nested
+  `Result` merely to make `E = never`.
+- Use `Result` deliberately when success and expected failure are themselves
+  values: an already-computed pure result, a per-item or aggregate outcome, or
+  a boundary contract that explicitly carries recoverable business failure as
+  data. `Effect.all(..., { mode: "result" })` and `Stream.result` are first-party
+  examples; defects and interruption still remain outside those values.
+  [^src-effect] [^src-stream]
+- When a non-Effect helper returns `Result`, re-enter the Effect channel where
+  the owning API promises Effect failure semantics. Several applied boundaries
+  consume the value locally and return a typed Effect, but that evidence is a
+  pattern, not a prohibition on every Result-returning API.
+  [^applied-alchemy-consume] [^applied-alchemy-globals]
+  [^applied-opencode-cursor] [^applied-dfx-no-result]
 - Even the schema layer refuses to smuggle a defect through one:
   `Schema.decodeResult` returns `Result.fail` only for causes made entirely of
   schema issues, and **throws** on causes containing defects or
   interruption.[^src-schema]
 
-When the far side is genuinely outside Effect, the answer is a domain value or
-`Effect.exit` — not a `Result`; [Wrapping](wrapping.md) owns that crossing.
+When the far side is genuinely outside Effect, choose the outbound shape from
+that contract's required fidelity: a domain value, a `Result` carrying only
+expected failure, or `Effect.exit` when defects and interruption must be
+preserved. [Wrapping](wrapping.md) owns that crossing.
 
 ## Encode failures with the right base
 
@@ -184,7 +186,7 @@ class ImportFailed extends Schema.TaggedError<ImportFailed>()("ImportFailed", {
 ## Narrow and observe
 
 - Prefer `catchTag`/`catchTags` when only named variants are handled; in
-  rc.110 `catchTag` also accepts an array of tags. A broad catch must re-fail
+  rc.111 `catchTag` also accepts an array of tags. A broad catch must re-fail
   every case it does not own.[^docs-error-handling]
 - When a foreign module exposes reason-structured errors — such as
   `PlatformError` — recover the specific reasons with
@@ -209,15 +211,15 @@ class ImportFailed extends Schema.TaggedError<ImportFailed>()("ImportFailed", {
   place, and the only surviving ones are per-element `Stream`/`Queue` payloads.
 - Retry and observability policy are bounded, safe, and non-duplicative.
 
-[^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.110` — failure, defect, and interruption as distinct `Reason` cases.
+[^src-cause]: `packages/effect/src/Cause.ts` at `effect@4.0.0-rc.111` — failure, defect, and interruption as distinct `Reason` cases.
 
-[^src-schema]: `Data.TaggedError`: `packages/effect/src/Data.ts`; `Schema.TaggedError` and `Schema.Defect`: `packages/effect/src/Schema.ts`, all at `effect@4.0.0-rc.110`. `Schema.decodeResult` (`Schema.ts:1787-1797`) documents that "only causes made entirely of schema issues are returned as `Result.fail`. Causes that contain defects, interruptions, or other non-schema reasons throw instead."
+[^src-schema]: `Data.TaggedError`: `packages/effect/src/Data.ts`; `Schema.TaggedError` and `Schema.Defect`: `packages/effect/src/Schema.ts`, all at `effect@4.0.0-rc.111`. `Schema.decodeResult` (`Schema.ts:1787-1797`) documents that "only causes made entirely of schema issues are returned as `Result.fail`. Causes that contain defects, interruptions, or other non-schema reasons throw instead."
 
-[^src-result]: `packages/effect/src/Result.ts` at `effect@4.0.0-rc.110` — `export type Result<A, E = never> = Success<A, E> | Failure<A, E>` (:66); success-first parameters, `.success`/`.failure` members, `isSuccess`/`isFailure` guards, `succeed`/`fail` constructors. No `Either.ts` exists in `packages/effect/src`.
+[^src-result]: `packages/effect/src/Result.ts` at `effect@4.0.0-rc.111` — `export type Result<A, E = never> = Success<A, E> | Failure<A, E>` (:66); success-first parameters, `.success`/`.failure` members, `isSuccess`/`isFailure` guards, `succeed`/`fail` constructors. No `Either.ts` exists in `packages/effect/src`.
 
-[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.110` — `result` (:2254) returns `Effect<Result<A, E>, never, R>` and its own **Gotchas** note reads "`result` only captures typed, recoverable failures. Defects and interruptions are not captured inside the `Result` and still fail the effect"; `exit` (:2339) returns `Effect<Exit<A, E>, never, R>` and is cross-referenced from `result` as the full-fidelity alternative.
+[^src-effect]: `packages/effect/src/Effect.ts` at `effect@4.0.0-rc.111` — `result` returns `Effect<Result<A, E>, never, R>` and documents that defects and interruptions remain outside the `Result`; `exit` is the full-fidelity alternative; `all` with `mode: "result"` runs every effect and collects a same-shaped `Result` for each typed success or failure.
 
-[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.110` — `result` (:1979) is `Stream<A, E, R> => Stream<Result<A, E>, never, R>`, implemented as `map(Result.succeed)` plus `catch_((e) => succeed(Result.fail(e)))`; `partitionEffect` (:4316) builds on `partitionQueue<Result<Pass, Fail>, …>` (:4361) to route per-element outcomes.
+[^src-stream]: `packages/effect/src/Stream.ts` at `effect@4.0.0-rc.111` — `result` (:1979) is `Stream<A, E, R> => Stream<Result<A, E>, never, R>`, implemented as `map(Result.succeed)` plus `catch_((e) => succeed(Result.fail(e)))`; `partitionEffect` (:4316) builds on `partitionQueue<Result<Pass, Fail>, …>` (:4361) to route per-element outcomes.
 
 [^applied-alchemy-consume]: Observed in alchemy-effect@1596e50 `packages/alchemy/src/Cloudflare/Workers/Fetch.ts` (effect 4.0.0-rc.110) — `Url.make` returns a `Result`; `Result.isFailure(urlResult)` (:84) returns `Effect.fail(new HttpClientError.InvalidUrlError({ cause: urlResult.failure }))` and the success path reads `urlResult.success` (:93). The published signature is `Effect<HttpClientResponse, RequestError>`.
 
@@ -227,9 +229,9 @@ class ImportFailed extends Schema.TaggedError<ImportFailed>()("ImportFailed", {
 
 [^applied-dfx-no-result]: Observed in dfx@23988a4 `src/` (effect peer `>=4.0.0-beta.101`, dev `4.0.0-beta.105`) — a published library exporting Effect-returning operations and Layers; the only matches for "Result" in the tree are generated Discord API type names (`PollResultsResponse`), and the `Result` module is never imported. Negative evidence for the signature rule.
 
-[^docs-error-handling]: `ai-docs/src/01_effect/04_errors/01_error-handling.ts` at `effect@4.0.0-rc.110`.
+[^docs-error-handling]: `ai-docs/src/01_effect/04_errors/01_error-handling.ts` at `effect@4.0.0-rc.111`.
 
-[^docs-reason-errors]: `ai-docs/src/01_effect/04_errors/20_reason-errors.ts` at `effect@4.0.0-rc.110`.
+[^docs-reason-errors]: `ai-docs/src/01_effect/04_errors/20_reason-errors.ts` at `effect@4.0.0-rc.111`.
 
 [^applied-alchemy]: Observed in alchemy@67022d6 `packages/alchemy/src/Auth/AuthProvider.ts` (effect peer `>=4.0.0-beta.105`).
 

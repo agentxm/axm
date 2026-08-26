@@ -245,28 +245,30 @@ Wait for the user to review changes and decide when to commit.
 | ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                                  | —                                                                                                                                                                                      | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
 
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
+
 ## Knowledge Bundles
 
 Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 ### @agentxm
 
-| Bundle | Description |
-| --- | --- |
+| Bundle                                                                                          | Description                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agent-engineering](agent_extensions/agentxm/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
+| [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
-| Bundle | Description |
-| --- | --- |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md) | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md) | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md) | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action |
-| [gen-stack](agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/src/index.md) | Opinionated software change guidance connecting intent, authoritative requirements, architecture, implementation, evaluations, and operational feedback |
-| [software-architecture](agent_extensions/agentxm/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture and requirements guidance with an OKF profile for systems, subject-colocated obligations, decisions, boundaries, and selected views |
-| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md) | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery |
-| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                                       | Description                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                           |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
+| [gen-stack](agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/src/index.md)                         | Opinionated software change guidance connecting intent, authoritative requirements, architecture, implementation, evaluations, and operational feedback                |
+| [software-architecture](agent_extensions/agentxm/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture and requirements guidance with an OKF profile for systems, subject-colocated obligations, decisions, boundaries, and selected views  |
+| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.0 kind=rule -->

@@ -1,3 +1,13 @@
+## 0.28.1 (2026-08-26)
+
+### 🩹 Fixes
+
+- Fix source-qualified AXM skill verification paths. ([e06ab3b24](https://github.com/agentxm/axm/commit/e06ab3b24))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.0 (2026-08-25)
 
 ### ⚠️ Breaking Changes

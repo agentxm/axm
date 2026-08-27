@@ -1,3 +1,0 @@
-# Architecture
-
-- [Reservations](reservations.md)

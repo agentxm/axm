@@ -11,16 +11,16 @@ discoverable while preserving useful routes to deeper owners.
 This skill is coupled to a direct sibling in the agent-engineering pack. From
 the active AXM scope root, read:
 
-- `.axm/extensions/@agentxm/knowledge/agent-engineering/src/domains/software-engineering/authoring-agent-instruction-files.md`;
+- `knowledge/agent-engineering/src/domains/software-engineering/authoring-agent-instruction-files.md`;
   and
-- `.axm/extensions/@agentxm/knowledge/agent-engineering/src/domains/software-engineering/agent-instruction-files.md`.
+- `knowledge/agent-engineering/src/domains/software-engineering/agent-instruction-files.md`.
 
 Read only the additional context concepts routed from those files
 that the task actually needs. Prefer the active repository and harness
 documentation for current discovery, composition, precedence, and projection
 behavior.
 
-When `.axm/settings.json`, AXM ownership markers, or `axm instructions` show
+When `axm.json`, AXM ownership markers, or `axm instructions` show
 that AXM manages the instruction system, compose with the installed `axm`
 skill and read `axm help instructions`. Inspect canonical source, target,
 mechanism, and ownership with `axm instructions`; use `axm lint` for workspace

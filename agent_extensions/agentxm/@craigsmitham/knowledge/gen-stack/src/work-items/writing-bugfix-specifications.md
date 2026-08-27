@@ -25,7 +25,7 @@ sources:
     title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:30:00Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Writing bugfix specifications
@@ -71,23 +71,16 @@ assignment, and relationships when their semantics match. Present residual
 body content in this preferred order: summary, identified Bugs and linked
 Defect Provenance, corrective decision, expected and corrected behavior,
 Requirement and Architecture impact, scope and constraints, Change Design,
-verification, then delivery and recovery. The [tracker-ready
-template](#tracker-ready-template) is a logical fallback; omit inapplicable
-sections and do not duplicate native fields, Defect evidence, or canonical
-Requirements.
+verification, then delivery and recovery. The [compact body
+fallback](#compact-body-fallback) is optional; omit inapplicable sections and
+do not duplicate native fields, Defect evidence, or canonical Requirements.
 
-## Apply the common work-item guides
+## Shared concerns
 
-This guide owns the Bug-specific corrective composition. Use [Preserving
-evidence and authority in software work
-items](preserving-work-item-evidence-and-authority.md) for Defect-report
-provenance and corrective authority, [Maintaining work-item identity,
-relationships, and
-lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) for
-separate identities and transitions, [Managing work-item metadata and
-labels](managing-work-item-metadata-and-labels.md) for host fields and external
-mutation, and [Titling and summarizing work
-items](titling-and-summarizing-work-items.md) for the derived brief.
+This guide owns the Bug-specific corrective composition. Apply the [common
+work-item guides](index.md#apply-the-common-concerns) for evidence and
+authority, separate identities and lifecycle, tracker metadata, and the
+derived brief.
 
 ## Preconditions
 
@@ -287,10 +280,34 @@ correction, and why the response matters. Do not put evidence, scope, or
 authority only in the brief; see
 [Titling and summarizing work items](titling-and-summarizing-work-items.md).
 
-## Tracker-ready template
+## Completion criteria
 
-Use the smallest sections that make the authorized correction implementable
-and reviewable. Omit unsupported sections rather than inventing content.
+### Complete for the next authorized action
+
+The identified Bug and linked Defect Report provenance, corrective decision
+and authority, accepted corrected behavior, scope and unchanged constraints,
+proportional Change Design, verification conditions and strategy, delivery
+boundary, material blockers, and next owner are sufficient for implementation
+or review.
+
+### Complete for verified closure
+
+The implemented revision is identifiable; correction and material regression
+conditions were assessed in their stated environments; results, residual risk,
+rollback or follow-up, and closure authority are recorded; and originating
+Defect Reports remain linked with their own dispositions.
+
+### Does not require
+
+Verified closure does not require exhaustive root cause, discovery or removal
+of every contributing Defect, elimination of every residual risk, or closure
+of source Defect Reports. Merge or deployment alone is not verification.
+
+## Compact body fallback
+
+Use only residual facts the host, Defect Reports, and canonical authorities
+cannot represent. Add the shared completion fallback only when native fields
+cannot carry it.
 
 ```markdown
 # <Corrected behavior> when <condition>
@@ -300,75 +317,21 @@ and reviewable. Omit unsupported sections rather than inventing content.
 Which Bugs anchor the correction, which related Defects shape its scope, what
 bounded outcome should change, and why does that matter?
 
-## Bugs, related Defects, and provenance
+## Correction
 
-- Identified Bugs:
-- Established related Defects:
-- Remaining defect hypotheses:
-- Defect reports:
-- Related incidents, occurrences, or regressions:
-- Confirmed scope and remaining uncertainty:
+- Identified Bugs, Defect Report links, related Defects, and uncertainty:
+- Corrective decision, authority, expectation, and corrected behavior:
+- Requirement and Architecture impact or candidate authority changes:
+- Scope, unchanged constraints, non-goals, and cross-stack gaps:
 
-## Corrective decision
+## Response and evidence
 
-- Decision and authority:
-- Rationale:
-- Priority, target, or owner when already decided:
-
-## Expected and corrected behavior
-
-- Applicable Requirements or other expectation:
-- Current defective behavior or condition:
-- Intended corrected behavior:
-
-## Requirement and Architecture impact
-
-- Impact classification:
-- Applicable Requirements:
-- Affected Architecture and decisions:
-- Candidate authority changes requiring acceptance:
-- Material cross-stack gaps, evidence, and impact:
-- Options and recommendation:
-- Applicable authority and blocking status:
-
-## Proposed Requirement changes
-
-Include only when the response changes desired state. Use one
-Requirement-change entry per independently decidable change; otherwise state
-`None — restores satisfaction of unchanged Requirements`.
-
-## Scope and constraints
-
-- Affected scope:
-- Unchanged constraints and invariants:
-- Non-goals:
-
-## Change Design
-
-Material choices, responsibilities, interactions, state and data behavior,
-failure handling, alternatives, tradeoffs, risks, and open questions.
-
-## Verification
-
-### Verification conditions
-
-Observable conditions that establish the correction and material regressions.
-
-### Evaluation or testing strategy
-
-How, where, and with which identified Evaluation Protocols the evidence will
-be gathered.
-
-## Delivery and recovery
-
-- Implementation sequence and dependencies:
-- Host-native implementation tasks:
-- Rollout and observability:
-- Rollback or recovery:
-- Residual risk:
+- Change Design, alternatives, risks, and open questions:
+- Verification and regression conditions, strategy, and existing evidence:
+- Delivery, observability, rollback, residual risk, and relationships:
 ```
 
-## Final check
+## Authoring check
 
 - The Bugfix has a separate identity; no Defect report was retitled or
   replaced.

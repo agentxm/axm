@@ -13,7 +13,7 @@ turning evaluation into authoring, audit, or approval.
 This skill is coupled to the `agent-engineering` knowledge sibling in the
 `@agentxm/packs/agent-engineering` pack. Resolve the active AXM scope root and
 read these concepts under
-`.axm/extensions/@agentxm/knowledge/agent-engineering/src/`:
+`knowledge/agent-engineering/src/`:
 
 - `evaluation/evaluating-agent-skills.md`;
 - `evaluation/managing-evaluation-assets-and-evidence.md`;
@@ -60,9 +60,9 @@ stated authority and budgets.
 
 It does not edit the target, cases, fixtures, graders, expected outputs, or
 harness during a controlled run. Hand source changes to the direct sibling
-`.axm/extensions/@agentxm/skills/author-agent-skill/src/SKILL.md`. Hand design,
+`skills/author-agent-skill/src/SKILL.md`. Hand design,
 trust, provenance, licensing, packaging, and evidence-reliability assessment to
-`.axm/extensions/@agentxm/skills/audit-agent-skill/src/SKILL.md`.
+`skills/audit-agent-skill/src/SKILL.md`.
 
 Evaluation does not install, publish, approve, admit, promote, roll back,
 deprecate, or retire a skill. Do not write to `evals/releases/`; a governance

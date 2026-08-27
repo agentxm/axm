@@ -4,8 +4,8 @@ Case 1 exercises the real bundled `agent-skill-evaluator` runner against a
 public-safe synthetic target. The outer evaluation invocation must materialize
 these direct pack siblings with `--support-path`:
 
-- `.axm/extensions/@agentxm/skills/agent-skill-evaluator`
-- `.axm/extensions/@agentxm/knowledge/agent-engineering`
+- `skills/agent-skill-evaluator`
+- `knowledge/agent-engineering`
 
 The case maps its target-specific deterministic adapter to
 `harness/runnable-smoke-adapter.mjs`. That adapter is versioned evaluation

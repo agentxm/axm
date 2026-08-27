@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Maintaining work-item identity, relationships, and lifecycle
-description: Use when creating, relating, merging, splitting, resolving, verifying, reopening, closing, or superseding software work items; preserve one case identity, explicit relationship meaning, independent state dimensions, and evidence-backed transitions.
-tags: [work-item, identity, relationships, lifecycle, duplicate, merge, split, resolution, verification, closure, reopening, supersession]
+description: Use when creating, relating, merging, splitting, resolving, verifying, reopening, closing, superseding, or defining completion for software work items; preserve one case identity, explicit relationships, independent state dimensions, and evidence-backed completion boundaries.
+tags: [work-item, identity, relationships, lifecycle, completion, definition-of-done, handoff, disposition, delivery, duplicate, merge, split, resolution, verification, closure, reopening, supersession]
 status: draft
 sources:
   - id: gen-stack-vocabulary
@@ -16,7 +16,7 @@ sources:
     title: Operational incident records
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:18:00Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Maintaining work-item identity, relationships, and lifecycle
@@ -112,7 +112,39 @@ that matter for the item:
 Map these to local fields and workflow without pretending the host's single
 status defines them universally.
 
-## 5. Distinguish resolution, verification, and closure
+## 5. State the completion target
+
+Completion is relative to an item's purpose and the authority governing the
+next transition. Use these portable boundaries when local policy needs them;
+they are not new host statuses and an item may pass through more than one:
+when local practice asks for a definition of done, select the applicable
+boundary instead of creating one universal checklist.
+
+| Boundary | What is complete | What it does not imply |
+| --- | --- | --- |
+| Complete for handoff | The current truth, evidence, uncertainty, authority, and next action are recoverable by the receiving owner | Disposition, delivery, or closure |
+| Complete for disposition | An authorized response to the case is recorded with its evidence, rationale, and review or reopening condition | Implementation or verified correction |
+| Complete for delivery | The authorized action was performed and the realized revision or operational state is identifiable | That verification conditions hold |
+| Complete for verified closure | Applicable conditions were assessed, residual state and follow-up are explicit, and the closure authority ended this item's active lifecycle | Closure of related or independently owned work |
+
+Prefer exact native fields for the applicable target, conditions, evidence,
+owner, decision authority, review trigger, and closure state. Only when the host
+cannot represent them, add one compact fallback:
+
+- **Current target:** handoff, disposition, delivery, or verified closure;
+- **Observable conditions:** what must be true at that boundary;
+- **Evidence required:** what can establish those conditions and for which
+  revision, environment, or observation window;
+- **Responsible owner or authority:** who acts and who decides; and
+- **Review, closure, or reopening trigger:** what ends or reactivates the item.
+
+A tracker status is a projection, not proof. Merge, deployment, mitigation, a
+cleared alert, or task completion is not verification by itself. Closure does
+not automatically close related work. State the selected boundary and its
+authority explicitly; do not assume that every work-item role requires
+implementation, root cause, permanent correction, or verification.
+
+## 6. Distinguish resolution, verification, and closure
 
 - **Resolution or disposition** records the selected response to the case.
 - **Verification conditions** state what observable evidence must hold.
@@ -126,7 +158,7 @@ itself. Closing one item does not close its incidents, source reports, child
 work, recovery, review, or corrective change unless the governing process
 explicitly owns those transitions.
 
-## 6. Reopen or record a regression according to local policy
+## 7. Reopen or record a regression according to local policy
 
 Preserve the new occurrence and its evidence first. Then follow the host's
 rule to reopen the existing item or create a linked regression. Record the
@@ -134,7 +166,7 @@ reason, authority, relationship, and changed conditions. Do not erase the
 earlier resolution or verification result; it remains evidence about the
 earlier revision and conditions.
 
-## 7. Make transitions attributable and recoverable
+## 8. Make transitions attributable and recoverable
 
 For every consequential transition, preserve:
 
@@ -148,13 +180,15 @@ After an external mutation, read back the item and relationships. For a batch,
 continue past item-local failures when safe, preserve successful mutations, and
 report every failed or unverified identity without claiming atomic success.
 
-## Final check
+## Authoring check
 
 - Each item represents one coherent, independently managed case or body of work.
 - Work-item roles and source occurrences were not erased by retitling or merge.
 - Relationship meaning, direction, and canonical assertion remain recoverable.
 - Evidence, authority, delivery, verification, operational, and follow-up state
   remain distinct where material.
+- The applicable completion target, conditions, evidence, and authority are
+  explicit without treating host status as proof.
 - Resolution, verification, and closure are not used as synonyms.
 - Split, duplicate, regression, reopening, and supersession decisions preserve
   history and their deciding authority.

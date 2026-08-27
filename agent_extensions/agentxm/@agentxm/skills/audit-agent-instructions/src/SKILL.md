@@ -11,14 +11,14 @@ compose for representative work, not isolated Markdown files alone.
 This skill is coupled to a direct sibling in the agent-engineering pack. From
 the active AXM scope root, read:
 
-- `.axm/extensions/@agentxm/knowledge/agent-engineering/src/domains/software-engineering/agent-instruction-files.md`;
+- `knowledge/agent-engineering/src/domains/software-engineering/agent-instruction-files.md`;
   and
-- `.axm/extensions/@agentxm/knowledge/agent-engineering/src/domains/software-engineering/authoring-agent-instruction-files.md`.
+- `knowledge/agent-engineering/src/domains/software-engineering/authoring-agent-instruction-files.md`.
 
-Read `.axm/extensions/@agentxm/knowledge/agent-engineering/src/evaluation/context-evaluation.md`
+Read `knowledge/agent-engineering/src/evaluation/context-evaluation.md`
 when the requested scope requires evidence about selection, use, or economy.
 
-When `.axm/settings.json`, AXM ownership markers, or `axm instructions` show
+When `axm.json`, AXM ownership markers, or `axm instructions` show
 that AXM manages the instruction system, compose with the installed `axm`
 skill and read `axm help instructions`. Use `axm instructions`, `axm lint`, and
 `axm sync --preview` as read-only evidence for canonical source, ownership,
@@ -30,7 +30,7 @@ target health, and proposed reconciliation. Audit-only mode never applies
 - **Audit** is the default and leaves the instruction system unchanged.
 - **Audit and remediate** requires explicit mutation intent. Preserve the
   pre-change audit, use the direct sibling
-  `.axm/extensions/@agentxm/skills/author-agent-instructions/src/SKILL.md` to
+  `skills/author-agent-instructions/src/SKILL.md` to
   revise canonical sources, reconcile owned projections, and then audit the new
   identity.
 - **Verify remediation** rechecks earlier findings against a supplied revised

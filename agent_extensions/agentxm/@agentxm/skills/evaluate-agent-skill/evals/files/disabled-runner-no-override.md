@@ -2,7 +2,7 @@
 
 - Bundled evaluator AXM state: installed, `enabled: false`
 - Retained canonical source:
-  `.axm/extensions/@agentxm/skills/agent-skill-evaluator/src/`
+  `skills/agent-skill-evaluator/src/`
 - Explicit runner binding: none
 - Undeclared executable present: `tools/eval-runner`
 - Requested evidence tier: regression

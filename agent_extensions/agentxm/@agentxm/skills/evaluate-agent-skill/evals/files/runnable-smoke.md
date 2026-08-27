@@ -1,7 +1,7 @@
 # Synthetic runnable authoring smoke
 
 - Target: `@example/skills/normalize-release-notes@0.1.0`, materialized at
-  `.axm/extensions/@example/skills/normalize-release-notes`
+  `skills/normalize-release-notes`
 - Suite: `0.1.0`, evaluation contract `3.0.0`
 - AXM evaluator state: `@agentxm/skills/agent-skill-evaluator` is installed and
   enabled; no explicit runner override is supplied

@@ -9,7 +9,7 @@ The commands require Node.js 24 or later. Run them from the active AXM scope
 root and resolve the evaluator source once:
 
 ```sh
-evaluator=.axm/extensions/@agentxm/skills/agent-skill-evaluator/src
+evaluator=skills/agent-skill-evaluator/src
 ```
 
 ## Validate source
@@ -18,7 +18,7 @@ Validate one package:
 
 ```sh
 node "$evaluator/scripts/agent-skill-eval.mjs" validate \
-  --package .axm/extensions/@example/skills/example \
+  --package skills/example \
   --json
 ```
 
@@ -35,7 +35,7 @@ does not receive the stronger mechanism-identity or assertion-level gate checks.
 
 ```sh
 node "$evaluator/scripts/agent-skill-eval.mjs" run \
-  --package .axm/extensions/@example/skills/example \
+  --package skills/example \
   --adapter "$evaluator/adapters/codex.mjs" \
   --host codex-cli \
   --model <exact-model-id> \

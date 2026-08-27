@@ -31,7 +31,7 @@ sources:
     title: NIST SP 800-61 Rev. 3 — Incident response recommendations and considerations
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:16:50Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Recording operational incidents
@@ -67,27 +67,16 @@ semantics match. Present only residual body content in this preferred live
 order: current brief, impact and scope, current control and objective, active
 roles and actions, decisions and hypotheses, chronology and communications,
 safe evidence, then resolution, validation, closure, and follow-up as they
-become applicable. The [tracker-ready template](#tracker-ready-template) is a
-logical fallback, not a demand to duplicate native fields or keep empty
-sections.
+become applicable. The [compact body fallback](#compact-body-fallback) is not a
+demand to duplicate native fields or keep empty sections.
 
-## Apply the common work-item guides
+## Shared concerns
 
-This guide owns incident-specific response content. Use the shared guides for
-the portable mechanics it does not redefine:
-
-- [Preserving evidence and authority in software work
-  items](preserving-work-item-evidence-and-authority.md) for source inventory,
-  claim state, safe evidence, unknowns, and decision authority;
-- [Maintaining work-item identity, relationships, and
-  lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) for
-  reuse, parent and child incidents, duplicates, transitions, closure, and
-  independently owned follow-up;
-- [Managing work-item metadata and
-  labels](managing-work-item-metadata-and-labels.md) for severity, priority,
-  assignment, status, labels, and verified tracker mutation; and
-- [Titling and summarizing work
-  items](titling-and-summarizing-work-items.md) for the live brief.
+This guide owns incident-specific response content. Apply the [common work-item
+guides](index.md#apply-the-common-concerns) for evidence and authority,
+identity and lifecycle, tracker metadata, and the derived live brief. In
+particular, use the shared lifecycle guide for completion targets, closure,
+reopening, and independently owned follow-up.
 
 ## 1. Choose the correct and safe response channel
 
@@ -321,129 +310,54 @@ Specification that applies [Specifying Requirement
 changes](specifying-requirement-changes.md); do not place the candidate delta
 or its acceptance lifecycle under incident-response authority.
 
-## Tracker-ready template
+## Completion criteria
 
-Start with the minimum live state. Add coordination and transition sections as
-the incident grows or the local process requires them. Omit empty sections
-rather than inventing content, and do not duplicate identifiers, roles,
-timestamps, or status fields that the host already captures correctly.
+### Complete for the next authorized action
+
+The current impact, service and response state, command, objective, actions,
+communication deadline, safe evidence, and next decision are recoverable. A
+handoff is complete only when the incoming authority acknowledges it.
+
+### Complete for verified closure
+
+The local closure boundary and authority are explicit; its observable exit
+conditions have been assessed for the stated window; impact, service,
+validation, residual state, and final communications are recorded; and
+recovery, review, Defect, or corrective work that continues has its own owner
+and link.
+
+### Does not require
+
+Incident closure does not universally require exhaustive root cause, permanent
+correction, or completion of separately owned recovery, review, or change work.
+
+## Compact body fallback
+
+Use this only for residual facts the incident host cannot represent. Add the
+shared completion fallback only when native fields cannot carry its target,
+conditions, evidence, authority, and reactivation trigger.
 
 ```markdown
-# <Affected service>: <observed impact>
+## Current state
 
-## Minimum live state
+- Brief, impact and scope:
+- Service and response state:
+- Command, objective, active actions, and blockers:
+- Next update and next decision:
+- Exit criteria and observation window:
 
-- Incident identity:
-- Response phase or status:
-- Severity and evidence:
-- Incident lead or commander:
-- Impact started: <timestamp, range, or unknown>
-- Detected or reported:
-- Declared:
-- Acknowledged:
-- Last updated: <timestamp and timezone>
-- Next update: <timestamp, audience, and channel>
-- Command channel or bridge:
-- Internal and external status links:
+## Coordination and evidence
 
-### Current brief
+- Roles, handoffs, decisions, and timeline:
+- Safe evidence and response-surface links:
 
-One or two sentences: current impact, service and response state, and immediate
-objective.
+## Transition
 
-### Impact and scope
-
-- Affected users, functions, services, regions, operations, or data:
-- Known extent and evidence:
-- Tested-unaffected or unknown scope:
-- Relevant service objective or threshold:
-
-### Current control
-
-- Current objective:
-- Active mitigation or containment:
-- Expected signal:
-- Exit or monitoring criteria and observation window:
-- Next action, owner, and dependency or blocker:
-
-## Active coordination
-
-Add when roles or workstreams are delegated.
-
-### Roles
-
-| Role or workstream | Current owner | Authority or responsibility | Since |
-| --- | --- | --- | --- |
-| Incident command | | | |
-| Technical or operations | | | |
-| Communications | | | |
-| Scribe, planning, or liaison | | | |
-
-### Actions
-
-| Action | Owner | Expected signal | State or result | Reversal or fallback |
-| --- | --- | --- | --- | --- |
-| | | | | |
-
-### Decisions and hypotheses
-
-- <timestamp> — <fact, hypothesis, decision, authority, rationale, or correction>
-
-### Timeline
-
-- <event time or range> — <observation, report, action, result, role change,
-  or communication> — <source or actor>
-
-### Communications
-
-- Internal audience, last update, and next update:
-- External audience, last update, and next update:
-- Approved safe synopsis or links:
-
-### Handoffs
-
-- Outgoing and incoming roles:
-- Current state, objective, actions, blockers, and next decision:
-- Acknowledged at:
-
-### Safe evidence
-
-Redacted dashboards, logs, traces, screenshots, change records, runbooks, or
-access-controlled evidence links.
-
-## Resolution and transition
-
-### Important times
-
-- Mitigation took effect:
-- Impact ended:
-- Service restoration criteria met:
-- Required recovery completed:
-- Coordinated response closed:
-
-### Validation and residual state
-
-- Exit criteria:
-- Validation evidence and observation window:
-- Remaining degraded functions, recovery, cleanup, or temporary controls:
-- Residual risk and reactivation condition:
-
-### Closure
-
-- Decision, authority, and rationale:
-- Final internal communication:
-- Final external communication:
-
-### Follow-up
-
-- Post-incident review and owner:
-- Defects, problems, and corrective changes:
-- Recovery, cleanup, or data repair:
-- Reliability, monitoring, process, or documentation improvements:
-- Parent, child, recurring, or related incidents:
+- Mitigation, impact-end, restoration, recovery, and closure times:
+- Validation, residual state, reactivation condition, and follow-up owners:
 ```
 
-## Final check
+## Authoring check
 
 - The record uses the correct public, restricted, security, safety, disaster,
   or business-continuity channel.

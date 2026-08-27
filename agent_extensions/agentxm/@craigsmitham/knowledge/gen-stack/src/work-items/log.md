@@ -1,5 +1,16 @@
 # Software engineering update log
 
+## 2026-08-27
+
+- **Defect triage and investigation factoring**: Made triage decide Defect
+  Report identity, classification, current applicability, lifecycle
+  disposition, impact, and routing from available evidence. Moved diagnostic
+  evidence selection, gathering, interpretation, and selective reproduction
+  into [Investigating possible defects](investigating-possible-defects.md),
+  with a bounded-question and bounded-conclusion contract between the two
+  Guides. Added report age and evidence currency to triage while making clear
+  that elapsed time alone proves neither invalidity nor closure.
+
 ## 2026-08-26
 
 - **Exact four-role taxonomy**: Made Operational Incident Record, Defect

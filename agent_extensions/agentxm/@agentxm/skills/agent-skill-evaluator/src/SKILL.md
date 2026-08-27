@@ -45,7 +45,7 @@ trust.
    evidence tier, host and grader adapters, environment, authority, budgets,
    baseline, and generated-workspace owner.
 3. Resolve this skill under the active AXM scope at
-   `.axm/extensions/@agentxm/skills/agent-skill-evaluator/src/`, then run its
+   `skills/agent-skill-evaluator/src/`, then run its
    `scripts/agent-skill-eval.mjs validate --package <path> --json`. Return the
    complete findings before attempting execution.
 4. Run preflight through `run`. If it reports `reserved`, name the missing or

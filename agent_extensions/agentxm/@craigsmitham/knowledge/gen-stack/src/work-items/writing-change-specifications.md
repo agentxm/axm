@@ -25,7 +25,7 @@ sources:
     title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:30:00Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Writing change specifications
@@ -56,22 +56,15 @@ assignment, and relationships when their semantics match. Present residual
 body content in this preferred order: summary and source Provenance, change
 decision, outcome and scope, Requirement impact and proposed changes,
 Architecture impact and gaps, Change Design, verification, delivery and
-recovery, risks and open questions, then lifecycle relationships. The
-[tracker-ready template](#tracker-ready-template) is a logical composition and
-target-neutral fallback; omit inapplicable sections and do not duplicate native
-fields or linked canonical authorities.
+recovery, risks and open questions, then lifecycle relationships. The [compact
+body fallback](#compact-body-fallback) is optional; omit inapplicable sections
+and do not duplicate native fields or linked canonical authorities.
 
-## Apply the common work-item guides
+## Shared concerns
 
-This guide owns the bounded change composition. Use [Preserving evidence and
-authority in software work items](preserving-work-item-evidence-and-authority.md)
-for source and decision handling, [Maintaining work-item identity,
-relationships, and
-lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) for
-the Specification identity and transitions, [Managing work-item metadata and
-labels](managing-work-item-metadata-and-labels.md) for host fields and external
-mutation, and [Titling and summarizing work
-items](titling-and-summarizing-work-items.md) for the derived brief.
+This guide owns the bounded change composition. Apply the [common work-item
+guides](index.md#apply-the-common-concerns) for evidence and authority,
+identity and lifecycle, tracker metadata, and the derived brief.
 
 ## Preconditions
 
@@ -292,10 +285,34 @@ state, and why the response matters. Do not put material scope or authority
 only in the brief; see [Titling and summarizing work
 items](titling-and-summarizing-work-items.md).
 
-## Tracker-ready template
+## Completion criteria
 
-Use only the sections supported by the change. Omit empty headings rather than
-inventing content.
+### Complete for the next authorized action
+
+The bounded outcome, current decision and authority, sources, material scope
+and exclusions, Requirement and Architecture impact, consequential gaps,
+proportional response, observable verification conditions, risks, blockers,
+and next owner are sufficient for the named decision, design, or delivery
+action.
+
+### Complete for verified closure
+
+The authorized owner records either an evidence-backed decline, deferment, or
+supersession with its review trigger, or a delivered revision whose applicable
+verification conditions were assessed. Residual risk, follow-up, and the
+closure authority are explicit in either route.
+
+### Does not require
+
+A declined, deferred, or superseded Change Specification can close without
+implementation. For a delivered change, merge, task completion, or deployment
+alone does not establish verified closure.
+
+## Compact body fallback
+
+Use only the residual sections the host and linked authorities cannot
+represent. Add the shared completion fallback only when native fields cannot
+carry it.
 
 ```markdown
 # <Bounded change outcome> <discriminating context>
@@ -305,91 +322,25 @@ inventing content.
 What condition should change, what bounded outcome is proposed or authorized,
 what is its current decision state, and why does it matter?
 
-## Source context and Provenance
+## Decision and scope
 
-- Signals or source records:
-- Stable identifiers and authoritative links:
-- Faithful source synopsis:
-- Evidence, confidence, and material unavailable context:
+- Source context, current condition, intended outcome, and exclusions:
+- Decision state, authority, constraints, and invariants:
 
-## Change decision
+## Impact and response
 
-- Current decision and maturity:
-- Decision authority or unresolved authority:
-- Priority, ownership, and timing only when separately established:
+- Requirement and Architecture impact or candidate changes:
+- Material cross-stack gaps, recommendation, authority, and blocking status:
+- Change Design, alternatives, risks, and open questions:
 
-## Scope
+## Verification and delivery
 
-- Affected context and current condition:
-- Intended change outcome:
-- Constraints and invariants:
-- Non-goals:
-
-## Requirement impact
-
-- Applicable Requirement IDs:
-- Classification: unchanged constraint | candidate obligation | proposed
-  revision or retirement | implementation-only | evidence or interpretation
-  gap | unresolved
-- Required authority or follow-up:
-
-### Proposed Requirement changes when applicable
-
-- Work-item-local change label:
-- Operation and composition pattern:
-- Current Requirement IDs and candidate successor labels:
-- Proposed meaning, subject, type, identity, and applicability:
-- Architecture, derived-Requirement, Implementation, and Evaluation impact:
-- Meaning maturity, decision authority, readiness, and blocked action:
-- Resolution and canonical Requirement links when available:
-
-## Architecture impact
-
-- Affected Architecture and ADRs:
-- Unchanged, proposed, accepted, or unresolved impact:
-
-## Cross-stack gaps
-
-- Missing, underdeveloped, misplaced, disputed, or contradicted meaning:
-- Evidence and impact:
-- Options and recommendation:
-- Applicable authority and blocking status:
-
-## Change Design
-
-- Status and authority:
-- Selected response:
-- Material alternatives and tradeoffs:
-- State, data, interfaces, failure behavior, migration, and recovery as needed:
-- Open design questions:
-
-## Verification
-
-- Outcome signals:
-- Verification conditions:
-- Evaluation or testing strategy:
-- Existing evidence and limitations:
-
-## Delivery and recovery
-
-- Implementation sequence and dependencies:
-- Linked host-native tasks (outside the Gen Stack taxonomy):
-- Rollout, observability, rollback, and handoffs:
-
-## Risks and unresolved questions
-
-- Risk or question:
-- Owner or decision authority:
-- Evidence or action needed:
-
-## Relationships and lifecycle
-
-- Related work items and authorities:
-- Current host state:
-- Next authorized action or review:
+- Outcome signals, verification conditions, strategy, and existing evidence:
+- Sequence, dependencies, rollout, observability, rollback, and handoffs:
+- Relationships and next authorized action:
 ```
 
-## Final check
+## Authoring check
 
 - The item represents one bounded system or Architecture change.
 - Source evidence remains attributable and distinct from normalized analysis.

@@ -5,9 +5,9 @@
   },
   "agents": ["codex"],
   "skills": {
-    "agent-skill-evaluator": "workspace:@agentxm/skills/agent-skill-evaluator"
+    "agent-skill-evaluator": "workspace"
   },
   "knowledge": {
-    "agent-engineering": "workspace:@agentxm/knowledge/agent-engineering"
+    "agent-engineering": "workspace"
   }
 }

@@ -1,6 +1,6 @@
 # Synthetic AXM-managed instruction system
 
-The project contains `.axm/settings.json` with instruction-file management
+The project contains `axm.json` with instruction-file management
 enabled and `AGENTS.md` as the canonical source. AXM reports:
 
 - `AGENTS.md` as the current canonical source for Codex and Cursor;

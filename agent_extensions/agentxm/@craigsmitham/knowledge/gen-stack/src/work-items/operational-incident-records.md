@@ -11,9 +11,6 @@ sources:
   - id: google-sre-incidents
     resource: https://sre.google/sre-book/managing-incidents/
     title: Google SRE — Managing Incidents
-  - id: google-incident-document
-    resource: https://sre.google/sre-book/incident-document/
-    title: Google SRE — Example Incident State Document
   - id: microsoft-incident-management
     resource: https://learn.microsoft.com/en-us/azure/well-architected/design-guides/incident-management
     title: Microsoft Azure Well-Architected Framework — Develop an incident management practice
@@ -28,7 +25,7 @@ sources:
     title: NIST SP 800-61 Rev. 3 — Incident response recommendations and considerations
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Operational incident records
@@ -76,7 +73,7 @@ continues. A response can close before a cause is known, and a confirmed cause
 does not prove that restoration succeeded. Preserve these distinctions instead
 of asking one `resolved` label to carry them all.
 
-## Mitigation, impact end, restoration, recovery, and closure
+## Lifecycle and completion
 
 These moments answer different questions:
 
@@ -88,20 +85,18 @@ These moments answer different questions:
 | Recovery | Required functions, data, dependencies, and operating conditions have been re-established to the accepted state |
 | Closure | The authorized owner ends coordinated response after the local exit conditions are satisfied |
 
-Host processes legitimately draw the boundary differently. Atlassian ends
-emergency response when current or imminent business impact ends, with cleanup
-tracked afterward.[^atlassian-incident-response] Microsoft describes closure
-criteria in terms of acceptable service levels, completed immediate mitigation,
-validation, communication, documentation, and designated authority.
-[^microsoft-incident-management] Google demonstrates explicit exit criteria,
-including sustained service-objective evidence, in its example live incident
-document.[^google-incident-document]
+Local processes may close emergency response at impact end or require fuller
+restoration and validation.[^atlassian-incident-response]
+[^microsoft-incident-management] The portable rule is to preserve the chosen
+boundary, observable conditions, evidence window, authority, residual state,
+and independently owned follow-up. A mitigation, deployment, or cleared alert
+is not proof that the boundary was met, and closure need not wait for root cause
+or permanent correction.
 
-Portable guidance should therefore preserve the actual moments, criteria, and
-evidence while allowing the local process to decide which one maps to
-`resolved`, `recovered`, or `closed`. ISO/IEC TS 25011 supplies a service-quality
-model for specifying and evaluating service acceptance criteria; it does not
-make a tracker's status field evidence that those criteria hold.[^iso-25011]
+The [recording guide's completion
+criteria](recording-operational-incidents.md#completion-criteria) apply these
+distinctions. ISO/IEC TS 25011 supplies a service-quality model for acceptance
+criteria; a tracker status remains only a projection.[^iso-25011]
 
 ## The response lifecycle is a network
 
@@ -241,7 +236,6 @@ recording procedure and progressive tracker-ready template, see [Recording
 operational incidents](recording-operational-incidents.md).
 
 [^atlassian-incident-response]: Atlassian, “How we respond to an incident.”
-[^google-incident-document]: Google SRE, “Example Incident State Document.”
 [^google-sre-incidents]: Google SRE, “Managing Incidents.”
 [^iso-23612]: ISO/IEC/IEEE 23612:2026, generic incident-management process and supporting documentation scope.
 [^iso-25011]: ISO/IEC TS 25011:2017, IT service-quality models and acceptance uses.

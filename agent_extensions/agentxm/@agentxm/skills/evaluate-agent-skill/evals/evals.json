@@ -10,11 +10,11 @@
       "expected_output": "A completed artifact-producing authoring-smoke run that uses the enabled bundled evaluator as pack-default, preserves separate routing and execution trials plus raw evidence, and claims no approval or release support.",
       "files": [
         "evals/files/runnable-smoke.md",
-        { "source": "evals/files/runnable-settings.json", "target": ".axm/settings.json" },
-        { "source": "evals/files/runnable-target-skill.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/skill.json" },
-        { "source": "evals/files/runnable-target-SKILL.md", "target": ".axm/extensions/@example/skills/normalize-release-notes/src/SKILL.md" },
-        { "source": "evals/files/runnable-target-evals.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evals.json" },
-        { "source": "evals/files/runnable-target-contract.json", "target": ".axm/extensions/@example/skills/normalize-release-notes/evals/evaluation-contract.json" },
+        { "source": "evals/files/runnable-settings.json", "target": "axm.json" },
+        { "source": "evals/files/runnable-target-skill.json", "target": "skills/normalize-release-notes/skill.json" },
+        { "source": "evals/files/runnable-target-SKILL.md", "target": "skills/normalize-release-notes/src/SKILL.md" },
+        { "source": "evals/files/runnable-target-evals.json", "target": "skills/normalize-release-notes/evals/evals.json" },
+        { "source": "evals/files/runnable-target-contract.json", "target": "skills/normalize-release-notes/evals/evaluation-contract.json" },
         { "source": "evals/files/runnable-smoke-adapter.mjs", "target": "harness/runnable-smoke-adapter.mjs" }
       ],
       "artifact_paths": [

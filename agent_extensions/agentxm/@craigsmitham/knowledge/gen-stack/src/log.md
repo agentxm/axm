@@ -1,7 +1,46 @@
 # Gen Stack Update Log
 
+## 2026-08-27
+
+- **Interface-native Surface identity guidance**: Revised Surface development
+  and authoring so an adopting System can establish and consistently apply an
+  interface-native identity policy, such as one Surface per public CLI command
+  path, without turning that example into a universal rule. Distinguished
+  actor-visible commands, namespaces, routes, operations, and protocol methods
+  from aliases, flags, modes, handlers, tests, and source-tree groupings;
+  clarified parent, child, and Feature Requirement placement; and added
+  native-interface inventory reconciliation without transferring desired-state
+  authority to current implementation.
+
+- **Gen Stack 0.19.1 — defect triage and investigation boundaries**: Factored
+  defect handling so recording owns intake, triage owns report identity,
+  classification, current applicability, lifecycle disposition, impact, and
+  routing from available evidence, and investigation owns gathering and
+  interpreting new diagnostic evidence, including selective reproduction.
+  Added report age, evidence currency, later changes, and recurrence to triage
+  without using age as a proxy for validity, impact, priority, or closure.
+  Replaced repeated investigation procedure in triage with a bounded-question
+  handoff and reduced the two Guides from 5,069 to 2,985 words.
+
 ## 2026-08-26
 
+- **Purpose-relative work-item completion**: Centralized handoff,
+  disposition, delivery, and verified-closure boundaries in the shared
+  work-item lifecycle Guide; added a four-role completion comparison to the
+  work-item index; gave each role concise next-action, verified-closure, and
+  non-requirement criteria; renamed phase completion checks to exit criteria;
+  and reduced role templates and repeated shared-guide instructions so host
+  fields remain primary and role Guides contain only their distinctive delta.
+- **Selective defect-report reproduction**: Revised [Triaging defect
+  reports](work-items/triaging-defect-reports.md) so triagers preserve
+  occurrences, form candidate groups, and then decide whether one bounded,
+  safe, authorized, proportionate reproduction attempt could materially change
+  identity, classification, impact, urgency, or routing before final
+  relationship decisions. Required any attempt to preserve its conditions,
+  revision, result, limitations, and disposition impact; clarified that failure
+  to reproduce is bounded negative evidence and that reproduction is not a
+  prerequisite for completing triage; and condensed the workflow from nine
+  stages to seven.
 - **Gen Stack 0.19.0, skill 1.10.0, and pack 2.11.0 — authority-gated
   adoption**: Replaced physical-authorship language and the blanket agent
   adoption refusal with separate semantic ratification, mutation authority,

@@ -2,7 +2,7 @@
 type: Guide
 title: Documenting surfaces
 description: Use when an accepted actor-facing encounter point needs canonical identity independent of its structural realization; record one Surface concept and its earned navigation.
-tags: [architecture-documentation, surfaces, interactions, applications, apis, authoring]
+tags: [architecture-documentation, surfaces, interactions, interface-identity, applications, apis, authoring]
 status: draft
 sources:
   - resource: /architecture/capabilities/capabilities.md
@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: /profile/gen-stack-application-profile.md#surface
     title: Gen Stack application profile — Surface
-generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T14:31:33Z" }
 ---
 
 # Documenting surfaces
@@ -31,8 +31,9 @@ encounter system behavior.
 ## Before you begin
 
 Confirm that the applicable authority has accepted the Surface identity,
-interaction boundary, actors, and material relationships. When those are still
-missing, inferred, underdeveloped, misplaced, or disputed, use [Developing
+interaction boundary, actors, material relationships, and any interface
+identity policy that determines its granularity. When those are still missing,
+inferred, underdeveloped, misplaced, or disputed, use [Developing
 Surfaces](developing-surfaces.md) first. Direct accepted authoring does not
 require repeating that candidate-development workflow.
 
@@ -46,40 +47,59 @@ Use the OKF envelope, the profile's exact `Surface` type and canonical path,
 including nested path semantics for a narrower Surface. Present residual body
 meaning in this preferred order: actors and encounter boundary, recognizable
 behavior, scope and exclusions, interaction hierarchy, Feature and C4
-relationships, and evidence. Keep path-derived containment and synchronized
-relationship roles out of duplicate body metadata. This order is authoring
-guidance, not profile conformance.
+relationships, and evidence. Keep exact command signatures, routes, operations,
+flags, aliases, and other volatile interface inventory with their native
+contracts. Keep path-derived containment and synchronized relationship roles
+out of duplicate body metadata. This order is authoring guidance, not profile
+conformance.
 
 ## Steps
 
 1. Name the encounter point in language its actors and maintainers recognize.
-2. Create its canonical file using the `Surface` type and common fields from
+2. Apply the accepted interface identity policy. When it assigns identity to a
+   native interaction address, such as each public CLI command path, give each
+   selected address exactly one Surface. Treat aliases as alternate spellings
+   and flags, output forms, previews, and execution modes as behavior of the
+   owning Surface unless the applicable authority accepted a distinct identity.
+3. Create its canonical file using the `Surface` type and common fields from
    the [application profile](/profile/gen-stack-application-profile.md#surface).
    A surface may use a same-named adjacent directory for independently named
    narrower surfaces, such as a CLI command or subcommand.
-3. Identify the actors in scope and the interaction boundary they encounter.
-4. State the recognizable behavior available there and material exclusions
+4. Identify the actors in scope and the interaction boundary they encounter.
+5. State the recognizable behavior available there and material exclusions
    from adjacent surfaces. Do not copy the actor goal or scenario owned by a
    Use Case; one use case may be enacted through several surfaces.
-5. Explain accessibility, trust, protocol, availability, or operational
+6. Explain accessibility, trust, protocol, availability, or operational
    concerns only when they materially shape the interaction. Link accepted
    obligations as subject-colocated Requirements rather than recording
-   constraints in the Surface prose.
-6. Record controlled C4 mappings under
+   constraints in the Surface prose. Place a child-specific obligation on its
+   child Surface, a hierarchy-wide obligation on the narrowest comprehensive
+   parent, and behavior shared across independent Surfaces on its Feature when
+   that Feature is the accepted subject.
+7. Record controlled C4 mappings under
    `relationships.is-realized-by-c4-element`. Features own
    `is-available-through-surface`; do not duplicate the reciprocal here.
    Canonical nested paths own parent-child Surface containment.
-7. Link relevant evidence, colocate accepted obligations beneath
-   `requirements/<requirement_type>/`, and update the immediate Surface index.
+8. Link the authoritative native interface inventory as evidence rather than
+   copying it. Colocate accepted obligations beneath
+   `requirements/<requirement_type>/`, update the immediate Surface index, and
+   compare the documented hierarchy with that inventory for missing or stale
+   Surface identities.
 
 ## Final check
 
 - The document answers where actors encounter behavior.
+- It applies the accepted interface identity policy consistently and gives
+  each selected interaction identity exactly one Surface.
+- Aliases, flags, modes, handlers, and tests do not create duplicate Surface
+  concepts without separately accepted identity.
 - It does not redefine every feature exposed through the surface.
 - It exposes use-case behavior without claiming ownership of the goal or
   scenario.
 - Interaction meaning remains distinct from runtime structure.
 - Material constraints and realization evidence are linked, not duplicated.
+- Exact interface inventory remains with its native executable or published
+  contract.
 - Recursive surface navigation communicates the product interaction model,
   not the test runner's suite hierarchy.
 - Relationship synchronization reports no changes.

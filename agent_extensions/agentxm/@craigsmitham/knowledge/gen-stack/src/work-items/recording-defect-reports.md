@@ -39,8 +39,8 @@ sources:
     resource: https://arxiv.org/abs/2607.07593
     title: Khatib et al. — What Makes a Good Bug Report for an AI Agent?
 generated:
-  by: codex/gpt-5.6
-  at: 2026-08-26T20:16:50Z
+  by: codex/gpt-5
+  at: 2026-08-27T14:18:00Z
 ---
 
 # Recording defect reports
@@ -74,24 +74,16 @@ priority, assignment, and relationships when their semantics match. Present
 residual body content in this preferred order: summary, originating source,
 expected and observed behavior, conditions and evidence, impact and workaround,
 cross-stack gaps, then investigation, decisions, resolution, and verification
-only as evidence matures. The [tracker-ready
-template](#tracker-ready-template) is a logical fallback; omit inapplicable
-sections and never repeat native field values as body metadata.
+only as evidence matures. The [compact body
+fallback](#compact-body-fallback) is optional; omit inapplicable sections and
+never repeat native field values as body metadata.
 
-## Apply the common work-item guides
+## Shared concerns
 
 This guide owns the discrepancy, expectation, evidence path, impact, and
-defect-report maturity. Use the shared guides for:
-
-- [evidence and authority](preserving-work-item-evidence-and-authority.md),
-  including occurrence inventory, claim state, safe channels, and unknowns;
-- [identity, relationships, and
-  lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md),
-  including duplicates, splits, regressions, resolution, verification,
-  closure, and reopening;
-- [metadata and labels](managing-work-item-metadata-and-labels.md), including
-  type, status, severity, priority, assignment, and external mutation; and
-- [titles and summaries](titling-and-summarizing-work-items.md).
+Defect Report maturity. Apply the [common work-item
+guides](index.md#apply-the-common-concerns) for evidence and authority,
+identity and lifecycle, tracker metadata, and the derived brief.
 
 ## Guardrails
 
@@ -119,8 +111,9 @@ Ask what needs to be preserved:
   change is being proposed, write a [Change
   Specification](writing-change-specifications.md). Retain an unbounded
   request as a Signal or source record.
-- If only uncertainty reduction has been authorized, continue Orientation or
-  conduct bounded investigation activity within the current Defect Report.
+- If only uncertainty reduction has been authorized, apply [Investigating
+  possible defects](investigating-possible-defects.md) within the current
+  Defect Report or other least-durable adequate surface.
 - If a security vulnerability may be present, follow the organization's
   private vulnerability-disclosure process instead of publishing exploit
   details in an ordinary issue.[^github-private-vulnerability]
@@ -241,10 +234,11 @@ impact, and material uncertainty. Do not repeat the artifact type when the
 tracker already shows it. See
 [Titling and summarizing work items](titling-and-summarizing-work-items.md).
 
-## Tracker-ready template
+## Compact body fallback
 
-Start with the minimum intake. Add the later sections only when evidence or a
-lifecycle decision supports them; omit empty sections.
+Use this only for facts the tracker cannot represent. Add investigation and
+lifecycle content only when evidence or a decision supports it; add the shared
+completion fallback only when native fields cannot carry it.
 
 ```markdown
 # <Affected behavior or artifact> <actual result> when <condition>
@@ -253,80 +247,21 @@ lifecycle decision supports them; omit empty sections.
 
 What differs from the expectation, why it matters, and any material uncertainty.
 
-## Source
+## Discrepancy and evidence
 
-- Observed or discovered:
-- Source system or discovery activity:
-- Stable source or occurrence identifier and URL:
-- Relevant project or environment:
-- Safe correlation identifiers, when materially useful:
-- Reporter or issuing role, when the host does not preserve it:
+- Source occurrences and safe links:
+- Expected behavior and authority or uncertainty:
+- Observed behavior or static finding:
+- Relevant conditions, revision, and affected or tested-unaffected scope:
+- Reproduction or analysis evidence and limitations:
+- Impact, workaround, and material cross-stack gaps:
 
-## Expected and observed
+## Maturing record
 
-**Expected:** What should happen or exist? Link its authority, or state the uncertainty.
-
-**Observed:** What happened or exists instead?
-
-## Conditions and evidence
-
-Use the branch that matches discovery.
-
-**Dynamic occurrence:**
-
-1. Starting state and preconditions:
-2. Actions or event sequence:
-3. Observation point and result:
-4. Frequency or occurrences:
-
-**Static finding:**
-
-- Work product, revision, and location:
-- Applicable rule or expectation:
-- Observed content or structure:
-- Review or analysis evidence:
-
-**For either path:**
-
-- Other relevant conditions:
-- Known affected and tested unaffected scope:
-- Safe evidence or controlled evidence links:
-
-## Impact and workaround
-
-- Affected stakeholders or system behavior and known extent:
-- Workaround or mitigation and its limitations:
-
-## Cross-stack gaps and impact
-
-- Missing, underdeveloped, misplaced, disputed, or contradicted meaning:
-- Evidence, confidence, and affected Surface, C4 structure, Requirement, or Evaluation:
-- Candidate options and recommendation:
-- Applicable authority:
-- Blocking status and affected action:
-
-## As the report matures
-
-### Investigation
-
-- Facts, hypotheses, confidence, eliminated conditions, and findings:
-- Identified Bugs and authoritative technical-context links:
-
-### Decisions and relationships
-
-- Status and classification:
-- Decision, authority, and rationale:
-- Occurrences, duplicates, incidents, Requirements, tests, and regressions:
-- Bugfix Specifications or other corrective work:
-
-### Resolution and verification
-
-- Resolution or disposition:
-- Verification conditions:
-- Testing strategy, when supplied:
-- Corrected in version or build:
-- Verification result, evidence, verifier, and time:
-- Residual risk, reopening condition, or closure reason:
+- Findings, hypotheses, identified Bugs, and confidence:
+- Disposition, authority, rationale, and relationships:
+- Verification conditions, strategy, result, and evidence when applicable:
+- Residual risk, review or reopening trigger, and closure reason:
 ```
 
 ## Enrich when evidence supports it
@@ -391,7 +326,30 @@ specific closure reasons.[^azure-bug]
 Follow the host's rule for reopening or filing a linked regression. Preserve
 the relationship and new evidence either way.
 
-## Final check
+## Completion criteria
+
+### Complete for the next authorized action
+
+The originating occurrences, expectation or uncertainty, observable
+discrepancy, relevant conditions, safe evidence, impact, current
+classification, and next route are recoverable enough for triage,
+investigation, or an authorized disposition.
+
+### Complete for verified closure
+
+An authorized disposition, rationale, evidence boundary, residual risk, and
+review or reopening trigger are recorded. When the disposition claims a
+correction, the verification result is bound to the identified revision and
+conditions. Source occurrences and linked Bugfix work remain preserved.
+
+### Does not require
+
+A Defect Report may close as expected behavior, duplicate, external cause,
+accepted risk, deferred, or unsupported within the bounded evidence. It does
+not universally require reproduction, root cause, an identified Bug,
+implementation, or correction verification.
+
+## Authoring check
 
 - Can another person recover the observation, expectation, and material source
   evidence?

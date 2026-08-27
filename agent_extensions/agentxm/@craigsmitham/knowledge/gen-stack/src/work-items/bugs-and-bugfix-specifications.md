@@ -24,8 +24,8 @@ sources:
     resource: https://www.iso.org/standard/81291.html
     title: ISO — ISO/IEC/IEEE 29119-1:2022 Software testing general concepts
 generated:
-  by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  by: codex/gpt-5
+  at: 2026-08-27T14:18:00Z
 ---
 
 # Bugs and bugfix specifications
@@ -180,18 +180,24 @@ source of desired behavior. Its verification context explains what evidence is
 needed; an Evaluation Execution and Result own the actual assessment and
 evidence.
 
-## Container and lifecycle
+## Lifecycle and completion
 
 A dedicated work item commonly serves as the Bugfix Specification container.
 The Specification may also span a linked design discussion and delivery
 items, but the separate Bugfix identity remains the navigation point for the
 authorized correction. It is never the Defect report under a new title.
 
-Bugfix status follows corrective work: proposed, authorized, designed, in
-delivery, implemented, verified, deferred, or superseded according to the
-host. Defect-report status follows evidence and disposition. Completing one
-does not silently transition the other; record verification and closure in
-each artifact according to its own purpose and host workflow.
+Bugfix status follows corrective work; Defect Report status follows evidence
+and disposition. A Bugfix may be complete for delivery handoff while
+implementation and verification remain open. Merge or deployment is not
+verified closure: evidence must assess the correction and material regression
+conditions against an identified revision. Completing or closing the Bugfix
+does not silently transition its source reports.
+
+The [writing guide's completion
+criteria](writing-bugfix-specifications.md#completion-criteria) state these
+role-specific boundaries. The shared lifecycle guide owns the portable model
+and the host only projects it into local fields and states.
 
 [Maintaining work-item identity, relationships, and
 lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) owns
@@ -200,8 +206,10 @@ work-item metadata and labels](managing-work-item-metadata-and-labels.md) owns
 their host-field projection.
 
 For the authoring procedure and adaptable work-item template, see
-[Writing bugfix specifications](writing-bugfix-specifications.md). For intake
-and investigation, see [Recording defect reports](recording-defect-reports.md).
-For provenance and corrective authority shared across the pair, see
+[Writing bugfix specifications](writing-bugfix-specifications.md). For intake,
+see [Recording defect reports](recording-defect-reports.md). For diagnostic
+evidence gathering, see [Investigating possible
+defects](investigating-possible-defects.md). For provenance and corrective
+authority shared across the pair, see
 [Preserving evidence and authority in software work
 items](preserving-work-item-evidence-and-authority.md).

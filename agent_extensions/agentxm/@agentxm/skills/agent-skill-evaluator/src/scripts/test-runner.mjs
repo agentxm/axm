@@ -11,14 +11,14 @@ const runner = join(sourceRoot, "scripts", "agent-skill-eval.mjs");
 const sourceAdapter = join(sourceRoot, "adapters", "synthetic.mjs");
 const sourceCodexAdapter = join(sourceRoot, "adapters", "codex.mjs");
 const testRoot = mkdtempSync(join(tmpdir(), "agent-skill-evaluator-test-"));
-const packagePath = ".axm/extensions/@example/skills/fixture-skill";
+const packagePath = "skills/fixture-skill";
 const packageRoot = join(testRoot, packagePath);
-const adapterPath = ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/adapters/synthetic.mjs";
+const adapterPath = "skills/agent-skill-evaluator/src/adapters/synthetic.mjs";
 const adapter = join(testRoot, adapterPath);
-const codexAdapterPath = ".axm/extensions/@agentxm/skills/agent-skill-evaluator/src/adapters/codex.mjs";
+const codexAdapterPath = "skills/agent-skill-evaluator/src/adapters/codex.mjs";
 const codexAdapter = join(testRoot, codexAdapterPath);
 const outputRoot = join(testRoot, ".work", "evals");
-const baselinePackagePath = ".axm/extensions/@example/skills/baseline-skill";
+const baselinePackagePath = "skills/baseline-skill";
 const baselinePackageRoot = join(testRoot, baselinePackagePath);
 
 function write(path, value) {

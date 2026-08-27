@@ -19,7 +19,7 @@ sources:
     title: ISO — ISO/IEC/IEEE 29148:2018 Requirements engineering
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  at: 2026-08-27T03:09:27Z
 ---
 
 # Change specifications
@@ -108,7 +108,7 @@ delivery, but stable authorities should be linked rather than copied into a
 second normative statement. Its status describes the change case, not the
 acceptance state of every constituent.
 
-## Change state and authority are separate
+## Lifecycle and completion
 
 A host may use states such as proposed, authorized, designed, in delivery,
 implemented, verified, deferred, or superseded. Those states are useful only
@@ -124,10 +124,17 @@ At minimum, a Change Specification should expose:
 - whether implementation is planned, underway, completed, or rolled back; and
 - whether verification evidence is planned, available, failed, or unknown.
 
-These dimensions can move independently. Implementation may begin before a
-candidate Requirement is accepted, but that does not make the Requirement
-authoritative. An accepted Design may not yet be implemented. A merged change
-may remain unverified.
+These dimensions can move independently. A Specification can be complete for
+a decision or handoff while delivery remains open. It can close after an
+authorized decline, deferment, or supersession without implementation. When it
+is delivered, merge or deployment still does not prove that its verification
+conditions hold. Implementation before a candidate Requirement is accepted
+does not make that Requirement authoritative.
+
+The [writing guide's completion
+criteria](writing-change-specifications.md#completion-criteria) define the
+role-specific boundaries; the shared lifecycle guide owns the portable
+handoff, disposition, delivery, and verified-closure model.
 
 ## The lifecycle is a network
 

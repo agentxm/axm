@@ -349,7 +349,7 @@ function validateSuite(packageRoot, findings) {
       else if (!isWithin(realpathSync(fixtureRoot), realpathSync(fixturePath))) findings.push(`${suitePath} case ${id}: fixture escapes evals/files through a symlink ${source}`);
       if (target !== null) {
         if (!isSafeWorkspacePath(target)) findings.push(`${suitePath} case ${id}: unsafe fixture target ${target}`);
-        const activeTarget = `.axm/extensions/${manifest.owner}/skills/${manifest.name}`;
+        const activeTarget = `skills/${manifest.name}`;
         if (target === activeTarget || target.startsWith(`${activeTarget}/`)) findings.push(`${suitePath} case ${id}: fixture target may not overwrite the evaluated skill`);
         if (fixtureTargets.has(target)) findings.push(`${suitePath} case ${id}: duplicate fixture target ${target}`);
         fixtureTargets.add(target);
@@ -409,15 +409,12 @@ function validateSuite(packageRoot, findings) {
 }
 
 function findSkillPackages(root) {
-  const settingsPath = join(root, ".axm", "settings.json");
+  const settingsPath = join(root, "axm.json");
   if (!existsSync(settingsPath)) return [];
   const settings = readJson(settingsPath);
-  return Object.values(settings.skills ?? {})
-    .map((value) => typeof value === "object" && value !== null ? value.source : value)
-    .filter((source) => typeof source === "string" && source.startsWith("workspace:"))
-    .map((source) => source.match(/^workspace:(@[^/]+)\/skills\/([^@]+)$/))
-    .filter(Boolean)
-    .map((match) => join(root, ".axm", "extensions", match[1], "skills", match[2]))
+  return Object.entries(settings.skills ?? {})
+    .filter(([, value]) => (typeof value === "object" && value !== null ? value.source : value) === "workspace")
+    .map(([name]) => join(root, "skills", name))
     .filter((path) => existsSync(join(path, "skill.json")))
     .sort();
 }
@@ -446,15 +443,25 @@ function catalogForCase(root, packageRoot, item) {
   const manifest = readJson(join(packageRoot, "skill.json"));
   const names = new Set([manifest.name, ...(item.catalog_neighbors ?? [])]);
   names.delete("clarify-or-abstain");
-  const ownersRoot = join(root, ".axm", "extensions");
-  const owners = existsSync(ownersRoot) ? [manifest.owner, ...readdirSync(ownersRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)] : [manifest.owner];
   const entries = [];
   for (const name of names) {
-    const eligibleOwners = name === manifest.name ? [manifest.owner] : [...new Set(owners)];
-    const matches = eligibleOwners.map((owner) => ({ owner, path: join(ownersRoot, owner, "skills", name, "src", "SKILL.md") })).filter((entry) => existsSync(entry.path));
-    if (matches.length === 0) fail(`Routing catalog entry is unavailable: ${name}`, { code: "missing-catalog-entry" });
-    if (matches.length > 1) fail(`Routing catalog entry is ambiguous across owners: ${name}`, { code: "ambiguous-catalog-entry" });
-    const match = matches[0];
+    const matches = [];
+    const workspaceManifestPath = join(root, "skills", name, "skill.json");
+    const workspaceSkillPath = join(root, "skills", name, "src", "SKILL.md");
+    if (existsSync(workspaceManifestPath) && existsSync(workspaceSkillPath)) {
+      matches.push({ owner: readJson(workspaceManifestPath).owner, path: workspaceSkillPath });
+    }
+    for (const candidate of walkFiles(join(root, "agent_extensions")).filter((path) => path.endsWith(`${sep}skill.json`))) {
+      const candidateManifest = readJson(candidate);
+      const candidateSkillPath = join(dirname(candidate), "src", "SKILL.md");
+      if (candidateManifest.name === name && existsSync(candidateSkillPath)) {
+        matches.push({ owner: candidateManifest.owner, path: candidateSkillPath });
+      }
+    }
+    const eligibleMatches = name === manifest.name ? matches.filter((match) => match.owner === manifest.owner) : matches;
+    if (eligibleMatches.length === 0) fail(`Routing catalog entry is unavailable: ${name}`, { code: "missing-catalog-entry" });
+    if (eligibleMatches.length > 1) fail(`Routing catalog entry is ambiguous across owners: ${name}`, { code: "ambiguous-catalog-entry" });
+    const match = eligibleMatches[0];
     entries.push({ name, owner: match.owner, description: parseFrontmatterDescription(match.path), source_path: relativePortable(root, match.path, "Catalog entry"), content_identity: pathIdentity(match.path) });
   }
   return { entries, content_identity: jsonIdentity(entries), trial: entries.map(({ name, description }) => ({ name, description })) };

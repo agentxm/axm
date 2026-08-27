@@ -227,7 +227,7 @@ try {
   } else if (mode === "trial") {
     if (request.configuration.active_skill) {
       if (!request.target?.package_path) throw new Error("Active-skill execution requires target.package_path");
-      const targetRoot = join(workspace, ".axm", "extensions", request.target.owner, "skills", request.target.name);
+      const targetRoot = join(workspace, "skills", request.target.name);
       copyDeclaredSource(repoRoot, workspace, `${request.target.package_path}/src`, relative(workspace, join(targetRoot, "src")).split(sep).join("/"));
     }
     for (const dependency of request.dependencies ?? []) copyDeclaredSource(repoRoot, workspace, dependency.source, dependency.workspace_path);
@@ -244,7 +244,7 @@ try {
       required: ["final_response", "side_effects"],
     };
     const activation = request.configuration.active_skill
-      ? `Explicitly use the Agent Skill at .axm/extensions/${request.target.owner}/skills/${request.target.name}/src/SKILL.md.`
+      ? `Explicitly use the Agent Skill at skills/${request.target.name}/src/SKILL.md.`
       : "Complete the task without using or consulting the evaluated Agent Skill.";
     prompt = [
       activation,

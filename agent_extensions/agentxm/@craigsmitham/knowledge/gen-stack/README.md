@@ -79,6 +79,13 @@ Synchronization edits only the producer-owned `relationships` block, preserves
 unrelated frontmatter, and refuses to write when authoritative assertions are
 malformed or contradictory.
 
+Version `0.19.1` factors defect handling into three concise responsibilities:
+recording preserves intake, triage decides report disposition and routing from
+available evidence, and investigation gathers and interprets new diagnostic
+evidence, including selective reproduction. Triage now assesses report age,
+evidence currency, and current applicability without treating elapsed time as
+proof of invalidity, low impact, low priority, or grounds for closure.
+
 Version `0.19.0` adds the canonical non-mutating mechanical `check`, exact
 working-tree, Git-index, and Git-revision inputs, stable `0`/`1`/`2` gate exit
 semantics, and the `gen-stack-inspection/v1alpha3` machine contract. The

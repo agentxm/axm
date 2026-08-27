@@ -45,7 +45,7 @@ disabled extension. Do not auto-discover another executable.
 ## Bundled reference runner
 
 For `pack-default`, read the direct pack sibling at
-`.axm/extensions/@agentxm/skills/agent-skill-evaluator/src/references/runner.md`
+`skills/agent-skill-evaluator/src/references/runner.md`
 and use its reference runner. Pass `--selection-source pack-default` when
 starting a run so the evidence records how the mechanism was chosen.
 

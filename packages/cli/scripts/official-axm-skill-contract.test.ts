@@ -110,8 +110,8 @@ describe("official AXM skill contract", () => {
     if (!Array.isArray(cases)) throw new Error("Expected evaluation cases");
 
     const stages = cases.map((item) => requireString(item, "stage"));
-    expect(stages.filter((stage) => stage === "routing")).toHaveLength(30);
-    expect(stages.filter((stage) => stage === "execution")).toHaveLength(31);
+    expect(stages.filter((stage) => stage === "routing")).toHaveLength(32);
+    expect(stages.filter((stage) => stage === "execution")).toHaveLength(32);
     expect(skillMd).not.toContain("evaluation-contract.json");
   });
 });

@@ -32,21 +32,14 @@ its execution bounded to the package and lifecycle work it owns.
 
 Apply these gates immediately after loading this skill:
 
-1. If the raw request names traversal (`..`), an absolute or broad root, or a
-   symlink escape, reject that target and answer immediately. Loading this
-   skill is the only permitted read before rejection; rejection is the complete
-   workflow. Do not search for `AGENTS.md`, README files, fixtures, or other
-   repository context; invoke AXM or help; run another tool; or pass the target
-   or any fragment of it to `pwd`, `ls`, `find`, `rg`, `readlink`, `realpath`,
-   `stat`, `axm`, or another command.
-2. If the request contains a literal credential, mentally replace it with “the
+1. If the request contains a literal credential, mentally replace it with “the
    supplied credential” before composing any response or command. Require a
    symbolic environment or secret reference; never repeat the literal.
-3. In a read-only task, treat explicitly supplied AXM resolution, preview,
+2. In a read-only task, treat explicitly supplied AXM resolution, preview,
    result, state, and repository facts as current evidence. Do not rerun,
    replace, or contradict them because the evaluation or planning workspace
    lacks that state. Preserve the supplied failure reason and recovery gate.
-4. “Without modifying files,” “plan,” and equivalent read-only wording do not
+3. “Without modifying files,” “plan,” and equivalent read-only wording do not
    authorize an apply command. Never attempt a mutation merely to demonstrate
    that another prerequisite blocks it.
 
@@ -170,10 +163,6 @@ Do not run `whoami`, login, or token commands for public reads or installs
 unless a live result says authentication is required. If the request contains
 a literal credential, never echo it in a response, quote, command, finding, or
 report; refer to it only as “the supplied credential.”
-
-Reject a target containing traversal (`..`), an absolute or broad root, or a
-symlink escape before resolving, statting, searching, listing, or reading it.
-Never search a filesystem root or home directory to locate a rejected target.
 
 An unowned-file collision reported by AXM blocks the affected closure. Preserve
 the artifact and require explicit ownership resolution before apply; do not

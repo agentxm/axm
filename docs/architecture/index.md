@@ -2,6 +2,12 @@
 
 Navigation for the accepted product and system architecture of AXM.
 
+## Governed meaning
+
+- [AXM Gen Stack](../../gen-stack/) — cross-cutting System governance,
+  canonical Requirements, admitted actor-facing Surfaces, Architecture
+  Decision Records, and Evaluation Protocol navigation
+
 ## Foundations
 
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and

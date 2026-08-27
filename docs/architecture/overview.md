@@ -8,6 +8,11 @@ depends-on:
 
 # AXM overview
 
+The [AXM System concept](../../gen-stack/system.md) owns the canonical purpose,
+boundary, exclusions, and environmental relationships. This document
+elaborates the detailed accepted architecture response and summarizes that
+context only for navigation.
+
 Shared product terms such as AgentXM, AXM, agent, extension, extension type,
 extension version, registry, workspace, handle, owner, publisher, pack, and
 library are defined by
@@ -75,10 +80,10 @@ Production dependency direction points from the CLI toward core and utilities.
 Core never depends on CLI interaction or output rendering.
 
 AXM is the public side of the AgentXM system. It may depend on published
-service contracts and published OSS-safe code packages, never on private
-repository source, paths, or documentation. Contracts shared with the private
-platform belong in the public shared kernel only when both implementations must
-use identical meaning.
+service contracts and published OSS-safe code packages. The canonical
+[public/private dependency constraint](../../gen-stack/system/requirements/constraint/public-private-boundary.md)
+owns that obligation. Contracts shared with the private platform belong in the
+public shared kernel only when both implementations must use identical meaning.
 
 ## The workspace model
 

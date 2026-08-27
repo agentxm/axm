@@ -3,4 +3,5 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 pnpm exec lint-staged --no-stash
 pnpm axm:local lint --view git-index --strict
+pnpm run gen-stack:check -- --view git-index
 pnpm run ci:affected

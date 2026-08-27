@@ -67,6 +67,12 @@ Before changing AXM product behavior, read the relevant
 workspace invariants, and the behavior tests must prove; code and tests show how
 the design is implemented.
 
+The Gen Stack owns the canonical obligations to
+[land changes through pull requests](gen-stack/system/requirements/process/changes-land-through-pull-requests.md),
+[pass required CI](gen-stack/system/requirements/process/required-ci-before-merge.md),
+and obtain [human maintainer approval](gen-stack/system/requirements/process/human-maintainer-approval.md).
+The steps below implement those obligations for contributors.
+
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
    first file edit.
@@ -80,6 +86,9 @@ requests. Use a separate worktree for concurrent tasks or coding-agent sessions
 so the primary checkout can remain clean on `main`.
 
 ### Public repository privacy
+
+The canonical public-context obligation is
+[AXM-REQ-0002](gen-stack/system/requirements/process/public-artifacts-protect-private-context.md).
 
 This repository is public. Branch names, commits, issues, pull requests,
 comments, screenshots, and release notes must not contain identifiers, links,

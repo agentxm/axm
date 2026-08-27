@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repository_root="$(cd -P -- "${script_dir}/.." && pwd)"
+
+# The committed AXM projection pins the Gen Stack validator. Updates arrive
+# through the repository's ordinary AXM sync and review workflow.
+export PATH="${script_dir}/gen-stack-bin:${PATH}"
+export PYTHONDONTWRITEBYTECODE=1
+
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+exec python3 \
+  "${repository_root}/agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/scripts/gen-stack.py" \
+  -C "${repository_root}" \
+  check \
+  "$@"

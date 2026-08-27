@@ -1,6 +1,9 @@
 # AXM command architecture
 
 Navigation for the durable responsibilities and boundaries of AXM commands.
+The [AXM CLI Surface hierarchy](../../../gen-stack/architecture/surfaces/cli/index.md)
+owns admitted actor-facing command identities and encounter boundaries; these
+documents own the detailed command architecture response.
 
 - [Overview](overview.md) — command families, shared lifecycle behavior,
   interaction, overrides, and recovery boundaries

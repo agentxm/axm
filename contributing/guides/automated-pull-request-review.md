@@ -14,6 +14,11 @@ AXM uses automated semantic review as an advisory safety pass. Deterministic CI
 and maintainer approval remain authoritative; an AI review cannot approve,
 merge, or replace a required check.
 
+The Gen Stack Requirements for [required CI](../../gen-stack/system/requirements/process/required-ci-before-merge.md)
+and [human maintainer approval](../../gen-stack/system/requirements/process/human-maintainer-approval.md)
+own those obligations. This guide owns their current automated-review
+implementation and operating procedure.
+
 > [Review guidelines](../../AGENTS.md#review-guidelines) - the repository's
 > narrow P0/P1 review contract
 

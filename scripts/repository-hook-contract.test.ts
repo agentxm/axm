@@ -13,4 +13,11 @@ describe("repository Git hooks", () => {
     expect(content).toContain(invocation);
     expect(content).not.toMatch(/^axm lint/m);
   });
+
+  it.each([
+    ["pre-commit", "pnpm run gen-stack:check -- --view git-index"],
+    ["pre-push", "pnpm run gen-stack:check -- --revision HEAD"],
+  ])("runs %s Gen Stack validation against the accepted Git state", (hook, invocation) => {
+    expect(readHook(hook)).toContain(invocation);
+  });
 });

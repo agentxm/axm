@@ -1,5 +1,6 @@
 export NX_TUI=false
 pnpm axm:local lint --strict
+pnpm run gen-stack:check -- --revision HEAD
 pnpm sync
 
 if ! git diff --quiet --exit-code; then

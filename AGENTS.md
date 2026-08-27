@@ -75,6 +75,11 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 
 ## Architecture
 
+The [AXM Gen Stack](gen-stack/index.md) owns accepted cross-cutting System
+governance, canonical Requirements, admitted actor-facing Surfaces, and
+Architecture Decision Records. Before changing that meaning, read the corpus
+and use the `gen-stack` skill.
+
 Read the [AXM architecture index](docs/architecture/index.md) before changing
 product responsibilities, command boundaries, workspace state, package
 responsibilities, dependency direction, output contracts, or workspace
@@ -84,6 +89,10 @@ execution boundaries.
 [docs/AGENTS.md](docs/AGENTS.md) and use the `author-okf` skill.
 
 ## Pre-launch backward compatibility
+
+The canonical obligation is
+[AXM-REQ-0006](gen-stack/system/requirements/process/pre-launch-contract-changes-remain-coherent.md);
+the instructions below are its operational projection.
 
 Until public launch, backward compatibility is out of scope unless the task
 explicitly requires it. During design, planning, implementation, and review,
@@ -224,7 +233,9 @@ See [Effect Guide](contributing/guides/effect.md),
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.
 
-- This repo is public: never include private Linear IDs, links, titles, content,
+- This repo is public; [AXM-REQ-0002](gen-stack/system/requirements/process/public-artifacts-protect-private-context.md)
+  is the canonical public-context obligation. Never include private Linear IDs,
+  links, titles, content,
   comments, customer details, private-repo links, or screenshots in branches,
   commits, issues, PRs, or release notes
 - Cross-repo work uses a separate AXM PR with self-contained public context;

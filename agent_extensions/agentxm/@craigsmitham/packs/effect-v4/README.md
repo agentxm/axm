@@ -15,7 +15,7 @@ false`: the skill routes to guides the bundle supplies, and the bundle expects
 the skill to route to it.
 
 See the [bundle
-index](https://github.com/craigsmitham/agent-extensions/blob/main/.axm/extensions/%40craigsmitham/knowledge/effect-v4/src/index.md)
+index](https://github.com/craigsmitham/agent-extensions/blob/main/knowledge/effect-v4/src/index.md)
 for the full guide list and when each one applies.
 
 ## Reference implementations

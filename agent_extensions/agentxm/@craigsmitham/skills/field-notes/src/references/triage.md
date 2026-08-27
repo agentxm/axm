@@ -1,7 +1,7 @@
 # Notes: triage, close, prune
 
 Read
-`.axm/extensions/@craigsmitham/knowledge/field-notes/src/closure-explainer.md`
+`knowledge/field-notes/src/closure-explainer.md`
 first.
 
 ## Triage

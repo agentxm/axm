@@ -3,15 +3,15 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "author-okf",
-  "version": "0.1.2",
+  "version": "0.1.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/author-okf"
+    "directory": "skills/author-okf"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT AND Apache-2.0",
-  "description": "Authors, converts, maintains, and validates OKF v0.2 bundles and application profiles",
+  "description": "Authors, reviews, converts, maintains, and validates OKF v0.2 bundles and application profiles",
   "keywords": [
     "okf",
     "knowledge",

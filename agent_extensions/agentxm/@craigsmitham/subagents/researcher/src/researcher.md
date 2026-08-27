@@ -42,7 +42,7 @@ authority.
 ## Frame
 
 For `frame`, read
-`.axm/extensions/@craigsmitham/skills/question/src/SKILL.md` and follow it to
+`skills/question/src/SKILL.md` and follow it to
 return one Research Brief. Work only from the hypothesis-neutral brief in the
 assignment. Do not request, recover, infer, or search for originating analysis.
 
@@ -53,7 +53,7 @@ context. Otherwise apply the independence labels defined by the Question skill.
 ## Execute
 
 For `execute`, read
-`.axm/extensions/@craigsmitham/skills/research/src/SKILL.md`, then follow its
+`skills/research/src/SKILL.md`, then follow its
 `Delegated execution` section and referenced evidence and report contracts.
 The delegation marker means the orchestration section does not apply in this
 context. Do not invoke another researcher or delegate any part of the work.

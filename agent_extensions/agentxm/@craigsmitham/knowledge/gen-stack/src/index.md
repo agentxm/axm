@@ -3,34 +3,71 @@ okf_version: "0.2"
 ---
 # gen-stack
 
-Gen Stack is an opinionated method for carrying software change from human
-intent through authoritative Requirements, architecture, implementation,
-evaluations, and operational feedback without confusing those representations
-or allowing observations to rewrite intent automatically.
+Gen Stack is an opinionated method for carrying software change from Signals
+and Observations through human-oriented Intent, co-developed Architecture and
+canonical Requirements, proportional Change Design, Compilation,
+Implementation, Evaluations, and operational learning. OODA governs how the
+method adapts without confusing those authorities and activities or allowing
+evidence to rewrite Intent automatically.
 
-Begin with [The Gen Stack method](overview.md), then follow the part of the
-change loop that owns the decision in front of you. The reusable architecture,
-requirements-engineering, work-item, YAGNI, and Tidy First reference material
-remains in the sibling software-architecture and software-engineering bundles;
-this bundle owns their cross-cutting composition.
+Begin with [How the Gen Stack operates](overview.md), then follow the authority
+or activity that owns the question in front of you. This bundle is the
+canonical knowledge authority for the complete method; its sections preserve
+the distinct meanings of Intent, Architecture, Processes, Change Design,
+Evaluations, Implementation, and adaptive control
+without distributing their relationships across packages.
 
 ## Overview
 
-- [The Gen Stack method](overview.md) - How one software-change method connects intent, authoritative Requirements, architecture, realization, evaluations, and operational feedback while preserving the distinct authority of each layer.
+- [How the Gen Stack operates](overview.md) - How Intent shapes co-developed Architecture and Requirements, how they constrain and assess Implementation, how OODA governs adaptation, and how every artifact uses native-first representation with least complexity.
 
-## Foundations
+## Adoption
 
-- [One authority, many witnesses](foundations/one-authority-many-witnesses.md) - Why an accepted Requirement has one normative authority while architecture, implementation, tests, evaluations, and telemetry may repeat its predicate for different purposes.
-- [Pace layers and gradients of trust](foundations/pace-layers-and-gradients-of-trust.md) - How different rates of change and levels of confidence determine containment, observability, reversibility, and review.
-- [Compaction and conceptual mass](foundations/compaction-and-conceptual-mass.md) - How to remove obsolete structure and compress accumulated understanding without discarding load-bearing intent or evidence routes.
+- [Adopting Gen Stack](adopting-gen-stack.md) - Use when a greenfield or brownfield repository is establishing its first Gen Stack corpus; achieve day-one OKF and profile conformance while keeping incomplete coverage, realization, and evidence explicit.
 
-## Change lifecycle
+## Reference
 
-- [Intent-to-feedback loop](change-lifecycle/intent-to-feedback-loop.md) - How signals move through work items, Requirements, architecture, realization, evaluation, and operational feedback while preserving authority boundaries.
-- [Analyzing Requirement impact](change-lifecycle/analyzing-requirement-impact.md) - How to classify a work item's possible effect on desired state before it becomes an unsupported requirement or implementation commitment.
+- [Gen Stack vocabulary and relationship model](glossary.md) - The semantic authority for Gen Stack terms, stable identifiers, definitions, distinctions, relationship meaning and cardinality, and prohibited inferences across the complete method.
 
-## Assurance and regeneration
+## Profile
 
-- [Evaluations and evidence](assurance-and-evidence/evaluations-and-evidence.md) - How evaluation definitions, executions, results, promoted evidence, and governance decisions relate to authoritative Requirements.
-- [Bounded regeneration](design-and-change/bounded-regeneration.md) - How to make replaceable implementation layers earn regeneration through conservation boundaries, operational memory, and rollback.
-- [Gen Stack adoption ladder](design-and-change/gen-stack-adoption-ladder.md) - A staged path from explicit authority to bounded regeneration without pretending the complete method is already proven everywhere.
+- [Gen Stack profile](profile/) - The representation delta over OKF v0.2 for the governed subset, linked to authoritative glossary meaning and supporting explanations and authoring guides.
+
+## Cross-cutting governance
+
+- [Cross-cutting governance](governance/) - Guidance for the required System, lifecycle, ownership, decision-policy, and assurance concepts that govern Intent and Architecture without forming another semantic layer.
+
+## Intent
+
+- [Intent](intent/) - Human-oriented direction, value, actor goals, problem-space context, and strategic orientation that can source Requirements without becoming one.
+
+## Architecture and Requirements
+
+- [Architecture](architecture/) - Human-first guidance for canonical Requirements, responsibilities, boundaries, decisions, quality, domain, and C4 views.
+
+## Change Design
+
+- [Change Design](design/) - Proportional technical reasoning for a bounded change, usually developed in conversation and either implemented immediately or captured in a work item without becoming another authority layer.
+
+## Implementation
+
+- [Implementation](implementation/) - Replaceable realized state, regeneration boundaries, conservation obligations, operational memory, and rollback.
+
+## Evaluations
+
+- [Evaluations](evaluations/) - Why Evaluation is broader than testing but
+  narrower than assurance, and how governed Protocols, repository-native
+  Executions and Results, observations, and decisions retain distinct
+  authority.
+
+## Processes
+
+- [Processes](processes/) - Reusable, bounded models of coordinated work that turn meaningful triggers into intended outcomes while preserving explicit authority, work-item identity, and evidence.
+
+## Work items
+
+- [Software work items](work-items/) - Tool-neutral concepts and authoring guides for Operational Incident Records, Defect Reports, Change Specifications, and Bugfix Specifications, including their evidence, authority, and delivery relationships.
+
+## Control loop
+
+- [Control loop](control-loop/) - OODA, cross-stack diagnosis, and change-intake guidance for interpreting Signals and Observations, selecting authorized decisions, and taking bounded action without allowing evidence to rewrite desired state automatically.

@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "field-notes",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Declare what work to observe, then triage occurrences into evidence-prioritized findings and verified improvements",
   "keywords": [
     "field-notes",
@@ -21,7 +21,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/field-notes"
+    "directory": "skills/field-notes"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "CC-BY-SA-4.0"

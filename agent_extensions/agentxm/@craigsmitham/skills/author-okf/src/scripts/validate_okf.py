@@ -2,10 +2,9 @@
 """Validate an Open Knowledge Format (OKF) v0.2 bundle.
 
 Severities
-  error  Spec violation. §11 conformance, or a field the spec marks REQUIRED
-         within a family that the document chose to include.
-  warn   Producer SHOULD, or an authoring hazard the spec explicitly tolerates
-         (broken links, near-duplicate types). Judge each on its merits.
+  error  Base-spec violation under the three §11 conformance conditions.
+  warn   Producer guidance, including REQUIRED fields inside optional families,
+         or an authoring hazard the spec tolerates. Judge each on its merits.
   info   Recommended-field gaps and low-signal observations. Hidden by default.
 
 Exit codes: 0 clean, 1 errors present (or warnings with --strict), 2 bad usage.
@@ -38,7 +37,7 @@ RE_DATETIME = re.compile(
 )
 RE_ACTOR_HUMAN = re.compile(r"^human:\S+$")
 RE_ACTOR_PROCESS = re.compile(r"^process:\S+$")
-RE_ACTOR_AGENT = re.compile(r"^[^\s:/]+/[^\s:]+$")
+RE_ACTOR_AGENT = re.compile(r"^[^\s:/]+/[^\s:/]+$")
 RE_ACTOR_PREFIXED = re.compile(r"^[A-Za-z][\w-]*:\S+$")
 
 RE_LINK = re.compile(r"(!?)\[([^\]\[]*)\]\(\s*<?([^)>\s]+)>?(?:\s+[\"'][^\"']*[\"'])?\s*\)")
@@ -93,12 +92,16 @@ def split_frontmatter(text: str):
     `---` line, per §4.
     """
     lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    if not lines or lines[0] != "---":
         return None, text, 1
     for i in range(1, len(lines)):
-        if lines[i].strip() in ("---", "..."):
+        if lines[i] == "---":
             return "\n".join(lines[1:i]), "\n".join(lines[i + 1 :]), i + 2
     return None, text, 1
+
+
+def has_frontmatter_opener(text: str) -> bool:
+    return bool(text.split("\n", 1)) and text.split("\n", 1)[0] == "---"
 
 
 def strip_code(text: str) -> str:
@@ -124,15 +127,22 @@ def line_of(text: str, offset: int) -> int:
 
 
 def is_date(v) -> bool:
-    if isinstance(v, dt.date) and not isinstance(v, dt.datetime):
-        return True
-    return isinstance(v, str) and bool(RE_DATE.match(v.strip()))
+    return as_date(v) is not None
 
 
 def is_datetime(v) -> bool:
     if isinstance(v, dt.datetime):
         return True
-    return isinstance(v, str) and bool(RE_DATETIME.match(v.strip()))
+    if not isinstance(v, str) or not RE_DATETIME.match(v.strip()):
+        return False
+    normalized = v.strip()
+    if normalized[-1:] in ("Z", "z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        dt.datetime.fromisoformat(normalized)
+    except ValueError:
+        return False
+    return True
 
 
 def as_date(v):
@@ -311,22 +321,50 @@ def check_verified(f, rel, fm) -> str:
     if not isinstance(entries, list):
         f.warn("verified-shape", rel, "`verified` must be a mapping or a list of mappings")
         return "unverified"
+    if not entries:
+        f.warn("verified-empty", rel, "`verified` contains no verification events")
+        return "unverified"
 
-    tier = "machine-confirmed"
+    valid_kinds = []
     for i, entry in enumerate(entries):
         where = f"verified[{i}]"
         if not isinstance(entry, dict):
             f.warn("verified-shape", rel, f"{where} is not a mapping")
             continue
+        kind = None
+        valid_at = False
         if "by" not in entry:
             f.warn("verified-by-missing", rel, f"{where} has no `by` actor")
-        elif check_actor(f, rel, f"{where}.by", entry["by"]) == "human":
-            tier = "human-reviewed"
+        else:
+            kind = check_actor(f, rel, f"{where}.by", entry["by"])
         if "at" not in entry:
             f.warn("verified-at-missing", rel, f"{where} has no `at` timestamp")
         elif not is_datetime(entry["at"]):
             f.warn("datetime-format", rel, f"{where}.at is not an ISO 8601 datetime: {entry['at']!r}")
-    return tier
+        else:
+            valid_at = True
+        if kind in ("human", "process", "agent") and valid_at:
+            valid_kinds.append(kind)
+    if not valid_kinds:
+        f.warn("verified-no-valid-events", rel, "`verified` contains no complete, valid verification event")
+        return "unverified"
+    return "human-reviewed" if "human" in valid_kinds else "machine-confirmed"
+
+
+def check_usage_window(f, rel, where, window) -> bool:
+    if not isinstance(window, dict):
+        f.warn("usage-window-shape", rel, f"`{where}` must be a mapping with `from` and `to`")
+        return False
+    valid = True
+    for key in ("from", "to"):
+        field = f"{where}.{key}"
+        if key not in window:
+            f.warn("usage-window-incomplete", rel, f"`{where}` has no `{key}`")
+            valid = False
+        elif not is_date(window[key]):
+            f.warn("date-format", rel, f"{field} is not a valid YYYY-MM-DD date: {window[key]!r}")
+            valid = False
+    return valid
 
 
 def check_sources(f, rel, fm) -> set[str]:
@@ -345,8 +383,9 @@ def check_sources(f, rel, fm) -> set[str]:
         if not isinstance(src, dict):
             f.warn("sources-shape", rel, f"{where} is not a mapping")
             continue
-        if not str(src.get("resource", "")).strip():
-            f.error("source-resource-missing", rel, f"{where} has no `resource` (required per entry)")
+        resource = src.get("resource")
+        if not isinstance(resource, str) or not resource.strip():
+            f.warn("source-resource-missing", rel, f"{where} has no string `resource` (required per entry)")
         sid = src.get("id")
         if sid is not None:
             if str(sid) in ids:
@@ -360,42 +399,60 @@ def check_sources(f, rel, fm) -> set[str]:
             has_usage_count = True
             if not isinstance(src["usage_count"], int) or isinstance(src["usage_count"], bool):
                 f.warn("usage-count-type", rel, f"{where}.usage_count is not an integer")
+            elif src["usage_count"] < 0:
+                f.warn("usage-count-value", rel, f"{where}.usage_count cannot be negative")
             if "usage_window" not in src and "usage_window" not in fm:
                 f.info("usage-window-missing", rel, f"{where}.usage_count has no framing `usage_window`")
+        if "usage_window" in src:
+            check_usage_window(f, rel, f"{where}.usage_window", src["usage_window"])
+            if "usage_count" not in src:
+                f.info("usage-window-unused", rel, f"{where}.usage_window is present without `usage_count`")
 
     window = fm.get("usage_window")
     if window is not None:
-        if not isinstance(window, dict):
-            f.warn("usage-window-shape", rel, "`usage_window` must be a mapping with `from` and `to`")
-        else:
-            for key in ("from", "to"):
-                if key not in window:
-                    f.warn("usage-window-incomplete", rel, f"`usage_window` has no `{key}`")
-                elif not is_date(window[key]):
-                    f.warn("date-format", rel, f"usage_window.{key} is not YYYY-MM-DD: {window[key]!r}")
+        check_usage_window(f, rel, "usage_window", window)
         if not has_usage_count:
             f.info("usage-window-unused", rel, "`usage_window` present but no source declares `usage_count`")
     return ids
 
 
 def check_attested_computation(f, rel, fm, body, path, root):
-    if not str(fm.get("runtime", "")).strip():
-        f.error("runtime-missing", rel, "`runtime` is REQUIRED for type: Attested Computation")
+    runtime = fm.get("runtime")
+    if not isinstance(runtime, str) or not runtime.strip():
+        f.warn("runtime-missing", rel, "`runtime` is REQUIRED for type: Attested Computation")
 
     params = fm.get("parameters")
     if params is not None:
         if not isinstance(params, list):
             f.warn("parameters-shape", rel, "`parameters` must be a list of {name, type, required}")
         else:
+            names = set()
             for i, p in enumerate(params):
                 if not isinstance(p, dict):
                     f.warn("parameters-shape", rel, f"parameters[{i}] is not a mapping")
                     continue
                 for key in ("name", "type", "required"):
                     if key not in p:
-                        f.info("parameter-incomplete", rel, f"parameters[{i}] has no `{key}`")
+                        f.warn("parameter-incomplete", rel, f"parameters[{i}] has no `{key}`")
+                name = p.get("name")
+                if name is not None:
+                    if not isinstance(name, str) or not name.strip():
+                        f.warn("parameter-shape", rel, f"parameters[{i}].name must be a non-empty string")
+                    elif name in names:
+                        f.warn("parameter-duplicate", rel, f"duplicate parameter name {name!r}")
+                    else:
+                        names.add(name)
+                ptype = p.get("type")
+                if ptype is not None and (not isinstance(ptype, str) or not ptype.strip()):
+                    f.warn("parameter-shape", rel, f"parameters[{i}].type must be a non-empty string")
+                required = p.get("required")
+                if required is not None and not isinstance(required, bool):
+                    f.warn("parameter-shape", rel, f"parameters[{i}].required must be a boolean")
 
-    has_path = bool(str(fm.get("computation", "")).strip())
+    computation = fm.get("computation")
+    if computation is not None and not isinstance(computation, str):
+        f.warn("computation-shape", rel, "`computation` must be a path string")
+    has_path = isinstance(computation, str) and bool(computation.strip())
     has_fence = has_computation_block(body)
     if has_path and has_fence:
         f.warn(
@@ -420,7 +477,7 @@ def check_attested_computation(f, rel, fm, body, path, root):
         if not isinstance(value, dict):
             f.warn("attestation-shape", rel, f"`{field}` must be a mapping")
             continue
-        if not str(value.get("resource", "")).strip():
+        if not isinstance(value.get("resource"), str) or not value["resource"].strip():
             f.warn("attestation-incomplete", rel, f"`{field}.resource` is missing")
     executor = fm.get("executor")
     if isinstance(executor, dict):
@@ -429,6 +486,15 @@ def check_attested_computation(f, rel, fm, body, path, root):
             f.warn("attestation-incomplete", rel, "`executor.receipt` is missing; the attester has nothing to inspect")
         elif not isinstance(receipt, list) or not receipt:
             f.warn("attestation-shape", rel, "`executor.receipt` must be a non-empty list of field names")
+        else:
+            seen = set()
+            for i, field in enumerate(receipt):
+                if not isinstance(field, str) or not field.strip():
+                    f.warn("attestation-shape", rel, f"executor.receipt[{i}] must be a non-empty string")
+                elif field in seen:
+                    f.warn("attestation-shape", rel, f"duplicate executor receipt field {field!r}")
+                else:
+                    seen.add(field)
 
 
 def has_computation_block(body: str) -> bool:
@@ -453,7 +519,10 @@ def has_computation_block(body: str) -> bool:
 
 def check_paths(f, rel, fm, path, root):
     """Warn on in-bundle path-valued fields that do not resolve."""
-    candidates = [("computation", fm.get("computation"))]
+    candidates = [
+        ("resource", fm.get("resource")),
+        ("computation", fm.get("computation")),
+    ]
     for field in ("executor", "attester"):
         value = fm.get(field)
         if isinstance(value, dict):
@@ -496,7 +565,7 @@ def check_links(f, rel, body, body_start, path, root):
             )
 
 
-def check_footnotes(f, rel, body, source_ids):
+def check_footnotes(f, rel, body, source_ids, sources_present):
     prose = strip_code(body)
     defined = {m.group(1) for m in RE_FOOTNOTE_DEF.finditer(prose)}
     referenced = {m.group(1) for m in RE_FOOTNOTE_REF.finditer(prose)}
@@ -504,7 +573,7 @@ def check_footnotes(f, rel, body, source_ids):
     for label in sorted(referenced - defined):
         f.warn("footnote-undefined", rel, f"footnote [^{label}] is referenced but never defined")
     for label in sorted(referenced & defined):
-        if source_ids and label not in source_ids:
+        if sources_present and label not in source_ids:
             f.warn(
                 "footnote-unmatched",
                 rel,
@@ -515,7 +584,8 @@ def check_footnotes(f, rel, body, source_ids):
 
 
 def check_index(f, rel, path, root, text, is_root):
-    fm_text, body, _ = split_frontmatter(text)
+    fm_text, body, body_start = split_frontmatter(text)
+    declared_version = None
     if fm_text is not None:
         if not is_root:
             f.error(
@@ -525,21 +595,54 @@ def check_index(f, rel, path, root, text, is_root):
             )
         else:
             try:
-                fm = yaml.safe_load(fm_text) or {}
+                fm = yaml.safe_load(fm_text)
             except yaml.YAMLError as e:
                 f.error("frontmatter-parse", rel, f"unparseable YAML frontmatter: {first_line(e)}")
-                fm = {}
-            if isinstance(fm, dict):
-                extra = sorted(k for k in fm if k != "okf_version")
+                fm = ...
+            if fm is ...:
+                pass
+            elif fm is None:
+                f.error(
+                    "index-frontmatter",
+                    rel,
+                    "root index.md frontmatter must contain only `okf_version`; the block is empty",
+                )
+            elif not isinstance(fm, dict):
+                f.error("frontmatter-shape", rel, "root index.md frontmatter must be a YAML mapping")
+            else:
+                extra = sorted((str(k) for k in fm if k != "okf_version"))
                 if extra:
                     f.error(
                         "index-frontmatter",
                         rel,
                         f"root index.md frontmatter may only contain `okf_version`; found: {', '.join(extra)}",
                     )
-                version = fm.get("okf_version")
-                if version is not None and str(version) != "0.2":
-                    f.warn("okf-version", rel, f"bundle declares okf_version {version!r}; this skill targets 0.2")
+                if "okf_version" not in fm:
+                    f.error(
+                        "index-frontmatter",
+                        rel,
+                        "root index.md frontmatter may exist only to declare `okf_version`",
+                    )
+                else:
+                    declared_version = fm["okf_version"]
+                    if not isinstance(declared_version, str):
+                        f.warn(
+                            "okf-version-type",
+                            rel,
+                            f"`okf_version` should be the string \"0.2\", got {declared_version!r}",
+                        )
+                    if declared_version != "0.2":
+                        f.warn(
+                            "okf-version",
+                            rel,
+                            f"bundle declares okf_version {declared_version!r}; this validator targets 0.2",
+                        )
+    elif has_frontmatter_opener(text):
+        f.error(
+            "frontmatter-delimiter",
+            rel,
+            "frontmatter opens with `---` but has no closing `---` delimiter",
+        )
     elif is_root:
         f.info("okf-version-missing", rel, "root index.md declares no `okf_version: \"0.2\"`")
 
@@ -552,13 +655,22 @@ def check_index(f, rel, path, root, text, is_root):
         if RE_BULLET.match(line):
             has_entry = True
             if not seen_heading:
-                f.warn("index-structure", rel, "entry appears before any section heading (§8)", line=n)
+                f.warn(
+                    "index-structure",
+                    rel,
+                    "entry appears before any section heading (§8)",
+                    line=body_start + n - 1,
+                )
             if not RE_BULLET_LINK.match(line):
-                f.warn("index-entry", rel, "entry is not a `* [Title](url)` link", line=n)
-            elif " - " not in line:
-                f.info("index-entry", rel, "entry has no ` - description` suffix", line=n)
+                f.warn(
+                    "index-entry",
+                    rel,
+                    "entry is not a `* [Title](url)` link",
+                    line=body_start + n - 1,
+                )
     if not has_entry and body.strip():
-        f.info("index-empty", rel, "index.md lists no entries")
+        f.warn("index-empty", rel, "index.md lists no entries")
+    return declared_version
 
 
 def audit_discovery(f, root: Path, documents: dict[Path, str]):
@@ -567,13 +679,13 @@ def audit_discovery(f, root: Path, documents: dict[Path, str]):
     concepts = {path for path in documents if path.name not in RESERVED}
     root_index = (root / "index.md").resolve()
 
-    if root_index not in indexes:
+    has_root_index = root_index in indexes
+    if not has_root_index:
         f.warn(
             "discovery-root-missing",
             "index.md",
             "no bundle-root index.md; OKF permits this, but the bundle has no authored discovery root",
         )
-        return
 
     edges: dict[Path, set[Path]] = {path: set() for path in indexes}
     metadata = {path: parse_mapping_frontmatter(documents[path]) for path in concepts}
@@ -624,18 +736,24 @@ def audit_discovery(f, root: Path, documents: dict[Path, str]):
                     line=body_start + entry["line"] - 1,
                 )
             description = fm.get("description")
-            if (
-                isinstance(description, str)
-                and description.strip()
-                and entry["description"]
-                and normalize_space(entry["description"]) != normalize_space(description)
-            ):
-                f.warn(
-                    "index-description-mismatch",
-                    rel,
-                    f"entry description does not match {target.relative_to(root).as_posix()} frontmatter",
-                    line=body_start + entry["line"] - 1,
-                )
+            if isinstance(description, str) and description.strip():
+                if not entry["description"]:
+                    f.warn(
+                        "index-description-missing",
+                        rel,
+                        f"entry omits the description from {target.relative_to(root).as_posix()} frontmatter",
+                        line=body_start + entry["line"] - 1,
+                    )
+                elif normalize_space(entry["description"]) != normalize_space(description):
+                    f.warn(
+                        "index-description-mismatch",
+                        rel,
+                        f"entry description does not match {target.relative_to(root).as_posix()} frontmatter",
+                        line=body_start + entry["line"] - 1,
+                    )
+
+    if not has_root_index:
+        return
 
     reached_indexes: set[Path] = set()
     reached_concepts: set[Path] = set()
@@ -661,7 +779,7 @@ def audit_discovery(f, root: Path, documents: dict[Path, str]):
 
 
 def check_log(f, rel, text):
-    fm_text, body, _ = split_frontmatter(text)
+    fm_text, body, body_start = split_frontmatter(text)
     if fm_text is not None:
         f.warn("log-frontmatter", rel, "log.md is not specified to carry frontmatter (§9)")
 
@@ -672,16 +790,28 @@ def check_log(f, rel, text):
             label = m.group(1)
             parsed = as_date(label) if RE_DATE.match(label) else None
             if parsed is None:
-                f.error("log-date", rel, f"date heading must be ISO YYYY-MM-DD, got {label!r} (§9)", line=n)
+                f.error(
+                    "log-date",
+                    rel,
+                    f"date heading must be ISO YYYY-MM-DD, got {label!r} (§9)",
+                    line=body_start + n - 1,
+                )
             else:
                 dates.append(parsed)
                 seen_date = True
             continue
         if RE_BULLET.match(line) and not seen_date:
-            f.warn("log-structure", rel, "entry appears before any date heading (§9)", line=n)
+            f.warn(
+                "log-structure",
+                rel,
+                "entry appears before any date heading (§9)",
+                line=body_start + n - 1,
+            )
 
     if dates and dates != sorted(dates, reverse=True):
         f.warn("log-order", rel, "date headings are not newest-first (§9)")
+    if len(dates) != len(set(dates)):
+        f.warn("log-date-duplicate", rel, "date headings repeat; group entries under one heading per date (§9)")
 
 
 def first_line(exc) -> str:
@@ -694,7 +824,14 @@ def first_line(exc) -> str:
 def check_concept(f, rel, path, root, text, today, stats):
     fm_text, body, body_start = split_frontmatter(text)
     if fm_text is None:
-        f.error("frontmatter-missing", rel, "no YAML frontmatter block at the start of the file (§4.1)")
+        if has_frontmatter_opener(text):
+            f.error(
+                "frontmatter-delimiter",
+                rel,
+                "frontmatter opens with `---` but has no closing `---` delimiter (§4.1)",
+            )
+        else:
+            f.error("frontmatter-missing", rel, "no YAML frontmatter block at the start of the file (§4.1)")
         return
     try:
         fm = yaml.safe_load(fm_text)
@@ -725,9 +862,8 @@ def check_concept(f, rel, path, root, text, today, stats):
     status = fm.get("status")
     if status is not None and (not isinstance(status, str) or status not in STATUS_VALUES):
         f.warn("status-value", rel, f"`status` must be draft|stable|deprecated, got {status!r} (§5.4)")
-    stats["status"][status if status in STATUS_VALUES else "stable"] = (
-        stats["status"].get(status if status in STATUS_VALUES else "stable", 0) + 1
-    )
+    status_key = "stable" if status is None else status if status in STATUS_VALUES else "invalid"
+    stats["status"][status_key] = stats["status"].get(status_key, 0) + 1
 
     if "stale_after" in fm:
         if not is_date(fm["stale_after"]):
@@ -744,7 +880,7 @@ def check_concept(f, rel, path, root, text, today, stats):
             f.warn("generated-shape", rel, "`generated` must be a mapping with `by` and `at`")
         else:
             if "by" not in generated:
-                f.error("generated-by-missing", rel, "`by` is REQUIRED within `generated` (§5.2)")
+                f.warn("generated-by-missing", rel, "`by` is REQUIRED within `generated` (§5.2)")
             else:
                 check_actor(f, rel, "generated.by", generated["by"])
             if "at" not in generated:
@@ -767,15 +903,24 @@ def check_concept(f, rel, path, root, text, today, stats):
 
     check_paths(f, rel, fm, path, root)
     check_links(f, rel, body, body_start, path, root)
-    check_footnotes(f, rel, body, source_ids)
+    check_footnotes(f, rel, body, source_ids, "sources" in fm)
 
 
 # --------------------------------------------------------------------------- driver
 
 
 def validate(root: Path, today: dt.date):
+    root = root.resolve()
     f = Findings()
-    stats = {"types": {}, "tiers": {}, "status": {}, "stale": 0, "concepts": 0, "reserved": 0}
+    stats = {
+        "types": {},
+        "tiers": {},
+        "status": {},
+        "stale": 0,
+        "concepts": 0,
+        "reserved": 0,
+        "declared_okf_version": None,
+    }
     documents: dict[Path, str] = {}
 
     files = sorted(p for p in root.rglob("*.md") if p.is_file() and ".git" not in p.parts)
@@ -791,7 +936,9 @@ def validate(root: Path, today: dt.date):
         if path.name in RESERVED:
             stats["reserved"] += 1
             if path.name == "index.md":
-                check_index(f, rel, path, root, text, is_root=(path.parent == root))
+                declared_version = check_index(f, rel, path, root, text, is_root=(path.parent == root))
+                if path.parent == root:
+                    stats["declared_okf_version"] = declared_version
             else:
                 check_log(f, rel, text)
             continue
@@ -835,6 +982,9 @@ def render_text(f: Findings, stats, root: Path, show_info: bool, show_summary: b
     if show_summary:
         out.append("\nSummary")
         out.append(f"  bundle          {root}")
+        out.append("  validator       OKF v0.2")
+        declared = stats["declared_okf_version"]
+        out.append(f"  declared        {declared if declared is not None else 'not declared'}")
         out.append(f"  concepts        {stats['concepts']}  (+{stats['reserved']} reserved files)")
         if stats["types"]:
             out.append("  types")
@@ -858,6 +1008,8 @@ def render_text(f: Findings, stats, root: Path, show_info: bool, show_summary: b
     out.append(tail)
     if errors == 0:
         out.append("Conformant with OKF v0.2." if warns == 0 else "Conformant with OKF v0.2; see warnings above.")
+    else:
+        out.append("Not conformant with OKF v0.2; fix the errors above.")
     return "\n".join(out).lstrip("\n")
 
 
@@ -893,7 +1045,10 @@ def main() -> int:
             json.dumps(
                 {
                     "bundle": str(root),
-                    "okf_version": "0.2",
+                    "okf_version": stats["declared_okf_version"],
+                    "validator_target_version": "0.2",
+                    "declared_okf_version": stats["declared_okf_version"],
+                    "base_conformant": f.count("error") == 0,
                     "findings": items,
                     "counts": {s: f.count(s) for s in ("error", "warn", "info")},
                     "summary": {

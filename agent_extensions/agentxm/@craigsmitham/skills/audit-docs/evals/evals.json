@@ -1,6 +1,6 @@
 {
   "skill_name": "audit-docs",
-  "suite_version": "0.1.2",
+  "suite_version": "0.1.3",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -53,6 +53,19 @@
         "No neighboring skill is selected for a job it does not own.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "Audit a bounded synthetic collection of neighboring guides. Their titles and descriptions say what each guide contains, but omit the situations in which a reader should choose one over another. Do not edit files.",
+      "expected_output": "A read-only discovery and form-fit finding that identifies the missing selection conditions, distinguishes them from prerequisites, and routes remediation to author-docs.",
+      "assertions": [
+        "The audit identifies that readers cannot choose confidently from the concept previews.",
+        "The expected state requires a selection condition and supported outcome for each action-oriented description.",
+        "The finding does not demand a literal event trigger for every voluntarily selected guide.",
+        "Preconditions are not treated as a substitute for selection conditions.",
+        "No documentation files are changed."
       ]
     }
   ]

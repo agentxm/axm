@@ -13,7 +13,7 @@ sources:
     title: Documentation workflow
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T17:08:26Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Documentation organization and discovery
@@ -123,7 +123,9 @@ Physical placement is only one discovery mechanism:
 - **Titles** tell readers what the individual document will help them
   understand or do.
 - **Metadata** carries secondary facets such as form, subject, lifecycle, and
-  search vocabulary without forcing each into the path.
+  search vocabulary without forcing each into the path. A description is also
+  a routing preview: for action-oriented concepts, it should pair the outcome
+  with the selection condition that distinguishes when the concept applies.
 - **Indexes** author alternate routes and make important relationships
   explicit.
 - **Search** flattens directory context, making standalone titles,

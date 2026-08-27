@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Explanation guide
-description: How to write understanding-oriented discussion — context, connections, perspectives, and bounded scope without absorbing runbooks or reference.
+description: Use when readers need to understand a subject's context, connections, perspectives, or rationale; write bounded discussion without absorbing procedures or reference.
 tags: [docs, explanation, authoring, how-to, diataxis]
 status: stable
 sources:
@@ -28,13 +28,14 @@ sources:
     title: Mintlify — Content types (explanation notes)
 generated:
   by: claude/fable-5
-  at: 2026-08-07T23:59:41Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Explanation guide
 
-Write so the reader **understands** a topic better — reflection, context, and
-connection, not a runbook or catalog. For what explanation is and is not, read
+Use this guide when readers need to **understand** a topic better through
+reflection, context, and connection, not a runbook or catalog. For what
+explanation is and is not, read
 [Explanation explainer](../explainers/explanation.md).
 
 Canonical principles below follow Diátaxis explanation guidance (connections,

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "gen-stack",
+  "version": "1.9.0",
+  "description": "Brief humans on bounded Gen Stack system state and help develop change without making their Requirement or Architecture decisions",
+  "keywords": [
+    "gen-stack",
+    "gen-stack-brief",
+    "current-state-explanation",
+    "architecture-health",
+    "cross-stack-coherence",
+    "software-change",
+    "requirements",
+    "candidate-requirements",
+    "requirement-change",
+    "requirement-lifecycle",
+    "requirement-supersession",
+    "brownfield-extraction",
+    "greenfield-design",
+    "meaning-gaps",
+    "subject-placement",
+    "software-architecture",
+    "change-design",
+    "change-specification",
+    "bugfix-specification",
+    "defect-report",
+    "incident-record",
+    "work-items",
+    "c4-model",
+    "domain-driven-design",
+    "architecture-decisions",
+    "evaluation-impact",
+    "evaluation-protocols",
+    "human-authority",
+    "decision-support"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/gen-stack"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

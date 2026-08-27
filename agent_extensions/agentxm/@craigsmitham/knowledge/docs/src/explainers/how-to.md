@@ -31,7 +31,7 @@ sources:
     title: Mintlify — Content types (Diátaxis-aligned how-to notes)
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T15:48:17Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # How-to explainer
@@ -82,11 +82,14 @@ How-to and reference both serve work: how-to **directs action**; reference
 | **Voice** | Practical expert: sequence of actions, judgment when needed, assumptions brief |
 | **Typical prompt** | *How do I…?* · *How can I achieve X in this situation?* · *What steps get me to Y?* |
 | **Title cue** | Often *How to …* stating the **outcome**, not a bare topic name |
+| **Selection cue** | The situation, symptom, event, or reader intent for which this outcome-oriented procedure is appropriate |
 
 ## What belongs
 
 - A **named goal or problem** framed from the user’s need (a human project),
   not from “operations the product exposes”
+- An applicability statement that lets a reader recognize the situation in
+  which this guide is the right route before starting it
 - An **executable approach**: actions in a logical sequence — including when
   to *think* and *judge*, not only button presses
 - Preconditions the competent reader must already meet (access, tools, prior
@@ -121,7 +124,8 @@ and need judgment; forcing a single rigid script can mis-serve work.
 ## Quality signals
 
 - The goal is clear before the first step; the title says exactly what the
-  guide shows
+  guide shows, while its description pairs that outcome with the situation or
+  intent that makes the guide relevant
 - Steps are actionable and ordered for the **real system**, with **flow** that
   matches how the user thinks, switches context, and holds work in mind
   (pace and rhythm, not only a numbered list)
@@ -137,10 +141,16 @@ and need judgment; forcing a single rigid script can mis-serve work.
 Useful shapes (paraphrased from Diátaxis):
 
 - *This guide shows you how to…* (name the problem or result)
+- *Use this when… so that…* (selection condition and supported outcome)
 - *If you want x, do y. To achieve w, do z.* (conditional imperatives)
 - *If this, then that. In the case of …, an alternative is…*
 - *Refer to the x reference guide for a full list of options.*
 - *Before you start: …* (preconditions only as far as this goal needs)
+
+Selection conditions and preconditions answer different questions. “Use this
+when a test credential reaches scheduled expiry” explains why the reader chose
+the guide; “you need credential-administration access” explains what must be
+true after selection. Do not use one as a substitute for the other.
 
 Prefer titles that encode the outcome (Diátaxis naming grades):
 

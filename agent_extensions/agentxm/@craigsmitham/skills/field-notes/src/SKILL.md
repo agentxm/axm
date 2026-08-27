@@ -23,7 +23,7 @@ subject lifecycle and batch triage; never use it to create a note or judge
 capture eligibility.
 
 Concepts — open before classifying anything under
-`.axm/extensions/@craigsmitham/knowledge/field-notes/src/`:
+`knowledge/field-notes/src/`:
 `field-notes-explainer.md` (always), `subject-explainer.md` (declare / graduate /
 retire), and `closure-explainer.md` (triage / promote / close).
 

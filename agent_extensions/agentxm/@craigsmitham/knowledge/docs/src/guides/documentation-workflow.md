@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Documentation workflow guide
-description: How to improve documentation iteratively — choose something, assess against craft, take one action, publish — without empty form shells or top-down plans.
+description: Use when growing or remediating existing documentation; choose one bounded unit, assess it against craft, make one complete improvement, and publish without waiting for a top-down redesign.
 tags: [docs, craft, workflow, remediation, authoring, how-to, diataxis]
 status: stable
 sources:
@@ -16,7 +16,7 @@ sources:
     title: Diátaxis — Start here
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T17:08:26Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Documentation workflow guide

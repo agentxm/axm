@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Organizing and naming documentation
-description: How to choose a form-first or subject-first organization, colocate the documents that belong together, create descriptive paths and titles, and preserve discovery during change.
+description: Use when placing a new document collection, restructuring a bounded corpus, or replacing ambiguous names; choose a coherent organizing axis and preserve discovery during change.
 tags: [docs, organization, information-architecture, navigation, naming, filenames, folders, migration, discovery]
 status: stable
 sources:
@@ -13,7 +13,7 @@ sources:
     title: Documentation craft guide
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-21T22:05:43Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Organizing and naming documentation
@@ -150,9 +150,13 @@ Use one authoritative physical location and expose the secondary axis through:
 - generated views when the host can derive them without copying content.
 
 For every index entry, use the document's canonical title and a description
-that distinguishes it from its neighbors. The general document-authoring
-workflow still applies: match the content to its reader job before applying
-host-specific paths and metadata.[^documentation-craft-guide]
+that distinguishes it from its neighbors. For an action-oriented document,
+that description should expose both the supported outcome and the situation,
+event, symptom, or reader intent that makes it relevant. Do not mistake access,
+knowledge, or state preconditions for the reason a reader should select it.
+The general document-authoring workflow still applies: match the content to
+its reader job before applying host-specific paths and
+metadata.[^documentation-craft-guide]
 
 ## 8. Plan a rename or move as a migration
 
@@ -178,7 +182,8 @@ Check the result as:
 1. **A browser:** start at the collection root and follow indexes. Is the next
    choice obvious and is every concept reachable?
 2. **A searcher:** flatten folder context. Do title, description, tags, and
-   filename distinguish each result?
+   filename distinguish each result, and can a reader tell when to choose an
+   action document before opening it?
 3. **A maintainer:** inspect raw paths and nearby documents. Are the organizing
    rule, authority, and expected change relationships evident?
 

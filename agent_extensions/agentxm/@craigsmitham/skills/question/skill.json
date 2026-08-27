@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "question",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Frames fast, concern-aware investigations as compact Research Briefs with prioritized questions",
   "keywords": [
     "research",
@@ -20,7 +20,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/question"
+    "directory": "skills/question"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT"

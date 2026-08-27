@@ -1,0 +1,153 @@
+{
+  "schema_version": "gen-stack-inspection/v1alpha2",
+  "producer": {
+    "name": "gen-stack-inspection",
+    "version": "0.2.0",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "snapshot": {
+    "profile": {
+      "identity": "gen-stack",
+      "version": "0.5.0"
+    },
+    "snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "corpus_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "discovery": {
+    "state": "conforming",
+    "okf_result": "unknown",
+    "structural_result": "pass",
+    "semantic_result": "unknown"
+  },
+  "operation": "evaluation-candidates",
+  "data": {
+    "scope": {
+      "primary": null,
+      "mode": "complete-corpus"
+    },
+    "candidates": [
+      {
+        "role": "requirement-satisfaction",
+        "protocol_target": "SYN-REQ-0001",
+        "target": {
+          "ref": "/architecture/surfaces/cli/install/requirements/functional/preserve-state.md",
+          "type": "Requirement",
+          "title": "Preserve accepted state",
+          "description": "A public synthetic Requirement used to illustrate candidate projection.",
+          "status": "stable",
+          "requirement_id": "SYN-REQ-0001",
+          "requirement_type": "functional",
+          "requirement_lifecycle": "active",
+          "subject": "/architecture/surfaces/cli/install.md"
+        },
+        "subject": {
+          "ref": "/architecture/surfaces/cli/install.md",
+          "type": "Surface",
+          "title": "Install command",
+          "description": "A public synthetic Surface used to illustrate candidate projection.",
+          "status": "stable"
+        },
+        "basis": "active-direct-requirement",
+        "scope_relation": "complete-corpus",
+        "matching_protocols": {
+          "active": [
+            {
+              "ref": "/evaluations/protocols/requirements/preserve-state.md",
+              "type": "Evaluation Protocol",
+              "title": "Preserve accepted state",
+              "description": "Assesses one accepted synthetic obligation.",
+              "status": "stable",
+              "protocol_id": "SYN-EVAL-0001",
+              "protocol_lifecycle": "active",
+              "evaluation_role": "requirement-satisfaction",
+              "targets": ["SYN-REQ-0001"]
+            }
+          ],
+          "retired": []
+        }
+      },
+      {
+        "role": "architecture-realization",
+        "protocol_target": "/architecture/surfaces/cli/install.md",
+        "target": {
+          "ref": "/architecture/surfaces/cli/install.md",
+          "type": "Surface",
+          "title": "Install command",
+          "description": "A public synthetic Surface used to illustrate candidate projection.",
+          "status": "stable"
+        },
+        "subject": null,
+        "basis": "eligible-architecture-authority",
+        "scope_relation": "complete-corpus",
+        "matching_protocols": {
+          "active": [],
+          "retired": []
+        }
+      }
+    ],
+    "excluded": [
+      {
+        "role": "architecture-realization",
+        "target": {
+          "ref": "/architecture/structure/views/system-context.md",
+          "type": "C4 View",
+          "title": "System context",
+          "description": "A public synthetic C4 View used to illustrate exclusion.",
+          "status": "stable"
+        },
+        "reason": "c4-view-is-projection",
+        "scope_relation": "context"
+      }
+    ],
+    "ancestor_context": [],
+    "interpretation": {
+      "candidate_meaning": "eligible role-and-target pair for consideration",
+      "selection_claim": "not-assessed",
+      "coverage_claim": "not-assessed",
+      "protocol_adequacy_claim": "not-assessed",
+      "requirement_association": "direct-only",
+      "requirement_inheritance": "not-inferred",
+      "implementation_discovery": "active-protocol-targets-only"
+    }
+  },
+  "diagnostics": [],
+  "unknowns": [
+    {
+      "claim": "okf-conformance",
+      "reason": "The native OKF validator was not executed by this inspection operation."
+    },
+    {
+      "claim": "semantic-conformance",
+      "reason": "A named semantic review has not been supplied."
+    },
+    {
+      "claim": "coverage-or-fitness",
+      "reason": "Corpus inspection does not assess completeness, satisfaction, coverage, or operational fitness."
+    },
+    {
+      "claim": "candidate-selection",
+      "reason": "An adopting policy or assurance authority determines which candidates are in scope for required coverage."
+    },
+    {
+      "claim": "evaluation-coverage",
+      "reason": "Matching Protocols are projected, but applicability and required coverage depend on a separately supplied scope or policy."
+    },
+    {
+      "claim": "protocol-adequacy",
+      "reason": "Protocol presence does not establish that its claim, assessment, or judgment adequately evaluates the target."
+    },
+    {
+      "claim": "executable-realization",
+      "reason": "Suites, executable Cases, bindings, and discovery remain repository-native."
+    },
+    {
+      "claim": "implementation-candidate-completeness",
+      "reason": "Corpus inspection exposes only Implementation Units already targeted by active Protocols and cannot discover uncovered Units."
+    },
+    {
+      "claim": "evidence-and-outcome",
+      "reason": "Candidate projection does not inspect Executions, evidence state, Results, or outcomes."
+    }
+  ],
+  "output_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+}

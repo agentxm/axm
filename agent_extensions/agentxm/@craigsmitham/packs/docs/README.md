@@ -11,6 +11,11 @@ taxonomy. It does **not** prescribe host folder trees,
 frontmatter schemas, validators, or tooling. Local projects keep their own
 implementation details.
 
+For action-oriented documents, the craft makes discovery part of correctness:
+descriptions pair the supported outcome with the situation or intent that
+makes the document relevant, while Process triggers and preconditions remain
+distinct concerns.
+
 ## Included extensions
 
 Members are **not standalone** (`standalone: false`): install this pack rather

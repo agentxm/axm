@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "knowledge",
   "format": {
     "name": "okf",
@@ -29,6 +29,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/knowledge/field-notes"
+    "directory": "knowledge/field-notes"
   }
 }

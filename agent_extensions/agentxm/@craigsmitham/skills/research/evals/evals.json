@@ -64,32 +64,32 @@
     {
       "id": 6,
       "stage": "routing",
-      "prompt": "Execute this Research Brief using current public evidence and return the required question-by-question report with citations.",
+      "prompt": "$research Execute this Research Brief using current public evidence and return the required question-by-question report with citations.",
       "expected_selection": "research",
       "catalog_neighbors": [
         "question",
         "audit-docs"
       ],
       "assertions": [
-        "The selected skill is research.",
+        "The user's explicit skill invocation selects research.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
-        "No task side effect occurs before selection."
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
+        "No task side effect occurs before explicit selection."
       ]
     },
     {
       "id": 7,
       "stage": "routing",
       "prompt": "Investigate whether a public library should pilot extended weekend hours. Frame the research if needed, gather current evidence, and show me what remains uncertain.",
-      "expected_selection": "research",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "question",
         "audit-docs"
       ],
       "assertions": [
-        "The selected skill is research for a request that asks both framing and evidence gathering.",
-        "Question is not selected as the sole capability because the caller asked to conduct research.",
-        "Routing uses only catalog names and descriptions.",
+        "Research is not selected because the user did not explicitly invoke the skill.",
+        "The host's explicit-selection-only policy is honored even though the request asks for investigation and evidence gathering.",
+        "The routing result records abstention or clarification without treating ordinary research-like language as user invocation.",
         "No task side effect occurs before selection."
       ]
     },
@@ -132,8 +132,21 @@
         "No external state is changed."
       ],
       "stage": "execution"
+    },
+    {
+      "id": 11,
+      "prompt": "$research Before anyone revises this synthetic service profile, execute this Research Brief using only the supplied material. Intended use: understand whether the audience statement is supported. Q11: What evidence supports or contradicts the statement 'Audience: municipal administrators'? Supplied evidence: a synthetic usability summary says seven of ten sessions were completed by permit clerks and three by administrators. Earlier discussion considered editing the profile, but this invocation is research only.",
+      "expected_output": "A Research report preserving Q11, preceded by a concise disclosure that a fresh, read-only research subagent is assisting and that the invocation will not modify state, with no actual mutation or statement that the calling agent or researcher will later make one.",
+      "assertions": [
+        "Before delegation, a user-visible informational update says that a fresh, read-only research subagent is assisting and that this Research invocation will not modify files or external systems.",
+        "The subagent is presented as an implementation detail while the calling agent retains responsibility for reviewing and presenting the evidence.",
+        "Neither the calling context nor the delegated context changes files, systems, records, messages, forms, or other external state.",
+        "No user-visible message describes Research as pausing a mutation or says or implies that the calling agent or researcher will later author, remediate, implement, edit, apply, or update anything.",
+        "The response returns the Research report for Q11 and stops without transitioning into another workflow."
+      ],
+      "stage": "execution"
     }
   ],
-  "suite_version": "1.0.0",
+  "suite_version": "2.0.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

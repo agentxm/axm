@@ -30,7 +30,7 @@ job and respects local authority.
    by requested artifact: a guide about an agent instruction file is
    documentation work; modifying the instruction file itself is not.
 2. **Choose the smallest knowledge route.** Open only the needed concepts under
-   `.axm/extensions/@craigsmitham/knowledge/docs/src/`:
+   `knowledge/docs/src/`:
 
 | Request | Start with | Add when needed |
 | --- | --- | --- |
@@ -55,7 +55,11 @@ remain foundational inside the explainer and guide collections.
 
 3. **Preserve the reader job.** Name the document's primary reader, need, and
    authority. Keep that job recognizable; link to neighboring material rather
-   than making one document perform every function.
+   than making one document perform every function. For an action-oriented
+   document, make its description pair the supported outcome with the
+   observable situation, event, symptom, or reader intent that makes it
+   relevant. Keep that selection condition distinct from the access,
+   knowledge, or state preconditions required after selection.
 4. **Place and name deliberately.** Follow local information architecture when
    it works. When organization is in scope, choose the axis from reader entry
    points and semantic adjacency; do not invent unsupported host metadata or
@@ -65,7 +69,10 @@ remain foundational inside the explainer and guide collections.
    and preserve inbound references or plan their migration when paths change.
 6. **Verify proportionately.** Re-read for the reader's job, check claims
    against their sources, run available link, metadata, rendering, and package
-   validators, and inspect the diff for collateral changes.
+   validators, and inspect the diff for collateral changes. When an index or
+   catalog previews a canonical description, verify that it copies the
+   description exactly and that neighboring action documents remain
+   distinguishable before opening.
 7. **Handoff.** State what changed, what evidence was checked, and any deferred
    finding, uncertainty, or owner. Do not present an authoring review as a
    corpus audit or independent approval.

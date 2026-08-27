@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "subagent",
   "name": "researcher",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Performs isolated, read-only Research Brief framing and evidence-backed research for QRSPI",
   "keywords": [
     "research",
@@ -22,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/subagents/researcher"
+    "directory": "subagents/researcher"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT"

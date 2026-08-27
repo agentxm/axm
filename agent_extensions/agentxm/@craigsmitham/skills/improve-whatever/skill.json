@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "improve-whatever",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Evaluates anything through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommends improvements",
   "keywords": [
     "evaluation",
@@ -17,7 +17,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/improve-whatever"
+    "directory": "skills/improve-whatever"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT"

@@ -47,7 +47,7 @@ change. Inspect repository metadata only as needed to establish these facts.
    targets `4.0.0-rc.111`; another v4 release candidate is compatible territory
    and does not by itself require upstream source research.
 3. Read
-   `.axm/extensions/@craigsmitham/knowledge/effect-v4/src/index.md` and open
+   `knowledge/effect-v4/src/index.md` and open
    only the guides its symptom map routes to. The index is the canonical route;
    do not recreate that map in this skill or load the whole bundle.
 4. Follow the selected guides and repository-local requirements. Open the

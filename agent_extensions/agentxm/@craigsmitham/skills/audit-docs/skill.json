@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "audit-docs",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Audit documentation collections for evidence-backed findings about quality, discovery, accuracy, coverage, and maintenance",
   "keywords": [
     "docs",
@@ -22,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/skills/audit-docs"
+    "directory": "skills/audit-docs"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT"

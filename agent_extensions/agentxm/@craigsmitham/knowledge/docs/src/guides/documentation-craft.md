@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Documentation craft guide
-description: How to choose an appropriate documentation form, account for established principles and patterns, and keep each reader job clear without inventing host layout or metadata rules.
+description: Use when writing or revising one document; choose an appropriate form, account for established principles and patterns, and keep its reader job clear without inventing host layout or metadata rules.
 tags: [docs, craft, authoring, how-to, diataxis]
 status: stable
 sources:
@@ -16,7 +16,7 @@ sources:
     title: Pattern explainer
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T16:43:45Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Documentation craft guide
@@ -50,8 +50,12 @@ pattern that applies.
    [Principle explainer](../explainers/principle.md) and [Principle
    guide](principle.md), or the [Pattern explainer](../explainers/pattern.md)
    and [Pattern guide](pattern.md).
-5. **Bound the job** — purpose or goal near the top; list non-goals; link
-   owners of adjacent jobs instead of copying them.
+5. **Bound and preview the job** — state the purpose or goal near the top;
+   list non-goals; link owners of adjacent jobs instead of copying them. For
+   an action-oriented document, make its context-free description name both
+   the supported outcome and the situation, event, symptom, or reader intent
+   that makes it relevant. Do not substitute preconditions for that selection
+   condition.
 6. **Draft for the form** — follow the matching guide; keep form matched to
    job (steps vs inventory vs discussion).
 7. **Place and name deliberately** — when the document joins a collection,
@@ -60,8 +64,9 @@ pattern that applies.
    and title standalone meaning.
 8. **Apply host rules last** — paths, indexes, metadata, and validators only
    as the repository already defines them. Do not invent a portable schema.
-9. **Check** — can a stranger tell the job in one skim? Would another form
-   fit better? Are stale commands or duplicated procedures present?
+9. **Check** — can a stranger tell the job and, for an action document, when
+   to choose it from its title and description alone? Would another form fit
+   better? Are stale commands or duplicated procedures present?
 
 ## Preconditions
 

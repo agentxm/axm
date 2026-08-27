@@ -24,14 +24,19 @@ accepted findings to the appropriate authoring workflow.
    materially different scopes would change the result.
 2. **Read local authority.** Inspect repository instructions, the bounded docs,
    and authoritative product or domain sources available in scope. Then read
-   `.axm/extensions/@craigsmitham/knowledge/docs/src/explainers/documentation-audits.md`
+   `knowledge/docs/src/explainers/documentation-audits.md`
    and follow
-   `.axm/extensions/@craigsmitham/knowledge/docs/src/guides/auditing-documentation.md`.
+   `knowledge/docs/src/guides/auditing-documentation.md`.
    Open only the linked craft concepts needed for the selected dimensions.
 3. **Choose dimensions.** Select the relevant concerns rather than applying a
    universal scorecard: discovery and organization, reader-job and form fit,
    accuracy and completeness, conceptual coherence, authority and provenance,
    freshness and lifecycle, duplication, reader journeys, or maintainability.
+   When action-oriented documents are in scope, discovery and form fit include
+   whether a context-free title and description expose both the situation or
+   intent that makes the document relevant and the outcome it supports. Keep
+   that selection condition distinct from preconditions; require a literal
+   triggering event only for event-driven work or a Process enactment.
 4. **Inventory and declare coverage.** Use a path census, full bounded review,
    purposeful sample, journey sample, or an explicit combination. Record the
    population, selection method, reviewed items, and blind spots.

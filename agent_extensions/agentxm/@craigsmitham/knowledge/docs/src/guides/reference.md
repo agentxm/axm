@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Reference guide
-description: How to write structured lookup material that stays consistent, scannable, and faithful to the shipped system.
+description: Use when readers need authoritative facts for lookup while working; write structured reference material that stays consistent, scannable, and faithful to the shipped system.
 tags: [docs, reference, authoring, how-to, diataxis]
 status: stable
 sources:
@@ -10,7 +10,7 @@ sources:
     title: Diátaxis — Reference
 generated:
   by: claude/fable-5
-  at: 2026-08-08T00:16:56Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Reference guide

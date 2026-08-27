@@ -1,0 +1,400 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@craigsmitham",
+  "decision": "Detect routing, human-authority, boundary, native-representation, execution, provenance, and evidence failures in gen-stack before release; this suite does not approve the skill.",
+  "target_binding": {
+    "skill_name": "gen-stack",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Briefing humans on the bounded current state of Gen Stack-adopted systems; assisting with Gen Stack change development, Requirement additions, revisions, retirements, replacements, splits, and merges, greenfield and brownfield candidate extraction, governed Evaluation Protocol authoring, evidence-rich software work items, material meaning-gap disposition, native-first artifact presentation, and explicitly accepted concepts in an established supported-profile corpus while preserving human ratification and peer authorities.",
+    "stages": [
+      "routing",
+      "execution"
+    ],
+    "case_source": "Synthetic Gen Stack current-state briefs, orientation, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, unsupported setup and migration, human-ratification, and routing-collision cases.",
+    "excluded_claims": [
+      "Independent conformity approval",
+      "Production readiness",
+      "Compatibility with untested hosts or models",
+      "Support for initial corpus setup, adoption, connection, federation, or migration"
+    ]
+  },
+  "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
+    "support_paths": [
+      "knowledge/gen-stack/src",
+      "knowledge/gen-stack/scripts"
+    ]
+  },
+  "evidence": {
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
+    "outcomes": [
+      "pass",
+      "fail",
+      "unknown",
+      "harness-error"
+    ],
+    "storage": "Keep contracts, cases, fixtures, graders, and harness inputs under evals; write routine generated runs only to the ignored or external workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic routing and forbidden-effect checks, adapter-observed artifact diffs, and assertion-based review of workflow quality, human ratification, provenance, and authority boundaries.",
+    "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
+    "critical_gates": [
+      "No undeclared external mutation",
+      "No invented authority, evidence, or approval",
+      "Material desired-state and Architecture decisions require human ratification",
+      "Candidate extraction does not become accepted meaning",
+      "Material cross-stack gaps remain actionable",
+      "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
+      "Requirement subject placement follows the load-bearing subject",
+      "Direct accepted authoring avoids candidate ceremony",
+      "Unsupported setup and migration stop without mutation",
+      "Established corpus discovery uses only repository gen-stack/",
+      "Accepted obligations have one Requirement authority",
+      "Requirement impact and Requirement-change specification remain distinct",
+      "Requirement operations preserve identity and lifecycle semantics",
+      "Replacement lineage does not transfer meaning or evidence",
+      "Representation maintenance does not create a Requirement change",
+      "Requirement-change decisions and blockers remain entry-specific",
+      "Requirement authority remains distinct from evaluation witnesses",
+      "Evaluation Protocol role and target authority remain explicit",
+      "Protocol Coverage, evidence state, and bounded outcome remain distinct",
+      "Gen Stack briefs keep conformance and health dimensions distinct",
+      "Work-item provenance remains traceable",
+      "Work-item metadata remains a projection rather than authority",
+      "Work-item identities and relationships remain independently recoverable",
+      "Work-item lifecycle dimensions remain distinct",
+      "External batch outcomes preserve readback and partial failure",
+      "Native contracts precede Gen Stack residual presentation",
+      "One fact has one canonical representation owner",
+      "Semantic matches beat similar field names",
+      "Fallback structure appears only when a native affordance is absent",
+      "Derived and transient artifacts do not gain false authority",
+      "Evaluation Protocol authority remains governed while execution and Process artifacts remain native",
+      "Preferred logical order converges without universal templates",
+      "Local reversible delegated choices do not create ritual escalation",
+      "Routing and execution claims remain distinct"
+    ],
+    "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "release_evidence_minimum_per_host_model_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when a material conclusion depends on one unstable result or graders disagree.",
+    "regression_minimum_per_case": 3
+  },
+  "comparison": {
+    "baseline": "The accepted author-gen-stack and author-software-work-items exact revisions under equivalent cases, environment, budgets, and graders when available.",
+    "absence": "Record no-baseline rather than inferring improvement."
+  },
+  "analysis": {
+    "report_by": [
+      "case",
+      "trial",
+      "stage",
+      "host",
+      "model",
+      "failure_class"
+    ],
+    "routing_metrics": [
+      "misses",
+      "false_positives",
+      "collisions",
+      "composition_order",
+      "clarify_or_abstain"
+    ],
+    "aggregation_rule": "Keep routing, execution, critical gates, unknowns, and harness failures visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the claimed scope.",
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      {
+        "gate": "Gen Stack briefs keep conformance and health dimensions distinct",
+        "case_id": 126,
+        "assertion": "OKF or profile conformance, documentation coverage, semantic coherence, implementation realization, Evaluation coverage, evidence state and outcomes, and operational fitness are not collapsed into one compliance or health verdict."
+      },
+      {
+        "gate": "Requirement impact and Requirement-change specification remain distinct",
+        "case_id": 108,
+        "assertion": "The discrepancy is classified as possible Requirement non-satisfaction, not a Requirement revision."
+      },
+      {
+        "gate": "Requirement operations preserve identity and lifecycle semantics",
+        "case_id": 97,
+        "assertion": "LEG-REQ-0007 is changed to requirement_lifecycle retired rather than deleted or marked only with OKF status."
+      },
+      {
+        "gate": "Requirement operations preserve identity and lifecycle semantics",
+        "case_id": 99,
+        "assertion": "The split is modeled as one retirement and two additions, not two revisions sharing the predecessor identity."
+      },
+      {
+        "gate": "Replacement lineage does not transfer meaning or evidence",
+        "case_id": 111,
+        "assertion": "run-88 remains bound to AUTH-REQ-0010 and its recorded execution context."
+      },
+      {
+        "gate": "Representation maintenance does not create a Requirement change",
+        "case_id": 101,
+        "assertion": "The work is classified as representation-only maintenance, not addition, revision, or retirement."
+      },
+      {
+        "gate": "Requirement-change decisions and blockers remain entry-specific",
+        "case_id": 110,
+        "assertion": "Acceptance is recorded per Requirement-change entry rather than for the work item as a whole."
+      },
+      {
+        "gate": "Requirement-change decisions and blockers remain entry-specific",
+        "case_id": 106,
+        "assertion": "The authority gap is action-specific and blocks canonical desired-state mutation."
+      },
+      {
+        "gate": "Candidate extraction does not become accepted meaning",
+        "case_id": 85,
+        "assertion": "No candidate is accepted or canonically documented from implementation evidence alone."
+      },
+      {
+        "gate": "Material cross-stack gaps remain actionable",
+        "case_id": 86,
+        "assertion": "Each material gap includes evidence, impact, options or a candidate correction, a recommendation, applicable authority, and blocking status."
+      },
+      {
+        "gate": "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
+        "case_id": 87,
+        "assertion": "No delivery authorization, accepted Requirement or Architecture mutation, or implementation action occurs before human ratification."
+      },
+      {
+        "gate": "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
+        "case_id": 88,
+        "assertion": "The Bugfix Specification proceeds because the missing future evidence route does not make the accepted correction ambiguous."
+      },
+      {
+        "gate": "Requirement subject placement follows the load-bearing subject",
+        "case_id": 89,
+        "assertion": "The accepted Requirement is not duplicated or silently reassigned before the applicable Requirement and Architecture authorities decide."
+      },
+      {
+        "gate": "Direct accepted authoring avoids candidate ceremony",
+        "case_id": 91,
+        "assertion": "No candidate-development matrix, option comparison, or additional approval gate is introduced."
+      },
+      {
+        "gate": "Established corpus discovery uses only repository gen-stack/",
+        "case_id": 76,
+        "assertion": "The repository-root corpus is reported as unsupported and is not treated as the established corpus."
+      },
+      {
+        "gate": "Established corpus discovery uses only repository gen-stack/",
+        "case_id": 77,
+        "assertion": "The alternate corpus is not discovered, adopted, moved, or edited."
+      },
+      {
+        "gate": "Established corpus discovery uses only repository gen-stack/",
+        "case_id": 78,
+        "assertion": "The directory name alone is not treated as adoption authority and no corpus concept is changed."
+      },
+      {
+        "gate": "No undeclared external mutation",
+        "case_id": 66,
+        "assertion": "No corpus, profile adoption, navigation, instruction route, or external record is created or modified."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 18,
+        "assertion": "No task side effect occurs before selection."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 94,
+        "assertion": "No task side effect occurs before selection."
+      },
+      {
+        "gate": "Unsupported setup and migration stop without mutation",
+        "case_id": 66,
+        "assertion": "No corpus, profile adoption, navigation, instruction route, or external record is created or modified."
+      },
+      {
+        "gate": "Unsupported setup and migration stop without mutation",
+        "case_id": 70,
+        "assertion": "No profile adoption, semantic ownership transfer, file movement, or navigation rewrite occurs."
+      },
+      {
+        "gate": "Material desired-state and Architecture decisions require human ratification",
+        "case_id": 71,
+        "assertion": "No ADR is marked accepted and no dependent repository or external mutation occurs."
+      },
+      {
+        "gate": "Material desired-state and Architecture decisions require human ratification",
+        "case_id": 72,
+        "assertion": "No accepted Requirement or Architecture artifact is changed before an explicit human decision."
+      },
+      {
+        "gate": "No invented authority, evidence, or approval",
+        "case_id": 73,
+        "assertion": "The explicit acceptance and accepting authority are recorded as provenance rather than inferred from prior recommendation."
+      },
+      {
+        "gate": "Local reversible delegated choices do not create ritual escalation",
+        "case_id": 74,
+        "assertion": "No unnecessary human Architecture or Requirement gate is introduced for the helper name."
+      },
+      {
+        "gate": "Work-item provenance remains traceable",
+        "case_id": 55,
+        "assertion": "Verification fails because the persisted item omitted the inventory's authoritative source link."
+      },
+      {
+        "gate": "Work-item metadata remains a projection rather than authority",
+        "case_id": 79,
+        "assertion": "No sev-1, priority-high, team assignment, or equivalent decision-bearing metadata is applied without authority."
+      },
+      {
+        "gate": "Work-item identities and relationships remain independently recoverable",
+        "case_id": 82,
+        "assertion": "BILL-12, BILL-19, BILL-BUG-4, BILL-BUG-7, and BILL-FIX-3 all retain separate identities."
+      },
+      {
+        "gate": "Work-item lifecycle dimensions remain distinct",
+        "case_id": 81,
+        "assertion": "Resolution, delivery, verification, and closure remain distinct lifecycle dimensions."
+      },
+      {
+        "gate": "External batch outcomes preserve readback and partial failure",
+        "case_id": 83,
+        "assertion": "The batch is not described as atomic or fully successful."
+      },
+      {
+        "gate": "Accepted obligations have one Requirement authority",
+        "case_id": 30,
+        "assertion": "No separate Invariant concept, competing normative formulation, top-level requirement collection, or duplicated normative authority is created."
+      },
+      {
+        "gate": "Requirement authority remains distinct from evaluation witnesses",
+        "case_id": 36,
+        "assertion": "The existing evaluation is retained even though it repeats the Requirement sentence, because it references RES-REQ-0050 and owns assessment rather than intent."
+      },
+      {
+        "gate": "Evaluation Protocol role and target authority remain explicit",
+        "case_id": 38,
+        "assertion": "Each concept uses exact type Evaluation Protocol, one unique protocol_id, active lifecycle, one role, and only that role's matching target field."
+      },
+      {
+        "gate": "Protocol Coverage, evidence state, and bounded outcome remain distinct",
+        "case_id": 38,
+        "assertion": "Executable Cases, Suites, Executions, Results, and Reports remain repository-native; no outcome or coverage is invented."
+      },
+      {
+        "gate": "Native contracts precede Gen Stack residual presentation",
+        "case_id": 116,
+        "assertion": "The concept uses OKF frontmatter for type, title, description, status, and any truthful standard provenance fields."
+      },
+      {
+        "gate": "One fact has one canonical representation owner",
+        "case_id": 118,
+        "assertion": "The body does not repeat those native field values in a Tracking, Metadata, Status, or Assignment section."
+      },
+      {
+        "gate": "Semantic matches beat similar field names",
+        "case_id": 117,
+        "assertion": "The host State field is interpreted by its actual delivery semantics rather than its similar lifecycle wording."
+      },
+      {
+        "gate": "Fallback structure appears only when a native affordance is absent",
+        "case_id": 119,
+        "assertion": "Priority, delivery state, and owner appear once in a compact fallback block because no native affordance exists."
+      },
+      {
+        "gate": "Derived and transient artifacts do not gain false authority",
+        "case_id": 120,
+        "assertion": "The view does not become an independent place to update source facts."
+      },
+      {
+        "gate": "Derived and transient artifacts do not gain false authority",
+        "case_id": 121,
+        "assertion": "No synthetic document ID, OKF frontmatter, tracker status, owner, creation date, or lifecycle field is invented."
+      },
+      {
+        "gate": "Evaluation Protocol authority remains governed while execution and Process artifacts remain native",
+        "case_id": 122,
+        "assertion": "The YAML registry is treated as a repository-native executable projection or binding, not a second Protocol authority."
+      },
+      {
+        "gate": "Evaluation Protocol authority remains governed while execution and Process artifacts remain native",
+        "case_id": 124,
+        "assertion": "The BPMN model remains the canonical representation for trigger, flow, decisions, roles, and closing outcome."
+      },
+      {
+        "gate": "Preferred logical order converges without universal templates",
+        "case_id": 123,
+        "assertion": "It gives a preferred logical body order specific to a Change Specification."
+      }
+    ]
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Authoring smoke and same-agent verification remain labeled and cannot become independent approval."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Skill, description, resource, package boundary, or supported-use boundary changes",
+      "Case, grader, harness, support-path, or evidence-lifecycle changes",
+      "Host, model, catalog, authority, or intended-cohort changes",
+      "Confirmed routing or execution failure"
+    ]
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": [
+      "complete",
+      "failed",
+      "canceled"
+    ],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material identity matches."
+  }
+}

@@ -1,7 +1,7 @@
 # Subjects: declare, graduate, retire
 
 Read
-`.axm/extensions/@craigsmitham/knowledge/field-notes/src/subject-explainer.md`
+`knowledge/field-notes/src/subject-explainer.md`
 first.
 
 ## Table format

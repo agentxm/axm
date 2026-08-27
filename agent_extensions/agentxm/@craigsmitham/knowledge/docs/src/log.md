@@ -1,5 +1,17 @@
 # Documentation craft update log
 
+## 2026-08-26
+
+- **Action-document discovery**: Required Guide descriptions and other
+  context-free previews to pair the supported outcome with the observable
+  situation, event, symptom, or reader intent that makes the document
+  relevant, while keeping selection conditions distinct from preconditions.
+- **Guide migration**: Revised all ten Guide descriptions and their index
+  entries to demonstrate the routing contract; retained literal event triggers
+  for event-driven work rather than forcing them onto every guide.
+- **Authoring and audit**: Connected the contract to how-to authoring,
+  documentation organization, search discovery, and corpus assessment.
+
 ## 2026-08-21
 
 - **Pattern**: Added [Concept boundaries](patterns/concept-boundaries.md) for

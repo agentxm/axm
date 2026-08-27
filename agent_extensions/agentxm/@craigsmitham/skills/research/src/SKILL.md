@@ -1,6 +1,14 @@
 ---
 name: research
-description: Orchestrates bounded, evidence-backed research from a Research Brief, explicit questions, or an unframed subject by composing QRSPI framing and delegated execution. Returns a consistent question-by-question report with citations, confidence, counterevidence, decision implications, and unresolved gaps. Use when asked to research, investigate, gather evidence for, or execute framed research questions. Not for requests that only ask what questions to investigate, surveys, interview guides, or a decision the caller did not authorize.
+description: >-
+  Orchestrates bounded, read-only, evidence-backed research from a Research
+  Brief, explicit questions, or an unframed subject by composing QRSPI framing
+  and delegated execution. Returns a consistent question-by-question report
+  with citations, confidence, counterevidence, decision implications, and
+  unresolved gaps. Use only when the user explicitly asks to use the Research
+  skill or selects it through a host's user-invocation control. Do not select it
+  implicitly for requests merely to answer questions, investigate, browse,
+  search, look up, verify, analyze, compare, audit, or gather evidence.
 ---
 
 # Research
@@ -10,6 +18,14 @@ report whose structure remains stable across subjects and research depth. The
 calling agent owns framing handoff, delegation, acceptance, and presentation;
 the `researcher` subagent performs each isolated phase.
 
+Research is read-only end to end. While this skill is active, the calling agent
+and every delegated researcher may inspect authorized evidence and return
+research artifacts, but neither may modify local or external state, apply the
+findings, or state or imply that either context will later do so. This remains
+true when prior or surrounding conversation discusses authoring, remediation,
+implementation, or another change. Acting on the findings belongs to a
+separately invoked workflow outside Research.
+
 If the current assignment declares `Phase: execute` and `Subdelegation:
 prohibited`, skip **Orchestrate** and follow **Delegated execution**. This is the
 terminal worker branch and must never delegate again.
@@ -18,13 +34,22 @@ terminal worker branch and must never delegate again.
 
 This skill is not standalone. It requires the direct QRSPI pack siblings at:
 
-- `.axm/extensions/@craigsmitham/skills/question/src/SKILL.md`; and
-- `.axm/extensions/@craigsmitham/subagents/researcher/src/researcher.md`.
+- `skills/question/src/SKILL.md`; and
+- `subagents/researcher/src/researcher.md`.
 
 Use the host's configured `researcher` subagent mechanism. If a fresh delegated
 context is unavailable, report the investigation as blocked and name that
 missing capability. Do not silently execute the worker phase in the calling
 context or claim procedural independence from a same-context fallback.
+
+Before the first delegation, give one concise informational update that says a
+fresh, read-only research subagent is assisting with evidence gathering, this
+Research invocation will not modify files or external systems, and the calling
+agent will review and present the evidence. Treat the subagent as an
+implementation detail: do not transfer accountability to it, ask the user to
+interact with it, or narrate dispatch mechanics. Never describe Research as a
+pause before mutation or say that the calling agent or researcher will resume
+authoring, remediation, implementation, or another change afterward.
 
 ## Orchestrate
 
@@ -77,7 +102,10 @@ context or claim procedural independence from a same-context fallback.
    concerns, and omissions remain inspectable. For supplied framing, return the
    Research report. If delegation is blocked, exhausted, invalid, or canceled,
    report completed coverage, preserved artifacts, the missing condition, and
-   the smallest safe recovery action; never fabricate the absent phase.
+   the smallest safe recovery action; never fabricate the absent phase. Stop
+   after presenting the research artifact or failure result. Do not transition
+   into a mutating workflow or announce or promise that the calling agent or
+   researcher will perform one.
 
 ## Delegation envelope
 

@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Principle guide
-description: How to research, write, review, and maintain a principle document that connects a recognized good to responsible judgment and action without collapsing into a slogan, rule, or pattern.
+description: Use when a recognized good needs durable, sourced direction for judgment; research, write, review, and maintain a principle without collapsing it into a slogan, rule, or pattern.
 tags: [docs, principle, authoring, judgment, provenance, review, guide]
 status: stable
 sources:
@@ -26,7 +26,7 @@ sources:
   - id: odonovan-judgment
     resource: https://firstthings.com/government-as-judgment/
     title: Oliver O'Donovan — Government as Judgment
-generated: { by: "codex/gpt-5.6", at: 2026-08-15T16:02:55Z }
+generated: { by: "codex/gpt-5.6", at: "2026-08-26T14:02:36Z" }
 ---
 
 # Principle guide

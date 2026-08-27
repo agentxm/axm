@@ -1,6 +1,6 @@
 {
   "skill_name": "craft-effect-v4",
-  "suite_version": "0.3.0",
+  "suite_version": "0.3.1",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -77,7 +77,7 @@
       "expected_selection": "craft-effect-v4",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The selected skill is craft-effect-v4.",
@@ -183,7 +183,7 @@
       "expected_selection": "craft-effect-v4",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The selected skill is craft-effect-v4.",
@@ -215,7 +215,7 @@
       "expected_selection": "craft-effect-v4",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The paraphrased Effect v4 request selects craft-effect-v4.",
@@ -231,7 +231,7 @@
       "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The deliberate alternative-runtime boundary prevents craft-effect-v4 selection.",
@@ -263,7 +263,7 @@
       "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "An unresolved runtime-adoption decision produces clarification or abstention.",
@@ -279,7 +279,7 @@
       "expected_selection": "craft-effect-v4",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "Effect-specific date and clock work selects craft-effect-v4.",
@@ -295,7 +295,7 @@
       "expected_selection": "temporal-dates",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "Plain TypeScript date and timezone work selects temporal-dates.",
@@ -352,7 +352,7 @@
       ],
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The Effect service concerns select craft-effect-v4.",
@@ -380,7 +380,7 @@
       "expected_selection": "craft-effect-v4",
       "catalog_neighbors": [
         "temporal-dates",
-        "author-software-work-items"
+        "gen-stack"
       ],
       "assertions": [
         "The Effect error and retry work selects craft-effect-v4.",

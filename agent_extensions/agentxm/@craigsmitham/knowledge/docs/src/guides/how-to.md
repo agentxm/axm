@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: How-to guide
-description: How to write goal-oriented directions for real work — user-problem framing, logical flow, adaptable steps, and links out for depth.
+description: Use when writing directions for a competent reader with a bounded real-world goal; frame the user's problem, order adaptable actions, and link out for depth.
 tags: [docs, how-to, guide, authoring, diataxis]
 status: stable
 sources:
@@ -22,13 +22,14 @@ sources:
     title: Tom Johnson — What is Diátaxis (how-to pattern notes)
 generated:
   by: claude/fable-5
-  at: 2026-08-08T00:03:18Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # How-to guide
 
-Write **directions** that guide a competent reader through a problem or toward
-a result. For what a how-to is and is not — and the tutorial boundary — read
+Use this guide when writing **directions** that take a competent reader through
+a recognizable problem or toward a bounded real-world result. For what a
+how-to is and is not — and the tutorial boundary — read
 [How-to explainer](../explainers/how-to.md).
 
 Canonical principles below follow Diátaxis how-to guidance (goal focus,
@@ -49,13 +50,18 @@ the work.
    means; the job defines what the guide covers — even when it cuts across
    subsystems.
 
-2. **Title for exactly what the guide shows** — prefer *How to …* that encodes
-   the outcome. Search engines and humans both need this cue.
+2. **Title and describe for selection** — prefer *How to …* that encodes the
+   outcome. In the description, pair that outcome with the situation, symptom,
+   event, or reader intent that makes this guide the right route. Search
+   engines, indexes, humans, and agents need enough context to choose before
+   opening it. Use a literal event only when the work is event-driven.
 
 3. **Assume competence; state preconditions only as needed** — the reader
    already knows what they want and can follow instructions. List access,
    tools, and prior skill briefly. Link a tutorial when basics may be missing;
-   never re-teach them as the body (recipe ≠ cooking lesson).
+   never re-teach them as the body (recipe ≠ cooking lesson). Preconditions
+   establish readiness after selection; they do not explain when to select the
+   guide.
 
 4. **Write an executable approach (a contract)** — *if you face this
    situation, take these steps.* Steps are **actions**: physical acts **and**

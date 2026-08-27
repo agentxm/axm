@@ -40,7 +40,7 @@ sources:
     title: Martin Fowler — Writing Software Patterns
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T16:43:45Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Documentation craft
@@ -159,12 +159,19 @@ is in [Documentation quality](documentation-quality.md).
    fact set, point to it; do not maintain a second full copy.
 4. **Prefer clarity of outcome.** State what the document is for near the
    top so people and tools can skip the wrong page quickly.
-5. **Stay accurate enough for the job.** How-tos and reference go stale
+5. **Make action documents selectable before opening.** In a description or
+   other context-free preview, pair the supported outcome with the observable
+   situation, event, symptom, or reader intent that makes the document
+   relevant. Use a literal event only when work is event-driven; a
+   voluntarily selected guide normally states reader intent. Keep selection
+   conditions distinct from the access, knowledge, or state preconditions
+   required after selection.
+6. **Stay accurate enough for the job.** How-tos and reference go stale
    fastest; refresh or retire when commands, APIs, or ownership change.
-6. **Respect the host.** Paths, indexes, metadata fields, and naming are
+7. **Respect the host.** Paths, indexes, metadata fields, and naming are
    project choices. Portable craft does not mandate a folder tree or a
    single frontmatter profile.
-7. **Resist feature-shaped IA as the only scheme.** Organizing only by
+8. **Resist feature-shaped IA as the only scheme.** Organizing only by
    product surface, without reader-need forms, produces wild inconsistency
    across a portfolio.
 

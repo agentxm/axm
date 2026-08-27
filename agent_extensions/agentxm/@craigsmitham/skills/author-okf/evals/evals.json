@@ -1,6 +1,6 @@
 {
   "skill_name": "author-okf",
-  "suite_version": "0.1.2",
+  "suite_version": "0.1.5",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -51,6 +51,68 @@
       "assertions": [
         "The selected skill is author-okf.",
         "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "Maintain a synthetic OKF v0.2 bundle containing one Guide and one Process. Their bodies already establish the Guide's selection condition and outcome and the Process's triggering event and closing outcome. Make their concept previews and enclosing index support correct selection without inventing new metadata fields.",
+      "expected_output": "Routeable one-sentence descriptions in existing OKF metadata, exact copies in the enclosing index, preserved body authority, truthful lifecycle metadata, and successful validation.",
+      "assertions": [
+        "The Guide description names its selection condition and supported outcome.",
+        "The Process description names its triggering event and closing outcome.",
+        "Preconditions remain distinct from selection conditions and Process triggers.",
+        "The enclosing index copies both canonical descriptions exactly.",
+        "No custom routing field or fabricated provenance is added.",
+        "The completed bundle is validated."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "routing",
+      "prompt": "Review this proposed OKF v0.2 application-profile rule: every collection index.md should also be a typed concept with status and provenance so it can own the collection's durable policy.",
+      "expected_selection": "author-okf",
+      "catalog_neighbors": [
+        "author-docs",
+        "gen-stack"
+      ],
+      "assertions": [
+        "The selected skill is author-okf.",
+        "The advisory phrasing does not suppress selection for an OKF representation decision.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "execution",
+      "prompt": "Make evaluations/index.md both the governed collection index and a concept of exact type System Evaluation Approach. It should own the portfolio, purpose, mappings, lifecycle, provenance conventions, limitations, and known gaps, with status, sources, generated, and verified metadata. It should link to test suites, analyses, review protocols, simulations, studies, monitoring, and result stores wherever they live. It must not own Requirements, evaluation criteria, individual definitions, executions, results, or assurance decisions. The application profile can deliberately reverse the current statement that evaluations stay outside the corpus.",
+      "expected_output": "A base-spec-first review that rejects the dual-role index representation, preserves the proposed durable evaluation-approach meaning in a non-reserved concept document, leaves its domain type, canonical path, profile-policy change, and authority boundary to the applicable profile or domain authority, and reports OKF and profile conclusions separately.",
+      "assertions": [
+        "The response identifies index.md as a reserved navigation file rather than a concept document.",
+        "It does not place type, status, sources, generated, or verified frontmatter on evaluations/index.md.",
+        "It states that an application profile cannot waive the reserved-file rule while retaining OKF v0.2 conformance.",
+        "It preserves the useful semantic intent by proposing a distinct non-reserved concept linked from navigation.",
+        "It treats System Evaluation Approach as a proposed domain type whose acceptance belongs to the applicable profile or domain authority.",
+        "It requires a distinct non-reserved concept but does not select its canonical filename.",
+        "It treats reversing the evaluations-outside-corpus rule as a proposed profile-policy decision rather than approving it.",
+        "It keeps evaluation definitions, executions, results, assurance decisions, and Requirements with their own authorities."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Reorganize this ordinary documentation folder and improve its README-style index page. The repository does not use OKF or concept frontmatter.",
+      "expected_selection": "author-docs",
+      "catalog_neighbors": [
+        "author-okf",
+        "audit-docs"
+      ],
+      "assertions": [
+        "The selected skill is author-docs rather than author-okf.",
+        "Generic documentation organization does not route to author-okf without an OKF contract.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
       ]

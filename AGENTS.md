@@ -259,19 +259,17 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 ### @craigsmitham
 
-| Bundle                                                                                                       | Description                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                   | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                         | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                           |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                     | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
-| [gen-stack](agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/src/index.md)                         | Opinionated software change guidance connecting intent, authoritative requirements, architecture, implementation, evaluations, and operational feedback                |
-| [software-architecture](agent_extensions/agentxm/@craigsmitham/knowledge/software-architecture/src/index.md) | Human-first software architecture and requirements guidance with an OKF profile for systems, subject-colocated obligations, decisions, boundaries, and selected views  |
-| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)   | Software engineering guidance for evidence-timed design change and context-rich work items for incidents, defects, and feature delivery                                |
-| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)     | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                                   | Description                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns                                        |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                                              |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                                                   |
+| [gen-stack](agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/src/index.md)                     | A cohesive, opinionated software-change system spanning OODA control, intent, canonical Requirement lifecycle and change, architecture, work items, implementation, evaluations, and operational learning |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices                                    |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->
-<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.0 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
 
 ## Use Effect v4
 
@@ -279,27 +277,7 @@ When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
 v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
 v4 sources.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/yagni@0.1.3 kind=rule -->
-
-## YAGNI
-
-Before adding capability, structure, process, or scope for future use, consult
-the YAGNI principle in the installed software-engineering Knowledge bundle.
-Defer the commitment unless it serves a current feature, constraint, invariant,
-or concrete risk. If delay would close an option that is costly to recover,
-take only the cheapest safe action that preserves it.
-
-<!-- axm:point v=1 ext=@craigsmitham/rules/tidy-first@0.1.3 kind=rule -->
-
-## Tidy First
-
-When current structure materially increases the difficulty or risk of an
-authorized software behavior change, consult the Tidy First pattern in the
-installed software-engineering Knowledge bundle.
-Choose first, after, later, or never. If tidying first, make only the smallest
-behavior-preserving change that makes the authorized change easier.
-
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.2 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.3 kind=rule -->
 
 ## Field notes
 

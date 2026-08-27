@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Auditing documentation
-description: How to scope, inspect, sample, assess, and report on a documentation corpus without conflating diagnosis with remediation.
+description: Use when a bounded documentation corpus needs assessment before remediation; scope, inspect, sample, assess, and report without conflating diagnosis with fixes.
 tags: [docs, audit, assessment, inventory, sampling, evidence, findings, quality]
 status: stable
 sources:
@@ -16,7 +16,7 @@ sources:
     title: Documentation organization and discovery
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-15T17:08:26Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Auditing documentation
@@ -85,10 +85,13 @@ support.
 
 For each representative journey or document, ask:
 
-1. Can the intended reader find and recognize it?
+1. Can the intended reader find and recognize it? For an action document, can
+   the reader tell from its preview when to choose it and what outcome it
+   supports?
 2. Is its primary job clear and does its form sustain that job?
 3. Are its claims correct and complete enough for that job?
-4. Are authority, preconditions, limits, and failure conditions visible?
+4. Are authority, selection conditions, preconditions, limits, and failure
+   conditions visible and kept distinct?
 5. Does it connect to the next information the reader needs?
 6. Can a maintainer tell when and how it should change?
 

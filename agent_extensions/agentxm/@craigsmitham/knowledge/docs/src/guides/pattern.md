@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Pattern guide
-description: How to mine, write, review, and maintain a pattern document whose context, forces, solution, consequences, evidence, and relationships support safe adaptation.
+description: Use when recurring evidence supports a reusable solution to a problem in context; mine, write, review, and maintain a pattern that supports safe adaptation.
 tags: [docs, pattern, pattern-library, guide, authoring, evidence, review]
 status: stable
 sources:
@@ -23,13 +23,14 @@ sources:
   - id: va-maturity
     resource: https://design.va.gov/about/maturity-scale
     title: VA Design System — Maturity scale
-generated: { by: "codex/gpt-5.6", at: 2026-08-15T16:02:55Z }
+generated: { by: "codex/gpt-5.6", at: "2026-08-26T14:02:36Z" }
 ---
 
 # Pattern guide
 
-Mine and write a pattern so another practitioner can recognize a recurring
-problem, judge whether the solution fits, understand its tradeoffs, and create
+Use this guide when recurrence and evidence support mining and writing a
+pattern so another practitioner can recognize the problem, judge whether the
+solution fits, understand its tradeoffs, and create
 a locally appropriate realization. For what makes the form distinct, read
 [Pattern explainer](../explainers/pattern.md).
 

@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/rule.schema.json",
   "owner": "@craigsmitham",
   "name": "use-effect-v4",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "rule",
   "title": "Use Effect v4",
   "priority": 90,
@@ -19,7 +19,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/rules/use-effect-v4"
+    "directory": "rules/use-effect-v4"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT"

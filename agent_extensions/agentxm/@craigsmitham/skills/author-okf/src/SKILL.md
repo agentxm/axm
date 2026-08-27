@@ -1,14 +1,13 @@
 ---
 name: author-okf
 description: >-
-  Author, convert, maintain, and validate Open Knowledge Format (OKF) v0.2 knowledge bundles —
-  directory trees of markdown concept documents with YAML frontmatter. Use when creating an OKF
-  bundle or concept document, converting existing docs / wiki pages / data-catalog metadata into
-  OKF, defining or applying an OKF application profile, adding or updating concepts in an existing
-  bundle, writing index.md or log.md, authoring an Attested Computation, setting provenance / trust /
-  lifecycle frontmatter (sources, generated, verified, status, stale_after), or checking base and
-  profile conformance. Triggers on: OKF, Open Knowledge Format, knowledge bundle, concept document,
-  OKF application profile, profile conformance, okf_version, attested computation.
+  Authors, reviews, converts, maintains, and validates Open Knowledge Format (OKF) v0.2 knowledge
+  bundles and application profiles. Use when creating or assessing an OKF bundle, concept document,
+  profile rule, reserved index.md or log.md, provenance / trust / lifecycle frontmatter, or Attested
+  Computation; converting existing material into OKF; or checking base and profile conformance.
+  Triggers on: OKF, Open Knowledge Format, knowledge bundle, concept document, OKF application
+  profile, profile conformance, okf_version, attested computation. Not for generic documentation
+  organization when OKF is not declared.
 ---
 
 # Authoring OKF bundles
@@ -36,6 +35,15 @@ the version this skill targets.
    permitted — a fabricated `verified: { by: human:... }` entry is worse than no entry.
 6. **Keep conformance layers separate.** An application-profile failure does not make a bundle
    non-conformant with OKF v0.2.
+7. **A profile cannot turn a reserved file into a concept.** A profile may require an `index.md` or
+   `log.md` and constrain its specified structure, but it cannot assign either file a concept type,
+   concept identity, semantic ownership, or concept-level provenance and lifecycle metadata while
+   retaining OKF v0.2 conformance. Put durable knowledge in a non-reserved concept document and let
+   the index link to it.
+8. **A representation repair is not a domain decision.** When separating durable meaning from a
+   reserved file, preserve the proposal's authority boundaries. Do not thereby accept its concept
+   type, canonical path, cardinality, corpus-inclusion policy, or claimed ownership of neighboring
+   artifacts. Name those as unresolved choices for the applicable profile or domain authority.
 
 ## Progressive discovery
 
@@ -60,6 +68,12 @@ conformance and bundle coherence, not the host repository's documentation taxono
 
 - Let each description become more specific: bundle scope → section scope → concept distinction.
   Do not repeat one generic description at every level.
+- For an action-oriented concept such as a Guide, procedure, playbook, runbook, or Process, make
+  the description support selection before opening: pair the supported outcome with the observable
+  situation, event, symptom, or reader intent that makes it relevant. A Process preview names its
+  triggering condition and intended closing outcome. Keep access, knowledge, input, and state
+  preconditions distinct from both selection conditions and Process triggers; do not invent a new
+  metadata field for any of these concerns.
 - Treat `title` as a concept's canonical display name. Use it exactly as index link text and,
   normally, as the document-title heading; use a stable slug for the filename. Keep conventional
   headings such as `# Computation` when the spec assigns them meaning.
@@ -156,6 +170,43 @@ violation as an OKF specification error. If no executable profile validator exis
 profile review as manual and name the rules checked. Read `references/application-profiles.md` when
 defining, applying, or validating a profile.
 
+### Review a proposed profile or bundle representation
+
+1. Classify each proposed Markdown artifact as a concept document, reserved `index.md`, reserved
+   `log.md`, or external peer authority before evaluating its semantic usefulness.
+2. Apply the base OKF file contract before producer-profile rules. A profile may narrow choices OKF
+   leaves open; it cannot waive a base reserved-file rule and still claim OKF v0.2 conformance.
+3. When a proposal gives durable semantic ownership to an index or log, reject that representation
+   without discarding the useful meaning. State that the meaning can be represented by a distinct
+   non-reserved concept document and that the reserved file can link to it. Unless the applicable
+   authority has already accepted them, keep any illustrative type or filename explicitly
+   non-normative rather than drafting them as the chosen result.
+4. Report the base-format conclusion, profile decision, and any unresolved domain-authority choice
+   separately. Do not choose a domain concept type, path, or cardinality that the applicable profile
+   authority has not accepted.
+5. Preserve peer authorities named by the proposal. Moving one durable concept into OKF does not
+   move definitions, executions, results, approvals, requirements, or other operative artifacts
+   into that concept's ownership. Describe representational compatibility without approving a
+   profile-policy reversal or widening the concept boundary.
+
+For an assessment request, stop at that authority boundary. Do not provide a ready-to-adopt index
+or concept draft when its domain type, canonical path, inclusion policy, or ownership is still
+proposed. Instead:
+
+- say that OKF permits an uncontrolled non-empty `type` on a non-reserved concept, while the
+  applicable profile or domain authority decides whether the proposed type is accepted;
+- refer to a distinct non-reserved concept document without selecting its canonical filename;
+- treat a requested corpus- or profile-policy reversal as a proposal, not as accepted policy; and
+- restate any supplied `owns` and `does not own` boundaries so the representational correction
+  cannot absorb peer definitions, executions, results, assurance decisions, or requirements.
+
+Concrete type and path examples are allowed only when clearly labeled non-normative placeholders;
+do not place them in a draft artifact whose form implies that they were selected.
+When a requested type has not already been accepted, do not call the separated artifact “a
+document of type `<requested>`.” Call it a distinct non-reserved concept document, then state
+separately that `<requested>` is base-format-compatible but remains a proposed type pending the
+applicable profile or domain decision.
+
 ## Frontmatter reference
 
 `type` is the only always-required key. A concept carrying just `type` is fully conformant.
@@ -164,7 +215,7 @@ defining, applying, or validating a profile.
 |---|---|---|---|
 | `type` | **yes** | string | Kind of concept. Uncontrolled vocabulary — see [Type discipline](#type-discipline). |
 | `title` | rec | string | Canonical display name. Use exact wording in index links. Consumers may fall back to the filename. |
-| `description` | rec | string | One sentence distinguishing this concept from its neighbors. Reuse it in index entries and search snippets. |
+| `description` | rec | string | One sentence distinguishing this concept from its neighbors. For action concepts, include the selection condition and supported outcome; for Processes, include the trigger and closing outcome. Reuse it exactly in index entries and search snippets. |
 | `resource` | rec | URI/path | Canonical URI of the underlying asset. Omit for abstract concepts. |
 | `tags` | rec | list | Stable domain terms, aliases, and query vocabulary; do not merely repeat the title. |
 | `sources` | opt | list | Provenance. Each entry needs `resource`; `id`, `title`, `author`, `usage_count`, `last_modified` optional. |

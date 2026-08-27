@@ -1,6 +1,6 @@
 {
   "skill_name": "author-docs",
-  "suite_version": "0.3.3",
+  "suite_version": "0.3.4",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -53,6 +53,19 @@
         "No neighboring skill is selected for a job it does not own.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "Create two neighboring how-to guides from supplied synthetic authority: one for scheduled test-credential expiry and one for suspected test-credential exposure. Give each guide a metadata description and index entry that lets a reader choose before opening it.",
+      "expected_output": "Two bounded guides whose canonical descriptions distinguish their selection conditions and supported outcomes, whose index entries copy those descriptions exactly, and whose prerequisites remain distinct from selection conditions.",
+      "assertions": [
+        "Each guide description names the observable situation or reader intent that makes the guide relevant.",
+        "Each guide description names the outcome or decision the guide supports.",
+        "The two descriptions distinguish scheduled expiry from suspected exposure before either guide is opened.",
+        "Preconditions are not mislabeled as selection conditions or triggering events.",
+        "Each index entry copies its concept's canonical description exactly."
       ]
     }
   ]

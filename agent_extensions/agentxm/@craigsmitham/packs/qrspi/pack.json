@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-shot concern-aware framing and delegated evidence-backed research with inspectable Research Briefs",
   "keywords": [
     "research",
@@ -20,7 +20,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",
-    "directory": ".axm/extensions/@craigsmitham/packs/qrspi"
+    "directory": "packs/qrspi"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
   "license": "MIT",

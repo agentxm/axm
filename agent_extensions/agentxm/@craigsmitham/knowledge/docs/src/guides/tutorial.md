@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Tutorial guide
-description: How to write a learning-oriented tutorial with a bounded path and reliable first success.
+description: Use when newcomers need a safe, bounded learning path to reliable first success; write a tutorial that teaches through guided action rather than real-work problem solving.
 tags: [docs, tutorial, authoring, how-to, diataxis]
 status: stable
 sources:
@@ -10,13 +10,14 @@ sources:
     title: Diátaxis — Tutorials
 generated:
   by: claude/fable-5
-  at: 2026-08-08T00:16:56Z
+  at: 2026-08-26T14:02:36Z
 ---
 
 # Tutorial guide
 
-Write a **lesson** someone can complete successfully. For what a tutorial is
-and is not, read [Tutorial explainer](../explainers/tutorial.md).
+Use this guide when a newcomer needs a **lesson** they can complete
+successfully. For what a tutorial is and is not, read [Tutorial
+explainer](../explainers/tutorial.md).
 
 ## Goal
 

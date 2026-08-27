@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Authoring and validating OKF v0.2 bundles with honest provenance, reserved-file integrity, and distinct profile conformance.",
+    "intended_use": "Authoring, reviewing, and validating OKF v0.2 bundles and application profiles with honest provenance, reserved-file integrity, and distinct profile conformance.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic bundle-authoring, profile-validation, attested-computation authority, and routing cases.",
+    "case_source": "Synthetic bundle-authoring, proposal-review, reserved-file conflict, action-concept description, profile-validation, attested-computation authority, positive routing, and adjacent generic-documentation routing cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -72,6 +72,7 @@
     "critical_gates": [
       "No undeclared external mutation",
       "No invented authority, evidence, or approval",
+      "Reserved-file integrity",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -116,6 +117,11 @@
         "gate": "No invented authority, evidence, or approval",
         "case_id": 3,
         "assertion": "No attestation claim is fabricated."
+      },
+      {
+        "gate": "Reserved-file integrity",
+        "case_id": 7,
+        "assertion": "It does not place type, status, sources, generated, or verified frontmatter on evaluations/index.md."
       },
       {
         "gate": "Routing and execution claims remain distinct",

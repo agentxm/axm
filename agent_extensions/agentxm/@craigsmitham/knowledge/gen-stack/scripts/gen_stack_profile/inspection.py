@@ -27,9 +27,12 @@ from .profile import (
 from .relationships import Edge, RelationshipAnalysis, analyze_relationships
 
 
-SCHEMA_VERSION = "gen-stack-inspection/v1alpha2"
+SCHEMA_VERSION = "gen-stack-inspection/v1alpha3"
+COMPATIBLE_SNAPSHOT_VERSIONS = frozenset(
+    {"gen-stack-inspection/v1alpha2", SCHEMA_VERSION}
+)
 PRODUCER_NAME = "gen-stack-inspection"
-PRODUCER_VERSION = "0.2.0"
+PRODUCER_VERSION = "0.3.0"
 MAX_SEARCH_RESULTS = 50
 MAX_GRAPH_RESULTS = 500
 MAX_CONCEPT_BYTES = 2 * 1024 * 1024
@@ -225,8 +228,10 @@ class InspectionPlane:
         self,
         repository_root: Path,
         validation_report: dict[str, object] | None = None,
+        input_identity: dict[str, object] | None = None,
     ) -> None:
         self.repository_root = repository_root.resolve()
+        self.input_identity = input_identity or {"kind": "working-tree"}
         self.corpus_root = self.repository_root / "gen-stack"
         self.validation_report = validation_report or _guard_corpus(
             self.repository_root
@@ -342,14 +347,10 @@ class InspectionPlane:
             )
         return diagnostics
 
-    def _base_unknowns(self) -> list[dict[str, str]]:
-        return [
+    def _base_unknowns(self, *, include_okf: bool = True) -> list[dict[str, str]]:
+        unknowns = [
             {
-                "claim": "okf-conformance",
-                "reason": "The native OKF validator was not executed by this inspection operation.",
-            },
-            {
-                "claim": "semantic-conformance",
+                "claim": "named-semantic-review",
                 "reason": "A named semantic review has not been supplied.",
             },
             {
@@ -357,6 +358,15 @@ class InspectionPlane:
                 "reason": "Corpus inspection does not assess completeness, satisfaction, coverage, or operational fitness.",
             },
         ]
+        if include_okf:
+            unknowns.insert(
+                0,
+                {
+                    "claim": "okf-conformance",
+                    "reason": "The native OKF validator was not executed by this inspection operation.",
+                },
+            )
+        return unknowns
 
     def envelope(
         self,
@@ -366,6 +376,8 @@ class InspectionPlane:
         diagnostics: Iterable[dict[str, object]] = (),
         unknowns: Iterable[dict[str, str]] = (),
         check_stability: bool = True,
+        okf_result: str = "unknown",
+        include_okf_unknown: bool = True,
     ) -> dict[str, object]:
         if (
             check_stability
@@ -388,16 +400,20 @@ class InspectionPlane:
                 "snapshot_id": self.snapshot_identity,
                 "corpus_digest": self.corpus_digest,
             },
+            "input": _json_value(self.input_identity),
             "discovery": {
                 "state": self.state,
-                "okf_result": "unknown",
+                "okf_result": okf_result,
                 "structural_result": self.structural_result,
                 "semantic_result": "unknown",
             },
             "operation": operation,
             "data": _json_value(data),
             "diagnostics": [*self._base_diagnostics(), *_json_value(list(diagnostics))],
-            "unknowns": [*self._base_unknowns(), *_json_value(list(unknowns))],
+            "unknowns": [
+                *self._base_unknowns(include_okf=include_okf_unknown),
+                *_json_value(list(unknowns)),
+            ],
         }
         encoded = _canonical_json(payload)
         if len(encoded) > MAX_OUTPUT_BYTES:
@@ -620,6 +636,7 @@ class InspectionPlane:
                 + [
                     {"operation": "status", "eligible": True, "reason": "Always available."},
                     {"operation": "validate", "eligible": True, "reason": "Always available."},
+                    {"operation": "check", "eligible": True, "reason": "Always available."},
                     {"operation": "diff", "eligible": True, "reason": "Operates on snapshot files."},
                 ],
             },
@@ -1485,10 +1502,10 @@ def _validate_snapshot_payload(
 ) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise InspectionFailure("snapshot-contract", f"Snapshot {label} must contain a JSON object.")
-    if payload.get("schema_version") != SCHEMA_VERSION or payload.get("operation") != "snapshot":
+    if payload.get("schema_version") not in COMPATIBLE_SNAPSHOT_VERSIONS or payload.get("operation") != "snapshot":
         raise InspectionFailure(
             "snapshot-contract",
-            f"Snapshot {label} must be a {SCHEMA_VERSION} snapshot envelope.",
+            f"Snapshot {label} must be a compatible v1alpha2 or v1alpha3 snapshot envelope.",
         )
     data = payload.get("data")
     if not isinstance(data, dict) or not isinstance(data.get("concepts"), list) or not isinstance(data.get("relationships"), list):
@@ -1574,6 +1591,7 @@ def diff_envelope(
             "digest": _producer_digest(),
         },
         "snapshot": after.get("snapshot"),
+        "input": {"kind": "snapshot-files"},
         "discovery": after.get("discovery"),
         "operation": "diff",
         "data": diff_snapshots(before, after),
@@ -1596,7 +1614,10 @@ def diff_envelope(
 
 
 def standalone_failure_envelope(
-    operation: str, failure: InspectionFailure
+    operation: str,
+    failure: InspectionFailure,
+    *,
+    input_identity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Represent a failure for an operation that does not inspect a live corpus."""
 
@@ -1612,6 +1633,7 @@ def standalone_failure_envelope(
             "snapshot_id": None,
             "corpus_digest": None,
         },
+        "input": input_identity or {"kind": "snapshot-files"},
         "discovery": {
             "state": "invalid",
             "okf_result": "unknown",
@@ -1633,8 +1655,14 @@ def standalone_failure_envelope(
         ],
         "unknowns": [
             {
-                "claim": "snapshot-comparison",
-                "reason": "The supplied snapshot inputs could not establish a valid comparison.",
+                "claim": (
+                    "mechanical-check" if operation == "check" else "snapshot-comparison"
+                ),
+                "reason": (
+                    "The selected input or environment could not establish a valid mechanical check."
+                    if operation == "check"
+                    else "The supplied snapshot inputs could not establish a valid comparison."
+                ),
             }
         ],
     }

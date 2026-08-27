@@ -9,7 +9,7 @@ sources:
     title: Gen Stack application profile — System
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:18:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Documenting systems
@@ -21,9 +21,12 @@ generated:
 > representation. This Guide supports action and adds neither semantic authority
 > nor profile-conformance rules.
 
-Create `/system.md` at the corpus root (`<repository-root>/gen-stack/system.md`)
-before assigning system-wide
-requirements.
+Before creating `/system.md`, require explicit human or institutional
+ratification of the System purpose, boundary, and material exclusions, plus
+independent authority to mutate the repository. A human or authorized agent may
+then encode the accepted concept at the corpus root
+(`<repository-root>/gen-stack/system.md`) before assigning system-wide
+Requirements.
 
 ## Representation
 

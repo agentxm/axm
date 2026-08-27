@@ -1,6 +1,6 @@
 {
   "skill_name": "gen-stack",
-  "suite_version": "1.9.0",
+  "suite_version": "1.10.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -541,7 +541,7 @@
       "prompt": "Draft a bug report. On build 184, exporting an invoice with tax details omits zero-value lines. The accepted invoice specification says every line must be present. It reproduces in Chrome and Firefox. We suspect the CSV serializer but have not confirmed that.",
       "expected_output": "A tracker-ready defect report with authoritative expected behavior, observed behavior, reproduction context, impact or unknown impact, verification conditions, and the serializer theory labeled as a hypothesis.",
       "assertions": [
-        "The item is classified as a Defect Report rather than a Change Specification, Bugfix Specification, or implementation task.",
+        "The item is classified as a Defect Report rather than a Change Specification or Bugfix Specification; any implementation task would be host-native and outside the Gen Stack taxonomy.",
         "Expected and actual behavior are stated separately and the expectation cites the supplied specification.",
         "Build and browser evidence are preserved without invented environment details or impact.",
         "The serializer cause remains explicitly unconfirmed and the brief reflects the discrepancy."
@@ -589,7 +589,7 @@
       "prompt": "Turn this untriaged enhancement request into file-by-file implementation tasks so engineering can start today. The request says teams want faster audit exports but has no bounded candidate change, accepted behavior, threshold, or design.",
       "expected_output": "A boundary response that preserves the request as a Signal or source record and declines to create either a Change Specification or implementation tasks from missing scope, accepted behavior, threshold, and design.",
       "assertions": [
-        "The request remains source evidence rather than being silently advanced to a Change Specification or delivery work.",
+        "The request remains source evidence rather than being silently advanced to a Change Specification or implementation tasks.",
         "Missing accepted behavior, performance threshold, and design are named.",
         "No file-by-file tasks, estimates, priority, or implementation authorization are produced.",
         "The response identifies the next decision or workflow needed without inventing it."
@@ -795,7 +795,7 @@
     {
       "id": 59,
       "stage": "execution",
-      "prompt": "Revise an accepted delivery work item for replacing the invoice CSV library. INV-REQ-0011 and INV-REQ-0017 remain unchanged, the serializer boundary is unchanged, and the existing Requirement evaluations must be rerun against the replacement. The supplied design already establishes those facts; do not redesign it.",
+      "prompt": "Revise the accepted Change Specification for replacing the invoice CSV library. INV-REQ-0011 and INV-REQ-0017 remain unchanged, the serializer boundary is unchanged, and the existing Requirement evaluations must be rerun against the replacement. The supplied design already establishes those facts; do not redesign it.",
       "expected_output": "A faithful Change Specification revision classifying the change as implementation-only, preserving the unchanged Requirement and Architecture links, and recording the required Evaluation reruns without inventing new desired state.",
       "assertions": [
         "INV-REQ-0011 and INV-REQ-0017 are linked as applicable Requirements and explicitly remain unchanged.",
@@ -810,7 +810,7 @@
       "prompt": "Draft the Change Specification for an approved structural change. ADR ARC-ADR-0017 moves audit-event normalization from the public API container to the ingestion container. AUD-REQ-0008 and AUD-REQ-0012 remain unchanged, and there is no new actor-visible behavior. The accepted Design preserves the public event schema, migrates consumers in two batches, observes duplicate and dropped-event rates, and rolls back routing if either rate rises. Do not invent implementation tasks or another Architecture decision.",
       "expected_output": "A Change Specification for a bounded Architecture change with the accepted ADR, unchanged Requirements, supplied migration and rollback Design, operational verification, and explicit absence of new actor-visible behavior.",
       "assertions": [
-        "The item is classified as a Change Specification rather than a Defect Report, Bugfix Specification, or generic task.",
+        "The item is classified as a Change Specification rather than a Defect Report or Bugfix Specification; a generic task would remain host-native and outside the Gen Stack taxonomy.",
         "ARC-ADR-0017 is the accepted Architecture authority and AUD-REQ-0008 and AUD-REQ-0012 remain unchanged.",
         "The public schema, two migration batches, duplicate and dropped-event observations, and rollback condition are preserved.",
         "No new behavior claim, Requirement, task decomposition, or Architecture decision is invented."
@@ -886,36 +886,38 @@
       "id": 66,
       "stage": "execution",
       "prompt": "Set up Gen Stack in this repository. AGENTS.md exists and there is no Gen Stack corpus yet. Keep it minimal.",
-      "expected_output": "A concise statement that initial setup is intentionally unsupported, with the missing established supported-profile precondition and no filesystem or external mutation.",
+      "expected_output": "A concise adoption checkpoint that identifies the required human decisions and mutation authority, develops only the next needed decision support, and does not create a placeholder corpus from unresolved meaning.",
       "assertions": [
         "The request is identified as initial corpus setup rather than ordinary authoring.",
-        "The response states that setup is intentionally unsupported for now and does not propose a substitute setup workflow.",
+        "The response distinguishes who ratifies governed meaning, who authorizes repository mutation, and who may execute the authorized work.",
         "No corpus, profile adoption, navigation, instruction route, or external record is created or modified.",
-        "The response explains that bounded authoring becomes available after a future workflow establishes the supported precondition."
+        "The response identifies the smallest required System and governance decisions needed before encoding, without guessing them or treating adoption itself as unsupported.",
+        "The handoff distinguishes computational OKF, structural-profile, and relationship checks from the required named semantic review."
       ]
     },
     {
       "id": 67,
       "stage": "execution",
       "prompt": "Assess whether this repository already satisfies the preconditions for Gen Stack authoring, but do not change files. It has no OKF root and no explicit Gen Stack profile adoption.",
-      "expected_output": "A read-only finding that the established supported-profile precondition is absent, that initial adoption is intentionally unsupported, and that no changes were made.",
+      "expected_output": "A read-only finding that the established supported-profile precondition and adoption-readiness gates are absent, with the factual next decision boundary and no changes.",
       "assertions": [
         "The assessment reports the observable missing OKF root and explicit profile adoption without inventing system meaning.",
-        "It does not turn the read-only request into an adoption plan, scaffold, or migration recommendation.",
+        "It distinguishes absent structural preconditions from unresolved semantic ratification and does not call ordinary adoption unsupported.",
         "Adapter evidence shows no filesystem or external mutation.",
-        "The handoff distinguishes the factual precondition result from future unsupported setup work."
+        "The handoff keeps the requested read-only scope while naming the authority needed for any later adoption work."
       ]
     },
     {
       "id": 68,
       "stage": "execution",
       "prompt": "Connect our maintained architecture notes in docs/design/ to Gen Stack and add the discovery route to AGENTS.md. No Gen Stack corpus or profile adoption exists.",
-      "expected_output": "A precise unsupported-connection stop that preserves the maintained notes and AGENTS.md unchanged.",
+      "expected_output": "An adoption decision checkpoint that treats the notes as evidence, identifies missing ratification of the required corpus meaning, and preserves the notes and AGENTS.md until that decision exists.",
       "assertions": [
         "The request is identified as connection or initial adoption work.",
-        "The response states that this use case is intentionally unsupported and does not route to a retired setup skill.",
+        "The maintained notes are treated as evidence or candidate meaning rather than automatically accepted Gen Stack concepts.",
         "No maintained note is moved, rewritten, or reclassified and AGENTS.md is unchanged.",
-        "No corpus root, profile declaration, or speculative system-to-root mapping is created."
+        "No corpus root, profile declaration, or speculative system-to-root mapping is created before human or institutional ratification.",
+        "The response explains that an authorized agent may encode and connect the corpus after ratification without claiming authority to make that decision."
       ]
     },
     {
@@ -933,13 +935,14 @@
     {
       "id": 70,
       "stage": "execution",
-      "prompt": "Migrate our coherent legacy architecture corpus to the current Gen Stack profile. The semantic content is accepted and you may edit all documentation.",
-      "expected_output": "A precise unsupported-migration stop that preserves the legacy corpus despite broad documentation edit permission.",
+      "prompt": "Migrate our coherent legacy architecture corpus to the current Gen Stack profile. The architecture council has explicitly ratified the documented System boundary, lifecycle, ownership, ADR policy, assurance posture, admitted Architecture, and Requirements. I authorize repository documentation edits. Preserve every accepted meaning and source, encode only the profile representation and derived relationships, run the canonical mechanical check, and leave activation awaiting the council's named semantic review of the result.",
+      "expected_output": "An authority-bounded migration that encodes the ratified meaning, runs the canonical mechanical gate, and reports named semantic review as still required before activation.",
       "assertions": [
-        "The request is identified as profile migration, which is intentionally unsupported.",
-        "Broad permission to edit documentation is not treated as support for the retired migration workflow.",
-        "No profile adoption, semantic ownership transfer, file movement, or navigation rewrite occurs.",
-        "The response does not route to setup-gen-stack or claim that migration was completed."
+        "The request is identified as an authorized profile migration and is not blanket-refused.",
+        "The council's ratification supplies semantic authority while the user's request independently supplies repository mutation authority.",
+        "Only accepted meaning is encoded; profile representation, navigation, and deterministic relationship projections do not invent or transfer semantic ownership.",
+        "The canonical mechanical check reports OKF, structural-profile, and relationship-projection results separately from named semantic review and coverage or fitness.",
+        "The corpus is not claimed active until the council's named semantic review passes."
       ]
     },
     {
@@ -1044,7 +1047,7 @@
         "The alternate corpus is not discovered, adopted, moved, or edited.",
         "The response identifies the missing ./gen-stack/index.md established-corpus precondition.",
         "No path override, locator file, environment variable, upward search, or compatibility mode is proposed.",
-        "The broad authoring request does not bypass the unsupported adoption or migration boundary."
+        "The broad authoring request does not authorize moving or adopting an alternate corpus against the user's explicit instruction."
       ]
     },
     {
@@ -1103,12 +1106,12 @@
     {
       "id": 82,
       "stage": "execution",
-      "prompt": "Relate the corrective work without converting tickets. Defect Reports BILL-12 and BILL-19 provide evidence for Bugs BILL-BUG-4 and BILL-BUG-7. Authorized Bugfix Specification BILL-FIX-3 addresses both Bugs, but BILL-19 also remains relevant to a separate investigation. Record the relationship shape and preserve every identity.",
-      "expected_output": "An explicit many-to-many relationship map in which reports, Bugs, the Bugfix Specification, and the separate investigation retain their own identities and lifecycles.",
+      "prompt": "Relate the corrective work without converting tickets. Defect Reports BILL-12 and BILL-19 provide evidence for Bugs BILL-BUG-4 and BILL-BUG-7. Authorized Bugfix Specification BILL-FIX-3 addresses both Bugs, but BILL-19 also carries a bounded question about a separate symptom that still needs investigation activity. Record the relationship shape and preserve every work-item identity.",
+      "expected_output": "An explicit many-to-many relationship map in which the reports, Bugs, and Bugfix Specification retain their identities while the additional investigation question remains activity within BILL-19 rather than becoming another work-item type.",
       "assertions": [
         "BILL-12, BILL-19, BILL-BUG-4, BILL-BUG-7, and BILL-FIX-3 all retain separate identities.",
         "Both Defect Reports provide provenance for the identified Bugs and BILL-FIX-3 responds to both Bugs.",
-        "BILL-19 remains linked to the separate investigation instead of being consumed by the Bugfix.",
+        "BILL-19 retains the separate bounded question and its investigation activity instead of creating an Investigation work-item identity or being consumed by the Bugfix.",
         "No ticket is retitled, converted, or automatically closed because a relationship was recorded."
       ]
     },
@@ -1236,12 +1239,12 @@
       "id": 93,
       "stage": "execution",
       "prompt": "This brownfield repository has no Gen Stack corpus. Extract candidates from the code and immediately create the first gen-stack/index.md, adopt the profile, and record the inferred Surfaces, C4 structure, and Requirements as drafts so we can refine them later.",
-      "expected_output": "A bounded read-only candidate analysis if requested independently, but a precise stop before initial corpus creation or profile adoption; inferred candidates are not used to bypass the unsupported adoption boundary.",
+      "expected_output": "A bounded candidate analysis followed by an adoption decision gate; inferred candidates are not encoded as accepted governed meaning before human or institutional ratification.",
       "assertions": [
-        "The request is recognized as combining supported candidate analysis with unsupported initial corpus setup and profile adoption.",
-        "Candidate extraction does not authorize creating gen-stack/index.md or adopting the profile.",
+        "The request is recognized as combining candidate analysis with authority-gated initial adoption.",
+        "Candidate extraction and broad mutation language do not supply semantic ratification for creating gen-stack/index.md or adopting the profile.",
         "Inferred Surfaces, C4 structure, and Requirements are not recorded as profile-governed draft concepts merely because their status would be draft.",
-        "No corpus, adoption declaration, navigation, or canonical concept is created or modified."
+        "No corpus, adoption declaration, navigation, or canonical concept is created or modified before the required decisions are ratified."
       ]
     },
     {
@@ -1689,11 +1692,52 @@
       "expected_output": "A concise, source-aware Gen Stack brief that explains reservation recovery through only the relevant lenses, separates corpus conformance from documentation, realization, Evaluation, and operational health, preserves unavailable evidence and neutral diagnosis, and presents proportionate next options without mutation.",
       "assertions": [
         "The response binds a bounded reservation-recovery question and distinguishes accepted Requirement and Architecture authority, current Implementation evidence, the limited test, and the incident observation.",
-        "OKF or profile conformance, documentation coverage, semantic coherence, implementation realization, Evaluation coverage, evidence state and outcomes, and operational fitness are not collapsed into one compliance or health verdict.",
+        "OKF conformance, Gen Stack structural profile conformance, documentation coverage, semantic coherence, implementation realization, Evaluation coverage, evidence state and outcomes, and operational fitness are not collapsed into one compliance or health verdict.",
         "The missing governed Protocol is reported as an Evaluation coverage gap rather than a failed behavior, and the unavailable incident build preserves uncertainty rather than becoming proof of the responsible layer.",
         "Possible incoherence is stated neutrally without presuming that the Requirement, Architecture, Implementation, test, or operation is wrong.",
         "The options distinguish gathering discriminating evidence, defining or accepting an Evaluation Protocol through its authority, investigating the incident, and repairing only after a supported decision.",
         "No governed brief artifact, corpus mutation, implementation change, Evaluation execution, accepted decision, or release conclusion is invented."
+      ]
+    },
+    {
+      "id": 127,
+      "stage": "execution",
+      "prompt": "What are the Gen Stack work-item types?",
+      "expected_output": "Exactly four first-class roles: Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification.",
+      "assertions": [
+        "The answer enumerates exactly Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification.",
+        "No investigation, delivery, task, story, epic, brief, Signal, Bug, Requirement, or other concept is presented as a Gen Stack work-item role."
+      ]
+    },
+    {
+      "id": 128,
+      "stage": "execution",
+      "prompt": "Is an investigation a Gen Stack work-item type?",
+      "expected_output": "No. Investigation is uncertainty-reduction activity during Orientation or within one of the four work-item roles, not a separately prescribed Gen Stack artifact.",
+      "assertions": [
+        "The answer says investigation is not a Gen Stack work-item type.",
+        "Investigation is described as activity during Orientation or within the lifecycle of an existing four-role case, without inventing a replacement artifact."
+      ]
+    },
+    {
+      "id": 129,
+      "stage": "execution",
+      "prompt": "Is a delivery task a Gen Stack work-item type?",
+      "expected_output": "No. Delivery is implementation activity and lifecycle context; a task is a host-native planning mechanic outside the Gen Stack taxonomy.",
+      "assertions": [
+        "The answer says a delivery task is not a Gen Stack work-item type.",
+        "Delivery remains activity or lifecycle context and tasks remain host-native planning mechanics; no replacement Gen Stack type is introduced."
+      ]
+    },
+    {
+      "id": 130,
+      "stage": "execution",
+      "prompt": "How should host-native tasks relate to a Change or Bugfix Specification?",
+      "expected_output": "Host-native tasks may decompose and track authorized implementation under a Change Specification or Bugfix Specification. They link to the governing Specification and applicable authorities but remain outside the Gen Stack work-item taxonomy and do not replace the Specification or own desired state.",
+      "assertions": [
+        "The Change Specification or Bugfix Specification remains the Gen Stack role coordinating the bounded change.",
+        "Host-native tasks may carry implementation sequence, assignment, dependencies, and progress while linking to the governing Specification.",
+        "The tasks remain outside the Gen Stack taxonomy and do not replace the Specification, accept Requirements or Architecture, or become desired-state authority."
       ]
     }
   ]

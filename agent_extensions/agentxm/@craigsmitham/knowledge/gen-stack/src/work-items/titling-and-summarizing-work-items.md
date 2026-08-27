@@ -28,10 +28,10 @@ generated:
 > representation. This Guide supports action and adds neither semantic authority
 > nor profile-conformance rules.
 
-Use this guide when creating any work item, and again whenever what is known
-about it materially changes. It applies to operational incident records, defect
-reports, Change Specifications, Bugfix Specifications, and accepted delivery
-work alike. For why the brief is a separate artifact from the body, read
+Use this guide when creating or revising any Operational Incident Record,
+Defect Report, Change Specification, or Bugfix Specification, and again
+whenever what is known about it materially changes. For why the brief is a
+derived title-and-summary projection rather than a work-item role, read
 [Work item titles and summaries](work-item-titles-and-summaries.md).
 
 For a brief-only request, use this guide alone: do not load body, lifecycle, or
@@ -153,7 +153,7 @@ siblings.
 Re-deriving changes the title and summary and nothing else. Leave status,
 priority, assignment, project or parent, labels, relations, requirements,
 acceptance criteria, and disposition to the separate decisions that own them.
-Re-deriving also does not change the artifact class: a Defect report title may
+Re-deriving also does not change the work-item role: a Defect Report title may
 become more precise about the observed discrepancy, but it must not become a
 corrected-behavior title. Create and link a separate Bugfix Specification when
 corrective work is authorized.

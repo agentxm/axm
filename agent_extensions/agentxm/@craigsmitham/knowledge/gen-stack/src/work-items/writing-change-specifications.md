@@ -6,8 +6,8 @@ tags: [change-specification, system-change, architecture-change, change-design, 
 status: draft
 sources:
   - id: change-specification-explainer
-    resource: change-specifications-and-delivery-work.md
-    title: Change specifications and delivery work
+    resource: change-specifications.md
+    title: Change specifications
   - id: gen-stack-vocabulary
     resource: ../glossary.md
     title: Gen Stack vocabulary and relationship model
@@ -21,8 +21,8 @@ sources:
     resource: specifying-requirement-changes.md
     title: Specifying Requirement changes in software work items
   - id: preserving-context
-    resource: preserving-design-and-delivery-context.md
-    title: Preserving design and delivery context in software work items
+    resource: preserving-technical-context.md
+    title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
   at: 2026-08-26T22:30:00Z
@@ -40,7 +40,7 @@ generated:
 Use this guide when a proposed or authorized change to the System or its
 Architecture has a recognizable boundary and needs a durable composition for
 decision, design, delivery, or verification. For the semantic boundary, read
-[Change specifications and delivery work](change-specifications-and-delivery-work.md).
+[Change specifications](change-specifications.md).
 
 ## Goal
 
@@ -83,8 +83,9 @@ items](titling-and-summarizing-work-items.md) for the derived brief.
   Architecture change, Design, priority, or delivery commitment.
 
 If only an unbounded desire is known, retain the Signal or source record and
-continue Orientation. If only uncertainty reduction has been authorized, use
-an investigation. If a Bug has been identified and correction authorized, use
+continue Orientation. If only uncertainty reduction has been authorized,
+conduct bounded investigation activity during Orientation or within an
+existing case. If a Bug has been identified and correction authorized, use
 [Writing bugfix specifications](writing-bugfix-specifications.md).
 
 ## 1. Create one bounded change identity
@@ -93,14 +94,15 @@ Create a work item or other explicit Specification container whose identity
 names the intended change outcome rather than a presumed file, implementation
 mechanism, or source record.
 
-One Change Specification may coordinate several tasks, and one broad change
+One Change Specification may coordinate several host-native tasks, and one broad change
 may require several Specifications with independent delivery, rollback, or
 verification. Choose the smallest identity that can move through decision and
 delivery coherently.
 
 Apply the shared identity guide. Do not retitle an Incident Record, Defect
-Report, source request, or investigation into the Change Specification. Link
-those artifacts so each retains its own evidence and lifecycle.
+Report, or source request into the Change Specification. Link those records so
+each retains its own evidence and lifecycle; preserve investigation findings
+as evidence rather than treating the activity as another artifact.
 
 ## 2. Preserve source context and Provenance
 
@@ -222,8 +224,8 @@ set of:
 The Change Design may live in the work item or in a linked authoritative
 discussion. Accepted durable choices that need an independent lifecycle remain
 ADRs. Preserve supplied sketches, sequences, and tradeoffs without upgrading
-their authority; see [Preserving design and delivery context in software work
-items](preserving-design-and-delivery-context.md).
+their authority; see [Preserving technical context in software work
+items](preserving-technical-context.md).
 
 ## 9. Define verification conditions
 
@@ -252,12 +254,13 @@ Keep expected future evidence separate from Evaluation Results that already
 exist. A proposed test is not proof, and a passing bounded execution does not
 establish broader fitness than its inputs, environment, and oracle support.
 
-## 11. Plan delivery and recovery proportionately
+## 11. Plan implementation and recovery proportionately
 
 Record the implementation sequence, dependencies, decomposition, rollout,
 observability, rollback, ownership, and handoffs needed for the current
-planning horizon. Link child tasks instead of copying their volatile status
-into the Specification.
+planning horizon. Link host-native child tasks instead of copying their
+volatile status into the Specification. Those tasks remain outside the Gen
+Stack work-item taxonomy.
 
 Preserve recovery conditions for destructive, stateful, compatibility-sensitive,
 or difficult-to-reverse work. Do not manufacture estimates, assignments,
@@ -270,7 +273,7 @@ the needed decision or evidence. Record residual risks and accepted exceptions
 only when an applicable authority has done so.
 
 Apply the shared identity guide when linking Signals, Incidents, Defect
-Reports, Specifications, Requirements, Architecture, ADRs, tasks,
+Reports, Specifications, Requirements, Architecture, ADRs, host-native tasks,
 Implementation revisions, and Evaluation evidence. Preserve many-to-many
 relationships rather than forcing a parent-child shape.
 
@@ -370,7 +373,7 @@ what is its current decision state, and why does it matter?
 ## Delivery and recovery
 
 - Implementation sequence and dependencies:
-- Linked tasks:
+- Linked host-native tasks (outside the Gen Stack taxonomy):
 - Rollout, observability, rollback, and handoffs:
 
 ## Risks and unresolved questions
@@ -397,7 +400,7 @@ what is its current decision state, and why does it matter?
 - Canonical authorities are linked instead of copied into competing normative
   statements.
 - Verification conditions and evidence strategy remain distinct.
-- Existing technical and delivery context has not been lost or silently
+- Existing technical context has not been lost or silently
   approved.
 - Unknowns, non-goals, recovery, and the next authorized action are explicit
   where material.

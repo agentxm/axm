@@ -187,7 +187,7 @@ external document name as another semantic authority.
 - [Software architecture overview](/architecture/overview.md)
 - [Requirements engineering](/architecture/requirements/requirements-engineering.md)
 - [Analyzing Requirement impact](/control-loop/analyzing-requirement-impact.md)
-- [Preserving design and delivery context in software work items](/work-items/preserving-design-and-delivery-context.md)
+- [Preserving technical context in software work items](/work-items/preserving-technical-context.md)
 
 [^google-design-docs]: Google describes collaborative design documents as a
     pre-implementation review surface for goals, strategy, decisions,

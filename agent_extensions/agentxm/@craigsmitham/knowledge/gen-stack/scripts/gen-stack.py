@@ -20,6 +20,8 @@ from gen_stack_profile.inspection import (  # noqa: E402
     load_snapshot,
     standalone_failure_envelope,
 )
+from gen_stack_profile.checks import composite_check  # noqa: E402
+from gen_stack_profile.source_snapshot import RepositoryView  # noqa: E402
 
 
 LIST_KINDS = (
@@ -50,8 +52,33 @@ def parser() -> argparse.ArgumentParser:
         help="Emit the complete versioned JSON envelope.",
     )
     commands = root.add_subparsers(dest="command", required=True)
-    commands.add_parser("status", help="Report discovery state and operation eligibility.")
-    commands.add_parser("validate", help="Report layered profile validation results.")
+    status_parser = commands.add_parser("status", help="Report discovery state and operation eligibility.")
+    status_parser.add_argument(
+        "--require",
+        choices=("conforming",),
+        dest="required_state",
+        help="Exit nonzero unless the corpus is structurally conforming.",
+    )
+    commands.add_parser(
+        "validate",
+        help="Report structural profile validation; use check for a mechanical gate.",
+    )
+
+    check_parser = commands.add_parser(
+        "check",
+        help="Run the canonical read-only OKF, profile, and relationship-projection gate.",
+    )
+    check_source = check_parser.add_mutually_exclusive_group()
+    check_source.add_argument(
+        "--view",
+        choices=("working-tree", "git-index"),
+        default="working-tree",
+        help="Repository view to validate; defaults to the working tree.",
+    )
+    check_source.add_argument(
+        "--revision",
+        help="Validate the exact tree resolved from a Git revision such as HEAD.",
+    )
 
     list_parser = commands.add_parser("list", help="List governed concepts by natural kind.")
     list_parser.add_argument("kind", choices=LIST_KINDS)
@@ -134,14 +161,35 @@ def _human_lines(payload: dict[str, object]) -> str:
         lines = [
             f"Discovery: {data.get('state')}",
             f"OKF conformance: {data.get('okf_result')}",
-            f"Structural profile: {data.get('structural_result')}",
-            f"Semantic review: {data.get('semantic_result')}",
+            f"Gen Stack structural profile conformance: {data.get('structural_result')}",
+            f"Named semantic review: {data.get('semantic_result')}",
             f"Coverage or fitness: {data.get('coverage_or_fitness_result')}",
         ]
         for diagnostic in payload.get("diagnostics", []):
             if isinstance(diagnostic, dict):
                 lines.append(
                     f"ERROR {diagnostic.get('rule')} {diagnostic.get('path')}: {diagnostic.get('message')}"
+                )
+        return "\n".join(lines)
+    if operation == "check" and isinstance(data, dict):
+        lines = [f"Gen Stack mechanical check: {data.get('state')}"]
+        layers = data.get("layers", {})
+        if isinstance(layers, dict):
+            for name in (
+                "okf",
+                "structural_profile",
+                "relationship_projection",
+                "semantic_review",
+                "coverage_or_fitness",
+            ):
+                layer = layers.get(name)
+                if isinstance(layer, dict):
+                    lines.append(f"  {name.replace('_', ' ')}: {layer.get('result')}")
+        for diagnostic in payload.get("diagnostics", []):
+            if isinstance(diagnostic, dict):
+                lines.append(
+                    f"{str(diagnostic.get('severity', 'error')).upper()} "
+                    f"{diagnostic.get('rule')} {diagnostic.get('path')}: {diagnostic.get('message')}"
                 )
         return "\n".join(lines)
     if operation == "list" and isinstance(data, dict):
@@ -201,6 +249,25 @@ def main(argv: list[str] | None = None) -> int:
         _emit(payload, json_output=args.json_output)
         return 0
 
+    if args.command == "check":
+        input_identity: dict[str, object] = {"kind": "unresolved"}
+        try:
+            with RepositoryView(
+                args.repository_root,
+                view=args.view if args.revision is None else "working-tree",
+                revision=args.revision,
+            ) as selected:
+                input_identity = selected.input_identity
+                payload = composite_check(selected.repository_root, selected.input_identity)
+        except InspectionFailure as failure:
+            payload = standalone_failure_envelope(
+                "check", failure, input_identity=input_identity
+            )
+            _emit(payload, json_output=args.json_output)
+            return 2
+        _emit(payload, json_output=args.json_output)
+        return 1 if _blocking(payload) else 0
+
     plane = InspectionPlane(args.repository_root)
     try:
         if args.command == "status":
@@ -230,6 +297,8 @@ def main(argv: list[str] | None = None) -> int:
     except InspectionFailure as failure:
         payload = plane.failure_envelope(args.command, failure)
     _emit(payload, json_output=args.json_output)
+    if args.command == "status" and args.required_state is None:
+        return 0
     return 1 if _blocking(payload) else 0
 
 

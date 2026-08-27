@@ -14,7 +14,11 @@ authoring.
 
 ## Apply the profile
 
-- [Gen Stack application profile for OKF v0.2](gen-stack-application-profile.md) - The application profile for a durable human-authored corpus at repository `gen-stack/`, governing cross-cutting system governance, Intent, Architecture, subject-colocated Requirements, and Evaluation Protocols.
+- [Gen Stack application profile for OKF v0.2](gen-stack-application-profile.md) - The application profile for a durable human-governed corpus at repository `gen-stack/`, governing cross-cutting system governance, Intent, Architecture, subject-colocated Requirements, and Evaluation Protocols.
+
+## Maintain mechanical validity
+
+- [Integrating Gen Stack mechanical validation into repository workflows](integrating-mechanical-validation-into-repository-workflows.md) - Use when an adopted repository wants repeatable OKF, structural-profile, and relationship-projection checks in Git hooks or CI; validate exact staged or committed state while keeping semantic review, coverage, fitness, and release decisions separate.
 
 ## Author individual governed concepts
 

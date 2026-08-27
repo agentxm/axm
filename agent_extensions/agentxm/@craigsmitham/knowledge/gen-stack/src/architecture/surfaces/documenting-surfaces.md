@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: /profile/gen-stack-application-profile.md#surface
     title: Gen Stack application profile — Surface
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting surfaces
@@ -69,8 +69,7 @@ guidance, not profile conformance.
    `relationships.is-realized-by-c4-element`. Features own
    `is-available-through-surface`; do not duplicate the reciprocal here.
    Canonical nested paths own parent-child Surface containment.
-7. From the repository root, run `scripts/sync-gen-stack-relationships.py`, link relevant
-   evidence, colocate accepted obligations beneath
+7. Link relevant evidence, colocate accepted obligations beneath
    `requirements/<requirement_type>/`, and update the immediate Surface index.
 
 ## Final check

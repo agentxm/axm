@@ -9,7 +9,7 @@ sources:
     title: Domain-driven design
   - resource: /profile/gen-stack-application-profile.md#bounded-context
     title: Gen Stack application profile — Bounded Context
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting bounded contexts
@@ -57,8 +57,8 @@ representation. This order is authoring guidance, not profile conformance.
    view; keep only the context's consequential local relationships here. Link
    accepted invariant and boundary Requirements colocated beneath this context
    or another eligible subject.
-6. From the repository root, run `scripts/sync-gen-stack-relationships.py` so Subdomain and
-   Context Map reciprocal views are current; do not author them independently.
+6. Treat Subdomain and Context Map reciprocal views as derived; do not author
+   them independently.
 7. Link code, schemas, configuration, tests, or architecture checks as current
    realization or conformance evidence, then update `architecture/domains/contexts/index.md`.
 

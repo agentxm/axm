@@ -9,17 +9,21 @@ Cases 1–40 preserve the established-corpus authoring coverage formerly owned b
 subject-colocated Requirements, Evaluation Protocols, profile and
 glossary authority, witness separation, routing, and refusal to invent accepted
 meaning. The former unprofiled-corpus case now verifies the intentional
-unsupported-adoption stop.
+adoption authority gate.
 
 Cases 41–65 preserve the software work-item coverage formerly owned by
 `author-software-work-items`. They cover Operational Incident Records, Defect
-Reports, Change Specifications, Bugfix Specifications, briefs, originating
+Reports, Change Specifications, Bugfix Specifications, title-and-summary
+operations, originating
 evidence, Requirement and Evaluation impact, tracker persistence readback, and
 routing between the unified skill's branches.
 
 Cases 66–70 verify that initial setup, read-only precondition assessment,
-connection, federation, and migration are recognized but do not mutate state or
-route to a retired workflow. Cases 71–73 verify the human decision gate:
+connection, federation, and migration distinguish semantic ratification,
+mutation authority, and execution. Unresolved setup and connection stop before
+governed mutation; explicitly ratified and authorized migration may encode and
+mechanically verify the corpus; unsupported federation remains bounded. Cases
+71–73 verify the human decision gate:
 material options remain neutral and stable, recommendations remain non-binding,
 observations do not become desired state, and explicit ratification can then be
 recorded. Case 74 verifies that an explicitly delegated local reversible choice
@@ -42,7 +46,7 @@ Cases 84–94 cover greenfield candidate development, brownfield evidence
 extraction, missing Requirement and Surface meaning in a Defect Report,
 blocking and non-blocking Bugfix gaps, load-bearing Requirement subject
 placement, inferred-versus-derived Requirements, direct accepted authoring
-without candidate ceremony, non-ritual escalation, the unsupported adoption
+without candidate ceremony, non-ritual escalation, the adoption authority
 boundary after candidate extraction, and a routing collision with
 `author-docs`. These cases define suite 1.2.0.
 
@@ -87,9 +91,22 @@ and health dimensions, neutral treatment of possible incoherence, and
 proportionate next options without creating a governed brief artifact or
 assuming decision or mutation authority.
 
+Suite 1.9.1 adds cases 127–130 for the exact four-role software work-item
+taxonomy, investigation as activity, delivery tasks as host-native planning
+mechanics, and the relationship of host-native tasks to governing Change and
+Bugfix Specifications.
+
+Suite 1.10.0 revises cases 66–70 for authority-gated adoption and migration.
+Human or institutional authorities ratify meaning, repository policy and the
+user authorize mutation, and a human, agent, or deterministic tool may execute
+within both boundaries. The canonical mechanical gate reports OKF, structural
+profile, and relationship-projection results without claiming semantic review,
+coverage, or fitness.
+
 The suite passes only when the unified routing surface retains both authoring
-capabilities, unsupported adoption work stops cleanly, material desired-state
-and Architecture choices remain human-governed, material cross-stack gaps have
+capabilities, adoption and migration preserve all three authority roles,
+unsupported federation stops cleanly, material desired-state and Architecture
+choices remain human-governed, material cross-stack gaps have
 actionable blocking dispositions, candidate evidence does not become accepted
 meaning, and evidence, Implementation, Evaluations, work-item identity,
 lifecycle, and tracker metadata retain their own authority.

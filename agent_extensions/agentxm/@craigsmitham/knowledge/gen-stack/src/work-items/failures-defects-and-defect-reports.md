@@ -225,9 +225,10 @@ Use or link another artifact when:
   an [operational incident record](operational-incident-records.md);
 - there is no accepted expectation and a bounded system or Architecture change
   is being proposed — create a [Change
-  Specification](change-specifications-and-delivery-work.md); retain an
+  Specification](change-specifications.md); retain an
   unbounded request as a Signal or source record;
-- only uncertainty reduction has been authorized — create an investigation;
+- only uncertainty reduction has been authorized — continue Orientation or
+  conduct bounded investigation activity within the current case;
 - investigation has identified a Bug and an accepted correction needs design,
   delivery, and verification context — create a separate
   [Bugfix Specification](bugs-and-bugfix-specifications.md), link its Defect

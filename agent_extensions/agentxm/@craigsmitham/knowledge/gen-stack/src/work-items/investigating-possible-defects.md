@@ -70,7 +70,8 @@ additional evidence.
 
 Establish the narrowest defensible disposition of the possible Defect,
 preserve the evidence and uncertainty supporting it, and route the resulting
-work to its proper authority and artifact.
+work to its proper authority and one of the four work-item roles when a durable
+case is needed.
 
 A successful investigation:
 
@@ -93,24 +94,27 @@ legitimate outcomes when their scope and evidence are explicit.
 
 ## Representation
 
-Keep the investigation in the least durable adequate native surface:
+Investigation is uncertainty-reduction activity, not a Gen Stack work-item type
+or separately prescribed artifact. Perform it in the least durable adequate
+native surface:
 
 - the current conversation for bounded, transient analysis;
 - an existing Defect Report when it already owns the case;
 - a new Defect Report when a durable case, handoff, or independently managed
   lifecycle is needed;
 - an incident record while live operational response governs the work;
-- a repository-native investigation or diagnostic work item when the host
-  distinguishes it; or
 - the source system when it can preserve the evidence, disposition, authority,
   and relationships faithfully.
 
-Do not create a second investigation ledger merely to normalize different
-systems. Link peer records and designate canonical ownership for each fact.
+Do not create a separate investigation ledger merely to normalize different
+systems. A host may track the activity with its native planning mechanics, but
+those records remain outside the Gen Stack work-item taxonomy. Link peer
+records and designate canonical ownership for each fact.
 
 ## Apply the common work-item guides
 
-Use the shared guides for:
+When investigation activity creates or updates one of the four work-item roles,
+use the shared guides for:
 
 - [evidence and authority](preserving-work-item-evidence-and-authority.md),
   including provenance, claim states, unavailable evidence, safe channels,
@@ -122,7 +126,7 @@ Use the shared guides for:
 - [metadata and labels](managing-work-item-metadata-and-labels.md), including
   severity, priority, assignment, workflow state, and external mutation; and
 - [preserving technical
-  context](preserving-design-and-delivery-context.md) when the investigation
+  context](preserving-technical-context.md) when the investigation
   develops technical reasoning that later work must retain.
 
 ## Guardrails
@@ -327,7 +331,7 @@ Route according to both evidence and authority:
 - If investigation remains blocked, name the blocked decision and the evidence
   or authority required to resume.
 
-Creating delivery work must not silently close, retitle, or replace the
+Beginning implementation activity must not silently close, retitle, or replace the
 originating Defect Reports.
 
 ### 9. Synchronize the affected records
@@ -337,7 +341,7 @@ with the smallest useful result:
 
 - current disposition and evidence basis;
 - safe diagnosis synopsis;
-- canonical investigation or Defect Report link;
+- canonical Defect Report or source-record link;
 - identified Bug and Bugfix Specification links;
 - incident, Evaluation, feedback, or source relationships;
 - next owner or decision authority; and
@@ -350,7 +354,7 @@ External mutation authority is separate from investigation authority. After
 creating, commenting on, relating, resolving, or closing an external record,
 read it back and verify the persisted state and links.
 
-### 10. Close the investigation honestly
+### 10. Conclude the activity honestly
 
 Record:
 
@@ -429,7 +433,8 @@ automation, define a standing [Process](../processes/process.md) for the
 durable coordination rules:
 
 - triggering events and intake channels;
-- criteria for creating a durable investigation or Defect Report;
+- criteria for opening a Defect Report or undertaking bounded investigation
+  activity;
 - roles, decision authorities, and handoffs;
 - urgent and restricted escalation;
 - permitted diagnostic and external mutations;

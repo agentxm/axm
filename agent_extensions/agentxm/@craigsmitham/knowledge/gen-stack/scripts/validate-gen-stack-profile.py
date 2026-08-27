@@ -778,7 +778,7 @@ def result(
         "semantic_result": "unknown",
         "governed_concepts": governed_count,
         "errors": errors,
-        "note": "A named manual semantic review is required for complete profile conformance.",
+        "note": "A named manual semantic review is separately required for adoption readiness.",
     }
 
 
@@ -798,7 +798,7 @@ def main() -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(
-            f"Structural profile result: {report['structural_result']} "
+            f"Gen Stack structural profile conformance: {report['structural_result']} "
             f"({PROFILE_ID} {PROFILE_VERSION})"
         )
         for item in report["errors"]:

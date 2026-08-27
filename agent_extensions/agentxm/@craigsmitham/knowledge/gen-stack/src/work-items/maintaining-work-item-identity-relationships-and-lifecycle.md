@@ -70,7 +70,7 @@ otherwise record the relationship in the body. Useful local roles include:
 
 - another occurrence of the same case;
 - duplicate of a named canonical item;
-- parent, child, or decomposed delivery item;
+- parent, child, or other host-native planning relationship;
 - related incident, discrepancy, Bug, change, or regression;
 - blocks, depends on, or is superseded by; and
 - provides source, decision, implementation, or verification evidence for.
@@ -151,7 +151,7 @@ report every failed or unverified identity without claiming atomic success.
 ## Final check
 
 - Each item represents one coherent, independently managed case or body of work.
-- Artifact classes and source occurrences were not erased by retitling or merge.
+- Work-item roles and source occurrences were not erased by retitling or merge.
 - Relationship meaning, direction, and canonical assertion remain recoverable.
 - Evidence, authority, delivery, verification, operational, and follow-up state
   remain distinct where material.

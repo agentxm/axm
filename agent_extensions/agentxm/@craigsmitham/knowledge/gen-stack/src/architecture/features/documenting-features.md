@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Documenting features
-description: Use when recognizable optional behavior needs durable identity beyond one use case, surface, implementation, or delivery item; create one Feature concept.
+description: Use when recognizable optional behavior needs durable identity beyond one use case, surface, implementation, or host-native planning record; create one Feature concept.
 tags: [architecture-documentation, features, behavior, actors, evidence, authoring]
 status: draft
 sources:
@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: /profile/gen-stack-application-profile.md#feature
     title: Gen Stack application profile — Feature
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting features
@@ -36,7 +36,7 @@ the work that delivered it and beyond merely paraphrasing one use case. If the
 candidate has no independent cross-use, cross-surface, policy, or realization
 meaning, omit the Feature and link directly from the Use Case to its other
 architecture views. Keep prioritization, release state, estimates, and
-implementation tasks in delivery authorities.
+implementation tasks in their host-native planning authority.
 
 ## Representation
 
@@ -64,16 +64,15 @@ is authoring guidance, not profile conformance.
    `relationships.is-available-through-surface`, and
    `relationships.is-realized-by-c4-element` as applicable. Explain domain
    authority in prose.
-6. From the repository root, run `scripts/sync-gen-stack-relationships.py`; do not author
-   the reciprocal endpoint roles independently.
-7. Link tests or executable examples that own precise supported scenarios,
+6. Do not author derived reciprocal endpoint roles independently. Link tests or
+   executable examples that own precise supported scenarios,
    then update `architecture/features/index.md`.
 
 ## Final check
 
 - The feature is recognizable to an actor, not merely an internal mechanism.
 - It has independent meaning rather than restating one actor goal and scenario.
-- Its meaning survives completion of the delivery work item.
+- Its meaning survives completion of the change that introduced it.
 - It remains distinct from provider capability and interaction surface.
 - Accepted behavior and failure obligations have one linked Requirement
   authority.

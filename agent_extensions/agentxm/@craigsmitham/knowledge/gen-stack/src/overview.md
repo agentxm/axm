@@ -12,7 +12,7 @@ sources:
     title: John R. Boyd — The Essence of Winning and Losing
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T23:10:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # How the Gen Stack operates
@@ -51,19 +51,23 @@ evidence to a successor.
 
 ## Human-governed development
 
-Gen Stack treats people as the primary authors and accountable authorities for
-the system's desired state and durable shape. An agent assists that work; it
-does not replace the judgment, responsibility, or institutional authority that
-makes a decision binding.
+Gen Stack makes authority a governance property, not a rule about who types
+the prose. Before acting, answer three questions:
 
-An agent may gather and organize evidence, identify contradictions, develop
-candidate Intent, Requirements, Architecture, and Change Design, compare
-alternatives, make a recommendation, draft an artifact, and faithfully record
-an explicitly accepted decision. It must not infer acceptance from silence,
-from implementation activity, from polished prose, or from its own confidence.
-When a material choice remains open, the agent presents stable alternatives,
-their relevant tradeoffs, and a recommendation, then asks the applicable human
-authority to decide before recording the result as accepted.
+1. **Who decides meaning?** The applicable human or institutional authority
+   ratifies desired state and durable Architecture.
+2. **Who authorizes mutation?** The user's request, repository policy, and host
+   controls bound what may change.
+3. **Who executes?** A human, an authorized agent, or a deterministic tool may
+   perform the work within those two boundaries.
+
+The roles may coincide, but execution transfers neither semantic nor mutation
+authority. An agent may organize evidence, expose contradictions, develop and
+compare candidates, recommend, draft, encode an explicitly accepted decision,
+and run deterministic checks. It must not infer acceptance from silence,
+implementation activity, polished prose, or confidence. When a material choice
+remains open, it asks the applicable authority to decide before recording the
+result as accepted.
 
 Two independent dimensions keep this boundary visible:
 

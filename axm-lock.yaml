@@ -205,11 +205,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 1.9.0
-    integrity: sha512-LX3fJkAjQcUFde/eowMIYG1uvWD95dyqu92s0W9ke2B34/i47Tpy4ysb5tk7Ruy3dLlSQTACS373FcY8GtckWQ==
+    resolvedVersion: 1.10.0
+    integrity: sha512-zq3dshe7wAgwJYhrT/bsfJf2zckHxUgf8IcNv7rFd6HHYOIF5iyQpci9SHnzKHEFgsPct1d5USahgMnOq2nufg==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:7db33c247cbfbc82c234a92ddc83639515780d4e9caeafbb98026f899d9f9b6c
+    treeIntegrity: sha256-tree-v1:14a0b6eb66e4c5706e29914fec31e9d287f1a0eda560403e97fc2f159ce6b37e
 subagents:
   researcher:
     type: registry
@@ -348,11 +348,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 0.18.0
-    integrity: sha512-eQ4cwr+pcDWRn6vAN0xPtIJwictgozpcFMp0zpWMngoKDkOANXTrej53alH91822rUw14xgErYI/G/DueonXbQ==
+    resolvedVersion: 0.19.0
+    integrity: sha512-2ixG/b3AaiH5O4Z+Ngbz1vCIdBC5qIy82mMA9H6Vt0HzYZbBCzmD1KPmbfieNqXMYvgku6He3SC2rfHGjsEZlQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:8f9b18297b051c687db163cd7aa91eecf2f43614bd98774899b36512881faef2
+    treeIntegrity: sha256-tree-v1:4c6988c750901a8dad6f64bce46efb04270481fab62c35bc329f98cdfb885729
 packs:
   field-notes:
     type: registry
@@ -438,9 +438,9 @@ packs:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 2.10.0
-    integrity: sha512-IOeVArJ7lByvBzMeIqBOUEL+K7OFhAhgcqmdO/oNecTscwDbS5U64+v3HVmV2jARBdIp0uNxLCufi5cRutJmJw==
-    manifestContentIdentity: c8e49e86981e602f81f6e81b1b844720454bedf7f71ce7b4040b0b5bbb298269
+    resolvedVersion: 2.11.0
+    integrity: sha512-MboXP02Xs+ooPD37IQ3V0daqX1W6/ez3Qw/WWewMJ99QnA3rH1Rnvxp3lWGlrgLUdN27oSpVQ4A63iPh06JmOA==
+    manifestContentIdentity: 76bd8e97da27aef1d4711c5edea13e18d00e9821bfb2d923b60ab3ce1e2bcbfb
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:45891b19aaa66ac4ae1a88fdb650a4f10b48ace23e039ed0d3095c4dc1626c64
+    treeIntegrity: sha256-tree-v1:81fb77b5f562efc6665f4c496a5edcc09c15afcb4826eebb91df04a2961e4fe7

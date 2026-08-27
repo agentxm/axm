@@ -12,8 +12,8 @@ sources:
     resource: /control-loop/analyzing-requirement-impact.md
     title: Analyzing Requirement impact
   - id: preserving-context
-    resource: /work-items/preserving-design-and-delivery-context.md
-    title: Preserving design and delivery context in software work items
+    resource: /work-items/preserving-technical-context.md
+    title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
   at: 2026-08-26T20:07:37Z
@@ -200,7 +200,7 @@ ordinary durable home.
 
 The work item may also serve as a Change Specification or Bugfix Specification
 when it composes the relevant source context, Requirements, Architecture,
-Change Design, verification context, and delivery work. Keep those constituent
+Change Design, verification context, and implementation coordination. Keep those constituent
 roles visible; the Specification label does not make every section normative
 or accepted.
 
@@ -240,7 +240,7 @@ Unresolved decisions, owner or authority, and consequence of leaving each open.
 Keep task sequence, assignees, and completion state in their established
 work-item fields or delivery section rather than mixing them into the Design.
 When the work item already contains design material, apply [Preserving design
-and delivery context](/work-items/preserving-design-and-delivery-context.md)
+technical context](/work-items/preserving-technical-context.md)
 before compressing it.
 
 ### Use a dedicated repository document exceptionally

@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: /profile/gen-stack-application-profile.md#capability
     title: Gen Stack application profile — Capability
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting capabilities
@@ -60,8 +60,7 @@ profile conformance.
    `relationships.is-realized-by-c4-element`. Offerings, Use Cases, and Features
    own their forward Capability assertions; do not duplicate the reciprocal
    roles here. Link other consequential context in prose.
-7. From the repository root, run `scripts/sync-gen-stack-relationships.py`, then link
-   accepted Requirements and evidence and update
+7. Link accepted Requirements and evidence and update
    `architecture/capabilities/index.md`. Do not make the Capability statement a
    second normative formulation of those obligations.
 

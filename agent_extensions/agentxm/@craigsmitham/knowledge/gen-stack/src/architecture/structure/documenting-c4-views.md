@@ -11,7 +11,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: /profile/gen-stack-application-profile.md#c4-view
     title: Gen Stack application profile — C4 View
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting C4 views
@@ -76,8 +76,8 @@ order is authoring guidance, not profile conformance.
    from authoritative sources when they primarily communicate current
    realization and generation is practical. Manually maintain only durable
    boundaries, responsibilities, and consequences that cannot be inferred.
-7. From the repository root, run `scripts/sync-gen-stack-relationships.py` to materialize
-   `appears-in-c4-view` on each governed element.
+7. Treat `appears-in-c4-view` on each governed element as a derived reciprocal
+   view.
 8. Link the view from `architecture/structure/views/index.md` and from the concepts whose
    readers need it. Keep the canonical elements authoritative.
 

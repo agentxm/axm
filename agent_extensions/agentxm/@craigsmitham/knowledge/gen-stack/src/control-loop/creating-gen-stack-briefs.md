@@ -22,7 +22,7 @@ sources:
     title: Evaluation as bounded evidence
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T00:30:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Creating a Gen Stack brief
@@ -65,7 +65,7 @@ A Gen Stack brief is:
 
 It is not a new governed Gen Stack concept, a substitute for canonical
 documentation, a corpus-wide audit, an implementation plan, or authority to
-change desired state. It may reveal that an audit, investigation, decision, or
+change desired state. It may reveal that an audit, investigation activity, decision, or
 repair is warranted, but it does not silently perform that adjacent work.
 
 ## Representation
@@ -156,7 +156,7 @@ single health score or general “Gen Stack compliant” verdict.
 | Dimension | What to assess |
 | --- | --- |
 | OKF conformance | Whether the bounded governed corpus documents meet applicable OKF rules |
-| Profile conformance | Whether applicable governed concepts and relationships meet the adopted Gen Stack profile |
+| Gen Stack structural profile conformance | Whether mechanically decidable governed representation meets the adopted Gen Stack profile |
 | Semantic review | Whether accepted meaning is intelligible, correctly placed, and consistent with canonical Gen Stack semantics |
 | Documentation coverage and fitness | Whether material current meaning can be found, trusted, and used for the reader's purpose |
 | Cross-stack coherence | Whether Intent, Architecture, Requirements, Implementation, Evaluations, and operation can be related without material contradiction or unsupported inference |
@@ -218,7 +218,7 @@ supports. Options may include:
   misplaced, incomplete, or profile-nonconforming.
 - **Repair Implementation or Evaluations** when evidence supports a bounded
   realized-state or assessment defect.
-- **Open a bounded investigation or change** when diagnosis or coordinated
+- **Undertake bounded investigation activity or develop a change** when diagnosis or coordinated
   remediation exceeds the brief.
 
 For each useful option, state the outcome, material tradeoff, authority needed,

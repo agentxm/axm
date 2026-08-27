@@ -210,11 +210,11 @@ tracker fields.[^documenting-process-requirements]
 
 ## 8. Map work-item participation
 
-For every work-item type used by the Process, record:
+For every Gen Stack work-item role used by the Process, record:
 
 | Concern | Question |
 | --- | --- |
-| **Purpose** | Which case, occurrence, request, decision, or delivery work does this item preserve? |
+| **Purpose** | Which incident, discrepancy, bounded change, or authorized correction does this item preserve? |
 | **Creation** | Which event justifies creating it? |
 | **Authority** | Which claims or decisions can it own, and which can it only reference? |
 | **Lifecycle** | Which semantic states matter independently of the host status field? |
@@ -300,7 +300,7 @@ Description: When [triggering event or condition] occurs in [context], this
 | --- | --- | --- | --- | --- |
 
 ## Work items
-| Work-item type | Purpose and creation event | Owned meaning | Relationships and evidence | Exit outcomes |
+| Gen Stack work-item role | Purpose and creation event | Owned meaning | Relationships and evidence | Exit outcomes |
 | --- | --- | --- | --- | --- |
 
 ## Guides, constraints, and enablers
@@ -367,5 +367,6 @@ future case.
     current procedures and workflow mechanics remain separate.
 [^work-items]: [Software work items](../work-items/) routes to the semantic
     concepts and authoring guides for operational incidents, defect reports,
-    Change Specifications, Bugfix Specifications, and their independently
-    governed source and delivery work.
+    Change Specifications and Bugfix Specifications; source records and
+    host-native planning mechanics retain their own authority outside that
+    four-role taxonomy.

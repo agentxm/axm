@@ -12,8 +12,8 @@ sources:
     resource: failures-defects-and-defect-reports.md
     title: Failures, defects, and defect reports
   - id: change-fields
-    resource: change-specifications-and-delivery-work.md
-    title: Change specifications and delivery work
+    resource: change-specifications.md
+    title: Change specifications
 generated:
   by: codex/gpt-5.6
   at: 2026-08-26T20:18:00Z

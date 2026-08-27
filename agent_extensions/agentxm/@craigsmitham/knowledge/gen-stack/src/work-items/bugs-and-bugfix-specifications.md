@@ -15,8 +15,8 @@ sources:
     resource: ../design/change-design.md
     title: Change Design
   - id: change-specifications
-    resource: change-specifications-and-delivery-work.md
-    title: Change specifications and delivery work
+    resource: change-specifications.md
+    title: Change specifications
   - id: iso-24765
     resource: https://www.iso.org/standard/71952.html
     title: ISO — ISO/IEC/IEEE 24765:2017 Systems and software engineering vocabulary
@@ -118,7 +118,7 @@ Links preserve those facts without merging the artifacts or their lifecycles.
 The Defect report owns the history of what entered the system of work: who or
 what observed or reported it, under which conditions, which expectation was
 cited, what evidence was available, and how investigation changed the current
-understanding. Recasting that record as delivery work hides the original
+understanding. Recasting that record as implementation coordination hides the original
 uncertainty and can make a later diagnosis appear to have been known at intake.
 
 A Bugfix Specification begins from a different decision. It exists because an
@@ -156,7 +156,7 @@ the shared title and summary procedure, see
 ## What a Bugfix Specification composes
 
 A Bugfix Specification is a specialized [Change
-Specification](change-specifications-and-delivery-work.md), not a new semantic
+Specification](change-specifications.md), not a new semantic
 authority. At the granularity needed for the correction, it may contain or
 reference:
 
@@ -170,7 +170,7 @@ reference:
 - a proportional [Change Design](../design/change-design.md);
 - verification conditions and regression context;
 - an Evaluation or testing strategy; and
-- delivery work, sequencing, rollout, rollback, and residual risk.
+- implementation sequencing, rollout, rollback, and residual risk.
 
 Each constituent keeps its own authority. Coordinating several Defect
 corrections does not merge their meanings or lifecycles. A Bugfix Specification

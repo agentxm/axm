@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gen-stack-inspection:v1alpha3",
+  "title": "Gen Stack inspection envelope v1alpha3",
+  "description": "Versioned read-only output for profile-governed Gen Stack inspection and mechanical checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "producer",
+    "snapshot",
+    "input",
+    "discovery",
+    "operation",
+    "data",
+    "diagnostics",
+    "unknowns",
+    "output_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "gen-stack-inspection/v1alpha3"},
+    "producer": {"$ref": "#/$defs/producer"},
+    "snapshot": {"$ref": "#/$defs/snapshot"},
+    "input": {"$ref": "#/$defs/input"},
+    "discovery": {"$ref": "#/$defs/discovery"},
+    "operation": {
+      "enum": [
+        "status",
+        "validate",
+        "check",
+        "list",
+        "show",
+        "search",
+        "evaluation-context",
+        "evaluation-candidates",
+        "snapshot",
+        "diff",
+        "path",
+        "why",
+        "affected-concepts"
+      ]
+    },
+    "data": {},
+    "diagnostics": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/diagnostic"}
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/unknown"}
+    },
+    "output_digest": {"$ref": "#/$defs/digest"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"operation": {"const": "check"}}},
+      "then": {
+        "properties": {
+          "data": {
+            "oneOf": [{"$ref": "#/$defs/checkData"}, {"type": "null"}]
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "snapshot"}}},
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "gen-stack-inspection-v1alpha2.schema.json#/$defs/snapshotData"
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "evaluation-context"}}},
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "gen-stack-inspection-v1alpha2.schema.json#/$defs/evaluationContext"
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"operation": {"const": "evaluation-candidates"}}},
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "gen-stack-inspection-v1alpha2.schema.json#/$defs/evaluationCandidates"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "digest"],
+      "properties": {
+        "name": {"const": "gen-stack-inspection"},
+        "version": {"type": "string", "minLength": 1},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "snapshot_id", "corpus_digest"],
+      "properties": {
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identity", "version"],
+          "properties": {
+            "identity": {"const": "gen-stack"},
+            "version": {"const": "0.5.0"}
+          }
+        },
+        "snapshot_id": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "corpus_digest": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+      }
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {"kind": {"const": "working-tree"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "tree"],
+          "properties": {
+            "kind": {"const": "git-index"},
+            "tree": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "tree", "revision"],
+          "properties": {
+            "kind": {"const": "git-tree"},
+            "tree": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+            "revision": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {"kind": {"enum": ["snapshot-files", "unresolved"]}}
+        }
+      ]
+    },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "okf_result", "structural_result", "semantic_result"],
+      "properties": {
+        "state": {"enum": ["absent", "unsupported", "invalid", "conforming"]},
+        "okf_result": {"enum": ["pass", "fail", "unknown"]},
+        "structural_result": {"enum": ["pass", "fail"]},
+        "semantic_result": {"enum": ["pass", "fail", "unknown"]}
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "severity", "path", "location", "message", "blocking", "recovery"],
+      "properties": {
+        "rule": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["info", "warning", "error"]},
+        "path": {"type": "string"},
+        "location": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["line", "column"],
+              "properties": {
+                "line": {"type": "integer", "minimum": 1},
+                "column": {"type": "integer", "minimum": 1}
+              }
+            }
+          ]
+        },
+        "message": {"type": "string", "minLength": 1},
+        "blocking": {"type": "boolean"},
+        "recovery": {"type": ["string", "null"]}
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim", "reason"],
+      "properties": {
+        "claim": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "provider"],
+      "properties": {
+        "result": {"enum": ["pass", "fail", "unknown"]},
+        "provider": {"type": ["string", "null"]}
+      }
+    },
+    "checkData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "layers", "governed_concepts"],
+      "properties": {
+        "state": {"enum": ["absent", "unsupported", "invalid", "conforming"]},
+        "governed_concepts": {"type": "integer", "minimum": 0},
+        "layers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "okf",
+            "structural_profile",
+            "relationship_projection",
+            "semantic_review",
+            "coverage_or_fitness"
+          ],
+          "properties": {
+            "okf": {"$ref": "#/$defs/layer"},
+            "structural_profile": {"$ref": "#/$defs/layer"},
+            "relationship_projection": {"$ref": "#/$defs/layer"},
+            "semantic_review": {"$ref": "#/$defs/layer"},
+            "coverage_or_fitness": {"$ref": "#/$defs/layer"}
+          }
+        }
+      }
+    }
+  }
+}

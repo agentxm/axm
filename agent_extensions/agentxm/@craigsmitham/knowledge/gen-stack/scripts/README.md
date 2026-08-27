@@ -12,25 +12,39 @@ adequacy, or establish operational fitness.
 - Run from this package or use the paths shown below.
 - Pass the adopting repository root, not its `gen-stack/` directory.
 - The repository must already contain a supported corpus at `gen-stack/` for
-  operations other than `status`, `validate`, and snapshot `diff`.
+  operations other than `status`, `validate`, `check`, and snapshot `diff`.
 - Python 3 and PyYAML must be available, matching the existing profile tools.
+  `check` also requires AXM; Git-backed views require Git.
 
 The examples use `<repository-root>` as a placeholder. Do not replace it with
 a corpus path.
 
-## Check availability
+## Check availability and conformance
 
 ```bash
 python3 knowledge/gen-stack/scripts/gen-stack.py \
   -C <repository-root> status
 python3 knowledge/gen-stack/scripts/gen-stack.py \
   -C <repository-root> validate
+python3 knowledge/gen-stack/scripts/gen-stack.py \
+  -C <repository-root> check
 ```
 
 `status` distinguishes `absent`, `unsupported`, `invalid`, and `conforming`
-and reports which operations are eligible. `validate` keeps OKF conformance,
-structural profile validation, semantic review, and coverage or fitness as
-separate results.
+and reports which operations are eligible. `validate` reports the structural
+profile result while leaving OKF conformance, named semantic review, and
+coverage or fitness `unknown`. `check` is the canonical read-only mechanical
+gate: it runs OKF conformance, Gen Stack structural profile conformance, and
+relationship-projection checks while keeping named semantic review and coverage
+or fitness explicitly `unknown`.
+
+Use `check --view git-index` for the staged tree or `check --revision <ref>` for
+an exact Git tree. No mechanical result supplies the required human or
+institutional semantic review.
+
+`status` is observational and exits zero whenever it can report state. Add
+`status --require conforming` when a caller intentionally wants discovery state
+to act as a gate.
 
 Use `--json` before the subcommand for the complete versioned envelope:
 
@@ -153,17 +167,25 @@ python3 knowledge/gen-stack/scripts/gen-stack.py --json diff before.json after.j
 ## Machine contract and exit behavior
 
 The [contract reference](contracts/README.md),
-[current JSON Schema](contracts/gen-stack-inspection-v1alpha2.schema.json),
+[current JSON Schema](contracts/gen-stack-inspection-v1alpha3.schema.json),
+[mechanical-check example](contracts/mechanical-check.example.json),
 [evaluation-context example](contracts/evaluation-context.example.json), and
 [evaluation-candidates example](contracts/evaluation-candidates.example.json)
 define the machine surface.
 
-The CLI exits zero for a successful eligible query. Validation failure,
-ineligible operations, unresolved references, missing graph paths, and invalid
-snapshot inputs exit nonzero. `status` remains readable in every discovery
-state; consumers should still inspect `discovery.state` and diagnostics rather
-than treating an empty result as usable.
+The CLI exits zero for a successful eligible query. `check` uses stable exit
+meanings: `0` for all mechanical layers passing, `1` for corpus findings, and
+`2` for invocation, Git snapshot, validator, or environment failure. Other
+validation failures, ineligible operations, unresolved references, missing
+graph paths, and invalid snapshot inputs exit nonzero. `status` remains
+readable and exits zero in every discovery state unless `--require conforming`
+is supplied; consumers should still inspect `discovery.state` and diagnostics
+rather than treating an empty result as usable.
 
 Inspection commands never write the corpus. Relationship synchronization
 remains the separate, explicitly mutating `sync-gen-stack-relationships.py`
 workflow.
+
+For hook and CI selection, exact Git inputs, trigger scope, and non-mutating
+repair boundaries, follow [Integrating Gen Stack mechanical validation into
+repository workflows](../src/profile/integrating-mechanical-validation-into-repository-workflows.md).

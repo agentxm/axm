@@ -9,7 +9,7 @@ sources:
     title: Domain-driven design
   - resource: ../profile/gen-stack-application-profile.md#subdomain
     title: Gen Stack application profile — Subdomain
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting subdomains
@@ -54,9 +54,8 @@ guidance, not profile conformance.
 4. Explain the responsibility, important distinctions, classification
    rationale, and material exclusions.
 5. Update each related Bounded Context's
-   `relationships.models-subdomain` assertion. Run
-   run `scripts/sync-gen-stack-relationships.py` from the repository root to materialize
-   `is-modeled-by-bounded-context` here; do not author both endpoint views.
+   `relationships.models-subdomain` assertion. Treat
+   `is-modeled-by-bounded-context` here as a derived reciprocal view.
 6. Update the classification index. Treat a later reclassification as a path
    and concept-ID migration, updating inbound links and the log.
 

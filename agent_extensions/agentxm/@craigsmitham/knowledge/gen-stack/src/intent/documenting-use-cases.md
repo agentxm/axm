@@ -9,7 +9,7 @@ sources:
     title: Goal-oriented behavior and use cases
   - resource: ../profile/gen-stack-application-profile.md#use-case
     title: Gen Stack application profile — Use Case
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting use cases
@@ -48,7 +48,7 @@ expressions. The suggested headings are not additional profile conformance.
 ## Steps
 
 1. Name the use case with an active goal verb phrase, such as “Confirm a
-   reservation,” rather than a screen, endpoint, noun label, or delivery item.
+   reservation,” rather than a screen, endpoint, noun label, or host-native planning record.
    Add the actor to the title only when it distinguishes otherwise different
    goals.
 2. Create its canonical file under `intent/use-cases/` using the `Use Case` type and
@@ -79,8 +79,7 @@ expressions. The suggested headings are not additional profile conformance.
    `enables-use-case`; do not duplicate its reciprocal here. Explain surfaces,
    domain authority, realization, and selected dynamic views in prose where no
    controlled role applies.
-8. From the repository root, run `scripts/sync-gen-stack-relationships.py` so reciprocal
-   views and any Requirement-source backlinks are current.
+8. Treat reciprocal views and Requirement-source backlinks as derived.
 9. Link Requirements that own accepted obligations and contracts, tests,
    executable examples, and runtime evidence that own precise or current
    facts. Review the result with both domain or value participants and

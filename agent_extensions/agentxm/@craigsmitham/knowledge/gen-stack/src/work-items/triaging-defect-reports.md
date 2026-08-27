@@ -70,6 +70,21 @@ The desired outcome is not an empty queue. It is a queue whose cases are safely
 preserved, related, understood to the degree evidence permits, and routed to the
 right decision or investigation.
 
+## Representation
+
+Triage results belong in the native systems that own the affected Defect
+Reports, occurrences, relationships, evidence references, metadata, and next
+routes. Use native fields and relationship types when their semantics match;
+add only the smallest residual explanation needed to preserve disposition,
+uncertainty, authority, and provenance. Do not create a separate Gen Stack
+triage artifact or move tracker-owned facts into the governed `gen-stack/`
+corpus.
+
+When several source systems participate, keep one canonical owner for each
+fact and link the peers. A conversational summary or generated view is a
+projection, not another place to update identity, state, priority, assignment,
+or closure.
+
 ## Apply the common work-item guides
 
 This guide owns the triage comparison, disposition, and next-route decision.
@@ -103,7 +118,8 @@ Use the shared guides for:
 - **Impact is not priority.** Record consequence and scope as evidence; mutate
   priority, assignment, and delivery timing only through their applicable
   authority.
-- **Routing is not corrective authorization.** An investigation, incident,
+- **Routing is not corrective authorization.** Investigation activity, incident
+  response,
   Change Specification, or Bugfix Specification has its own scope and
   authority.
 - **Unknown is a valid disposition component.** Record the evidence or decision
@@ -177,7 +193,7 @@ relationship supported by the evidence.
 | Partly shared behavior with independently actionable differences | Keep separate and record overlap | Name the shared and distinct scope and any coordination needed |
 | One report contains multiple independently triageable discrepancies | Split into distinct reports | Preserve the source report and lineage from each new report |
 | A previously corrected behavior recurs | Relate as a possible regression or recurrence | Preserve the new occurrence, affected version, and prior verification boundary |
-| Reports may share a cause but describe different observable cases | Relate as suspected common cause | Keep each Defect Report; link a later identified Bug or investigation |
+| Reports may share a cause but describe different observable cases | Relate as suspected common cause | Keep each Defect Report; link a later identified Bug or diagnostic finding |
 | Evidence is insufficient to choose | Defer the identity decision | Record the discriminator, evidence, or authority needed to resume |
 
 When consolidating, choose a canonical report for durable reasons such as the
@@ -272,7 +288,8 @@ Update each affected report with:
 
 - triage date and attributable decision-maker or role;
 - disposition and supporting evidence;
-- canonical, duplicate, overlap, split, regression, incident, investigation,
+- canonical, duplicate, overlap, split, regression, incident response,
+  diagnostic activity,
   Bug, or Specification relationships;
 - preserved occurrence and provenance references;
 - current classification and material uncertainty;

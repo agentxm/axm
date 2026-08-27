@@ -3,7 +3,10 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "gen-stack",
-  "version": "1.9.0",
+  "version": "1.10.0",
+  "publish": {
+    "ignore": []
+  },
   "description": "Brief humans on bounded Gen Stack system state and help develop change without making their Requirement or Architecture decisions",
   "keywords": [
     "gen-stack",

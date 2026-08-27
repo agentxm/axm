@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: /profile/gen-stack-application-profile.md#c4-software-system
     title: Gen Stack application profile — C4 Software System
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting C4 software systems
@@ -66,9 +66,8 @@ authoring guidance, not profile conformance.
    Do not repeat their content here. For an external system, link a stable
    external authority only when its context is consequential and available.
 7. Each contained C4 Container owns a
-   `relationships.belongs-to-c4-software-system` assertion. Run
-   run `scripts/sync-gen-stack-relationships.py` from the repository root to materialize
-   `contains-c4-container` here; do not author both roles.
+   `relationships.belongs-to-c4-software-system` assertion. Treat
+   `contains-c4-container` here as a derived reciprocal view.
 8. Link offerings, capabilities, domain concepts, accepted Requirements,
    current implementation evidence, and selected views without making them C4
    children. An accepted invariant or guarantee is a Requirement of an

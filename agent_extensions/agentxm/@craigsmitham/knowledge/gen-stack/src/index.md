@@ -23,7 +23,7 @@ without distributing their relationships across packages.
 
 ## Adoption
 
-- [Adopting Gen Stack](adopting-gen-stack.md) - Use when a greenfield or brownfield repository is establishing its first Gen Stack corpus; achieve day-one OKF and profile conformance while keeping incomplete coverage, realization, and evidence explicit.
+- [Adopting Gen Stack](adopting-gen-stack.md) - Use when a greenfield or brownfield repository is establishing its first Gen Stack corpus; achieve day-one OKF and Gen Stack structural profile conformance while keeping incomplete coverage, realization, and evidence explicit.
 
 ## Reference
 
@@ -66,7 +66,7 @@ without distributing their relationships across packages.
 
 ## Work items
 
-- [Software work items](work-items/) - Tool-neutral concepts and authoring guides for Operational Incident Records, Defect Reports, Change Specifications, and Bugfix Specifications, including their evidence, authority, and delivery relationships.
+- [Software work items](work-items/) - Tool-neutral concepts and authoring guides for Operational Incident Records, Defect Reports, Change Specifications, and Bugfix Specifications, including their evidence, authority, and implementation coordination.
 
 ## Control loop
 

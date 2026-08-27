@@ -7,7 +7,7 @@ status: draft
 sources:
   - resource: /profile/gen-stack-application-profile.md#system-lifecycle
     title: Gen Stack application profile — System Lifecycle
-generated: { by: codex/gpt-5.6, at: "2026-08-26T15:10:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting system lifecycle
@@ -29,7 +29,7 @@ judge the likely pace, duration, and review needs of architecture change.
 Confirm the documented system boundary and the authority that accepts its
 support state and change horizon. Do not infer lifecycle from repository age,
 deployment activity, current implementation, or OKF `status`. If accepted
-meaning is unavailable, report semantic profile conformance as `unknown`
+meaning is unavailable, report named semantic review as `unknown`
 instead of creating a placeholder.
 
 ## Representation

@@ -2,6 +2,33 @@
 
 ## 2026-08-26
 
+- **Gen Stack 0.19.0, skill 1.10.0, and pack 2.11.0 — authority-gated
+  adoption**: Replaced physical-authorship language and the blanket agent
+  adoption refusal with separate semantic ratification, mutation authority,
+  and execution responsibilities. Reduced the adoption Guide to Decide,
+  Encode, and Verify-and-activate phases; centralized mechanical commands in
+  the corpus tools; added a canonical read-only composite check for OKF,
+  structural profile, and relationship projections; added exact working-tree,
+  Git-index, and Git-revision inputs with the versioned `v1alpha3` contract;
+  documented non-mutating pre-commit feedback and authoritative CI in
+  [Integrating Gen Stack mechanical validation into repository
+  workflows](profile/integrating-mechanical-validation-into-repository-workflows.md);
+  and removed the repeated
+  sync command from individual concept Guides. Named semantic review and
+  coverage or fitness remain independent and unknown until their authorities
+  establish them. Profile `0.5.0` is unchanged because governed paths, fields,
+  and structural validation rules did not change.
+- **Gen Stack 0.18.1 and skill 1.9.1 — exact software work-item taxonomy**:
+  Clarified that the taxonomy contains exactly Operational Incident Record,
+  Defect Report, Change Specification, and Bugfix Specification. Investigation
+  is uncertainty-reduction activity, delivery is implementation activity and
+  lifecycle context, host-native tasks remain outside the taxonomy, and
+  title-and-summary revision is a cross-cutting operation. Renamed
+  `work-items/change-specifications-and-delivery-work.md` to
+  [`work-items/change-specifications.md`](work-items/change-specifications.md)
+  and `work-items/preserving-design-and-delivery-context.md` to
+  [`work-items/preserving-technical-context.md`](work-items/preserving-technical-context.md),
+  updating corpus routes, skill instructions, and evaluation cases.
 - **Gen Stack 0.18.0, skill 1.9.0, and pack 2.10.0 — Gen Stack briefs**:
   Added [Creating a Gen Stack
   brief](control-loop/creating-gen-stack-briefs.md), a reader-oriented Guide
@@ -215,8 +242,7 @@
   Specification as its corrective specialization without requiring a new
   document type or corpus collection.
 - **Change work items**: Replaced request-centered work-item guidance with
-  [Change specifications and delivery
-  work](work-items/change-specifications-and-delivery-work.md) and [Writing
+  [Change specifications](work-items/change-specifications.md) and [Writing
   change specifications](work-items/writing-change-specifications.md), while
   keeping raw requests as Signals or source evidence until a candidate change
   has a recognizable boundary.

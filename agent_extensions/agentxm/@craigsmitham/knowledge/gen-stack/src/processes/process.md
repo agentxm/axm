@@ -92,14 +92,14 @@ identities:
 | --- | --- |
 | **Process definition** | The reusable purpose, boundary, activities, roles, relationships, and intended outcome |
 | **Process enactment** | What happened when the Process was performed for particular inputs, events, participants, and conditions |
-| **Work item** | A durable case record preserving lifecycle state, evidence, decisions, authority, and relationships relevant to one occurrence or body of work |
+| **Work item** | One of the four Gen Stack software work-item roles: a durable case record preserving lifecycle state, evidence, decisions, authority, and relationships |
 | **Process evidence** | Observations about an enactment or aggregate performance, no broader than their sources and methods support |
 
 One Process can be enacted many times. An enactment can involve several work
 items, and a work item can participate in several Processes. For example, an
 operational incident can activate coordinated response, contribute evidence to
 a defect-management Process, and later relate to independently governed
-delivery work.
+implementation activity.
 
 ## Process and work item
 

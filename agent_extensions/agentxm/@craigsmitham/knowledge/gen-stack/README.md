@@ -51,6 +51,9 @@ From this package directory, pass the adopting repository root explicitly:
 
 ```bash
 scripts/gen-stack.py --repository-root <repository-root> status
+scripts/gen-stack.py --repository-root <repository-root> check
+scripts/gen-stack.py --repository-root <repository-root> check --view git-index
+scripts/gen-stack.py --repository-root <repository-root> check --revision HEAD
 scripts/gen-stack.py --repository-root <repository-root> evaluation-context
 scripts/gen-stack.py --repository-root <repository-root> evaluation-candidates
 scripts/sync-gen-stack-relationships.py <repository-root>
@@ -75,6 +78,14 @@ location, adoption, indexing, or relationship logic.
 Synchronization edits only the producer-owned `relationships` block, preserves
 unrelated frontmatter, and refuses to write when authoritative assertions are
 malformed or contradictory.
+
+Version `0.19.0` adds the canonical non-mutating mechanical `check`, exact
+working-tree, Git-index, and Git-revision inputs, stable `0`/`1`/`2` gate exit
+semantics, and the `gen-stack-inspection/v1alpha3` machine contract. The
+repository-workflow Guide recommends exact-index pre-commit feedback and
+exact-revision CI enforcement while keeping semantic review, coverage,
+fitness, mutation, and release authority separate. Profile `0.5.0` is
+unchanged because no governed corpus representation rule changed.
 
 Version `0.17.0` adds a policy-neutral `evaluation-candidates` inspection
 operation and harness-integration guidance. The projection derives eligible

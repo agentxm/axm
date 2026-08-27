@@ -9,8 +9,8 @@ sources:
     resource: ../glossary.md
     title: Gen Stack vocabulary and relationship model
   - id: preserving-context
-    resource: preserving-design-and-delivery-context.md
-    title: Preserving design and delivery context in software work items
+    resource: preserving-technical-context.md
+    title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
   at: 2026-08-26T20:18:00Z
@@ -26,8 +26,8 @@ generated:
 
 Use this guide for every new work item and every substantive body revision.
 Pair it with the applicable type-specific guide from [Software work
-items](index.md). For supplied technical reasoning, also use [Preserving design
-and delivery context in software work items](preserving-design-and-delivery-context.md).
+items](index.md). For supplied technical reasoning, also use [Preserving
+technical context in software work items](preserving-technical-context.md).
 
 ## Goal
 

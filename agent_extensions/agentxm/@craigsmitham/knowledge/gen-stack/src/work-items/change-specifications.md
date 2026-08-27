@@ -1,8 +1,8 @@
 ---
 type: Explanation
-title: Change specifications and delivery work
-description: How bounded Change Specifications compose source context, authority, Requirements, Architecture, Change Design, verification, and delivery without taking over their meanings or lifecycles.
-tags: [change-specification, specification, system-change, architecture-change, requirements, change-design, delivery-work, traceability, work-item]
+title: Change specifications
+description: How bounded Change Specifications compose source context, authority, Requirements, Architecture, Change Design, verification, and implementation coordination without taking over their meanings or lifecycles.
+tags: [change-specification, specification, system-change, architecture-change, requirements, change-design, implementation, traceability, work-item]
 status: draft
 sources:
   - id: gen-stack-vocabulary
@@ -22,7 +22,7 @@ generated:
   at: 2026-08-26T20:14:40Z
 ---
 
-# Change specifications and delivery work
+# Change specifications
 
 > **Authority:** The [Gen Stack vocabulary and relationship
 > model](/glossary.md) is authoritative for canonical terms and relationships.
@@ -34,8 +34,8 @@ generated:
 A **Change Specification** is a bounded composition used to shape, coordinate,
 and assess a proposed or authorized change to the System or its Architecture.
 It can connect source context and Intent, applicable or candidate Requirements,
-affected Architecture, Change Design, verification context, and delivery work
-without becoming the authority for all of them.
+affected Architecture, Change Design, verification context, and implementation
+coordination without becoming the authority for all of them.
 
 The word **change** makes the scope broad enough for behavior, quality,
 constraint, data, dependency, migration, removal, and structural Architecture
@@ -43,25 +43,28 @@ work. The word **Specification** means that those representations have been
 assembled around one bounded change. It does not mean every included proposal
 is accepted or that delivery is authorized.
 
-## Four work-item roles
+## Exactly four work-item roles
 
-The Gen Stack distinguishes four first-class software work-item roles:
+The Gen Stack software work-item taxonomy contains exactly four first-class
+roles and no others:
 
 | Work item | Begins when | Primary responsibility |
 | --- | --- | --- |
 | Operational Incident Record | Current or imminent service impact meets the local threshold for coordinated response | Impact, response, service state, recovery, communication, and follow-up |
-| Defect Report | An Observation, received concern, or static finding may indicate a Defect | Signal, source, expectation, evidence, investigation, classification, disposition, and Provenance |
-| Change Specification | A candidate or selected system or Architecture change is bounded well enough to compose and evaluate | Change context, authority state, Requirements and Architecture impact, Change Design, verification, and delivery relationships |
-| Bugfix Specification | Investigation has identified a Bug and an authorized decision has selected corrective change | Corrective scope, linked Defect Reports, unchanged expectations, regression context, verification, and delivery |
+| Defect Report | An Observation, received concern, or static finding may indicate a Defect | Signal, source, expectation, evidence, diagnostic activity, classification, disposition, and Provenance |
+| Change Specification | A candidate or selected system or Architecture change is bounded well enough to compose and evaluate | Change context, authority state, Requirements and Architecture impact, Change Design, verification, and implementation coordination |
+| Bugfix Specification | Investigation has identified a Bug and an authorized decision has selected corrective change | Corrective scope, linked Defect Reports, unchanged expectations, regression context, verification, and implementation coordination |
 
 A Bugfix Specification is a specialized Change Specification, but it remains a
 distinct work-item type because it has additional preconditions and must retain
 the provenance of the Bug and its Defect Reports. Neither an Incident Record
 nor a Defect Report matures into a Specification by being retitled.
 
-Investigations, tasks, stories, epics, and other planning units may still exist
-under their host workflows. They do not need new Gen Stack meanings merely
-because they are represented in the same tracker.
+Investigation is uncertainty-reduction activity during Orientation or within
+one of these four roles; it is not a work-item type or separately prescribed
+artifact. Tasks, stories, epics, and similar planning records may exist under
+host workflows, but they are host-native mechanics outside the Gen Stack
+taxonomy.
 
 ## A request is input, not automatically a Specification
 
@@ -79,7 +82,7 @@ Create a Change Specification only when a candidate change has a recognizable
 boundary: the affected system or Architecture context, intended change outcome,
 material exclusions, and current decision state can be stated without
 inventing them. If the only known fact is an unbounded desire, preserve the
-Signal and continue Orientation or an investigation instead.
+Signal and continue Orientation with a bounded investigation activity instead.
 
 This boundary does not require authorization before a Specification can exist.
 A proposed Change Specification can support a decision, provided it labels its
@@ -98,7 +101,6 @@ Each constituent answers a different question:
 | Architecture and ADRs | Durable subjects, responsibilities, boundaries, relationships, and accepted significant choices | Delivery state |
 | Change Design | The bounded technical response, rationale, tradeoffs, risks, and unresolved questions | Acceptance of a new Requirement or Architecture change |
 | Change Specification | Composition and navigation for the bounded change | Common authority over its constituents |
-| Delivery item or task | Assignment, sequencing, dependencies, and progress | Desired-state or Architecture authority |
 | Evaluation | Assessment method, execution, observations, and evidence | Acceptance or revision of desired state |
 
 The Change Specification may quote or summarize enough context for coherent
@@ -145,7 +147,7 @@ Signal, Observation, source request, or environmental change
                                          │
                           one-to-many and many-to-one
                                          ▼
-                              Delivery items and tasks
+                         Implementation activity
                                          │
                                          ▼
                          Implementation and Evaluation evidence
@@ -155,7 +157,7 @@ Signal, Observation, source request, or environmental change
 
 Several Signals can motivate one Change Specification. One broad change can
 produce several Specifications with independent delivery or rollback. One
-Specification can coordinate several tasks, and one accepted Requirement or
+Specification can coordinate several host-native tasks, and one accepted Requirement or
 Architecture subject can constrain many Specifications. Preserve those links
 instead of forcing ticket conversion or one-to-one hierarchy.
 
@@ -179,7 +181,8 @@ not by a tracker label or the implementation files expected to change.
 ## Tracker labels do not settle meaning
 
 Issue trackers use labels such as feature, enhancement, story, epic, task,
-idea, proposal, or project at different levels of maturity and hierarchy. The
+idea, proposal, or project at different levels of maturity and hierarchy.
+These are host-native planning mechanics, not Gen Stack work-item roles. The
 host label determines workflow mechanics; it does not determine whether the
 item contains a bounded change, an accepted Requirement, an Architecture
 decision, or delivery authority.
@@ -193,7 +196,7 @@ Use [Managing work-item metadata and
 labels](managing-work-item-metadata-and-labels.md) to project that meaning into
 host fields, and [Maintaining work-item identity, relationships, and
 lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) to
-manage the Specification and its related delivery items without forcing a
+manage the Specification and its related host-native planning records without forcing a
 ticket-conversion pipeline.
 
 ## Choosing another artifact
@@ -206,12 +209,13 @@ Use another artifact when:
   [Defect Report](failures-defects-and-defect-reports.md);
 - investigation has identified a Bug and correction is authorized — create a
   [Bugfix Specification](bugs-and-bugfix-specifications.md);
-- only uncertainty reduction is authorized — use an investigation under the
-  host's workflow;
+- only uncertainty reduction is authorized — continue Orientation or conduct a
+  bounded investigation within the existing case;
 - a request remains too unbounded to name a candidate change — retain it as a
   Signal or source record; or
 - the change is already decomposed and only execution remains — use the host's
-  task or delivery item and link its governing Specification.
+  native planning mechanics and link the governing Specification; those
+  records remain outside the Gen Stack taxonomy.
 
 For the authoring procedure and adaptable template, see
 [Writing change specifications](writing-change-specifications.md).

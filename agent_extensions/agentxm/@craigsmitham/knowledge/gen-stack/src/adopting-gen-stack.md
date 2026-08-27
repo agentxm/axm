@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Adopting Gen Stack
-description: Use when a greenfield or brownfield repository is establishing its first Gen Stack corpus; achieve day-one OKF and profile conformance while keeping incomplete coverage, realization, and evidence explicit.
+description: Use when a greenfield or brownfield repository is establishing its first Gen Stack corpus; achieve day-one OKF and Gen Stack structural profile conformance while keeping incomplete coverage, realization, and evidence explicit.
 tags: [gen-stack, adoption, okf, profile-conformance, greenfield, brownfield, architecture, requirements, evaluations]
 status: draft
 sources:
@@ -15,7 +15,7 @@ sources:
     title: Deriving evaluation coverage in harnesses
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T23:50:45Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Adopting Gen Stack
@@ -35,10 +35,10 @@ truthful statements about what remains uncovered, unrealized, or unevaluated.
 ## Goal
 
 Create `<repository-root>/gen-stack/` as an OKF v0.2 bundle that explicitly
-adopts the supported Gen Stack profile and passes structural validation and a
-named semantic review. Do not claim adoption while the corpus is only a
-scaffold or while a required root concept contains invented, candidate, or
-unknown meaning.
+adopts the supported Gen Stack profile and passes OKF conformance, Gen Stack
+structural profile conformance, and a named semantic review. Do not claim
+adoption while the corpus is only a scaffold or while a required root concept
+contains invented, candidate, or unknown meaning.
 
 Day-one conformance is deliberately narrower than complete system knowledge or
 operational maturity:
@@ -81,7 +81,10 @@ Before creating the adopted corpus, identify:
   lifecycle, ownership, Architecture Decision policy, assurance posture,
   Evaluation Protocols, Architecture, and Requirements;
 - the authoritative or evidentiary sources available to those decisions; and
-- the day-one coverage boundary and known material omissions.
+- the day-one coverage boundary and known material omissions;
+- who authorizes repository mutation; and
+- whether a human, authorized agent, or deterministic tool will execute each
+  step.
 
 The same person, role, or process may hold several authorities, but acceptance
 must be explicit. Repository edit permission, implementation history, tests,
@@ -91,7 +94,13 @@ Develop unresolved meaning in a conversation, work item, review, or another
 native decision surface. Do not use a partially created governed concept as
 the candidate-development workspace.
 
-## 1. Bind the adoption scope and decision authorities
+## Phase 1 — Decide what the corpus means
+
+Human or institutional authorities ratify the governed meaning. Humans and
+agents may gather evidence, develop candidates, and prepare decision support,
+but no executor may encode unresolved meaning as accepted.
+
+### Bind the adoption scope and decision authorities
 
 State the System that will be documented, the repository boundary, the
 profile version, the planned adoption change, and the authority for each
@@ -103,12 +112,12 @@ may be incomplete while it is being assembled, but consumers must not receive
 an adoption declaration until the complete required corpus is ready for all
 validation gates.
 
-## 2. Orient from the applicable starting state
+### Orient from the applicable starting state
 
 Choose one evidence route, then converge on the common ratification and
 authoring steps.
 
-### Greenfield route
+#### Greenfield route
 
 Use accepted or candidate Intent, external constraints, scenarios, risks,
 prototypes, proposed operating practices, evaluation design, and ownership
@@ -123,7 +132,7 @@ create every optional concept type for symmetry, and do not require an
 Implementation to exist before accepting durable desired-state or governance
 meaning.
 
-### Brownfield route
+#### Brownfield route
 
 Inventory material existing claims rather than migrating documents one for
 one. One legacy document may contain several kinds of meaning with different
@@ -159,19 +168,13 @@ derived or historical. Defer only unassessed or unaccepted meaning, never a
 known accepted obligation. Do not leave two independently maintained local
 normative formulations.
 
-## 3. Ratify the required cross-cutting kernel
+### Ratify the required cross-cutting kernel
 
 Both routes must produce accepted, bounded meaning for every required root
-concept. Use the profile's Author route for each concept instead of copying a
-template from this Guide.
-
-| Required path | Ratify | Author route |
-| --- | --- | --- |
-| `system.md` | System purpose, boundary, material exclusions, and environmental relationships | [Documenting systems](/governance/documenting-systems.md) |
-| `lifecycle.md` | Support state, change horizon, expected evolution, and reassessment triggers | [Documenting system lifecycle](/governance/documenting-system-lifecycle.md) |
-| `ownership.md` | Stable accountability, stewardship boundary, continuity, and escalation | [Documenting system ownership](/governance/documenting-system-ownership.md) |
-| `decisions.md` | ADR threshold, acceptance and supersession authority, record location, minimum content, and reconsideration | [Documenting architecture decision policies](/governance/documenting-architecture-decision-policies.md) |
-| `assurance.md` | Required confidence, evidence authorities, review or approval routes, and reassessment triggers | [Documenting system assurance](/governance/documenting-system-assurance.md) |
+concept. Ratify the System boundary, lifecycle, ownership, Architecture Decision
+policy, and assurance posture. Use the profile's Author routes for their exact
+paths, representation, and concept-specific guidance; do not copy a template
+from this Guide.
 
 Required does not mean verbose. A small system may have a concise lifecycle,
 one durable stewardship role, no current local ADRs under an accepted
@@ -184,7 +187,7 @@ If an authority cannot truthfully accept one of these concepts, adoption is
 blocked. Do not replace the missing decision with `unknown`, `TBD`, an empty
 section, a guessed owner, or a generic policy.
 
-## 4. Admit Evaluation Protocols and navigation
+### Ratify Evaluation Protocols and navigation
 
 Create `evaluations/index.md` as navigation. Admit each durable accepted
 assessment claim through [Designing Evaluation
@@ -193,19 +196,10 @@ role-specific path, fields, and headings from the profile. Omit
 `evaluations/protocols/` when no Protocol is yet accepted; report the resulting
 coverage gaps separately rather than inventing a portfolio.
 
-For each admitted Protocol, establish:
-
-- one role and its matching Requirement, Architecture, or Implementation
-  targets;
-- a bounded claim, assessment method or sampling strategy, judgment procedure,
-  and evidence lifecycle;
-- how repository-native Cases, Suites, Executions, Results, and Reports link to
-  the Protocol;
-- how evidence is found by Architecture subject, Requirement ID, Protocol role,
-  or Implementation Unit;
-- where Executions, Results, and Reports remain authoritative;
-- how provenance, `unknown`, failures, and harness errors are preserved; and
-- stewardship, refresh, and retirement triggers.
+For each admitted Protocol, ratify its role and targets, bounded claim,
+assessment and judgment, evidence lifecycle, and stewardship. Keep executable
+Cases, Suites, Executions, Results, and Reports repository-native, linked, and
+honest about `unknown`, failure, and harness errors.
 
 When repository tooling can make the assessment repeatable, prefer
 harness-assisted coverage derivation. Follow [Deriving evaluation coverage in
@@ -223,7 +217,7 @@ or turn an absent Result into a pass. A conforming corpus can have sparse or no
 Protocols while coverage, evidence state, and outcomes remain explicitly
 incomplete or unknown.
 
-## 5. Select optional day-one coverage
+### Select optional day-one coverage
 
 Admit an optional Intent or Architecture concept only when its meaning is
 accepted and useful within the declared day-one coverage. Admit every known
@@ -238,36 +232,21 @@ candidate meaning, return to the shared development Guide. Do not create empty
 collections or speculative concepts to resemble the profile's complete type
 inventory.
 
-Every admitted active Requirement must have:
-
-- one bundle-unique, never-reused identifier;
-- one requirement type and `active` lifecycle state;
-- exactly one eligible, maintained Architecture subject;
-- one canonical normative expression and a rationale;
-- truthful source, derivation, normative-reference, and relationship metadata
-  when applicable; and
-- no competing governed normative formulation.
-
 Use [Documenting requirements](/architecture/requirements/documenting-requirements.md)
-and its focused type Guide. Candidate obligations remain outside the corpus
-and receive no canonical identifiers.
+and its focused type Guide. The profile owns the exact fields and representation;
+this workflow requires only that each accepted obligation have one stable
+identity, one eligible Architecture subject, and one normative owner. Candidate
+obligations remain outside the corpus and receive no canonical identifiers.
 
-## 6. Assemble the governed corpus
+## Phase 2 — Encode accepted meaning
 
-Follow the application profile rather than reconstructing its layout here.
-Within one coherent adoption change:
-
-1. create `gen-stack/` at the repository root as an OKF v0.2 bundle;
-2. author the five required root concepts and required Evaluation navigation,
-   plus only accepted Evaluation Protocols;
-3. author only the accepted optional concepts and Requirements selected for
-   day one;
-4. add only navigation earned by maintained concepts and keep every concept
-   reachable from the root;
-5. synchronize controlled relationship projections from their authoritative
-   assertions; and
-6. make `gen-stack/index.md` explicitly adopt and link the supported Gen Stack
-   profile version.
+A human or authorized agent may now encode the ratified meaning in one coherent
+repository change. Follow the application profile for exact layout and
+representation: create the root bundle and required kernel, add only accepted
+optional concepts, keep every concept reachable, and declare supported-profile
+adoption in `gen-stack/index.md`. Use deterministic tools for derived
+relationship projections and other mechanically decidable transforms; they do
+not decide source meaning.
 
 Keep Implementation, Evaluation Suites, Cases that do not need governed
 identity, Executions, Results, Reports, Signals, Observations, work items, and
@@ -275,17 +254,15 @@ operational records in their repository-native authorities. Link them where
 their meaning and host permit; do not move or copy them merely to make the
 corpus appear complete.
 
-## 7. Validate before activation
+## Phase 3 — Verify and activate
 
-Run the validation layers independently against the adopting repository:
-
-1. the applicable OKF v0.2 validator directly against `gen-stack/`;
-2. `scripts/sync-gen-stack-relationships.py <repository-root> --check` from
-   the maintained Gen Stack knowledge package;
-3. `scripts/validate-gen-stack-profile.py <repository-root>` from that
-   package; and
-4. a named manual semantic review against the glossary, profile, accepted
-   sources, and applicable Author Guides.
+Run the canonical non-mutating mechanical `check`, then run named semantic
+review and any coverage or fitness assessment as separate result layers. The
+corpus tool contract at `knowledge/gen-stack/scripts/README.md` owns the exact
+command and states what it can and cannot establish. The mechanical check
+reports native OKF, Gen Stack structural-profile, and relationship-projection
+results separately; it does not perform semantic review or assess coverage or
+fitness.
 
 Resolve every OKF or profile error before adoption. Structural success is not
 semantic review evidence. The semantic reviewer confirms that required
@@ -298,13 +275,21 @@ merge the adoption declaration only with the complete coherent corpus change;
 do not expose an `absent`, `unsupported`, or `invalid` repository state as an
 adopted corpus.
 
-## 8. Report adoption and remaining work separately
+After adoption, use [Integrating Gen Stack mechanical validation into
+repository workflows](profile/integrating-mechanical-validation-into-repository-workflows.md)
+to add exact-index pre-commit feedback and exact-revision CI enforcement. This
+is recommended operational hardening, not an additional profile-conformance
+rule. CI remains authoritative, hooks remain non-mutating, and semantic review
+retains its named human or institutional owner.
+
+### Activate and report remaining work separately
 
 Record a completion result that keeps these claims independent:
 
 ```text
 OKF conformance: pass | fail
 Gen Stack structural profile conformance: pass | fail
+Relationship projection: pass | fail
 Named semantic review: pass | fail | unknown
 Declared corpus coverage: <bounded statement>
 Known coverage gaps: <identified gaps or none known within the assessed scope>
@@ -313,7 +298,7 @@ Protocol coverage, evidence state, and outcomes: <separate role-specific project
 Operational fitness or release decision: <separate authority and result | not assessed>
 ```
 
-Strict day-one adoption requires the first three results to pass. The remaining
+Strict day-one adoption requires the first four results to pass. The remaining
 results may be incomplete, mixed, unknown, or not assessed without weakening
 those conformance claims. They must not be omitted when that omission could be
 mistaken for completeness or success.
@@ -338,6 +323,7 @@ governed corpus, and reassess the kernel when its named triggers occur.
 - Every admitted Requirement has one eligible subject and one normative owner.
 - Peer Implementation, Evaluation execution and evidence, Signal, Observation,
   work-item, and operational authorities remain repository-native.
-- OKF, structural profile, and named semantic-review results all pass.
+- OKF, structural profile, relationship projection, and named semantic-review
+  results all pass.
 - Coverage, realization, satisfaction, and fitness remain separate and retain
   `unknown` or failure where evidence requires it.

@@ -1,6 +1,6 @@
 ---
 name: gen-stack
-description: Assists humans with bounded Gen Stack system explanation and software change by creating reader-oriented current-state briefs; orienting Signals and evidence; developing candidate Intent, Requirement lifecycle changes, Architecture, Evaluation Protocols, and Change Design; surfacing meaning gaps; drafting software work items; and recording explicitly accepted concepts in an established supported-profile `gen-stack/` corpus. Use for “brief me on” requests, defects, incidents, Change or Bugfix Specifications, requirements, architecture, ADRs, capabilities, features, surfaces, DDD, C4, governance, evaluation protocols, brownfield extraction, and greenfield design. Use also to recognize unsupported initial corpus setup, adoption, connection, federation, or migration and stop without mutation. Not for autonomous acceptance, implementation, executable test authoring, evaluation execution, backlog management, post-incident review, or release authorization.
+description: Assists humans with bounded Gen Stack system explanation and software change by creating reader-oriented current-state briefs; orienting Signals and evidence; developing candidate Intent, Requirement lifecycle changes, Architecture, Evaluation Protocols, and Change Design; surfacing meaning gaps; drafting software work items; recording explicitly accepted concepts; and guiding or executing authority-gated Gen Stack adoption and migration. Use for “brief me on” requests, adoption, migration, defects, incidents, Change or Bugfix Specifications, requirements, architecture, ADRs, capabilities, features, surfaces, DDD, C4, governance, evaluation protocols, brownfield extraction, and greenfield design. Not for autonomous acceptance, implementation, executable test authoring, evaluation execution, backlog management, post-incident review, or release authorization.
 ---
 
 # Gen Stack
@@ -84,24 +84,38 @@ the preferred option appear inevitable. A separately authorized implementation
 may delegate local, reversible choices that remain within accepted Requirements
 and Architecture; that does not authorize new desired state or durable shape.
 
-## Unsupported skill-executed adoption boundary
+## Adoption authority boundary
 
-Initial Gen Stack corpus setup, profile adoption, connection, federation, and
-migration are intentionally unsupported by this skill. The knowledge bundle's
-`knowledge/gen-stack/src/adopting-gen-stack.md` Guide supports a human-led
-adoption workflow; its existence does not authorize this skill to execute or
-mutate that workflow. For such a request:
+Initial setup, profile adoption, connection, and migration are authority-gated,
+not blanket-refused. Read `knowledge/gen-stack/src/adopting-gen-stack.md` and
+keep three responsibilities separate:
 
-1. identify the unsupported operation precisely;
-2. preserve existing files and external state;
-3. do not scaffold, migrate, add profile adoption, or route to a retired skill;
-4. identify the human-led adoption Guide without turning it into an agent
-   adoption plan, and explain that established supported-profile authoring
-   remains available after adoption; and
-5. stop without mutation.
+1. a human or institutional authority ratifies the System boundary, required
+   governance kernel, admitted desired state, and semantic-review result;
+2. the user's request, repository policy, and host controls authorize mutation;
+3. a human, authorized agent, or deterministic tool executes within both
+   boundaries.
 
-A read-only assessment may describe whether the precondition is satisfied, but
-must not turn into an adoption plan or change.
+In every adoption readiness result or closeout, report these explicitly as
+**Meaning authority**, **Mutation authority**, and **Executor**, each resolved or
+still needed. Also report **OKF conformance**, **Gen Stack structural profile
+conformance**, **Relationship projection**, and **Named semantic review** as
+separate pass, fail, or unknown results. Do not let a list of subject-matter
+reviewers obscure the authority split or let mechanical results imply semantic
+acceptance.
+
+An agent may inspect the starting state, organize evidence, develop candidates,
+prepare decisions, encode explicitly ratified meaning, synchronize derived
+projections, and run computational checks. Stop before governed mutation while
+any required meaning is unresolved or mutation is unauthorized. Do not create a
+placeholder corpus containing guessed, candidate, `unknown`, or empty required
+concepts. Do not claim activation until OKF conformance, Gen Stack structural
+profile conformance, relationship projection, and a named semantic review all
+pass.
+
+Federation or another layout the supported profile cannot represent remains
+unsupported. Identify that exact limitation without turning ordinary single-
+corpus adoption or migration into an unsupported operation.
 
 ## Route the work
 
@@ -118,7 +132,8 @@ missing meaning, or incoherence is found.
 
 Answer the reader's question through only the relevant Intent, Architecture,
 Requirement, Implementation, Evaluation, operation, governance, and Provenance
-lenses. Keep OKF and profile conformance, documentation coverage and fitness,
+lenses. Keep OKF conformance, Gen Stack structural profile conformance,
+documentation coverage and fitness,
 semantic coherence, implementation realization, Evaluation coverage, evidence
 state, bounded outcomes, and operational fitness distinct. Link claims to their
 sources, preserve inference and unknowns, and end with proportionate options
@@ -130,9 +145,10 @@ performing it.
 
 ### Software work item
 
-Use for a tracker-ready or persisted Operational Incident Record, Defect
-Report, Change Specification, Bugfix Specification, or work-item title and
-summary. Read `knowledge/gen-stack/src/work-items/index.md` when classification
+Use for a tracker-ready or persisted work item in exactly one of four Gen Stack
+roles: Operational Incident Record, Defect Report, Change Specification, or
+Bugfix Specification. Title and summary revision is a cross-cutting authoring
+operation, not a fifth role. Read `knowledge/gen-stack/src/work-items/index.md` when classification
 is uncertain; otherwise read the matching Guide:
 
 - `recording-operational-incidents.md` for current or imminent qualifying
@@ -158,7 +174,7 @@ narrowest applicable common guides:
   assigning, prioritizing, changing workflow state, batching, or mutating an
   external tracker.
 
-Add `preserving-design-and-delivery-context.md` when source material contains
+Add `preserving-technical-context.md` when source material contains
 technical reasoning. Add
 `control-loop/analyzing-requirement-impact.md` for material desired-state or
 Evaluation impact. If that analysis identifies a candidate addition, revision,
@@ -187,6 +203,18 @@ When the requested meaning and its authority are already explicit, go directly
 to the applicable profile Author route. Do not add candidate-development
 analysis, a review checkpoint, or a decision gate merely because those tools
 exist.
+
+### Adoption or migration
+
+Use when the requested outcome establishes the first supported corpus, moves an
+accepted corpus to the supported profile, or connects accepted sources to it.
+Read the adoption Guide and follow its Decide, Encode, and Verify-and-activate
+phases. Candidate development and read-only readiness assessment may proceed
+before ratification. Encode only after every required kernel decision and each
+admitted concept are explicitly accepted and repository mutation is authorized.
+Use deterministic tooling for OKF, structural profile, and relationship-
+projection checks; preserve named semantic review and coverage or fitness as
+separate results. A structurally conforming scaffold is not adopted.
 
 ### Change development and orientation
 
@@ -239,12 +267,14 @@ artifact is allowed; performing the adjacent work is not.
    is material, state its evidence, impact, stable options or candidate repair,
    labeled recommendation, applicable authority, and `blocking` or
    `non-blocking` status. A missing document is not automatically a Defect.
-4. **Choose the primary route.** Select the work-item, established-corpus, or
-   change-development branch. For established-corpus work, inspect exactly
-   `<AXM-scope-root>/gen-stack/index.md` and verify its OKF and profile
-   declarations before reading or editing corpus concepts. If the fixed path
-   is absent, misplaced, or invalid, or the request is unsupported adoption
-   work, apply that boundary before mutation.
+4. **Choose the primary route.** Select the work-item, established-corpus,
+   adoption-or-migration, or change-development branch. For established-corpus
+   work, inspect exactly `<AXM-scope-root>/gen-stack/index.md` and verify its OKF
+   and profile declarations before reading or editing corpus concepts. If the
+   fixed path is absent, misplaced, or invalid, route an adoption request
+   through the adoption authority boundary before mutation. For ordinary
+   established-corpus authoring, report the unmet precondition without
+   inventing adoption scope.
 5. **Classify maturity and impact.** Mark facts, hypotheses, candidates,
    recommendations, proposals, and accepted decisions. Identify Requirement,
    Architecture, Implementation, Evaluation, operational, and provenance
@@ -348,8 +378,10 @@ explicitly when a batch only partially persists.
 Before editing, verify explicit OKF v0.2 and supported-profile adoption at
 `<AXM-scope-root>/gen-stack/index.md`. The fixed directory is a discovery
 signal, not adoption authority. If the corpus is absent, at the repository
-root, elsewhere, or invalid, apply the unsupported adoption boundary without
-searching for or migrating another corpus. Then:
+root, elsewhere, or invalid, do not silently search for or migrate another
+corpus. Route an explicit adoption or migration request through the adoption
+authority boundary; otherwise report the unmet established-corpus precondition.
+Then:
 
 - resolve canonical meaning from the glossary and representation from the
   profile;
@@ -385,12 +417,11 @@ Follow the selected Author Guide and exact profile structure. For one accepted
 Requirement, put the normative expression in `## Requirement` and its reason in
 `## Rationale`; identify the external target, version, conformance class or
 profile, applicability, and deviations when incorporating a normative
-specification. Run the established OKF check against
-`<AXM-scope-root>/gen-stack` and
-`knowledge/gen-stack/scripts/validate-gen-stack-profile.py <AXM-scope-root>`
-when their provenance and effects fit the request. Report OKF conformance,
-profile conformance, and coverage or satisfaction claims separately; preserve
-`unknown`.
+specification. Run
+`knowledge/gen-stack/scripts/gen-stack.py -C <AXM-scope-root> check` when its
+provenance and effects fit the request. It owns the canonical read-only OKF,
+structural profile, and relationship-projection gate; named semantic review and
+coverage or fitness remain separate. Preserve every `unknown`.
 
 Completion means the requested analysis, draft, authorized work item, or
 accepted corpus concept exists at the correct authority boundary; material

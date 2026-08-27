@@ -9,7 +9,7 @@ sources:
     title: Domain-driven design
   - resource: /profile/gen-stack-application-profile.md#context-map
     title: Gen Stack application profile — Context Map
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting context maps
@@ -56,8 +56,8 @@ order is authoring guidance, not profile conformance.
 5. Identify consistency, compatibility, failure, recovery, and coordination
    concerns. Link accepted Requirements on eligible Bounded Context or
    structural subjects; do not make the Context Map their normative owner.
-6. From the repository root, run `scripts/sync-gen-stack-relationships.py` to materialize
-   `participates-in-context-map` on each context.
+6. Treat `participates-in-context-map` on each context as a derived reciprocal
+   view.
 7. Explain accepted consequences and link current interface, schema, test, or
    runtime evidence without copying it. Update
    `architecture/domains/context-maps/index.md`.

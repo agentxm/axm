@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: /profile/gen-stack-application-profile.md#c4-component
     title: Gen Stack application profile — C4 Component
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting C4 components
@@ -68,8 +68,8 @@ conformance.
 6. Inherit lifecycle, ownership, decision-policy, and assurance context through
    the owning container from the system's required root concepts. Record only
    a consequential exception.
-7. From the repository root, run `scripts/sync-gen-stack-relationships.py` to materialize
-   `belongs-to-c4-container` here and `contains-c4-component` on the Container.
+7. Treat `belongs-to-c4-container` here and `contains-c4-component` on the
+   Container as derived reciprocal views.
 8. Link domain authority, capabilities, features, accepted Requirements, code
    evidence, and selected component views. Explain the component's structural
    response to linked invariant or guarantee Requirements without restating

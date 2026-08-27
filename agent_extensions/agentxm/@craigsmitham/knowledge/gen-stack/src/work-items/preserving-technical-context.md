@@ -1,7 +1,7 @@
 ---
 type: Guide
-title: Preserving design and delivery context in software work items
-description: Use when supplied design or delivery context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
+title: Preserving technical context in software work items
+description: Use when supplied technical context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
 tags: [work-item-context, specification, change-specification, bugfix-specification, technical-design, architecture-sketch, code-sketch, implementation-plan, testing-strategy, decision-status, issue-body]
 status: draft
 sources:
@@ -25,7 +25,7 @@ generated:
   at: 2026-08-26T20:14:40Z
 ---
 
-# Preserving design and delivery context in software work items
+# Preserving technical context in software work items
 
 > **Authority:** This Guide applies the canonical meaning in the [Gen Stack
 > vocabulary and relationship model](/glossary.md). When it authors a
@@ -34,10 +34,10 @@ generated:
 > representation. This Guide supports action and adds neither semantic authority
 > nor profile-conformance rules.
 
-Use this guide when source material for a Defect Report, Change Specification,
-or other work item already contains technical investigation, design, planning,
-or test detail. It governs faithful capture, not invention or approval of that
-detail.
+Use this guide when source material for any of the four Gen Stack work-item
+roles already contains technical investigation, design, implementation
+planning, or test detail. It governs faithful capture, not invention or
+approval of that detail.
 
 When the response still needs to be reasoned through, use [Developing a Change
 Design](../design/developing-a-change-design.md) first. A Change Design is the
@@ -47,21 +47,21 @@ preserves it when a work item is the chosen durable home.[^change-design]
 Use [Preserving evidence and authority in software work
 items](preserving-work-item-evidence-and-authority.md) for the source inventory,
 claim maturity, safe evidence, and decision-authority mechanics. This guide
-specializes that foundation for technical design and delivery material.
+specializes that foundation for technical design and implementation material.
 
 ## Representation
 
-Use the work item's native fields and links first, then retain residual design
-and delivery meaning in this preferred order: context and scope, applicable and
+Use the work item's native fields and links first, then retain residual
+technical meaning in this preferred order: context and scope, applicable and
 candidate Requirements, affected Architecture and decisions, Change Design,
-verification context, delivery work, then open questions and authority. The
+verification context, implementation coordination, then open questions and authority. The
 compositions below are adaptable body fallbacks, not mandatory templates.
 Omit unsupported sections, link independent authorities, and never duplicate
 host fields or promote a sketch, proposal, or plan through formatting alone.
 
 ## Core rule
 
-**Preserve before prescribing.** A work-item type defines the artifact's
+**Preserve before prescribing.** A work-item role defines the artifact's
 primary meaning and minimum useful content; it is not a ceiling on its body.
 When supplied or discoverable source material already contains findings,
 constraints, decisions, proposals, architecture or code sketches,
@@ -82,8 +82,8 @@ constituent rather than flattening everything into undifferentiated prose.
 
 | Scope name | Typical composition | Boundary to preserve |
 | --- | --- | --- |
-| Change Specification | Motivating Signals, Observations, source context, or Intent; affected System or Architecture; applicable or candidate Requirements; Change Design; verification context; delivery work | A proposed change is not accepted or authorized merely because it appears in the Specification |
-| Bugfix Specification | Linked Defect reports; Bug and diagnosis synopsis; correction decision and authority; applicable or candidate Requirements; unchanged constraints; Change Design; regression context; delivery work | The Specification is separate corrective work; it does not replace or retitle its provenance-bearing Defect reports |
+| Change Specification | Motivating Signals, Observations, source context, or Intent; affected System or Architecture; applicable or candidate Requirements; Change Design; verification context; implementation coordination | A proposed change is not accepted or authorized merely because it appears in the Specification |
+| Bugfix Specification | Linked Defect reports; Bug and diagnosis synopsis; correction decision and authority; applicable or candidate Requirements; unchanged constraints; Change Design; regression context; implementation coordination | The Specification is separate corrective work; it does not replace or retitle its provenance-bearing Defect reports |
 
 Use headings, labels, and links to distinguish constituents. An adaptable
 work-item composition is:
@@ -96,7 +96,7 @@ work-item composition is:
 ### Affected Architecture and decisions
 ### Change Design
 ### Verification context
-### Delivery work
+### Implementation coordination
 ### Open questions and authority
 ```
 
@@ -113,19 +113,19 @@ These dimensions can vary independently:
 
 | Dimension | Examples |
 | --- | --- |
-| Artifact class | Defect Report, Change Specification, Bugfix Specification, Operational Incident Record, delivery item |
-| Investigation | Unexplored, suspected, reproduced, root cause established |
+| Work-item role | Operational Incident Record, Defect Report, Change Specification, Bugfix Specification |
+| Diagnostic activity | Unexplored, suspected, reproduced, root cause established |
 | Design | None, options, proposed, accepted, superseded |
-| Delivery | Unplanned, sequenced, approved, decomposed |
+| Implementation coordination | Unplanned, sequenced, authorized, decomposed |
 | Verification | Conditions known, strategy proposed, evidence gathered |
 | Container | One issue, linked design document, decision record, parent and child items |
 
 A Defect Report can therefore retain attributed investigation findings and
 link a proposed design without becoming corrective work. When investigation
 identifies a Bug and a correction is authorized, the accepted Change Design
-and delivery plan belong in a separate linked Bugfix Specification. A proposed
+and implementation plan belong in a separate linked Bugfix Specification. A proposed
 Change Specification can retain detailed source material without treating it
-as an accepted Requirement, Architecture change, or delivery authorization.
+as an accepted Requirement, Architecture change, or implementation authorization.
 
 ## 1. Inventory the source before compressing it
 
@@ -166,12 +166,13 @@ authorization.
 | Same work item | Context is bounded, stable enough, serves that artifact's authority, and does not cross the Defect Report/Bugfix boundary | The material itself |
 | Linked design or RFC | Detail is lengthy, evolving, cross-cutting, or needs independent review | A decision-status synopsis and authoritative link |
 | Architecture decision record | An accepted, durable architectural choice and consequences need their own lifecycle | The relevant decision and ADR link |
-| Parent and child work items | An accepted workstream has been deliberately decomposed for delivery | Shared context, approved boundaries, and child links |
+| Host-native parent and child planning records | An accepted change has been deliberately decomposed for implementation | Shared context, approved boundaries, and child links |
 
 Decision records are appropriate for durable accepted choices because they
 preserve context, decision, and consequences under an explicit lifecycle.[^aws-adr]
-Do not create child implementation tasks merely because a supplied plan could
-be decomposed; decomposition still requires delivery authority.
+Do not create host-native child tasks merely because a supplied plan could be
+decomposed; decomposition still requires implementation authority, and those
+tasks are not Gen Stack work-item roles.
 
 A dedicated Change Design is exceptional. Use one only under an established
 repository convention for its location, owner, review, maintenance, and
@@ -183,7 +184,7 @@ Use only the headings the source material can support. A useful optional block
 is:
 
 ```markdown
-## Technical design and delivery context
+## Technical design and implementation context
 
 ### Findings and constraints
 ### Decision status and tradeoffs

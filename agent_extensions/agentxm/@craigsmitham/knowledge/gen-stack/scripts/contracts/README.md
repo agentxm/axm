@@ -7,13 +7,15 @@ guide](../README.md).
 ## Contract
 
 Every current operation returns a
-[`gen-stack-inspection/v1alpha2`](gen-stack-inspection-v1alpha2.schema.json)
+[`gen-stack-inspection/v1alpha3`](gen-stack-inspection-v1alpha3.schema.json)
 envelope. The schema is JSON Schema 2020-12. The
-[evaluation-context example](evaluation-context.example.json) and
-[evaluation-candidates example](evaluation-candidates.example.json) use only
-public synthetic data. The superseded
-[`v1alpha1` schema](gen-stack-inspection-v1alpha1.schema.json) remains available
-for consumers of retained output; it does not describe current producer output.
+[evaluation-context example](evaluation-context.example.json),
+[evaluation-candidates example](evaluation-candidates.example.json), and
+[mechanical-check example](mechanical-check.example.json) use only public
+synthetic data. The superseded
+[`v1alpha2`](gen-stack-inspection-v1alpha2.schema.json) and
+[`v1alpha1`](gen-stack-inspection-v1alpha1.schema.json) schemas remain available
+for consumers of retained output; neither describes current producer output.
 
 The envelope always carries:
 
@@ -22,6 +24,7 @@ The envelope always carries:
 | `schema_version` | Consumer compatibility boundary. |
 | `producer` | Tool version and digest of the Python inspection package. |
 | `snapshot` | Profile identity plus deterministic corpus and snapshot digests. |
+| `input` | Selected working-tree, Git-index, Git-tree, or snapshot-file input identity. |
 | `discovery` | Fixed-location state and separately reported OKF, structural, and semantic results. |
 | `operation` | Operation that produced `data`. |
 | `data` | Operation-specific result. |
@@ -32,6 +35,19 @@ The envelope always carries:
 `snapshot_id` identifies the profile and corpus contents. `output_digest`
 also changes when the operation, producer, diagnostics, unknowns, or projected
 data change.
+
+## Mechanical check
+
+`check` is the canonical gate operation. It reports native OKF, Gen Stack
+structural-profile, and relationship-projection layers independently and keeps
+semantic review plus coverage or fitness `unknown`. `input.kind` is
+`working-tree`, `git-index`, or `git-tree`; Git-backed results include the
+resolved tree identity.
+
+Exit `0` means the three mechanical layers passed. Exit `1` means the selected
+corpus has a mechanical finding. Exit `2` means the Git snapshot, invocation,
+validator, or environment prevented a valid check. An unavailable layer is
+never converted into a pass.
 
 ## Discovery and conformance
 

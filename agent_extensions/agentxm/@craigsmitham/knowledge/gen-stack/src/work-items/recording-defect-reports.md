@@ -119,7 +119,8 @@ Ask what needs to be preserved:
   change is being proposed, write a [Change
   Specification](writing-change-specifications.md). Retain an unbounded
   request as a Signal or source record.
-- If only uncertainty reduction has been authorized, create an investigation.
+- If only uncertainty reduction has been authorized, continue Orientation or
+  conduct bounded investigation activity within the current Defect Report.
 - If a security vulnerability may be present, follow the organization's
   private vulnerability-disclosure process instead of publishing exploit
   details in an ordinary issue.[^github-private-vulnerability]
@@ -350,7 +351,7 @@ universal intake gate.
 If investigation contains proposals, constraints, code or architecture
 sketches, tradeoffs, or open questions, preserve an attributed synopsis or
 link their authoritative home. See
-[Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md).
+[Preserving technical context in software work items](preserving-technical-context.md).
 When investigation identifies a Bug and correction is authorized, create and
 link a separate [Bugfix Specification](writing-bugfix-specifications.md).
 

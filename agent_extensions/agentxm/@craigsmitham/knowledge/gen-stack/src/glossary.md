@@ -22,7 +22,7 @@ sources:
     title: Process
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T23:10:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Gen Stack vocabulary and relationship model
@@ -104,7 +104,7 @@ and documentation—relative to an applicable expectation or intended use. A
 Defect does not by itself establish observable defective system behavior or
 authorize correction.
 
-**Defect report** (`defect-report`) is a Work item created from an Observation,
+**Defect Report** (`defect-report`) is a Work item created from an Observation,
 received concern, or static finding that may indicate one or more Defects. It
 preserves the originating Signal, source, expectation, evidence, investigation,
 classification, disposition, and Provenance. It does not itself prove a Defect
@@ -219,7 +219,7 @@ space and does not prescribe software or organizational structure.
 
 ## Architecture
 
-Architecture supplies the durable shape and mostly human-authored contract
+Architecture supplies the durable shape and human-governed contract
 that constrains Compilation within the Gen Stack. It defines accepted
 subjects, responsibilities, boundaries, relationships, decisions, and
 structural responses and supplies eligible subjects for Requirements while
@@ -498,7 +498,7 @@ claims rather than inferring meaning from either document label.
 a bounded proposed or authorized change to the System or its Architecture. It
 may compose motivating Signals, Observations, source context and Intent,
 applicable or candidate Requirements, affected Architecture and decisions,
-Change Design, verification context, and delivery work. A candidate change
+Change Design, verification context, and implementation coordination. A candidate change
 must have a recognizable affected context, intended outcome, material
 exclusions, and current decision state; an unbounded request remains a Signal
 or source record rather than becoming a Change Specification. The name does
@@ -515,7 +515,7 @@ Defect reports that preserve originating Signals and Provenance and may
 compose a Bug and diagnosis synopsis, established related Defects and
 remaining hypotheses, the correction decision and authority, applicable or
 candidate Requirements, affected Architecture, unchanged constraints, Change
-Design, verification and evaluation context, and delivery work. It is a
+Design, verification and evaluation context, and implementation coordination. It is a
 separate artifact, never a retitled Defect report. The name does not accept a
 proposed Requirement or Architecture change or prove that a Bug or related
 Defect has been corrected or verified.
@@ -669,10 +669,24 @@ other recognized authorities.[^process]
 inputs, participants, resources, and conditions. An enactment may involve
 several work items, and one work item may participate in several Processes.
 
-**Work item** (`work-item`) is a durable case record that preserves lifecycle state,
-evidence, decisions, authority, and relationships for one occurrence, request,
-investigation, or body of work. It may support or be governed by a Process but
-is not the Process itself.
+**Work item** (`work-item`) is a durable case record that preserves lifecycle
+state, evidence, decisions, authority, and relationships. The Gen Stack
+software work-item taxonomy contains exactly four first-class roles:
+**Operational Incident Record**, **Defect Report**, **Change Specification**,
+and **Bugfix Specification**. No other Gen Stack concept is a software
+work-item role.
+
+Investigation is uncertainty-reduction activity during Orientation or within
+the lifecycle of one of those roles, not a Gen Stack work-item type or
+separately prescribed artifact. Delivery is implementation activity and
+lifecycle context coordinated by a Change Specification or Bugfix
+Specification, not an independent work-item concept. Tasks, stories, epics,
+and similar planning records are host-native mechanics outside this taxonomy.
+A work-item title and summary are a derived projection of an existing item,
+not another role.
+
+A Work item may support or be governed by a Process but is not the Process
+itself.
 
 **OODA control loop** (`ooda-control-loop`) is the adaptive process through which the Gen Stack
 Observes Signals and Observations, Orients across its authorities and evidence,

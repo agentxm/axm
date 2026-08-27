@@ -21,17 +21,17 @@ contract:
 - Signals, Observations, results, and other evidence enter the OODA loop without
   becoming desired state by themselves.
 
-People remain the primary authors and accountable authorities for desired
-state and durable system shape. The skill can develop candidates, compare
-options, recommend a response, draft artifacts, and record explicit decisions;
-it cannot ratify Intent, Requirements, or Architecture on a person's behalf.
+Human or institutional authorities remain accountable for desired state and
+durable system shape. The skill can develop candidates, compare options,
+recommend, draft, encode explicit decisions, and run deterministic checks; it
+cannot ratify Intent, Requirements, or Architecture on their behalf.
 
 ## Included extensions
 
 | Extension | Role |
 | --- | --- |
 | `@craigsmitham/knowledge/gen-stack` | Gen Stack terminology, strict greenfield and brownfield adoption, profile, authority, change-loop, Implementation, Evaluation, and regeneration guidance |
-| `@craigsmitham/skills/gen-stack` | Route bounded change development, work-item authoring, and accepted established-corpus authoring through one human-governed surface |
+| `@craigsmitham/skills/gen-stack` | Route bounded change development, work-item authoring, accepted corpus authoring, and authority-gated adoption through one human-governed surface |
 
 ## Install
 
@@ -39,29 +39,20 @@ it cannot ratify Intent, Requirements, or Architecture on a person's behalf.
 axm install @craigsmitham/packs/gen-stack
 ```
 
-Pack `2.9.0` uses Gen Stack knowledge `0.17.0`, the `gen-stack` OKF
-application profile `0.5.0`, and the unified `gen-stack` skill `1.8.0`. The
+Pack `2.11.0` uses Gen Stack knowledge `0.19.0`, the `gen-stack` OKF
+application profile `0.5.0`, and the unified `gen-stack` skill `1.10.0`. The
 glossary owns semantic meaning; the profile owns fixed `./gen-stack/`
 placement, discovery, and governed representation; Explanations deepen
 understanding; and Guides support action. Protocols are governed; executable
 Cases and tests, Suites, Executions, Results, Reports, and run evidence remain
 repository-native.
 
-This release adds policy-neutral Evaluation candidate projection for harness
-integration while retaining governed, role-specific Evaluation Protocols and
-separate Protocol Coverage, evidence state, and bounded outcomes in reporting.
-Candidate eligibility does not select required coverage, judge Protocol
-adequacy, prescribe a Suite or adapter, or establish evidence or outcomes. The
-release also retains native-first representation, exact-path corpus
-inspection, and fixed-placement evaluation fixtures. It
-uses each artifact's native format and exact host fields first, applies the OKF
-profile only as a delta, gives every Guide an artifact-specific logical
-presentation contract, and keeps fallbacks, transient outputs, and derived
-views proportionate and non-authoritative. The knowledge bundle also supplies
-the human adoption workflow for establishing a strictly conforming first
-corpus from greenfield intent or brownfield evidence. The unified skill still
-stops before initial setup, connection, federation, or migration; this release
-does not treat the Guide as authorization for that agent mutation.
+This release separates who ratifies meaning, who authorizes mutation, and who
+executes. Once the first two are explicit, a human or agent may encode adoption
+or migration and deterministic tools may run the canonical OKF, structural-
+profile, and relationship-projection gate. Named semantic review and coverage
+or fitness remain independent. Multi-corpus federation remains outside the
+supported profile.
 
 The earlier `2.6.0` release made the supersession evidence boundary explicit in activated
 skill behavior: predecessor Results retain their exact Requirement and
@@ -80,7 +71,7 @@ The earlier `2.3.0` release made `./gen-stack/` the deterministic
 established-corpus location across the profile, tools, skill, and evaluation
 fixtures. Existing
 adopters move the complete corpus to that path and update repository-external
-references; the skill itself continues to stop before setup or migration.
+references; at that release, the skill still stopped before setup or migration.
 
 The earlier `2.2.0` release added shared and element-specific candidate
 Architecture and Requirement development, material gap disposition across change work, and
@@ -91,10 +82,9 @@ and label foundations introduced in `2.1.0`.
 
 The earlier `2.0.0` breaking release replaced `author-gen-stack` and
 `author-software-work-items` with `gen-stack`. It retired `setup-gen-stack`
-without an agent-workflow replacement: the unified skill still does not
-execute initial corpus setup, profile adoption, connection, federation, or
-migration. The current knowledge bundle provides human-led adoption guidance;
-that Guide is not authorization for agent mutation. The release also removed
+without an agent-workflow replacement: at that release, the unified skill did
+not execute initial corpus setup, profile adoption, connection, federation, or
+migration. The release also removed
 the YAGNI and Tidy First rules and their dedicated knowledge content. The pack
 provides no aliases or compatibility paths for the retired package or workflow
 identities.

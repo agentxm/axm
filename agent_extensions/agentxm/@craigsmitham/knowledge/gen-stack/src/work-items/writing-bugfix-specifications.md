@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Writing bugfix specifications
-description: Use when investigation has identified a Bug and an authorized corrective change needs a separate delivery-driving Specification; link its Defect reports, bound the correction, develop the Change Design, and define verification without losing Provenance.
+description: Use when investigation has identified a Bug and an authorized corrective change needs a separate implementation-coordinating Specification; link its Defect reports, bound the correction, develop the Change Design, and define verification without losing Provenance.
 tags: [bugfix, bugfix-specification, corrective-change, bug, defect-report, change-design, requirements-impact, verification, delivery, work-item-template]
 status: draft
 sources:
@@ -21,8 +21,8 @@ sources:
     resource: specifying-requirement-changes.md
     title: Specifying Requirement changes
   - id: preserving-context
-    resource: preserving-design-and-delivery-context.md
-    title: Preserving design and delivery context in software work items
+    resource: preserving-technical-context.md
+    title: Preserving technical context in software work items
 generated:
   by: codex/gpt-5.6
   at: 2026-08-26T22:30:00Z
@@ -47,12 +47,12 @@ For the conceptual boundary and relationship cardinalities, read
 [Bugs and bugfix specifications](bugs-and-bugfix-specifications.md). If the
 observation or cause is still uncertain, continue with
 [Recording defect reports](recording-defect-reports.md) or a bounded
-investigation instead.
+investigation activity instead.
 
 A Bugfix Specification specializes a [Change
 Specification](writing-change-specifications.md). Apply the general source,
-authority, Requirements, Architecture, Change Design, verification, delivery,
-and relationship guidance here, then add the Bug-specific provenance,
+authority, Requirements, Architecture, Change Design, verification,
+implementation-coordination, and relationship guidance here, then add the Bug-specific provenance,
 corrective-decision, unchanged-expectation, and regression requirements below.
 
 ## Goal
@@ -96,7 +96,7 @@ items](titling-and-summarizing-work-items.md) for the derived brief.
 - Investigation has identified a concrete Bug rather than only a suspected
   discrepancy or an unlocalized Failure.
 - The applicable authority has selected corrective change rather than only
-  further investigation, deferment, compensation, or accepted risk.
+  further investigation activity, deferment, compensation, or accepted risk.
 - Restricted evidence remains in an approved location and can be referenced
   safely.
 
@@ -255,8 +255,9 @@ actually exist.
 
 Record the authorized implementation sequence, dependencies, decomposition,
 rollout, observability, rollback, and ownership needed for the current planning
-horizon. Link child delivery tasks rather than forcing every execution detail
-into the Specification.
+horizon. Link host-native child tasks rather than forcing every execution
+detail into the Specification; those tasks remain outside the Gen Stack
+work-item taxonomy.
 
 One Bugfix Specification may address several Bugs and coordinate changes for
 several related Defects. One Bug or related Defect may require several changes
@@ -361,7 +362,7 @@ be gathered.
 ## Delivery and recovery
 
 - Implementation sequence and dependencies:
-- Child delivery work:
+- Host-native implementation tasks:
 - Rollout and observability:
 - Rollback or recovery:
 - Residual risk:

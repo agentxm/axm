@@ -11,7 +11,7 @@ sources:
     title: Gen Stack vocabulary — Evaluations
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:58:31Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Evaluation Protocols as assessment contracts
@@ -38,7 +38,7 @@ answer usually changes more slowly. Governing the Protocol preserves that
 question, its criteria authority, and its evidence limits while allowing Suites,
 harnesses, and test code to evolve in repository-native forms.
 
-This makes Protocols part of the human-authored Gen Stack corpus while keeping
+This makes Protocols part of the human-governed Gen Stack corpus while keeping
 Executions, Results, and Reports close to the systems that create and retain
 them. It also removes the need for a separate System Evaluation Approach:
 coherent role-specific Protocols, their navigation, and derived reporting

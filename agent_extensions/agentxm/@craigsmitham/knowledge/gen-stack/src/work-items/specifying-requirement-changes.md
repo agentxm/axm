@@ -345,8 +345,8 @@ not imply Requirement satisfaction.
   desired state. Apply this guide only when the authorized correction also
   proposes changed desired state. Missing accepted corrected behavior remains
   blocking before dependent delivery.
-- An ordinary **delivery task** links accepted Requirements and does not
-  originate Requirement change.
+- A host-native implementation task links accepted Requirements and does not
+  originate Requirement change or become a Gen Stack work-item role.
 - A **brief-only revision** never infers a Requirement change from title or
   summary wording.
 

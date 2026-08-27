@@ -27,7 +27,7 @@ without turning the policy into an inventory of decisions.
 ## Before you begin
 
 Confirm the accepted decision and review authority. Distinguish a policy for
-recording accepted choices from proposals, design discussions, delivery work,
+recording accepted choices from proposals, design discussions, implementation activity,
 and the records themselves. A policy is required even when no local ADR is
 currently justified.
 

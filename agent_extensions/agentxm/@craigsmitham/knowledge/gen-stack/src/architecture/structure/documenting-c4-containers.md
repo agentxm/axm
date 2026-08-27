@@ -9,7 +9,7 @@ sources:
     title: C4 model
   - resource: /profile/gen-stack-application-profile.md#c4-container
     title: Gen Stack application profile — C4 Container
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting C4 containers
@@ -66,8 +66,7 @@ guidance, not profile conformance.
    the containing system's required root concepts. Record only a consequential
    exception, such as a distinct owner, lifecycle, criticality, support policy,
    or retirement path.
-7. From the repository root, run `scripts/sync-gen-stack-relationships.py` so System and
-   path-derived Component containment views are current.
+7. Treat System and path-derived Component containment views as derived.
 8. Link capabilities, surfaces, bounded contexts, accepted Requirements,
    deployment evidence, and selected views. Explain how the boundary responds
    to linked invariant or guarantee Requirements without repeating their

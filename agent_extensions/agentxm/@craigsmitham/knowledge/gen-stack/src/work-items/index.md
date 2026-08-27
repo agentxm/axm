@@ -1,8 +1,8 @@
 # Software work items
 
-Tool-neutral concepts and authoring guides for work items that preserve an
-operational event, an observed discrepancy, or a bounded system or
-Architecture change. Use the chooser below to select an artifact, then combine
+Tool-neutral concepts and authoring guides for exactly four first-class roles:
+Operational Incident Record, Defect Report, Change Specification, and Bugfix
+Specification. Use the chooser below to select one role, then combine
 its type-specific guide with only the common guides that the requested action
 needs. A tracker such as Linear, GitHub, Jira, or Azure Boards supplies storage
 and workflow mechanics; it does not redefine the semantic artifact.
@@ -19,14 +19,15 @@ become the Process merely because a tracker supplies states or automation.
 | Current or imminent service impact meets the local coordinated-response threshold | [Operational Incident Record](operational-incident-records.md) · [recording guide](recording-operational-incidents.md) | Root cause, permanent correction, or closure |
 | An observation, concern, or static finding may violate an accepted expectation | [Defect Report](failures-defects-and-defect-reports.md) · [recording guide](recording-defect-reports.md) | Confirmed Defect, Bug, priority, or fix |
 | Investigation identified a Bug and correction is authorized | [Bugfix Specification](bugs-and-bugfix-specifications.md) · [writing guide](writing-bugfix-specifications.md) | That its Defect Reports can be replaced or closed |
-| A proposed or authorized System or Architecture change has a recognizable boundary | [Change Specification](change-specifications-and-delivery-work.md) · [writing guide](writing-change-specifications.md) | Acceptance of its Requirements, Architecture, Design, priority, or delivery |
-| Only the displayed title and short summary need restating | [Work-item brief](work-item-titles-and-summaries.md) · [titling guide](titling-and-summarizing-work-items.md) | Authority to refine the body or metadata |
+| A proposed or authorized System or Architecture change has a recognizable boundary | [Change Specification](change-specifications.md) · [writing guide](writing-change-specifications.md) | Acceptance of its Requirements, Architecture, Design, priority, or implementation |
 
 Keep an unbounded request as a Signal or source record. Use [Investigating
 possible defects](investigating-possible-defects.md) when only uncertainty
-reduction is authorized or a possible Defect needs discriminating evidence.
-Use the host's ordinary task or delivery item when the change is already
-governed and only execution tracking remains.
+reduction is authorized or a possible Defect needs discriminating evidence;
+investigation is an activity, not another role or prescribed artifact. Tasks,
+stories, epics, and similar records are host-native planning mechanics outside
+the Gen Stack taxonomy. A Change Specification or Bugfix Specification may
+coordinate them when implementation tracking is needed.
 
 ## Apply the common concerns
 
@@ -37,7 +38,7 @@ from the host's item type or labels.
 - [Maintaining work-item identity, relationships, and lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) - Use when creating, relating, merging, splitting, resolving, verifying, reopening, closing, or superseding software work items; preserve one case identity, explicit relationship meaning, independent state dimensions, and evidence-backed transitions.
 - [Managing work-item metadata and labels](managing-work-item-metadata-and-labels.md) - Use when mapping semantic work-item state into tracker fields or labels, or when assigning, prioritizing, batching, and externally mutating items; keep host metadata a faithful projection of established meaning and verify persisted changes.
 - [Titling and summarizing work items](titling-and-summarizing-work-items.md) - Use when a work item must be recognizable in lists and search or its meaning has changed; write or re-derive its title and short summary without changing anything else.
-- [Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md) - Use when supplied design or delivery context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
+- [Preserving technical context in software work items](preserving-technical-context.md) - Use when supplied technical context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
 - [Analyzing Requirement impact](../control-loop/analyzing-requirement-impact.md) - Use when a work-item Signal may imply a change to desired state; Orient it against current authority before it becomes an unsupported Requirement or Implementation commitment.
 - [Specifying Requirement changes in software work items](specifying-requirement-changes.md) - Use when Requirement-impact analysis identifies a candidate addition, revision, retirement, or replacement; specify the desired-state delta, identity and lineage, authority, blockers, and downstream consequences without making the work item normative.
 
@@ -50,12 +51,12 @@ unless the request also changes those concerns.
 - [Work item titles and summaries](work-item-titles-and-summaries.md) - Why a work item's title and summary form a derived brief that serves the reading surfaces where items are scanned rather than opened, and why restating that brief changes nothing else about the item.
 - [Titling and summarizing work items](titling-and-summarizing-work-items.md) - Use when a work item must be recognizable in lists and search or its meaning has changed; write or re-derive its title and short summary without changing anything else.
 
-## Existing design and delivery context
+## Existing technical context
 
 Applies when source material already contains technical investigation, design,
 planning, or testing detail.
 
-- [Preserving design and delivery context in software work items](preserving-design-and-delivery-context.md) - Use when supplied design or delivery context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
+- [Preserving technical context in software work items](preserving-technical-context.md) - Use when supplied technical context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
 
 When the technical response still needs to be developed rather than merely
 preserved, use [Developing a Change
@@ -99,9 +100,9 @@ the delta guide.
 - [Triaging defect reports](triaging-defect-reports.md) - Use when one or more Defect Reports need an evidence-backed disposition and next route; preserve occurrences and uncertainty while relating, consolidating, splitting, escalating, or routing cases without inventing diagnosis, priority, or corrective authority.
 - [Investigating possible defects](investigating-possible-defects.md) - Use when a prompt, alert, feedback record, Defect Report, Evaluation Result, or possible cross-stack incoherence may indicate a Defect; gather discriminating evidence, establish the narrowest supported disposition, and route or synchronize resulting work without presuming a Bug or corrective authority.
 - [Bugs and bugfix specifications](bugs-and-bugfix-specifications.md) - How investigation can identify a concrete Bug from one or more Defect reports, why the reports remain separate provenance, and how a Bugfix Specification drives an authorized corrective change.
-- [Writing bugfix specifications](writing-bugfix-specifications.md) - Use when investigation has identified a Bug and an authorized corrective change needs a separate delivery-driving Specification; link its Defect reports, bound the correction, develop the Change Design, and define verification without losing Provenance.
+- [Writing bugfix specifications](writing-bugfix-specifications.md) - Use when investigation has identified a Bug and an authorized corrective change needs a separate implementation-coordinating Specification; link its Defect reports, bound the correction, develop the Change Design, and define verification without losing Provenance.
 
 ## System and Architecture changes
 
-- [Change specifications and delivery work](change-specifications-and-delivery-work.md) - How bounded Change Specifications compose source context, authority, Requirements, Architecture, Change Design, verification, and delivery without taking over their meanings or lifecycles.
+- [Change specifications](change-specifications.md) - How bounded Change Specifications compose source context, authority, Requirements, Architecture, Change Design, verification, and implementation coordination without taking over their meanings or lifecycles.
 - [Writing change specifications](writing-change-specifications.md) - Use when a proposed or authorized system or Architecture change is bounded enough to coordinate; preserve its sources and authority, analyze Requirements and Architecture impact, develop proportional Change Design, and define verification and delivery without inventing acceptance.

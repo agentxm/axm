@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 SCRIPT_ROOT = Path(__file__).parents[1]
 CLI_PATH = SCRIPT_ROOT / "gen-stack.py"
 CONTRACT_ROOT = SCRIPT_ROOT / "contracts"
-SCHEMA_PATH = CONTRACT_ROOT / "gen-stack-inspection-v1alpha2.schema.json"
+SCHEMA_PATH = CONTRACT_ROOT / "gen-stack-inspection-v1alpha3.schema.json"
 EXAMPLE_PATH = CONTRACT_ROOT / "evaluation-context.example.json"
 CANDIDATES_EXAMPLE_PATH = CONTRACT_ROOT / "evaluation-candidates.example.json"
+CHECK_EXAMPLE_PATH = CONTRACT_ROOT / "mechanical-check.example.json"
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
@@ -446,6 +448,7 @@ class InspectionPlaneTest(unittest.TestCase):
         self.assertEqual(SCHEMA_VERSION, first["schema_version"])
         self.assertEqual("conforming", first["discovery"]["state"])
         self.assertEqual("unknown", first["discovery"]["semantic_result"])
+        self.assertEqual({"kind": "working-tree"}, first["input"])
         self.assertEqual(first["output_digest"], second["output_digest"])
         self.assertNotIn(str(self.fixture.repository_root), json.dumps(first))
 
@@ -691,13 +694,14 @@ class InspectionPlaneTest(unittest.TestCase):
         json_run = subprocess.run(
             [
                 sys.executable,
-                str(CLI_PATH),
+                str(CLI_PATH.resolve()),
                 "-C",
                 str(self.fixture.repository_root),
                 "--json",
                 "evaluation-context",
                 "/architecture/surfaces/cli/install.md",
             ],
+            cwd=self.fixture.repository_root,
             check=False,
             capture_output=True,
             text=True,
@@ -708,7 +712,7 @@ class InspectionPlaneTest(unittest.TestCase):
         candidates_run = subprocess.run(
             [
                 sys.executable,
-                str(CLI_PATH),
+                str(CLI_PATH.resolve()),
                 "-C",
                 str(self.fixture.repository_root),
                 "--json",
@@ -807,6 +811,208 @@ class InspectionFailClosedTest(unittest.TestCase):
         self.assertEqual("corpus-changed-during-inspection", raised.exception.code)
 
 
+@unittest.skipUnless(shutil.which("git") and shutil.which("axm"), "Git and AXM are required")
+class MechanicalCheckIntegrationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = SyntheticCorpus()
+        self.addCleanup(self.fixture.cleanup)
+        commands = [
+            ["git", "init", "-q"],
+            ["git", "config", "user.name", "Synthetic Fixture"],
+            ["git", "config", "user.email", "fixture@example.invalid"],
+            ["git", "add", "."],
+            ["git", "commit", "-qm", "synthetic corpus"],
+        ]
+        for command in commands:
+            subprocess.run(
+                command,
+                cwd=self.fixture.repository_root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+    def run_check(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(CLI_PATH.resolve()),
+                "-C",
+                str(self.fixture.repository_root),
+                "--json",
+                "check",
+                *arguments,
+            ],
+            cwd=self.fixture.repository_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_working_tree_check_reports_independent_layers(self) -> None:
+        completed = self.run_check()
+        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual("check", payload["operation"])
+        self.assertEqual("working-tree", payload["input"]["kind"])
+        self.assertEqual("pass", payload["data"]["layers"]["okf"]["result"])
+        self.assertEqual(
+            "pass", payload["data"]["layers"]["structural_profile"]["result"]
+        )
+        self.assertEqual(
+            "pass", payload["data"]["layers"]["relationship_projection"]["result"]
+        )
+        self.assertEqual(
+            "unknown", payload["data"]["layers"]["semantic_review"]["result"]
+        )
+        self.assertFalse(
+            any(item["claim"] == "okf-conformance" for item in payload["unknowns"])
+        )
+
+    def test_git_index_and_revision_are_exact_and_independent(self) -> None:
+        feature = self.fixture.root / "architecture/features/install.md"
+        original = feature.read_text(encoding="utf-8")
+        feature.write_text(
+            original.replace(
+                "/architecture/capabilities/operate.md",
+                "/architecture/capabilities/alternate.md",
+            ),
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "add", "gen-stack/architecture/features/install.md"],
+            cwd=self.fixture.repository_root,
+            check=True,
+        )
+        feature.write_text(original, encoding="utf-8")
+
+        index_check = self.run_check("--view", "git-index")
+        self.assertEqual(1, index_check.returncode, index_check.stdout + index_check.stderr)
+        index_payload = json.loads(index_check.stdout)
+        self.assertEqual("git-index", index_payload["input"]["kind"])
+        self.assertRegex(index_payload["input"]["tree"], r"^[0-9a-f]{40,64}$")
+        self.assertEqual(
+            "fail",
+            index_payload["data"]["layers"]["structural_profile"]["result"],
+        )
+
+        working_check = self.run_check("--view", "working-tree")
+        self.assertEqual(
+            0, working_check.returncode, working_check.stdout + working_check.stderr
+        )
+
+        head_check = self.run_check("--revision", "HEAD")
+        self.assertEqual(0, head_check.returncode, head_check.stdout + head_check.stderr)
+        head_payload = json.loads(head_check.stdout)
+        self.assertEqual("git-tree", head_payload["input"]["kind"])
+        self.assertEqual("HEAD", head_payload["input"]["revision"])
+
+    def test_staged_rename_is_validated_as_a_whole_tree(self) -> None:
+        subprocess.run(
+            ["git", "mv", "gen-stack/system.md", "gen-stack/system-renamed.md"],
+            cwd=self.fixture.repository_root,
+            check=True,
+        )
+        completed = self.run_check("--view", "git-index")
+        self.assertEqual(1, completed.returncode, completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertTrue(
+            any(
+                item["rule"] == "required-root-concept"
+                and item["path"] == "gen-stack/system.md"
+                for item in payload["diagnostics"]
+            )
+        )
+
+    def test_relationship_projection_is_a_separate_failing_layer(self) -> None:
+        capability = PurePosixPath("architecture/capabilities/operate.md")
+        analysis = analyze_relationships(self.fixture.root)
+        replace_relationships(analysis.concepts[capability].path, {})
+        subprocess.run(
+            ["git", "add", "gen-stack/architecture/capabilities/operate.md"],
+            cwd=self.fixture.repository_root,
+            check=True,
+        )
+        completed = self.run_check("--view", "git-index")
+        self.assertEqual(1, completed.returncode, completed.stdout + completed.stderr)
+        layers = json.loads(completed.stdout)["data"]["layers"]
+        self.assertEqual("pass", layers["structural_profile"]["result"])
+        self.assertEqual("fail", layers["relationship_projection"]["result"])
+
+    def test_missing_okf_validator_is_an_environment_error(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(CLI_PATH.resolve()),
+                "-C",
+                str(self.fixture.repository_root),
+                "--json",
+                "check",
+            ],
+            cwd=self.fixture.repository_root,
+            env={"PATH": ""},
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual("okf-validator-unavailable", payload["diagnostics"][0]["rule"])
+        self.assertEqual("working-tree", payload["input"]["kind"])
+        self.assertEqual("mechanical-check", payload["unknowns"][0]["claim"])
+
+    def test_unmerged_index_is_an_environment_error(self) -> None:
+        blob = subprocess.run(
+            ["git", "rev-parse", "HEAD:gen-stack/system.md"],
+            cwd=self.fixture.repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        path = "gen-stack/system.md"
+        zero = "0" * 40
+        index_info = "".join(
+            [
+                f"0 {zero}\t{path}\n",
+                f"100644 {blob} 1\t{path}\n",
+                f"100644 {blob} 2\t{path}\n",
+                f"100644 {blob} 3\t{path}\n",
+            ]
+        )
+        subprocess.run(
+            ["git", "update-index", "--index-info"],
+            cwd=self.fixture.repository_root,
+            input=index_info,
+            check=True,
+            text=True,
+        )
+        completed = self.run_check("--view", "git-index")
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        payload = json.loads(completed.stdout)
+        self.assertEqual("git-index-unmerged", payload["diagnostics"][0]["rule"])
+
+    def test_status_is_observational_unless_conformance_is_required(self) -> None:
+        empty = tempfile.TemporaryDirectory()
+        self.addCleanup(empty.cleanup)
+        base = [
+            sys.executable,
+            str(CLI_PATH),
+            "-C",
+            empty.name,
+            "--json",
+            "status",
+        ]
+        observational = subprocess.run(base, check=False, capture_output=True, text=True)
+        required = subprocess.run(
+            [*base, "--require", "conforming"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, observational.returncode)
+        self.assertEqual(1, required.returncode)
+
+
 class InspectionContractTest(unittest.TestCase):
     def test_schema_and_public_example_are_parseable_and_version_aligned(self) -> None:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -814,15 +1020,28 @@ class InspectionContractTest(unittest.TestCase):
         candidates_example = json.loads(
             CANDIDATES_EXAMPLE_PATH.read_text(encoding="utf-8")
         )
+        check_example = json.loads(CHECK_EXAMPLE_PATH.read_text(encoding="utf-8"))
         self.assertEqual("https://json-schema.org/draft/2020-12/schema", schema["$schema"])
         self.assertEqual(SCHEMA_VERSION, schema["properties"]["schema_version"]["const"])
         self.assertEqual(SCHEMA_VERSION, example["schema_version"])
         self.assertEqual(SCHEMA_VERSION, candidates_example["schema_version"])
+        self.assertEqual(SCHEMA_VERSION, check_example["schema_version"])
         self.assertEqual("evaluation-context", example["operation"])
         self.assertEqual("evaluation-candidates", candidates_example["operation"])
+        self.assertEqual("check", check_example["operation"])
+        self.assertEqual("git-index", check_example["input"]["kind"])
         self.assertEqual("direct-only", example["data"]["interpretation"]["requirement_association"])
         self.assertNotIn(Path.home().as_posix(), json.dumps(example))
         self.assertNotIn(Path.home().as_posix(), json.dumps(candidates_example))
+        self.assertNotIn(Path.home().as_posix(), json.dumps(check_example))
+        try:
+            import jsonschema
+        except ImportError:
+            return
+        jsonschema.Draft202012Validator.check_schema(schema)
+        jsonschema.validate(example, schema)
+        jsonschema.validate(candidates_example, schema)
+        jsonschema.validate(check_example, schema)
 
     def test_documented_cli_entrypoint_has_help(self) -> None:
         completed = subprocess.run(
@@ -834,6 +1053,7 @@ class InspectionContractTest(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn("usage:", completed.stdout)
         self.assertIn("evaluation-candidates", completed.stdout)
+        self.assertIn("check", completed.stdout)
 
     def test_invalid_diff_input_still_emits_the_machine_envelope(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

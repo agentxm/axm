@@ -1,8 +1,8 @@
 {
-  "schema_version": "gen-stack-inspection/v1alpha2",
+  "schema_version": "gen-stack-inspection/v1alpha3",
   "producer": {
     "name": "gen-stack-inspection",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
   },
   "snapshot": {
@@ -12,6 +12,9 @@
     },
     "snapshot_id": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "corpus_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "input": {
+    "kind": "working-tree"
   },
   "discovery": {
     "state": "conforming",
@@ -117,7 +120,7 @@
       "reason": "The native OKF validator was not executed by this inspection operation."
     },
     {
-      "claim": "semantic-conformance",
+      "claim": "named-semantic-review",
       "reason": "A named semantic review has not been supplied."
     },
     {

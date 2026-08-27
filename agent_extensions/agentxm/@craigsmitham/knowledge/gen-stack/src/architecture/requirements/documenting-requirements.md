@@ -25,7 +25,7 @@ sources:
     title: INCOSE Guide to Writing Requirements, version 4
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:30:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Documenting requirements
@@ -68,7 +68,7 @@ Confirm that:
   Requirement.
 
 If the obligation or subject is still undecided, keep the material in its
-request, need, proposal, investigation, or decision lifecycle. Do not turn
+request, need, proposal, diagnostic evidence, or decision lifecycle. Do not turn
 uncertainty into accepted Architecture merely to complete a document. Route
 the decision through [Developing Requirements](developing-requirements.md).
 
@@ -273,9 +273,8 @@ After verification, validation, and agreement:
 8. Record incorporated standards under
    `relationships.incorporates-normative-reference` when the Requirement
    adopts their definitions or conformance semantics.
-9. From the repository root, run `scripts/sync-gen-stack-relationships.py` to materialize
-   governed reciprocal views on subjects, internal sources, parent
-   Requirements, ADR responses, and internal normative references.
+9. Treat governed reciprocal views on subjects, internal sources, parent
+   Requirements, ADR responses, and internal normative references as derived.
 
 The normative fields and eligible subjects are defined by the [software
 architecture docs

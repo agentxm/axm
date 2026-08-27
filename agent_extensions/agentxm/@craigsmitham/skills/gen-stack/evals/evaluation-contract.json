@@ -18,17 +18,17 @@
     ]
   },
   "scope": {
-    "intended_use": "Briefing humans on the bounded current state of Gen Stack-adopted systems; assisting with Gen Stack change development, Requirement additions, revisions, retirements, replacements, splits, and merges, greenfield and brownfield candidate extraction, governed Evaluation Protocol authoring, evidence-rich software work items, material meaning-gap disposition, native-first artifact presentation, and explicitly accepted concepts in an established supported-profile corpus while preserving human ratification and peer authorities.",
+    "intended_use": "Briefing humans on the bounded current state of Gen Stack-adopted systems; assisting with authority-gated adoption and migration, Gen Stack change development, Requirement lifecycle operations, greenfield and brownfield candidate extraction, governed Evaluation Protocol authoring, evidence-rich software work items, material meaning-gap disposition, native-first artifact presentation, and explicitly accepted concepts while preserving human ratification and peer authorities.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic Gen Stack current-state briefs, orientation, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, unsupported setup and migration, human-ratification, and routing-collision cases.",
+    "case_source": "Synthetic Gen Stack current-state briefs, orientation, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, authority-gated adoption and migration, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, human-ratification, and routing-collision cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
       "Compatibility with untested hosts or models",
-      "Support for initial corpus setup, adoption, connection, federation, or migration"
+      "Support for multi-corpus federation or layouts outside the supported profile"
     ]
   },
   "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
@@ -82,7 +82,8 @@
       "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
       "Requirement subject placement follows the load-bearing subject",
       "Direct accepted authoring avoids candidate ceremony",
-      "Unsupported setup and migration stop without mutation",
+      "Adoption separates semantic ratification, mutation authority, and execution",
+      "Mechanical checks do not claim semantic review or fitness",
       "Established corpus discovery uses only repository gen-stack/",
       "Accepted obligations have one Requirement authority",
       "Requirement impact and Requirement-change specification remain distinct",
@@ -94,6 +95,7 @@
       "Evaluation Protocol role and target authority remain explicit",
       "Protocol Coverage, evidence state, and bounded outcome remain distinct",
       "Gen Stack briefs keep conformance and health dimensions distinct",
+      "Gen Stack software work-item taxonomy contains exactly four roles",
       "Work-item provenance remains traceable",
       "Work-item metadata remains a projection rather than authority",
       "Work-item identities and relationships remain independently recoverable",
@@ -143,9 +145,29 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
+        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "case_id": 127,
+        "assertion": "The answer enumerates exactly Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification."
+      },
+      {
+        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "case_id": 128,
+        "assertion": "The answer says investigation is not a Gen Stack work-item type."
+      },
+      {
+        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "case_id": 129,
+        "assertion": "The answer says a delivery task is not a Gen Stack work-item type."
+      },
+      {
+        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "case_id": 130,
+        "assertion": "The tasks remain outside the Gen Stack taxonomy and do not replace the Specification, accept Requirements or Architecture, or become desired-state authority."
+      },
+      {
         "gate": "Gen Stack briefs keep conformance and health dimensions distinct",
         "case_id": 126,
-        "assertion": "OKF or profile conformance, documentation coverage, semantic coherence, implementation realization, Evaluation coverage, evidence state and outcomes, and operational fitness are not collapsed into one compliance or health verdict."
+        "assertion": "OKF conformance, Gen Stack structural profile conformance, documentation coverage, semantic coherence, implementation realization, Evaluation coverage, evidence state and outcomes, and operational fitness are not collapsed into one compliance or health verdict."
       },
       {
         "gate": "Requirement impact and Requirement-change specification remain distinct",
@@ -243,14 +265,19 @@
         "assertion": "No task side effect occurs before selection."
       },
       {
-        "gate": "Unsupported setup and migration stop without mutation",
+        "gate": "Adoption separates semantic ratification, mutation authority, and execution",
         "case_id": 66,
-        "assertion": "No corpus, profile adoption, navigation, instruction route, or external record is created or modified."
+        "assertion": "The response distinguishes who ratifies governed meaning, who authorizes repository mutation, and who may execute the authorized work."
       },
       {
-        "gate": "Unsupported setup and migration stop without mutation",
+        "gate": "Adoption separates semantic ratification, mutation authority, and execution",
         "case_id": 70,
-        "assertion": "No profile adoption, semantic ownership transfer, file movement, or navigation rewrite occurs."
+        "assertion": "The council's ratification supplies semantic authority while the user's request independently supplies repository mutation authority."
+      },
+      {
+        "gate": "Mechanical checks do not claim semantic review or fitness",
+        "case_id": 70,
+        "assertion": "The canonical mechanical check reports OKF, structural-profile, and relationship-projection results separately from named semantic review and coverage or fitness."
       },
       {
         "gate": "Material desired-state and Architecture decisions require human ratification",

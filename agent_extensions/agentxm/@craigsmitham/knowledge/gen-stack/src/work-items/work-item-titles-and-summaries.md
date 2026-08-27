@@ -34,7 +34,7 @@ generated:
 A work item's **brief** is its title plus a one- or two-sentence summary. The
 brief is the item's interface; the body and structured fields are its evidence.
 
-Every work-item type has its own body — expected and actual behavior, affected
+Every work-item role has its own body — expected and actual behavior, affected
 context and desired outcome, live state and timeline. None of that is visible
 on the surfaces where most reads actually happen.
 
@@ -44,7 +44,7 @@ on the surfaces where most reads actually happen.
 | --- | --- | --- |
 | Backlog, board, or query result | Title only | Is this mine, is it next, have I seen it before |
 | Search result, notification, or hover card | Title and a first fragment | Open it or move on |
-| Parent, epic, or project roll-up | Titles and summaries of children | Does this collection still mean one thing |
+| Host-native parent, epic, or project roll-up | Titles and summaries of children | Does this collection still mean one thing |
 | Status report or stakeholder update | Title and summary | What do I tell people outside the team |
 | The opened item | The whole body | What do I actually do |
 

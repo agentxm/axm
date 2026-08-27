@@ -2,6 +2,15 @@
 
 ## 2026-08-26
 
+- **Exact four-role taxonomy**: Made Operational Incident Record, Defect
+  Report, Change Specification, and Bugfix Specification the exhaustive Gen
+  Stack software work-item taxonomy. Investigation is activity, delivery is
+  implementation context, host-native planning records remain outside the
+  taxonomy, and title-and-summary revision is cross-cutting. Renamed
+  `change-specifications-and-delivery-work.md` to
+  [`change-specifications.md`](change-specifications.md) and
+  `preserving-design-and-delivery-context.md` to
+  [`preserving-technical-context.md`](preserving-technical-context.md).
 - **Possible-defect investigation**: Added [Investigating possible
   defects](investigating-possible-defects.md), a source-neutral Guide that
   turns prompts, alerts, feedback, Defect Reports, Evaluation Results, and
@@ -43,8 +52,7 @@
   work products, and that one Bugfix Specification may coordinate changes for
   several related Defects while preserving separate authority and Provenance.
 - **Change Specifications**: Replaced request-centered work-item guidance with
-  [Change specifications and delivery
-  work](change-specifications-and-delivery-work.md) and [Writing change
+  [Change specifications](change-specifications.md) and [Writing change
   specifications](writing-change-specifications.md); raw requests remain
   Signals or source evidence until a candidate system or Architecture change
   has a recognizable boundary and explicit authority state.
@@ -94,8 +102,8 @@
   domain-context, C4 structural, strategic-evolution, and architecture-doc
   organization guidance for progressive, explicitly related architecture
   views.
-- **Work items**: Added [Preserving design and delivery context in software
-  work items](preserving-design-and-delivery-context.md), connected
+- **Work items**: Added [Preserving technical context in software
+  work items](preserving-technical-context.md), connected
   it to Defect Report and Change Specification authoring, and clarified that brief limits
   never justify trimming supplied technical context.
 

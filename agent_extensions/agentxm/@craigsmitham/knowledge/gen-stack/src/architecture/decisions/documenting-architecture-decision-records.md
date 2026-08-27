@@ -9,7 +9,7 @@ sources:
     title: Gen Stack application profile — Architecture Decision Record
   - resource: /governance/documenting-architecture-decision-policies.md
     title: Documenting architecture decision policies
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting architecture decision records
@@ -30,7 +30,8 @@ durable choice whose rationale and consequences need an independent lifecycle.
 
 Confirm that the applicable `decisions.md` policy requires a record and that
 the named authority has accepted the choice. Keep an unaccepted option,
-investigation, or proposal in its existing lifecycle; do not write an ADR in
+investigation findings or an unaccepted proposal in their existing source and
+lifecycle; do not write an ADR in
 order to make a decision appear complete.
 
 ## Representation
@@ -61,9 +62,8 @@ order is authoring guidance, not profile conformance.
    ADR as a `requirement_sources` authority instead of leaving the obligation
    only in the consequences.
 7. Record each Requirement the choice responds to under
-   `relationships.responds-to-requirement`, then run
-   run `scripts/sync-gen-stack-relationships.py` from the repository root to materialize
-   `is-addressed-by-adr` on those Requirements.
+   `relationships.responds-to-requirement`; treat `is-addressed-by-adr` on
+   those Requirements as a derived reciprocal view.
 8. State the assumptions, events, or evidence that require reconsideration or
    supersession.
 9. When superseded, retain the record, link its replacement, and keep it

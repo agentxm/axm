@@ -20,7 +20,7 @@ or independent use justifies promoting an individual concept.
 ## Architecture subjects
 
 - [Capabilities](capabilities/) - Explanation and authoring guidance for stable, outcome-oriented abilities and their boundaries.
-- [Features](features/) - Guidance for recognizable behavior whose architectural identity outlives one interaction, implementation, or delivery item.
+- [Features](features/) - Guidance for recognizable behavior whose architectural identity outlives one interaction, implementation, or host-native planning record.
 - [Surfaces](surfaces/) - Guidance for actor-facing encounter points, independently from their C4 structural realization.
 - [Architecture domains](domains/) - Explanation and authoring guidance for model authority, bounded contexts, and directional relationships; problem-space Subdomains remain under Intent.
 - [Software structure](structure/) - Explanation and authoring guidance for C4 Software Systems, Containers, Components, and selected views.

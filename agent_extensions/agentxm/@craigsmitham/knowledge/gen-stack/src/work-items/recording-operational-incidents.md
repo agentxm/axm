@@ -109,7 +109,7 @@ details, or restricted links. Redact the evidence or link an approved
 access-controlled location.
 
 If no coordinated response is required, preserve the observation in the
-appropriate event, alert, support, defect, or investigation artifact rather
+appropriate event, alert, support, defect, or diagnostic record rather
 than manufacturing an incident lifecycle.
 
 ## 2. Establish one incident identity and its relationships

@@ -9,7 +9,7 @@ sources:
     title: Offerings and value in software architecture
   - resource: ../profile/gen-stack-application-profile.md#offering
     title: Gen Stack application profile — Offering
-generated: { by: codex/gpt-5.6, at: "2026-08-26T20:18:00Z" }
+generated: { by: codex/gpt-5.6, at: "2026-08-27T01:11:07Z" }
 ---
 
 # Documenting offerings
@@ -29,7 +29,7 @@ unit of value intentionally made available to one or more audiences.
 ## Before you begin
 
 Confirm that the value boundary is accepted and durable. Do not create an
-offering merely to provide a parent for features, systems, or delivery work.
+offering merely to provide a parent for features, systems, or implementation activity.
 Current pricing, availability, roadmap, and campaign wording remain with their
 live or commercial authorities.
 
@@ -61,8 +61,7 @@ authoring guidance, not profile conformance.
    prose. Record each controlled Capability edge under
    `relationships.depends-on-capability`; do not author the reciprocal
    `supports-offering` role.
-6. From the repository root, run `scripts/sync-gen-stack-relationships.py` so reciprocal
-   views and any Requirement-source backlinks are current.
+6. Treat reciprocal views and Requirement-source backlinks as derived.
 7. Link the accepted authority or evidence for the definition, then add the
    offering to `intent/offerings/index.md` using its canonical title and
    description.

@@ -2,16 +2,29 @@
 
 Helps humans orient and develop bounded software change using the Gen Stack
 knowledge bundle. It can develop candidate Intent, Requirements, Architecture,
-and Change Design; create or revise software work items; and record explicitly
-accepted concepts in an established `./gen-stack/` OKF v0.2 corpus adopting
-the supported Gen Stack profile. The fixed directory makes the corpus
-discoverable; its `index.md` remains the authority for adoption.
+and Change Design; create or revise software work items; record explicitly
+accepted concepts; and guide or execute authority-gated adoption and migration.
+The fixed `./gen-stack/` directory makes a corpus discoverable; its `index.md`
+remains the authority for adoption.
 
 The skill is deliberately a decision-support and authoring surface, not an
 autonomous architect or product authority. It keeps meaning maturity separate
 from permission to act, stops for human ratification of material desired-state
 or Architecture decisions, and preserves the distinct authority of
 Implementation and Evaluations.
+
+Version `1.10.0` replaces the blanket adoption refusal with three independent
+questions: who ratifies meaning, who authorizes mutation, and who executes.
+After explicit ratification and mutation authority, a human or agent may encode
+the corpus and deterministic tools may check it. Evaluation suite `1.10.0`
+keeps named semantic review and coverage or fitness outside the mechanical gate.
+
+Version `1.9.1` makes the software work-item route exhaustive: Operational
+Incident Record, Defect Report, Change Specification, and Bugfix Specification
+are the only Gen Stack roles. Investigation remains activity, delivery remains
+implementation context, host-native tasks remain outside the taxonomy, and
+title-and-summary revision remains a cross-cutting operation. Evaluation suite
+`1.9.1` adds direct taxonomy and boundary cases.
 
 Version `1.8.0` adds profile `0.5.0` Evaluation Protocol authoring for accepted
 Requirement-satisfaction, Architecture-realization, and

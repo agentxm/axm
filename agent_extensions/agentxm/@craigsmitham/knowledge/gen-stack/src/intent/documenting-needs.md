@@ -31,7 +31,7 @@ response.
 
 Confirm that the need is accepted, durable, and relevant to architecture. Keep
 tentative discovery hypotheses in research and proposed responses in product
-or delivery work until they are accepted.
+or proposed changes until they are accepted.
 
 ## Representation
 
@@ -53,7 +53,7 @@ conformance.
    independently of any current offering or implementation.
 4. Identify the audiences and circumstances for which it matters.
 5. State exclusions that distinguish it from goals, Jobs to Be Done, quality
-   requirements, and delivery work.
+   requirements, and proposed changes.
 6. Link accepted evidence and related audiences, jobs, offerings, or value
    propositions, then add the concept to `intent/needs/index.md`.
 

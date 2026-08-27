@@ -1,7 +1,7 @@
 ---
 type: Standard
 title: Gen Stack application profile for OKF v0.2
-description: The application profile for a durable human-authored corpus at repository `gen-stack/`, governing cross-cutting system governance, Intent, Architecture, subject-colocated Requirements, and Evaluation Protocols.
+description: The application profile for a durable human-governed corpus at repository `gen-stack/`, governing cross-cutting system governance, Intent, Architecture, subject-colocated Requirements, and Evaluation Protocols.
 tags: [gen-stack, okf, application-profile, intent, architecture, requirements, evaluations, governance]
 status: draft
 sources:
@@ -19,7 +19,7 @@ sources:
     title: ISO/IEC 25010:2023 — Product quality model
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:30:00Z
+  at: 2026-08-27T01:11:07Z
 ---
 
 # Gen Stack application profile for OKF v0.2
@@ -62,7 +62,7 @@ profile's conformance remain separate claims.
 
 ## Purpose and scope
 
-This profile governs the durable, human-authored representation of the required
+This profile governs the durable, human-governed representation of the required
 cross-cutting kernel, admitted Intent and Architecture concepts,
 subject-colocated Requirements, and Evaluation Protocols. The
 [glossary](../glossary.md) defines their meaning and relationships; the
@@ -81,10 +81,12 @@ that it adopts and link `gen-stack` version `0.5.0`. This is an open-world
 profile: other OKF concepts may coexist, but local conventions MUST NOT
 redefine a governed type or waive a profile rule.
 
-Profile conformance establishes representation conformance and conformance to
-the glossary meanings this profile references. It does not establish corpus
-coverage, completeness of requirements, implementation satisfaction,
-evaluation coverage, or operational fitness.
+Gen Stack structural profile conformance establishes only the mechanically
+decidable representation rules in this profile. A named semantic review
+establishes whether governed meaning follows the referenced glossary and
+accepted repository authorities. Neither result establishes corpus coverage,
+Requirement completeness or satisfaction, Evaluation coverage, or operational
+fitness.
 
 ## Repository placement and discovery
 
@@ -134,18 +136,20 @@ Evaluation Protocols, Executions, Results, and coverage claims.
 
 ## Conformance
 
-Report three separate results when they are in scope:
+Report four separate results when they are in scope:
 
 1. **OKF conformance** — whether the bundle satisfies OKF v0.2.
-2. **Profile conformance** — whether governed concepts satisfy this profile.
-3. **Coverage or fitness assessment** — any separately bounded claim about
+2. **Gen Stack structural profile conformance** — whether mechanically
+   decidable governed representation satisfies this profile.
+3. **Named semantic review** — whether a named review authority confirms that
+   governed meaning follows the glossary and accepted repository authorities.
+4. **Coverage or fitness assessment** — any separately bounded claim about
    completeness, satisfaction, evaluation coverage, or operation.
 
-The third result is never implied by the first two. Missing evidence produces
-`unknown`, not pass. Complete profile conformance combines executable
-structural validation with a named manual review against the referenced
-glossary meanings. An explanation or guide can inform that review but cannot
-supply a missing semantic or representation rule.
+No result implies another. Missing evidence produces `unknown`, not pass.
+Adoption readiness requires the first three results to pass; coverage and
+fitness remain separate. An Explanation or Guide can inform semantic review
+but cannot supply a missing semantic or representation rule.
 
 A conforming corpus MUST contain the five required root concepts and
 `evaluations/index.md`, use governed types at canonical paths, keep every
@@ -297,7 +301,8 @@ projection, keep these axes independent:
   `harness-error`; and
 - bounded outcome: `pass`, `fail`, or `unknown`.
 
-Profile conformance establishes only the Protocol representation. It does not
+Gen Stack structural profile conformance establishes only the Protocol
+representation. It does not
 establish coverage, evidence currency, a passing outcome, Requirement
 satisfaction, Architecture realization, Implementation conformance, or System
 Assurance. Physical Suites and evidence stores remain repository-native and
@@ -652,13 +657,12 @@ concepts.
 
 ### Synchronization and migration
 
-From the repository root, run `scripts/sync-gen-stack-relationships.py` after
-changing an assertion source. Pass an explicit `[repository-root]` only when
-invoking it elsewhere. Run the same command with `--check` in non-mutating
-review or continuous integration. Synchronization MUST be deterministic and
-idempotent, MUST preserve unrelated frontmatter and provenance, and MUST
-refuse to write when placement or adoption is unsupported or authoritative
-assertions are malformed, ambiguous, or contradictory.
+After changing an assertion source, use the relationship synchronizer documented
+by the package CLI reference. Use the canonical mechanical check for
+non-mutating review or continuous integration. Synchronization MUST be
+deterministic and idempotent, MUST preserve unrelated frontmatter and
+provenance, and MUST refuse to write when placement or adoption is unsupported
+or authoritative assertions are malformed, ambiguous, or contradictory.
 
 To migrate an explicitly identified `gen-stack` `0.2.0`, `0.3.0`, or `0.4.0`
 corpus, or a supported corpus previously stored elsewhere:
@@ -683,18 +687,18 @@ corpus, or a supported corpus previously stored elsewhere:
 8. synchronize reciprocal projections;
 9. update repository-external links, continuous-integration paths, harness
    inputs, and agent instructions that named the old location; and
-10. run OKF validation against `gen-stack/`, profile validation against the
-   repository root, and a named semantic review as
-   separate checks.
+10. run the canonical mechanical check against the repository root and a named
+    semantic review as separate checks.
 
 Migration MUST NOT treat an untyped link as evidence of a controlled
 relationship, preserve an alternate-path fallback, or leave a compatibility
 symlink. Bundle-relative `/...` links retain their
 meaning beneath the moved corpus. A corpus may be structurally conforming after
 migration without being complete; missing optional relationships and unknown
-coverage remain separate assessment questions. The Gen Stack skill does not
-perform this migration; this policy constrains a separately authorized human
-or tool workflow.
+coverage remain separate assessment questions. A human, authorized agent, or
+deterministic tool may perform the migration only after the applicable human or
+institutional authorities have ratified the governed meaning and repository
+mutation is independently authorized.
 
 ## Navigation and maintenance
 
@@ -724,26 +728,29 @@ the rule.
 
 ## Validation
 
-From the repository root, run
-`scripts/sync-gen-stack-relationships.py --check` and
-`scripts/validate-gen-stack-profile.py` for mechanically decidable profile
-rules. Both commands accept an optional explicit `[repository-root]`; neither
-accepts or discovers an arbitrary corpus root. Their machine-readable results
-identify both repository and corpus roots and distinguish absent, unsupported,
-invalid, and structurally conforming repository states. The validator checks
+From the repository root, run the packaged `gen-stack.py check` as the
+canonical non-mutating mechanical gate. It accepts the repository root and can
+validate the working tree, exact Git index, or an exact Git revision; it does
+not accept or discover an arbitrary corpus root. Its machine-readable result
+binds the selected input and reports native OKF, structural-profile, and
+relationship-projection layers separately. The profile layer checks
 placement, adoption, field form, role vocabulary, target resolution, domain
 and range, role-specific target exclusivity, Requirement lifecycle,
 Requirement-derived subjects, Architecture target eligibility, C4 View
 exclusion, cardinality, path consistency, index reachability, empty protocol
 directories, reciprocal projection, and cycles where the glossary prohibits
-them. Also run the applicable OKF validator
-directly against `<repository-root>/gen-stack/` and a named manual semantic
-review. Structural validation cannot establish correct Intent, proper
-Requirement subject selection, Protocol coverage or method adequacy, evidence
-currency, satisfaction, realization, conformance, assurance, or fitness.
+them. Run a named manual semantic review separately. Mechanical validation
+cannot establish correct Intent, proper Requirement subject selection, Protocol
+coverage or method adequacy, evidence currency, satisfaction, realization,
+conformance, assurance, or fitness.
 
-Operationally, keep validation layered: run the native OKF check first, the
-profile's structural check second, named semantic review third, and any
-coverage or fitness assessment last. Preserve each result independently. Do
+The standalone `validate-gen-stack-profile.py` and
+`sync-gen-stack-relationships.py --check` commands remain useful for focused
+diagnosis and compatibility. The mutating synchronizer remains an explicit
+author action outside the gate. Operationally, preserve every layer
+independently: native OKF, profile structure, relationship projection, named
+semantic review, then any coverage or fitness assessment. Do
 not add a style or preferred-body-order failure to the profile validator unless
-that structure first becomes a normative profile rule.
+that structure first becomes a normative profile rule. For Git hooks and CI, follow
+[Integrating Gen Stack mechanical validation into repository
+workflows](integrating-mechanical-validation-into-repository-workflows.md).

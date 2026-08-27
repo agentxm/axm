@@ -1,7 +1,7 @@
 # Synthetic AXM-managed audit target
 
 Audit the complete canonical package at
-`.axm/extensions/@example/skills/local-markdown-formatter`. The project uses
+`skills/local-markdown-formatter`. The project uses
 AXM 0.27.x, the installed AXM skill and current CLI help are available, and the
 package manifest declares `standalone: true` with no recommended pack.
 

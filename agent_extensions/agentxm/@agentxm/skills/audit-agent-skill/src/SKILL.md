@@ -32,10 +32,10 @@ never perform that handoff's execution inside the audit run.
 
 This skill is coupled to direct siblings in the agent-engineering pack. Resolve
 the active AXM scope root, then begin with
-`.axm/extensions/@agentxm/knowledge/agent-engineering/src/skills/skill-engineering.md`
+`knowledge/agent-engineering/src/skills/skill-engineering.md`
 and `skills/authoring-agent-skills.md`. Open only the additional concepts needed
 for the declared scope, all relative to
-`.axm/extensions/@agentxm/knowledge/agent-engineering/src/`:
+`knowledge/agent-engineering/src/`:
 
 - design conformity: `skills/candidate-selection.md`,
   `skills/skill-boundaries-and-neighboring-elements.md`,
@@ -64,7 +64,7 @@ portable Agent Skills format or cross-host portability. Read another platform
 profile under `skills/platforms/` only for a host the target claims or the
 caller names.
 
-When the target is canonical under `.axm/extensions`, carries AXM ownership, or
+When the target is canonical under an AXM workspace or acquired package path, carries AXM ownership, or
 is reached through an AXM pack, treat AXM as an extension-management layer
 rather than a host. Read `skills/platforms/axm.md`, the installed `axm` skill,
 and current relevant CLI help. Use `axm lint` and, for pack relationships,
@@ -84,7 +84,7 @@ authoring method.
 - **Audit** is the default. Inspect and report without changing the target.
 - **Audit and remediate** requires explicit mutation intent such as “fix,”
   “remediate,” or “apply.” Preserve the pre-change audit, use the direct sibling
-  `.axm/extensions/@agentxm/skills/author-agent-skill/src/SKILL.md` to revise
+  `skills/author-agent-skill/src/SKILL.md` to revise
   the target, then audit the new identity.
 - **Verify remediation** binds earlier findings to a supplied revised identity
   and decides closure without making further changes unless remediation is also
@@ -134,16 +134,18 @@ not an independent audit or approval.
    a required surface; an audit-input limitation is not target-owned.
 3. **Inventory the complete package.** Include manifests, `SKILL.md`, scripts,
    references, assets, symlinks, generated metadata, examples, evaluations,
-   dependencies, licenses, and projections. Classify evaluation source,
-   generated run evidence, aggregate analysis, promoted decision evidence, and
-   governance records separately. For AXM-managed targets, distinguish desired,
+   dependencies, licenses, and projections. Distinguish intended package
+   content, disposable generated files, ignore rules, archive filters, and
+   projected copies. Classify evaluation source, generated run evidence,
+   aggregate analysis, promoted decision evidence, and governance records
+   separately. For AXM-managed targets, distinguish desired,
    accepted-resolution, canonical, and projected state and inspect declared pack
    reachability. Classify every neighboring extension as a declared direct pack
    sibling, another supported relationship, or an incidental active neighbor;
    do not promote the last category into a dependency. When versioned Agent
    Skill evaluation source is present,
    apply the runner-selection contract under the direct
-   `.axm/extensions/@agentxm/skills/evaluate-agent-skill/src/references/runner-selection.md`
+   `skills/evaluate-agent-skill/src/references/runner-selection.md`
    sibling. Use an explicitly bound trusted read-only validator when supplied;
    otherwise use the bundled `agent-skill-evaluator` validator only when AXM
    reports it enabled. Retained source from a disabled extension is not active
@@ -173,7 +175,7 @@ not an independent audit or approval.
    it separately even when the aggregate otherwise looks successful.
    When the caller also requests new behavioral trials, recommend handing the
    exact target, suite, and claim tier to the direct sibling
-   `.axm/extensions/@agentxm/skills/evaluate-agent-skill/src/SKILL.md`, then audit
+   `skills/evaluate-agent-skill/src/SKILL.md`, then audit
    the resulting evidence in a separate authorized workflow; audit owns evidence
    assessment, not run execution, and does not execute the handoff itself.
 6. **Trace authority and trust.** Identify reads, writes, deletion, commands,

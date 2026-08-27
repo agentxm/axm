@@ -34,7 +34,8 @@ Reusable workflows packaged behind routing metadata and disclosed on demand.
 - [Workflow contracts](workflow-contracts.md) - How inputs, outputs, authority,
   decisions, failures, and completion evidence make instructions executable.
 - [References, scripts, and assets](resources-scripts-and-assets.md) -
-  Assigning supporting material by semantics rather than directory convention.
+  How to assign supporting material by semantics, contain generated files, and
+  preserve clean distribution boundaries.
 - [Decision-support presentations](decision-support-presentations.md) -
   Comparing alternatives, recommending one, and preserving human authority with
   stable option labels and emission surfaces.

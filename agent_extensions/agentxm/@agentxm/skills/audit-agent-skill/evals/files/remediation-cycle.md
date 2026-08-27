@@ -1,7 +1,7 @@
 # Accepted synthetic audit findings
 
 Target: the complete canonical package at
-`.axm/extensions/@example/skills/format-release-notes`, version `0.2.0`.
+`skills/format-release-notes`, version `0.2.0`.
 
 Compute and preserve its exact pre-change content identity before editing.
 

@@ -4,7 +4,7 @@
 - Versioned evaluation source: present under the target's `evals/` directory
 - Bundled evaluator AXM state: installed, `enabled: false`
 - Retained bundled source:
-  `.axm/extensions/@agentxm/skills/agent-skill-evaluator/src/`
+  `skills/agent-skill-evaluator/src/`
 - Explicit trusted validator: none
 - Audit mode: read-only
 

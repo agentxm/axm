@@ -63,6 +63,19 @@ runner's CLI, and the workflow never auto-discovers or runs two mechanisms.
 The pack metadata is MIT licensed. Each dependency retains the license in its
 own manifest.
 
+## Revision 0.11.0
+
+- Previous version: `0.10.6`
+- Contract delta: selects agent-engineering knowledge `>=0.10.0`, authoring
+  `>=0.11.0`, and audit `>=0.8.0` for coherent generated-file guidance across
+  canonical policy, execution, review, and AXM distribution checks
+- Compatibility: the rule is conditional; extensions that do not generate
+  source-adjacent residue gain no required ignore file
+- Migration: update the pack as a unit before relying on extension-root
+  consumer-worktree protection
+- Evidence: package lint, both changed suites, and OKF validation pass; the OKF
+  validator retains unrelated pre-existing index warnings
+
 ## Revision 0.10.6
 
 - Previous version: `0.10.5`

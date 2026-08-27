@@ -52,6 +52,20 @@ axm install @agentxm/packs/agent-engineering
 > remediate supported findings, and verify the resulting revision. Do not
 > publish or claim independent approval.
 
+## Revision 0.8.0
+
+- Previous version: `0.7.4`
+- Contract delta: audits now distinguish generated residue, consumer Git
+  protection, archive filtering, and projections, requiring extension-root
+  ignore rules only when runtime behavior makes them applicable
+- Suite delta: suite `0.8.0` adds positive and negative boundary cases so a
+  clean archive or monorepo-root ignore file cannot substitute for package
+  hygiene, while output-only helpers do not trigger false findings
+- Compatibility: report shape and read-only authority are unchanged
+- Evidence: package lint, suite validation, and the knowledge bundle's OKF
+  validation pass; behavioral execution and independent approval are not
+  claimed
+
 ## Revision 0.7.4
 
 - Previous version: `0.7.3`

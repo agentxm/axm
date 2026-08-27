@@ -13,7 +13,7 @@ make the smallest change justified by the request and evidence.
 This skill is coupled to the `agent-engineering` knowledge sibling in the
 `@agentxm/packs/agent-engineering` pack. Resolve the active AXM scope root and
 read only the applicable concepts under
-`.axm/extensions/@agentxm/knowledge/agent-engineering/src/`. If that sibling or
+`knowledge/agent-engineering/src/`. If that sibling or
 the required route is unavailable, stop and name the missing pack dependency;
 do not improvise a second authoring method in this skill.
 
@@ -23,6 +23,8 @@ do not improvise a second authoring method in this skill.
   revision.
 - For remediation, use the revision route and apply only findings confirmed
   against the current target.
+- Read `skills/resources-scripts-and-assets.md` whenever bundled helpers or
+  generated files are in scope.
 - Read `evaluation/evaluating-agent-skills.md` when creating or changing
   behavioral claims, evaluation cases, graders, or harness inputs.
 - Read `evaluation/managing-evaluation-assets-and-evidence.md` whenever the
@@ -34,7 +36,7 @@ do not improvise a second authoring method in this skill.
   credentials, network access, data flow, external mutation, or authority.
 - When evaluation source changes, apply the runner-selection contract at the
   direct
-  `.axm/extensions/@agentxm/skills/evaluate-agent-skill/src/references/runner-selection.md`
+  `skills/evaluate-agent-skill/src/references/runner-selection.md`
   sibling. Use an explicitly bound trusted validator when supplied; otherwise
   use the bundled `agent-skill-evaluator` only when AXM reports it enabled. Do
   not invoke retained source from a disabled extension or auto-discover an
@@ -97,6 +99,7 @@ unestablished until their independent owners provide that evidence.
    fixtures, graders, and harness inputs in the repository's evaluation-source
    location, outside the runtime payload unless execution genuinely needs them.
 4. Validate package structure through the responsible trusted manager or host,
+   including applicable consumer-worktree protections and release contents,
    and validate evaluation source through the selected trusted validator. If no
    evaluation validator is selected, preserve the source and report mechanical
    evaluation-source validation as unavailable rather than invoking a disabled
@@ -120,7 +123,7 @@ unestablished until their independent owners provide that evidence.
    mechanism, or name the exact unavailable mechanism and leave the check open.
    When the caller requests a controlled behavioral run beyond authoring smoke,
    hand the exact target and suite to the direct sibling
-   `.axm/extensions/@agentxm/skills/evaluate-agent-skill/src/SKILL.md`; authoring
+   `skills/evaluate-agent-skill/src/SKILL.md`; authoring
    owns source changes, while evaluation owns execution and run evidence.
 5. Hand off the canonical identity, files changed, evaluation source, generated
    workspace when present, evidence class, checks and exercises, public-contract

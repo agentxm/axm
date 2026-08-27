@@ -1,9 +1,9 @@
 # Synthetic AXM revision request
 
 - Target: `@example/skills/review-release@0.4.0`
-- Canonical package: `.axm/extensions/@example/skills/review-release/`
-- Runtime source: `.axm/extensions/@example/skills/review-release/src/SKILL.md`
-- Evaluation source: `.axm/extensions/@example/skills/review-release/evals/`
+- Canonical package: `skills/review-release/`
+- Runtime source: `skills/review-release/src/SKILL.md`
+- Evaluation source: `skills/review-release/evals/`
 - Ownership: workspace-authored through AXM; agent-facing copies are projections
 - Confirmed failure: “deploy this release” falsely selects this review-only skill
 

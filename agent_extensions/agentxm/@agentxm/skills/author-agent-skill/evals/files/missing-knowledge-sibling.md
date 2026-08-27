@@ -5,7 +5,7 @@
 - Pack: `@agentxm/packs/agent-engineering`
 - Authoring skill: installed and enabled
 - Required knowledge sibling: not installed and unavailable at
-  `.axm/extensions/@agentxm/knowledge/agent-engineering/src/`
+  `knowledge/agent-engineering/src/`
 - Required creation route: `skills/authoring-agent-skills.md`
 - Current target package: absent
 - Authority: create the requested package only after required guidance resolves

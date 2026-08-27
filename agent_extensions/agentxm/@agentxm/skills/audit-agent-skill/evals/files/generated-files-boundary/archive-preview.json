@@ -1,0 +1,11 @@
+{
+  "package": "@example/skills/build-report@1.0.0",
+  "included_paths": [
+    "skill.json",
+    "src/SKILL.md",
+    "src/scripts/build_report.py",
+    "src/scripts/report_utils.py"
+  ],
+  "excluded_paths": [],
+  "warnings": []
+}

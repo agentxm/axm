@@ -42,6 +42,20 @@ axm install @agentxm/packs/agent-engineering
 > supported routing behavior, preserve the motivating cases, validate the
 > package, and record any remaining evidence needed for closure.
 
+## Revision 0.11.0
+
+- Previous version: `0.10.0`
+- Contract delta: authoring now treats generated-file containment, consumer
+  worktree ignore rules, and release filtering as separate controls and checks
+  them when bundled helpers can create disposable files
+- Suite delta: suite `0.6.0` adds a Python-helper case requiring a focused
+  extension-root `.gitignore` and independent archive-preview evidence
+- Compatibility: existing skills without applicable generated files need no
+  new metadata; no install, enable, publish, or authority boundary changed
+- Evidence: package lint, suite validation, and the knowledge bundle's OKF
+  validation pass; behavioral execution and independent approval are not
+  claimed
+
 ## Revision 0.10.0
 
 - Previous version: `0.9.0`

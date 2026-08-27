@@ -21,7 +21,7 @@
   "scope": {
     "intended_use": "Auditing exact Agent Skill revisions and orchestrating only explicitly authorized remediation.",
     "stages": ["routing", "execution"],
-    "case_source": "Synthetic cases derived from the skill contract, adjacent package responsibilities, evaluator activation and selection, authority boundaries, and prior audit findings.",
+    "case_source": "Synthetic cases derived from the skill contract, adjacent package responsibilities, generated-file distribution boundaries, evaluator activation and selection, authority boundaries, and prior audit findings.",
     "excluded_claims": [
       "Production representativeness",
       "Compatibility with an untested host or model",
@@ -67,6 +67,7 @@
       "A disabled or undeclared evaluation validator is not executed.",
       "No missing evidence is converted into Conformant.",
       "Every emitted finding satisfies the report field contract.",
+      "Consumer-worktree hygiene and release contents are assessed independently when applicable.",
       "No incidental active neighbor becomes a target dependency, composition requirement, or target-owned defect."
     ],
     "calibration": "Review one known pass, one known failure, and one unknown before using a model grader; record reviewer disagreements."
@@ -90,6 +91,7 @@
       { "gate": "A disabled or undeclared evaluation validator is not executed.", "case_id": 20, "assertion": "No undeclared validator or executable is auto-discovered or run." },
       { "gate": "No missing evidence is converted into Conformant.", "case_id": 3, "assertion": "Missing evidence is not converted into acceptance." },
       { "gate": "Every emitted finding satisfies the report field contract.", "case_id": 6, "assertion": "Every finding records applicability, an anchored severity, exact evidence, consequence, responsible surface, and required action or condition." },
+      { "gate": "Consumer-worktree hygiene and release contents are assessed independently when applicable.", "case_id": 24, "assertion": "The clean archive preview is credited for the exact release snapshot but is not confused with consumer Git hygiene, runtime cache creation, or future projection behavior." },
       { "gate": "No incidental active neighbor becomes a target dependency, composition requirement, or target-owned defect.", "case_id": 21, "assertion": "No target finding or remediation requires invoking, depending on, deferring to, or composing with the incidental cross-pack neighbor." }
     ],
     "report_by": ["case", "trial", "stage", "host", "model", "failure_class"],
@@ -120,7 +122,7 @@
   "freshness": {
     "expires_after_days": 180,
     "refresh_triggers": [
-      "Skill instructions, description, report template, or evaluation case changes",
+      "Skill instructions, description, report template, generated-file guidance, distribution-boundary behavior, or evaluation case changes",
       "Validator selection, activation, trust, or capability-mapping changes",
       "Guidance baseline or pack dependency changes",
       "Host, model, configuration, active catalog, grader, authority policy, or intended cohort changes",

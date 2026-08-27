@@ -3,7 +3,7 @@
 Target: `normalize-release-notes` version `0.3.1`, content identity `sample-r8`.
 
 Canonical package:
-`.axm/extensions/@example/skills/normalize-release-notes/`. The complete
+`skills/normalize-release-notes/`. The complete
 current manifest, runtime source, evaluation contract, and cases are present in
 that package and are the evidence against which the findings must be confirmed.
 

@@ -2,13 +2,13 @@
 
 - Target: `@example/skills/render-status-summary@0.3.0`
 - Canonical package:
-  `.axm/extensions/@example/skills/render-status-summary/`
+  `skills/render-status-summary/`
 - Requested change: revise the helper and runtime instructions so the emitted
   Markdown heading is `## Current status`
 - Acquisition: third-party snapshot supplied for review; publisher and archive
   integrity have not been established
 - Helper:
-  `.axm/extensions/@example/skills/render-status-summary/src/scripts/render.mjs`
+  `skills/render-status-summary/src/scripts/render.mjs`
 - Execution trust: unresolved
 - Execution authority: static inspection and bounded source edits only
 - Sandbox, network, credentials, and dependency authority: not supplied

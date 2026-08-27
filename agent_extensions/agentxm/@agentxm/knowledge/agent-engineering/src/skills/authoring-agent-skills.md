@@ -14,7 +14,7 @@ sources:
   - id: anthropic-best-practices
     resource: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
     title: Anthropic — Skill authoring best practices
-generated: { by: "codex/gpt-5.6", at: 2026-08-22T02:00:00Z }
+generated: { by: "codex/gpt-5.6", at: 2026-08-27T03:10:49Z }
 stale_after: 2027-02-21
 ---
 
@@ -63,13 +63,12 @@ whose observable behavior has been checked in proportion to its risk.
    requirements from recommendations, examples, and local conventions. See
    [Workflow contracts](workflow-contracts.md) and
    [Degrees of freedom](degrees-of-freedom.md).
-5. **Choose the smallest useful package.** Keep shared purpose, essential
-   constraints, and routing in `SKILL.md`. Add a focused reference for
-   conditional depth, a script for exact repeated mechanics, or an asset for
-   material copied into output only when the workflow benefits concretely. Link
-   each conditional resource at the step that needs it; see
+5. **Choose the smallest useful package.** Keep routing and essential
+   constraints in `SKILL.md`; add only resources that concretely improve
+   execution, and route to conditional resources where needed. Apply
    [Progressive disclosure for skills](progressive-disclosure-for-skills.md)
-   and [References, scripts, and assets](resources-scripts-and-assets.md).
+   and [References, scripts, and assets](resources-scripts-and-assets.md),
+   including its generated-file and distribution-boundary guidance.
 6. **Design interaction only when the job has one.** For a meaningful
    user-facing sequence, apply
    [How to design agent-mediated user experience](../agents/agent-mediated-user-experience.md).
@@ -87,14 +86,14 @@ whose observable behavior has been checked in proportion to its risk.
    it the sole source of behavior.
 8. **Author canonically.** Use the repository's extension manager or host
    scaffold, preserve unrelated supported metadata and invocation policy, and
-   reference only portable package paths or declared pack siblings. Do not
-   create empty directories, placeholder resources, or duplicated guidance.
-9. **Validate proportionately.** Always validate the package structure and any
-   changed deterministic helper. Exercise clear and paraphrased positives plus
-   a likely adjacent negative for routing changes. Exercise the happy path,
-   relevant failures, authority boundaries, and observable output for execution
-   changes. Use independent isolated forward-testing only when complexity or
-   consequence justifies it; grade artifacts and behavior rather than wording.
+   reference only portable package paths or declared pack siblings.
+9. **Validate proportionately.** Validate package structure, changed helpers,
+   applicable consumer-worktree protections, and release contents. Exercise
+   clear and paraphrased positives plus a likely adjacent negative for routing
+   changes. Exercise the happy path, relevant failures, authority boundaries,
+   and observable output for execution changes. Use independent isolated
+   forward-testing only when complexity or consequence justifies it; grade
+   artifacts and behavior rather than wording.
 10. **Hand off established evidence.** Report the canonical identity, files
     changed, checks performed, public-contract or authority deltas, assumptions,
     and remaining evaluation, audit, migration, or release work. Authoring

@@ -1,5 +1,13 @@
 # Agent engineering update log
 
+## 2026-08-26
+
+- **Generated-file boundaries**: Assigned runtime output, extension-root ignore
+  rules, and release filtering separate responsibilities so independently
+  distributed extensions do not assume consumer repositories ignore their
+  generated files. Skill authoring and AXM guidance now verify those controls
+  without duplicating the canonical resource policy.
+
 ## 2026-08-24
 
 - **Evidence-calibrated instructions**: Distinguished interface conformity from

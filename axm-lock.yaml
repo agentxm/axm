@@ -65,11 +65,11 @@ skills:
     packageFormat: agentxm
     owner: "@agentxm"
     name: audit-agent-skill
-    resolvedVersion: 0.7.4
-    integrity: sha512-koKf4qZrgO7lt32ShwmJC5cJgI7KuBhFXkRSGCXNE3+alcOSE8WtbuEm1+VbqdNMPbcKmwTlJ2EzRhd2+HvAVg==
+    resolvedVersion: 0.8.0
+    integrity: sha512-l9LdMRcC9T5S6QFOmba+STLPx0W/kHyatXW6MDFLq5KV9JWtCGJb7dH4DnxatImxkqcjJseC0aie4RbPR4d/IA==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    treeIntegrity: sha256-tree-v1:12059c1e9947e7c823b43acc7a2ab8471712823bd09d18798b773e038ea51db9
+    treeIntegrity: sha256-tree-v1:38a686511ffce240b75797e8588da7bd1eacb7c40ce5db762906c7dc36aa2b03
   author-agent-skill:
     type: registry
     sourceType: registry
@@ -79,11 +79,11 @@ skills:
     packageFormat: agentxm
     owner: "@agentxm"
     name: author-agent-skill
-    resolvedVersion: 0.10.0
-    integrity: sha512-fN7wuTsa3eKvtC7i9dqfjcz6xaFVADnb02dESgZWe1Szt+GOjEfRyEuZLgErJ/rHJPpGyidr+KkkoOUTGqI8FA==
+    resolvedVersion: 0.11.0
+    integrity: sha512-119BGRfxmCXrvMN6p/WfQ2rkl9GRdfKmALgCC/snphPJnjDTk/X9fSLaW8eu/aXHtRvrMSzkKbzJRrjChvWxGw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    treeIntegrity: sha256-tree-v1:48ffb96e200bdcad44c2081c0927d9fbf645efb657cd7df3479955e40c036b6d
+    treeIntegrity: sha256-tree-v1:70848fee0741f74a32ad4aa959ab5f6e7759ad79ba0edac10a28472c0bfa08ff
   evaluate-agent-skill:
     type: registry
     sourceType: registry
@@ -320,11 +320,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@agentxm"
     name: agent-engineering
-    resolvedVersion: 0.9.2
-    integrity: sha512-AGnQ2updX0VzdtLX3MiJx2F6Ocjl+v0YoN6VRt0K5wBnhst+13UvFRg03EPc1osWk5f9zmsS7dZJlshgJCu1uw==
+    resolvedVersion: 0.10.0
+    integrity: sha512-/dkQKpQhVNfbR0ZG9DoxZfiEd9LcnFin9M1xvN/PZ54IJTdVFa4u0LiwZTt3ZYtJRv5kCO1Ztb9TP80EjKGdqw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    treeIntegrity: sha256-tree-v1:8890c0941c5a53da4f4eaa44682d517d262561d59d5608accb53d1a6027d494c
+    treeIntegrity: sha256-tree-v1:a6e71156bf49df723a83e798e2c4d2386ea3dba1bfc4db988844f2475f0451c7
   docs:
     type: registry
     sourceType: registry
@@ -393,12 +393,12 @@ packs:
     packageFormat: agentxm
     owner: "@agentxm"
     name: agent-engineering
-    resolvedVersion: 0.10.6
-    integrity: sha512-3fQOP6luNs/1kSIDcHbMC3KachsrWxtOiW9525+fKBew5KyhSzZtcJ6JoMTRVB46OilI0ZY6cgFjHnpSHcFU8w==
-    manifestContentIdentity: 1f759742dd28ed6b64c68f45a3d19207622f452c7a3ada38c468d6327778ee9b
+    resolvedVersion: 0.11.0
+    integrity: sha512-W+4VpSXQw8HmohFYowgZK7Mwq/40hd5UvZBaUKO1yDmOaVnYjAhdsEWMzygNEEJykaBZqWAfHKhies5Xo9Ek5Q==
+    manifestContentIdentity: 9305184688a900dcc14ae8c81295cc98a5b0ac5ac875af305d2be1f2b3517c4b
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    treeIntegrity: sha256-tree-v1:a0a21b48af6e088337a30799726cb514db8a7177bf05d110e85db3fb184dcefe
+    treeIntegrity: sha256-tree-v1:eeff53b36ad5e09a2a95d223cb9fd8d3911a4161ebd8ee23ae98c99c280fbaac
   docs:
     type: registry
     sourceType: registry

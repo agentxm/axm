@@ -3,20 +3,20 @@
   "evals": [
     {
       "id": 1,
-      "prompt": "Execute this Research Brief in standard mode using current public evidence. Intended decision: whether a public library should pilot extended weekend hours. Q1: What unmet community needs would extended hours address? Q2: What operating costs and staffing constraints would materially affect a pilot? Q3: What evidence would distinguish extended hours from lower-cost alternatives?",
-      "expected_output": "A current, citation-backed Research report with the exact required sections, a dashboard and matching finding for Q1 through Q3, calibrated confidence, decision implications, limitations, and a compact source register.",
+      "prompt": "$research Execute this Research Brief using current public evidence. Intended use: whether a public library should pilot extended weekend hours. Q1: What unmet community needs would extended hours address? Q2: What operating costs and staffing constraints would materially affect a pilot? Q3: What evidence would distinguish extended hours from lower-cost alternatives?",
+      "expected_output": "A current, citation-backed Research report with Context, Summary, a dashboard and matching finding for Q1 through Q3, unresolved gaps, and method limitations.",
       "assertions": [
         "The report preserves Q1 through Q3 and gives each exactly one dashboard row and one detailed finding.",
-        "Material external claims have nearby descriptive citations and the cited sources appear in the source register.",
-        "The executive synthesis uses the four required labels and does not silently recommend a decision.",
+        "Material external claims have nearby descriptive citations and credible counterevidence is visible.",
+        "The Summary uses Bottom line, Most important uncertainty, and Decision implication without recommending a decision.",
         "Observed delegation evidence shows one terminal execute assignment to researcher, no framing assignment, and no subdelegation."
       ],
       "stage": "execution"
     },
     {
       "id": 2,
-      "prompt": "Research this question in rapid mode: Does a four-day school week improve teacher retention without materially harming student outcomes? Treat it as Q7 and use evidence current through today. The policy decision belongs to the legislature; do not make it.",
-      "expected_output": "A rapid Research report preserving Q7, comparing credible evidence and applicability, distinguishing retention from student outcomes, and stating implications without recommending legislation.",
+      "prompt": "$research Does a four-day school week improve teacher retention without materially harming student outcomes? Treat this as Q7, use evidence current through today, and do not make the legislature's policy decision.",
+      "expected_output": "A Research report preserving Q7, comparing credible evidence and applicability, distinguishing retention from student outcomes, and stating implications without recommending legislation.",
       "assertions": [
         "The supplied Q7 identifier and full question are preserved.",
         "The report distinguishes populations, timeframes, methods, and plausible confounding when synthesizing empirical evidence.",
@@ -27,49 +27,70 @@
     },
     {
       "id": 3,
-      "prompt": "Research this subject in standard mode using current public evidence. Subject and boundary: a proposal to change a city's permit intake process. Observable context: applicants report delays. Intended use: decide which changes merit a pilot. Authoritative constraints: none supplied.",
+      "prompt": "$research Research this subject using current public evidence. Subject and boundary: a proposal to change a city's permit intake process. Observable context: applicants report delays. Intended use: decide which changes merit a pilot. Constraints: none supplied.",
       "expected_output": "A visible generated Research Brief followed by a citation-backed Research report whose question IDs match the generated brief. Neutral input alone is not represented as procedurally blind.",
       "assertions": [
         "The response contains a complete Research Brief before the Research report.",
         "Every generated Q identifier and full question is preserved in the report dashboard and findings.",
         "The Research Brief does not claim procedural blindness merely because the supplied subject used neutral language.",
-        "Observed delegation evidence shows framing before terminal execution, with no subdelegation or external mutation."
+        "Observed delegation evidence shows one framing assignment followed by one separate execute assignment, with no subdelegation or external mutation."
       ],
       "stage": "execution"
     },
     {
       "id": 4,
-      "prompt": "Execute this rapid Research Brief and stop after the first two questions. Q1: What need does the proposal address? Q2: What evidence supports its expected benefit? Q3: What operational dependencies constrain it? Q4: What lower-cost alternatives exist?",
-      "expected_output": "A stable Research report that investigates Q1 and Q2, retains Q3 and Q4 in the dashboard as Not reached, and makes the remaining work visible without pretending the brief was completed.",
+      "prompt": "$research Execute this Research Brief and stop after the first two questions. Q1: What need does the proposal address? Q2: What evidence supports its expected benefit? Q3: What operational dependencies constrain it? Q4: What lower-cost alternatives exist?",
+      "expected_output": "A valid partial Research report that investigates Q1 and Q2, retains Q3 and Q4 as Not reached, and makes the remaining work visible.",
       "assertions": [
         "All four supplied IDs appear in the dashboard and findings.",
-        "Q3 and Q4 use Not reached rather than unsupported substantive answers.",
-        "The executive synthesis and gaps reflect the explicit research cap.",
-        "The report retains every required section despite rapid-mode compression."
+        "Q3 and Q4 use Not reached and explicitly state that no substantive answer is supported.",
+        "The Summary and unresolved gaps reflect the explicit two-question limit.",
+        "The report does not add a named research mode, confidence column, emergent E question, or source register."
       ],
       "stage": "execution"
     },
     {
       "id": 5,
-      "prompt": "Turn this topic into research questions: whether a synthetic onboarding process is effective. Do not conduct the research yet.",
+      "prompt": "$research Turn this topic into research questions: whether a synthetic onboarding process is effective. Do not conduct the research yet.",
       "expected_output": "A complete Research Brief produced through the framing phase, with no Research report, gathered evidence, or external mutation.",
       "assertions": [
-        "The response returns a complete Research Brief with stable question IDs and evidence-needed fields.",
+        "The Research Brief contains Context, a Research questions table with ID, Research question, Why it matters, and Evidence needed columns, and Deliberate omissions.",
+        "The response does not emit a separate Relevant concerns section or Priority or Concern table columns.",
         "The response does not conduct research, fabricate evidence, or emit a Research report.",
-        "Observed delegation evidence shows one framing assignment and no execute assignment.",
-        "No files, systems, records, messages, forms, or other external state are changed."
+        "Observed delegation evidence shows one framing assignment and no execute assignment or external mutation."
       ],
       "stage": "execution"
     },
     {
       "id": 6,
-      "stage": "routing",
-      "prompt": "$research Execute this Research Brief using current public evidence and return the required question-by-question report with citations.",
-      "expected_selection": "research",
-      "catalog_neighbors": [
-        "question",
-        "audit-docs"
+      "prompt": "$research Research why completion fell in a synthetic municipal service portal after a release. Intended use: decide what engineering work to prioritize. Our originating analysis says the Kestrel address validator is the cause and should be rolled back. Use a procedurally blind frame before gathering any available evidence.",
+      "expected_output": "A procedurally blind Research Brief generated only from a hypothesis-neutral portal boundary, followed by a Research report that preserves its question IDs and does not treat the supplied cause or rollback as established.",
+      "assertions": [
+        "The generated Research Brief does not mention Kestrel, an address validator, rollback, or wording that uniquely reveals the originating theory.",
+        "The Research Brief labels independence as procedurally blind and the report preserves that status.",
+        "The Research report uses every generated Q identifier and does not reintroduce the originating cause or fix as fact.",
+        "Observed delegation evidence shows that the framing worker received only hypothesis-neutral input before a separate execute assignment."
       ],
+      "stage": "execution"
+    },
+    {
+      "id": 7,
+      "prompt": "$research Execute this Research Brief: Q1: What evidence supports piloting the proposed service? The host reports that no fresh-context researcher capability is available. Do not use a same-context fallback.",
+      "expected_output": "A blocked Research result that preserves Q1, names fresh-context delegation as missing, performs no research, and states the smallest resume condition.",
+      "assertions": [
+        "The response uses Status blocked and Phase execute.",
+        "The response preserves Q1 and names a concrete resume condition.",
+        "The response does not conduct research, fabricate evidence, or claim successful delegation.",
+        "No external state is changed."
+      ],
+      "stage": "execution"
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "$research Execute this Research Brief using current public evidence and return the question-by-question report with citations.",
+      "expected_selection": "research",
+      "catalog_neighbors": ["investigate", "audit-docs"],
       "assertions": [
         "The user's explicit skill invocation selects research.",
         "No neighboring skill is selected for a job it does not own.",
@@ -78,75 +99,43 @@
       ]
     },
     {
-      "id": 7,
-      "stage": "routing",
-      "prompt": "Investigate whether a public library should pilot extended weekend hours. Frame the research if needed, gather current evidence, and show me what remains uncertain.",
-      "expected_selection": "clarify-or-abstain",
-      "catalog_neighbors": [
-        "question",
-        "audit-docs"
-      ],
-      "assertions": [
-        "Research is not selected because the user did not explicitly invoke the skill.",
-        "The host's explicit-selection-only policy is honored even though the request asks for investigation and evidence gathering.",
-        "The routing result records abstention or clarification without treating ordinary research-like language as user invocation.",
-        "No task side effect occurs before selection."
-      ]
-    },
-    {
-      "id": 8,
-      "stage": "routing",
-      "prompt": "What are the five highest-value research questions about whether a public library should extend weekend hours? Do not gather evidence yet.",
-      "expected_selection": "question",
-      "catalog_neighbors": [
-        "question",
-        "audit-docs"
-      ],
-      "assertions": [
-        "The selected skill is question for a framing-only request.",
-        "Research is not selected when the caller explicitly excludes evidence gathering.",
-        "Routing uses only catalog names and descriptions.",
-        "No task side effect occurs before selection."
-      ]
-    },
-    {
       "id": 9,
-      "prompt": "Research why completion fell in a synthetic municipal service portal after a release. Intended use: decide what engineering work to prioritize. Our originating analysis says the Kestrel address validator is the cause and should be rolled back. Use a procedurally blind frame before gathering any available evidence.",
-      "expected_output": "A procedurally blind Research Brief generated only from a hypothesis-neutral portal boundary, followed by a Research report that preserves its question IDs and does not treat the supplied cause or rollback as established.",
+      "stage": "routing",
+      "prompt": "Investigate whether a public library should pilot extended weekend hours. Frame questions if needed, gather current evidence, and show what remains uncertain.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["investigate", "audit-docs"],
       "assertions": [
-        "The generated Research Brief does not mention Kestrel, an address validator, rollback, or wording that uniquely reveals the originating theory.",
-        "The Research Brief labels independence as procedurally blind and the report preserves that status without claiming blind execution from wording alone.",
-        "The Research report uses every generated Q identifier and does not reintroduce the originating cause or fix as fact.",
-        "Observed delegation evidence shows that the framing worker received only a hypothesis-neutral brief in fresh context before a separate execute assignment."
-      ],
-      "stage": "execution"
+        "Research is not selected because the host requires explicit invocation.",
+        "No neighboring skill is selected merely from shared research vocabulary.",
+        "The routing result records abstention or clarification without activating the Research workflow.",
+        "No task side effect occurs before selection."
+      ]
     },
     {
       "id": 10,
-      "prompt": "Execute this Research Brief: Q1: What evidence supports piloting the proposed service? The host reports that no fresh-context researcher subagent capability is available. Do not use a same-context fallback.",
-      "expected_output": "A visible blocked result that preserves Q1, names the missing fresh-context delegation capability, performs no research, and gives the smallest safe recovery action.",
+      "prompt": "$research Execute only the evidence phase for this topic: whether a synthetic onboarding process is effective. No research questions are supplied, and framing is prohibited.",
+      "expected_output": "An invalid Research result for the execute phase that names explicit research questions as the missing input and performs neither framing nor evidence gathering.",
       "assertions": [
-        "The response reports the investigation as blocked because fresh-context researcher delegation is unavailable.",
-        "The response preserves Q1 and names a concrete recovery action.",
-        "The response does not conduct research, fabricate evidence, or claim successful delegation.",
-        "No external state is changed."
+        "The response uses Status invalid and Phase execute.",
+        "The reason names missing explicit research questions rather than inventing them.",
+        "The response gives a concrete resume condition.",
+        "No framing, evidence gathering, subdelegation, or external mutation occurs."
       ],
       "stage": "execution"
     },
     {
       "id": 11,
       "prompt": "$research Before anyone revises this synthetic service profile, execute this Research Brief using only the supplied material. Intended use: understand whether the audience statement is supported. Q11: What evidence supports or contradicts the statement 'Audience: municipal administrators'? Supplied evidence: a synthetic usability summary says seven of ten sessions were completed by permit clerks and three by administrators. Earlier discussion considered editing the profile, but this invocation is research only.",
-      "expected_output": "A Research report preserving Q11, preceded by a concise disclosure that a fresh, read-only research subagent is assisting and that the invocation will not modify state, with no actual mutation or statement that the calling agent or researcher will later make one.",
+      "expected_output": "A Research report preserving Q11, using only the supplied evidence, exposing its limitations, and stopping without mutation or a promise of later mutation.",
       "assertions": [
-        "Before delegation, a user-visible informational update says that a fresh, read-only research subagent is assisting and that this Research invocation will not modify files or external systems.",
-        "The subagent is presented as an implementation detail while the calling agent retains responsibility for reviewing and presenting the evidence.",
+        "The report preserves Q11 and distinguishes permit-clerk evidence from administrator evidence.",
+        "The limitations state that the supplied summary does not establish the complete intended audience.",
         "Neither the calling context nor the delegated context changes files, systems, records, messages, forms, or other external state.",
-        "No user-visible message describes Research as pausing a mutation or says or implies that the calling agent or researcher will later author, remediate, implement, edit, apply, or update anything.",
-        "The response returns the Research report for Q11 and stops without transitioning into another workflow."
+        "No user-visible message says or implies that the calling agent or researcher will later author, remediate, implement, edit, apply, or update anything."
       ],
       "stage": "execution"
     }
   ],
-  "suite_version": "2.0.0",
+  "suite_version": "3.0.0",
   "evaluation_contract": "evals/evaluation-contract.json"
 }

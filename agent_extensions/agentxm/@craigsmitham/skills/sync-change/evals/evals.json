@@ -1,0 +1,166 @@
+{
+  "skill_name": "sync-change",
+  "suite_version": "0.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "routing",
+      "prompt": "Update the existing work-item record with the exact Change Specification revision we just landed, preserve its canonical headings, and verify the persisted result.",
+      "expected_selection": "sync-change",
+      "catalog_neighbors": ["gen-stack", "spec", "ship"],
+      "assertions": [
+        "Sync-change is selected for exact artifact persistence.",
+        "Spec is not selected to re-author the landed Specification.",
+        "Ship is not selected for work-item-host content persistence.",
+        "No side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "routing",
+      "prompt": "Create host-native implementation records from every selected step in this exact implementation plan and keep them bound to the plan revision.",
+      "expected_selection": "sync-change",
+      "catalog_neighbors": ["plan", "implement", "gen-stack"],
+      "assertions": [
+        "Sync-change is selected for explicitly authorized plan projection.",
+        "Plan is not selected to recreate an already exact plan.",
+        "Implement is not selected because no implementation is requested.",
+        "No side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "routing",
+      "prompt": "Write a new Change Specification for this bounded account-retention outcome and help me decide its unresolved requirement.",
+      "expected_selection": "spec",
+      "catalog_neighbors": ["sync-change", "gen-stack", "design"],
+      "assertions": [
+        "Spec, not sync-change, is selected for authoring new why-and-what meaning.",
+        "No host mutation occurs before routing.",
+        "The unresolved Requirement decision remains with its authority."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "Publish the exact reviewed implementation revision to the declared release target under the supplied release approval.",
+      "expected_selection": "ship",
+      "catalog_neighbors": ["sync-change", "review", "implement"],
+      "assertions": [
+        "Ship, not sync-change, is selected for the final release action.",
+        "Work-item persistence is not confused with release publication.",
+        "No side effect occurs before routing."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "$sync-change Synchronize exact proposed Change Specification CS-17 revision 4 into synthetic work-item host item WI-17. Treat the source, declared host contract, and readback stated here as authoritative task-local observations; do not call a real service. The host declares Title as a native brief, Description as Markdown body, Revision as an optimistic concurrency token, and Related as directional links. The current Revision is 8 and the authorized scope is Description plus the coordination artifact binding only. The exact source is:\n# Change Specification: Retain account exports\n## Specification status and ratification request\nProposed; request Product Authority ratification.\n## Sources and provenance\nSynthetic observation OBS-17, confirmed.\n## Problem and intended outcome\nExports expire before regulated customers retrieve them; make the approved retention window enforceable.\n## Scope, boundaries, and non-goals\nAccount exports only; billing records and implementation selection are excluded.\n## Intent change\nUnchanged.\n## Requirements change\nRevise REQ-17 to retain completed exports for the approved window.\n## Architecture change\nCandidate boundary between export storage and lifecycle policy; unresolved.\n## Evaluations\nRP-17 assesses retrieval throughout the approved window.\n## Constraints and invariants\nExisting deletion guarantees after the window remain.\n## Risks and open decisions\nOption A would make lifecycle policy own expiration but remains undecided pending the Storage Authority. Option B would duplicate expiration timers in the export service and is rejected because two owners could disagree.\n## Authority and ratification\nProduct Authority may ratify; no ratification has occurred.\n## Corpus change\nCandidate REQ-17 revision only.\nA simulated authorized write returns Revision 9. The separately stated authoritative task-local readback at Revision 9 contains that complete source with identical normalized Markdown and the updated coordination binding; Title, Related, and all other fields are unchanged. Report the result without ratifying it or using vendor-specific assumptions.",
+      "expected_output": "A verified-exact artifact-sync result bound to CS-17 revision 4 and WI-17 revision 9, with proposed maturity preserved and mutation limited to Description plus the artifact binding.",
+      "assertions": [
+        "The response uses only the prompt-supplied synthetic host's declared native semantics and introduces no vendor-specific fields, labels, workflows, or assumptions.",
+        "The complete canonical Specification, rejected option, open decision, and proposed maturity are preserved.",
+        "The proposed Specification remains proposed and no host state or polished presentation is treated as ratification.",
+        "Only Description and the authorized coordination binding are in scope.",
+        "The prompt-supplied authoritative task-local Revision 9 readback, rather than the simulated write response, supports verified-exact."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "$sync-change Update item WI-22 with the Design we landed last week. The only available source is this summary: 'Use an adapter and add tests.' The complete Design, alternatives, decisions, and exact revision cannot be recovered. Make a plausible full Design and sync it anyway.",
+      "expected_output": "A stop before mutation that identifies the missing exact Change Design source and declines to reconstruct it from the summary.",
+      "assertions": [
+        "The response stops before mutation because a summary is not the exact artifact source.",
+        "No alternatives, decisions, maturity, revision, or evaluation realization is invented.",
+        "The exact source needed to resume is named.",
+        "No persistence success is claimed."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "execution",
+      "prompt": "$sync-change Replace the canonical Design block in synthetic item WI-30 with exact Design D-30 revision 3. The target was read at host revision 12, but the immediate pre-write read shows revision 13 and a human changed the same Design block. Unrelated fields are unchanged. Do not ask the human; just overwrite it.",
+      "expected_output": "A concurrency-conflict result that preserves the human edit, performs no overwrite, and names reconciliation of the same canonical location as the required next action.",
+      "assertions": [
+        "The response stops before overwriting the concurrently changed canonical artifact location.",
+        "The human edit is preserved rather than treated as unrelated content.",
+        "No blind retry or destructive replacement occurs.",
+        "The conflict and exact recovery action are explicit."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "execution",
+      "prompt": "$sync-change Synchronize exact Plan P-8 revision 2 to synthetic item WI-8. The host documents that it converts pipe tables into an equivalent structured table and normalizes list indentation while preserving headings, cells, links, and text. Readback shows only those transformations; all plan identities, steps, evaluation feedback, review checkpoints, and recovery content are present.",
+      "expected_output": "A verified-faithful result that identifies the documented harmless representation normalization without claiming byte-exact identity.",
+      "assertions": [
+        "Documented harmless representation normalization is reported as verified-faithful rather than drift or byte-exact identity.",
+        "The plan's structure and every material field are checked.",
+        "The host normalization is named.",
+        "No new plan meaning is introduced."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "execution",
+      "prompt": "$sync-change An authorized synthetic host update accepted exact Pitch PITCH-9, but authoritative readback is unavailable. The request response echoed the submitted body and returned an item identifier. Report completion.",
+      "expected_output": "An unverified persistence result that distinguishes the accepted request and echoed payload from authoritative persisted state and names readback as the recovery condition.",
+      "assertions": [
+        "Unavailable readback produces unverified rather than a success claim.",
+        "The echoed payload is not treated as persistence evidence.",
+        "The target identity and possible effect are preserved.",
+        "No replay occurs while the prior outcome is unknown."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "$sync-change Project exact implementation Plan P-44 revision 5 for Change CH-44, Specification CS-44 revision 3, and Design D-44 revision 4 into three authorized synthetic implementation records. Step S1 establishes the contract and boundary; S2 depends on S1 and adds behavior plus Protocol RP-4 feedback; S3 depends on S2 and performs rollout observation plus recovery validation. Each step supplies affected units, invariants, verification, review or return conditions, and recovery. No priority, owner, estimate, milestone, label, or workflow decision is authorized.",
+      "expected_output": "A three-record plan projection in which each step appears once, dependencies and exact artifact bindings agree, shared authorities are linked, and no unauthorized coordination metadata is invented.",
+      "assertions": [
+        "Every selected plan step appears once with consistent artifact bindings, dependencies, evidence, review, and recovery context.",
+        "The plan remains canonical and the records are identified as derived execution coordination.",
+        "Shared context is linked rather than independently re-authored.",
+        "No priority, owner, estimate, milestone, label, or workflow state is set."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "$sync-change Report authoritative readback after projecting exact Plan P-55 into three synthetic records. WI-A was created and matches. WI-B was rejected before creation because the host could not represent its required dependency. WI-C was created, but readback is unavailable. Do not retry.",
+      "expected_output": "A partial plan-projection report with WI-A created and verified, WI-B failed without creation, WI-C unverified, and no atomic-success or retry claim.",
+      "assertions": [
+        "Created, failed, and unverified item identities remain separate and the batch is not described as atomic success.",
+        "WI-A is grounded in readback.",
+        "WI-B preserves the dependency representation failure.",
+        "WI-C remains unverified and is not replayed."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "execution",
+      "prompt": "$sync-change Persist exact Change Design D-61 revision 2. The selected host limits bodies to a short plain-text field that cannot preserve the Design's alternatives, tables, diagram, evaluation realization, or unresolved decisions. D-61 already has a durable canonical repository location. Keep the work item useful without losing Design authority.",
+      "expected_output": "A linked maturity synopsis in the host that keeps D-61 revision 2 canonical at its repository location and does not compress the complete Design into an inadequate field.",
+      "assertions": [
+        "The inadequate host receives only a linked synopsis while the complete artifact remains canonical in its exact source.",
+        "The host does not become a second complete editable Design.",
+        "The synopsis preserves maturity and unresolved-decision visibility.",
+        "The representation limitation is explicit."
+      ]
+    },
+    {
+      "id": 13,
+      "stage": "execution",
+      "prompt": "$sync-change Update only the canonical Specification body and current Specification revision binding in synthetic item WI-70 from CS-70 revision 2 to exact revision 3. The existing title, summary, labels, workflow state, priority, assignee, and relationships remain truthful and are outside the authorized scope. Readback shows the new complete body and binding with all other fields unchanged.",
+      "expected_output": "A verified-exact scoped update of the Specification body and revision binding with every excluded field explicitly unchanged.",
+      "assertions": [
+        "Only the authorized body and revision binding change; title, labels, workflow, priority, assignment, and relationships remain unchanged.",
+        "The unchanged truthful summary is not redundantly rewritten.",
+        "Readback establishes the exact persisted result.",
+        "No adjacent lifecycle or metadata authority is inferred."
+      ]
+    }
+  ]
+}

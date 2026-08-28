@@ -1,14 +1,21 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "2.11.0",
-  "description": "A cohesive generative software system for current-state briefs, controlled Requirement lifecycle and change, a fixed repository gen-stack/ corpus, and independent evidence loops",
+  "version": "4.2.0",
+  "description": "A human-governed Change operating model with exact artifact synchronization, focused implementation feedback, and independent review",
   "keywords": [
     "generative-software",
     "gen-stack-brief",
     "ooda",
     "control-loop",
     "signals",
+    "change",
+    "change-specification",
+    "change-design",
+    "quick-change",
+    "bugfix",
+    "shape",
+    "pitch",
     "requirements",
     "candidate-architecture",
     "requirement-change",
@@ -20,8 +27,16 @@
     "software-engineering",
     "evaluations",
     "work-items",
+    "artifact-synchronization",
+    "host-neutral",
     "assurance",
-    "bounded-regeneration"
+    "bounded-regeneration",
+    "research",
+    "investigation",
+    "implementation-planning",
+    "focused-review",
+    "reviewer",
+    "shipping"
   ],
   "repository": {
     "type": "git",
@@ -33,7 +48,20 @@
   "type": "pack",
   "name": "gen-stack",
   "dependencies": {
-    "@craigsmitham/knowledge/gen-stack": ">=0.19.0",
-    "@craigsmitham/skills/gen-stack": ">=1.10.0"
+    "@craigsmitham/knowledge/gen-stack": ">=0.25.0",
+    "@craigsmitham/skills/gen-stack": ">=3.2.0",
+    "@craigsmitham/skills/research": ">=3.0.0",
+    "@craigsmitham/subagents/researcher": ">=0.1.0",
+    "@craigsmitham/skills/investigate": ">=0.2.0",
+    "@craigsmitham/skills/spec": ">=0.3.0",
+    "@craigsmitham/skills/design": ">=0.3.0",
+    "@craigsmitham/skills/plan": ">=0.5.0",
+    "@craigsmitham/skills/implement": ">=0.3.0",
+    "@craigsmitham/skills/review": ">=0.3.0",
+    "@craigsmitham/skills/ship": ">=0.2.0",
+    "@craigsmitham/skills/shape": ">=0.2.0",
+    "@craigsmitham/skills/quick-change": ">=0.1.0",
+    "@craigsmitham/subagents/reviewer": ">=0.1.0",
+    "@craigsmitham/skills/sync-change": ">=0.1.0"
   }
 }

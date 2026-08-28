@@ -1,0 +1,30 @@
+{
+  "$schema": "https://axm.sh/schemas/subagent.schema.json",
+  "owner": "@craigsmitham",
+  "type": "subagent",
+  "name": "reviewer",
+  "version": "0.1.0",
+  "description": "Performs one fresh-context, read-only focused checkpoint or integrated final candidate review",
+  "keywords": [
+    "review",
+    "delegation",
+    "independent-review",
+    "architecture",
+    "requirements",
+    "evaluations",
+    "implementation",
+    "assurance"
+  ],
+  "fallback": "auto",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "subagents/reviewer"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT"
+}

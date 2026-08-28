@@ -1,99 +1,67 @@
 # Research report contract
 
-Return human-readable Markdown in this exact section order. Keep the skeleton
-stable across `rapid`, `standard`, and `deep` modes; compress prose rather than
-removing required fields.
+Return human-readable Markdown in this order. Preserve every input question ID
+and full wording.
 
+```markdown
 # Research report
 
-## Research context
+## Context
 
-State in compact bullets:
+- **Intended use:** supplied value or `Not supplied`
+- **Subject and boundary:**
+- **Research limits:** supplied caps or `None supplied`
+- **Evidence current as of:**
+- **Material assumptions:** consequential assumptions or `None identified`
+- **Independence status:** `ordinary`, `procedurally blind`, or `Not supplied`
 
-- **Intended decision or use:** supplied value, or `Not supplied`.
-- **Subject and boundary:** what was and was not investigated.
-- **Research mode:** `rapid`, `standard`, or `deep`, including a supplied cap.
-- **Evidence current as of:** the latest date through which changeable evidence
-  was checked.
-- **Material assumptions:** consequential assumptions, or `None identified`.
-- **Independence status:** whether the supplied brief was represented as blind
-  or neutral; do not claim procedural blindness from wording alone.
+## Summary
 
-## Executive synthesis
-
-Use exactly these four compact labels:
-
-- **Bottom line:** the overall evidence-backed synthesis, not a slogan.
-- **Most consequential finding:** the result with greatest effect on the
-  intended use.
-- **Most important remaining uncertainty:** the gap most likely to change the
-  synthesis.
-- **Decision implication:** what the evidence changes for the intended use;
-  this is not a recommendation unless requested.
+- **Bottom line:** overall evidence-backed synthesis
+- **Most important uncertainty:** the gap most likely to change the synthesis
+- **Decision implication:** what the evidence changes for the intended use,
+  without making the decision
 
 ## Question dashboard
 
-Give one row for every supplied `Q` question and every investigated emergent
-`E` question:
-
-| ID | Short question | Status | Bottom line | Confidence |
-| --- | --- | --- | --- | --- |
-
-Use only the statuses and confidence labels in `evidence-practice.md`. Keep each
-bottom line to one sentence. Preserve input order within priority; place
-emergent questions afterward.
+| ID | Short question | Status | Answer |
+| --- | --- | --- | --- |
 
 ## Findings
 
-Give every dashboard row exactly one matching subsection, headed with the ID
-and full original question:
+### Q1 — Full original question
 
-### Q1 — Full research question
+- **Answer:** direct answer or an explicit statement that evidence does not
+  support one
+- **Evidence and counterevidence:** synthesis with citations beside material
+  claims and comparable treatment of credible conflict
+- **Limitations:** evidence strength, applicability, assumptions, and unresolved
+  conflict
+- **Implication and next evidence:** consequence for the intended use and the
+  cheapest evidence that could materially change the answer
+```
 
-- **Answer:** Direct answer in one or two sentences, or an explicit statement
-  that the evidence does not support one.
-- **Evidence:** Synthesis with citations adjacent to material claims.
-- **Counterevidence and alternatives:** Credible conflict, competing
-  explanations, or `No material counterevidence found within scope`.
-- **Confidence and limitations:** One allowed confidence label followed by its
-  concrete basis and limitations.
-- **Decision implication:** Consequence for the intended use, or `No intended
-  decision was supplied`.
-- **What could change this answer:** Specific missing, future, or
-  decision-relevant evidence.
+After `Findings`, include `## Cross-question synthesis` only when material
+relationships, dependencies, tensions, or tradeoffs appear across findings.
+Otherwise omit it. Then finish with:
 
-For an emergent question, add one first field:
-
-- **Trigger:** The evidence that made the question material.
-
-Do not merge several questions into one subsection even when their answers
-overlap. Cross-reference the other ID instead of duplicating evidence.
-
-## Cross-question synthesis
-
-Explain relationships, dependencies, tensions, and tradeoffs visible only when
-the findings are considered together. Separate direct evidence from inference.
-State `No material cross-question synthesis` when the questions are independent.
-
-## Emergent findings
-
-List each investigated `E` question and its trigger, or state `None`. Do not use
-this section as a place for interesting but immaterial facts.
+```markdown
 
 ## Unresolved gaps and next research
 
 Order unresolved, blocked, and not-reached gaps by their potential to change the
-intended decision or synthesis. For each, state why it remains open and the
-cheapest useful next evidence. State `None material within scope` when complete.
+synthesis. State `None material within scope` when complete.
 
-## Sources and method
+## Method and limitations
 
-Briefly state which source classes and search boundaries were used, what was
-unavailable, and any material method limitation. Then provide a compact source
-register containing only cited sources:
+State the source classes and search boundaries used, unavailable evidence, and
+material method limitations.
+```
 
-| Source | Type and date | Questions supported | Material use or limitation |
-| --- | --- | --- | --- |
+Give every dashboard row exactly one matching finding. Use only the statuses in
+`evidence-practice.md`. Keep dashboard answers to one sentence. For
+`Unresolved`, `Blocked`, and `Not reached`, state explicitly that no substantive
+answer is supported.
 
-Use descriptive linked source titles. Keep citations adjacent to claims in the
-findings even though the sources also appear in this register.
+Do not create a separate source register; citations remain adjacent to the
+claims they support.

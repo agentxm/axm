@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "review",
+  "version": "0.3.0",
+  "description": "Performs focused checkpoint and independent integrated reviews with separate assurance claims and actionable results",
+  "keywords": [
+    "review",
+    "code-review",
+    "implementation-review",
+    "focused-review",
+    "review-checkpoint",
+    "assurance",
+    "release-readiness",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/review"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

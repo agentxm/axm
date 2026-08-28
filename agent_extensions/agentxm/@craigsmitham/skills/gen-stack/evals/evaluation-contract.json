@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, human-authority, boundary, native-representation, execution, provenance, and evidence failures in gen-stack before release; this suite does not approve the skill.",
+  "decision": "Detect routing, focused-stage and reviewer delegation, human-authority, boundary, native-representation, execution, provenance, and evidence failures in gen-stack before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "gen-stack",
     "required_result_fields": [
@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Briefing humans on the bounded current state of Gen Stack-adopted systems; assisting with authority-gated adoption and migration, Gen Stack change development, Requirement lifecycle operations, greenfield and brownfield candidate extraction, governed Evaluation Protocol authoring, evidence-rich software work items, material meaning-gap disposition, native-first artifact presentation, and explicitly accepted concepts while preserving human ratification and peer authorities.",
+    "intended_use": "Briefing humans on bounded Gen Stack state; orienting the canonical change-realization Process to focused sibling stages and fresh reviewer delegation; and assisting with authority-gated corpus adoption, migration, Requirement lifecycle, Architecture, Evaluation Protocol, native representation, and explicitly accepted meaning while preserving human ratification and peer authorities.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic Gen Stack current-state briefs, orientation, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, authority-gated adoption and migration, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, human-ratification, and routing-collision cases.",
+    "case_source": "Synthetic Gen Stack current-state briefs, Process and shaping orientation, focused Pitch routing, exact change-artifact synchronization orientation and routing, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, authority-gated adoption and migration, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, human-ratification, and routing-collision cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -95,7 +95,7 @@
       "Evaluation Protocol role and target authority remain explicit",
       "Protocol Coverage, evidence state, and bounded outcome remain distinct",
       "Gen Stack briefs keep conformance and health dimensions distinct",
-      "Gen Stack software work-item taxonomy contains exactly four roles",
+      "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
       "Work-item provenance remains traceable",
       "Work-item metadata remains a projection rather than authority",
       "Work-item identities and relationships remain independently recoverable",
@@ -107,8 +107,11 @@
       "Fallback structure appears only when a native affordance is absent",
       "Derived and transient artifacts do not gain false authority",
       "Evaluation Protocol authority remains governed while execution and Process artifacts remain native",
-      "Preferred logical order converges without universal templates",
+      "Focused review feedback remains separate from Protocol Results and final integrated review",
+      "Spec and Design have explicit distinct presentation contracts",
+      "Exact change-artifact persistence routes to the host-neutral synchronization sibling",
       "Local reversible delegated choices do not create ritual escalation",
+      "Focused change-realization outcomes route to their owning sibling skill",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -145,24 +148,29 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
-        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
-        "case_id": 127,
-        "assertion": "The answer enumerates exactly Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification."
+        "gate": "Focused change-realization outcomes route to their owning sibling skill",
+        "case_id": 131,
+        "assertion": "Spec, not gen-stack, is selected for the focused Change Specification outcome."
       },
       {
-        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "gate": "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
+        "case_id": 127,
+        "assertion": "The answer enumerates Operational Incident Record, Defect Report, and Change."
+      },
+      {
+        "gate": "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
         "case_id": 128,
         "assertion": "The answer says investigation is not a Gen Stack work-item type."
       },
       {
-        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "gate": "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
         "case_id": 129,
         "assertion": "The answer says a delivery task is not a Gen Stack work-item type."
       },
       {
-        "gate": "Gen Stack software work-item taxonomy contains exactly four roles",
+        "gate": "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
         "case_id": 130,
-        "assertion": "The tasks remain outside the Gen Stack taxonomy and do not replace the Specification, accept Requirements or Architecture, or become desired-state authority."
+        "assertion": "The tasks remain outside the Gen Stack taxonomy and do not replace the Change Specification or Change Design, accept Requirements or Architecture, or become desired-state authority."
       },
       {
         "gate": "Gen Stack briefs keep conformance and health dimensions distinct",
@@ -222,7 +230,7 @@
       {
         "gate": "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
         "case_id": 88,
-        "assertion": "The Bugfix Specification proceeds because the missing future evidence route does not make the accepted correction ambiguous."
+        "assertion": "The Change Specification may remain a useful draft, but the Change cannot proceed to dependent planning until required semantic Protocol meaning exists."
       },
       {
         "gate": "Requirement subject placement follows the load-bearing subject",
@@ -312,7 +320,7 @@
       {
         "gate": "Work-item identities and relationships remain independently recoverable",
         "case_id": 82,
-        "assertion": "BILL-12, BILL-19, BILL-BUG-4, BILL-BUG-7, and BILL-FIX-3 all retain separate identities."
+        "assertion": "BILL-12, BILL-19, BILL-DEF-4, BILL-DEF-7, and BILL-FIX-3 all retain separate identities."
       },
       {
         "gate": "Work-item lifecycle dimensions remain distinct",
@@ -362,7 +370,7 @@
       {
         "gate": "Fallback structure appears only when a native affordance is absent",
         "case_id": 119,
-        "assertion": "Priority, delivery state, and owner appear once in a compact fallback block because no native affordance exists."
+        "assertion": "Priority, delivery state, and owner appear once in the Change coordination fallback because no native affordance exists."
       },
       {
         "gate": "Derived and transient artifacts do not gain false authority",
@@ -385,9 +393,24 @@
         "assertion": "The BPMN model remains the canonical representation for trigger, flow, decisions, roles, and closing outcome."
       },
       {
-        "gate": "Preferred logical order converges without universal templates",
+        "gate": "Spec and Design have explicit distinct presentation contracts",
         "case_id": 123,
-        "assertion": "It gives a preferred logical body order specific to a Change Specification."
+        "assertion": "It gives exact, distinct canonical Markdown heading orders for Change Specification and Change Design while allowing native host fields to carry matching meaning and omit inapplicable body sections."
+      },
+      {
+        "gate": "Focused review feedback remains separate from Protocol Results and final integrated review",
+        "case_id": 137,
+        "assertion": "Reviewer judgment remains separate from Evaluation Protocol Execution and Results."
+      },
+      {
+        "gate": "Exact change-artifact persistence routes to the host-neutral synchronization sibling",
+        "case_id": 138,
+        "assertion": "Sync-change, not gen-stack, is selected for exact artifact synchronization."
+      },
+      {
+        "gate": "Exact change-artifact persistence routes to the host-neutral synchronization sibling",
+        "case_id": 139,
+        "assertion": "The explanation is work-item-host agnostic and prescribes no vendor fields, labels, hierarchy, workflow, or API."
       }
     ]
   },

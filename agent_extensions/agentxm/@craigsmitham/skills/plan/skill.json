@@ -1,0 +1,35 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "plan",
+  "version": "0.5.0",
+  "description": "Plans evidence-guided realization and focused review feedback for one coherent Change bound to exact accepted revisions",
+  "keywords": [
+    "implementation-plan",
+    "plan-projection",
+    "planning",
+    "sequencing",
+    "architecture-realization",
+    "evaluation-feedback",
+    "focused-review",
+    "review-checkpoints",
+    "verification",
+    "rollback",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/plan"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

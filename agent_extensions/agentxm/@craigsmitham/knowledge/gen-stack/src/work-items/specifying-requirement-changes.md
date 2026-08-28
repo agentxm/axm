@@ -2,7 +2,7 @@
 type: Guide
 title: Specifying Requirement changes in software work items
 description: Use when Requirement-impact analysis identifies a candidate addition, revision, retirement, or replacement; specify the desired-state delta, identity and lineage, authority, blockers, and downstream consequences without making the work item normative.
-tags: [requirements, requirement-change, work-items, change-specification, bugfix-specification, lifecycle, supersession, authority, blocking]
+tags: [requirements, requirement-change, work-items, change, change-specification, bugfix, lifecycle, supersession, authority, blocking]
 status: draft
 sources:
   - id: gen-stack-vocabulary
@@ -19,7 +19,7 @@ sources:
     title: Documenting requirements
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T22:30:00Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Specifying Requirement changes in software work items
@@ -341,7 +341,7 @@ not imply Requirement satisfaction.
   entry but do not accept it.
 - A **Change Specification** applies this guide whenever it proposes an
   addition, revision, retirement, replacement, split, or merge.
-- A **Bugfix Specification** normally restores satisfaction of unchanged
+- A **Change classified as Bugfix** normally restores satisfaction of unchanged
   desired state. Apply this guide only when the authorized correction also
   proposes changed desired state. Missing accepted corrected behavior remains
   blocking before dependent delivery.

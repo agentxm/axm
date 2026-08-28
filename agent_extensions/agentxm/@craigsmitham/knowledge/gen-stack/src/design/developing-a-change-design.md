@@ -1,290 +1,220 @@
 ---
 type: Guide
 title: Developing a Change Design
-description: Use when a change has materially ambiguous or consequential implementation choices; develop a proportional technical response and retain it in the conversation, a work item, or an explicitly governed durable document.
-tags: [change-design, technical-design, specification, design-review, design-ideation, work-items, implementation-planning, agent-collaboration]
+description: Use when one bounded Change needs a proportional technical response; compare material alternatives, realize accepted Architecture and required Evaluation Protocols, and reconcile the exact Change Specification without taking over specification or delivery coordination.
+tags: [change, change-design, technical-design, alternatives, architecture-realization, evaluation-realization, artifact-contract]
 status: draft
 sources:
   - id: change-design
     resource: change-design.md
     title: Change Design
-  - id: requirement-impact
-    resource: /control-loop/analyzing-requirement-impact.md
-    title: Analyzing Requirement impact
-  - id: preserving-context
-    resource: /work-items/preserving-technical-context.md
-    title: Preserving technical context in software work items
+  - id: changes
+    resource: ../work-items/changes.md
+    title: Changes
+  - id: specification-guide
+    resource: ../work-items/writing-change-specifications.md
+    title: Writing Change Specifications
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:07:37Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Developing a Change Design
 
-> **Authority:** This Guide applies the canonical meaning in the [Gen Stack
-> vocabulary and relationship model](/glossary.md). When it authors a
-> profile-governed corpus concept, the [Gen Stack application
-> profile](/profile/gen-stack-application-profile.md) owns its required
-> representation. This Guide supports action and adds neither semantic authority
-> nor profile-conformance rules.
+> **Authority:** This Guide applies the [Gen Stack vocabulary and relationship
+> model](../glossary.md). Change Design selects a bounded technical response;
+> it does not accept desired state, alter durable Architecture silently,
+> coordinate delivery, or authorize implementation.
 
-Use this guide when an agent or human needs to reason through materially
-ambiguous or consequential implementation choices before coding or capturing
-the response in a work item. Produce only the detail needed to select,
-communicate, implement, and verify the current change.
-
-For the concept and its authority boundaries, read [Change
-Design](change-design.md).
+A **Change Design** states how one bounded Change should be realized. It is a
+sibling of the Change Specification, not a section owned by it. Use
+[Changes](../work-items/changes.md) for coordination and [Writing Change
+Specifications](../work-items/writing-change-specifications.md) for why and
+what.
 
 ## Goal
 
-Reach a proportional technical response whose inputs, choices, consequences,
-maturity, unknowns, and verification approach are clear enough for the next
-authorized action. Retain it only as durably as the work requires.
+Produce the smallest complete technical response that resolves consequential
+ambiguity, realizes accepted Architecture and required semantic Evaluation
+Protocols, exposes tradeoffs and risks, and can be accepted without requiring
+implementation to recover hidden choices.
+
+## 1. Bind the Change and exact specification
+
+Identify the Change, exact Change Specification revision, accepted
+Requirements, Architecture, ADRs, constraints, invariants, required Protocols,
+current realization, authority, and requested design decision.
+
+Design-first entry is valid, but its mechanism remains proposed. Recover every
+implied outcome, obligation, durable boundary, and Protocol claim and return
+those to Change Specification before claiming coherence.
+
+## 2. Scale to consequential ambiguity
+
+Do not manufacture alternatives for a trivial or fully constrained response.
+Develop explicit alternatives when choices materially affect responsibility,
+state, interfaces, failure behavior, quality, security, compatibility,
+reversibility, evidence, cost, or future constraint.
+
+The design may remain conversational when it is immediate and recoverable. Use
+a work-item section when it must survive handoff. Use a dedicated repository
+artifact only when the response evolves independently and has an established
+owner and lifecycle.
+
+## 3. Compare material alternatives
+
+For each viable option, describe the same decision-relevant fields: technical
+responsibilities, interactions, state and data, failure behavior, constraints,
+Architecture fit, evidence cost, migration, reversibility, and risk. Present a
+neutral comparison before a recommendation.
+
+Record materially considered exclusions when they affect confidence. If no
+evidence supports a recommendation, say so and identify the needed decision or
+investigation.
+
+## 4. Specify the technical response
+
+For the recommended or accepted approach, make explicit:
+
+- technical ownership and dependency direction;
+- synchronous and asynchronous interactions, ordering, concurrency, and
+  idempotency where material;
+- interfaces, compatibility, validation, and versioning;
+- state ownership, lifecycle, consistency, persistence, and migration;
+- failure detection, propagation, containment, recovery, and observability;
+- quality, security, privacy, accessibility, and operational behavior;
+- rollout, rollback, recovery, and irreversible points; and
+- affected Implementation Unit boundaries without turning them into a task
+  sequence.
+
+Map each accepted Architecture authority to the technical realization that
+preserves it. When the response would change durable meaning, return the delta
+to Change Specification or the applicable Architecture authority.
+
+## 5. Realize required Evaluation Protocols
+
+For every required Requirement-satisfaction and Architecture-realization
+Protocol, preserve its identity, role, targets, semantic claim, judgment, and
+evidence expectations. Define the executable realization:
+
+- Suite, family, or Case mapping;
+- seams for controllability and observability;
+- data, fixtures, sampling, environments, and configuration;
+- execution triggers and incremental feedback points;
+- evidence capture, attribution, retention, and traceability;
+- handling of failure, inconclusive, skipped, stale, and harness-error states;
+  and
+- maintenance ownership when the system changes.
+
+Design may propose optional Implementation-conformance Evaluations for local
+technical contracts. Keep them separate. A durable or release-critical claim
+returns to Change Specification for Requirement or Architecture classification.
+
+## 6. Record maturity and acceptance
+
+Use an explicit design state such as exploring, recommended, proposed,
+accepted, rejected, or superseded. Name the authority for acceptance and the
+exact decision requested. Acceptance of Design does not ratify semantic change
+or authorize implementation.
+
+Record unresolved technical decisions, evidence needed, owner, and which later
+action each one blocks.
+
+## 7. Reconcile with Specification
+
+Compare the finished response with the exact Change Specification revision.
+Record one of:
+
+- `conforms` — the Design realizes the specification without changing it;
+- `specification revision required` — name every Intent, Requirement,
+  Architecture, constraint, or semantic Protocol delta; or
+- `blocked` — name the missing authority or evidence.
+
+The Change coordination record establishes coherence only after it binds the
+exact ratified specification and accepted design revisions and the
+reconciliation evidence supports agreement.
 
 ## Representation
 
-Choose the least durable adequate native container before choosing headings. A
-conversation uses lightweight prose; a tracker uses native fields plus its
-body; an established RFC or design system uses its own schema. Present residual
-meaning in this preferred order: scope and decision state, inputs and accepted
-boundaries, selected response, affected responsibilities and interactions,
-interfaces and state, failure handling, alternatives and tradeoffs,
-consequences and risks, verification, then open questions. Omit inapplicable
-material. Do not invent an ID, status, owner, timestamp, or lifecycle for a
-transient design, and do not duplicate host fields in a persisted one.
-
-## 1. Decide whether design work is needed
-
-Start with the ambiguity or consequence, not a template. Explicit design work
-is useful when the change involves one or more of:
-
-- competing implementation approaches with material tradeoffs;
-- a responsibility, dependency, interface, data, state, or failure boundary;
-- concurrency, compatibility, migration, security, privacy, safety, or
-  operational consequences;
-- several Implementation Units or contributors;
-- an architecture-significant decision or possible Requirement change; or
-- reasoning another implementer or reviewer cannot safely recover from the
-  eventual diff.
-
-Proceed directly to implementation when the response is local, obvious,
-reversible, already constrained by accepted Architecture, and leaves no
-material rationale to preserve. Do not create design work merely to populate a
-section.
-
-## 2. Bind the inputs and authority
-
-Identify the smallest applicable set:
-
-- the Signal, observation, request, defect, or authorized change;
-- accepted Requirement IDs and candidate Requirement impacts;
-- affected Architecture responsibilities, boundaries, relationships, and
-  ADRs;
-- relevant current Implementation and evaluation evidence;
-- binding constraints and explicitly labeled assumptions; and
-- who or what may accept the response or any newly discovered obligation.
-
-Treat code, tests, telemetry, and current behavior as evidence about what
-exists, not automatic authority for what should exist. Apply [Analyzing
-Requirement impact](/control-loop/analyzing-requirement-impact.md) when desired
-state may change.
-
-If those inputs reveal missing, underdeveloped, misplaced, disputed, or
-contradicted Requirements, Surfaces, or C4 structure, use [Developing candidate
-Architecture and
-Requirements](/architecture/developing-candidate-architecture-and-requirements.md)
-before designing around the gap. Record its evidence, impact, recommendation,
-authority, and blocking status. A blocking gap stops only the response that
-depends on unresolved meaning; a non-blocking gap remains visible while design
-continues within accepted boundaries.
-
-## 3. Frame the bounded design question
-
-State:
-
-- the outcome this technical response needs to enable;
-- the affected subject and implementation boundary;
-- what is deliberately out of scope;
-- the material constraints and conservation obligations; and
-- the decision that remains open.
-
-Prefer a question such as “How should the reservation adapter preserve an
-accepted request across a transient timeout?” over “Design the reservation
-system.” The narrower question exposes the decision and discourages
-speculative structure.
-
-## 4. Explore only material alternatives
-
-Develop the smallest set of plausible options that could change the decision.
-For each, compare the forces that matter now: responsibility, coupling,
-failure modes, consistency, compatibility, complexity, operability,
-reversibility, and evidence cost.
-
-Keep an option when its rejection explains the selected response or prevents
-likely repetition. Do not enumerate imaginary technologies or future features
-to make the discussion look complete.
-
-## 5. Specify the selected response
-
-Describe the response at the level needed to remove consequential ambiguity.
-Use only the concerns that apply:
-
-| Concern | Useful design question |
-| --- | --- |
-| Responsibilities | Which subject or Implementation Unit owns each decision, state transition, or policy? |
-| Interactions | What calls, messages, events, or user actions cross a boundary, and in what order? |
-| State and data | What is read, written, transformed, retained, or migrated? |
-| Interfaces | Which contracts or compatibility surfaces change, and which remain conserved? |
-| Failure and concurrency | What can fail or race, and how is safety, retry, idempotency, or recovery preserved? |
-| Quality and operations | Which performance, security, privacy, safety, observability, rollout, or rollback concerns shape the response? |
-| Verification | What observable conditions would distinguish correct realization, and how should evidence be gathered? |
-
-Use prose first. Add diagrams, tables, pseudocode, schemas, interface examples,
-or code sketches only when they communicate a boundary or rule more precisely.
-Mark sketches as illustrative, proposed, or contractual.
-
-## 6. Separate the response from adjacent work
-
-Keep these distinctions visible:
-
-- **Requirements** own binding outcomes and constraints.
-- **Change Design** owns the selected bounded technical response and rationale.
-- **Specifications** compose the representations needed for a bounded system
-  or change without taking over their authority.
-- **ADRs** own accepted architecture-significant choices that need an
-  independent lifecycle.
-- **Implementation plans and work items** own sequencing, assignment,
-  dependencies, and delivery state.
-- **Verification conditions** state what evidence would demonstrate the
-  outcome; **testing strategy** states how to gather that evidence.
-
-When a design discussion uncovers a candidate Requirement or Architecture
-change or shows that an existing claim is misplaced, record the evidence,
-impact, candidate options, recommendation, required authority, and blocking
-status. Do not silently approve it by continuing into implementation.
-
-## 7. State maturity, authority, and unknowns
-
-Identify whether the material is:
-
-- exploration or several options;
-- a recommendation;
-- a proposed response awaiting a named decision;
-- an accepted response under the applicable authority;
-- rejected; or
-- superseded.
-
-Keep assumptions and open questions visible. An agent recommendation is not
-accepted merely because it is detailed, and beginning implementation does not
-retroactively supply missing authority.
-
-## 8. Choose the least durable adequate home
-
-### Keep it in the conversation
-
-Use conversation-only Design when implementation will follow immediately, the
-change is bounded and reversible, no handoff or independent review is needed,
-and the resulting code, tests, and review evidence will preserve everything
-material.
-
-Before leaving the conversation, restate the selected response, decisive
-tradeoff, and verification approach so implementation does not depend on an
-abandoned option from earlier discussion.
-
-### Capture it in the work item
-
-Use the work item when the work will outlive the conversation, be reviewed or
-handed off, or needs traceability to Requirements and delivery. This is the
-ordinary durable home.
-
-The work item may also serve as a Change Specification or Bugfix Specification
-when it composes the relevant source context, Requirements, Architecture,
-Change Design, verification context, and implementation coordination. Keep those constituent
-roles visible; the Specification label does not make every section normative
-or accepted.
-
-Adapt this block and omit unsupported sections:
+Use a native design format when it can carry the same semantics. In a
+Markdown-only host or conversation, use this exact fallback. Keep every
+top-level heading and write `Not applicable` where justified.
 
 ```markdown
-## Change Design
+# Change Design: <bounded technical response>
 
-### Status and authority
-- Maturity: exploring | recommended | proposed | accepted | superseded
-- Decision authority or unresolved authority:
+## Design status and acceptance request
+<Exploring | recommended | proposed | accepted | rejected | superseded; exact
+decision requested and authority.>
 
-### Inputs and boundaries
-- Applicable Requirements:
-- Affected Architecture and ADRs:
-- Constraints and assumptions:
-- Goals and non-goals:
+## Change and specification binding
+<Change identity; exact Change Specification revision; accepted Requirements,
+Architecture, ADRs, Protocols, constraints, invariants, and non-goals.>
 
-### Selected response
-Responsibilities, interactions, state/data behavior, interfaces, and failure
-handling at the level needed for this change.
+## Context and forces
+<Current realization, evidence, assumptions, decision criteria, and material
+technical ambiguity.>
 
-### Alternatives and tradeoffs
-Only material options and why they were not selected.
+## Alternatives
+<Viable options in parallel form and materially considered exclusions.>
 
-### Consequences and risks
-Quality, security, compatibility, migration, operations, and reversibility as
-applicable.
+## Comparison
+<Decision-relevant comparison before any recommendation.>
 
-### Verification
-Observable verification conditions and the proposed evidence strategy.
+## Recommended or accepted technical approach
+<Selected response, rationale, maturity, and remaining uncertainty.>
 
-### Open questions
-Unresolved decisions, owner or authority, and consequence of leaving each open.
+## Responsibilities and interactions
+<Technical ownership, dependencies, calls, messages, events, ordering, and
+concurrency.>
+
+## Interfaces, state, and data
+<Contracts, compatibility, validation, ownership, lifecycle, consistency,
+persistence, and migration.>
+
+## Failure and quality behavior
+<Failure handling, recovery, observability, security, privacy, accessibility,
+performance, and operational behavior.>
+
+## Architecture realization
+<Mapping from each accepted Architecture authority to technical realization.>
+
+## Evaluation realization
+<Required Protocol mapping; seams; data and environments; execution and
+evidence; failure and inconclusive handling; traceability and maintenance.>
+
+## Implementation-conformance Evaluations (optional)
+<Separate local technical claims, or Not applicable.>
+
+## Migration, rollout, rollback, and recovery
+<Compatibility windows, state transitions, irreversible points, safeguards,
+and recovery.>
+
+## Implementation boundaries
+<Affected units and seams, without implementation sequencing.>
+
+## Consequences and risks
+<Tradeoffs, residual risk, operational burden, and future constraints.>
+
+## Unresolved technical decisions
+<Question, evidence or authority needed, owner, and blocked action.>
+
+## Specification reconciliation
+<Conforms | specification revision required | blocked; exact revision and
+named semantic deltas.>
 ```
 
-Keep task sequence, assignees, and completion state in their established
-work-item fields or delivery section rather than mixing them into the Design.
-When the work item already contains design material, apply [Preserving design
-technical context](/work-items/preserving-technical-context.md)
-before compressing it.
+## Completion criteria
 
-### Use a dedicated repository document exceptionally
-
-Consider a standalone Change Design only when the reasoning spans several
-work items, evolves independently, needs a separate review lifecycle, or
-would otherwise be copied and diverge. Before creating it, require an
-established repository convention for:
-
-- canonical location and identity;
-- ownership and review authority;
-- proposal, acceptance, implementation, and supersession handling;
-- links to Requirements, Architecture, work items, and evidence; and
-- whether the document preserves change history or describes current state.
-
-If that process does not yet exist, keep the Design in the conversation or
-work item. Do not invent a permanent `change-design.md` convention ad hoc.
-
-## 9. Carry the design through implementation
-
-Implement against the selected response and applicable authorities. When new
-evidence changes the response:
-
-1. identify whether the Design, Requirement, Architecture, or Implementation
-   assumption was wrong or incomplete;
-2. obtain the authority needed for any desired-state or durable Architecture
-   change;
-3. update the work-item Design synopsis or explicitly supersede the affected
-   choice; and
-4. preserve why implementation diverged when the difference remains material.
-
-At closure, distinguish Design conformance from Requirement satisfaction. A
-realization can follow the Design and still fail a Requirement, or satisfy the
-Requirement through a response that departed from the proposed Design.
-
-## Final check
-
-- The bounded design question and selected response are recognizable.
-- Applicable Requirements and Architecture are linked rather than duplicated.
-- Material alternatives, tradeoffs, consequences, and unknowns remain visible.
-- Proposal, acceptance, implementation, and evidence states are not conflated.
-- Detail is proportional to current ambiguity and consequence.
-- The capture home is no more durable than the work requires.
-- Any standalone document has an established owner and lifecycle rather than
-  an invented convention.
-- Material meaning gaps were routed to candidate Surface, C4 structure, or
-  Requirement development and did not become hidden Design assumptions.
+- The Design is bound to one Change and one exact Change Specification
+  revision.
+- Detail is proportional to consequential ambiguity.
+- Alternatives are comparable and precede the recommendation when a real
+  choice exists.
+- Accepted Architecture and every required Protocol have concrete technical
+  realization.
+- Optional Implementation-conformance Evaluations remain separate.
+- Maturity, acceptance authority, risks, and unresolved decisions are clear.
+- Specification reconciliation is explicit.
+- No implementation plan, delivery coordination, code mutation, or semantic
+  acceptance is implied.

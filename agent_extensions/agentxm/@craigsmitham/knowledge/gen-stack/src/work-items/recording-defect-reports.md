@@ -40,7 +40,7 @@ sources:
     title: Khatib et al. — What Makes a Good Bug Report for an AI Agent?
 generated:
   by: codex/gpt-5
-  at: 2026-08-27T14:18:00Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Recording defect reports
@@ -95,7 +95,7 @@ identity and lifecycle, tracker metadata, and the derived brief.
   customer content, confidential commercial data, restricted links, and
   exploitable security details out of public reports.
 - **The report preserves the case.** Keep it as the provenance-bearing record;
-  link a later Bug, Bugfix Specification, incident, or requirement correction
+  link a later Change, established Defect, incident, or Requirement correction
   rather than retitling the report as corrective work.
 
 ## Create the minimum report
@@ -176,7 +176,7 @@ expectation or intended use.
 
 Stop the Defect Report at impact analysis. If the evidence supports an actual
 candidate Requirement addition, revision, retirement, replacement, split, or
-merge, link a separately authorized Change or Bugfix Specification that applies
+merge, link a separately authorized Change whose Change Specification applies
 [Specifying Requirement changes](specifying-requirement-changes.md). Do not
 turn the provenance-bearing report into the change entry.
 
@@ -287,8 +287,9 @@ If investigation contains proposals, constraints, code or architecture
 sketches, tradeoffs, or open questions, preserve an attributed synopsis or
 link their authoritative home. See
 [Preserving technical context in software work items](preserving-technical-context.md).
-When investigation identifies a Bug and correction is authorized, create and
-link a separate [Bugfix Specification](writing-bugfix-specifications.md).
+When investigation establishes a Defect and remediation is authorized, create
+and link a separate [Change classified as
+Bugfix](addressing-defects-through-changes.md).
 
 ## Maintain the report through its lifecycle
 
@@ -301,7 +302,7 @@ Maintain, as applicable:
 
 - current status, classification, decision, authority, and rationale;
 - relationships to occurrences, duplicates, incidents, Requirements, tests,
-  Bugs, Bugfix Specifications, regressions, and other corrective work;
+  established Defects, Changes classified as Bugfix, regressions, and other corrective work;
 - selected resolution and the version or build containing a correction;
 - verification conditions, testing strategy, result, evidence, verifier, and
   time; and
@@ -340,14 +341,14 @@ investigation, or an authorized disposition.
 An authorized disposition, rationale, evidence boundary, residual risk, and
 review or reopening trigger are recorded. When the disposition claims a
 correction, the verification result is bound to the identified revision and
-conditions. Source occurrences and linked Bugfix work remain preserved.
+conditions. Source occurrences and linked Changes remain preserved.
 
 ### Does not require
 
 A Defect Report may close as expected behavior, duplicate, external cause,
 accepted risk, deferred, or unsupported within the bounded evidence. It does
-not universally require reproduction, root cause, an identified Bug,
-implementation, or correction verification.
+not universally require reproduction, root cause, an established Defect,
+implementation, or remediation verification.
 
 ## Authoring check
 

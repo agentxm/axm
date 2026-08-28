@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "implement",
+  "version": "0.3.0",
+  "description": "Executes an authorized plan with focused review feedback and produces an evidenced candidate for fresh integrated review",
+  "keywords": [
+    "implementation",
+    "coding",
+    "software-change",
+    "verification",
+    "focused-review",
+    "review-actions",
+    "candidate",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/implement"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

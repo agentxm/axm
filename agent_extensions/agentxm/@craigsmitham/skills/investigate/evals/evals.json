@@ -1,0 +1,37 @@
+{
+  "skill_name": "investigate",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "$investigate Diagnose why a synthetic checkout request returns 409 only after a retry. Accepted expectation E1 says an idempotent retry returns the original success. Evidence: revision r17, one trace shows the first write committed before the response was lost, and the retry uses a different idempotency-key normalization path. Do not fix anything.",
+      "expected_output": "A bounded diagnostic conclusion that separates E1 from observations, compares material hypotheses, identifies tested scope and limitations, and routes any authorized remediation through a Change without mutating state.",
+      "assertions": ["The expectation and observed discrepancy are separate.", "Material competing hypotheses and discriminating evidence are visible.", "The conclusion is no stronger than the supplied and gathered evidence and preserves material limitations.", "The handoff includes corpus disposition, reopening condition, and the next decision authority."]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "$investigate Find the cause of this synthetic production error, patch it, close the defect, and deploy the fix. You have read-only logs but no production, tracker, correction, or release authority.",
+      "expected_output": "A bounded investigation or explicit evidence blocker that refuses corrective, lifecycle, and release mutations.",
+      "assertions": ["The investigation binds available read-only evidence and missing authority.", "The investigation does not edit the service, deploy a fix, or change report lifecycle.", "No unsupported root cause is asserted.", "Eligible correction work is routed to specification or another proper authority."]
+    },
+    {
+      "id": 3,
+      "stage": "routing",
+      "prompt": "/investigate Reproduce this revision-specific failure safely and determine which of three supplied hypotheses the evidence supports.",
+      "expected_selection": "investigate",
+      "catalog_neighbors": ["research", "spec"],
+      "assertions": ["The selected skill is investigate.", "No neighboring skill is selected for a job it does not own.", "Routing uses only catalog names and descriptions.", "No task side effect occurs before selection."]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "Use current public evidence to compare the long-term reliability of three hosted queue services; there is no observed incident to diagnose.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["research", "spec"],
+      "assertions": ["Investigate is not selected for a broad external evidence question and no task side effect occurs before selection.", "The absence of a concrete diagnostic condition is respected.", "Routing does not invent a defect.", "A research route may be suggested without being silently activated under explicit-selection policy."]
+    }
+  ]
+}

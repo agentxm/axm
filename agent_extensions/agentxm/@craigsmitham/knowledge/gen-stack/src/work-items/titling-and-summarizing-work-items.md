@@ -2,7 +2,7 @@
 type: Guide
 title: Titling and summarizing work items
 description: Use when a work item must be recognizable in lists and search or its meaning has changed; write or re-derive its title and short summary without changing anything else.
-tags: [issue-title, work-item-summary, summary-section, backlog-hygiene, triage, plain-language, batch-update, issue-template, defect-report, bugfix-specification]
+tags: [issue-title, work-item-summary, summary-section, backlog-hygiene, triage, plain-language, batch-update, issue-template, defect-report, change, bugfix]
 status: draft
 sources:
   - id: brief-explainer
@@ -16,7 +16,7 @@ sources:
     title: Linear Method — Write issues, not user stories
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  at: 2026-08-27T23:32:00Z
 ---
 
 # Titling and summarizing work items
@@ -29,7 +29,7 @@ generated:
 > nor profile-conformance rules.
 
 Use this guide when creating or revising any Operational Incident Record,
-Defect Report, Change Specification, or Bugfix Specification, and again
+Defect Report, or Change, and again
 whenever what is known about it materially changes. For why the brief is a
 derived title-and-summary projection rather than a work-item role, read
 [Work item titles and summaries](work-item-titles-and-summaries.md).
@@ -67,21 +67,20 @@ What it names depends on the type:
 | --- | --- | --- |
 | [Operational incident](recording-operational-incidents.md) | Affected service and observed impact | Checkout unavailable for some European customers |
 | [Defect report](recording-defect-reports.md) | Affected behavior or artifact, observed result or finding, and triggering condition | Invoice export omits zero-value lines when tax details are included |
-| [Change Specification](writing-change-specifications.md) | Bounded intended change outcome and discriminating context | Let account owners reconcile invoice history in external systems |
-| [Bugfix Specification](writing-bugfix-specifications.md) | Authorized corrected behavior and discriminating condition | Preserve zero-value invoice lines when tax detail is exported |
+| [Change](changes.md) | Bounded intended outcome and discriminating context; for Bugfix classification, the remediated behavior | Let account owners reconcile invoice history in external systems |
 
 Cut whatever the reading surface already displays: the tracker identifier, the
 item type, and any team or component label that a structured field carries.
-Record Defect-report and Bugfix relationships in structured links or the body,
-not by putting report identifiers into Bugfix titles.
+Record Defect-Report and Change relationships in structured links or the body,
+not by putting report identifiers into Change titles.
 
 ## 2. Say why the item exists before saying what should change
 
 Write one or two sentences. Lead with the item's present reason for existing
 and why that matters, then add only the outcome that its artifact type and
 authority support. A Defect report summary preserves the observed discrepancy,
-expectation, impact, and material uncertainty. A Bugfix Specification summary
-names the identified Bug, authorized bounded correction, and why that response
+expectation, impact, and material uncertainty. A Change classified as Bugfix
+names the established Defect, authorized bounded remediation, and why that response
 matters. When both sentences merely restate the title, the summary has spent
 its whole budget without explaining the item.
 
@@ -102,7 +101,7 @@ Change Specification:
 > Provide a bounded export path while preserving the current tax and access
 > constraints; delivery remains proposed pending the recorded decision.
 
-Bugfix Specification:
+Change classified as Bugfix:
 
 > **Weak:** Fix defect report #482.
 >
@@ -139,6 +138,13 @@ inventing a plausible reason.
 3. Otherwise, add `## Summary` as the first section of the body and leave the
    rest of the body unchanged.
 
+When the body is also the canonical home for Change coordination, Change
+Specification, Change Design, or an implementation plan, the summary is part
+of the host envelope rather than any artifact contract. Keep it once at the
+start and compare each synchronized artifact within its own complete bounded
+representation. See [Synchronizing change artifacts with work-item
+hosts](synchronizing-change-artifacts.md).
+
 Confirm what a field holds before writing to it. Jira's `Summary` is the title
 — "a brief one-line summary of the issue" — and its body lives in
 `Description`.[^jira-issue-fields]
@@ -155,8 +161,8 @@ priority, assignment, project or parent, labels, relations, requirements,
 acceptance criteria, and disposition to the separate decisions that own them.
 Re-deriving also does not change the work-item role: a Defect Report title may
 become more precise about the observed discrepancy, but it must not become a
-corrected-behavior title. Create and link a separate Bugfix Specification when
-corrective work is authorized.
+corrected-behavior title. Create and link a separate Change classified as
+Bugfix when remedial work is authorized.
 
 For an incident, treat every material status or impact change as a trigger, and
 keep the summary consistent with the live state block rather than describing a
@@ -173,8 +179,8 @@ and the title last, so a newly sharpened title never points at a stale summary.
 ## Final check
 
 - The title distinguishes the item from its neighbors on a list.
-- The title names the observation-facing Defect report or the
-  correction-facing Bugfix Specification without collapsing them.
+- The title names the observation-facing Defect Report or the
+  outcome-facing Change without collapsing them.
 - The summary adds meaning beyond the title.
 - A reader can tell why the item exists wherever the item provides that
   evidence.

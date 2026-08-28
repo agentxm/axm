@@ -1,0 +1,140 @@
+{
+  "skill_name": "shape",
+  "suite_version": "0.2.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "$shape Shape a Pitch for reducing abandonment when a member cannot access the device used for account recovery. The existing synthetic corpus and implementation are supplied. Preserve accepted requirement R-RECOVERY-1, which requires identity verification, and do not choose a new recovery mechanism.",
+      "expected_output": "A Ready-for-response Pitch with the complete presentation order, exact repository-grounded impact, a headingless filesystem breadboard, provisional response contours, and an exact spec or design request.",
+      "files": [
+        {"source": "evals/files/case-1/gen-stack/index.md", "target": "gen-stack/index.md"},
+        {"source": "evals/files/case-1/gen-stack/intent/jobs/recover-access.md", "target": "gen-stack/intent/jobs/recover-access.md"},
+        {"source": "evals/files/case-1/gen-stack/architecture/capabilities/account-access.md", "target": "gen-stack/architecture/capabilities/account-access.md"},
+        {"source": "evals/files/case-1/gen-stack/architecture/requirements/account-recovery.md", "target": "gen-stack/architecture/requirements/account-recovery.md"},
+        {"source": "evals/files/case-1/src/recovery/request.ts", "target": "src/recovery/request.ts"},
+        {"source": "evals/files/case-1/tests/recovery/request.test.ts", "target": "tests/recovery/request.test.ts"}
+      ],
+      "artifact_paths": ["gen-stack", "src", "tests"],
+      "assertions": [
+        "The `#`/`##` order is Pitch title, Problem or opportunity, Intended outcome, Appetite, Boundaries and no-gos, Impact, Rough response contours, Risks and rabbit holes, Authority and maturity, Requested response, then Disposition; applicable `###` Impact subsections may occur after the headingless breadboard and before Rough response contours.",
+        "The breadboard uses only supplied paths and IDs for existing elements, marks unresolved candidate nodes and anticipated impact provisionally, and does not claim that anticipated meaning is accepted.",
+        "The supplied test file may be consulted as evidence but is not projected as a candidate `[P]`, `[~]`, or `[+?]` breadboard change.",
+        "R-RECOVERY-1 remains an accepted constraint rather than being silently revised or copied as a new authority.",
+        "The response makes an exact downstream request and does not choose a recovery mechanism, write a Specification, or implement anything."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "$shape We should make exports easier for operators. We know the current multi-step flow causes support questions, but we do not know which operator audience is affected most, whether the concern is discoverability or runtime duration, or what level of effort is acceptable. Produce the most useful shaping response now.",
+      "expected_output": "A clearly Draft Pitch that preserves the plausible frame, marks material assumptions, and asks only the discriminating questions needed to refine outcome, audience, and appetite.",
+      "assertions": [
+        "The response produces a provisional Pitch rather than refusing all progress or pretending the missing facts are known.",
+        "Audience, problem mechanism, and appetite gaps remain explicit and materially affect readiness.",
+        "Questions are compact and discriminate between meaningfully different Pitches.",
+        "The disposition is Draft, not Ready for response."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "$shape Replace the authorization model across every service next week. The request supplies no threat model, migration or rollback boundary, affected actors, system inventory, decision authority, or reason for the deadline. Shape this change.",
+      "expected_output": "An elicitation-first or Blocked shaping response that avoids anchoring on a replacement and names the minimum high-consequence evidence and authority decisions required before a responsible Pitch.",
+      "assertions": [
+        "The response recognizes the cross-service authorization change as high consequence and does not fabricate a detailed Pitch.",
+        "It asks for or routes the smallest discriminating security, scope, migration, recovery, actor, and authority information.",
+        "The proposed replacement is not treated as accepted desired state or selected Design.",
+        "No implementation commitment or one-week feasibility claim is made."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "execution",
+      "prompt": "$shape Add Redis in front of the pricing service because pricing is slow. We have one p95 latency observation, but no accepted freshness requirement, cache ownership decision, failure behavior, invalidation source, or evidence that compute is the bottleneck.",
+      "expected_output": "A bounded Pitch that separates the latency concern from the Redis proposal, exposes the missing evidence and authority, and requests investigation, specification, and design decisions in a responsible order.",
+      "assertions": [
+        "The observed latency concern and proposed Redis mechanism remain distinct.",
+        "Freshness, ownership, failure, invalidation, and bottleneck uncertainty are visible in impact and risks.",
+        "The supplied mechanism remains a proposal; the response shapes and requests downstream decisions without selecting Design or performing downstream work.",
+        "The Pitch does not turn one p95 observation into a general causal conclusion."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "$shape Produce a Pitch for a repository change, but you have no filesystem or corpus access and the prompt supplies no paths or identifiers. The intended outcome and boundaries are otherwise clear.",
+      "expected_output": "A provisional Pitch whose Impact breadboard explicitly reports unavailable filesystem evidence and the exact inspection needed, without synthesizing paths or IDs.",
+      "assertions": [
+        "The response does not invent repository paths, concept identifiers, or relationships.",
+        "The headingless breadboard states that filesystem or corpus inspection is unavailable.",
+        "The missing grounding is reflected in authority, maturity, readiness, or disposition.",
+        "The remaining Pitch stays useful and bounded."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "$shape The supplied evidence shows the requested notification already exists, satisfies the accepted requirement, and is covered by a current passing evaluation. There is no contradictory observation or additional intended outcome. Decide the shaping disposition without inventing work.",
+      "expected_output": "A No-change Pitch disposition or concise shaping termination that preserves the evidence and explains why specification and design are not warranted.",
+      "assertions": [
+        "The response does not manufacture a change merely because shape was invoked.",
+        "The evidence and accepted expectation remain distinct.",
+        "The disposition is No change with a supported reason.",
+        "No downstream work or mutation is performed."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "routing",
+      "prompt": "/shape Turn this rough change request into a bounded Pitch with anticipated Gen Stack impact and a repository filesystem breadboard before we specify or design it.",
+      "expected_selection": "shape",
+      "catalog_neighbors": ["spec", "design", "investigate"],
+      "assertions": [
+        "The selected skill is shape.",
+        "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Design the technical response for an already coherent Change Specification; compare alternatives for cache ownership, freshness, and recovery.",
+      "expected_selection": "design",
+      "catalog_neighbors": ["shape", "spec", "design"],
+      "assertions": [
+        "Shape is not selected for a request that already asks for the technical response to a coherent Change Specification, and no task side effect occurs before selection.",
+        "Design is the owned outcome.",
+        "Routing does not regress the accepted Specification to a Pitch.",
+        "No implementation begins before selection."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "routing",
+      "prompt": "Diagnose why the synthetic checkout service returns 409 after a retry. Gather discriminating evidence and do not propose a change yet.",
+      "expected_selection": "investigate",
+      "catalog_neighbors": ["shape", "research", "spec"],
+      "assertions": [
+        "Shape is not selected when the requested intermediate outcome is a diagnostic conclusion.",
+        "Investigate is the owned outcome.",
+        "Routing does not invent change intent before diagnosis.",
+        "No correction or Pitch is produced before selection."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "execution",
+      "prompt": "$shape Shape a bounded Pitch for changing a synthetic invoice-export behavior. The requester asks which unit, integration, and end-to-end tests to add, but no Specification or Design exists. Identify anticipated Requirement and Architecture Evaluation impact without designing tests.",
+      "expected_output": "A Pitch that identifies only anticipated Requirement-satisfaction and Architecture-realization Protocol meaning and explicitly leaves test levels, files, Suites, fixtures, harnesses, commands, and Implementation-conformance Evaluations to Design.",
+      "assertions": [
+        "The Pitch remains useful and identifies anticipated Requirement-satisfaction or Architecture-realization Protocol claims, lifecycle effects, semantic coverage, or evidence gaps where supported.",
+        "It does not prescribe unit, integration, end-to-end, or other test types; test files; Suites; fixtures; harnesses; frameworks; commands; code coverage; or Implementation-conformance Evaluations.",
+        "No test artifact appears as a projected breadboard change.",
+        "The requested response routes semantic change to Spec and executable Evaluation realization to Design."
+      ]
+    }
+  ]
+}

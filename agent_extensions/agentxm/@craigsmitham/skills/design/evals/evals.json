@@ -1,0 +1,91 @@
+{
+  "skill_name": "design",
+  "suite_version": "0.3.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "$design Design the response for a coherent synthetic specification: preserve existing clients while moving document rendering behind an asynchronous boundary; accepted Architecture assigns submission to Render API, ordered processing to Render Queue, and completion ownership to Render Worker. Required Protocols are RENDER-EVAL-REQ-ORDER for ordered completion and RENDER-EVAL-ARCH-QUEUE for realization of the queue boundary. Accepted constraints require a reversible rollout.",
+      "expected_output": "A complete Change Design in the required presentation order with alternatives before recommendation, exact Architecture realization, technical realization of both required Protocols, rollout and recovery, and no implementation plan.",
+      "assertions": [
+        "The top-level order exactly matches the shared Change Design fallback and contains no generic Requested response section.",
+        "The accepted outcome and constraints remain controlling.",
+        "Material alternatives and consequences are compared before a labeled recommendation.",
+        "Render API, Render Queue, and Render Worker are mapped to exact technical realization without changing their accepted Architecture meaning.",
+        "RENDER-EVAL-REQ-ORDER and RENDER-EVAL-ARCH-QUEUE are each mapped to executable family or Suite, testability seams, data and environments, execution and evidence, failure/inconclusive handling, traceability, and maintenance.",
+        "The response records Design maturity and unresolved decisions.",
+        "The response designs the change but does not produce an implementation plan or modify code."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "$design Start design-first from this proposal: replace a synthetic per-tenant store with one shared database. No accepted isolation obligation, ownership boundary, or migration tolerance was supplied.",
+      "expected_output": "Exploratory Design that surfaces implied desired-state and Architecture assumptions and returns them to Spec before claiming coherence.",
+      "assertions": [
+        "The shared database remains a proposed response.",
+        "Isolation, ownership, and migration assumptions are explicit.",
+        "Implied outcome, obligation, and durable-Architecture assumptions are returned to Spec or their authority rather than accepted by Design.",
+        "The change-coherence gate is not falsely passed."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "routing",
+      "prompt": "/design Compare technical alternatives and develop the proportional Change Design for this coherent specification.",
+      "expected_selection": "design",
+      "catalog_neighbors": [
+        "spec",
+        "plan"
+      ],
+      "assertions": [
+        "The selected skill is design.",
+        "No neighboring skill is selected for a job it does not own.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "routing",
+      "prompt": "Clarify why this change matters, which obligations change, and what observable conditions define success; do not select a solution yet.",
+      "expected_selection": "spec",
+      "catalog_neighbors": [
+        "spec",
+        "plan"
+      ],
+      "assertions": [
+        "Design is not selected for a why-and-what clarification request, and no task side effect occurs before selection.",
+        "Spec owns the requested outcome.",
+        "Routing does not invent a technical response.",
+        "No implementation begins before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "$design Respond to a Ready-for-response Pitch for reducing account-recovery abandonment. Its appetite is a bounded change within the existing Account Access capability; its rough contours mention alternate verification, recovery codes, and assisted recovery, but none is selected and the formal desired-state delta is not yet accepted.",
+      "expected_output": "A proportional pitch-first exploration that treats contours as hypotheses, compares material response alternatives, and returns implied desired-state decisions to Spec before claiming coherence.",
+      "assertions": [
+        "The Pitch is treated as provisional framing and its rough contours are not mistaken for selected Design.",
+        "Material response alternatives and their consequences are compared before any recommendation.",
+        "Implied Requirement and durable Architecture decisions return to Spec or their authority.",
+        "The response does not claim change coherence, produce an implementation plan, or modify code."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "$design Design evaluation realization for a ratified synthetic Specification. Protocol PAY-EVAL-REQ-IDEMPOTENT assesses accepted Requirement PAY-REQ-9; PAY-EVAL-ARCH-LEDGER assesses realization of accepted Ledger Writer Architecture. Compare two technical approaches, recommend one, and consider an optional local serialization invariant that may deserve an Implementation-conformance Evaluation.",
+      "expected_output": "A complete Design that compares alternatives before recommending, realizes both required semantic Protocols technically, and keeps the optional implementation-local Evaluation separate.",
+      "assertions": [
+        "Alternatives and a decision-relevant comparison precede the recommendation.",
+        "PAY-EVAL-REQ-IDEMPOTENT and PAY-EVAL-ARCH-LEDGER retain their roles, targets, and semantic claims while receiving concrete executable realization.",
+        "The realization covers Suite or family and Case mapping, testability and observability, data/fixtures/environments, execution/evidence, failure/inconclusive handling, and traceability/maintenance.",
+        "The serialization invariant's technical Evaluation proposal appears in a separate optional Implementation-conformance Evaluations section; any mention elsewhere is limited to classification or Specification reconciliation, and it is not used as Requirement-satisfaction or Architecture-realization evidence without authority.",
+        "If the serialization property is treated as durable or release-critical meaning, the Design returns that claim to Spec for Requirement or Architecture classification rather than accepting it locally."
+      ]
+    }
+  ]
+}

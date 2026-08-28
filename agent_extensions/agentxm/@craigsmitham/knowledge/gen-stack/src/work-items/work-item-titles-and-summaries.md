@@ -2,7 +2,7 @@
 type: Explanation
 title: Work item titles and summaries
 description: Why a work item's title and summary form a derived brief that serves the reading surfaces where items are scanned rather than opened, and why restating that brief changes nothing else about the item.
-tags: [work-item-title, work-item-summary, issue-title, backlog-legibility, triage, roll-up, tracker-fields, scannability, defect-report, bugfix-specification]
+tags: [work-item-title, work-item-summary, issue-title, backlog-legibility, triage, roll-up, tracker-fields, scannability, defect-report, change, bugfix]
 status: draft
 sources:
   - id: jira-issue-fields
@@ -19,7 +19,7 @@ sources:
     title: Google SRE — Managing Incidents
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Work item titles and summaries
@@ -74,16 +74,16 @@ corrective work it informed.
 | Artifact | Title lens | Pattern |
 | --- | --- | --- |
 | Defect report | Evidence-facing: what was observed or found | `<affected behavior or artifact> <observed result or finding> when <condition>` |
-| Bugfix Specification | Correction-facing: what authorized behavior will be preserved or changed | `<corrected behavior> when <condition>` |
+| Change classified as Bugfix | Correction-facing: what authorized behavior will be preserved or changed | `<corrected behavior> when <condition>` |
 
 For the same concern, the titles can therefore coexist:
 
 - **Defect report:** `Invoice export omits zero-value lines when tax details are included`
-- **Bugfix Specification:** `Preserve zero-value invoice lines when tax detail is exported`
+- **Change classified as Bugfix:** `Preserve zero-value invoice lines when tax detail is exported`
 
 The first remains valid before diagnosis and preserves the discrepancy that
 entered the system of work. The second names a bounded corrective outcome only
-after investigation identifies a Bug and correction is authorized. Changing
+after investigation establishes a Defect and remediation is authorized. Changing
 the first title into the second would hide the artifact boundary and make
 separate Provenance and delivery lifecycles look like one ticket maturing.
 
@@ -120,7 +120,7 @@ scoped, the item usually knows more than its title does.
 
 That restatement remains inside the artifact's meaning. Diagnosis can sharpen
 a Defect report title around the established discrepancy, but authorized
-corrective behavior gets the separate Bugfix Specification and its own brief.
+corrective behavior gets the separate Change classified as Bugfix and its own brief.
 
 Nothing may exist only in the brief. A decision, a scope boundary, an owner, or
 an acceptance condition that appears in the summary and nowhere else has been
@@ -142,11 +142,11 @@ two cannot be trusted to have left them alone.
 ## Some briefs are stable and some are time-varying
 
 A Defect Report settles once triaged: the discrepancy does not change while
-the item waits. A Change Specification settles when its bounded outcome,
-decision state, and scope are stable enough for its current planning horizon.
-A Bugfix Specification adds the stability of an authorized correction. A
-later material scope decision can still require either brief to be re-derived
-without rewriting linked source records or Defect Reports.
+the item waits. A Change brief settles when its bounded outcome, decision
+state, and scope are stable enough for its current planning horizon. Bugfix
+classification gives that Change the correction-facing lens. A later material
+scope decision can still require the brief to be re-derived without rewriting
+linked source records or Defect Reports.
 
 An operational incident record describes a situation in motion. Its impact,
 severity, and response state change while the record is open, so its brief has
@@ -161,7 +161,7 @@ act on it.
 | Failure | What it looks like |
 | --- | --- |
 | Frozen intake title | Still names the first reported symptom or the requester's proposed mechanism after the item is known to be something else |
-| Collapsed report and correction | A Defect report is renamed to the desired corrected behavior instead of remaining linked to a separate Bugfix Specification |
+| Collapsed report and remediation | A Defect Report is renamed to the desired remedial outcome instead of remaining linked to a separate Change classified as Bugfix |
 | Echo summary | Restates the title in longer words and adds no information |
 | Outcome-only summary | Spends both sentences on what will change and never says what is wrong now or why it matters |
 | Smuggled scope | Introduces a commitment, owner, or acceptance condition that appears nowhere else in the item |
@@ -179,7 +179,7 @@ metadata and labels](managing-work-item-metadata-and-labels.md).
 The type-specific titling steps live in
 [Recording operational incidents](recording-operational-incidents.md),
 [Recording defect reports](recording-defect-reports.md),
-[Writing bugfix specifications](writing-bugfix-specifications.md), and
+[Addressing defects through Changes](addressing-defects-through-changes.md), and
 [Writing change specifications](writing-change-specifications.md).
 
 [^azure-titles-descriptions]: Microsoft Azure Boards, "Query by title, ID, or rich-text fields," common fields table.

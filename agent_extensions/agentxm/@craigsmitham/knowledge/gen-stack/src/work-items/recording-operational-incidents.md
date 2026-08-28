@@ -31,7 +31,7 @@ sources:
     title: NIST SP 800-61 Rev. 3 — Incident response recommendations and considerations
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T03:09:27Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Recording operational incidents
@@ -305,8 +305,8 @@ artifacts. Conversely, do not keep emergency response open merely to hold a
 permanent-fix backlog.
 
 An incident record stops at Requirement-impact orientation. When follow-up
-proposes changed desired state, link a separately authorized Change or Bugfix
-Specification that applies [Specifying Requirement
+proposes changed desired state, link a separately authorized Change whose
+Change Specification applies [Specifying Requirement
 changes](specifying-requirement-changes.md); do not place the candidate delta
 or its acceptance lifecycle under incident-response authority.
 

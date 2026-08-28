@@ -16,7 +16,7 @@ sources:
     title: Requirements engineering in software architecture
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:07:37Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Developing candidate Architecture and Requirements
@@ -65,7 +65,7 @@ through its native profile route rather than promoting the candidate container.
 
 State the bounded behavior, responsibility, boundary, or obligation under
 review and the next action it must support. A defect report may need only a
-visible expectation gap; a Bugfix Specification may need an accepted corrected
+visible expectation gap; a Change classified as Bugfix may need an accepted corrected
 outcome before delivery; a greenfield design may need candidate interaction and
 runtime boundaries before Requirements can be placed.
 

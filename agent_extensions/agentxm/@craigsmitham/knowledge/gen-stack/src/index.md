@@ -4,8 +4,8 @@ okf_version: "0.2"
 # gen-stack
 
 Gen Stack is an opinionated method for carrying software change from Signals
-and Observations through human-oriented Intent, co-developed Architecture and
-canonical Requirements, proportional Change Design, Compilation,
+and Observations through a shaped Pitch, human-oriented Intent, co-developed
+Architecture and canonical Requirements, proportional Change Design, Compilation,
 Implementation, Evaluations, and operational learning. OODA governs how the
 method adapts without confusing those authorities and activities or allowing
 evidence to rewrite Intent automatically.
@@ -19,7 +19,8 @@ without distributing their relationships across packages.
 
 ## Overview
 
-- [How the Gen Stack operates](overview.md) - How Intent shapes co-developed Architecture and Requirements, how they constrain and assess Implementation, how OODA governs adaptation, and how every artifact uses native-first representation with least complexity.
+- [How the Gen Stack operates](overview.md) - How Signals are shaped into Pitches, Intent shapes co-developed Architecture and Requirements, those authorities constrain and assess Implementation, and OODA governs adaptation.
+- [Deciding and realizing bounded software changes](processes/deciding-and-realizing-software-changes.md) - A recommended Process that carries a Signal through shaping, proportional uncertainty reduction, coherent change definition, implementation with focused review feedback, fresh integrated review, authorized shipping, and renewed observation.
 
 ## Adoption
 
@@ -66,7 +67,7 @@ without distributing their relationships across packages.
 
 ## Work items
 
-- [Software work items](work-items/) - Tool-neutral concepts and authoring guides for Operational Incident Records, Defect Reports, Change Specifications, and Bugfix Specifications, including their evidence, authority, and implementation coordination.
+- [Software work items](work-items/) - Tool-neutral concepts and authoring guides for Operational Incident Records, Defect Reports, and Changes, including Change Specification, Change Design, Bugfix classification, evidence, authority, and coordination.
 
 ## Control loop
 

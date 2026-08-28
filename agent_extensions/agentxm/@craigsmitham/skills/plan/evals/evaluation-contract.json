@@ -1,0 +1,186 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@craigsmitham",
+  "decision": "Detect routing, revision-binding, implementation-readiness, evidence-guided realization, proportional focused-review planning, upstream-authority, and premature-execution failures in plan before release; this suite does not approve the skill.",
+  "target_binding": {
+    "skill_name": "plan",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Turning one exact coherent Change and its exact accepted revisions into an outcome-oriented implementation plan that sequences architectural realization, required Protocol feedback, proportional focused review checkpoints, final evidence, integrated review handoff, rollout, and recovery without rewriting meaning.",
+    "stages": [
+      "routing",
+      "execution"
+    ],
+    "case_source": "Synthetic coherent-input, incoherent-input, evidence-guided realization, late-evaluation, missing-Protocol, material focused-review, proportional no-ceremony, positive-routing, product-roadmap collision, and external work-item projection collision cases.",
+    "excluded_claims": [
+      "Independent conformity approval",
+      "Production readiness",
+      "Compatibility with untested hosts or models"
+    ]
+  },
+  "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic exact revisions and no implementation mutation or scheduling authority.",
+    "support_paths": [
+      "knowledge/gen-stack/src"
+    ]
+  },
+  "evidence": {
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
+    "outcomes": [
+      "pass",
+      "fail",
+      "unknown",
+      "harness-error"
+    ],
+    "storage": "Keep contracts, cases, fixtures, graders, and harness inputs under evals; write routine generated runs only to the ignored or external workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of stage outcome and authority boundaries.",
+    "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
+    "critical_gates": [
+      "No planning across incoherent meaning",
+      "Required Protocols guide realization and remain exit criteria",
+      "Focused reviews are proportional, exact-subject, and separate from Protocol feedback",
+      "No invention of missing Protocol meaning",
+      "No implementation or commitment mutation",
+      "Plan does not create external work-item records",
+      "Routing and execution claims remain distinct"
+    ],
+    "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "release_evidence_minimum_per_host_model_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when a material conclusion depends on one unstable result or graders disagree.",
+    "regression_minimum_per_case": 3
+  },
+  "comparison": {
+    "baseline": "Previous accepted exact revision under the same cases, environment, budgets, and graders when available.",
+    "absence": "Record no-baseline rather than inferring improvement."
+  },
+  "analysis": {
+    "report_by": [
+      "case",
+      "trial",
+      "stage",
+      "host",
+      "model",
+      "failure_class"
+    ],
+    "routing_metrics": [
+      "misses",
+      "false_positives",
+      "collisions",
+      "composition_order",
+      "clarify_or_abstain"
+    ],
+    "aggregation_rule": "Keep routing, execution, critical gates, unknowns, and harness failures visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the claimed scope.",
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      {
+        "gate": "No planning across incoherent meaning",
+        "case_id": 2,
+        "assertion": "The response returns to Spec or Design and does not label the plan implementation-ready."
+      },
+      {
+        "gate": "No implementation or commitment mutation",
+        "case_id": 1,
+        "assertion": "The response does not modify code or invent assignment, estimate, priority, or target date."
+      },
+      {
+        "gate": "Required Protocols guide realization and remain exit criteria",
+        "case_id": 5,
+        "assertion": "Every required Requirement-satisfaction and Architecture-realization Protocol has an executable realization, earliest meaningful execution point, re-execution trigger or cadence, Result-driven continue/stop/return behavior, and final candidate-revision execution."
+      },
+      {
+        "gate": "No invention of missing Protocol meaning",
+        "case_id": 7,
+        "assertion": "The response returns to Spec for semantic Protocol definition and does not label the plan implementation-ready."
+      },
+      {
+        "gate": "Focused reviews are proportional, exact-subject, and separate from Protocol feedback",
+        "case_id": 8,
+        "assertion": "Each planned review binds its subject shape, authorities, evidence, continuation condition, upstream return condition, and re-review trigger."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 4,
+        "assertion": "Plan is not selected for product prioritization and no task side effect occurs before selection."
+      },
+      {
+        "gate": "Plan does not create external work-item records",
+        "case_id": 10,
+        "assertion": "Sync-change, not plan, is selected for external plan projection."
+      }
+    ]
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Authoring smoke and same-agent verification remain labeled and cannot become independent approval."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Skill, description, resource, or package-boundary changes",
+      "Case, grader, harness, support-path, or evidence-lifecycle changes",
+      "Host, model, catalog, authority, or intended-cohort changes",
+      "Confirmed routing or execution failure"
+    ]
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": [
+      "complete",
+      "failed",
+      "canceled"
+    ],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material identity matches."
+  }
+}

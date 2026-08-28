@@ -3,8 +3,11 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "research",
-  "version": "2.0.0",
-  "description": "Orchestrates read-only QRSPI framing and delegated evidence-backed research into consistent question-by-question reports",
+  "version": "3.0.0",
+  "publish": {
+    "ignore": []
+  },
+  "description": "Frames and orchestrates fresh-context, read-only evidence research from bounded subjects or explicit questions",
   "keywords": [
     "research",
     "investigation",
@@ -16,7 +19,7 @@
   ],
   "standalone": false,
   "recommendedPacks": [
-    "@craigsmitham/packs/qrspi"
+    "@craigsmitham/packs/gen-stack"
   ],
   "repository": {
     "type": "git",

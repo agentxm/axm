@@ -1,0 +1,58 @@
+{
+  "skill_name": "quick-change",
+  "suite_version": "0.1.0",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "routing",
+      "prompt": "/quick-change Produce the combined specification and design for this bounded account-recovery change.",
+      "expected_selection": "quick-change",
+      "catalog_neighbors": ["spec", "design", "implement"],
+      "assertions": [
+        "The selected skill is quick-change.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "routing",
+      "prompt": "Make this quick code change: rename the synthetic local variable and run its unit test.",
+      "expected_selection": "implement",
+      "catalog_neighbors": ["spec", "design", "quick-change"],
+      "assertions": [
+        "Quick-change is not selected for an ordinary quick implementation request.",
+        "The requested outcome is implementation rather than combined definition.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "$quick-change Define a synthetic invoice-export remediation. Defect Reports BILL-12 and BILL-19 establish that zero-value lines are omitted when tax detail is present. Authorized remediation preserves every line required by accepted Requirement INV-REQ-11; accepted tax calculation and Export Architecture remain unchanged. Required Protocols are INV-EVAL-REQ-11 and INV-EVAL-ARCH-EXPORT. Compare a filter correction with a normalization-boundary correction. No human ratification or Design acceptance has yet occurred.",
+      "expected_output": "A Change classified as Bugfix with the canonical Change Specification and Change Design artifacts, separate Defect Report links, explicit reconciliation, and a thin coordination handoff that does not claim coherence or implementation authority.",
+      "assertions": [
+        "The Change is classified as Bugfix because established Defects and explicit authorized remediation are supplied.",
+        "Both source Defect Reports retain separate identities and are not retitled or closed.",
+        "The Change Specification uses the exact shared canonical fallback and contains no executable test realization or delivery coordination.",
+        "The Change Design uses the exact shared canonical fallback, compares alternatives before recommendation, and realizes both required Protocols technically.",
+        "The coordination handoff binds both artifact revisions and does not claim coherence before actual ratification and acceptance.",
+        "The response does not plan, implement, review, or ship."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "execution",
+      "prompt": "$quick-change Draft the combined artifacts for a synthetic retention change from 30 to 90 days. The outcome and affected Export Store boundary are clear, but no Requirement-satisfaction Protocol exists and the authority for the new retention obligation has not ratified it. Make whatever assumptions are needed so planning can start.",
+      "expected_output": "Truthful draft Change Specification and Change Design artifacts with visible authority and Protocol gaps, plus a Change handoff whose coherence and planning readiness are blocked.",
+      "assertions": [
+        "The skill does not invent ratification or a semantic Protocol merely to finish.",
+        "Both canonical artifacts are still produced to the truthful draft boundary.",
+        "The missing required semantic Protocol blocks ratification, coherence, and dependent planning.",
+        "The coordination handoff names the human decision and Protocol work needed next.",
+        "No implementation plan or code mutation occurs."
+      ]
+    }
+  ]
+}

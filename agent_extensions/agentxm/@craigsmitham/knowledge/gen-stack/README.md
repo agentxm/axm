@@ -1,6 +1,6 @@
 # Gen Stack
 
-Opinionated software-change guidance combining OODA control with
+Opinionated software-change guidance combining shaping and OODA control with
 human-oriented Intent, co-developed Architecture and canonical Requirements,
 Compilation, Implementation, Evaluations, and operational learning.
 
@@ -26,8 +26,11 @@ The authority and transformation model is influenced by Chad Fowler's
 and the surrounding Regenerative Software series. The adaptive control model
 applies John R. Boyd's OODA semantics from
 [The Essence of Winning and Losing](https://www.coljohnboyd.com/documents/1995-06-28__Boyd_John_R__The_Essence_of_Winning_and_Losing__PPT-PDF.pdf).
-The documents here are an original synthesis for this extension family; they
-do not reproduce Fowler's or Boyd's text or diagrams.
+The shaping workflow is conceptually influenced by Ryan Singer and Basecamp's
+[Shape Up](https://basecamp.com/shapeup/) guidance while adapting the Pitch and
+breadboard to Gen Stack authority and repository impact. The documents here
+are an original synthesis for this extension family; they do not reproduce
+those sources' text, diagrams, or templates.
 
 ## Use
 
@@ -78,6 +81,57 @@ location, adoption, indexing, or relationship logic.
 Synchronization edits only the producer-owned `relationships` block, preserves
 unrelated frontmatter, and refuses to write when authoritative assertions are
 malformed or contradictory.
+
+Version `0.25.0` defines host-neutral synchronization for exact Pitches,
+Change coordination records, Change Specifications, Change Designs, and
+implementation plans. It requires one canonical home, exact-source binding,
+bounded mutation, authoritative readback, and explicit fidelity results. Plan
+projection into host-native implementation records is a separate authorized
+operation; synchronization is not a lifecycle stage, semantic revision, or
+vendor workflow.
+
+Version `0.24.0` adds proportional focused Architecture, Requirements,
+Evaluations, and Implementation review feedback during implementation plus a
+fresh integrated final review. It defines stable checkpoint binding, action
+disposition, re-review triggers, four separate assurance areas, a whole-change
+integrity overlay, and an exception-based actionable result while preserving
+the distinction among reviewer judgment, Protocol Execution, semantic
+acceptance, and release authority.
+
+Version `0.23.0` adopts Change as the durable coordination case, makes Change
+Specification and Change Design sibling artifacts, classifies explicit
+remediation of established Defects as Bugfix, retires the separate Bugfix
+Specification and generic Specification terms, and defines shared canonical
+Markdown fallbacks plus action-relative readiness.
+
+Version `0.22.0` makes implementation planning evidence-guided. Plans now
+sequence architecture-bearing prerequisites before dependent behavior, realize
+required Requirement-satisfaction and Architecture-realization Protocols at
+their earliest credible points, use repeated Executions as implementation
+feedback, and retain exact candidate-revision Results as final exit evidence.
+Implementation-conformance Evaluations remain separate and delegated unless an
+accepted Design, policy, or assurance input requires them.
+
+Version `0.21.0` adds Shape as a focused Orientation stage and defines its
+provisional Pitch, adaptive elicitation behavior, anticipated cross-stack
+impact, headingless filesystem breadboard, dispositions, and handoffs to
+specification, design, research, investigation, or human decision. A Pitch is
+not accepted meaning, a fifth work item, a Specification, selected Design, or
+implementation authorization. Shape is agnostic about implementation-level
+Evaluations and tests: it may anticipate Requirement/Architecture Protocol
+meaning but does not project test artifacts as candidate changes.
+
+Version `0.20.0` defines the canonical bounded software-change Process and its
+operating-model diagram, introduces a common stage handoff and corpus-
+disposition contract, and adds focused guidance for implementation planning,
+implementation, independent candidate review, and authorized shipping. It
+supports both specification-first and design-first entry while requiring
+their artifacts to converge into coherent change definition before planning.
+Specification now supplies a complete human-ratifiable Requirement,
+Architecture, and semantic Evaluation Protocol delta without selecting test
+realization. Design maps accepted Architecture to the technical response,
+realizes each required Requirement/Architecture Protocol, and keeps optional
+Implementation-conformance Evaluations separate.
 
 Version `0.19.1` factors defect handling into three concise responsibilities:
 recording preserves intake, triage decides report disposition and routing from
@@ -149,8 +203,9 @@ work items, Change Design, scenario review, and bounded regeneration.
 Version `0.11.0` consolidates portable work-item evidence and authority,
 identity and lifecycle, and metadata and label concerns into shared Guides.
 The work-item index now chooses both the semantic artifact and the smallest
-applicable common-guide set, while incident, defect, Change Specification, and
-Bugfix Specification Guides retain their specialized content.
+applicable common-guide set. The current model further consolidates corrective
+work into Change with Bugfix classification and shared Change Specification and
+Change Design contracts.
 
 Version `0.10.0` made human ratification explicit throughout the method,
 removed the YAGNI and Tidy First guidance, and introduced Gen Stack profile

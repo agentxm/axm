@@ -1,6 +1,6 @@
 {
   "skill_name": "gen-stack",
-  "suite_version": "1.10.0",
+  "suite_version": "3.2.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -541,7 +541,7 @@
       "prompt": "Draft a bug report. On build 184, exporting an invoice with tax details omits zero-value lines. The accepted invoice specification says every line must be present. It reproduces in Chrome and Firefox. We suspect the CSV serializer but have not confirmed that.",
       "expected_output": "A tracker-ready defect report with authoritative expected behavior, observed behavior, reproduction context, impact or unknown impact, verification conditions, and the serializer theory labeled as a hypothesis.",
       "assertions": [
-        "The item is classified as a Defect Report rather than a Change Specification or Bugfix Specification; any implementation task would be host-native and outside the Gen Stack taxonomy.",
+        "The item is classified as a Defect Report rather than a Change; any implementation task would be host-native and outside the Gen Stack taxonomy.",
         "Expected and actual behavior are stated separately and the expectation cites the supplied specification.",
         "Build and browser evidence are preserved without invented environment details or impact.",
         "The serializer cause remains explicitly unconfirmed and the brief reflects the discrepancy."
@@ -637,7 +637,7 @@
       "prompt": "Draft the accepted delivery issue for this approved change and preserve every supplied detail. Replace generic `flow:point kind=policy` comments inside the existing managed Policies region with a contained `flow:policy source=<versioned-id>` marker. The enclosing region remains format v1 and is still the only ownership unit; the contained marker has no local version and extends to the next policy marker or region end. Accepted TypeScript sketch: `const MARKER_KIND_POLICY = \"flow:policy\" as const` and `type PolicyMarker = { readonly kind: typeof MARKER_KIND_POLICY; readonly source: string }`. Accepted parser flow: validate and extract the Policies region first, then recover contributors only from its body; a valid policy marker outside the region is ignored. Remove `MARKER_KIND_POINT`, `pointKind`, generic point parsing, and all current point fixtures. Do not add compatibility reads, migration, a generic contribution abstraction, or paired per-policy fences. Implementation surfaces: the shared marker codec and exports, policy rendering and observation, unit/property tests, graph-projection tests, CLI fixtures, generated help, architecture docs, and managed consumer projections. Behavioral verification: one versionless policy marker per active contribution, unchanged deterministic ordering and aggregate replacement, and no current point syntax. Testing strategy: codec round trips including IDs containing `@` and `/`, missing-source failure, outside-region observation, direct and bundle-contributed policies, CLI lifecycle coverage, and producer/consumer convergence. Open question: whether a supplied marker-local `v` should be rejected or ignored.",
       "expected_output": "A tracker-ready Change Specification that preserves the accepted decision, complete ownership and containment design, exact TypeScript sketch, parser flow, removals, non-goals, implementation surfaces, behavioral verification conditions, layered testing strategy, and unresolved marker-local-version question without inventing further design.",
       "assertions": [
-        "The item is a Change Specification with its accepted decision state explicit rather than a source-intake record, Defect Report, Bugfix Specification, or unapproved proposal.",
+        "The item is a Change with its Change Specification and accepted decision state explicit rather than a source-intake record, Defect Report, or unapproved proposal.",
         "The unchanged v1 ownership region, versionless contained marker, implicit extent, exact TypeScript sketch, and region-first parser flow are all preserved rather than compressed into generic prose.",
         "Every named removal, non-goal, implementation surface, behavioral verification condition, and testing layer remains present and distinct.",
         "The marker-local-version question remains unresolved, and no compatibility path, generic abstraction, paired fence, priority, estimate, or additional implementation decision is invented."
@@ -810,7 +810,7 @@
       "prompt": "Draft the Change Specification for an approved structural change. ADR ARC-ADR-0017 moves audit-event normalization from the public API container to the ingestion container. AUD-REQ-0008 and AUD-REQ-0012 remain unchanged, and there is no new actor-visible behavior. The accepted Design preserves the public event schema, migrates consumers in two batches, observes duplicate and dropped-event rates, and rolls back routing if either rate rises. Do not invent implementation tasks or another Architecture decision.",
       "expected_output": "A Change Specification for a bounded Architecture change with the accepted ADR, unchanged Requirements, supplied migration and rollback Design, operational verification, and explicit absence of new actor-visible behavior.",
       "assertions": [
-        "The item is classified as a Change Specification rather than a Defect Report or Bugfix Specification; a generic task would remain host-native and outside the Gen Stack taxonomy.",
+        "The item is classified as a Change rather than a Defect Report; its Change Specification and accepted Change Design remain distinct artifacts, and a generic task stays outside the Gen Stack taxonomy.",
         "ARC-ADR-0017 is the accepted Architecture authority and AUD-REQ-0008 and AUD-REQ-0012 remain unchanged.",
         "The public schema, two migration batches, duplicate and dropped-event observations, and rollback condition are preserved.",
         "No new behavior claim, Requirement, task decomposition, or Architecture decision is invented."
@@ -831,11 +831,11 @@
     {
       "id": 62,
       "stage": "execution",
-      "prompt": "Write a Bugfix Specification. Defect Reports BILL-482 and BILL-519 establish that invoice export omits zero-value lines when tax detail is present. Investigation identified the export filter's falsy-value check as the Bug, and the authorized correction is to preserve every line required by INV-REQ-0011 without changing tax calculation. Include regression verification and keep both reports separate.",
-      "expected_output": "A separate Bugfix Specification linking both Defect Reports, naming the identified Bug and authorized bounded correction, preserving INV-REQ-0011 and the unchanged tax-calculation constraint, and defining regression verification without retitling the reports.",
+      "prompt": "Write the Change Specification for a Change that remediates established Defects. Defect Reports BILL-482 and BILL-519 establish that invoice export omits zero-value lines when tax detail is present. The authorized remediation is to preserve every line required by INV-REQ-0011 without changing tax calculation. Include regression semantics and keep both reports separate.",
+      "expected_output": "A separate Change classified as Bugfix, linking both Defect Reports and using the canonical Change Specification while preserving INV-REQ-0011, the unchanged tax-calculation constraint, and semantic regression coverage without retitling the reports.",
       "assertions": [
-        "The item is a Bugfix Specification because a concrete Bug and authorized correction are supplied.",
-        "BILL-482 and BILL-519 remain separate provenance-bearing Defect Reports linked to the Bugfix.",
+        "The item is a Change classified as Bugfix because established Defects and authorized remediation are supplied; the artifact remains a Change Specification.",
+        "BILL-482 and BILL-519 remain separate provenance-bearing Defect Reports linked to the Change.",
         "INV-REQ-0011 remains the desired-state authority and unchanged tax calculation is explicit.",
         "Regression verification covers the failing condition without treating merge or implementation as proof."
       ]
@@ -843,10 +843,10 @@
     {
       "id": 63,
       "stage": "execution",
-      "prompt": "Draft the work item for an authorized correction to an Architecture document. The document assigns retry policy to the checkout API, but accepted ADR ARC-ADR-0009 assigns it to the payment adapter and the implementation already follows that ADR. No concrete defective system behavior has been identified. Update the document and its generated navigation; do not call this a software Bug.",
-      "expected_output": "A Change Specification for correcting an Architecture representation, linked to ARC-ADR-0009 and explicit that no Bugfix Specification applies because no concrete system Bug exists.",
+      "prompt": "Draft the work item for authorized remediation of a defective Architecture document. The document assigns retry policy to the checkout API, but accepted ADR ARC-ADR-0009 assigns it to the payment adapter and the implementation already follows that ADR. No defective realized-system behavior has been identified. Update the document and its generated navigation.",
+      "expected_output": "A Change classified as Bugfix because it remediates a defective Architecture work product, with a canonical Change Specification linked to ARC-ADR-0009 and explicit that realized system behavior remains unchanged.",
       "assertions": [
-        "The item is a Change Specification rather than a Bugfix Specification or Defect Report.",
+        "The item is a Change classified as Bugfix rather than a Defect Report; Bugfix applies to remediation of defective governed work products, not only realized-system behavior.",
         "ARC-ADR-0009 remains the accepted Architecture authority and the document is the defective work product.",
         "The unchanged implementation state and absence of concrete defective system behavior are explicit.",
         "Only the supplied document and generated-navigation work is included; no behavior change or new Architecture decision is invented."
@@ -1070,10 +1070,10 @@
     {
       "id": 79,
       "stage": "execution",
-      "prompt": "Prepare a tracker-ready Defect Report for a payment receipt that is blank after a successful charge. The only evidence is one staging occurrence and the accepted receipt contract. The tracker offers labels bug, sev-1, priority-high, and team-payments. Apply whatever metadata makes the issue look complete; no severity, priority, assignment, or Bug diagnosis has been decided.",
+      "prompt": "Prepare a tracker-ready Defect Report for a payment receipt that is blank after a successful charge. The only evidence is one staging occurrence and the accepted receipt contract. The tracker offers labels bug, sev-1, priority-high, and team-payments. Apply whatever metadata makes the issue look complete; no severity, priority, assignment, or Defect diagnosis has been decided.",
       "expected_output": "A Defect Report that preserves the staging discrepancy while leaving unsupported decision-bearing labels and fields unset and explaining that tracker metadata cannot establish diagnosis or authority.",
       "assertions": [
-        "The work item remains a Defect Report and does not claim that a Bug has been diagnosed.",
+        "The work item remains a Defect Report and does not claim that a Defect has been established.",
         "The staging occurrence and accepted receipt contract are preserved without invented production impact.",
         "No sev-1, priority-high, team assignment, or equivalent decision-bearing metadata is applied without authority.",
         "Tracker labels are treated as projections for retrieval or workflow rather than evidence of semantic maturity."
@@ -1106,12 +1106,12 @@
     {
       "id": 82,
       "stage": "execution",
-      "prompt": "Relate the corrective work without converting tickets. Defect Reports BILL-12 and BILL-19 provide evidence for Bugs BILL-BUG-4 and BILL-BUG-7. Authorized Bugfix Specification BILL-FIX-3 addresses both Bugs, but BILL-19 also carries a bounded question about a separate symptom that still needs investigation activity. Record the relationship shape and preserve every work-item identity.",
-      "expected_output": "An explicit many-to-many relationship map in which the reports, Bugs, and Bugfix Specification retain their identities while the additional investigation question remains activity within BILL-19 rather than becoming another work-item type.",
+      "prompt": "Relate remedial work without converting tickets. Defect Reports BILL-12 and BILL-19 provide evidence for established Defects BILL-DEF-4 and BILL-DEF-7. Authorized Change BILL-FIX-3 is classified as Bugfix and remediates both Defects, but BILL-19 also carries a bounded question about a separate symptom that still needs investigation activity. Record the relationship shape and preserve every work-item identity.",
+      "expected_output": "An explicit many-to-many relationship map in which the reports, established Defects, and Change retain their identities while the additional investigation question remains activity within BILL-19 rather than becoming another work-item type.",
       "assertions": [
-        "BILL-12, BILL-19, BILL-BUG-4, BILL-BUG-7, and BILL-FIX-3 all retain separate identities.",
-        "Both Defect Reports provide provenance for the identified Bugs and BILL-FIX-3 responds to both Bugs.",
-        "BILL-19 retains the separate bounded question and its investigation activity instead of creating an Investigation work-item identity or being consumed by the Bugfix.",
+        "BILL-12, BILL-19, BILL-DEF-4, BILL-DEF-7, and BILL-FIX-3 all retain separate identities.",
+        "Both Defect Reports provide provenance for the established Defects and BILL-FIX-3 remediates both Defects.",
+        "BILL-19 retains the separate bounded question and its investigation activity instead of creating an Investigation work-item identity or being consumed by the Change.",
         "No ticket is retitled, converted, or automatically closed because a relationship was recorded."
       ]
     },
@@ -1166,8 +1166,8 @@
     {
       "id": 87,
       "stage": "execution",
-      "prompt": "Write and authorize delivery from a Bugfix Specification for a checkout timeout. The system sometimes retries payment, but there is no accepted expectation for at-most-once versus at-least-once behavior, the payment ownership boundary is disputed, and either choice changes customer and ledger outcomes. Pick the safer correction and let implementation start.",
-      "expected_output": "A bounded Bugfix draft and decision request that identifies the missing corrected-behavior authority and disputed Architecture boundary as blocking, compares stable options, recommends one, and stops before dependent delivery or accepted mutation.",
+      "prompt": "Write and authorize delivery from a Change classified as Bugfix for a checkout timeout. The system sometimes retries payment, but there is no accepted expectation for at-most-once versus at-least-once behavior, the payment ownership boundary is disputed, and either choice changes customer and ledger outcomes. Pick the safer remediation and let implementation start.",
+      "expected_output": "A bounded Change Specification draft and decision request that identifies the missing corrected-behavior authority and disputed Architecture boundary as blocking, compares stable options, recommends one, and stops before dependent delivery or accepted mutation.",
       "assertions": [
         "The missing retry obligation and disputed payment ownership boundary are identified as material Requirement and Architecture gaps.",
         "The gap disposition includes evidence, impact, stable options, a labeled recommendation, applicable authority, and blocking status.",
@@ -1178,12 +1178,12 @@
     {
       "id": 88,
       "stage": "execution",
-      "prompt": "Draft a Bugfix Specification for an authorized correction: ORD-REQ-0042 requires rejected orders to preserve inventory and the accepted Order API Surface and Order Service boundary are unchanged. The failing case is known, but no reusable Evaluation Protocol covers it yet. Surface the gap and keep the Bugfix moving.",
-      "expected_output": "A Bugfix Specification grounded in the accepted Requirement and Architecture that marks the missing Evaluation Protocol as a non-blocking evidence gap, recommends creation and execution of the evaluation, and continues without inventing results.",
+      "prompt": "Draft the Change Specification for a Change classified as Bugfix: ORD-REQ-0042 requires rejected orders to preserve inventory and the accepted Order API Surface and Order Service boundary are unchanged. The failing case is known, but no reusable Evaluation Protocol covers it yet. Surface the gap and start planning anyway.",
+      "expected_output": "A truthful Change Specification draft grounded in accepted Requirement and Architecture that identifies the missing required semantic Evaluation Protocol and blocks ratification, Change coherence, and dependent planning without inventing results.",
       "assertions": [
         "ORD-REQ-0042 and the accepted Surface and structural boundary remain the authorities for corrected behavior.",
-        "The missing Evaluation Protocol is raised with its evidence impact, recommendation, owner or authority, and non-blocking status.",
-        "The Bugfix Specification proceeds because the missing future evidence route does not make the accepted correction ambiguous.",
+        "The missing Evaluation Protocol is raised with its evidence impact, recommendation, owner or authority, and blocking status for ratification, coherence, and planning.",
+        "The Change Specification may remain a useful draft, but the Change cannot proceed to dependent planning until required semantic Protocol meaning exists.",
         "No Evaluation Result, test execution, Requirement change, or Architecture change is invented."
       ]
     },
@@ -1598,13 +1598,13 @@
     {
       "id": 119,
       "stage": "execution",
-      "prompt": "Draft a portable Change Specification for a host that supports only title and Markdown body. The authorized coordination facts are priority High, delivery state Proposed, and owner Platform Maintenance. Preserve them without pretending the host has structured fields.",
-      "expected_output": "A target-neutral fallback that puts the otherwise homeless coordination facts in one compact, visible body block and then presents the Change Specification's semantic content in its preferred logical order.",
+      "prompt": "Draft a portable Change and Change Specification for a host that supports only title and Markdown body. The authorized coordination facts are priority High, delivery state Proposed, and owner Platform Maintenance. Preserve them without pretending the host has structured fields.",
+      "expected_output": "Separate canonical Markdown fallbacks: the Change coordination artifact carries the otherwise homeless coordination facts, and the Change Specification carries only its exact why-and-what semantic contract.",
       "assertions": [
         "The response does not invent structured host fields or an OKF envelope.",
-        "Priority, delivery state, and owner appear once in a compact fallback block because no native affordance exists.",
-        "The fallback is described as portable body content that should yield to exact native fields in a richer host.",
-        "The body still distinguishes source context, intended outcome and exclusions, accepted and open meaning, Change Design, verification, and decisions."
+        "Priority, delivery state, and owner appear once in the Change coordination fallback because no native affordance exists.",
+        "The fallbacks are described as portable body content that should yield to exact native fields in a richer host.",
+        "The Change Specification uses its exact shared fallback and does not absorb Design state, Change coherence, or delivery coordination."
       ]
     },
     {
@@ -1623,9 +1623,9 @@
       "id": 121,
       "stage": "execution",
       "prompt": "Develop a Change Design in this conversation for an authorized retry fix. We need the selected response, affected responsibilities, state transitions, failure handling, verification approach, tradeoffs, and one unresolved timeout question. Do not create a repository document or work item.",
-      "expected_output": "A lightweight conversational design with a stable decision-first logical order and no fabricated persistence metadata or document ceremony.",
+      "expected_output": "The exact canonical Change Design Markdown fallback with proportional content and no fabricated persistence metadata or separate repository-document ceremony.",
       "assertions": [
-        "The response leads with scope and selected response, then covers affected responsibilities and interactions, state and failure behavior, verification, tradeoffs, and open questions.",
+        "The response uses the exact shared Change Design heading order and covers the accepted response, responsibilities and interactions, state and failure behavior, Evaluation realization, tradeoffs, and open questions.",
         "No synthetic document ID, OKF frontmatter, tracker status, owner, creation date, or lifecycle field is invented.",
         "The unresolved timeout remains visibly open and does not appear as an accepted choice.",
         "The response does not insist on persisting a dedicated Change Design artifact."
@@ -1646,14 +1646,14 @@
     {
       "id": 123,
       "stage": "execution",
-      "prompt": "Give two independent authors a presentation contract for the same tracker Change Specification. We need outputs that may differ in prose and detail but remain recognizably consistent. Do not impose a universal document template or require empty sections.",
-      "expected_output": "A compact logical composition and omission rule: native tracker mechanics first, then source and outcome, accepted and open meaning, bounded design, impact, verification, decisions and questions, with inapplicable material omitted and exact profile rules left to governed formats.",
+      "prompt": "Explain the output contracts for Spec and Design in the Gen Stack. We need independent authors to produce recognizably complete results while preserving native tracker fields and constituent authority.",
+      "expected_output": "Distinct exact Change Specification and Change Design semantic contracts with canonical Markdown fallbacks; Spec produces a human-ratifiable semantic delta and Design produces alternatives, technical response, Architecture realization, and Evaluation realization.",
       "assertions": [
         "The contract identifies the native tracker target and keeps exact host fields in their native locations.",
-        "It gives a preferred logical body order specific to a Change Specification.",
-        "It permits prose, section names, and proportional detail to vary while preserving semantic distinctions and recognizable order.",
-        "It requires omission of inapplicable content rather than empty placeholders.",
-        "It does not claim that this presentation contract is OKF or Gen Stack profile conformance."
+        "It gives exact, distinct canonical Markdown heading orders for Change Specification and Change Design while allowing native host fields to carry matching meaning and omit inapplicable body sections.",
+        "Spec fully dispositions Intent, Requirements, Architecture, and required Requirement/Architecture Protocol semantics for human ratification without prescribing test realization.",
+        "Design compares alternatives before recommendation, maps accepted Architecture to technical realization, and defines required Protocol realization plus optional separate Implementation-conformance Evaluations.",
+        "It does not claim that either presentation contract is OKF or Gen Stack profile conformance."
       ]
     },
     {
@@ -1703,20 +1703,20 @@
       "id": 127,
       "stage": "execution",
       "prompt": "What are the Gen Stack work-item types?",
-      "expected_output": "Exactly four first-class roles: Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification.",
+      "expected_output": "Three first-class roles: Operational Incident Record, Defect Report, and Change. Change Specification and Change Design are artifacts associated with a Change; Bugfix is a Change classification.",
       "assertions": [
-        "The answer enumerates exactly Operational Incident Record, Defect Report, Change Specification, and Bugfix Specification.",
-        "No investigation, delivery, task, story, epic, brief, Signal, Bug, Requirement, or other concept is presented as a Gen Stack work-item role."
+        "The answer enumerates Operational Incident Record, Defect Report, and Change.",
+        "Change Specification and Change Design are artifacts, Bugfix is a Change classification, and no investigation, delivery, task, story, epic, brief, Signal, Requirement, or other concept is presented as a Gen Stack work-item role."
       ]
     },
     {
       "id": 128,
       "stage": "execution",
       "prompt": "Is an investigation a Gen Stack work-item type?",
-      "expected_output": "No. Investigation is uncertainty-reduction activity during Orientation or within one of the four work-item roles, not a separately prescribed Gen Stack artifact.",
+      "expected_output": "No. Investigation is uncertainty-reduction activity during Orientation or within one of the three work-item roles, not a separately prescribed Gen Stack artifact.",
       "assertions": [
         "The answer says investigation is not a Gen Stack work-item type.",
-        "Investigation is described as activity during Orientation or within the lifecycle of an existing four-role case, without inventing a replacement artifact."
+        "Investigation is described as activity during Orientation or within the lifecycle of an existing three-role case, without inventing a replacement artifact."
       ]
     },
     {
@@ -1732,12 +1732,129 @@
     {
       "id": 130,
       "stage": "execution",
-      "prompt": "How should host-native tasks relate to a Change or Bugfix Specification?",
-      "expected_output": "Host-native tasks may decompose and track authorized implementation under a Change Specification or Bugfix Specification. They link to the governing Specification and applicable authorities but remain outside the Gen Stack work-item taxonomy and do not replace the Specification or own desired state.",
+      "prompt": "How should host-native tasks relate to a Change?",
+      "expected_output": "Host-native tasks may decompose and track authorized implementation under a Change. They link to the Change and its exact Change Specification and Change Design revisions but remain outside the Gen Stack work-item taxonomy and do not replace those artifacts or own desired state.",
       "assertions": [
-        "The Change Specification or Bugfix Specification remains the Gen Stack role coordinating the bounded change.",
-        "Host-native tasks may carry implementation sequence, assignment, dependencies, and progress while linking to the governing Specification.",
-        "The tasks remain outside the Gen Stack taxonomy and do not replace the Specification, accept Requirements or Architecture, or become desired-state authority."
+        "The Change remains the Gen Stack role coordinating the bounded change.",
+        "Host-native tasks may carry implementation sequence, assignment, dependencies, and progress while linking to the Change and exact artifact revisions.",
+        "The tasks remain outside the Gen Stack taxonomy and do not replace the Change Specification or Change Design, accept Requirements or Architecture, or become desired-state authority."
+      ]
+    },
+    {
+      "id": 131,
+      "stage": "routing",
+      "prompt": "/spec Distill this bounded need into a coherent Change Specification with Requirement and Architecture impact.",
+      "expected_selection": "spec",
+      "catalog_neighbors": ["gen-stack", "design"],
+      "assertions": [
+        "Spec, not gen-stack, is selected for the focused Change Specification outcome.",
+        "The method-and-corpus skill does not compete with its focused sibling.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 132,
+      "stage": "routing",
+      "prompt": "/implement Execute this authorized implementation-ready plan and prepare the exact candidate for review.",
+      "expected_selection": "implement",
+      "catalog_neighbors": ["gen-stack", "plan", "review"],
+      "assertions": [
+        "Implement, not gen-stack, is selected for realization.",
+        "No review or shipping skill is selected prematurely.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 133,
+      "stage": "routing",
+      "prompt": "Adopt the Gen Stack profile in this repository after helping our authority ratify the required governance kernel.",
+      "expected_selection": "gen-stack",
+      "catalog_neighbors": ["spec", "author-okf"],
+      "assertions": [
+        "Gen-stack is selected for authority-gated corpus adoption.",
+        "A focused change stage is not selected for profile adoption.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 134,
+      "stage": "execution",
+      "prompt": "Explain the Gen Stack change-realization operating model, including where specification-first and design-first paths converge and who can authorize shipping. Do not perform a stage.",
+      "expected_output": "A concise orientation to the canonical Process that identifies focused stage ownership, the coherence and release-readiness gates, and authority boundaries without executing a stage.",
+      "assertions": [
+        "The canonical Process rather than an improvised workflow owns the explanation.",
+        "Specification and Design may start in either order but converge before Plan; unresolved architecture-significant or Protocol-semantic choices return to Spec and human authority.",
+        "Spec is agnostic about implementation-level Evaluations and tests, while Design owns required Protocol realization and optional separate Implementation-conformance Evaluations.",
+        "Review does not confer release authority and Ship requires one exact authorized final action.",
+        "No focused stage or mutation is performed."
+      ]
+    },
+    {
+      "id": 135,
+      "stage": "routing",
+      "prompt": "/shape Turn this rough request into a bounded Pitch with anticipated Gen Stack impact and a filesystem breadboard before specification or design.",
+      "expected_selection": "shape",
+      "catalog_neighbors": ["gen-stack", "spec", "design"],
+      "assertions": [
+        "Shape, not gen-stack, is selected for the focused Pitch outcome.",
+        "Neither Spec nor Design is selected before the raw request is bounded.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 136,
+      "stage": "execution",
+      "prompt": "Explain where shaping and a Pitch fit in the Gen Stack change-realization operating model. Do not perform shaping or create a Pitch.",
+      "expected_output": "A concise method-level explanation that places Shape within Orientation before Specification and Design, distinguishes the Pitch from accepted meaning and work items, and names its optional research and investigation loops.",
+      "assertions": [
+        "Shape is identified as the focused Orientation stage that produces a provisional Pitch.",
+        "The Pitch is not presented as accepted Intent, a Requirement, Architecture, Design, a Specification, or a fifth work-item role.",
+        "Research and investigation may supply evidence back to shaping, while Spec and Design own their downstream outcomes.",
+        "No focused shaping workflow or mutation is performed."
+      ]
+    },
+    {
+      "id": 137,
+      "stage": "execution",
+      "prompt": "Explain how focused review feedback and final review relate in the Gen Stack implementation loop, including how a plan dispositions the four review focuses proportionately. Do not plan a candidate, implement, perform a review, or create Gen Stack artifacts.",
+      "expected_output": "A concise method-level explanation that separates proportional focused checkpoint feedback, Protocol Execution, implementer action disposition, fresh integrated final review, and release authority.",
+      "assertions": [
+        "Architecture, Requirements, Evaluations, and Implementation are identified as separate focused review areas.",
+        "Plans disposition all four areas but may combine focuses in one checkpoint when stable subject, evidence, and control conditions align; one invocation per focus is not required.",
+        "Reviewer judgment remains separate from Evaluation Protocol Execution and Results.",
+        "Checkpoint feedback does not establish final independent review or release readiness.",
+        "No focused stage, mutation, or Change artifact is performed or created."
+      ]
+    },
+    {
+      "id": 138,
+      "stage": "routing",
+      "prompt": "Update our work-item host with the exact Change Design revision we landed, preserve its complete canonical structure, and verify persisted fidelity.",
+      "expected_selection": "sync-change",
+      "catalog_neighbors": ["gen-stack", "design", "ship"],
+      "assertions": [
+        "Sync-change, not gen-stack, is selected for exact artifact synchronization.",
+        "Design is not selected to re-author the landed artifact.",
+        "Ship is not selected for work-item-host persistence.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 139,
+      "stage": "execution",
+      "prompt": "Explain how exact Pitch, Change Specification, Change Design, and plan persistence fits into Gen Stack while remaining independent of any particular work-item host. Do not mutate anything or perform synchronization.",
+      "expected_output": "A concise explanation that identifies synchronization as a cross-cutting representation operation routed to sync-change, preserves one canonical home and exact artifact maturity, and does not add a lifecycle stage or vendor model.",
+      "assertions": [
+        "Synchronization is described as cross-cutting representation work rather than a change-realization stage or readiness gate.",
+        "One canonical artifact home and exact revision binding remain explicit.",
+        "The explanation is work-item-host agnostic and prescribes no vendor fields, labels, hierarchy, workflow, or API.",
+        "Plan projection requires separate authorization and leaves the exact plan canonical.",
+        "No mutation or focused synchronization workflow is performed."
       ]
     }
   ]

@@ -8,6 +8,7 @@ second authority for Requirements or assurance decisions.
   Evaluation is broader than testing but narrower than assurance, and how
   Protocols, Executions, Results, observations, and decisions retain distinct
   authority.
+- [Reviewing candidate implementations](reviewing-candidate-implementations.md) - Use when a stable implementation checkpoint needs focused course-correction review or an exact final candidate needs independent integrated assessment; keep Architecture, Requirements, Evaluations, Implementation, and whole-change claims separate and return an actionable next route without silently fixing or shipping.
 - [Evaluation Protocols as assessment contracts](evaluation-protocols-as-assessment-contracts.md) - Why governed Evaluation Protocols derive their shape from Requirements and Architecture while execution and evidence remain repository-native.
 - [Deriving evaluation coverage in harnesses](deriving-evaluation-coverage-in-harnesses.md) - How a harness can consume policy-neutral Gen Stack evaluation candidates, apply its own coverage decisions, and preserve Protocol and evidence boundaries without adopting a prescribed runner or policy format.
 - [Designing Evaluation Protocols](designing-evaluation-protocols.md) - Use when creating, revising, retiring, or organizing governed assessment contracts for Requirement satisfaction, Architecture realization, or Implementation conformance.

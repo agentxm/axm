@@ -2,6 +2,94 @@
 
 ## 2026-08-27
 
+- **Gen Stack 0.25.0, Gen Stack skill 3.2.0, Plan skill 0.5.0, Sync Change
+  skill 0.1.0, and pack 4.2.0 — host-neutral exact artifact synchronization**:
+  Added one cross-cutting synchronization operation for exact Pitches, Change
+  coordination records, Change Specifications, Change Designs, and
+  implementation plans. It binds the exact source, selects one canonical home,
+  maps through runtime-inspected host semantics, bounds mutations, protects
+  concurrent work, reads persisted state back, and reports exact, faithful,
+  drifted, or unverified fidelity. Explicit plan projection may create or
+  update host-native implementation records from an exact plan revision while
+  preserving the plan as canonical. Synchronization is not a lifecycle stage,
+  artifact-authoring pass, acceptance action, or vendor workflow.
+
+- **Gen Stack 0.24.0, Plan skill 0.4.0, Implement and Review skills 0.3.0,
+  Gen Stack skill 3.1.0, Reviewer 0.1.0, and pack 4.1.0 — focused review
+  feedback and integrated candidate assurance**: Added one fresh-context,
+  read-only Reviewer for proportional Architecture, Requirements, Evaluations,
+  and Implementation checkpoints during realization and a separate integrated
+  final review. Plans disposition all four focuses and bind stable checkpoints;
+  implementation dispositions every reviewer action and re-reviews stale
+  claims. Review now separates Protocol coverage, adequacy, realization,
+  evidence state, and bounded outcome, applies a whole-change integrity overlay,
+  and emits an exception-based decision, ordered actions, findings, assurance
+  summary, unknowns, and exact boundary. Reviewer judgment remains distinct
+  from Protocol Results, semantic acceptance, and release authority.
+
+- **Gen Stack 0.23.0, skill 3.0.0, Quick Change skill 0.1.0, and pack 4.0.0 —
+  change-centered coordination and artifacts**: Replaced Change
+  Specification and Bugfix Specification as parallel work-item roles with one
+  Change coordination role. Change Specification now owns why and what; Change
+  Design owns how; Bugfix classifies a Change whose explicit remedial purpose
+  addresses established Defects. Added shared canonical Markdown fallbacks,
+  action-relative readiness, and the combined `/quick-change` route while
+  retiring the generic Specification and Bugfix Specification terms without
+  reassigning their identifiers.
+
+- **Gen Stack 0.22.0, Plan skill 0.2.0, and pack 3.2.0 — evidence-guided
+  implementation planning**: Made planning sequence architecture-bearing
+  boundaries, contracts, ownership, state, observability, and testability seams
+  before dependent behavior except where compatibility, migration, safety, or
+  atomicity creates a real dependency. Every required Requirement-satisfaction
+  and Architecture-realization Protocol now receives an executable
+  realization, earliest credible execution point, re-execution triggers,
+  Result-driven control behavior, and final exact candidate-revision or
+  observation-window exit evidence. Implementation uses those Executions as
+  feedback throughout bounded realization rather than deferring them to final
+  inspection. Human, integrated, operational, and windowed Evaluations retain
+  their real preconditions, and Implementation-conformance Evaluations remain
+  separate and delegated unless an accepted Design, policy, or assurance input
+  requires them.
+
+- **Gen Stack 0.21.0, skill 2.1.0, and pack 3.1.0 — shaping Pitches before
+  specification and design**: Added Shape as the focused Orientation stage
+  that turns raw or mixed change context into a bounded, repository-grounded
+  Pitch. The Pitch captures problem or opportunity, intended outcome,
+  appetite, boundaries, anticipated Gen Stack impact, an inline filesystem
+  breadboard, rough response contours, risks, authority, and requested
+  response. It remains provisional rather than becoming a fifth work item,
+  governed concept, Specification, accepted meaning, selected Design, or
+  implementation authorization. Added the `/shape` skill, proportional
+  immediate/provisional/elicitation behavior, and explicit handoffs to
+  research, investigation, specification, design, human decision, or no
+  change. Made Shape and Specification explicitly agnostic about
+  implementation-level Evaluations and tests. Specification now uses a
+  complete human-ratifiable presentation contract, dispositions every affected
+  Requirement and Architecture authority, and names exact
+  Requirement-satisfaction and Architecture-realization Protocol semantics
+  without selecting their realization. Design now compares alternatives before
+  recommending, maps accepted Architecture to its technical realization,
+  defines the executable realization of every required Protocol, and keeps
+  optional Implementation-conformance Evaluations separate. The Gen Stack
+  application profile remains `0.5.0` because governed concept paths, fields,
+  and structural rules did not change.
+
+- **Gen Stack 0.20.0 and pack 3.0.0 — change-realization operating model**:
+  Added [Deciding and realizing bounded software
+  changes](processes/deciding-and-realizing-software-changes.md) as the
+  canonical Process and home of the operating-model diagram. Added a shared
+  stage contract and focused Research, investigation, specification, design,
+  planning, implementation, review, and shipping skills. Specification-first
+  and design-first entry now converge at an explicit coherence gate;
+  implementation and independent review may iterate; shipping requires a
+  separate exact release authorization. Gen Stack orchestration records a
+  proportional corpus disposition around each stage and routes accepted
+  refinement, evidence maintenance, and compaction to their proper authorities.
+  Research now owns bounded Research Brief framing and its fresh read-only
+  Researcher while remaining independent of Gen Stack stage semantics; the
+  separate Question skill and QRSPI pack are deprecated.
+
 - **Interface-native Surface identity guidance**: Revised Surface development
   and authoring so an adopting System can establish and consistently apply an
   interface-native identity policy, such as one Surface per public CLI command
@@ -64,7 +152,7 @@
   lifecycle context, host-native tasks remain outside the taxonomy, and
   title-and-summary revision is a cross-cutting operation. Renamed
   `work-items/change-specifications-and-delivery-work.md` to
-  [`work-items/change-specifications.md`](work-items/change-specifications.md)
+  `work-items/change-specifications.md`
   and `work-items/preserving-design-and-delivery-context.md` to
   [`work-items/preserving-technical-context.md`](work-items/preserving-technical-context.md),
   updating corpus routes, skill instructions, and evaluation cases.
@@ -268,8 +356,8 @@
   leaving concrete Definitions, Suites, Executions, Results, and Reports at
   repository-native authorities.
 - **Bugs and corrective work**: Added [Bugs and bugfix
-  specifications](work-items/bugs-and-bugfix-specifications.md) and [Writing
-  bugfix specifications](work-items/writing-bugfix-specifications.md), defined
+  specifications (`work-items/bugs-and-bugfix-specifications.md`) and writing
+  bugfix specifications (`work-items/writing-bugfix-specifications.md`), defined
   Defect as a broad imperfection, Bug as concrete defective system behavior,
   kept Bugfix Specifications separate from provenance-bearing Defect reports,
   and gave their briefs distinct naming rules for observed discrepancies and
@@ -281,7 +369,7 @@
   Specification as its corrective specialization without requiring a new
   document type or corpus collection.
 - **Change work items**: Replaced request-centered work-item guidance with
-  [Change specifications](work-items/change-specifications.md) and [Writing
+  [Changes](work-items/changes.md) and [Writing
   change specifications](work-items/writing-change-specifications.md), while
   keeping raw requests as Signals or source evidence until a candidate change
   has a recognizable boundary.

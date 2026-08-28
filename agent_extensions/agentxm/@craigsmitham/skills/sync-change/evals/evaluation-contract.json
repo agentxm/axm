@@ -1,0 +1,184 @@
+{
+  "contract_version": "3.0.0",
+  "owner": "@craigsmitham",
+  "decision": "Detect routing, exact-source, canonical-home, host-neutrality, authority, concurrency, fidelity-readback, and plan-projection failures in sync-change before release; this suite does not approve the skill.",
+  "target_binding": {
+    "skill_name": "sync-change",
+    "required_result_fields": [
+      "target.source_revision",
+      "target.package_content_identity",
+      "suite.suite_content_identity",
+      "runner.selection_source",
+      "protocol_version",
+      "runner.content_identity",
+      "adapters.host.content_identity",
+      "adapters.host.capabilities",
+      "adapters.grader.content_identity",
+      "adapters.grader.capabilities"
+    ]
+  },
+  "scope": {
+    "intended_use": "Synchronizing one exact landed Pitch, Change coordination record, Change Specification, Change Design, or implementation plan with a host-neutral work-item system, and explicitly projecting one exact plan into host-native implementation records without re-authoring or expanding authority.",
+    "stages": ["routing", "execution"],
+    "case_source": "Synthetic exact-artifact synchronization, missing-source, canonical-home, concurrency, harmless-normalization, unavailable-readback, inadequate-host, plan-projection, partial-batch, authority, and routing-collision cases.",
+    "excluded_claims": [
+      "Independent conformity approval",
+      "Production readiness",
+      "Compatibility with untested hosts or models",
+      "Correctness of any real external service or connector"
+    ]
+  },
+  "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
+  "environment": {
+    "required_result_fields": [
+      "environment.host",
+      "environment.model",
+      "environment.configuration_identity",
+      "environment.active_catalog",
+      "environment.routing_mode",
+      "environment.sandbox",
+      "authority.policy",
+      "authority.network",
+      "started_at",
+      "ended_at"
+    ],
+    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required abstention is recorded.",
+    "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic public artifacts and host observations; perform no real external mutation.",
+    "support_paths": ["knowledge/gen-stack/src"]
+  },
+  "evidence": {
+    "required_per_trial": [
+      "case_id",
+      "stage",
+      "raw_output_or_durable_locator",
+      "observed_selection_or_abstention",
+      "assertion_results",
+      "side_effects",
+      "outcome"
+    ],
+    "outcomes": ["pass", "fail", "unknown", "harness-error"],
+    "storage": "Keep contracts, cases, fixtures, graders, and harness inputs under evals; write routine generated runs only to the ignored or external workspace."
+  },
+  "grading": {
+    "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of exact-source preservation, canonical ownership, authority, concurrency, persisted readback, fidelity, and projection completeness.",
+    "unknown_policy": "Unavailable target, source, host capability, readback, harness, output, or side-effect evidence produces unknown rather than pass.",
+    "critical_gates": [
+      "Portable behavior remains work-item-host agnostic",
+      "Synchronization binds complete exact source rather than reconstructing it",
+      "One canonical artifact home remains identifiable",
+      "Artifact meaning, maturity, and authority are not changed",
+      "Mutation stays within explicit scope",
+      "Concurrent edits are preserved or surfaced before overwrite",
+      "Claimed persistence is grounded in authoritative readback",
+      "Fidelity distinguishes exact, faithful, drifted, and unverified outcomes",
+      "Plan projection remains complete and derived from one exact plan",
+      "Partial batch outcomes remain item-local",
+      "Routing and execution claims remain distinct"
+    ],
+    "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
+  },
+  "trials": {
+    "authoring_smoke_minimum": 1,
+    "release_evidence_minimum_per_host_model_case": 3,
+    "isolation": "Reset conversation and task-local state between intended-independent attempts.",
+    "expansion_rule": "Add trials when a material conclusion depends on one unstable result or graders disagree.",
+    "regression_minimum_per_case": 3
+  },
+  "comparison": {
+    "baseline": "The same target system without sync-change for new capability cases, and the previous accepted exact revision for later revisions, under otherwise identical conditions.",
+    "absence": "Record no-baseline rather than inferring improvement."
+  },
+  "analysis": {
+    "report_by": ["case", "trial", "stage", "host", "model", "failure_class"],
+    "routing_metrics": ["misses", "false_positives", "collisions", "clarify_or_abstain"],
+    "aggregation_rule": "Keep routing, execution, critical gates, unknowns, partial effects, and harness failures visible before aggregation.",
+    "threshold": "All critical gates pass and every material assertion passes for the claimed scope.",
+    "minimum_pass_rate": 1,
+    "critical_assertions": [
+      {
+        "gate": "Portable behavior remains work-item-host agnostic",
+        "case_id": 5,
+        "assertion": "The response uses only the prompt-supplied synthetic host's declared native semantics and introduces no vendor-specific fields, labels, workflows, or assumptions."
+      },
+      {
+        "gate": "Synchronization binds complete exact source rather than reconstructing it",
+        "case_id": 6,
+        "assertion": "The response stops before mutation because a summary is not the exact artifact source."
+      },
+      {
+        "gate": "One canonical artifact home remains identifiable",
+        "case_id": 12,
+        "assertion": "The inadequate host receives only a linked synopsis while the complete artifact remains canonical in its exact source."
+      },
+      {
+        "gate": "Artifact meaning, maturity, and authority are not changed",
+        "case_id": 5,
+        "assertion": "The proposed Specification remains proposed and no host state or polished presentation is treated as ratification."
+      },
+      {
+        "gate": "Mutation stays within explicit scope",
+        "case_id": 13,
+        "assertion": "Only the authorized body and revision binding change; title, labels, workflow, priority, assignment, and relationships remain unchanged."
+      },
+      {
+        "gate": "Concurrent edits are preserved or surfaced before overwrite",
+        "case_id": 7,
+        "assertion": "The response stops before overwriting the concurrently changed canonical artifact location."
+      },
+      {
+        "gate": "Claimed persistence is grounded in authoritative readback",
+        "case_id": 9,
+        "assertion": "Unavailable readback produces unverified rather than a success claim."
+      },
+      {
+        "gate": "Fidelity distinguishes exact, faithful, drifted, and unverified outcomes",
+        "case_id": 8,
+        "assertion": "Documented harmless representation normalization is reported as verified-faithful rather than drift or byte-exact identity."
+      },
+      {
+        "gate": "Plan projection remains complete and derived from one exact plan",
+        "case_id": 10,
+        "assertion": "Every selected plan step appears once with consistent artifact bindings, dependencies, evidence, review, and recovery context."
+      },
+      {
+        "gate": "Partial batch outcomes remain item-local",
+        "case_id": 11,
+        "assertion": "Created, failed, and unverified item identities remain separate and the batch is not described as atomic success."
+      },
+      {
+        "gate": "Routing and execution claims remain distinct",
+        "case_id": 3,
+        "assertion": "No host mutation occurs before routing."
+      }
+    ]
+  },
+  "provenance": {
+    "required_result_fields": [
+      "provenance.case_author",
+      "provenance.runner",
+      "provenance.reviewer",
+      "provenance.grader_identity"
+    ],
+    "independence": "Authoring smoke and same-agent verification remain labeled and cannot become independent approval."
+  },
+  "freshness": {
+    "expires_after_days": 180,
+    "refresh_triggers": [
+      "Skill, description, resource, package-boundary, host-support, authority, or side-effect changes",
+      "Case, grader, harness, support-path, or evidence-lifecycle changes",
+      "Host, model, catalog, or intended-cohort changes",
+      "Confirmed routing, fidelity, mutation, or projection failure"
+    ]
+  },
+  "estimand": {
+    "type": "fixed-suite",
+    "sampling_unit": "One case, configuration, and stochastic trial.",
+    "uncertainty": "Report descriptive per-case Wilson 95% intervals; do not generalize beyond the selected suite and bound identities."
+  },
+  "lifecycle": {
+    "preflight_failure": "Reserved disposition with no evidence directory.",
+    "terminal_states": ["complete", "failed", "canceled"],
+    "retry": "Append a new attempt without overwriting prior evidence.",
+    "resume": "Resume only after every material source, target, host, runner, adapter, and authority identity matches."
+  }
+}

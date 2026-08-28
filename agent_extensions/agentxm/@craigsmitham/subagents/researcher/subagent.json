@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "subagent",
   "name": "researcher",
-  "version": "0.0.2",
-  "description": "Performs isolated, read-only Research Brief framing and evidence-backed research for QRSPI",
+  "version": "0.1.0",
+  "description": "Performs one fresh-context, read-only Research Brief framing or evidence-gathering phase",
   "keywords": [
     "research",
     "delegation",
@@ -16,7 +16,7 @@
   ],
   "fallback": "auto",
   "recommendedPacks": [
-    "@craigsmitham/packs/qrspi"
+    "@craigsmitham/packs/gen-stack"
   ],
   "standalone": false,
   "repository": {

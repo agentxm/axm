@@ -13,7 +13,7 @@ adoption authority gate.
 
 Cases 41–65 preserve the software work-item coverage formerly owned by
 `author-software-work-items`. They cover Operational Incident Records, Defect
-Reports, Change Specifications, Bugfix Specifications, title-and-summary
+Reports, Changes, Change Specifications, Change Designs, Bugfix classification, title-and-summary
 operations, originating
 evidence, Requirement and Evaluation impact, tracker persistence readback, and
 routing between the unified skill's branches.
@@ -44,7 +44,7 @@ changes without unauthorized retry.
 
 Cases 84–94 cover greenfield candidate development, brownfield evidence
 extraction, missing Requirement and Surface meaning in a Defect Report,
-blocking and non-blocking Bugfix gaps, load-bearing Requirement subject
+action-relative remediation gaps, load-bearing Requirement subject
 placement, inferred-versus-derived Requirements, direct accepted authoring
 without candidate ceremony, non-ritual escalation, the adoption authority
 boundary after candidate extraction, and a routing collision with
@@ -91,10 +91,10 @@ and health dimensions, neutral treatment of possible incoherence, and
 proportionate next options without creating a governed brief artifact or
 assuming decision or mutation authority.
 
-Suite 1.9.1 adds cases 127–130 for the exact four-role software work-item
-taxonomy, investigation as activity, delivery tasks as host-native planning
-mechanics, and the relationship of host-native tasks to governing Change and
-Bugfix Specifications.
+Suite 1.9.1 originally added cases 127–130 for work-item taxonomy and adjacent
+planning mechanics. Suite 3.0.0 revises them to the three-role model:
+Operational Incident Record, Defect Report, and Change, with Change
+Specification and Change Design as artifacts and Bugfix as classification.
 
 Suite 1.10.0 revises cases 66–70 for authority-gated adoption and migration.
 Human or institutional authorities ratify meaning, repository policy and the
@@ -110,3 +110,22 @@ choices remain human-governed, material cross-stack gaps have
 actionable blocking dispositions, candidate evidence does not become accepted
 meaning, and evidence, Implementation, Evaluations, work-item identity,
 lifecycle, and tracker metadata retain their own authority.
+
+Suite 2.0.0 adds cases 131–134 for the method-and-corpus boundary introduced by
+the focused Gen Stack operating model. Focused Specification and Implementation
+outcomes route to sibling skills, adoption remains with gen-stack, and a Process
+orientation explains convergence and release authority without executing work.
+
+Suite 2.1.0 adds cases 135–136 for the Shape boundary. A focused Pitch routes
+to the Shape sibling, while Gen Stack retains method-level explanation of how
+shaping participates in Orientation without turning a Pitch into accepted
+meaning, Design, a Specification, or a fifth software work-item role.
+
+Suite 3.1.0 adds case 137 for proportional focused review orientation and the
+separation of checkpoint judgment, Protocol Results, integrated final review,
+and release authority.
+
+Suite 3.2.0 adds cases 138–139 for exact change-artifact synchronization. A
+focused persistence request routes to the host-neutral Sync Change sibling
+instead of re-authoring or shipping, while Gen Stack explains synchronization
+as cross-cutting representation work rather than a new stage or readiness gate.

@@ -28,7 +28,7 @@ sources:
     title: Process
 generated:
   by: codex/gpt-5
-  at: 2026-08-27T14:42:34Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Investigating possible defects
@@ -53,7 +53,8 @@ evidence. Preserve the evidence and uncertainty, then return a conclusion no
 stronger than the tested scope supports.
 
 Investigation owns selection, gathering, and interpretation of new diagnostic
-evidence, including reproduction. It may identify a Defect or Bug, but it does
+evidence, including reproduction. It may establish a Defect, including one in
+the realized system, but it does
 not decide Defect Report identity, lifecycle, priority, correction, or release.
 Those decisions return to triage or their applicable authority.
 
@@ -142,7 +143,7 @@ manufacturing a Defect.
 Consider only explanations implicated by the evidence. Distinguish among:
 
 - no Defect within the bounded scope;
-- an Implementation Defect or Bug;
+- an Implementation or other realized-system Defect;
 - a Requirement, Architecture, Evaluation, test, or tooling Defect;
 - a configuration, data, dependency, or environment condition;
 - an observability gap;
@@ -199,18 +200,18 @@ Return:
 
 - the question, tested scope, revision, conditions, and evidence boundary;
 - the supported conclusion and its confidence;
-- identified Defects or Bugs and their supporting evidence;
+- established Defects and their supporting evidence;
 - weakened, eliminated, and remaining hypotheses;
 - affected and known-unaffected scope;
 - material limitations, residual risk, and reopening condition; and
 - the next decision, its authority, or the evidence needed to resume.
 
 Use conclusion language such as `no Defect supported within the tested scope`,
-`expectation indeterminate`, `Defect supported`, `Bug identified`, or
+`expectation indeterminate`, `Defect supported`, or
 `inconclusive`. These are evidence conclusions, not Defect Report identity or
 lifecycle decisions. Return those decisions to triage. A separately authorized
-Bug correction proceeds through a linked [Bugfix
-Specification](writing-bugfix-specifications.md); a possible desired-state
+remediation proceeds through a linked [Change classified as
+Bugfix](addressing-defects-through-changes.md); a possible desired-state
 change proceeds through [Requirement-impact
 analysis](../control-loop/analyzing-requirement-impact.md).
 
@@ -243,5 +244,5 @@ related record.
 
 If investigation recurs, a standing [Process](../processes/process.md) may own
 entry criteria, roles, permitted actions, handoffs, service expectations, and
-review triggers. It does not redefine Defect, Bug, work-item lifecycle, or
+review triggers. It does not redefine Defect, work-item lifecycle, or
 corrective authority.

@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Change Design
-description: How a bounded technical response connects Requirements and Architecture to Implementation without becoming another authority layer or requiring a standalone design document.
+description: How a bounded technical response realizes accepted Requirements and Architecture, including required Evaluation Protocols, without becoming another authority layer or requiring a standalone design document.
 tags: [change-design, technical-design, design-doc, technical-specification, specification, work-items, implementation, architecture, requirements]
 status: draft
 sources:
@@ -25,7 +25,7 @@ sources:
     title: Gen Stack vocabulary and relationship model
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T19:12:18Z
+  at: 2026-08-27T23:32:00Z
 ---
 
 # Change Design
@@ -44,6 +44,14 @@ response: material choices, responsibilities, interactions, interfaces,
 state and data movement, failure behavior, tradeoffs, risks, and unresolved
 questions.
 
+For a coherent change, it also maps every accepted Architecture authority to
+the technical elements that realize it and defines how each required
+Requirement-satisfaction and Architecture-realization Evaluation Protocol will
+produce executable evidence. That includes executable grouping, testability
+seams, observability, data and environments, execution, failure and
+inconclusive handling, and traceability. This technical realization does not
+own or alter the Protocol's semantic claim.
+
 The design is the response, not the document that happens to contain it. A
 Change Design may exist only in an agent conversation, be captured inside a
 work item, or exceptionally be maintained in a dedicated repository document.
@@ -54,10 +62,10 @@ Change Design is a Gen Stack method term, not a governed concept type in the
 Gen Stack application profile. Instantiated system corpora do not need a
 `design/` collection or a document for each change.
 
-A Change Design may be one constituent of a broader
-[Specification](/glossary.md#specifications). The Specification composes the
-change's relevant representations; the Change Design still owns only the
-bounded technical response and rationale.
+A Change Design is the how artifact associated with one
+[Change](/work-items/changes.md). Its sibling Change Specification owns why
+and what; the Change Design owns only the bounded technical response and
+rationale.
 
 For the practical workflow, see [Developing a Change
 Design](developing-a-change-design.md).
@@ -93,7 +101,7 @@ Three common paths are legitimate:
 | Path | Use when | What survives |
 | --- | --- | --- |
 | Conversation → implementation | The change is bounded, immediate, reversible, and needs no later handoff or independent review | The realized code, tests, review evidence, and any still-material rationale |
-| Conversation → work item → implementation | Work persists beyond the conversation, needs review or handoff, or will be tracked separately | A proportional design synopsis, its maturity and authority, open questions, and links to realization work |
+| Conversation → work item → implementation | Work persists beyond the conversation, needs review or handoff, or will be tracked separately | The complete Design when the work item is canonical; otherwise a proportional maturity synopsis, open questions, and an exact link to the canonical Design |
 | Conversation → durable Change Design → work | The response spans work items, evolves independently, or contains reasoning that would otherwise be repeatedly rediscovered | One explicitly owned and maintained Design record plus linked work items |
 
 The first two are ordinary. The third is exceptional and requires an
@@ -101,16 +109,23 @@ established repository location, owner, lifecycle, and relationship to current
 Architecture. Do not create a durable design shelf in anticipation of that
 future need.
 
+When moving a landed Design into a work-item host, apply [Synchronizing change
+artifacts with work-item hosts](/work-items/synchronizing-change-artifacts.md).
+Synchronization preserves the exact Design or links its canonical home; it is
+not another opportunity to condense or re-author it.
+
 ## Authority remains distributed
 
 | Concern | Owner | Change Design's relationship |
 | --- | --- | --- |
 | Desired behavior or binding limitation | Requirement | Identifies and responds to the Requirement without restating it as a second authority |
-| Durable subjects, responsibilities, boundaries, and relationships | Architecture | Works within them and identifies any proposed Architecture impact |
+| Durable subjects, responsibilities, boundaries, and relationships | Architecture | Maps accepted meaning to technical realization and returns any proposed semantic change to Change Specification |
 | One accepted architecture-significant choice | Architecture Decision Record | May propose or apply the choice; the decision policy determines whether an ADR is required |
 | Current code, configuration, schemas, and tests | Implementation | Proposes the response that Implementation may realize |
-| Assignment, sequencing, dependencies, and progress | Work item or delivery plan | Supplies technical context without taking over delivery state |
-| Assessment method and result | Evaluation | Identifies the verification approach without treating a proposed test as evidence |
+| Identity, classification, artifact revisions, coherence, and delivery state | Change | Supplies the technical response without taking over coordination |
+| Semantic assessment claim and judgment | Evaluation Protocol | Realizes the accepted Protocol without changing its targets, criteria, coverage, or evidence expectations |
+| Executable assessment mechanism | Evaluation realization | Selects Suites, Cases, seams, data, environments, harnesses, and evidence flow for required Protocols |
+| Implementation-local conformance | Optional Implementation-conformance Evaluation | May define a local check, but returns durable or release-critical semantic obligations to Change Specification |
 
 A Design may discover a missing or conflicting obligation. That is a
 Requirement-impact finding, not permission to make the Design normative. It
@@ -166,16 +181,14 @@ supersession.[^nygard-adr]
 
 Other practices use *design document*, *technical specification*, *RFC*,
 *proposal*, and *software design description* for overlapping containers.
-Some combine requirements, design, rollout, and implementation history. When
-such a container intentionally composes several Gen Stack representations, it
-acts as a Specification; when it describes only the bounded technical
-response, it acts as a Change Design. Gen Stack classifies the claims inside
-either container:
+Some combine requirements, design, rollout, and implementation history. Gen
+Stack classifies the claims inside either container rather than assigning one
+generic Specification role:
 
 - obligations remain Requirements;
 - durable accepted system meaning remains Architecture or an ADR;
 - bounded technical response is Change Design;
-- execution state remains with work items; and
+- coordination and execution state remain with the Change and its delivery records; and
 - realized state and evidence remain with Implementation and Evaluations.
 
 This claim-based treatment preserves interoperability without importing an

@@ -2,7 +2,7 @@
 type: Guide
 title: Preserving technical context in software work items
 description: Use when supplied technical context must survive transfer into a software work item; retain findings, constraints, decisions, sketches, implementation plans, testing strategies, tradeoffs, and open questions without inventing or approving missing work.
-tags: [work-item-context, specification, change-specification, bugfix-specification, technical-design, architecture-sketch, code-sketch, implementation-plan, testing-strategy, decision-status, issue-body]
+tags: [work-item-context, change, change-specification, change-design, bugfix, technical-design, architecture-sketch, code-sketch, implementation-plan, testing-strategy, decision-status, issue-body]
 status: draft
 sources:
   - id: change-design
@@ -22,7 +22,7 @@ sources:
     title: Mozilla RFC template
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:14:40Z
+  at: 2026-08-27T23:32:00Z
 ---
 
 # Preserving technical context in software work items
@@ -49,6 +49,13 @@ items](preserving-work-item-evidence-and-authority.md) for the source inventory,
 claim maturity, safe evidence, and decision-authority mechanics. This guide
 specializes that foundation for technical design and implementation material.
 
+When the source is already an exact landed Pitch, Change coordination record,
+Change Specification, Change Design, or implementation plan, use
+[Synchronizing change artifacts with work-item
+hosts](synchronizing-change-artifacts.md) instead. This guide remains for mixed,
+unstructured, legacy, or independently sourced technical context that must be
+classified before transfer.
+
 ## Representation
 
 Use the work item's native fields and links first, then retain residual
@@ -72,40 +79,21 @@ Do not fill an empty section by designing the missing solution. Do not infer
 authority from detail: a concrete code sketch may still be illustrative, while
 a one-sentence constraint may be binding.
 
-## Use a Specification as a composition
+## Preserve Change and artifact boundaries
 
-A work item may serve as a **Specification container** when it intentionally
-composes several representations needed to understand and deliver its bounded
-change. Calling it a Specification helps name the whole without turning the
-whole into a new authority. Preserve the identity and status of each
-constituent rather than flattening everything into undifferentiated prose.
+A work item may coordinate one Change while also presenting its Change
+Specification and Change Design. Keep their responsibilities visible:
 
-| Scope name | Typical composition | Boundary to preserve |
+| Surface | Technical context it may preserve | Boundary |
 | --- | --- | --- |
-| Change Specification | Motivating Signals, Observations, source context, or Intent; affected System or Architecture; applicable or candidate Requirements; Change Design; verification context; implementation coordination | A proposed change is not accepted or authorized merely because it appears in the Specification |
-| Bugfix Specification | Linked Defect reports; Bug and diagnosis synopsis; correction decision and authority; applicable or candidate Requirements; unchanged constraints; Change Design; regression context; implementation coordination | The Specification is separate corrective work; it does not replace or retitle its provenance-bearing Defect reports |
+| Change | Source links, classification, exact artifact revisions, coherence, delivery and evidence links | Does not own why-and-what or how meaning |
+| Change Specification | Source context, intended outcome, Requirements, Architecture, constraints, and semantic Protocols | Does not select the response or coordinate delivery |
+| Change Design | Alternatives, response choices, realization, executable evaluation approach, risks, and reconciliation | Does not accept desired state or own delivery status |
 
-Use headings, labels, and links to distinguish constituents. An adaptable
-work-item composition is:
-
-```markdown
-## Change Specification | Bugfix Specification
-
-### Context and scope
-### Applicable and candidate Requirements
-### Affected Architecture and decisions
-### Change Design
-### Verification context
-### Implementation coordination
-### Open questions and authority
-```
-
-Omit unsupported sections. A Change Specification remains its change case
-record; a Bugfix Specification remains separate from every linked Defect
-Report. The Change Design remains the bounded technical response, and each
-linked canonical Requirement or Architecture concept remains authoritative in
-its established home. A Specification may instead be conversational or span a
-linked set; the name does not require a new document or directory.
+Use native fields and links where possible. When the artifacts share one body,
+use their canonical fallback contracts rather than a mixed invented template.
+The linked canonical Requirement and Architecture concepts remain authoritative
+in their established homes.
 
 ## Keep artifact class and maturity separate
 
@@ -113,7 +101,7 @@ These dimensions can vary independently:
 
 | Dimension | Examples |
 | --- | --- |
-| Work-item role | Operational Incident Record, Defect Report, Change Specification, Bugfix Specification |
+| Work-item role | Operational Incident Record, Defect Report, Change |
 | Diagnostic activity | Unexplored, suspected, reproduced, root cause established |
 | Design | None, options, proposed, accepted, superseded |
 | Implementation coordination | Unplanned, sequenced, authorized, decomposed |
@@ -122,10 +110,11 @@ These dimensions can vary independently:
 
 A Defect Report can therefore retain attributed investigation findings and
 link a proposed design without becoming corrective work. When investigation
-identifies a Bug and a correction is authorized, the accepted Change Design
-and implementation plan belong in a separate linked Bugfix Specification. A proposed
-Change Specification can retain detailed source material without treating it
-as an accepted Requirement, Architecture change, or implementation authorization.
+establishes a Defect and remediation is authorized, the accepted Change Design
+and implementation plan belong to a separate linked Change classified as
+Bugfix. Its Change Specification can retain detailed source material without
+treating it as an accepted Requirement, Architecture change, or implementation
+authorization.
 
 ## 1. Inventory the source before compressing it
 
@@ -225,18 +214,18 @@ discarding body context.
 | Source material | Correct treatment |
 | --- | --- |
 | Bare defect evidence with no design | Write the defect report; do not invent design sections or placeholders |
-| Defect report plus supplied architecture and code sketches | Preserve an attributed synopsis or link on the report; place accepted corrective design in a separate Bugfix Specification |
-| Bounded proposed system change with supplied design | Preserve it in a Change Specification with proposal and authority state explicit |
+| Defect Report plus supplied architecture and code sketches | Preserve an attributed synopsis or link on the report; place accepted remedial design in a separate Change classified as Bugfix |
+| Bounded proposed system change with supplied design | Preserve it in one Change with separate Change Specification and Change Design states explicit |
 | Several options with a recommendation but no decision | Retain options and tradeoffs; label the recommendation as proposed |
-| Accepted corrective plan and testing strategy | Retain them in the separate Bugfix Specification and link its Defect reports without collapsing strategy into verification conditions |
+| Accepted remedial plan and testing strategy | Retain them with the separate Change and link its Defect Reports without collapsing strategy into semantic Protocol conditions |
 | Cross-cutting design in an authoritative document | Keep a concise status synopsis and link rather than copying a divergent second source |
 | “Capture all this” | Perform a lossless transfer of material context, not a template-shaped summary |
 
 ## Final check
 
 - The artifact still represents the correct lifecycle and primary meaning.
-- A Defect report remains the provenance-bearing case record and was not
-  retitled or used as the accepted Bugfix Specification.
+- A Defect Report remains the provenance-bearing case record and was not
+  retitled or used as the remediating Change.
 - Supplied technical context is present or linked; absent context was not invented.
 - Facts, hypotheses, constraints, proposals, decisions, and open questions remain distinct.
 - Architecture and code sketches retain their purpose and authority state.

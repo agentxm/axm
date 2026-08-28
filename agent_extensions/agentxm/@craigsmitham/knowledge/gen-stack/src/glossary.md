@@ -2,7 +2,7 @@
 type: Reference
 title: Gen Stack vocabulary and relationship model
 description: The semantic authority for Gen Stack terms, stable identifiers, definitions, distinctions, relationship meaning and cardinality, and prohibited inferences across the complete method.
-tags: [glossary, vocabulary, terminology, concept-model, gen-stack, specification, change-specification, bugfix-specification, defect, defect-report, bug, process, process-model, process-enactment, work-items, workflow, ooda, control-loop, pace-layer, trust-gradient, signals, observations, relationships, relationship-semantics, cardinality, traceability, intent, value, requirements, requirement-classification, architecture, change-design, technical-design, evaluations, evaluation-protocol, evaluation-case, evaluation-coverage, evaluation-execution, evaluation-result, implementation, implementation-unit, system-context, architecture-decisions, capabilities, features, surfaces, domain-driven-design, c4]
+tags: [glossary, vocabulary, terminology, concept-model, gen-stack, shape, pitch, change, change-specification, change-design, bugfix, defect, defect-report, process, process-model, process-enactment, work-items, workflow, ooda, control-loop, pace-layer, trust-gradient, signals, observations, relationships, relationship-semantics, cardinality, traceability, intent, value, requirements, requirement-classification, architecture, evaluations, evaluation-protocol, evaluation-case, evaluation-coverage, evaluation-execution, evaluation-result, implementation, implementation-unit, system-context, architecture-decisions, capabilities, features, surfaces, domain-driven-design, c4]
 status: draft
 sources:
   - id: boyd-ooda
@@ -22,7 +22,7 @@ sources:
     title: Process
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T01:11:07Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Gen Stack vocabulary and relationship model
@@ -95,6 +95,23 @@ Provenance, and uncertainty; it is evidence about what is or happened, not what
 ought to be. A Signal may reference one or more Observations, and an Observation
 may exist without triggering action.
 
+**Shape** (`shape`) is the Orientation activity that turns a raw or mixed
+change Signal into a rough, bounded, grounded, and answerable framing suitable
+for specification, design, or an explicit non-change disposition. Shaping may
+elicit intent, inspect the current system, or route bounded evidence gaps to
+research or investigation. It does not accept desired state, select the
+technical response, set priority, authorize implementation, or replace the
+broader Orient activity.
+
+**Pitch** (`pitch`) is the provisional, evidence-linked articulation produced
+through Shape. It states the problem or opportunity, intended outcome,
+appetite, boundaries, anticipated cross-stack and filesystem impact, rough
+response contours, risks, authority state, and requested response. A Pitch may
+remain conversational or be persisted in a host, but it is not Intent, a
+Requirement, Architecture, Change, Change Specification, Change Design, a Work item, or an
+implementation commitment. Its anticipated changes become accepted meaning
+only through their owning authorities and lifecycles.
+
 ## Defects and corrective work
 
 **Defect** (`defect`) is an imperfection or deficiency in the system or in a
@@ -107,18 +124,14 @@ authorize correction.
 **Defect Report** (`defect-report`) is a Work item created from an Observation,
 received concern, or static finding that may indicate one or more Defects. It
 preserves the originating Signal, source, expectation, evidence, investigation,
-classification, disposition, and Provenance. It does not itself prove a Defect
-or Bug, specify a corrective change, or become a Bugfix Specification.
+classification, disposition, and Provenance. It does not itself prove a Defect,
+specify a corrective Change, or become that Change.
 
-**Bug** (`bug`) is a Defect expressed as concrete defective behavior or a
-defective condition in the realized system and identified through
-investigation. A Bug may be evidenced by one or more Defect reports and may
-arise from, be sustained by, or expose additional Defects in Requirements,
-Architecture, Change Design, Implementation, Evaluations, tests, or other work
-products. One Defect may contribute to several Bugs. A suspected Defect
-remains a diagnostic hypothesis until it is established relative to an
-applicable expectation or intended use. Identifying a Bug does not by itself
-authorize correction or require a Bugfix Specification.
+The lowercase word *bug* may be used as ordinary shorthand for a Defect in the
+realized system. It is not a separate canonical concept, work-item role, or
+precondition for remediation. A suspected Defect remains a diagnostic
+hypothesis until established relative to an applicable expectation or intended
+use; establishing it does not itself authorize remediation.
 
 ## Cross-cutting system context and governance
 
@@ -418,116 +431,89 @@ architecture question.
 The root System remains distinct from a C4 Software System, and C4 Views do not
 become canonical structural elements merely by projecting them.
 
-## Change design
+## Changes and their artifacts
 
-**Change Design** (`change-design`) is a bounded technical response formed
-while deciding how to realize a software change within applicable Requirements
-and Architecture. It makes the material choices, rationale, tradeoffs,
-affected responsibilities and interactions, interfaces, state and data
-behavior, failure handling, risks, verification approach, and unresolved
-questions explicit at the granularity the change requires.
+**Change** (`change`) is the durable coordination case for one bounded proposed
+or authorized software change. It owns identity, classification, source
+relationships, lifecycle, the exact Change Specification and Change Design
+revisions in force, their coherence, delivery and evidence links, and the next
+eligible action. It does not own the semantic or technical meaning contained
+in those artifacts and does not accept or authorize them merely by linking
+them.
 
-A Change Design is not necessarily a document. It may exist only in a design
-conversation, be captured in a Work item, or exceptionally be maintained as a
-dedicated repository concept under an established lifecycle. Its container,
-detail, or implementation status does not confer authority. Requirements own
-accepted obligations; Architecture owns durable response meaning; Architecture
-Decision Records own accepted durable choices that need an independent
-lifecycle; Work items own delivery state; Implementation owns current realized
-state; and Evaluations own assessment and evidence.
+**Bugfix** (`bugfix`) is a classification of a Change whose explicit remedial
+purpose is to remediate one or more established Defects. Remediation may
+correct the defective work product or apply an accepted compensation that
+removes or controls its unacceptable effect. Investigation, diagnosis,
+deferment, monitoring, or acceptance of risk alone does not make a Change a
+Bugfix. Establishing a Defect does not select remediation or authorize the
+Change.
 
-The Gen Stack application profile does not govern Change Design as a concept
-type or require a `design/` collection in an instantiated system corpus.
+**Change Specification** (`change-specification`) is the why-and-what artifact
+for one Change. It composes the motivating sources and intended outcome, scope
+and exclusions, affected Intent, exact Requirement and Architecture
+dispositions, constraints and invariants, risks and unresolved semantic
+decisions, and required Requirement-satisfaction and Architecture-realization
+Evaluation Protocol meaning. It owns its own maturity, ratification state, and
+ratification request.
+
+A Change Specification ready for human ratification dispositions every
+affected Requirement, Architecture authority, and required semantic Protocol,
+leaves no architecture-significant choice implicit, and remains agnostic about
+executable Evaluation realization and Implementation-conformance Evaluations.
+It does not own Change Design state, overall Change coherence, delivery state,
+or the next delivery action.
+
+**Change Design** (`change-design`) is the how artifact for one Change. It is a
+bounded technical response formed within applicable Requirements and
+Architecture and bound to an exact Change Specification revision. It owns
+material alternatives and comparison, the selected technical approach,
+responsibilities and interactions, interfaces, state and data behavior,
+failure and quality behavior, risks, Architecture realization, executable
+realization of required semantic Protocols, optional Implementation-
+conformance Evaluations, unresolved technical decisions, its own maturity and
+acceptance request, and Specification reconciliation.
 
 Change Design may reveal candidate Requirements or proposed Architecture
-changes, but it does not accept them. It guides a bounded Decision and Action
-without becoming another required authority layer in the Gen Stack. See
-[Change Design](design/change-design.md) for the full boundary and [Developing
-a Change Design](design/developing-a-change-design.md) for the proportional
-workflow and capture choices.
+changes, but it does not accept them. A durable or release-critical semantic
+claim returns to Change Specification and its authority. The Change
+coordination case establishes coherence only after it binds exact ratified
+Specification and accepted Design revisions whose reconciliation supports
+agreement.
 
-Designing commonly occurs during Orient, a Decision may select the response,
-and Action may realize and test it. This sequence does not make every design
-conversation a maintained Orientation, Decision record, Work item, or corpus
-concept.
+Neither artifact is necessarily a standalone document. A native work-item
+field set, conversation, linked document, or established repository format may
+satisfy its contract. The Gen Stack application profile does not govern Change,
+Change Specification, or Change Design as concept types and requires no
+`changes/`, `specifications/`, or `design/` collection in an instantiated
+system corpus.
 
-## Specifications
+Requirements retain obligation authority; Architecture retains durable
+response authority; Architecture Decision Records retain accepted durable
+choices that need independent lifecycle; Change coordinates the case;
+Implementation owns realized state; and Evaluations own assessment and
+evidence.
 
-**Specification** (`specification`) is a bounded, named composition of Gen
-Stack representations assembled to guide, coordinate, and assess the
-realization of a system or change. Depending on its scope, a Specification may
-contain or reference source context and Intent, Observations, applicable or
-candidate Requirements, Architecture and decisions, Change Design,
-verification context, and Work items.
+See [Changes](work-items/changes.md), [Writing Change
+Specifications](work-items/writing-change-specifications.md), and [Developing a
+Change Design](design/developing-a-change-design.md).
 
-Specification is a composition role, not another semantic authority. Each
-constituent retains its canonical meaning, owner, maturity, and lifecycle, and
-the Specification's container does not make every included claim normative or
-accepted. In ordinary shorthand, Implementation may be said to realize a
-Specification. More precisely, Implementation realizes the applicable
-Requirements, Architecture, and selected Change Design; Work items coordinate
-delivery, while Evaluations assess the realized state.
+### Retired terminology
 
-**Specification constituent** (`specification-constituent`) is a
-representation included in or referenced by a Specification for the distinct
-role it already owns. Inclusion does not copy or transfer that authority.
+The identifiers `specification`, `specification-constituent`,
+`specification-container`, and `bugfix-specification` are retired and are never
+reassigned. Historical artifacts using those terms remain interpretable:
 
-**Specification container** (`specification-container`) is the conversation,
-work item, document, directory, or linked set through which the composition is
-presented and navigated. A container may hold several constituent kinds, but
-it is not their common authority or necessarily their canonical home.
+- a former **Bugfix Specification** maps to a Change classified as Bugfix with
+  an associated Change Specification; and
+- a former generic **Specification** or its constituent/container language is
+  classified by the specific authority or artifact role actually present.
 
-The capitalized preferred term **Specification** names this Gen Stack
-composition role. A repository or external practice may use the generic word
-*specification* for one authoritative contract, a temporary proposal, a
-historical design record, or a generator input. Determine that artifact's
-local authority and change-flow model rather than importing it from the name.
-A repository may make a Specification container historical, maintained, or an
-executable source without making every constituent normative or collapsing
-their Gen Stack roles.
-
-Gen Stack does not use **functional specification** or **technical
-specification** as preferred authority terms. In a locally named functional
-specification, accepted behavioral obligations remain Requirements and
-problem or outcome context remains Intent. In a technical specification, the
-bounded response remains Change Design, durable accepted meaning remains
-Architecture, and a mixed container may act as a Specification. Classify the
-claims rather than inferring meaning from either document label.
-
-**Change Specification** (`change-specification`) is a Specification scoped to
-a bounded proposed or authorized change to the System or its Architecture. It
-may compose motivating Signals, Observations, source context and Intent,
-applicable or candidate Requirements, affected Architecture and decisions,
-Change Design, verification context, and implementation coordination. A candidate change
-must have a recognizable affected context, intended outcome, material
-exclusions, and current decision state; an unbounded request remains a Signal
-or source record rather than becoming a Change Specification. The name does
-not accept a proposed Requirement or Architecture change, authorize delivery,
-or make the Specification the common authority for its constituents.
-
-**Bugfix Specification** (`bugfix-specification`) is a Change Specification
-scoped to an authorized corrective change responding to one or more Bugs. It
-may coordinate changes intended to correct or compensate for one or more
-related Defects across the work products that describe, govern, realize, or
-evaluate the system. The identified Bugs anchor its corrective purpose; the
-related Defects describe its potentially cross-stack scope. It links the
-Defect reports that preserve originating Signals and Provenance and may
-compose a Bug and diagnosis synopsis, established related Defects and
-remaining hypotheses, the correction decision and authority, applicable or
-candidate Requirements, affected Architecture, unchanged constraints, Change
-Design, verification and evaluation context, and implementation coordination. It is a
-separate artifact, never a retitled Defect report. The name does not accept a
-proposed Requirement or Architecture change or prove that a Bug or related
-Defect has been corrected or verified.
-
-Change Specification and Bugfix Specification are work-item composition roles,
-not governed concept types, mandatory templates, or required repository
-documents. A work item may serve as their Specification container, and a
-bounded Specification may exist only in a conversation. Completeness is judged
-against the stated scope and next authorized action, not against a universal
-inventory of constituent kinds. The Gen Stack application profile does not
-require a Specification concept or collection in an instantiated system
-corpus.
+Locally named *functional specification* or *technical specification* remains
+valid host terminology. Classify its claims: obligations remain Requirements,
+durable response meaning remains Architecture, why-and-what change meaning may
+form a Change Specification, and the bounded technical response may form a
+Change Design.
 
 ## Evaluations
 
@@ -652,10 +638,11 @@ Signals, Observations, Intent, Architecture, canonical Requirements,
 Compilation, Implementation, Evaluations, and operational learning while OODA
 governs adaptation across them. Intent shapes co-developed Architecture and
 Requirements: Architecture owns durable subjects and responses, while
-Requirements own accepted obligations on those subjects. Change Design
-supplies proportional technical reasoning for a bounded response, while
-Specifications compose the representations relevant to a bounded system or
-change. Neither becomes another required authority layer.
+Requirements own accepted obligations on those subjects. A Change coordinates
+one bounded case while its Change Specification states why and what must
+change and its Change Design states how. Shape may first articulate a
+provisional Pitch for those activities; none becomes another required
+authority layer.
 
 **Process** (`process`) is a reusable, bounded description of coordinated human and
 automated work that begins in response to one or more events, transforms
@@ -670,20 +657,19 @@ inputs, participants, resources, and conditions. An enactment may involve
 several work items, and one work item may participate in several Processes.
 
 **Work item** (`work-item`) is a durable case record that preserves lifecycle
-state, evidence, decisions, authority, and relationships. The Gen Stack
-software work-item taxonomy contains exactly four first-class roles:
-**Operational Incident Record**, **Defect Report**, **Change Specification**,
-and **Bugfix Specification**. No other Gen Stack concept is a software
-work-item role.
+state, evidence, decisions, authority, and relationships. Gen Stack uses three
+software work-item roles: **Operational Incident Record**, **Defect Report**,
+and **Change**.
 
 Investigation is uncertainty-reduction activity during Orientation or within
 the lifecycle of one of those roles, not a Gen Stack work-item type or
 separately prescribed artifact. Delivery is implementation activity and
-lifecycle context coordinated by a Change Specification or Bugfix
-Specification, not an independent work-item concept. Tasks, stories, epics,
-and similar planning records are host-native mechanics outside this taxonomy.
-A work-item title and summary are a derived projection of an existing item,
-not another role.
+lifecycle context coordinated by a Change, not an independent work-item
+concept. Change Specification and Change Design are artifacts associated with
+a Change, not additional work-item roles. Tasks, stories, epics, and similar
+planning records are host-native mechanics outside this taxonomy. A work-item
+title and summary are a derived projection of an existing item, not another
+role.
 
 A Work item may support or be governed by a Process but is not the Process
 itself.

@@ -1,27 +1,31 @@
 # Researcher
 
-Provides the fresh-context, read-only worker used by the QRSPI pack to frame a
-Research Brief or execute one as an evidence-backed report. The calling agent
-retains responsibility for scope, authority, acceptance checks, and the final
-user-facing result.
+Researcher is the fresh-context, read-only worker used by the Research skill.
+One assignment either frames a Research Brief or executes supplied questions as
+an evidence-backed report. It never performs both phases in one context.
 
-The subagent accepts only bounded QRSPI delegation envelopes. It does not make
-external changes, decide beyond the supplied authority, or subdelegate its
-work. Install it through the QRSPI pack; it requires the pack's `question` and
-`research` skills and is not a standalone extension.
+The subagent accepts only bounded assignments that state the phase, input, read
+authority, limits, and required output. It does not change external state, make
+the caller's decision, or subdelegate its work.
 
 ## Install
 
 ```bash
-axm packs install @craigsmitham/packs/qrspi
+axm install @craigsmitham/packs/gen-stack
 ```
+
+Researcher is not standalone; install it with the Research skill through a
+declared pack. Gen Stack is the current distribution bundle, not part of the
+worker's research semantics.
 
 ## Delegation example
 
 ```text
-Delegate phase execute to researcher with this Research Brief, standard depth,
-read-only public evidence authority, the QRSPI report contract, and no
-subdelegation.
+Phase: execute
+Input: the supplied Research Brief
+Read authority: current public sources only; no mutation
+Limits: five sources
+Output: the Research report contract
 ```
 
 ## License

@@ -1,178 +1,79 @@
 ---
 name: research
-description: >-
-  Orchestrates bounded, read-only, evidence-backed research from a Research
-  Brief, explicit questions, or an unframed subject by composing QRSPI framing
-  and delegated execution. Returns a consistent question-by-question report
-  with citations, confidence, counterevidence, decision implications, and
-  unresolved gaps. Use only when the user explicitly asks to use the Research
-  skill or selects it through a host's user-invocation control. Do not select it
-  implicitly for requests merely to answer questions, investigate, browse,
-  search, look up, verify, analyze, compare, audit, or gather evidence.
+description: Orchestrates fresh-context, read-only research from a bounded subject or explicit questions. Produces a Research Brief when needed and a question-by-question report with citations, counterevidence, limitations, implications, and unresolved gaps. Use only when the user explicitly invokes Research by name or through a host control. Not for ordinary factual lookup, diagnosis of an observed failure, recommendations, or applying findings.
 ---
 
 # Research
 
-Orchestrate a bounded investigation and return an intelligible, manageable
-report whose structure remains stable across subjects and research depth. The
-calling agent owns framing handoff, delegation, acceptance, and presentation;
-the `researcher` subagent performs each isolated phase.
+Reduce one bounded uncertainty through inspectable framing and evidence. The
+calling agent owns scope, delegation, acceptance, and presentation; a fresh
+`researcher` subagent performs each framing or evidence phase.
 
-Research is read-only end to end. While this skill is active, the calling agent
-and every delegated researcher may inspect authorized evidence and return
-research artifacts, but neither may modify local or external state, apply the
-findings, or state or imply that either context will later do so. This remains
-true when prior or surrounding conversation discusses authoring, remediation,
-implementation, or another change. Acting on the findings belongs to a
-separately invoked workflow outside Research.
+Research is read-only end to end. Neither context may modify files or systems,
+contact people, submit forms, purchase access, or apply findings. A later action
+requires a separate request after Research ends.
 
-If the current assignment declares `Phase: execute` and `Subdelegation:
-prohibited`, skip **Orchestrate** and follow **Delegated execution**. This is the
-terminal worker branch and must never delegate again.
+Fresh delegated context is required. If it is unavailable, return `blocked` and
+name the missing capability; do not perform either phase in the calling context.
 
-## Required composition
+## Workflow
 
-This skill is not standalone. It requires the direct QRSPI pack siblings at:
+1. Bind the intended use, subject and boundary, observable context,
+   constraints, allowed read-only sources, supplied time, question, source, or
+   cost limits, and whether only framing is requested.
+2. Treat a complete Research Brief or one or more explicit research questions
+   as framed input. Preserve supplied question IDs and wording; assign `Q1`,
+   `Q2`, and so on only when explicit questions lack IDs.
+3. When questions are absent, read `references/framing-research.md`. Prepare
+   only the bounded framing input. If the request contains originating analysis,
+   remove its hypotheses, diagnoses, conclusions, recommendations, proposed
+   fixes, and favored alternatives before delegating one fresh `frame` phase.
+   Validate the returned Research Brief against that reference. Stop visibly on
+   invalid or blocked framing.
+4. If framing alone was requested, return the generated Research Brief or the
+   supplied framed input and stop.
+5. Delegate one fresh `execute` phase with only the validated Research Brief or
+   explicit questions. Pass the allowed read sources and supplied limits;
+   prohibit mutation and subdelegation.
+6. Validate the Research report: every input question has one dashboard row and
+   one matching finding; IDs and wording remain stable; material external claims
+   have nearby citations; credible counterevidence and limitations are visible;
+   limits are honored; and no unsupported recommendation or decision appears.
+7. Return generated framing followed by the Research report, or only the report
+   for supplied framing. End after the artifact or structured failure; do not
+   begin another workflow.
 
-- `skills/question/src/SKILL.md`; and
-- `subagents/researcher/src/researcher.md`.
+## Delegation contract
 
-Use the host's configured `researcher` subagent mechanism. If a fresh delegated
-context is unavailable, report the investigation as blocked and name that
-missing capability. Do not silently execute the worker phase in the calling
-context or claim procedural independence from a same-context fallback.
+Give the Researcher one bounded assignment containing:
 
-Before the first delegation, give one concise informational update that says a
-fresh, read-only research subagent is assisting with evidence gathering, this
-Research invocation will not modify files or external systems, and the calling
-agent will review and present the evidence. Treat the subagent as an
-implementation detail: do not transfer accountability to it, ask the user to
-interact with it, or narrate dispatch mechanics. Never describe Research as a
-pause before mutation or say that the calling agent or researcher will resume
-authoring, remediation, implementation, or another change afterward.
+- **Phase:** `frame` or `execute`;
+- **Input:** bounded framing input, a complete Research Brief, or explicit
+  questions, including intended use and boundary;
+- **Read authority:** allowed source classes and the prohibition on mutation;
+- **Limits:** supplied time, question, source, or cost caps, or `None supplied`;
+  and
+- **Output:** the required artifact and its acceptance conditions.
 
-## Orchestrate
+Subdelegation is prohibited. Do not pass expected conclusions, hidden grading
+criteria, unrelated history, or more context than the phase needs.
 
-1. Bind the request. Record the intended decision or use, subject and boundary,
-   observable context, constraints, deliberate omissions, evidence standard,
-   research mode or other budget, source authority, and whether the caller asks
-   only for framing. Infer a missing intended use only as allowed by the
-   Question skill and label it as an assumption. Do not invent decision
-   authority.
-2. Classify the input:
-   - a Research Brief or one or more explicit research questions is `framed`;
-   - a subject, objective, problem, proposal, or originating analysis without
-     explicit research questions is `unframed`.
-   Preserve supplied question IDs and priority. Assign `Q1`, `Q2`, and so on
-   only when explicit questions lack IDs.
-3. For unframed input, read the Question skill at the canonical path above.
-   Follow its binding and independent-framing rules to prepare the smallest
-   input the framing worker may receive. When originating analysis exists,
-   remove its hypotheses, findings, causes, diagnoses, conclusions, confidence,
-   recommendations, proposed fixes, and favored alternatives; pass only the
-   resulting hypothesis-neutral brief. Do not pass the original conversation,
-   exclusions, or a summary of removed material.
-4. For unframed input, delegate one `frame` phase to `researcher` using
-   **Delegation envelope**. Require the exact Research Brief contract from the
-   Question skill. Set the independence requirement to `procedurally blind`
-   only when originating analysis was removed and the worker receives only the
-   neutral brief in a fresh context. Validate the returned sections, stable
-   question IDs, evidence-needed fields, omissions, and independence label. If
-   invalid or blocked, stop without conducting research and return the failure
-   visibly. For framed input, skip this phase.
-5. If the caller asked only for framing or explicitly said not to conduct the
-   research, return the generated Research Brief, or the supplied framed input
-   when no framing phase was needed, and stop. A framing-only request should
-   normally route directly to Question; when Research was explicitly activated,
-   do not proceed to execution. Otherwise continue automatically without a
-   ritual approval pause.
-6. Delegate one `execute` phase to a fresh `researcher` context using the
-   validated or supplied framed input and **Delegation envelope**. Require the
-   report in `references/report-contract.md`; prohibit subdelegation and any
-   external mutation.
-7. Validate the returned report before presenting it: every input question has
-   one dashboard status and one corresponding finding; question wording and
-   IDs are preserved; material external claims have nearby citations; source
-   statements, synthesis, and inference remain distinguishable; material
-   counterevidence and gaps are visible; research caps are honored; and no
-   unsupported recommendation or decision is introduced. A persuasive but
-   malformed report is not complete.
-8. Present the result. For generated framing, return the complete Research
-   Brief followed by the Research report so the framing provenance, assumptions,
-   concerns, and omissions remain inspectable. For supplied framing, return the
-   Research report. If delegation is blocked, exhausted, invalid, or canceled,
-   report completed coverage, preserved artifacts, the missing condition, and
-   the smallest safe recovery action; never fabricate the absent phase. Stop
-   after presenting the research artifact or failure result. Do not transition
-   into a mutating workflow or announce or promise that the calling agent or
-   researcher will perform one.
+## Failure result
 
-## Delegation envelope
+Use this shape when a phase cannot responsibly complete:
 
-Give the worker one bounded assignment containing:
+```markdown
+# Research result
 
-- **Phase:** `frame` or `execute`.
-- **Accountable owner:** the calling agent.
-- **Goal and priority:** the exact artifact and intended use.
-- **Input and provenance:** only the neutral brief for `frame`, or only the
-  complete Research Brief or explicit question set for `execute`.
-- **Scope and exclusions:** subject boundary and deliberate omissions.
-- **Authority:** authorized read-only source classes; no modification,
-  communication, purchase, submission, or other external mutation.
-- **Budget and expiry:** research depth and every supplied cap.
-- **Output and acceptance:** the applicable QRSPI artifact contract and the
-  checks the calling agent will apply.
-- **Failure protocol:** preserve valid partial state and return a structured
-  blocked, exhausted, or invalid result rather than guessing.
-- **Subdelegation:** `prohibited`.
+- **Status:** `blocked` or `invalid`
+- **Phase:** `frame` or `execute`
+- **Reason:** concrete missing capability, input, or authority
+- **Preserved state:** valid brief, question IDs, evidence, or partial coverage
+- **Resume condition:** the smallest condition that could resume the phase
+```
 
-Do not pass expected conclusions, hidden grading criteria, unrelated
-conversation history, or more context than the worker needs.
+A supplied limit ending evidence gathering is not a phase failure. Return a
+valid partial report and mark unfinished questions `Not reached`.
 
-## Delegated execution
-
-1. Require at least one explicit research question. Preserve supplied question
-   IDs, wording, and priority; assign IDs only when the calling envelope says
-   explicit questions arrived without them. Reject a subject-only input because
-   framing belongs to the preceding orchestration phase.
-2. Record the intended decision or use, subject and boundary, observable
-   context, constraints, deliberate omissions, evidence standard, and research
-   budget. Label absent material as not supplied; do not manufacture it.
-3. Select `standard` depth unless the caller supplies another budget:
-   - `rapid` prioritizes decision-critical questions and may leave lower
-     priorities not reached;
-   - `standard` investigates every question proportionately and follows
-     material contradictions or second-order leads; and
-   - `deep` continues through important contradictions and implications until
-     further work is unlikely to change the conclusions or the budget ends.
-4. Read `references/evidence-practice.md`, then plan and perform the research
-   using available read-only sources and tools. Research may inspect public,
-   caller-provided, repository, or other authorized evidence. Do not modify
-   systems, contact people, purchase access, or perform another externally
-   mutable action merely to answer a question.
-5. Preserve the original questions. Add an emergent `E1`, `E2`, and so on only
-   when discovered evidence raises an in-scope question that could materially
-   change the intended decision or understanding. State what triggered it.
-6. Read `references/report-contract.md`, then emit that report exactly. Scale
-   detail to the brief, but do not remove required sections or question fields.
-7. Verify before release: every input question has a dashboard status and one
-   corresponding finding; material external claims have nearby citations;
-   source statements, synthesis, and inference remain distinguishable; material
-   counterevidence and gaps are visible; and no unsupported recommendation is
-   introduced.
-
-## Boundaries
-
-- The orchestrator may compose framing and execution, but the execution worker
-  must not silently reframe the supplied investigation.
-- Never subdelegate from a delegated worker phase.
-- State decision implications, but recommend or decide only when the brief
-  explicitly asks and supplies the relevant authority or criteria.
-- Never fill an evidence gap from memory while presenting it as researched.
-- Preserve source licensing and quotation limits. Prefer paraphrase and link to
-  the source rather than reproducing substantial source text.
-
-The job succeeds when generated framing remains inspectable, every worker phase
-is bounded and accepted by the calling agent, and the stable report accounts
-for every input question with traceable evidence, calibrated confidence,
-visible limitations, and actionable remaining uncertainty.
+The job succeeds when framing remains inspectable, every question is accounted
+for with traceable evidence, uncertainty remains visible, and no state changes.

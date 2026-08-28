@@ -16,7 +16,7 @@ sources:
     title: Operational incident records
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T03:09:27Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Maintaining work-item identity, relationships, and lifecycle
@@ -57,7 +57,7 @@ the new concern has an independently managed:
 - impact, command, or communication path;
 - decision or delivery authority;
 - rollback, verification, or closure condition; or
-- artifact role, such as a Defect report and its Bugfix Specification.
+- artifact role, such as a Defect Report and the Change classified as Bugfix that remediates it.
 
 When uncertain, preserve the new source for triage instead of asserting a
 duplicate. Never retitle one artifact into a different artifact class merely
@@ -71,7 +71,7 @@ otherwise record the relationship in the body. Useful local roles include:
 - another occurrence of the same case;
 - duplicate of a named canonical item;
 - parent, child, or other host-native planning relationship;
-- related incident, discrepancy, Bug, change, or regression;
+- related incident, discrepancy, Defect, Change, or regression;
 - blocks, depends on, or is superseded by; and
 - provides source, decision, implementation, or verification evidence for.
 

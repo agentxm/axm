@@ -1,6 +1,6 @@
 ---
 name: gen-stack
-description: Assists humans with bounded Gen Stack system explanation and software change by creating reader-oriented current-state briefs; orienting Signals and evidence; developing candidate Intent, Requirement lifecycle changes, Architecture, Evaluation Protocols, and Change Design; surfacing meaning gaps; drafting software work items; recording explicitly accepted concepts; and guiding or executing authority-gated Gen Stack adoption and migration. Use for “brief me on” requests, adoption, migration, defects, incidents, Change or Bugfix Specifications, requirements, architecture, ADRs, capabilities, features, surfaces, DDD, C4, governance, evaluation protocols, brownfield extraction, and greenfield design. Not for autonomous acceptance, implementation, executable test authoring, evaluation execution, backlog management, post-incident review, or release authorization.
+description: Explains, adopts, and maintains the Gen Stack method and an established Gen Stack corpus; creates bounded current-state briefs; develops or records explicitly authorized Intent, Requirement lifecycle, Architecture, ADR, and Evaluation Protocol meaning; and routes software-change realization to the pack's focused skills plus its fresh read-only reviewer subagent. Use for Gen Stack briefs, concepts, corpus adoption or migration, governance, canonical requirements and architecture, Change coordination, or end-to-end process orientation. Not for directly performing a focused stage when its sibling applies, autonomous semantic acceptance, backlog management, or release authorization.
 ---
 
 # Gen Stack
@@ -121,6 +121,66 @@ corpus adoption or migration into an unsupported operation.
 
 Choose one primary branch from the requested outcome, not from a familiar noun.
 
+### Focused change-realization stage
+
+Read `knowledge/gen-stack/src/processes/deciding-and-realizing-software-changes.md`
+when the request concerns the end-to-end operating model or must be oriented to
+one stage. Use the pack sibling that owns the requested intermediate outcome:
+
+- `shape` for turning raw or mixed change context into a bounded,
+  repository-grounded Pitch before specification or design;
+- `research` for bounded read-only external or distributed evidence and
+  Research Brief framing;
+- `investigate` for diagnosis of a concrete observed condition;
+- `spec` for the human-ratifiable why and what, including complete Requirement,
+  Architecture, and semantic Requirement/Architecture Protocol changes while
+  remaining agnostic about test realization;
+- `design` for the proportional technical response, accepted Architecture
+  realization, required Protocol realization, and optional separate
+  Implementation-conformance Evaluations;
+- `quick-change` when explicitly invoked for one combined Change Specification
+  and Change Design response with a Change coordination handoff;
+- `plan` for an implementation-ready sequence with proportional focused review
+  checkpoints;
+- `sync-change` for exact host-neutral persistence of a landed Pitch, Change
+  coordination record, Change Specification, Change Design, or plan, and for
+  explicitly authorized projection of an exact plan into host-native
+  implementation records;
+- `implement` for an authorized candidate realization that dispositions focused
+  reviewer actions;
+- `review` for focused checkpoint assessment or fresh integrated assessment of
+  one exact candidate, using the pack's read-only `reviewer` subagent when
+  fresh delegation is required; and
+- `ship` for one explicitly authorized final external action.
+
+When orienting someone to the implementation review loop, keep its controls
+explicit. Plans disposition `architecture`, `requirements`, `evaluations`, and
+`implementation` separately, but may combine several focuses in one useful
+stable checkpoint; they do not require four ritual reviewer invocations.
+Focused review may assess Protocol adequacy, realization, and available Results,
+but reviewer judgment neither executes a Requirement-satisfaction or
+Architecture-realization Protocol nor substitutes for its Execution and Result.
+Checkpoint feedback guides correction and does not establish the fresh
+integrated final review or release readiness.
+
+When raw change intent is not yet bounded or its affected semantic and
+filesystem neighborhood is unclear, route to `shape` instead of forcing a
+Change Specification or Change Design. When this skill was invoked only to orient the
+process, identify the smallest eligible stage, its missing preconditions, and
+its authority boundary, then stop. Do not simulate that sibling's complete
+workflow here. Change Specification and Change Design may start in either order but must
+converge before planning. Any unresolved architecture-significant or
+Protocol-semantic decision returns to Change Specification and human authority rather
+than being delegated to Design or implementation.
+
+Artifact synchronization is cross-cutting representation work, not another
+change-realization stage or readiness gate. When the requested outcome is to
+persist, copy, create, or update a host from an exact landed artifact, route to
+`sync-change` rather than re-running its authoring stage or summarizing it as a
+generic work-item update. When the request explicitly creates implementation
+records from a plan, route the exact plan to `sync-change`; Plan itself does not
+perform the external decomposition.
+
 ### Gen Stack brief
 
 Use when someone asks to be briefed on, oriented to, or given a current-state
@@ -145,20 +205,25 @@ performing it.
 
 ### Software work item
 
-Use for a tracker-ready or persisted work item in exactly one of four Gen Stack
-roles: Operational Incident Record, Defect Report, Change Specification, or
-Bugfix Specification. Title and summary revision is a cross-cutting authoring
-operation, not a fifth role. Read `knowledge/gen-stack/src/work-items/index.md` when classification
+Use for a tracker-ready or persisted work item in one of three Gen Stack
+roles: Operational Incident Record, Defect Report, or Change. Change
+Specification and Change Design are artifacts associated with a Change;
+Bugfix is a Change classification. Title and summary revision is a
+cross-cutting authoring operation, not another role. Read `knowledge/gen-stack/src/work-items/index.md` when classification
 is uncertain; otherwise read the matching Guide:
+
+If the source is already an exact landed Pitch, Change coordination record,
+Change Specification, Change Design, or plan, use the `sync-change` route
+instead of reconstructing it through the general work-item authoring branch.
 
 - `recording-operational-incidents.md` for current or imminent qualifying
   service impact;
 - `recording-defect-reports.md` for observed behavior that may violate an
   accepted expectation;
-- `writing-bugfix-specifications.md` for an identified Bug with an explicitly
-  authorized corrective decision;
 - `writing-change-specifications.md` for a bounded proposed or authorized
-  System or Architecture change; and
+  software change;
+- `addressing-defects-through-changes.md` in addition when established Defects
+  and an authorized remedial purpose classify the Change as Bugfix; and
 - `titling-and-summarizing-work-items.md` for brief-only revision.
 
 For a brief-only revision, read only the titling guide unless the request also
@@ -320,9 +385,10 @@ template:
 
 - an unbounded request or idea remains a Signal or host-owned source record;
 - a Defect Report preserves an observed discrepancy and hypotheses;
-- a Bugfix Specification remains separate from provenance-bearing Defect
-  Reports and requires an authorized correction;
-- a Change Specification may be proposed and does not approve its contents;
+- a Change classified as Bugfix remains separate from provenance-bearing
+  Defect Reports and requires an established Defect plus authorized remedial purpose;
+- a Change Specification may be proposed and does not approve its contents or
+  own Change coordination;
 - incident impact end, restoration, recovery, closure, and permanent
   correction may have separate states; and
 - brief-only revision changes no body fact or structured field.
@@ -359,15 +425,16 @@ maintenance and unresolved questions as non-operations, and state the truthful
 stop condition. A subject change requires an explicit identity decision; a
 split or merge creates new successor identities. Record partial acceptance,
 rejection, or deferral per entry rather than advancing the entire work item.
-For Defect Reports and Bugfix Specifications, always raise material
+For Defect Reports and Changes classified as Bugfix, always raise material
 cross-stack meaning gaps rather than silently working around them. Include the
 evidence, impact, options or candidate correction, recommendation, applicable
 authority, and blocking status. A Defect Report may proceed with an
 indeterminate expectation made visible. A Bugfix is blocked before dependent
 correction work when no accepted expectation defines corrected behavior or
 when unresolved Requirement subject or Architecture placement changes the
-authorized response. A non-blocking Evaluation gap does not prevent an
-otherwise truthful Bugfix Specification.
+authorized response. A missing required semantic Evaluation Protocol may be
+visible in a truthful draft but blocks ratification, Change coherence, and
+dependent planning.
 Derive the title and one- or two-sentence summary last from the authoritative
 body. After any external write, retrieve the persisted item and correct only
 within the original authorization. Report failed and unverified item identities

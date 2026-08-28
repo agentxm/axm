@@ -1,0 +1,35 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "sync-change",
+  "version": "0.1.0",
+  "description": "Synchronizes exact Gen Stack change artifacts with host-neutral work-item systems and verifies persisted fidelity",
+  "keywords": [
+    "change",
+    "change-artifact",
+    "work-item",
+    "tracker",
+    "issue",
+    "synchronize",
+    "persist",
+    "projection",
+    "readback",
+    "fidelity",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/sync-change"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

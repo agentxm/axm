@@ -25,7 +25,7 @@ sources:
     title: GitHub Docs — Managing issue types in an organization
 generated:
   by: codex/gpt-5
-  at: 2026-08-27T14:18:00Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Failures, defects, and defect reports
@@ -60,8 +60,8 @@ Several concepts that trackers often collapse answer different questions:
 | Failure | Executed behavior did not meet an applicable expectation | Which work product contains the defect |
 | Defect | A flaw exists in code, requirements, configuration, tests, documentation, or another work product | Which correction should be chosen or when it will be delivered |
 | Defect report | Evidence, classification, investigation, decisions, relationships, and status are managed in one traceable record | That every claim in the record is confirmed |
-| Bug | Investigation identified a Defect expressed as concrete defective behavior or a defective condition in the realized system | That correction is authorized, that every contributing Defect is known, or that one report maps to one Bug |
-| Bugfix Specification | An authorized corrective change for one or more Bugs is bounded and may coordinate changes addressing several related Defects | That its Defect reports can be retitled, replaced, or closed, or that proposed authority changes are accepted |
+| Established realized-system Defect | Investigation established concrete defective behavior or condition relative to an applicable expectation | That remediation is authorized, every contributing Defect is known, or one report maps to one Defect |
+| Change classified as Bugfix | An authorized bounded Change explicitly remediates one or more established Defects | That its Defect Reports can be retitled, replaced, or closed, or that proposed authority changes are accepted |
 | Correction or fix | A change was made to remove or compensate for a cause | That the original discrepancy and relevant regressions were verified |
 | Verification evidence | The chosen resolution satisfies its stated conditions | That every related risk or occurrence has disappeared |
 
@@ -106,11 +106,11 @@ Observation, test result, review finding, alert, or reported occurrence
           ┌───────────┬───────┼───────────┬──────────────┐
           ▼           ▼       ▼           ▼              ▼
       confirmed   duplicate  expected   external      unresolved or
-     Defect or Bug           behavior     cause       more evidence needed
+        Defect               behavior     cause       more evidence needed
           │
           ├── compensation, deferment, accepted risk, or correction
           ▼
-   separate Bugfix Specification when a Bug and correction are authorized
+   separate Change classified as Bugfix when remediation is authorized
           │
           ▼
      verification evidence
@@ -153,9 +153,9 @@ Expectation or test basis
         ↕
 Test, review, observation, or occurrence evidence
         ↕
-Defect report, classification, and identified Bug
+Defect Report and established Defect
         ↕
-Separate Bugfix Specification and corrective change
+Separate Change classified as Bugfix and its artifact revisions
         ↕
 Verification result and residual risk
 ```
@@ -224,24 +224,24 @@ Use or link another artifact when:
 - current or imminent service impact requires coordinated response — create
   an [operational incident record](operational-incident-records.md);
 - there is no accepted expectation and a bounded system or Architecture change
-  is being proposed — create a [Change
-  Specification](change-specifications.md); retain an
+  is being proposed — create a [Change](changes.md) and its [Change
+  Specification](writing-change-specifications.md); retain an
   unbounded request as a Signal or source record;
 - only uncertainty reduction has been authorized — apply [Investigating
   possible defects](investigating-possible-defects.md) within the current case
   or other least-durable adequate surface;
-- investigation has identified a Bug and an accepted correction needs design,
-  delivery, and verification context — create a separate
-  [Bugfix Specification](bugs-and-bugfix-specifications.md), link its Defect
-  reports as Provenance, and never retitle them; or
+- investigation has established a Defect and authorized remediation needs
+  design, delivery, and verification context — create a separate [Change
+  classified as Bugfix](addressing-defects-through-changes.md), link its Defect
+  Reports as Provenance, and never retitle them; or
 - the report contains a suspected security vulnerability — use the
   organization's private vulnerability-reporting channel rather than exposing
   exploit details in an ordinary public issue.
 
 For the recording procedure and tracker-ready template, see
 [Recording defect reports](recording-defect-reports.md).
-For the corrective-change procedure, see
-[Writing bugfix specifications](writing-bugfix-specifications.md).
+For corrective-change specialization, see [Addressing defects through
+Changes](addressing-defects-through-changes.md).
 For source occurrence, claim-state, and decision-authority handling shared by
 both, see [Preserving evidence and authority in software work
 items](preserving-work-item-evidence-and-authority.md).

@@ -16,7 +16,7 @@ sources:
     title: Goal-oriented behavior and use cases
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T19:44:29Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Offerings and value
@@ -175,7 +175,7 @@ them.
 | DDD subdomain or bounded context | What problem knowledge matters, and where does a model apply? | Domain concepts govern meaning, rules, and state used to provide value. |
 | C4 element | What software structure realizes behavior? | Systems, containers, and components may realize several offerings, capabilities, and use cases. |
 | Wardley map | What depends on what, for whose need, and at what stage of evolution? | A map can position audiences, needs, offerings, capabilities, or realizations as strategic hypotheses. |
-| Proposed or underway change | What change is proposed, prioritized, or being implemented? | Change Specifications coordinate Gen Stack change meaning; initiatives, releases, stories, and tasks are host-native planning mechanics outside the Gen Stack work-item taxonomy. |
+| Proposed or underway change | What change is proposed, prioritized, or being implemented? | Changes coordinate Gen Stack work; their Change Specifications state why and what, while initiatives, releases, stories, and tasks are host-native planning mechanics outside the Gen Stack work-item taxonomy. |
 
 No view is the parent taxonomy for all the others. Preserve one canonical
 document for each maintained concept and connect views where the relationship

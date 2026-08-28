@@ -12,11 +12,11 @@ sources:
     resource: failures-defects-and-defect-reports.md
     title: Failures, defects, and defect reports
   - id: change-fields
-    resource: change-specifications.md
-    title: Change specifications
+    resource: changes.md
+    title: Changes
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T20:18:00Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Managing work-item metadata and labels

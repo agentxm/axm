@@ -1,0 +1,34 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "shape",
+  "version": "0.2.0",
+  "description": "Shapes raw or mixed change context into an evaluation-agnostic, repository-grounded Pitch suitable for specification or design",
+  "keywords": [
+    "shape",
+    "pitch",
+    "change-intent",
+    "elicitation",
+    "impact-analysis",
+    "breadboard",
+    "evaluation-agnostic",
+    "specification",
+    "design",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/shape"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

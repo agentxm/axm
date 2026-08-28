@@ -19,7 +19,7 @@ sources:
     title: Software work items
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-26T19:12:18Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Defining a Process
@@ -367,6 +367,6 @@ future case.
     current procedures and workflow mechanics remain separate.
 [^work-items]: [Software work items](../work-items/) routes to the semantic
     concepts and authoring guides for operational incidents, defect reports,
-    Change Specifications and Bugfix Specifications; source records and
+    Changes and their Change Specification and Change Design artifacts; source records and
     host-native planning mechanics retain their own authority outside that
     four-role taxonomy.

@@ -28,7 +28,7 @@ sources:
     title: Process
 generated:
   by: codex/gpt-5
-  at: 2026-08-27T14:42:03Z
+  at: 2026-08-27T21:55:00Z
 ---
 
 # Triaging defect reports
@@ -43,7 +43,7 @@ generated:
 Use this guide when one or more Defect Reports need a current disposition and
 an authorized next route. Triage uses available evidence to assess report
 identity, current applicability, classification, impact, and routing. It does
-not gather new diagnostic evidence, diagnose a Bug, choose a correction, or
+not gather new diagnostic evidence, establish a Defect, choose remediation, or
 promise delivery.
 
 Use [Recording defect reports](recording-defect-reports.md) for intake. When a
@@ -181,8 +181,8 @@ Classify the current understanding without turning a workflow label into proof:
 | --- | --- |
 | Awaiting investigation | A discrepancy is preserved; whether or where a Defect exists is unresolved |
 | Confirmed Defect | An applicable expectation and nonconforming work product or behavior are established |
-| Bug hypothesis | Evidence suggests a concrete realized-system cause but does not establish it |
-| Identified Bug | Investigation established concrete defective behavior or condition |
+| Defect hypothesis | Evidence suggests a Defect but does not establish it |
+| Established realized-system Defect | Investigation established concrete defective behavior or condition |
 | Expectation disputed or indeterminate | Meaning or authority is insufficient |
 | Expected behavior or candidate change | Behavior conforms to accepted meaning, or different desired state is requested |
 | Insufficient safe evidence | The needed evidence or authority is unavailable |
@@ -202,11 +202,11 @@ Choose the smallest route supported by evidence and authority:
 - finish a named bounded investigation;
 - ask the applicable authority to clarify an expectation;
 - coordinate with an incident, security, or other governed response;
-- link reports to an identified Bug;
-- write a [Bugfix Specification](writing-bugfix-specifications.md) when a Bug
-  is identified and correction is authorized;
-- write a [Change Specification](writing-change-specifications.md) for an
-  authorized desired-state change;
+- link reports to an established Defect;
+- create a [Change classified as Bugfix](addressing-defects-through-changes.md)
+  when remediation is authorized;
+- write a [Change Specification](writing-change-specifications.md) for any
+  bounded authorized change;
 - retain the report in a named waiting state with a review trigger; or
 - close or reject it only when lifecycle authority and evidence support that
   decision.

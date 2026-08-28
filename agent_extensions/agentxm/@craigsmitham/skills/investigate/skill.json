@@ -1,0 +1,30 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "investigate",
+  "version": "0.2.0",
+  "description": "Investigates bounded observed conditions with safe discriminating evidence and no corrective authority",
+  "keywords": [
+    "investigation",
+    "diagnosis",
+    "defect",
+    "evidence",
+    "reproduction",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/investigate"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

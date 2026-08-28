@@ -1,0 +1,34 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "spec",
+  "version": "0.3.0",
+  "description": "Distills why and what must change into the canonical Change Specification for one bounded Change",
+  "keywords": [
+    "specification",
+    "pitch",
+    "requirements",
+    "change-specification",
+    "change",
+    "bugfix-classification",
+    "acceptance-conditions",
+    "architecture-ratification",
+    "evaluation-protocols",
+    "gen-stack"
+  ],
+  "publish": {
+    "ignore": []
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/spec"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/gen-stack"
+  ],
+  "standalone": false
+}

@@ -1,8 +1,8 @@
 ---
 type: Explanation
 title: How the Gen Stack operates
-description: How Intent shapes co-developed Architecture and Requirements, how they constrain and assess Implementation, how OODA governs adaptation, and how every artifact uses native-first representation with least complexity.
-tags: [generative-stack, concept-of-operations, operating-model, specifications, processes, ooda, control-loop, signals, observations, software-change, requirements, architecture, change-design, evaluations, feedback]
+description: How Signals are shaped into Pitches, Intent shapes co-developed Architecture and Requirements, those authorities constrain and assess Implementation, and OODA governs adaptation.
+tags: [generative-stack, concept-of-operations, operating-model, shape, pitch, specifications, processes, ooda, control-loop, signals, observations, software-change, requirements, architecture, change-design, evaluations, feedback]
 sources:
   - id: fowler-generative-stack
     resource: https://chadfowler.com/regenerative-software/3miwhqqvwxc2x/
@@ -12,7 +12,7 @@ sources:
     title: John R. Boyd — The Essence of Winning and Losing
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T01:11:07Z
+  at: 2026-08-27T23:32:00Z
 ---
 
 # How the Gen Stack operates
@@ -105,6 +105,13 @@ but they do not own desired state. Evaluation Executions apply those contracts
 to a particular Implementation and context; Results provide evidence without
 becoming Requirements or Architecture.
 
+Focused review adds a separate judgment loop during Implementation. A fresh,
+read-only reviewer may assess stable increments through Architecture,
+Requirements, Evaluations, or Implementation lenses while dependent work can
+still course-correct. Those checkpoint findings remain distinct from Protocol
+Results and from a fresh integrated review of the exact final candidate. Neither
+review mode accepts desired state or authorizes release.
+
 ## Adaptation through the stack
 
 OODA governs how the stack learns which authority or activity should change:
@@ -131,6 +138,12 @@ evidence for the next loop.
 
 ## Supporting coordination
 
+[Shaping a Pitch](control-loop/shaping-a-pitch.md) turns a raw or mixed Signal
+into a rough, bounded, repository-grounded articulation suitable for a Change
+Specification, Change Design, or combined response. A Pitch exposes anticipated
+cross-stack impact and response contours while remaining provisional. It is
+not accepted Intent, another Work item, a Change Specification, or selected Design.
+
 [Change Design](design/change-design.md) supplies proportional technical
 reasoning between accepted meaning and bounded Action. It may remain in the
 conversation, be captured in a work item, or exceptionally be maintained as a
@@ -139,15 +152,20 @@ still own obligations, Architecture owns durable response meaning, Work items
 own delivery state, Implementation owns realized state, and Evaluations own
 assessment and evidence.
 
-A [Specification](glossary.md#specifications) gives one bounded system or
-change a navigable whole by composing the relevant representations. It is not
-another layer in the diagram: its Intent, Requirements, Architecture, Change
-Design, verification context, and Work items retain their own authority and
-lifecycle. Change Specifications compose bounded proposed or authorized system
-or Architecture changes, while Bugfix Specifications specialize them for
-authorized corrective work. Neither is a mandatory document template. A
-Bugfix Specification remains linked to its provenance-bearing Defect Reports;
-it is never a report under a new title.
+A [Change](work-items/changes.md) coordinates one bounded case. Its Change
+Specification owns why and what, its Change Design owns how, and the Change
+owns identity, classification, exact artifact revisions, coherence, delivery,
+evidence, and next action. A Change that explicitly remediates an established
+Defect is classified as a Bugfix and remains linked to its provenance-bearing
+Defect Reports; it is never a report under a new title.
+
+[Synchronizing change artifacts with work-item
+hosts](work-items/synchronizing-change-artifacts.md) preserves an exact landed
+Pitch, Change coordination record, Change Specification, Change Design, or plan
+in a host-neutral canonical home. It is a representation operation, not a new
+stage, artifact type, authority layer, or host workflow. Deliberate plan
+projection creates host-native implementation records while leaving the exact
+plan canonical.
 
 [Specifying Requirement
 changes](work-items/specifying-requirement-changes.md) separates impact analysis
@@ -217,12 +235,12 @@ Five rules keep this predictable without creating a universal template:
    when no exact native affordance exists; remove that fallback when a richer
    target can represent the fact natively.
 
-Artifact-specific Guides provide a preferred logical order for the residual
-content that readers need. That order is a presentation contract: prose,
-section labels, and proportional detail may vary, and inapplicable content is
-omitted rather than represented by empty sections. Exact headings, fields, or
-paths are conformance requirements only when the native format or an applicable
-profile explicitly says so.
+Artifact-specific Guides provide a preferred logical order for residual
+content. Their canonical Markdown fallbacks may require exact headings so
+independent skills produce interoperable artifacts. A richer native host may
+satisfy the same semantic contract with exact fields and omit inapplicable
+body sections. Outside such an explicit fallback or profile, prose, labels,
+and proportional detail may vary and empty sections are omitted.
 
 Durability determines how much presentation machinery is justified. Durable
 authorities need stable identity, provenance, and lifecycle in their native
@@ -235,8 +253,8 @@ preserve links to their canonical sources.
 | Artifact class | Native representation owner | Gen Stack addition |
 | --- | --- | --- |
 | Governed System, Intent, Requirement, Architecture, and Evaluation Protocol concepts | OKF v0.2 plus the adopted application profile | Only the profile delta and Guide-supported residual body meaning |
-| Work items and work-item Specifications | Tracker identity, fields, relationships, and body | Artifact-specific logical body order, evidence and authority distinctions, and fallback facts the host cannot express |
-| Change Design | Conversation, work item, or established repository design format | Proportional reasoning and explicit maturity; no mandatory document |
+| Operational Incident Records, Defect Reports, and Changes | Tracker identity, fields, relationships, and body | Role-specific evidence, authority, lifecycle, and fallback facts the host cannot express |
+| Change Specification and Change Design | Native fields, conversation, work item, or established repository format | Shared semantic contracts and exact Markdown fallbacks; no mandatory standalone documents |
 | Process definitions | Repository process notation, workflow model, or executable format | Residual purpose, authority, rationale, exclusions, evidence, and limits |
 | Implementation Units and generation records | Repository code, schema, configuration, manifest, and provenance formats | Stable links to accepted authorities and bounded conservation context |
 | Evaluation Protocols | Governed OKF concepts under `gen-stack/evaluations/protocols/` | Stable role, target, claim, assessment, judgment, and evidence lifecycle |

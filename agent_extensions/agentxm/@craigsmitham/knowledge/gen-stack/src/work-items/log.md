@@ -2,6 +2,14 @@
 
 ## 2026-08-27
 
+- **Change-centered work model**: Consolidated the software work-item taxonomy
+  to Operational Incident Record, Defect Report, and Change. Made Change
+  Specification and Change Design sibling artifacts; made Bugfix a Change
+  classification for explicit remediation of established Defects; replaced
+  the separate Bugfix artifact and template with [Addressing defects through
+  Changes](addressing-defects-through-changes.md); and moved coordination,
+  coherence, delivery, evidence, and next action into [Changes](changes.md).
+
 - **Defect triage and investigation factoring**: Made triage decide Defect
   Report identity, classification, current applicability, lifecycle
   disposition, impact, and routing from available evidence. Moved diagnostic
@@ -19,7 +27,7 @@
   implementation context, host-native planning records remain outside the
   taxonomy, and title-and-summary revision is cross-cutting. Renamed
   `change-specifications-and-delivery-work.md` to
-  [`change-specifications.md`](change-specifications.md) and
+  `change-specifications.md` and
   `preserving-design-and-delivery-context.md` to
   [`preserving-technical-context.md`](preserving-technical-context.md).
 - **Possible-defect investigation**: Added [Investigating possible
@@ -63,12 +71,12 @@
   work products, and that one Bugfix Specification may coordinate changes for
   several related Defects while preserving separate authority and Provenance.
 - **Change Specifications**: Replaced request-centered work-item guidance with
-  [Change specifications](change-specifications.md) and [Writing change
+  [Changes](changes.md) and [Writing Change
   specifications](writing-change-specifications.md); raw requests remain
   Signals or source evidence until a candidate system or Architecture change
   has a recognizable boundary and explicit authority state.
 - **Bugs and corrective work**: Added an explainer and authoring guide for
-  Bugfix Specifications, defined the boundary from Defects, Defect reports,
+  the former Bugfix Specifications, defined the boundary from Defects, Defect reports,
   and Bugs, required separate identities so corrective work cannot erase the
   originating report's Signal and Provenance, and distinguished
   observation-facing Defect-report titles from correction-facing Bugfix

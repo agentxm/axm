@@ -113,9 +113,17 @@ and reachable can still be absent from, or stale in, its projection.
 
 ## Evaluation and isolation
 
-A failed prerequisite suppresses checks whose conclusions would be unreliable
-without it. Those rules do not emit cascade symptoms. Independent rules
-continue so one invalid extension does not hide another.
+Settings-source load and schema validity are shared project-workspace
+construction prerequisites. They are evaluated before invariant facts,
+desired-state graph construction, semantic closure identification, or selected
+command evaluation. Failure of either project or user settings blocks
+construction and suppresses every dependent project-workspace check; it is not
+a closure-local blocker and cannot be isolated to one extension.
+
+After construction succeeds, a failed prerequisite suppresses checks whose
+conclusions would be unreliable without it. Those rules do not emit cascade
+symptoms. Independent rules continue so one invalid extension does not hide
+another.
 
 Facts and operational blockers identify their semantic mutation closure. A
 command is blocked only by state relevant to the selected closure. Global sync
@@ -166,6 +174,10 @@ and an incomplete unit is proved unable to produce a sync no-op.
 
 Cross-cutting adversarial coverage proves:
 
+- either project or user settings failure prevents project-workspace
+  construction and selected command evaluation without changing state;
+- missing settings retain their documented semantics and direct correction of
+  an invalid source restores the original operation;
 - handled failure leaves no partial closure;
 - unrelated invalid closures do not block ready progress;
 - authored canonical and unowned native content are never incidentally deleted,

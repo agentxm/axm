@@ -4,6 +4,19 @@ Desired project AXM workspace state lives in `axm.json`. Accepted external
 resolution and observed state are separate; see `axm help workspace-state`.
 User scope retains `.axm/settings.json` under the user's AXM directory.
 
+## Validity prerequisite
+
+Every command that opens a project workspace requires each present project
+`axm.json` and user `.axm/settings.json` file to be readable, valid JSON, and
+valid against the settings schema before the command begins. A missing file
+still means that scope has not expressed a choice.
+
+An unreadable or invalid settings file stops the command without changing
+workspace or user state. Force-like controls such as `--accept-warnings`,
+`--reinstall`, `--refresh`, and `--ignore-version-constraints` do not bypass
+this prerequisite. AXM does not rewrite, migrate, or degrade invalid settings;
+repair or restore the reported file directly, then run the command again.
+
 Telemetry is execution policy, not workspace state. A top-level `telemetry`
 key is unrecognized and strict linting reports it. Use `AXM_TELEMETRY` or
 `DO_NOT_TRACK`; see `axm help environment` for values and precedence.

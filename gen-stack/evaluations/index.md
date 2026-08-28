@@ -13,6 +13,11 @@ result, or assurance conclusion.
 - [AXM architecture](/architecture/) - Governed Architecture authorities whose
   realization may be evaluated.
 
+## Governed Protocols
+
+- [Evaluation Protocols](protocols/) - Active assessment contracts organized
+  by Requirement-satisfaction and Architecture-realization roles.
+
 ## Repository-native evidence
 
 - [CI workflow](https://github.com/agentxm/axm/blob/main/.github/workflows/ci.yml) - Required repository checks and

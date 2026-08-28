@@ -148,15 +148,29 @@ lifecycle command may create it when that command clearly expresses new
 configuration; read-only commands and sync do not reconstruct it from installed
 files or lock state.
 
-Malformed or schema-invalid settings are still user-owned configuration. AXM
-reports the invalid facts and does not treat the file as empty, rewrite it from
-observed state, or apply a lifecycle change that depends on guessing its
-meaning. The user or agent corrects the configuration directly.
+Project-workspace construction loads both project and user settings before it
+resolves layouts, creates an operation snapshot, or supplies workspace services
+to a command. Every present source must be readable, valid JSON, and valid
+against the current schema. A failure in either source blocks every
+project-workspace-backed operation, including inspection and diagnostics, until
+the owning file is corrected. This validity prerequisite does not import user
+extension roots, activation, configured agents, inline definitions, or
+workspace capabilities into project desired state.
+
+Unreadable, malformed, or schema-invalid settings are still user-owned
+configuration. AXM identifies the owning file and fault and does not treat the
+file as empty or unavailable, continue in a degraded state, rewrite it from
+observed state, migrate it, or apply a lifecycle change that depends on
+guessing its meaning. `--force` cannot bypass the prerequisite. The user or
+agent repairs permissions, restores the file, or corrects its contents
+directly, then reruns the original operation.
 
 ## Testing strategy
 
 Behavior tests prove direct-edit equivalence, scope-local desired intent,
 documented fallback precedence for defaults and policy, preservation of
 unrelated and unknown data during semantic edits, refusal to guess malformed
-or unsupported intent, schema-level decoded equivalence, and
-transactional settings changes with the managed state that depends on them.
+or unsupported intent, the shared project/user construction prerequisite,
+non-mutation and direct recovery after settings failures, schema-level decoded
+equivalence, and transactional settings changes with the managed state that
+depends on them.

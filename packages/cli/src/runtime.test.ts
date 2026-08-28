@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -7,13 +9,16 @@ import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import { afterEach, beforeEach } from "vitest";
 
 import {
   getBuiltInSources,
   makeCliLoggerLayer,
   resolveBuiltInRegistryLocation,
   withAxmUserAgent,
+  withWorkspace,
 } from "./runtime.js";
+import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
 
 describe("getBuiltInSources", () => {
   it("defines exactly the four accepted built-in source names and types", () => {
@@ -152,4 +157,61 @@ describe("makeCliLoggerLayer", () => {
       ]);
     }),
   );
+});
+
+describe("withWorkspace settings gate", () => {
+  /**
+   * AXM-EVAL-ARCH-PROJECT-WORKSPACE-CONSTRUCTION-GATE
+   * AXM-EVAL-REQ-PROJECT-WORKSPACE-SETTINGS-VALIDITY
+   */
+  let tempDir: string;
+  let projectDir: string;
+  let userHome: string;
+  let originalCwd: string;
+  let originalHome: string | undefined;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    originalHome = process.env["HOME"];
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-settings-gate-"));
+    projectDir = path.join(tempDir, "project");
+    userHome = path.join(tempDir, "home");
+    fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
+    fs.mkdirSync(path.join(userHome, ".axm"), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, "axm.json"), JSON.stringify({ agents: [] }));
+    fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: 6\nskills: {}\n");
+    process.chdir(projectDir);
+    process.env["HOME"] = userHome;
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    if (originalHome === undefined) delete process.env["HOME"];
+    else process.env["HOME"] = originalHome;
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const invalidSources = [
+    { owner: "project", path: () => path.join(projectDir, "axm.json") },
+    { owner: "user", path: () => path.join(userHome, ".axm", "settings.json") },
+  ] as const;
+
+  for (const source of invalidSources) {
+    it.effect(`does not evaluate the command when ${source.owner} settings are invalid`, () =>
+      Effect.gen(function* () {
+        fs.writeFileSync(source.path(), "{ not-json");
+        let commandEvaluated = false;
+        const testContext = makeWorkspaceHandlerTestContext();
+
+        const error = yield* withWorkspace("project")(
+          Effect.sync(() => {
+            commandEvaluated = true;
+          }),
+        ).pipe(Effect.provide(testContext.baseLayer), Effect.flip);
+
+        expect(error).toMatchObject({ _tag: "AppError", code: "validation" });
+        expect(commandEvaluated).toBe(false);
+      }),
+    );
+  }
 });

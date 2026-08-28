@@ -56,13 +56,20 @@ No command is a fallback owner for work that lacks a clear home:
   [AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md)
   canonically bounds what it may bypass.
 
+Every command whose semantics require a project workspace first passes the
+shared project-and-user settings construction prerequisite. Command-specific
+inspection, planning, closure preflight, independent progress, and mutation
+rules apply only after that gate succeeds. Version and help encounters remain
+outside the gate, and no workspace command becomes a settings-repair owner.
+
 When an action does not fit a command's responsibility, AXM changes the design
 or leaves the decision to the user; it does not hide the action behind an
 override.
 
-Lifecycle commands check only the invariants needed for the selected extension
-and the other extensions that must change with it. Unrelated broken extensions
-do not prevent a valid scoped change.
+After workspace construction succeeds, lifecycle commands check only the
+invariants needed for the selected extension and the other extensions that must
+change with it. Unrelated broken extensions do not prevent a valid scoped
+change.
 
 ## Root commands and type command groups
 

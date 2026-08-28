@@ -30,6 +30,13 @@ tests, and code. It does not promise rollback of remote Registry effects.
 
 ## Observation and fact boundaries
 
+Project workspace construction first loads project and user settings under the
+documented missing-file semantics and validates every present source. This
+shared prerequisite completes before AXM creates an operation snapshot or
+derives facts, desired state, plans, closures, previews, inspection results, or
+mutation candidates. A settings failure produces only its bounded diagnostic;
+the selected operation does not begin and no workspace state changes.
+
 The workspace read model is cached observation, inventory, and diagnostic
 context. It reports what exists without inferring desired membership,
 installation, Pack reachability, accepted resolution, or ownership from names,
@@ -46,9 +53,11 @@ Lint and sync consume the same intrinsic facts. Sync may add live operational
 evidence such as source availability or acquisition failure; that evidence does
 not become a lint predicate.
 
-One operation uses one snapshot. Diagnostics may tolerate invalid state to
-describe it, but planning preserves the distinction among missing, invalid,
-unsupported, and valid inputs.
+After construction succeeds, one operation uses one valid settings-backed
+snapshot. Diagnostics may tolerate later invalid workspace state to describe
+it, but planning preserves the distinction among missing, invalid, unsupported,
+and valid inputs. Closure-local isolation begins at this post-construction
+boundary; it does not substitute for an unavailable settings prerequisite.
 
 ## Planning and semantic closures
 

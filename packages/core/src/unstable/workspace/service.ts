@@ -184,6 +184,18 @@ const contextReadErrorToAppError = (
       suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
     });
   }
+  if (error._tag === "SettingsIoError") {
+    return makeAppError({
+      code: "validation",
+      detail: `Workspace settings at ${error.path} could not be read`,
+      cause: error,
+      suggestions: [
+        {
+          description: "Repair the settings file permissions or restore the file, then re-run.",
+        },
+      ],
+    });
+  }
 
   // An unreadable or corrupt lockfile is actionable workspace state, not a
   // violated invariant.

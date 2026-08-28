@@ -295,6 +295,90 @@ describe("WorkspaceMutationsService", () => {
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   };
 
+  describe("settings validity prerequisite", () => {
+    /**
+     * AXM-EVAL-REQ-PROJECT-WORKSPACE-SETTINGS-VALIDITY
+     * AXM-EVAL-ARCH-PROJECT-WORKSPACE-CONSTRUCTION-GATE
+     */
+    const sources = [
+      {
+        owner: "project",
+        path: () => path.join(projectDir, "axm.json"),
+      },
+      {
+        owner: "user",
+        path: () => path.join(homeDir, ".axm", "settings.json"),
+      },
+    ] as const;
+    const failures = [
+      {
+        name: "malformed JSON",
+        tag: "SettingsParseError",
+        write: (settingsPath: string) => fs.writeFileSync(settingsPath, "{ not-json"),
+        detail: "not valid JSON",
+      },
+      {
+        name: "schema-invalid values",
+        tag: "SettingsDecodeError",
+        write: (settingsPath: string) =>
+          fs.writeFileSync(settingsPath, JSON.stringify({ agents: "claude-code" })),
+        detail: "Invalid workspace settings",
+      },
+      {
+        name: "unreadable I/O",
+        tag: "SettingsIoError",
+        write: (settingsPath: string) => fs.mkdirSync(settingsPath, { recursive: true }),
+        detail: "could not be read",
+      },
+    ] as const;
+
+    for (const source of sources) {
+      for (const failure of failures) {
+        it.effect(`blocks construction for ${source.owner} ${failure.name}`, () =>
+          Effect.gen(function* () {
+            const settingsPath = source.path();
+            fs.rmSync(settingsPath, { recursive: true, force: true });
+            fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+            failure.write(settingsPath);
+            const lockfilePath = path.join(projectDir, "axm-lock.yaml");
+            const lockfileBefore = fs.readFileSync(lockfilePath, "utf8");
+
+            const error = yield* getService({
+              ...defaultOptions,
+              allowUninitialized: true,
+            }).pipe(Effect.flip);
+
+            const appError = getAppError(error);
+            expect(appError.code).toBe("validation");
+            expect(appError.detail).toContain(settingsPath);
+            expect(appError.detail).toContain(failure.detail);
+            expect(appError.cause).toMatchObject({ _tag: failure.tag, path: settingsPath });
+            expect(appError.suggestions?.[0]?.description).toMatch(/fix|repair|restore/i);
+            expect(fs.readFileSync(lockfilePath, "utf8")).toBe(lockfileBefore);
+            expect(fs.existsSync(path.join(projectDir, ".axm", "tmp"))).toBe(false);
+            if (failure.tag === "SettingsIoError") {
+              expect(fs.statSync(settingsPath).isDirectory()).toBe(true);
+            } else {
+              expect(fs.existsSync(settingsPath)).toBe(true);
+            }
+          }),
+        );
+      }
+
+      it.effect(`preserves missing-file semantics for ${source.owner} settings`, () =>
+        Effect.gen(function* () {
+          const settingsPath = source.path();
+          fs.rmSync(settingsPath, { recursive: true, force: true });
+
+          yield* getService({ ...defaultOptions, allowUninitialized: true });
+
+          expect(fs.existsSync(settingsPath)).toBe(false);
+          expect(fs.existsSync(path.join(projectDir, ".axm", "tmp"))).toBe(false);
+        }),
+      );
+    }
+  });
+
   const writePackManifestTo = (
     dir: string,
     owner: string,

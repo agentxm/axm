@@ -7,3 +7,6 @@ Required interaction and output behavior of the AXM CLI.
 - [Output channels separate results from diagnostics](output-channel-separation.md) -
   AXM commands present the primary result on stdout and emit diagnostics on
   stderr without corrupting it.
+- [Project workspace settings are valid before operations begin](project-workspace-settings-validity-prerequisite.md) -
+  Every project-workspace-backed CLI operation begins only after both project
+  and user settings are readable and valid.

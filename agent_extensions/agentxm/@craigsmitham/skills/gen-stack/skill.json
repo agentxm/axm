@@ -3,11 +3,11 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "gen-stack",
-  "version": "3.2.0",
+  "version": "6.0.0",
   "publish": {
     "ignore": []
   },
-  "description": "Explains, adopts, and maintains Gen Stack meaning and routes Change-centered realization without transferring human authority",
+  "description": "Explains and maintains Gen Stack meaning, briefs, corpus adoption, governance, and coordination while recommending explicit focused stages",
   "keywords": [
     "gen-stack",
     "gen-stack-brief",
@@ -31,7 +31,8 @@
     "change-specification",
     "change",
     "bugfix",
-    "quick-change",
+    "artifact-lifecycle",
+    "open-items",
     "defect-report",
     "incident-record",
     "work-items",

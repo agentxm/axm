@@ -1,6 +1,6 @@
 {
   "skill_name": "gen-stack",
-  "suite_version": "3.2.0",
+  "suite_version": "6.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -634,13 +634,13 @@
     },
     {
       "id": 49,
-      "prompt": "Draft the accepted delivery issue for this approved change and preserve every supplied detail. Replace generic `flow:point kind=policy` comments inside the existing managed Policies region with a contained `flow:policy source=<versioned-id>` marker. The enclosing region remains format v1 and is still the only ownership unit; the contained marker has no local version and extends to the next policy marker or region end. Accepted TypeScript sketch: `const MARKER_KIND_POLICY = \"flow:policy\" as const` and `type PolicyMarker = { readonly kind: typeof MARKER_KIND_POLICY; readonly source: string }`. Accepted parser flow: validate and extract the Policies region first, then recover contributors only from its body; a valid policy marker outside the region is ignored. Remove `MARKER_KIND_POINT`, `pointKind`, generic point parsing, and all current point fixtures. Do not add compatibility reads, migration, a generic contribution abstraction, or paired per-policy fences. Implementation surfaces: the shared marker codec and exports, policy rendering and observation, unit/property tests, graph-projection tests, CLI fixtures, generated help, architecture docs, and managed consumer projections. Behavioral verification: one versionless policy marker per active contribution, unchanged deterministic ordering and aggregate replacement, and no current point syntax. Testing strategy: codec round trips including IDs containing `@` and `/`, missing-source failure, outside-region observation, direct and bundle-contributed policies, CLI lifecycle coverage, and producer/consumer convergence. Open question: whether a supplied marker-local `v` should be rejected or ignored.",
-      "expected_output": "A tracker-ready Change Specification that preserves the accepted decision, complete ownership and containment design, exact TypeScript sketch, parser flow, removals, non-goals, implementation surfaces, behavioral verification conditions, layered testing strategy, and unresolved marker-local-version question without inventing further design.",
+      "prompt": "$gen-stack Orient this approved policy-marker change to the smallest eligible focused stage. The complete accepted design, implementation surfaces, verification strategy, non-goals, and one unresolved marker-local-version question are supplied. Do not draft a delivery issue or Change Specification.",
+      "expected_output": "A thin recommendation for `$spec` that identifies the supplied accepted Design as an input, keeps the unresolved marker-local-version meaning visible, names authority and readiness preconditions, and stops without drafting the artifact.",
       "assertions": [
-        "The item is a Change with its Change Specification and accepted decision state explicit rather than a source-intake record, Defect Report, or unapproved proposal.",
-        "The unchanged v1 ownership region, versionless contained marker, implicit extent, exact TypeScript sketch, and region-first parser flow are all preserved rather than compressed into generic prose.",
-        "Every named removal, non-goal, implementation surface, behavioral verification condition, and testing layer remains present and distinct.",
-        "The marker-local-version question remains unresolved, and no compatibility path, generic abstraction, paired fence, priority, estimate, or additional implementation decision is invented."
+        "The response recommends `$spec` because the requested complete artifact is a Change Specification.",
+        "The accepted Design is treated as an input rather than re-authored by gen-stack.",
+        "The unresolved marker-local-version question remains visible with its authority.",
+        "No Change Specification, implementation plan, priority, estimate, or additional decision is produced."
       ],
       "stage": "execution"
     },
@@ -795,46 +795,46 @@
     {
       "id": 59,
       "stage": "execution",
-      "prompt": "Revise the accepted Change Specification for replacing the invoice CSV library. INV-REQ-0011 and INV-REQ-0017 remain unchanged, the serializer boundary is unchanged, and the existing Requirement evaluations must be rerun against the replacement. The supplied design already establishes those facts; do not redesign it.",
-      "expected_output": "A faithful Change Specification revision classifying the change as implementation-only, preserving the unchanged Requirement and Architecture links, and recording the required Evaluation reruns without inventing new desired state.",
+      "prompt": "$gen-stack Orient a request to revise the accepted Change Specification for replacing the invoice CSV library. INV-REQ-0011, INV-REQ-0017, and the serializer boundary remain unchanged; existing Requirement evaluations must be rerun. Do not revise the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that identifies an implementation-only revision as the requested outcome, preserves the unchanged authorities and rerun need as inputs, and stops.",
       "assertions": [
-        "INV-REQ-0011 and INV-REQ-0017 are linked as applicable Requirements and explicitly remain unchanged.",
-        "Relationship to desired state is implementation-only.",
-        "Architecture impact records the unchanged serializer boundary and evidence impact records the evaluation reruns.",
+        "The response recommends `$spec` and does not revise the Change Specification.",
+        "INV-REQ-0011, INV-REQ-0017, and the serializer boundary remain unchanged inputs.",
+        "The required Evaluation reruns remain visible.",
         "No new Requirement, Architecture decision, implementation sequence, or testing method is invented."
       ]
     },
     {
       "id": 60,
       "stage": "execution",
-      "prompt": "Draft the Change Specification for an approved structural change. ADR ARC-ADR-0017 moves audit-event normalization from the public API container to the ingestion container. AUD-REQ-0008 and AUD-REQ-0012 remain unchanged, and there is no new actor-visible behavior. The accepted Design preserves the public event schema, migrates consumers in two batches, observes duplicate and dropped-event rates, and rolls back routing if either rate rises. Do not invent implementation tasks or another Architecture decision.",
-      "expected_output": "A Change Specification for a bounded Architecture change with the accepted ADR, unchanged Requirements, supplied migration and rollback Design, operational verification, and explicit absence of new actor-visible behavior.",
+      "prompt": "$gen-stack Orient an approved structural change whose requested output is a Change Specification. ADR ARC-ADR-0017, unchanged Requirements, accepted migration and rollback Design, and absence of new actor-visible behavior are supplied. Do not draft the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that identifies the accepted ADR, unchanged Requirements, and accepted Design as inputs and stops without drafting or decomposing implementation.",
       "assertions": [
-        "The item is classified as a Change rather than a Defect Report; its Change Specification and accepted Change Design remain distinct artifacts, and a generic task stays outside the Gen Stack taxonomy.",
-        "ARC-ADR-0017 is the accepted Architecture authority and AUD-REQ-0008 and AUD-REQ-0012 remain unchanged.",
-        "The public schema, two migration batches, duplicate and dropped-event observations, and rollback condition are preserved.",
-        "No new behavior claim, Requirement, task decomposition, or Architecture decision is invented."
+        "The response recommends `$spec` rather than treating gen-stack as the Specification stage.",
+        "ARC-ADR-0017 and the unchanged Requirements remain accepted inputs.",
+        "The accepted Design remains a separate artifact owned by its stage.",
+        "No behavior claim, Requirement, task decomposition, or Architecture decision is invented."
       ]
     },
     {
       "id": 61,
       "stage": "execution",
-      "prompt": "Draft a proposed Change Specification for invoice export latency. Measurements show p95 latency of 11 seconds for 50,000-line exports, and the candidate outcome is at most 4 seconds under the same conditions. No quality Requirement, Architecture response, priority, or delivery authorization has been accepted. Preserve the measured baseline and proposed target without designing a solution.",
-      "expected_output": "A proposed Change Specification that keeps the measured baseline distinct from the candidate quality outcome, exposes missing authority, and records candidate Requirement, Architecture, and evidence impact without inventing a solution or commitment.",
+      "prompt": "$gen-stack Orient a proposed invoice-export latency Change Specification request. The measured p95 baseline is 11 seconds for 50,000 lines and the candidate outcome is at most 4 seconds; Requirement, Architecture, priority, and delivery authority remain unresolved. Do not draft the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that preserves the measured baseline, candidate outcome, missing authorities, and no-solution boundary and stops.",
       "assertions": [
-        "The bounded performance change is represented as a proposed Change Specification with decision authority unresolved.",
+        "The response recommends `$spec` and does not create a proposed Change Specification.",
         "The 11-second measured baseline and 4-second candidate target remain distinct and tied to 50,000-line exports.",
-        "Requirement impact is candidate or unresolved, while Architecture, priority, and delivery remain unaccepted.",
+        "Requirement, Architecture, priority, and delivery authority remain unresolved.",
         "No implementation mechanism, accepted quality Requirement, estimate, owner, or testing method is invented."
       ]
     },
     {
       "id": 62,
       "stage": "execution",
-      "prompt": "Write the Change Specification for a Change that remediates established Defects. Defect Reports BILL-482 and BILL-519 establish that invoice export omits zero-value lines when tax detail is present. The authorized remediation is to preserve every line required by INV-REQ-0011 without changing tax calculation. Include regression semantics and keep both reports separate.",
-      "expected_output": "A separate Change classified as Bugfix, linking both Defect Reports and using the canonical Change Specification while preserving INV-REQ-0011, the unchanged tax-calculation constraint, and semantic regression coverage without retitling the reports.",
+      "prompt": "$gen-stack Orient an authorized remediation request whose requested output is a Change Specification. BILL-482 and BILL-519 are separate Defect Reports; INV-REQ-0011 remains authoritative and tax calculation is unchanged. Do not draft the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that preserves Bugfix classification, both report identities, INV-REQ-0011, the unchanged tax constraint, and the need for regression semantics and stops.",
       "assertions": [
-        "The item is a Change classified as Bugfix because established Defects and authorized remediation are supplied; the artifact remains a Change Specification.",
+        "The response recommends `$spec` for the Change Specification and identifies the Change as Bugfix.",
         "BILL-482 and BILL-519 remain separate provenance-bearing Defect Reports linked to the Change.",
         "INV-REQ-0011 remains the desired-state authority and unchanged tax calculation is explicit.",
         "Regression verification covers the failing condition without treating merge or implementation as proof."
@@ -843,27 +843,29 @@
     {
       "id": 63,
       "stage": "execution",
-      "prompt": "Draft the work item for authorized remediation of a defective Architecture document. The document assigns retry policy to the checkout API, but accepted ADR ARC-ADR-0009 assigns it to the payment adapter and the implementation already follows that ADR. No defective realized-system behavior has been identified. Update the document and its generated navigation.",
-      "expected_output": "A Change classified as Bugfix because it remediates a defective Architecture work product, with a canonical Change Specification linked to ARC-ADR-0009 and explicit that realized system behavior remains unchanged.",
+      "prompt": "$gen-stack Orient authorized remediation of a defective Architecture document when the requested output is a Change Specification. ARC-ADR-0009 remains authoritative, implementation already conforms, and no defective realized-system behavior exists. Do not draft the artifact or update the document.",
+      "expected_output": "A thin recommendation for `$spec` that preserves Bugfix classification for the defective governed work product, the accepted ADR, unchanged implementation state, and the no-mutation boundary and stops.",
       "assertions": [
-        "The item is a Change classified as Bugfix rather than a Defect Report; Bugfix applies to remediation of defective governed work products, not only realized-system behavior.",
+        "The response recommends `$spec` and identifies Bugfix classification without creating the Change Specification.",
         "ARC-ADR-0009 remains the accepted Architecture authority and the document is the defective work product.",
         "The unchanged implementation state and absence of concrete defective system behavior are explicit.",
-        "Only the supplied document and generated-navigation work is included; no behavior change or new Architecture decision is invented."
+        "No document, navigation, behavior, or Architecture mutation is performed."
       ]
     },
     {
       "id": 64,
       "stage": "routing",
       "prompt": "Draft a tracker-ready Change Specification for this approved data migration, including Requirements impact, rollback, and verification.",
-      "expected_selection": "gen-stack",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
+        "spec",
+        "design",
         "author-docs"
       ],
       "assertions": [
-        "The selected skill is gen-stack.",
-        "The request is routed to the software work-item branch rather than treated as canonical corpus authoring.",
-        "Routing uses only catalog names and descriptions.",
+        "Gen-stack is not selected to absorb the focused Change Specification stage.",
+        "Spec is not selected merely from natural-language similarity because it is explicit-only.",
+        "The routing result records abstention or clarification without drafting a Change Specification.",
         "No task side effect occurs before selection."
       ]
     },
@@ -984,13 +986,14 @@
     {
       "id": 74,
       "stage": "execution",
-      "prompt": "The accepted Requirement and Architecture authorize replacing a local CSV parser without changing interfaces or durable responsibilities. Draft the Change Specification and choose a reversible internal helper name so the implementation team can proceed; local naming is delegated to you.",
-      "expected_output": "A bounded Change Specification that preserves the accepted authorities, treats the delegated helper name as a local reversible implementation choice, and does not manufacture an Architecture decision gate.",
+      "prompt": "$gen-stack Orient a request to draft the Change Specification for replacing a local CSV parser. Accepted Requirement and Architecture remain unchanged, and local helper naming is explicitly delegated. Do not draft the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that preserves the accepted authorities, treats the helper name as a delegated local reversible choice without a new decision gate, and stops.",
       "assertions": [
+        "The response recommends `$spec` and leaves the Change Specification to that explicit stage.",
         "The accepted Requirement and Architecture remain linked authorities rather than being restated as new decisions.",
         "The internal helper name is treated as an explicitly delegated local reversible choice.",
         "No unnecessary human Architecture or Requirement gate is introduced for the helper name.",
-        "The response does not implement the parser or broaden the change beyond the authorized boundary."
+        "The response does not draft the artifact, implement the parser, or broaden the change."
       ]
     },
     {
@@ -1166,24 +1169,24 @@
     {
       "id": 87,
       "stage": "execution",
-      "prompt": "Write and authorize delivery from a Change classified as Bugfix for a checkout timeout. The system sometimes retries payment, but there is no accepted expectation for at-most-once versus at-least-once behavior, the payment ownership boundary is disputed, and either choice changes customer and ledger outcomes. Pick the safer remediation and let implementation start.",
-      "expected_output": "A bounded Change Specification draft and decision request that identifies the missing corrected-behavior authority and disputed Architecture boundary as blocking, compares stable options, recommends one, and stops before dependent delivery or accepted mutation.",
+      "prompt": "$gen-stack Orient a Bugfix request for a checkout timeout. Retry semantics and payment ownership are unresolved and either choice changes customer and ledger outcomes. Identify the smallest eligible stage and decision boundary; do not draft a Change Specification or authorize delivery.",
+      "expected_output": "A bounded orientation that recommends `$spec`, identifies the missing corrected-behavior and Architecture authorities as blocking, may compare stable options, and stops before artifact production or delivery.",
       "assertions": [
         "The missing retry obligation and disputed payment ownership boundary are identified as material Requirement and Architecture gaps.",
         "The gap disposition includes evidence, impact, stable options, a labeled recommendation, applicable authority, and blocking status.",
-        "The response marks the gaps blocking because they determine the corrected behavior and structural response.",
+        "The response recommends `$spec` and marks the gaps blocking because they determine corrected behavior and structural response.",
         "No delivery authorization, accepted Requirement or Architecture mutation, or implementation action occurs before human ratification."
       ]
     },
     {
       "id": 88,
       "stage": "execution",
-      "prompt": "Draft the Change Specification for a Change classified as Bugfix: ORD-REQ-0042 requires rejected orders to preserve inventory and the accepted Order API Surface and Order Service boundary are unchanged. The failing case is known, but no reusable Evaluation Protocol covers it yet. Surface the gap and start planning anyway.",
-      "expected_output": "A truthful Change Specification draft grounded in accepted Requirement and Architecture that identifies the missing required semantic Evaluation Protocol and blocks ratification, Change coherence, and dependent planning without inventing results.",
+      "prompt": "$gen-stack Orient a Bugfix request grounded in ORD-REQ-0042 and unchanged accepted Architecture. No reusable Evaluation Protocol covers the failing condition. Identify the smallest eligible stage and whether planning may begin; do not draft a Change Specification.",
+      "expected_output": "A thin recommendation for `$spec` that preserves the accepted authorities, identifies the missing semantic Evaluation Protocol as blocking ratification, coherence, and planning, and stops.",
       "assertions": [
         "ORD-REQ-0042 and the accepted Surface and structural boundary remain the authorities for corrected behavior.",
         "The missing Evaluation Protocol is raised with its evidence impact, recommendation, owner or authority, and blocking status for ratification, coherence, and planning.",
-        "The Change Specification may remain a useful draft, but the Change cannot proceed to dependent planning until required semantic Protocol meaning exists.",
+        "No Change Specification is drafted, and the Change cannot proceed to dependent planning until required semantic Protocol meaning exists.",
         "No Evaluation Result, test execution, Requirement change, or Architecture change is invented."
       ]
     },
@@ -1226,9 +1229,10 @@
     {
       "id": 92,
       "stage": "execution",
-      "prompt": "Draft an authorized implementation-only Change Specification. PAY-REQ-0022 and accepted payment boundaries are unchanged. The team delegated the reversible choice of log-field name, and a stale architecture index can be corrected later without affecting delivery. Raise relevant gaps but do not stop for ceremonial approval.",
-      "expected_output": "A bounded implementation-only Change Specification that treats the stale index as a visible non-blocking documentation gap, makes the delegated local naming choice, and proceeds without a Requirement or Architecture gate.",
+      "prompt": "$gen-stack Orient an authorized implementation-only Change Specification request. PAY-REQ-0022 and accepted payment boundaries are unchanged, log-field naming is delegated, and a stale architecture index is non-blocking. Do not draft the artifact.",
+      "expected_output": "A thin recommendation for `$spec` that preserves the unchanged authorities, delegated local choice, and non-blocking index gap without creating a ceremonial decision gate.",
       "assertions": [
+        "The response recommends `$spec` and does not draft the Change Specification.",
         "PAY-REQ-0022 and accepted payment boundaries remain unchanged authorities.",
         "The stale index is reported with impact, recommendation, owner, and non-blocking status rather than ignored or called a system Defect automatically.",
         "The reversible log-field name is chosen within explicit delegation.",
@@ -1598,13 +1602,13 @@
     {
       "id": 119,
       "stage": "execution",
-      "prompt": "Draft a portable Change and Change Specification for a host that supports only title and Markdown body. The authorized coordination facts are priority High, delivery state Proposed, and owner Platform Maintenance. Preserve them without pretending the host has structured fields.",
-      "expected_output": "Separate canonical Markdown fallbacks: the Change coordination artifact carries the otherwise homeless coordination facts, and the Change Specification carries only its exact why-and-what semantic contract.",
+      "prompt": "$gen-stack Explain how a portable Change coordination record and Change Specification should use Markdown fallbacks in a host that supports only title and body. Priority High, delivery state Proposed, and owner Platform Maintenance are authorized coordination facts. Do not draft either artifact.",
+      "expected_output": "A representation explanation that keeps otherwise homeless coordination facts in the Change fallback, keeps why-and-what meaning in the Specification fallback, recommends `$spec` for artifact production, and does not emit either complete artifact.",
       "assertions": [
         "The response does not invent structured host fields or an OKF envelope.",
         "Priority, delivery state, and owner appear once in the Change coordination fallback because no native affordance exists.",
         "The fallbacks are described as portable body content that should yield to exact native fields in a richer host.",
-        "The Change Specification uses its exact shared fallback and does not absorb Design state, Change coherence, or delivery coordination."
+        "The Change Specification contract does not absorb Design state, Change coherence, or delivery coordination, and no complete artifact is emitted."
       ]
     },
     {
@@ -1622,13 +1626,13 @@
     {
       "id": 121,
       "stage": "execution",
-      "prompt": "Develop a Change Design in this conversation for an authorized retry fix. We need the selected response, affected responsibilities, state transitions, failure handling, verification approach, tradeoffs, and one unresolved timeout question. Do not create a repository document or work item.",
-      "expected_output": "The exact canonical Change Design Markdown fallback with proportional content and no fabricated persistence metadata or separate repository-document ceremony.",
+      "prompt": "$gen-stack Orient a request to develop a conversational Change Design for an authorized retry fix. The selected response, responsibilities, state, failures, verification approach, tradeoffs, and one unresolved timeout question are supplied. Do not produce the Design.",
+      "expected_output": "A thin recommendation for `$design` that identifies the supplied content and unresolved timeout as inputs, explains that conversational output needs no fabricated persistence metadata, and stops without emitting the Design.",
       "assertions": [
-        "The response uses the exact shared Change Design heading order and covers the accepted response, responsibilities and interactions, state and failure behavior, Evaluation realization, tradeoffs, and open questions.",
+        "The response recommends `$design` and does not emit the canonical Change Design artifact.",
         "No synthetic document ID, OKF frontmatter, tracker status, owner, creation date, or lifecycle field is invented.",
         "The unresolved timeout remains visibly open and does not appear as an accepted choice.",
-        "The response does not insist on persisting a dedicated Change Design artifact."
+        "The response does not invent persistence metadata or insist on persisting a dedicated Change Design artifact."
       ]
     },
     {
@@ -1743,7 +1747,7 @@
     {
       "id": 131,
       "stage": "routing",
-      "prompt": "/spec Distill this bounded need into a coherent Change Specification with Requirement and Architecture impact.",
+      "prompt": "$spec Distill this bounded need into a coherent Change Specification with Requirement and Architecture impact.",
       "expected_selection": "spec",
       "catalog_neighbors": ["gen-stack", "design"],
       "assertions": [
@@ -1756,7 +1760,7 @@
     {
       "id": 132,
       "stage": "routing",
-      "prompt": "/implement Execute this authorized implementation-ready plan and prepare the exact candidate for review.",
+      "prompt": "$implement Execute this authorized implementation-ready plan and prepare the exact candidate for review.",
       "expected_selection": "implement",
       "catalog_neighbors": ["gen-stack", "plan", "review"],
       "assertions": [
@@ -1795,7 +1799,7 @@
     {
       "id": 135,
       "stage": "routing",
-      "prompt": "/shape Turn this rough request into a bounded Pitch with anticipated Gen Stack impact and a filesystem breadboard before specification or design.",
+      "prompt": "$shape Turn this rough request into a bounded Pitch with anticipated Gen Stack impact and a filesystem breadboard before specification or design.",
       "expected_selection": "shape",
       "catalog_neighbors": ["gen-stack", "spec", "design"],
       "assertions": [
@@ -1848,13 +1852,56 @@
       "id": 139,
       "stage": "execution",
       "prompt": "Explain how exact Pitch, Change Specification, Change Design, and plan persistence fits into Gen Stack while remaining independent of any particular work-item host. Do not mutate anything or perform synchronization.",
-      "expected_output": "A concise explanation that identifies synchronization as a cross-cutting representation operation routed to sync-change, preserves one canonical home and exact artifact maturity, and does not add a lifecycle stage or vendor model.",
+      "expected_output": "A concise explanation of the shared Draft, Ready, Accepted lifecycle and event-driven canonical persistence contract without adding a vendor model or hidden conversation memory.",
       "assertions": [
-        "Synchronization is described as cross-cutting representation work rather than a change-realization stage or readiness gate.",
-        "One canonical artifact home and exact revision binding remain explicit.",
+        "Pitch, Change Specification, Change Design, and plan share only Draft, Ready, and Accepted; review and release states remain separate.",
+        "The first coherent Draft and every state change are persisted and verified in one canonical artifact location, while ordinary chat iteration is not synchronized.",
+        "A valid forward-stage invocation accepts only the exact persisted Ready predecessor before dependent work begins.",
+        "Draft has explicit Open items, and Ready or Accepted has none; material edits downgrade the artifact to Draft and invalidate dependent readiness.",
         "The explanation is work-item-host agnostic and prescribes no vendor fields, labels, hierarchy, workflow, or API.",
-        "Plan projection requires separate authorization and leaves the exact plan canonical.",
+        "Manual sync remains a repair or explicit checkpoint; derived implementation-record projection is outside Sync Change.",
+        "Lost chat-only edits after compaction return to the user rather than being reconstructed.",
         "No mutation or focused synchronization workflow is performed."
+      ]
+    },
+    {
+      "id": 140,
+      "stage": "execution",
+      "prompt": "$gen-stack Orient this approved data-migration request to the smallest eligible Gen Stack stage. The outcome and affected data are bounded, but Requirement ratification and rollback obligations are unresolved. Do not produce a Pitch, Change Specification, Change Design, plan, implementation, review, or shipping result.",
+      "expected_output": "A thin orientation response that recommends `$spec`, explains why it owns the unresolved desired meaning, names missing preconditions and authority, and stops without performing or activating the stage.",
+      "assertions": [
+        "The response recommends `$spec` as the smallest eligible focused stage.",
+        "The recommendation states why unresolved Requirement and rollback meaning belong to Specification.",
+        "Missing ratification and applicable authority remain explicit.",
+        "The recommendation is not treated as invocation or semantic acceptance.",
+        "No complete focused-stage artifact or task mutation is produced."
+      ]
+    },
+    {
+      "id": 141,
+      "stage": "execution",
+      "prompt": "Explain the streamlined focused-stage sequence after quick-change deprecation. Include what $spec, $design, $plan, and $implement accept, and whether review or ship accepts an implementation artifact. Do not perform any stage.",
+      "expected_output": "A concise sequence that replaces quick-change with explicit focused stages, identifies exact predecessor acceptance effects, and keeps review and release authority outside the artifact lifecycle.",
+      "assertions": [
+        "$spec accepts a persisted Ready Pitch, $design accepts a persisted Ready Specification, $plan accepts a persisted Ready Design after confirming the Specification is Accepted, and $implement accepts a persisted Ready plan.",
+        "Acceptance is limited to the predecessor artifact and does not silently ratify governed Requirement or Architecture meaning beyond that artifact's authority.",
+        "Review does not accept Implementation and Ship remains an explicit separately authorized final action.",
+        "Quick-change is deprecated in favor of $spec followed by $design, with no replacement skill silently activated.",
+        "No focused stage or mutation is performed."
+      ]
+    },
+    {
+      "id": 142,
+      "stage": "execution",
+      "prompt": "$gen-stack Explain the portable presentation language shared by Pitch, Change Specification, Change Design, plan, Review, and Ship. Cover first-screen order, Open items, visual keys, emoji, cards, tables, and handoffs. Do not create or mutate an artifact.",
+      "expected_output": "A concise orientation to the shared scannable presentation contract without performing a focused stage.",
+      "assertions": [
+        "Durable stage artifacts put title, Artifact, State, Canonical, optional Bound to, Summary, and Open items first; Review and Ship use their exact decision-first variants.",
+        "Text labels carry meaning; emoji and color are optional decoration and never the sole signal.",
+        "Draft, Ready, Accepted, persistence results, review dispositions, Evaluation Results, stable OI-, A-, F-, and U- identities, transition arrows, and explicit-absence markers remain distinct.",
+        "Steps, actions, findings, unknowns, and checkpoints use vertical cards; portable tables have at most four columns; empty optional sections are omitted.",
+        "The compact handoff carries exact artifact identity and state, canonical target and persistence fidelity, Open-item IDs, and the next eligible action with any acceptance effect.",
+        "No focused stage or mutation is performed."
       ]
     }
   ]

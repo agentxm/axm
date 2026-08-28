@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Running a change-realization stage
-description: Use when shaping, research, investigation, specification, design, planning, implementation, review, or shipping participates in one bounded software change; preserve exact inputs, authority, evidence, corpus impact, readiness, and recoverable handoffs.
-tags: [process, software-change, stage-contract, handoff, readiness, authority, provenance, corpus, compaction]
+description: Use after a person explicitly selects a focused Gen Stack stage for one bounded software change; apply the shared artifact lifecycle, event-driven persistence, exact predecessor acceptance, authority, and recoverable handoff contract without automatically advancing the workflow.
+tags: [process, software-change, stage-contract, invocation, artifact-lifecycle, persistence, acceptance, open-items, authority, provenance, compaction]
 status: draft
 sources:
   - id: process-definition
@@ -13,7 +13,7 @@ sources:
     title: How the Gen Stack operates
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T23:32:00Z
+  at: 2026-08-28T20:00:00Z
 ---
 
 # Running a change-realization stage
@@ -21,145 +21,285 @@ generated:
 > **Authority:** This Guide applies the canonical meaning in the [Gen Stack
 > vocabulary and relationship model](../glossary.md) and the recommended
 > relationships in [Deciding and realizing bounded software
-> changes](deciding-and-realizing-software-changes.md). It adds neither semantic
-> acceptance nor mutation or release authority.
+> changes](deciding-and-realizing-software-changes.md). It does not grant
+> Requirement, Architecture, mutation, priority, assignment, or release
+> authority.
 
-Use this common contract whenever one focused activity participates in a
-bounded change. Apply the activity's specific Guide after this one; do not
-replace its distinctive evidence, safety, or artifact rules with the common
-shape.
+Apply this common contract before the focused Shape, Spec, Design, Plan, or
+Implement Guide. The focused Guide owns artifact-specific meaning; this Guide
+owns the common lifecycle, persistence, acceptance, invalidation, and handoff
+behavior.
 
-## Goal
+## Invocation and authority
 
-Produce one truthful, recoverable intermediate outcome whose inputs, authority,
-evidence, corpus impact, readiness, and eligible next routes are explicit.
+| Capability | Selection policy | Responsibility |
+| --- | --- | --- |
+| `gen-stack` | Implicit or explicit | Explain and orient the method, corpus, and coordination surfaces |
+| `$shape`, `$research`, `$investigate`, `$spec`, `$design`, `$plan`, `$implement`, `$review`, `$ship` | Explicit only | Perform one focused stage |
+| `$quick-change` | Deprecated explicit compatibility route | Recommend `$spec` followed by `$design`; perform neither |
+| `sync-change` | Implicit or explicit | Perform a user-requested manual checkpoint or repair for one exact artifact |
+| `researcher`, `reviewer` | Internal delegation only | Perform fresh-context work owned by an activated skill |
 
-## 1. Bind the stage
+`$stage` is host-neutral shorthand for deliberate selection. Natural-language
+similarity, a completed artifact, or a next-route recommendation does not
+activate a focused stage. A valid forward-stage invocation has one additional,
+bounded effect: it accepts the exact persisted `Ready` predecessor named below.
+It does not activate any stage after itself.
 
-Identify:
+Stage selection, artifact acceptance, semantic ratification, repository
+mutation, priority, assignment, and release are separate authorities. Establish
+each one that the requested action needs.
 
-- the initiating request or preceding handoff;
-- the bounded change or diagnostic question;
-- exact input artifact and revision identities when they exist;
-- the current meaning maturity and action authority;
-- the intended intermediate outcome and decision it supports;
-- allowed reads, writes, external effects, credentials, and code execution;
-- the stopping condition and retry boundary; and
-- the next readiness claim this stage could establish.
+## Shared artifact lifecycle
 
-Do not infer that entering a later stage proves earlier readiness. Direct entry
-is valid when its required inputs can be discovered and verified; otherwise
-return to the smallest missing activity.
+Pitch, Change Specification, Change Design, and implementation plan use exactly
+three states:
 
-## 2. Orient from evidence and accepted meaning
-
-Inspect material sources and the exact accepted Gen Stack concepts that apply.
-Treat current code, tests, telemetry, plans, and work-item status as evidence or
-peer authorities, not automatic desired state. Preserve conflicting,
-unavailable, stale, and uncertain evidence.
-
-If a valid adopted corpus does not exist, do not invent or initialize one as a
-stage side effect. Continue when the stage can remain truthful without it and
-report the unmet corpus condition.
-
-## 3. Execute only the stage's responsibility
-
-Produce the smallest sufficient activity outcome. Do not silently perform the
-next stage, accept a candidate, change priority, or execute an external final
-action merely because enough information is available.
-
-When material evidence changes an upstream constituent:
-
-1. identify whether the affected owner is Pitch, Intent, Requirement,
-   Architecture, Change Design, plan, Implementation, Evaluation, operation,
-   or Provenance;
-2. preserve the evidence and affected exact revision;
-3. classify the gap as blocking or non-blocking for the current action; and
-4. return to the owning activity or present a real human decision gate.
-
-Local reversible choices may proceed only when they remain inside accepted
-meaning and delegated action authority.
-
-## 4. Classify corpus disposition
-
-Use every disposition that materially applies:
-
-| Disposition | Meaning |
+| State | Meaning |
 | --- | --- |
-| `no-impact` | No relevant governed meaning, representation, realization link, or evidence route is implicated |
-| `consulted` | Accepted corpus meaning constrained or informed the stage without change |
-| `candidate-gap` | Evidence suggests missing, stale, disputed, misplaced, or contradicted meaning awaiting its authority |
-| `accepted-semantic-delta` | Explicitly ratified Intent, Requirement, Architecture, decision, or Evaluation Protocol meaning must be encoded or was encoded |
-| `representation-maintenance` | Meaning-preserving metadata, navigation, relationship, or placement maintenance is needed or completed |
-| `realization-or-evidence-update` | Repository-native realization or Evaluation evidence changed without changing desired-state authority |
-| `compaction-opportunity` | Obsolete or duplicate structure may be removed after its conservation and authority conditions are established |
+| `Draft` | Useful current work exists, but one or more open items, persistence conditions, or coherence checks block dependent acceptance |
+| `Ready` | The exact persisted artifact is complete for its named next-stage consumer and has no open items |
+| `Accepted` | A valid invocation of the named forward stage accepted that exact persisted `Ready` revision |
 
-Applying a semantic delta requires both meaning authority and mutation
-authority. Representation maintenance must demonstrate that normative meaning
-is unchanged. Record an unrelated compaction opportunity and continue; do not
-expand the stage into cleanup.
+These states govern the focused artifact, not the Change's delivery, review,
+verification, release, or closure. They also do not replace governed lifecycle
+terms such as active or retired Requirement, accepted Architecture decision, or
+host-native workflow state.
 
-## 5. Verify the intermediate outcome
+Update the current artifact in place. Do not create a successor copy or expose a
+`superseded` artifact state. Preserve exact content or revision identity in
+history or host revisions so decisions and readback remain attributable.
 
-Check:
+### Presentation contract
 
-- the output against every material input and accepted authority;
-- stage-specific completion and failure conditions;
-- exact identities and persisted state after any write;
-- performed versus planned Evaluation or testing;
-- intended versus observed external effects;
-- corpus conformance and semantic review when corpus mutation occurred; and
-- whether the claimed readiness is no broader than the evidence.
+Pitch, Change Specification, Change Design, and implementation plan use one
+portable first-screen order:
 
-Preserve `unknown`, partial success, and harness or tool failure. A submitted
-payload, passing local check, completed task, or polished artifact is not
-evidence of a broader state it did not assess.
+```markdown
+# <Artifact class>: <bounded subject>
 
-## 6. Hand off
+> **Artifact:** <stable identity and exact revision>
+> **State:** `<Draft | Ready | Accepted>`
+> **Canonical:** <work item, native field set, body region, or exact link>
+> **Bound to:** <exact predecessor identities and states; omit when none>
 
-End with this semantic shape, adapting labels to the native host and omitting
-inapplicable empty fields:
+## Summary
 
-```text
-Outcome achieved:
-Input and output identities:
-Canonical artifact source or home:
-Exact output revision or content identity:
-Meaning maturity:
-Action authority:
-Evidence produced or consulted:
-Material decisions and unknowns:
-Blocking and non-blocking gaps:
-Corpus disposition:
-Readiness established:
-Next eligible actions:
+<The authoritative short statement of what this artifact establishes.>
+
+## Open items
+
+- None.
 ```
 
-Link canonical artifacts rather than copying their facts into the handoff.
-Use `transient exact output` when complete content is available in the current
-conversation but no durable identity exists; do not invent persistence
-metadata. State `not established` for a readiness condition whose evidence is
-missing. When authorized persistence is the next action, route the exact output
-to the artifact-synchronization operation rather than summarizing it in the
-handoff.
+The first screen lets a reader identify the artifact, exact revision, state,
+canonical home, upstream bindings, established meaning, and blockers before
+reading detail. `Summary` owns the concise statement; later sections add detail
+without restating it.
 
-## Valid exits
+Change coordination uses the same reading order with `Change`, `Canonical`,
+and `Coordination` metadata followed by Summary, Next, and Current artifacts.
+Review and Ship are outcome records rather than focused-lifecycle artifacts;
+Review leads with Subject, Mode, Focus, and Result before Decision, while Ship
+leads with Subject, Action, Target, and Outcome before Summary.
 
-A stage may complete with its intended intermediate outcome, return upstream,
-route laterally to research or investigation, terminate the Process, or stop on
-an explicit blocker. It does not fail merely because no implementation or
-shipping follows.
+Use this shared visual key without collapsing its independent dimensions:
 
-Cancellation, timeout, retry exhaustion, partial mutation, and unavailable
-tools must name completed work, preserved artifacts, possible effects, and the
-smallest safe recovery action. Never claim rollback unless the reversal was
-observed.
+| Dimension | Portable keys |
+| --- | --- |
+| Focused artifact state | `Draft`, `Ready`, `Accepted` |
+| Persistence result | `VERIFIED-EXACT`, `VERIFIED-FAITHFUL`, `DRIFT`, `UNVERIFIED` |
+| Review disposition | `SUPPORTED`, `ACTION REQUIRED`, `UNKNOWN`, `NOT APPLICABLE` |
+| Evaluation Result | `pass`, `fail`, `unknown` plus method-specific states defined by its Protocol |
+| Stable references | `OI-<n>` open item, `A-<n>` required action, `F-<n>` finding, `U-<n>` material unknown |
+| Transition or dependency | `→` |
+| Explicit absence | `None` for no entries, `No change` for a considered unchanged semantic dimension, `—` only for an empty compact-table cell |
+
+One key has one meaning everywhere. Text labels are mandatory; color, emoji,
+typography, or a host badge never carries meaning alone. Canonical headings do
+not contain decorative emoji. A host projection may add restrained decoration,
+and `⚠` may call attention to an exceptional conflict, drift, or unverified
+write, but neither changes the portable key. `—` never means `UNKNOWN`.
+
+Use progressive detail:
+
+1. header, Summary, and Open items for a thirty-second scan;
+2. boundaries, decisions, mappings, and risks for a decision read; and
+3. exact authorities, evidence, realization detail, and linked sources for
+   verification.
+
+Keep required control sections. Give every required semantic dimension an
+explicit disposition such as `No change.` when appropriate. Omit optional
+detail when immaterial instead of emitting empty headings or `Not applicable`
+scaffolding. Use tables only for short parallel comparisons, with no more than
+four columns in the portable fallback; use vertically labeled cards for work
+steps, actions, findings, and checkpoints.
+
+### Open items
+
+Every artifact contains an explicit `## Open items` section.
+
+- `Draft` contains one bullet per unresolved blocker.
+- `Ready` and `Accepted` contain exactly `- None.`
+- Give each blocker a stable identity when another artifact, handoff, or turn
+  may need to reference it. Use this portable shape:
+
+  ```markdown
+- **OI-1 — <blocker>**
+  - **Authority:** <responsible role>
+  - **Resolves when:** <observable condition>
+  ```
+
+Questions, risks, deferred improvements, and non-blocking follow-up may remain
+elsewhere. Put an item here only when it blocks the artifact's next acceptance.
+
+### Readiness
+
+An artifact becomes `Ready` only when:
+
+- its focused Guide's completion conditions hold;
+- its exact current content is in one durable canonical target;
+- authoritative readback verifies the persisted content and state;
+- `Open items` is empty; and
+- its upstream bindings are current and coherent.
+
+Polish, conversation history, a write response, an echoed payload, or a host
+workflow field does not establish readiness.
+
+## Canonical target and persistence
+
+The person remains responsible for establishing a durable canonical target,
+usually one Change work item whose native fields, artifact regions, or links
+carry the current Pitch, Specification, Design, and plan. A repository artifact
+may be canonical when the work-item host cannot faithfully carry it; the work
+item then holds one linked synopsis rather than a second editable copy.
+
+At stage start:
+
+1. resolve the canonical target and inspect its native representation,
+   permissions, current revision, and concurrency behavior;
+2. bind the exact predecessor and current artifact region or link;
+3. recover the current persisted artifact after context compaction instead of
+   relying on conversational memory; and
+4. if no writable durable target exists, continue only to a useful `Draft` and
+   add the missing target as an open item. Such a Draft cannot become `Ready`.
+
+Persist the first coherent Draft immediately. A coherent Draft has a stable
+artifact identity, bounded purpose, honest current content, state, and open
+items; it need not be complete. Verify authoritative readback before claiming
+that persistence succeeded.
+
+Ordinary conversational iteration does not trigger persistence. This is a
+deliberate user-responsibility boundary: if later chat-only edits are lost to
+compaction, report the last persisted exact revision and require the user to
+supply or recreate the missing content. Never reconstruct it from likely
+intent.
+
+## Persistence events
+
+Use the focused stage's available work-item integration directly for lifecycle
+events. Do not invoke or route through `sync-change` as an automatic follow-on.
+
+| Event | Required action |
+| --- | --- |
+| First coherent artifact Draft | Persist and read back `Draft` immediately |
+| Express state change | Persist the exact new state and content, then read back |
+| Valid forward-stage invocation | Persist predecessor `Ready → Accepted` before dependent work, then read back |
+| Material edit to `Ready` or `Accepted` | Persist `→ Draft`, add open items, invalidate dependents, then read back |
+| User explicitly requests a checkpoint | Use `sync-change` with the exact artifact |
+| Ordinary chat refinement without a state change | Do not write |
+
+When a lifecycle write is authorized but unavailable, report persistence as
+`UNVERIFIED` or failed, keep the artifact `Draft`, and name the recovery
+condition. Do not replay a write whose outcome is unknown.
+
+## Forward acceptance
+
+The valid forward stage accepts only this predecessor:
+
+| Invocation | Required predecessor effect |
+| --- | --- |
+| `$spec` | Accept exact persisted `Ready` Pitch |
+| `$design` | Accept exact persisted `Ready` Change Specification |
+| `$plan` | Confirm the Specification is `Accepted`, reconcile exact bindings, then accept exact persisted `Ready` Change Design |
+| `$implement` | Confirm bound Specification and Design are `Accepted`, then accept exact persisted `Ready` plan before mutation |
+
+Acceptance must happen before dependent work. Stop when the predecessor is
+`Draft`, unpersisted, stale, concurrently changed, cannot be read back, or has
+open items. Never accept a summary, inferred revision, or chat-only artifact.
+
+Acceptance approves the predecessor for its declared consumer. It does not
+silently accept governed Requirement or Architecture meaning outside that
+artifact's authority, grant implementation mutation, or approve release.
+
+Direct entry remains valid. When no predecessor exists, the focused stage may
+produce a truthful Draft from authoritative inputs, but it cannot claim the
+missing predecessor was accepted. Its Open items must expose any missing
+authority or coherence needed for `Ready`.
+
+Review does not accept Implementation. Ship remains an explicit, separately
+authorized final action.
+
+## Invalidation
+
+Any material change to a `Ready` or `Accepted` artifact:
+
+1. changes that same artifact to `Draft`;
+2. records the reason and required re-decision in `Open items`;
+3. persists and verifies the downgrade in place;
+4. marks every dependent artifact `Draft` when its binding or reasoning may no
+   longer hold; and
+5. requires the normal forward acceptance sequence again.
+
+Representation-only maintenance that demonstrably preserves meaning does not
+downgrade state. Concurrent edits to the same canonical location stop the write
+for reconciliation.
+
+## Execute the focused responsibility
+
+Bind exact sources, accepted meaning, current implementation, evidence,
+permissions, and the stopping condition. Produce the smallest sufficient
+focused outcome. Return changed desired state, durable Architecture, or
+Evaluation Protocol meaning to its authority. Local reversible choices may
+proceed only inside accepted meaning and delegated action authority.
+
+Classify any corpus effect as `no-impact`, `consulted`, `candidate-gap`,
+`accepted-semantic-delta`, `representation-maintenance`,
+`realization-or-evidence-update`, or `compaction-opportunity`. Do not expand an
+artifact stage into unrelated corpus cleanup.
+
+## Verify and hand off
+
+Verify focused completion, exact identities, authoritative readback, performed
+versus planned evidence, intended versus observed effects, and any corpus
+mutation. Preserve `unknown`, partial success, conflicts, and tool failure.
+
+Use this minimal handoff:
+
+```
+Artifact: <class, identity, exact revision> · <Draft | Ready | Accepted>
+Canonical: <target> · <VERIFIED-EXACT | VERIFIED-FAITHFUL | DRIFT | UNVERIFIED>
+Open items: <None | stable IDs>
+Next: <eligible action or recovery> · <acceptance effect when one exists>
+```
+
+Add focused evidence or authority detail only when it is material to the next
+decision. Link canonical sources instead of copying them. A next eligible
+action is a recommendation, not invocation.
 
 ## Final check
 
-- The activity's own responsibility is complete or its exact blocker is clear.
-- Inputs, outputs, revisions, evidence, and external effects remain attributable.
-- Maturity and authority were not inferred from workflow position.
-- Upstream meaning changes returned to their owner.
-- Corpus consideration was proportional and truthfully dispositioned.
-- Readiness and next routes are supported by evidence rather than stage labels.
+- The artifact uses only `Draft`, `Ready`, or `Accepted`.
+- Its first screen follows the common header, Summary, and Open-items order.
+- The first coherent Draft and every state change were persisted and read back,
+  or the exact persistence failure remains an open item.
+- Ordinary chat iteration caused no write.
+- `Open items` agrees with state.
+- Any forward acceptance used the exact persisted Ready predecessor and
+  occurred before dependent work.
+- Material upstream changes invalidated affected current artifacts in place.
+- Semantic, mutation, and release authority were not inferred from artifact
+  state or workflow position.
+- Visual keys preserve their declared dimensions and never depend on emoji or
+  color alone.
+- The handoff is sufficient to recover after compaction.

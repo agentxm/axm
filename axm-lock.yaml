@@ -9,11 +9,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: improve-whatever
-    resolvedVersion: 0.0.9
-    integrity: sha512-Jd5ePXATZovMaQL2KUfKAYAcXlwUBBINknJIgYp4jcOirag/8Xt+UFOLQvGRzFsJUeTT7zXZgr2DlpAn1m1EYQ==
+    resolvedVersion: 1.0.0
+    integrity: sha512-GG3PdZ//52vS3lZ/XcgDXhUAdHw6JbhNu97BUZU3Vku/WPFH0lPJF4QcR4tMBrn9OqvAu+c5a/f9C2yWd6wvag==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:782f6a5f36a2f9c0ee816746564576df4e63d29e13430d7db1385b2e3646fe89
+    treeIntegrity: sha256-tree-v1:afc4996a98ada1c8b321512cf4a97718b702448dcfa0a26a7d6008688bcb70a9
   author-okf:
     type: registry
     sourceType: registry
@@ -177,11 +177,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: research
-    resolvedVersion: 3.0.0
-    integrity: sha512-mgujMe4DIkjVBzx2D2Aaejpf9HuvWf+ktaMobK1QqOGhEG3BqW8SashUSaA2jfQnCk+mqR2Le/PRFa9qit/u+g==
+    resolvedVersion: 3.0.2
+    integrity: sha512-UPJkrp4fVhkZA7TQqEHYjUcIQKvMkI53m2h56dezplC8DvUHS3xoLd7kW44SszRYRJ/y0zvEovXP1gAoPlG/Rg==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:be756bd4297f3922f13e20c5d16dd65c625cc74dda35dff0ec3bff2b0c544757
+    treeIntegrity: sha256-tree-v1:d8281b6a26899a02bfcf5c492b66f814e2b5497f90e5b7b589d0f68126970663
   gen-stack:
     type: registry
     sourceType: registry
@@ -191,11 +191,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 3.2.0
-    integrity: sha512-b00fBlforSiTm8uRD7nEERgzVFHuqpRX1rdQov9nDoGsPsY6BFwB4UwlPw/k7PnnaBVtjT59g+qcwGYAnSqnDg==
+    resolvedVersion: 6.0.0
+    integrity: sha512-5j5o3CD2hLESAIHynK+BQ1IzX0BokaXSn8Hp2Rah0t6xDHs6Xjq+cpjy162kzedqvROQMrljoAZuY2xaTRzg6g==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:24aab5f2021f57c0216e1425eeffd236e0a4df262ee1d45d9419ae9fea65223d
+    treeIntegrity: sha256-tree-v1:20d6b0931d013a5b4c0e40c0638474f0f9c5da0b5c413a3e5afca2a3f24b79d7
   plan:
     type: registry
     sourceType: registry
@@ -205,11 +205,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: plan
-    resolvedVersion: 0.5.0
-    integrity: sha512-YyY2SS9szkQUxFWDNRBmF3XJTb1WfZDaEMffIqJR6wHqrqh20r69UXN0ZkLo1Bt2iGgdO50aq03WCa9pNmTGPw==
+    resolvedVersion: 2.0.0
+    integrity: sha512-4id96JqRcpiv58ccMYnGBFLn82Mmh9/I9dtWEAgdnBjyXb/fgksJ4QvHLCm7s58lN/CkCi10r85ulk8J3kxQMw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:1104c1e3bae17c937adad19e5756ea1236acca1fc8431b8432db88623c9eb7db
+    treeIntegrity: sha256-tree-v1:5d07251b3d425bac98af2601f225d996d14eca3ee3a51a526f40f83309dba8f4
   ship:
     type: registry
     sourceType: registry
@@ -219,11 +219,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: ship
-    resolvedVersion: 0.2.0
-    integrity: sha512-Rhu41ABSCzriBTmMfIUfd/B1sZIvaR6uM/d12JaouSrxP1J1CbY56gvCsUpp5oKzhZoNAwlcUQ0b0sQ+rsYheg==
+    resolvedVersion: 1.0.0
+    integrity: sha512-TP+ExCRM0RNKhF+90OD2I+9QufVP//w+f4qhNii4Majw1LX0/FqidrXJx3Y5icDxuW4pqWfmXWO3JKCdR6DVNQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:a68780937affdbe30e0003b69c471001d962e5fde3a544b41985a1b16eb4e594
+    treeIntegrity: sha256-tree-v1:8b6cc0ee6f4f9bedb0b8e64ba08d00ef387d4bddcc490a8dac672312e9e7e850
   spec:
     type: registry
     sourceType: registry
@@ -233,11 +233,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: spec
-    resolvedVersion: 0.3.0
-    integrity: sha512-jspdqNBv8DRbtySthTd+qd9da46IPdFJfddFhdwLrLiqWbA9v2Pk8RRHXMHi9M8UVVSxGppOpxzY6vWipR3Ldw==
+    resolvedVersion: 2.0.0
+    integrity: sha512-k75K0T6Sn+Y/q98FYX1vS1FfpYCnduB3Pvcdps/xfGYJcmKjBPLkaBHLGgrfuuRlzwtnTOEj2yXjedukVpNSVw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f3819644178f8859900b5dc05b090de1d4d177e7355351d45719e381b16e72d4
+    treeIntegrity: sha256-tree-v1:fcaa4739e27b85d3a409daf306991be91ab6f976c759c84fc52d09f9cd6fe3ca
   shape:
     type: registry
     sourceType: registry
@@ -247,11 +247,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: shape
-    resolvedVersion: 0.2.0
-    integrity: sha512-y6TsCmAEVxe6DzMHxjfxmks1U4/TdHIw310jtiDm84+Cn+6sEE3ktayNFAo0lD73MGwTH6vefTKHUhfxgWbpGw==
+    resolvedVersion: 2.0.0
+    integrity: sha512-OIlZaaPARZKSUyDVqb1tVyyiCkPXOSwNcoN37qXP1n1PVIoo4AQPT9+Go/t3ho9FNZXVKvXH9g08iNUreamE8w==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f0eb623efb8ce07df28cdf82a26b7a64ec57c3a71d5996edd017fb6189d00eea
+    treeIntegrity: sha256-tree-v1:cfec6595e2918e78c55bba3aaa8377e6280b59f86e335fa6e4219638d123559c
   design:
     type: registry
     sourceType: registry
@@ -261,11 +261,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: design
-    resolvedVersion: 0.3.0
-    integrity: sha512-ZJU4pwosoG8TEtDKns1Qr5pFW5TfTwM5WABEwEKRKBT28kL21Yy+K/MHzI87k1+uB5PjvXZaERznHVCsXbujeA==
+    resolvedVersion: 2.0.0
+    integrity: sha512-SZtVGmwUQfj7G1/L97VqhDHgU/jcDlepgddbwnU8yDN0uoEfhDlpmL3oSJHmX0/UPW5BwhvB9zsnE1JO/rjH/Q==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:bd1befdb8d4d3d3fd84c324cbe58207c2ca428ae5c7d614ce93b7a162d65ff16
+    treeIntegrity: sha256-tree-v1:d5ce7d825007b4be722d4d64dc4ce1786594a04a0b6284088bfbdcf988fb689e
   review:
     type: registry
     sourceType: registry
@@ -275,11 +275,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: review
-    resolvedVersion: 0.3.0
-    integrity: sha512-tY/da8qhGO/qir+CFNx6XFpXw5Z5RR2Ai+AyXxW1inuPVutqHgmh+DId1QuCWeaAIJoAVt97GGk74JnWjXKwEg==
+    resolvedVersion: 1.0.0
+    integrity: sha512-l8NYG6sSNw/5+Ii7tDYJQxA9mhSHptz+K6iNC2DS8u0cmmTL25NiWMYe9i+HGpxWZSoK17E6csWOv1fazi78Gw==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:ed9bade8daf24cc856fc4f3f5651f9579bcbcd8c977a1ddf00e7716eb1bfb940
+    treeIntegrity: sha256-tree-v1:c5915b4a5f4bc4e8f364e47488d6a561a53916a3602013c6eba06f1bffff5507
   implement:
     type: registry
     sourceType: registry
@@ -289,11 +289,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: implement
-    resolvedVersion: 0.3.0
-    integrity: sha512-7I+ya1zvHHnuwNAoe8IidY+T6IeL088EZfxxO1LfBu4FC3dcXkyd5wFUUsZNcjW3BJdZ+GbAerPMFlnU9WtvKQ==
+    resolvedVersion: 2.0.0
+    integrity: sha512-xZvrDTMZHw98fpfC9533NW/Ft0me0RM32d2tKbr0nj2QL+4LPh7cJbX7uPdOw2ZxCMFOikmOHCK9I/a+u63Eug==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:20831c39c0ef7f8fce5291b0369e27b3fae9a88f0e42ac6df61bb4475ae304fb
+    treeIntegrity: sha256-tree-v1:f5058d259a493ac2042442b4eee2ea451d623c53678c635bdb7351b8d7875849
   investigate:
     type: registry
     sourceType: registry
@@ -303,11 +303,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: investigate
-    resolvedVersion: 0.2.0
-    integrity: sha512-s37LoweCLRAf297j7tKqzng2COAX6GUaNrWn4Ai1pSX3AC/rMeHIOYoxjnNDunLmCzxQxwkJyL0ns0eRfZYgqg==
+    resolvedVersion: 0.3.0
+    integrity: sha512-za5ct8/MjbBnHzfv+LPwwsQeZetcbwIYuhyMjgqhVzPPBP5O0qCDLjFuDd2IA34GBysQGQ2bQzyAs4/+JP7XKQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:ea9153f347065d6e9abf1613d712986d75720fc354ee02ebfc465b056c5e1a3c
+    treeIntegrity: sha256-tree-v1:2f9c3e52d3b193ee299211d0fd3acda7adedc70c5c83d1cec8e9281907c61dc5
   sync-change:
     type: registry
     sourceType: registry
@@ -317,25 +317,11 @@ skills:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: sync-change
-    resolvedVersion: 0.1.0
-    integrity: sha512-6km5ntZP/lnIyo63EXlAqpbXUt3JaGGagJEeNXcuKEoxV4JiG911Q5CXml2ARF42Y5H0zcAvUl+6WqL3N7vtEg==
+    resolvedVersion: 2.0.0
+    integrity: sha512-Xbb9CCssBfx+1+a07AzWvlJIbPv8AJ9hsYW/mbuMB8uATGe1saL/sz9bMGCdsoE1rvFgsNCsiSaHZh5+T/GJWg==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:be098c2449d188dc7740528d9d68b919215e537c60e62f05ff314e0ba5fc2026
-  quick-change:
-    type: registry
-    sourceType: registry
-    endpoint: https://registry.agentxm.ai/
-    extensionType: skill
-    workspaceName: quick-change
-    packageFormat: agentxm
-    owner: "@craigsmitham"
-    name: quick-change
-    resolvedVersion: 0.1.0
-    integrity: sha512-HTZegZw4HQsqosfndW8AA5uMGDUEaQ6eIE3/Qn/GxDZEy2HuQ77H70YRwY9C5sZZlXryQCdP9e4SHFdqigFb/A==
-    sourceName: agentxm
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:5bf5605acca7d3014b76a3b53c82ed2e3c768b017af535cd542e2020692f05ee
+    treeIntegrity: sha256-tree-v1:3689884071efdc680f6ea860395ef42d8caa0bfe7ea86897a7398bcbf68d5a07
 subagents:
   researcher:
     type: registry
@@ -346,11 +332,11 @@ subagents:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: researcher
-    resolvedVersion: 0.1.0
-    integrity: sha512-SQlrwL34EtEnkvA+m6equIDxntX9tabEH/z7dWE6TbC4bxK7ObFX84h4bUlWHXBUw303/2I53MzLLUnIa/Si7g==
+    resolvedVersion: 0.1.1
+    integrity: sha512-i5qlpV4X8HDAgtXe7eOXdAYwBZyqZ68dAF+Om2+8MYgXQjfWxd1qNTv1SY5HJLr+QiFuDE2UeiBgJ2LqTWUpyQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:b7aabb1618054c62e66291d09df3d8c8ade2fedd4b182228daf169969df2bb5b
+    treeIntegrity: sha256-tree-v1:f727a4ea0793aceb32a8eb1650f0230d7ee9590fd28504c6fa8ba14e130207f5
   reviewer:
     type: registry
     sourceType: registry
@@ -488,11 +474,11 @@ knowledge:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 0.25.0
-    integrity: sha512-l8LR1tdNeVaTtLV7GH/v0VwtzRugj5uSHQ6K4/pwSg9ckMbMcmzLo2ubmyumQjJBuvup0IAnf7viD46AQ6TY8Q==
+    resolvedVersion: 2.0.0
+    integrity: sha512-J1qsotWb5ugGwAcRRFuh3uJ8wAbmRZvDYzum7JwhAe72OtUtiXmMyOI3VdRp9aqYrB4XbqjTdBDB2z9Vp7mACQ==
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f9cac706e4a6b228fb067bc7f0625f6679e9bb22428cd2b951cff7a8e47d7b99
+    treeIntegrity: sha256-tree-v1:02963d087fabccc462b71584a238073bbae9fea493a7c7be2f2f46741abe77eb
 packs:
   field-notes:
     type: registry
@@ -578,9 +564,9 @@ packs:
     packageFormat: agentxm
     owner: "@craigsmitham"
     name: gen-stack
-    resolvedVersion: 4.2.0
-    integrity: sha512-GG3iV0e+tO5ocdHWHvq9BqptXWbDpGAPAVugSyB5+aNyiunN8STTMgxWRR57JSuzukKQX5UXFyzir3DbZLqsGQ==
-    manifestContentIdentity: 172b634abf6e42b856a63246ca558c5ee343572f3f60a66010e46c3f22e83431
+    resolvedVersion: 7.0.0
+    integrity: sha512-o2DfP4irPDmEtse7ntChS8qFgREtGjCnjEen9xjHn/IBuo3Vd0fnquWhVecMKrrp5iCclj9JQYyKY80YnF3Frw==
+    manifestContentIdentity: 5f54d0dfc637f764340ea27988f09a723f1ae170bc3498d01fb535e5f5663d74
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:61349a59005ebeb739fc6734aa266c699aff4a72b0fd30610adca40dcdf3e076
+    treeIntegrity: sha256-tree-v1:3019355c2512c69b1bb57e899498cff3ebdfcd745712b2d01e90d05ac6be9558

@@ -19,7 +19,12 @@ Gen Stack is a human-governed development method. Agents can gather evidence,
 surface tensions, develop alternatives, recommend responses, and draft
 artifacts. Only the applicable human or institutional authority can ratify
 Intent, Requirements, Architecture, or another binding decision. An agent must
-keep a candidate's maturity separate from its authority to be acted on.
+keep governed meaning maturity separate from focused artifact state and action
+authority. Pitch, Change Specification, Change Design, and plan use only
+`Draft`, `Ready`, and `Accepted`; their first coherent Draft and state changes
+are persisted in one canonical Change target. Their portable presentation uses
+one first-screen order—identity, state, canonical target, bindings, Summary,
+and Open items—before progressively disclosing detail.
 
 The authority and transformation model is influenced by Chad Fowler's
 [The Generative Stack](https://chadfowler.com/regenerative-software/3miwhqqvwxc2x/)
@@ -28,7 +33,7 @@ applies John R. Boyd's OODA semantics from
 [The Essence of Winning and Losing](https://www.coljohnboyd.com/documents/1995-06-28__Boyd_John_R__The_Essence_of_Winning_and_Losing__PPT-PDF.pdf).
 The shaping workflow is conceptually influenced by Ryan Singer and Basecamp's
 [Shape Up](https://basecamp.com/shapeup/) guidance while adapting the Pitch and
-breadboard to Gen Stack authority and repository impact. The documents here
+proportional impact sketch to Gen Stack authority and repository impact. The documents here
 are an original synthesis for this extension family; they do not reproduce
 those sources' text, diagrams, or templates.
 
@@ -81,6 +86,14 @@ location, adoption, indexing, or relationship logic.
 Synchronization edits only the producer-owned `relationships` block, preserves
 unrelated frontmatter, and refuses to write when authoritative assertions are
 malformed or contradictory.
+
+Version `2.0.0` standardizes durable artifact presentation across Pitch,
+Change Specification, Change Design, plan, Review, Ship, and Change
+coordination. Each portable result puts exact identity, lifecycle or outcome,
+canonical location, Summary, and Open items first; uses stable textual keys,
+vertical cards, and tables of at most four columns; and omits empty optional
+sections. Emoji and color may decorate host projections but never carry
+meaning by themselves.
 
 Version `0.25.0` defines host-neutral synchronization for exact Pitches,
 Change coordination records, Change Specifications, Change Designs, and

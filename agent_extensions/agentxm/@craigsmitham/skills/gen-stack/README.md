@@ -2,12 +2,28 @@
 
 Explains the Gen Stack method, creates reader-oriented briefs, adopts or
 maintains an established `./gen-stack/` corpus under explicit human authority,
-and routes bounded software changes to the pack's focused stages.
+maintains governed meaning and Change coordination, and recommends the smallest
+eligible focused stage without activating it.
 
-Version `3.2.0` routes exact landed Pitch, Change coordination, Change
-Specification, Change Design, and Plan persistence to the host-neutral
-`sync-change` sibling instead of re-authoring or summarizing those artifacts.
-Explicit plan projection remains separate from Plan and from lifecycle stages.
+Version `6.0.0` adds the shared first-screen presentation, structured Open
+items, textual visual keys, optional non-semantic emoji decoration, vertical
+cards, bounded tables, and compact recovery handoffs across stage artifacts.
+
+Version `5.0.0` adds the shared `Draft`, `Ready`, `Accepted` lifecycle,
+event-driven canonical persistence, exact predecessor acceptance, and
+compaction recovery boundary. `quick-change` is deprecated in favor of
+`$spec` followed by `$design`, and Sync Change no longer projects plans into
+derived task records.
+
+`shape`, `research`, `investigate`, `spec`, `design`, `plan`, `implement`,
+`review`, and `ship` run only when explicitly selected. This
+umbrella skill may explain their ownership and recommend one, but it does not
+produce their complete artifacts or invoke them. Ordinary coding, design,
+planning, and review requests do not implicitly adopt Gen Stack.
+
+The active focused stage persists the first coherent Draft and every artifact
+state change. `sync-change` remains the host-neutral manual checkpoint and
+repair path.
 
 Version `3.1.0` routes implementation plans through proportional focused
 Architecture, Requirements, Evaluations, and Implementation review checkpoints
@@ -15,34 +31,30 @@ and uses the pack's fresh read-only Reviewer for checkpoint or integrated final
 assessment.
 
 Version `3.0.0` routes durable coordination through Change, treats Change
-Specification and Change Design as sibling artifacts, treats Bugfix as a Change
-classification, and includes the explicit combined `/quick-change` route.
-Version `2.1.0` adds routing to Shape for raw or mixed change intent. Version
-`2.0.0` made this skill the method, corpus, and orientation surface.
-It no longer tries to be the single executor for an entire change. Requests
-whose desired outcome is a Pitch, Research, diagnosis, Change Specification, Change Design,
-planning, implementation, review, or shipping use the corresponding pack sibling:
+Specification and Change Design as sibling artifacts, and treats Bugfix as a
+Change classification. Version `2.1.0` adds routing to Shape for raw or mixed
+change intent. Version `2.0.0` made this skill the method, corpus, and orientation surface.
+It is not the executor for an entire change. Deliberately select the applicable
+focused sibling:
 
-- `shape`
-- `research`
-- `investigate`
-- `spec`
-- `design`
-- `quick-change`
-- `plan`
-- `sync-change`
-- `implement`
-- `review`
-- `ship`
+- `$shape`
+- `$research`
+- `$investigate`
+- `$spec`
+- `$design`
+- `$plan`
+- `$implement`
+- `$review`
+- `$ship`
 
 `plan` schedules material focused reviews, `implement` dispositions their
 actions, and a fresh integrated `review` assesses the exact final candidate.
 Focused review feedback and Evaluation Results remain separate evidence.
 
-`sync-change` is a cross-cutting host-neutral persistence capability rather
-than another lifecycle stage. It preserves exact landed artifacts in one
-canonical work-item home, verifies persisted readback, and projects an exact
-plan into host-native implementation records only when explicitly requested.
+`sync-change` remains implicitly selectable for explicit manual persistence
+intent with one complete exact artifact. It preserves one canonical work-item
+home and verifies readback; it does not perform automatic state writes or
+plan-to-task projection.
 
 Shape turns raw context into a provisional Pitch; it does not create another
 work-item role or accept desired state. The canonical relationship among the

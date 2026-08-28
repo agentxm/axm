@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "investigate",
-  "version": "0.2.0",
-  "description": "Investigates bounded observed conditions with safe discriminating evidence and no corrective authority",
+  "version": "0.3.0",
+  "description": "Explicit-only stage for investigating bounded observed conditions with safe discriminating evidence and no corrective authority; never select from unprefixed natural language",
   "keywords": [
     "investigation",
     "diagnosis",

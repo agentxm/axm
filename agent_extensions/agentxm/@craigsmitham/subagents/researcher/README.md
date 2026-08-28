@@ -11,12 +11,17 @@ the caller's decision, or subdelegate its work.
 ## Install
 
 ```bash
-axm install @craigsmitham/packs/gen-stack
+axm packs install @craigsmitham/packs/research
 ```
 
 Researcher is not standalone; install it with the Research skill through a
-declared pack. Gen Stack is the current distribution bundle, not part of the
-worker's research semantics.
+declared pack. The Research pack is the supported installation unit for both
+extensions.
+
+## Version 0.1.1
+
+Version `0.1.1` moves coupled distribution to the dedicated Research pack. The
+Researcher contract and authority remain unchanged.
 
 ## Delegation example
 

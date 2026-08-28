@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, plan-binding, bounded-mutation, focused-review delegation, action-disposition, re-review, deviation, verification, and no-shipping failures in implement before release; this suite does not approve the skill.",
+  "decision": "Detect routing, plan-binding, Ready-plan acceptance, bounded-mutation, focused-review delegation, action-disposition, re-review, deviation, verification, and no-shipping failures in implement before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "implement",
     "required_result_fields": [
@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Executing an authorized implementation-ready plan as one evidenced candidate while preserving unrelated work, using fresh read-only focused review feedback, dispositioning every action, re-reviewing stale claims, and returning discoveries to their owners.",
+    "intended_use": "Accepting an exact persisted Ready plan, then executing separately authorized bounded implementation as one evidenced candidate while preserving unrelated work, using fresh read-only review feedback, dispositioning actions, and returning discoveries to their owners.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic authorized-plan, unresolved-design, focused-review correction, upstream review finding, unavailable-freshness fallback, positive-routing, and review-collision cases.",
+    "case_source": "Synthetic authorized-plan, Ready-plan acceptance, unresolved-design, focused-review correction, upstream review finding, unavailable-freshness fallback, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects implement, while unprefixed implementation or adjacent review language must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic repository content, bounded repository mutation, and no external release authority.",
     "support_paths": [
       "knowledge/gen-stack/src"
@@ -73,8 +73,10 @@
     "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "No mutation across unresolved meaning",
+      "Ready-plan acceptance precedes and remains distinct from mutation authority",
       "Reviewer remains read-only and every action is dispositioned",
       "Checkpoint review never becomes final assurance",
+      "Candidate closeout is compact and recoverable",
       "No external shipping",
       "Routing and execution claims remain distinct"
     ],
@@ -112,9 +114,19 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
+        "gate": "Ready-plan acceptance precedes and remains distinct from mutation authority",
+        "case_id": 8,
+        "assertion": "Plan acceptance and repository mutation authority remain distinct and both are established before mutation."
+      },
+      {
         "gate": "No mutation across unresolved meaning",
         "case_id": 2,
         "assertion": "No implementation mutation occurs while the architecture-significant ownership decision is unresolved."
+      },
+      {
+        "gate": "Candidate closeout is compact and recoverable",
+        "case_id": 1,
+        "assertion": "The candidate closes with the shared four-line Artifact, Canonical persistence, Open items, and Next handoff so another context can recover the exact state."
       },
       {
         "gate": "No external shipping",
@@ -134,7 +146,7 @@
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 4,
-        "assertion": "Implement is not selected for an independent review request and no task side effect occurs before selection."
+        "assertion": "Implement is not selected because the host requires explicit invocation."
       }
     ]
   },

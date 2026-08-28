@@ -30,12 +30,12 @@ artifacts:
 | --- | --- | --- |
 | Why and what must change | Change Specification | Intended outcome, scope, affected Intent, Requirement and Architecture meaning, constraints, and semantic Evaluation Protocol changes |
 | How the change should be realized | Change Design | Technical response, alternatives, realization choices, executable evaluation approach, risks, and technical reconciliation |
-| What case is moving through decision and delivery | Change | Identity, classification, source relationships, exact artifact revisions, coherence, lifecycle, delivery and evidence links, and next action |
+| What case is moving through decision and delivery | Change | Canonical target, identity, classification, source relationships, current artifact states and bindings, delivery and evidence links, and next action |
 
-The Change coordinates these concerns; it does not absorb their authority. A
-tracker item may hold all three representations, separate records may be
-linked, or a short-lived Change may remain conversational. The semantic
-boundaries remain the same.
+The Change coordinates these concerns; it does not absorb their authority. One
+tracker item normally acts as the canonical envelope for current Pitch,
+Specification, Design, and plan regions or exact links. This removes the need
+for a separate coordination handoff without merging artifact responsibilities.
 
 ## Three first-class work-item roles
 
@@ -85,11 +85,16 @@ relationship ontology.
 
 ## Lifecycle and readiness
 
-Keep these dimensions separate:
+Pitch, Change Specification, Change Design, and plan share `Draft`, `Ready`,
+and `Accepted`. Each current artifact is updated in place and contains explicit
+Open items. `Ready` and `Accepted` have none. A valid forward-stage invocation
+accepts the exact persisted Ready predecessor; a material edit returns the
+affected artifact and dependent artifacts to Draft.
+
+Keep these other dimensions separate:
 
 - proposal and authorization state;
-- Change Specification maturity and ratification;
-- Change Design maturity and acceptance;
+- shared focused-artifact state and exact revision;
 - Change coherence;
 - implementation, review, and final-action state;
 - evidence state; and
@@ -97,12 +102,13 @@ Keep these dimensions separate:
 
 Artifact polish, implementation completion, or a passing check cannot advance
 another dimension without its own authority and evidence. A Change is coherent
-for planning only when the exact ratified Change Specification and accepted
-Change Design agree, all required semantic Protocols exist, and no
-architecture-significant decision remains implicit.
+for planning only when the exact Specification is Accepted, the exact
+persisted Design is Ready for `$plan`, their bindings agree, all required
+semantic Protocols exist, and neither has Open items. The valid `$plan`
+invocation accepts that Design before dependent planning.
 
 A missing required Requirement-satisfaction or Architecture-realization
-Protocol may be recorded in a draft, but blocks ratification, coherence, and
+Protocol may be recorded in Draft, but blocks readiness, coherence, and
 dependent planning. This gate is the same for every Change, including a
 Bugfix.
 
@@ -115,36 +121,46 @@ copying their content. When this work-item body or its exact native field set is
 the canonical home, store the complete artifacts there under their own
 contracts; that is canonical representation, not duplication.
 
-Use [Synchronizing change artifacts with work-item
-hosts](synchronizing-change-artifacts.md) to create or update those
-representations without re-authoring them.
+Focused stages persist the first coherent Draft and every state change. Use
+[Synchronizing change artifacts with work-item
+hosts](synchronizing-change-artifacts.md) only for a user-requested manual
+checkpoint or repair.
 
-When no richer host exists, use this exact Markdown fallback. Keep every
-heading so the coordination state is portable; write `Not applicable` rather
-than inventing content.
+When no richer host exists, use this compact Markdown fallback. Keep Summary,
+Next, and Current artifacts. Omit optional detail when no material content
+exists instead of filling the envelope with `Not applicable` scaffolding.
 
 ```markdown
 # Change: <bounded outcome>
 
-## Coordination status
-<Proposal, authorization, ownership, and lifecycle state.>
+> **Change:** <stable identity and exact revision>
+> **Canonical:** <work item or exact link>
+> **Coordination:** <proposal, authorization, ownership, and lifecycle state>
 
-## Classification and source links
-<Classifications, including Bugfix when applicable; Signals, Defect Reports,
-incidents, and other provenance links.>
+## Summary
 
-## Artifact revisions
-<Exact Change Specification and Change Design identities and revisions.>
+<The bounded outcome and current coordination condition.>
 
-## Coherence
-<Established | blocked, with reconciliation evidence and named blockers.>
+## Next
+
+- **Action:** <one eligible next action or recovery>
+- **Owner or authority:** <responsible role>
+- **Blocked by:** <None or stable Open-item and decision identities>
+
+## Current artifacts
+
+| Artifact | Exact identity | State | Canonical location and Open items |
+| --- | --- | --- | --- |
+
+## Sources and classification
+
+<Optional when material: Bugfix or other classifications; exact Signals,
+Defect Reports, incidents, and provenance links.>
 
 ## Delivery and evidence
-<Plan, tasks, candidate revisions, reviews, Results, rollout, recovery, and
-observed external state as links with their own status.>
 
-## Next action
-<One eligible next action, its owner or authority, and any blocking decision.>
+<Optional when material: plan, tasks, candidates, reviews, Results, rollout,
+recovery, and observed external state as exact links with their own status.>
 ```
 
 This fallback is a presentation contract, not a new authority layer. A native
@@ -153,7 +169,7 @@ body sections.
 
 ## Completion
 
-A Change can close because it was declined, deferred, superseded, or delivered
+A Change can close because it was declined, deferred, replaced, or delivered
 and verified within declared limits. Closure records the disposition, exact
 artifact and implementation revisions, evidence boundary, residual risk,
 recovery state, and source-record effects. It never implies that linked Defect

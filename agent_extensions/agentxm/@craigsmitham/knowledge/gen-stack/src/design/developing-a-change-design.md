@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Developing a Change Design
-description: Use when one bounded Change needs a proportional technical response; compare material alternatives, realize accepted Architecture and required Evaluation Protocols, and reconcile the exact Change Specification without taking over specification or delivery coordination.
-tags: [change, change-design, technical-design, alternatives, architecture-realization, evaluation-realization, artifact-contract]
+description: Use when one bounded Change needs a proportional technical response; accept an exact Ready Specification, compare only material alternatives, realize Architecture and required Evaluation Protocols, and keep blockers explicit.
+tags: [change, change-design, technical-design, alternatives, architecture-realization, evaluation-realization, artifact-lifecycle, open-items, artifact-contract]
 status: draft
 sources:
   - id: change-design
@@ -45,6 +45,12 @@ Identify the Change, exact Change Specification revision, accepted
 Requirements, Architecture, ADRs, constraints, invariants, required Protocols,
 current realization, authority, and requested design decision.
 
+When the Specification exists, `$design` first verifies that its exact current
+revision is persisted `Ready` with no Open items and accepts it in place. A
+Draft, stale, concurrently changed, or unverified Specification is not
+accepted. Direct design-first entry may produce a Draft but cannot claim a
+missing Specification was accepted.
+
 Design-first entry is valid, but its mechanism remains proposed. Recover every
 implied outcome, obligation, durable boundary, and Protocol claim and return
 those to Change Specification before claiming coherence.
@@ -56,10 +62,10 @@ Develop explicit alternatives when choices materially affect responsibility,
 state, interfaces, failure behavior, quality, security, compatibility,
 reversibility, evidence, cost, or future constraint.
 
-The design may remain conversational when it is immediate and recoverable. Use
-a work-item section when it must survive handoff. Use a dedicated repository
-artifact only when the response evolves independently and has an established
-owner and lifecycle.
+Exploration may remain conversational. Persist the first coherent Design as
+Draft in the canonical Change target, and persist later state changes in place.
+Use a dedicated repository artifact only when it is the established canonical
+target and the work item can link it faithfully.
 
 ## 3. Compare material alternatives
 
@@ -110,15 +116,16 @@ Design may propose optional Implementation-conformance Evaluations for local
 technical contracts. Keep them separate. A durable or release-critical claim
 returns to Change Specification for Requirement or Architecture classification.
 
-## 6. Record maturity and acceptance
+## 6. Record state and Open items
 
-Use an explicit design state such as exploring, recommended, proposed,
-accepted, rejected, or superseded. Name the authority for acceptance and the
-exact decision requested. Acceptance of Design does not ratify semantic change
-or authorize implementation.
+Use only `Draft`, `Ready`, or `Accepted`. Put every next-acceptance blocker in
+Open items with its authority role and observable resolution condition. Keep
+non-blocking technical risks elsewhere.
 
-Record unresolved technical decisions, evidence needed, owner, and which later
-action each one blocks.
+Design becomes Ready only when it is complete for Plan, reconciles with the
+exact Accepted Specification, has no Open items, and authoritative readback
+verifies it. `$plan` accepts that exact Ready Design before dependent planning.
+Design acceptance does not ratify semantic change or authorize implementation.
 
 ## 7. Reconcile with Specification
 
@@ -130,79 +137,96 @@ Record one of:
   Architecture, constraint, or semantic Protocol delta; or
 - `blocked` — name the missing authority or evidence.
 
-The Change coordination record establishes coherence only after it binds the
-exact ratified specification and accepted design revisions and the
-reconciliation evidence supports agreement.
+The canonical Change target establishes coherence from exact artifact
+bindings, states, Open items, and reconciliation evidence. No separate
+coordination handoff is required.
 
 ## Representation
 
 Use a native design format when it can carry the same semantics. In a
-Markdown-only host or conversation, use this exact fallback. Keep every
-top-level heading and write `Not applicable` where justified.
+Markdown-only host, use this compact fallback. Omit an optional subsection
+when no material choice or concern exists.
 
 ```markdown
 # Change Design: <bounded technical response>
 
-## Design status and acceptance request
-<Exploring | recommended | proposed | accepted | rejected | superseded; exact
-decision requested and authority.>
+> **Artifact:** <stable Design identity and exact revision>
+> **State:** `<Draft | Ready | Accepted>`
+> **Canonical:** <work item, native field set, body region, or exact link>
+> **Bound to:** <exact Accepted Change Specification identity and revision>
 
-## Change and specification binding
+## Summary
+
+<The selected technical response, why it fits, and its most consequential
+effect.>
+
+## Open items
+
+- **OI-1 — <blocker>**
+  - **Authority:** <responsible role>
+  - **Resolves when:** <observable condition>
+
+## Bindings
+
 <Change identity; exact Change Specification revision; accepted Requirements,
-Architecture, ADRs, Protocols, constraints, invariants, and non-goals.>
+Architecture, ADRs, Protocols, constraints, invariants, current realization,
+evidence, assumptions, and material forces.>
 
-## Context and forces
-<Current realization, evidence, assumptions, decision criteria, and material
-technical ambiguity.>
+## Specification reconciliation
 
-## Alternatives
-<Viable options in parallel form and materially considered exclusions.>
+- **Status:** <conforms | specification revision required | blocked>
+- **Specification:** <exact identity and revision>
+- **Semantic deltas:** <None or named deltas and their owning route>
 
-## Comparison
-<Decision-relevant comparison before any recommendation.>
+## Decision
 
-## Recommended or accepted technical approach
-<Selected response, rationale, maturity, and remaining uncertainty.>
+<When a real choice exists, use this compact comparison; otherwise state the
+fully constrained response and rationale briefly.>
 
-## Responsibilities and interactions
-<Technical ownership, dependencies, calls, messages, events, ordering, and
-concurrency.>
+| Option | Benefits | Costs and risks | Disposition |
+| --- | --- | --- | --- |
 
-## Interfaces, state, and data
-<Contracts, compatibility, validation, ownership, lifecycle, consistency,
-persistence, and migration.>
+## Technical response
 
-## Failure and quality behavior
-<Failure handling, recovery, observability, security, privacy, accessibility,
-performance, and operational behavior.>
+### Responsibilities and interactions
+
+<Ownership, dependencies, calls, messages, events, ordering, and concurrency.>
+
+### Interfaces and state
+
+<Interfaces, compatibility, validation, data, and state transitions.>
+
+### Failure, qualities, and operations
+
+<Failure behavior, quality attributes, security, privacy, accessibility,
+observability, and operations.>
 
 ## Architecture realization
-<Mapping from each accepted Architecture authority to technical realization.>
+
+| Authority | Technical realization | Evidence boundary |
+| --- | --- | --- |
 
 ## Evaluation realization
-<Required Protocol mapping; seams; data and environments; execution and
-evidence; failure and inconclusive handling; traceability and maintenance.>
 
-## Implementation-conformance Evaluations (optional)
-<Separate local technical claims, or Not applicable.>
+| Protocol | Executable realization | Execution and evidence | Failure and maintenance |
+| --- | --- | --- | --- |
 
-## Migration, rollout, rollback, and recovery
+## Rollout and recovery
+
 <Compatibility windows, state transitions, irreversible points, safeguards,
 and recovery.>
 
-## Implementation boundaries
-<Affected units and seams, without implementation sequencing.>
+## Consequences and residual risks
 
-## Consequences and risks
-<Tradeoffs, residual risk, operational burden, and future constraints.>
-
-## Unresolved technical decisions
-<Question, evidence or authority needed, owner, and blocked action.>
-
-## Specification reconciliation
-<Conforms | specification revision required | blocked; exact revision and
-named semantic deltas.>
+<Affected Implementation boundaries without sequencing; tradeoffs, residual
+risk, operational burden, optional Implementation-conformance Evaluations, and
+future constraints.>
 ```
+
+Omit the options table when there is no real choice, and omit any optional
+technical subsection that has no material content. Keep the mapping tables
+short; link deep evidence rather than copying it. For `Ready` or `Accepted`,
+write `- None.` under Open items.
 
 ## Completion criteria
 
@@ -214,7 +238,8 @@ named semantic deltas.>
 - Accepted Architecture and every required Protocol have concrete technical
   realization.
 - Optional Implementation-conformance Evaluations remain separate.
-- Maturity, acceptance authority, risks, and unresolved decisions are clear.
+- State, risks, and Open items are clear.
+- Ready and Accepted contain `- None.` under Open items.
 - Specification reconciliation is explicit.
 - No implementation plan, delivery coordination, code mutation, or semantic
   acceptance is implied.

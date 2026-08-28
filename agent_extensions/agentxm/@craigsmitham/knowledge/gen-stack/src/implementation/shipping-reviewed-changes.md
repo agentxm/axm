@@ -62,6 +62,55 @@ Observations to the Gen Stack control loop.
    disposition, and any new Signal. Results do not update desired state
    automatically.
 
+## Action result
+
+Use this compact portable result when the host has no richer equivalent:
+
+```markdown
+# Ship result: <bounded action>
+
+> **Subject:** <exact reviewed revision>
+> **Action:** <merge | deploy | publish | roll out | activate | other>
+> **Target:** <exact repository, environment, registry, or system>
+> **Outcome:** `<host-native state or portable state below>`
+
+## Summary
+
+<What was requested, what actually happened, and whether attention is needed.>
+
+## Authority
+
+- **Mutation authority:** <identity and authorized scope>
+- **Release decision:** <identity and exact subject>
+- **Executor:** <responsible role or system>
+
+## Observed effects
+
+- **Changed:** <exact targets and resulting identities>
+- **Unchanged:** <expected or protected targets>
+- **Partial or unknown effects:** <None or exact boundary>
+
+## Verification
+
+- **Authoritative readback:** <performed observation and result>
+- **Post-action checks:** <performed checks with revision, environment, and time>
+- **Observation window:** <completed or still pending>
+
+## Recovery and residual risk
+
+- **Recovery state:** <not needed | available | attempted | observed | incomplete>
+- **Residual risk:** <None or bounded risk, owner, and trigger>
+- **Next safe action:** <observation, recovery, or explicit next stage>
+
+## New observations
+
+- <None or exact new Signal or Observation returned to Orientation>
+```
+
+Keep the user-visible state and any requested recovery near the top. Link deep
+host evidence rather than copying logs. Do not add focused-artifact state to a
+ship result; shipping outcomes are a separate dimension.
+
 ## Partial and failed outcomes
 
 Report which targets changed, which did not, whether rollback was attempted and
@@ -80,4 +129,3 @@ Shipping may complete as `shipped-and-observed`, `shipped-awaiting-observation`,
 - Persisted external state was read back.
 - Post-action evidence and remaining unknowns are bounded.
 - New Observations return to Orientation rather than becoming automatic approval.
-

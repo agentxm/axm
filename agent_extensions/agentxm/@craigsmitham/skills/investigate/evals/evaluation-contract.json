@@ -9,13 +9,13 @@
   "scope": {
     "intended_use": "Answering one bounded diagnostic question with safe discriminating evidence while preserving expectation authority, uncertainty, and corrective boundaries.",
     "stages": ["routing", "execution"],
-    "case_source": "Synthetic defect, unsafe-correction, positive-routing, and research-collision cases.",
+    "case_source": "Synthetic defect, unsafe-correction, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": ["Independent conformity approval", "Production readiness", "Compatibility with untested hosts or models"]
   },
   "unit": "One isolated attempt at one case under one recorded host, model, configuration, catalog, and authority policy.",
   "environment": {
     "required_result_fields": ["environment.host", "environment.model", "environment.configuration_identity", "environment.active_catalog", "environment.routing_mode", "environment.sandbox", "authority.policy", "authority.network", "started_at", "ended_at"],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects investigate, while unprefixed diagnostic or adjacent research language must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic evidence, no production access, and no corrective or release authority.",
     "support_paths": ["knowledge/gen-stack/src"]
   },

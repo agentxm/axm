@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "subagent",
   "name": "researcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Performs one fresh-context, read-only Research Brief framing or evidence-gathering phase",
   "keywords": [
     "research",
@@ -16,7 +16,7 @@
   ],
   "fallback": "auto",
   "recommendedPacks": [
-    "@craigsmitham/packs/gen-stack"
+    "@craigsmitham/packs/research"
   ],
   "standalone": false,
   "repository": {

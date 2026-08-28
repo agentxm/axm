@@ -105,10 +105,11 @@ broader Orient activity.
 
 **Pitch** (`pitch`) is the provisional, evidence-linked articulation produced
 through Shape. It states the problem or opportunity, intended outcome,
-appetite, boundaries, anticipated cross-stack and filesystem impact, rough
-response contours, risks, authority state, and requested response. A Pitch may
-remain conversational or be persisted in a host, but it is not Intent, a
-Requirement, Architecture, Change, Change Specification, Change Design, a Work item, or an
+appetite, boundaries, anticipated material impact, optional response contours,
+risks, artifact state, and Open items. A coherent Pitch Draft is persisted in
+its canonical Change target; chat-only edits remain transient until a state
+change or manual checkpoint. A Pitch is not Intent, a Requirement,
+Architecture, Change, Change Specification, Change Design, a Work item, or an
 implementation commitment. Its anticipated changes become accepted meaning
 only through their owning authorities and lifecycles.
 
@@ -435,11 +436,11 @@ become canonical structural elements merely by projecting them.
 
 **Change** (`change`) is the durable coordination case for one bounded proposed
 or authorized software change. It owns identity, classification, source
-relationships, lifecycle, the exact Change Specification and Change Design
-revisions in force, their coherence, delivery and evidence links, and the next
-eligible action. It does not own the semantic or technical meaning contained
-in those artifacts and does not accept or authorize them merely by linking
-them.
+relationships, lifecycle, the canonical artifact target, current Pitch,
+Change Specification, Change Design, and plan states and exact revisions,
+delivery and evidence links, and the next eligible action. It does not own the
+semantic or technical meaning contained in those artifacts and does not accept
+or authorize them merely by linking them.
 
 **Bugfix** (`bugfix`) is a classification of a Change whose explicit remedial
 purpose is to remediate one or more established Defects. Remediation may
@@ -454,10 +455,10 @@ for one Change. It composes the motivating sources and intended outcome, scope
 and exclusions, affected Intent, exact Requirement and Architecture
 dispositions, constraints and invariants, risks and unresolved semantic
 decisions, and required Requirement-satisfaction and Architecture-realization
-Evaluation Protocol meaning. It owns its own maturity, ratification state, and
-ratification request.
+Evaluation Protocol meaning. It uses the shared focused-artifact state and an
+explicit Open items section.
 
-A Change Specification ready for human ratification dispositions every
+A Change Specification is Ready for Design only when it dispositions every
 affected Requirement, Architecture authority, and required semantic Protocol,
 leaves no architecture-significant choice implicit, and remains agnostic about
 executable Evaluation realization and Implementation-conformance Evaluations.
@@ -471,15 +472,39 @@ material alternatives and comparison, the selected technical approach,
 responsibilities and interactions, interfaces, state and data behavior,
 failure and quality behavior, risks, Architecture realization, executable
 realization of required semantic Protocols, optional Implementation-
-conformance Evaluations, unresolved technical decisions, its own maturity and
-acceptance request, and Specification reconciliation.
+conformance Evaluations, unresolved technical decisions, shared focused-
+artifact state, Open items, and Specification reconciliation.
 
 Change Design may reveal candidate Requirements or proposed Architecture
 changes, but it does not accept them. A durable or release-critical semantic
 claim returns to Change Specification and its authority. The Change
-coordination case establishes coherence only after it binds exact ratified
-Specification and accepted Design revisions whose reconciliation supports
-agreement.
+work item establishes coherence from the exact Accepted Specification, exact
+Ready Design, their reconciliation, and empty Open items. A valid `$plan`
+invocation accepts that Design before dependent planning.
+
+**Focused artifact state** is the common update-in-place lifecycle for Pitch,
+Change Specification, Change Design, and implementation plan:
+
+- **Draft** means useful current work exists but Open items or persistence and
+  coherence conditions block dependent acceptance.
+- **Ready** means the exact artifact is durably persisted, verified, complete
+  for its named consumer, and has no Open items.
+- **Accepted** means the named forward-stage invocation accepted that exact
+  persisted Ready revision before dependent work.
+
+`$spec` accepts a Ready Pitch, `$design` accepts a Ready Change Specification,
+`$plan` accepts a Ready Change Design after confirming an Accepted
+Specification, and `$implement` accepts a Ready plan after confirming Accepted
+Specification and Design bindings. Material edits return the current artifact
+and affected dependents to Draft in place. This lifecycle does not include a
+`superseded` state and does not govern review, release, or Requirement and
+Architecture lifecycle.
+
+The portable presentation leads with exact artifact identity, state, canonical
+target, upstream bindings, Summary, and Open items. Presentation keys never
+replace their text labels or collapse artifact state, persistence fidelity,
+review disposition, Evaluation Result, explicit absence, and final-action
+outcome into one status.
 
 Neither artifact is necessarily a standalone document. A native work-item
 field set, conversation, linked document, or established repository format may

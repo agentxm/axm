@@ -98,34 +98,71 @@ do not claim that the final independence condition was established.
 ```markdown
 # Review: <Change and exact subject>
 
+> **Subject:** <exact immutable revision or diff>
+> **Mode:** `<checkpoint | final>`
+> **Focus:** `<architecture | requirements | evaluations | implementation | integrated>`
+> **Result:** <one allowed disposition or recommendation>
+
 ## Decision
-<Mode, focus, one disposition or recommendation, release-readiness boundary,
-blocking findings, and material unknowns.>
+
+- **Release readiness:** <not assessed | ready | not ready | not established>
+- **Basis:** <one or two sentences>
+- **Blocking findings:** <IDs or None>
+- **Material unknowns:** <IDs or None>
 
 ## Required actions
-<Ordered owner, required outcome, observable completion condition, and finding.>
+
+### A-1 — <priority> — <required outcome>
+
+- **Owner:** <responsible role>
+- **Done when:** <observable completion condition>
+- **Finding:** <F-ID>
 
 ## Findings
-<Stable identity, severity, affected authority or location, problem,
-consequence, evidence and confidence, required outcome, and route.>
+
+### F-1 — <severity> — <actionable title>
+
+- **Affects:** <exact authority or candidate revision and location>
+- **Problem:** <violated expectation or risk>
+- **Consequence:** <why it matters>
+- **Evidence and confidence:** <concise evidence and confidence>
+- **Required outcome:** <resolution without unnecessary prescription>
+- **Route:** <spec | design | plan | implement | investigate | evaluation owner>
 
 ## Assurance summary
-<Compact disposition of Requirements, Architecture, semantic Evaluations,
-Implementation, and whole-change integrity.>
+
+| Area | Disposition | Key conclusion | Findings or unknowns |
+| --- | --- | --- | --- |
+| Requirement satisfaction | <disposition> | <one line> | <IDs or —> |
+| Architecture realization | <disposition> | <one line> | <IDs or —> |
+| Semantic evaluation quality | <disposition> | <one line> | <IDs or —> |
+| Implementation quality | <disposition> | <one line> | <IDs or —> |
+| Whole-change integrity | <disposition> | <one line> | <IDs or —> |
 
 ## Material unknowns
-<Missing evidence, bounded claim affected, evidence needed, and owner.>
+
+### U-1 — <title>
+
+- **Missing evidence:** <what is unavailable>
+- **Prevents conclusion about:** <bounded claim>
+- **Evidence needed:** <specific artifact or check>
+- **Owner:** <responsible role>
 
 ## Review boundary
-<Exact subject, comparison authorities, included and excluded scope, performed
-checks, and earlier review evidence consulted.>
+
+- **Compared with:** <exact accepted authorities and artifact revisions>
+- **Included:** <scope>
+- **Excluded:** <scope>
+- **Checks performed:** <concise list or evidence links>
+- **Prior review evidence:** <identities or None>
 ```
 
 Use `SUPPORTED`, `ACTION REQUIRED`, `UNKNOWN`, and `NOT APPLICABLE` for review
 dispositions. Evaluation Results retain `pass`, `fail`, and `unknown`. Keep
-successful checklist detail behind the summary. When no finding is supported,
-state the inspected scope and residual uncertainty rather than claiming
-universal correctness.
+successful checklist detail behind the summary. Omit empty action, finding, and
+unknown bodies, but keep the Decision and Assurance summary. When no finding is
+supported, state the inspected scope and residual uncertainty rather than
+claiming universal correctness.
 
 ## Final check
 

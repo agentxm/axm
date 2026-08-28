@@ -1,13 +1,13 @@
 {
   "skill_name": "shape",
-  "suite_version": "0.2.0",
+  "suite_version": "2.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
       "id": 1,
       "stage": "execution",
       "prompt": "$shape Shape a Pitch for reducing abandonment when a member cannot access the device used for account recovery. The existing synthetic corpus and implementation are supplied. Preserve accepted requirement R-RECOVERY-1, which requires identity verification, and do not choose a new recovery mechanism.",
-      "expected_output": "A Ready-for-response Pitch with the complete presentation order, exact repository-grounded impact, a headingless filesystem breadboard, provisional response contours, and an exact spec or design request.",
+      "expected_output": "A compact Ready Pitch whose first screen exposes exact identity, Ready state, canonical target, Summary, and no Open items before grounded impact and optional response contours; the handoff names Spec without duplicating a Requested response section.",
       "files": [
         {"source": "evals/files/case-1/gen-stack/index.md", "target": "gen-stack/index.md"},
         {"source": "evals/files/case-1/gen-stack/intent/jobs/recover-access.md", "target": "gen-stack/intent/jobs/recover-access.md"},
@@ -18,11 +18,12 @@
       ],
       "artifact_paths": ["gen-stack", "src", "tests"],
       "assertions": [
-        "The `#`/`##` order is Pitch title, Problem or opportunity, Intended outcome, Appetite, Boundaries and no-gos, Impact, Rough response contours, Risks and rabbit holes, Authority and maturity, Requested response, then Disposition; applicable `###` Impact subsections may occur after the headingless breadboard and before Rough response contours.",
-        "The breadboard uses only supplied paths and IDs for existing elements, marks unresolved candidate nodes and anticipated impact provisionally, and does not claim that anticipated meaning is accepted.",
-        "The supplied test file may be consulted as evidence but is not projected as a candidate `[P]`, `[~]`, or `[+?]` breadboard change.",
+        "The portable order is Pitch title; Artifact, State, and Canonical metadata; Summary; Open items; Appetite and boundaries; Material impact; optional Response contours; then Risks and authority.",
+        "Ready is visible on the first screen and Open items contains exactly `- None.`.",
+        "The optional topology sketch uses only supplied paths and IDs, marks anticipated impact provisionally, and does not claim that anticipated meaning is accepted.",
+        "The supplied test file may be consulted as evidence but is not proposed as a required change.",
         "R-RECOVERY-1 remains an accepted constraint rather than being silently revised or copied as a new authority.",
-        "The response makes an exact downstream request and does not choose a recovery mechanism, write a Specification, or implement anything."
+        "The compact handoff names the eligible Spec action without adding a duplicate Requested response section, choosing a recovery mechanism, writing a Specification, or implementing anything."
       ]
     },
     {
@@ -34,7 +35,7 @@
         "The response produces a provisional Pitch rather than refusing all progress or pretending the missing facts are known.",
         "Audience, problem mechanism, and appetite gaps remain explicit and materially affect readiness.",
         "Questions are compact and discriminate between meaningfully different Pitches.",
-        "The disposition is Draft, not Ready for response."
+        "The artifact state is Draft and each blocker appears in Open items."
       ]
     },
     {
@@ -65,11 +66,11 @@
       "id": 5,
       "stage": "execution",
       "prompt": "$shape Produce a Pitch for a repository change, but you have no filesystem or corpus access and the prompt supplies no paths or identifiers. The intended outcome and boundaries are otherwise clear.",
-      "expected_output": "A provisional Pitch whose Impact breadboard explicitly reports unavailable filesystem evidence and the exact inspection needed, without synthesizing paths or IDs.",
+      "expected_output": "A useful Draft Pitch whose Open items identify unavailable repository grounding and the exact inspection needed, without synthesizing paths or IDs.",
       "assertions": [
         "The response does not invent repository paths, concept identifiers, or relationships.",
-        "The headingless breadboard states that filesystem or corpus inspection is unavailable.",
-        "The missing grounding is reflected in authority, maturity, readiness, or disposition.",
+        "The missing repository grounding appears as an Open item with authority and resolution condition.",
+        "The Pitch remains Draft rather than claiming Ready persistence.",
         "The remaining Pitch stays useful and bounded."
       ]
     },
@@ -88,13 +89,13 @@
     {
       "id": 7,
       "stage": "routing",
-      "prompt": "/shape Turn this rough change request into a bounded Pitch with anticipated Gen Stack impact and a repository filesystem breadboard before we specify or design it.",
+      "prompt": "$shape Turn this rough change request into a bounded Pitch with anticipated Gen Stack impact and a repository filesystem breadboard before we specify or design it.",
       "expected_selection": "shape",
       "catalog_neighbors": ["spec", "design", "investigate"],
       "assertions": [
-        "The selected skill is shape.",
+        "The user's explicit skill invocation selects shape.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
         "No task side effect occurs before selection."
       ]
     },
@@ -102,26 +103,26 @@
       "id": 8,
       "stage": "routing",
       "prompt": "Design the technical response for an already coherent Change Specification; compare alternatives for cache ownership, freshness, and recovery.",
-      "expected_selection": "design",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": ["shape", "spec", "design"],
       "assertions": [
-        "Shape is not selected for a request that already asks for the technical response to a coherent Change Specification, and no task side effect occurs before selection.",
-        "Design is the owned outcome.",
-        "Routing does not regress the accepted Specification to a Pitch.",
-        "No implementation begins before selection."
+        "Shape is not selected because the host requires explicit invocation.",
+        "Design is not selected merely from natural-language similarity because it is also explicit-only.",
+        "The routing result records abstention or clarification without activating a Gen Stack stage.",
+        "No task side effect occurs before selection."
       ]
     },
     {
       "id": 9,
       "stage": "routing",
       "prompt": "Diagnose why the synthetic checkout service returns 409 after a retry. Gather discriminating evidence and do not propose a change yet.",
-      "expected_selection": "investigate",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": ["shape", "research", "spec"],
       "assertions": [
-        "Shape is not selected when the requested intermediate outcome is a diagnostic conclusion.",
-        "Investigate is the owned outcome.",
-        "Routing does not invent change intent before diagnosis.",
-        "No correction or Pitch is produced before selection."
+        "Shape is not selected because the host requires explicit invocation.",
+        "Investigate is not selected merely from natural-language similarity because it is also explicit-only.",
+        "The routing result records abstention or clarification without inventing change intent.",
+        "No correction, Pitch, or other task side effect occurs before selection."
       ]
     },
     {
@@ -132,8 +133,22 @@
       "assertions": [
         "The Pitch remains useful and identifies anticipated Requirement-satisfaction or Architecture-realization Protocol claims, lifecycle effects, semantic coverage, or evidence gaps where supported.",
         "It does not prescribe unit, integration, end-to-end, or other test types; test files; Suites; fixtures; harnesses; frameworks; commands; code coverage; or Implementation-conformance Evaluations.",
-        "No test artifact appears as a projected breadboard change.",
+        "No test artifact is proposed as part of anticipated impact.",
         "The requested response routes semantic change to Spec and executable Evaluation realization to Design."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "execution",
+      "prompt": "$shape Shape a synthetic Pitch in canonical work item CH-81. The first coherent draft can bound the problem and appetite, but product authority and the affected Requirement are unresolved. After conversational refinement, the user explicitly resolves both items and says the Pitch is ready for specification. Describe and perform the authorized lifecycle persistence checkpoints against the supplied synthetic host observations; initial and final authoritative readback match the submitted artifact. Do not synchronize every conversational edit.",
+      "expected_output": "One update-in-place Pitch that is persisted first as Draft with explicit Open items, remains unsynchronized during ordinary chat iteration, and is persisted again as Ready with no open items when readiness changes.",
+      "assertions": [
+        "The first coherent Pitch is immediately persisted to CH-81 as Draft and verified by authoritative readback.",
+        "Draft places Open items immediately after Summary and gives each blocker a stable OI identity, responsible authority role, and resolution condition.",
+        "Ordinary conversational refinements do not cause persistence writes.",
+        "The same canonical Pitch location is updated in place when its state changes to Ready; no superseded copy is created.",
+        "Ready has no unresolved open items and the final persisted state is verified.",
+        "No Specification, Design, plan, implementation, or release action is performed."
       ]
     }
   ]

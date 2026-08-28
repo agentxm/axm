@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "ship",
-  "version": "0.2.0",
-  "description": "Performs one explicitly authorized final action on one exact reviewed revision and verifies persisted state",
+  "version": "1.0.0",
+  "description": "Explicit-only stage for one authorized final action on one exact reviewed revision with persisted-state verification; never select from unprefixed natural language",
   "keywords": [
     "ship",
     "merge",

@@ -1,12 +1,17 @@
 ---
 name: ship
-description: Performs one explicitly authorized final action—such as merge, deployment, publication, rollout, or activation—on one exact reviewed revision, then reads back persisted state and reports partial, failed, or observed results. Use only when the user clearly asks to take the final external action and the exact subject, target, review evidence, mutation authority, and release authority are available. Not for planning a release, reviewing readiness alone, treating “looks good” as authorization, or broadening one action across environments.
+description: Explicitly invoked Gen Stack stage that performs one authorized final action on one exact reviewed revision and reads back persisted state. Select only when the user directly invokes `$ship` or the corresponding host control and clearly requests the named action; never select it from an unprefixed natural-language request, even when that request resembles shipping. Not for planning a release, reviewing readiness alone, treating “looks good” as authorization, or broadening one action across environments.
 ---
 
 # Ship
 
 Execute one exact authorized final action, verify what actually persisted, and
 return the result as bounded evidence and new Observation.
+
+Use only after the user explicitly selects `$ship` or the corresponding host
+control. Natural-language merge, deployment, publication, rollout, or
+activation requests do not activate this Gen Stack stage. Selection alone does
+not confer mutation or release authority.
 
 This skill belongs to the Gen Stack pack. Resolve knowledge through active AXM
 scope; in this source workspace read:
@@ -24,9 +29,10 @@ authority from invocation alone, a review recommendation, passing checks,
 workflow status, or phrases such as “ready” or “looks good.”
 
 Resolve one exact Change, its exact Change Specification and Change Design
-revisions, one exact reviewed Implementation revision, one action, one target, required evidence,
-meaning authority already exercised, mutation authority, release authority,
-executor, credentials, approvals, rollback boundary, and observation window.
+revisions, one exact reviewed Implementation revision, one action, one target,
+required evidence, meaning authority already exercised, mutation authority,
+release authority, executor, credentials, approvals, rollback boundary, and
+observation window.
 Keep credentials symbolic and use only declared destinations. If any material
 identity or authority is absent, stop before mutation and name it.
 
@@ -47,7 +53,8 @@ identity or authority is absent, stop before mutation and name it.
    environment, timing, outcome, and limitations.
 7. Report actual effects, changed and unchanged targets, partial or failed
    state, rollback attempted and observed, residual risk, corpus disposition,
-   and the smallest safe next action.
+   and the smallest safe next action using the compact portable result in
+   `Shipping reviewed changes` when the host has no richer equivalent.
 
 Use precise states such as `shipped-and-observed`,
 `shipped-awaiting-observation`, `partially-applied`,
@@ -55,4 +62,5 @@ Use precise states such as `shipped-and-observed`,
 `rolled-back-observed` when the host has no more precise state.
 
 Shipping does not turn Results into desired state. Return new Observations to
-the Gen Stack control loop and route newly discovered work through Orientation.
+the Gen Stack control loop and recommend the appropriate explicit stage for
+newly discovered work without activating it.

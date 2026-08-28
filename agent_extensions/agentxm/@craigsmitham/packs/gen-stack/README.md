@@ -1,131 +1,169 @@
 # Gen Stack
 
-A human-governed software-change operating model that carries a Signal, need,
-issue, or opportunity through proportional uncertainty reduction, coherent
-change definition, implementation with focused review feedback, fresh
-integrated review, authorized shipping, and renewed observation.
+Gen Stack is an opinionated, human-governed realization of the generative-stack
+idea: carry human intent to verified behavior through explicit, composable
+layers, then return operational evidence to the loop. It combines that layered
+pipeline with OODA and a concrete process for bounded software change.
 
-The canonical Process definition and operating-model diagram live in
-[`knowledge/gen-stack/src/processes/deciding-and-realizing-software-changes.md`](../../knowledge/gen-stack/src/processes/deciding-and-realizing-software-changes.md).
-The diagram is a view of that Process, not a second authority:
+People or institutions still accept desired meaning and authorize mutations and
+release. Agents and tools may gather evidence, develop candidates, execute
+authorized work, and report results; Gen Stack does not confer autonomy.
+
+## The stack
 
 ```text
-Signal, need, issue, or opportunity
-                  ↓
-                /shape
-          ↙               ↘
-    /research         /investigate
-          ↘               ↙
-                 Pitch
-                    ↓
-                 Change
-          /spec ⇄ /design
-             ↖ /quick-change ↗
-                    ↓
-           Change coherence gate
-                    ↓
-                  /plan
-                    ↓
-       /implement ⇄ focused review
-                    ↓
-                 /review
-                    ↓
-             Release readiness gate
-                    ↓
-                  /ship
-                    ↓
-       Observe, evaluate, learn, compact
-                    └───────────────↺
+Signals and observations
+          ↓  orient and decide
+        Intent
+      shapes both
+     ↙           ↘
+Architecture ⇄ Requirements
+     ↘           ↙
+  Compilation + Evaluation Protocols
+          ↓               ↓
+  Implementation + Evaluation Executions
+          └──────→ Results and observations ───↺
 ```
 
-Shape may draft immediately, draft provisionally and elicit, discover first,
-or terminate. Research and investigation are optional and may be re-entered
-whenever material uncertainty appears. Specification-first and design-first
-work are both valid, and `/quick-change` produces both canonical artifacts in
-one response. Every route must converge on one Change whose exact Change
-Specification and Change Design revisions are coherent before planning. Review
-feedback may course-correct stable implementation increments; a fresh
-integrated Review recommends a route for the exact final candidate but does not
-authorize release. Shipping is one exact final action under separately
-established authority.
+| Layer | Owns | Typical home |
+| --- | --- | --- |
+| Inputs and feedback | What happened, its provenance, and uncertainty | Source systems, telemetry, incidents, research, Results, and Observations |
+| Intent | Human direction, value, actors, and problem context | Governed concepts in `gen-stack/intent/` |
+| Architecture and Requirements | Durable system shape and accepted obligations on it | Co-developed concepts in `gen-stack/architecture/` |
+| Change and compilation | A bounded why, what, how, and translation into realization | Conversation or work-item host |
+| Evaluation | Durable assessment claims and revision-bound evidence | Protocols in `gen-stack/evaluations/`; Suites, Executions, and Results in native tools |
+| Implementation | Realized behavior within explicit conservation boundaries | Source, schemas, configuration, migrations, and deployment artifacts |
 
-## Included extensions
+Each layer is a composition point: multiple inputs, tools, candidates, and
+evaluation methods can expose different blind spots. Gen Stack keeps that useful
+redundancy while assigning one normative owner to each accepted obligation.
+Evidence may challenge desired state, but it does not rewrite it automatically.
 
-| Extension | Role |
+## An illustrative repository
+
+An adopting repository keeps durable system knowledge under `gen-stack/` while
+realization and evidence remain in their native homes:
+
+```text
+<repository-root>/
+├── gen-stack/                         # durable, human-governed knowledge
+│   ├── index.md
+│   ├── system.md
+│   ├── lifecycle.md                   # system lifecycle
+│   ├── ownership.md                   # system stewardship
+│   ├── decisions.md                   # architecture decision policy
+│   ├── assurance.md                   # confidence and independence policy
+│   ├── intent/                        # outcomes, actors, needs, and value
+│   ├── architecture/
+│   │   ├── capabilities/checkout.md   # an illustrative system subject
+│   │   ├── capabilities/checkout/
+│   │   │   └── requirements/...       # obligations colocated with the subject
+│   │   └── decisions/...
+│   └── evaluations/protocols/...      # durable assessment contracts
+├── src/...                            # current realization
+├── tests/...                          # Suites and executable Cases
+└── .github/workflows/...              # repeatable Executions and evidence flow
+```
+
+The exact governed layout is defined by the
+[Gen Stack application profile](../../knowledge/gen-stack/src/profile/gen-stack-application-profile.md).
+The example does not require a particular language, test framework, tracker,
+model, or deployment platform.
+
+## How a bounded change moves
+
+```text
+Signal
+  ↓
+$shape ↔ $research / $investigate
+  ↓
+Ready Pitch → $spec accepts Pitch → Ready Specification
+                                      ↓ $design accepts Specification
+                              Ready Design
+                                      ↓ $plan accepts Design
+                                Ready plan
+                                      ↓ $implement accepts plan
+          implementation ⇄ focused review → $review → authorized $ship
+                                                        ↓
+                                  observe, evaluate, learn, compact ───↺
+```
+
+The route is proportional: discovery is optional and a useful outcome may be no
+change. Pitch, Specification, Design, and plan share `Draft`, `Ready`, and
+`Accepted`, explicit Open items, and one canonical Change target. The first
+coherent Draft and every state change are persisted; ordinary chat iteration is
+not. Review recommends; separately held authority permits the final action. The
+canonical definition is [Deciding and realizing bounded software
+changes](../../knowledge/gen-stack/src/processes/deciding-and-realizing-software-changes.md).
+
+## Artifact usability
+
+Every portable Pitch, Specification, Design, and plan uses the same first-screen
+order: exact identity, state, canonical target, bindings, Summary, and Open
+items. Stable `OI-<n>`, `A-<n>`, `F-<n>`, and `U-<n>` references make blockers,
+actions, findings, and unknowns recoverable across turns. Detail is disclosed
+progressively, portable tables stay narrow, and Plan work and checkpoints use
+vertical cards. Text labels remain authoritative; emoji and color are optional
+host decoration and never carry meaning alone.
+
+## Invocation model
+
+Gen Stack stages are deliberate user controls, not ambient routing. Selecting a
+stage starts its workflow but does not waive its inputs, semantic authority,
+mutation authority, review evidence, or release authority.
+
+| Selection | Extensions | Purpose |
+| --- | --- | --- |
+| Implicit or explicit | `gen-stack` | Explain the method, orient work, maintain an adopted corpus and Change coordination, and recommend the smallest eligible stage |
+| Explicit only | `$shape`, `$research`, `$investigate`, `$spec`, `$design`, `$plan`, `$implement`, `$review`, `$ship` | Perform one focused change-realization stage after the user deliberately selects it |
+| Implicit or explicit | `sync-change` | Perform a user-requested manual checkpoint or repair for one exact artifact |
+| Internal only | `researcher`, `reviewer` | Supply fresh-context read-only work to an activated skill |
+
+`$stage` is the documentation's host-neutral shorthand for deliberate
+selection; use the host's native skill selector where its syntax differs.
+An unprefixed request such as “design this API,” “fix this bug,” or “review this
+diff” remains ordinary assistant work and does not acquire Gen Stack stage
+semantics. A completed stage may recommend another stage, but recommendations,
+handoffs, readiness, and workflow position never activate it. A valid forward
+invocation does accept its exact persisted Ready predecessor before dependent
+work. Focused stages own automatic lifecycle-event writes; `sync-change`
+handles only manual checkpoints and repairs.
+
+## What the pack installs
+
+| Extension layer | Included capability |
 | --- | --- |
-| `@craigsmitham/knowledge/gen-stack` | Canonical terminology, Process, authority, corpus, work-item, Architecture, Implementation, Evaluation, and learning guidance |
-| `@craigsmitham/skills/gen-stack` | Explain, adopt, and maintain Gen Stack meaning and orient requests to focused stages |
-| `@craigsmitham/skills/shape` | Turn raw or mixed change context into a bounded, repository-grounded, test-agnostic Pitch before specification or design |
-| `@craigsmitham/skills/research` | Frame and execute bounded, read-only evidence research |
-| `@craigsmitham/subagents/researcher` | Perform one fresh, isolated Research framing or evidence phase |
-| `@craigsmitham/skills/investigate` | Diagnose a concrete observed condition with discriminating evidence |
-| `@craigsmitham/skills/spec` | Produce the human-ratifiable Requirement, Architecture, and semantic Protocol delta without prescribing test realization |
-| `@craigsmitham/skills/design` | Compare responses, realize accepted Architecture, and design required Protocol realization plus optional local conformance Evaluations |
-| `@craigsmitham/skills/quick-change` | Produce the canonical Change Specification and Change Design together, reconcile them, and return a thin Change handoff |
-| `@craigsmitham/skills/plan` | Sequence architectural realization, required Protocol feedback, and proportional focused review checkpoints into an implementation-ready plan |
-| `@craigsmitham/skills/sync-change` | Synchronize an exact landed change artifact or deliberately project an exact plan into host-native implementation records with persisted fidelity verification |
-| `@craigsmitham/skills/implement` | Realize an authorized plan incrementally, using Protocol Results and focused review actions as feedback |
-| `@craigsmitham/skills/review` | Assess stable checkpoints through focused lenses and independently assess the exact final candidate through all assurance areas |
-| `@craigsmitham/subagents/reviewer` | Perform one fresh-context, read-only focused checkpoint or integrated final review |
-| `@craigsmitham/skills/ship` | Execute one authorized final action and verify persisted state |
+| Knowledge | `@craigsmitham/knowledge/gen-stack` supplies the canonical vocabulary, operating model, application profile, and guides |
+| Skills | `gen-stack` provides method and corpus orientation; nine explicit stages perform focused work; `sync-change` handles manual artifact checkpoints |
+| Fresh-context subagents | `researcher` performs isolated read-only research; `reviewer` performs focused or integrated read-only review |
 
-Gen Stack orchestration consults an applicable adopted corpus and records a
-truthful disposition for each stage. Generic capabilities such as Research
-return their native evidence artifacts; the Gen Stack caller adds stage and
-corpus meaning without pushing those semantics into the capability. Evidence
-never rewrites accepted meaning automatically.
+Version `7.0.0` adds the shared first-screen artifact presentation, textual
+visual keys, structured Open items, progressive disclosure, vertical cards,
+bounded tables, and compact recovery handoffs across the focused stages.
 
-## Install
+Version `6.0.0` adds the shared update-in-place artifact lifecycle,
+event-driven persistence, exact predecessor acceptance, and compaction recovery
+boundary. It removes Quick Change and plan-to-task projection from the pack;
+use `$spec` followed by `$design`, and treat derived execution records as
+host-native coordination outside Sync Change.
+
+Install the pack rather than its coupled members:
 
 ```bash
 axm install @craigsmitham/packs/gen-stack
 ```
 
-Pack `4.2.0` adds host-neutral exact artifact synchronization across Shape,
-Change coordination, Spec, Design, and Plan outputs. The cross-cutting
-`sync-change` skill preserves one canonical home, inspects the selected host at
-runtime, limits mutation to explicit scope, reads persisted state back, and
-reports fidelity. Deliberate plan projection is separately authorized and does
-not become another lifecycle stage or replace the canonical plan.
-
-Pack `4.1.0` adds the fresh read-only Reviewer, proportional focused
-Architecture, Requirements, Evaluations, and Implementation review checkpoints,
-explicit action disposition during implementation, and a compact integrated
-final Review result. Checkpoint feedback remains distinct from Protocol Results
-and final release-readiness assessment.
-
-Pack `4.0.0` adopts Change as the coordination case, makes Change Specification
-and Change Design sibling artifacts with shared canonical fallbacks, classifies
-remedial Changes as Bugfixes, and adds `/quick-change` for producing and
-reconciling both artifacts in one response.
-
-Pack `3.2.0` adds evidence-guided implementation planning: architecture-bearing
-prerequisites precede dependent behavior, required Requirement and Architecture
-Protocol Executions guide implementation increments, and final Results remain
-exact-revision exit evidence. Implementation-conformance Evaluations stay
-separate and delegated unless an accepted input requires them.
-
-Pack `3.1.0` adds shaping and the provisional Pitch before specification and
-design, complete Spec and Design presentation contracts, full Architecture
-ratification, and the semantic-Protocol-versus-technical-realization boundary.
-Pack `3.0.0` introduced the focused change-realization stages and
-incorporates Research `3.0.0` plus the Researcher subagent. It deprecates the
-separate QRSPI pack and Question skill; Research now owns bounded Research Brief
-framing while remaining independent of Gen Stack stage and corpus semantics.
-
-The Gen Stack corpus remains human-governed. Agents can gather evidence,
-develop candidates, compare options, recommend, draft, encode explicitly
-ratified meaning, and execute authorized mutations. They cannot infer semantic
-acceptance or release authority from workflow position, implementation,
-evaluation results, or artifact polish.
+Start with [How the Gen Stack operates](../../knowledge/gen-stack/src/overview.md).
+To establish the corpus in a repository, follow
+[Adopting Gen Stack](../../knowledge/gen-stack/src/adopting-gen-stack.md).
 
 ## Attribution and license
 
-The synthesis was influenced by Chad Fowler's
+This synthesis was influenced by Chad Fowler's
 [The Generative Stack](https://chadfowler.com/regenerative-software/3miwhqqvwxc2x/)
 and John R. Boyd's
 [The Essence of Winning and Losing](https://www.coljohnboyd.com/documents/1995-06-28__Boyd_John_R__The_Essence_of_Winning_and_Losing__PPT-PDF.pdf).
-See `THIRD_PARTY_NOTICES.md` for provenance.
+See [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) for provenance.
 
 The pack metadata and README are MIT-licensed. Each member retains the license
 declared in its manifest.

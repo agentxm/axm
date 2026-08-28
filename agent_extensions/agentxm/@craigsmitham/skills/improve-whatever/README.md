@@ -18,10 +18,13 @@ Formerly published as `@craigsmitham/skills/eval-whatever`.
 
 Not for narrow conformance checks where a supplied rubric should control.
 
+This skill requires explicit invocation on OpenAI surfaces; matching natural
+language alone does not activate it.
+
 ## Example
 
 ```
-/improve-whatever docs/onboarding-guide.md
+$improve-whatever docs/onboarding-guide.md
 ```
 
 ## License

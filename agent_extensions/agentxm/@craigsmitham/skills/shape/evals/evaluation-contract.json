@@ -20,7 +20,7 @@
   "scope": {
     "intended_use": "Shaping raw or mixed change context into a rough, bounded, repository-grounded Pitch without accepting desired state or selecting, planning, implementing, prioritizing, or authorizing the response.",
     "stages": ["routing", "execution"],
-    "case_source": "Synthetic rich-context, partial-context, high-consequence, solution-biased, unavailable-filesystem, evaluation-agnosticism, positive-routing, and adjacent-stage collision cases.",
+    "case_source": "Synthetic rich-context, partial-context, high-consequence, solution-biased, unavailable-filesystem, evaluation-agnosticism, lifecycle-persistence, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -41,7 +41,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects shape, while the same unprefixed semantic request must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic change sources, Gen Stack knowledge, and no semantic acceptance, implementation, priority, or release authority.",
     "support_paths": ["knowledge/gen-stack/src"]
   },
@@ -63,7 +63,8 @@
     "unknown_policy": "Unavailable target, support path, harness, output, filesystem evidence, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "No invented path, identifier, relationship, or semantic acceptance",
-      "Pitch presentation and headingless breadboard contract",
+      "Compact first-screen Pitch presentation and proportional topology contract",
+      "Draft and state-change persistence is event-driven and update-in-place",
       "No implementation-level Evaluation or test prescription",
       "No specification, design selection, planning, implementation, priority, or release mutation",
       "Routing and execution claims remain distinct"
@@ -89,14 +90,19 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
-        "gate": "No invented path, identifier, relationship, or semantic acceptance",
-        "case_id": 1,
-        "assertion": "The breadboard uses only supplied paths and IDs for existing elements, marks unresolved candidate nodes and anticipated impact provisionally, and does not claim that anticipated meaning is accepted."
+        "gate": "Draft and state-change persistence is event-driven and update-in-place",
+        "case_id": 11,
+        "assertion": "The same canonical Pitch location is updated in place when its state changes to Ready; no superseded copy is created."
       },
       {
-        "gate": "Pitch presentation and headingless breadboard contract",
+        "gate": "No invented path, identifier, relationship, or semantic acceptance",
         "case_id": 1,
-        "assertion": "The `#`/`##` order is Pitch title, Problem or opportunity, Intended outcome, Appetite, Boundaries and no-gos, Impact, Rough response contours, Risks and rabbit holes, Authority and maturity, Requested response, then Disposition; applicable `###` Impact subsections may occur after the headingless breadboard and before Rough response contours."
+        "assertion": "The optional topology sketch uses only supplied paths and IDs, marks anticipated impact provisionally, and does not claim that anticipated meaning is accepted."
+      },
+      {
+        "gate": "Compact first-screen Pitch presentation and proportional topology contract",
+        "case_id": 1,
+        "assertion": "The portable order is Pitch title; Artifact, State, and Canonical metadata; Summary; Open items; Appetite and boundaries; Material impact; optional Response contours; then Risks and authority."
       },
       {
         "gate": "No implementation-level Evaluation or test prescription",
@@ -111,7 +117,7 @@
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 8,
-        "assertion": "Shape is not selected for a request that already asks for the technical response to a coherent Change Specification, and no task side effect occurs before selection."
+        "assertion": "Shape is not selected because the host requires explicit invocation."
       }
     ]
   },

@@ -1,14 +1,15 @@
 ---
 name: gen-stack
-description: Explains, adopts, and maintains the Gen Stack method and an established Gen Stack corpus; creates bounded current-state briefs; develops or records explicitly authorized Intent, Requirement lifecycle, Architecture, ADR, and Evaluation Protocol meaning; and routes software-change realization to the pack's focused skills plus its fresh read-only reviewer subagent. Use for Gen Stack briefs, concepts, corpus adoption or migration, governance, canonical requirements and architecture, Change coordination, or end-to-end process orientation. Not for directly performing a focused stage when its sibling applies, autonomous semantic acceptance, backlog management, or release authorization.
+description: Explains, adopts, and maintains the Gen Stack method and an established corpus; creates bounded current-state briefs; governs authorized shared meaning and Change coordination; and recommends the smallest eligible explicitly invoked stage. Use for Gen Stack orientation, briefs, corpus adoption or migration, governed concepts, or coordination. Not for performing a focused stage, synchronizing a landed artifact, autonomous semantic acceptance, backlog management, or release authorization.
 ---
 
 # Gen Stack
 
-Help a human develop one bounded software change while preserving the authority
-of people, accepted system meaning, realized state, and evidence. Gather,
-analyze, compare, recommend, draft, and faithfully record; do not make the
-product, Requirement, or Architecture decision that the work exists to support.
+Help a human understand and maintain the Gen Stack method, its governed corpus,
+and its coordination surfaces while preserving the authority of people,
+accepted system meaning, realized state, and evidence. Gather, analyze, compare,
+recommend, draft in-scope artifacts, and faithfully record; do not absorb a
+focused change-realization stage or make the decision that work supports.
 
 This skill is a non-standalone member of the Gen Stack pack. Resolve knowledge
 through the active AXM scope. In a source workspace, the paths below are exact
@@ -53,9 +54,10 @@ An agent may:
 
 - collect and organize supplied or safely discoverable evidence;
 - expose conflicts, gaps, consequences, and unknowns;
-- develop candidate Intent, Requirements, Architecture, and Change Design;
+- develop candidate Intent, Requirements, and Architecture outside a focused
+  stage artifact;
 - compare stable alternatives and recommend one;
-- draft artifacts and tracker-ready content; and
+- draft in-scope briefs, governed concepts, and coordination records; and
 - record a decision that the applicable human or institutional authority has
   explicitly accepted.
 
@@ -121,37 +123,33 @@ corpus adoption or migration into an unsupported operation.
 
 Choose one primary branch from the requested outcome, not from a familiar noun.
 
-### Focused change-realization stage
+### Focused change-realization stage recommendation
 
 Read `knowledge/gen-stack/src/processes/deciding-and-realizing-software-changes.md`
 when the request concerns the end-to-end operating model or must be oriented to
-one stage. Use the pack sibling that owns the requested intermediate outcome:
+one stage. The focused stages are explicit-only. Recommend the sibling that
+owns the requested intermediate outcome, but do not invoke it or reproduce its
+complete artifact:
 
-- `shape` for turning raw or mixed change context into a bounded,
+- `$shape` for turning raw or mixed change context into a bounded,
   repository-grounded Pitch before specification or design;
-- `research` for bounded read-only external or distributed evidence and
+- `$research` for bounded read-only external or distributed evidence and
   Research Brief framing;
-- `investigate` for diagnosis of a concrete observed condition;
-- `spec` for the human-ratifiable why and what, including complete Requirement,
+- `$investigate` for diagnosis of a concrete observed condition;
+- `$spec` for the human-ratifiable why and what, including complete Requirement,
   Architecture, and semantic Requirement/Architecture Protocol changes while
   remaining agnostic about test realization;
-- `design` for the proportional technical response, accepted Architecture
+- `$design` for the proportional technical response, accepted Architecture
   realization, required Protocol realization, and optional separate
   Implementation-conformance Evaluations;
-- `quick-change` when explicitly invoked for one combined Change Specification
-  and Change Design response with a Change coordination handoff;
-- `plan` for an implementation-ready sequence with proportional focused review
+- `$plan` for a Ready implementation sequence with proportional focused review
   checkpoints;
-- `sync-change` for exact host-neutral persistence of a landed Pitch, Change
-  coordination record, Change Specification, Change Design, or plan, and for
-  explicitly authorized projection of an exact plan into host-native
-  implementation records;
-- `implement` for an authorized candidate realization that dispositions focused
+- `$implement` for an authorized candidate realization that dispositions focused
   reviewer actions;
-- `review` for focused checkpoint assessment or fresh integrated assessment of
+- `$review` for focused checkpoint assessment or fresh integrated assessment of
   one exact candidate, using the pack's read-only `reviewer` subagent when
   fresh delegation is required; and
-- `ship` for one explicitly authorized final external action.
+- `$ship` for one explicitly authorized final external action.
 
 When orienting someone to the implementation review loop, keep its controls
 explicit. Plans disposition `architecture`, `requirements`, `evaluations`, and
@@ -164,22 +162,30 @@ Checkpoint feedback guides correction and does not establish the fresh
 integrated final review or release readiness.
 
 When raw change intent is not yet bounded or its affected semantic and
-filesystem neighborhood is unclear, route to `shape` instead of forcing a
-Change Specification or Change Design. When this skill was invoked only to orient the
-process, identify the smallest eligible stage, its missing preconditions, and
-its authority boundary, then stop. Do not simulate that sibling's complete
-workflow here. Change Specification and Change Design may start in either order but must
-converge before planning. Any unresolved architecture-significant or
-Protocol-semantic decision returns to Change Specification and human authority rather
-than being delegated to Design or implementation.
+filesystem neighborhood is unclear, recommend `$shape` instead of forcing a
+Change Specification or Change Design. Identify the smallest eligible explicit
+stage, its missing preconditions, and its authority boundary, then stop. A
+recommendation or handoff is not activation. Do not simulate that sibling's
+complete workflow here. Change Specification and Change Design may start in
+either order but must converge before planning. `$quick-change` is deprecated;
+recommend explicit `$spec` followed by `$design` and activate neither. Any
+unresolved architecture-significant or Protocol-semantic decision returns to
+Change Specification and human authority.
 
-Artifact synchronization is cross-cutting representation work, not another
-change-realization stage or readiness gate. When the requested outcome is to
-persist, copy, create, or update a host from an exact landed artifact, route to
-`sync-change` rather than re-running its authoring stage or summarizing it as a
-generic work-item update. When the request explicitly creates implementation
-records from a plan, route the exact plan to `sync-change`; Plan itself does not
-perform the external decomposition.
+Pitch, Change Specification, Change Design, and plan share `Draft`, `Ready`,
+and `Accepted`, one canonical Change target, and explicit Open items. Focused
+stages persist their first coherent Draft and every state change. `$spec`
+accepts Ready Pitch, `$design` accepts Ready Specification, `$plan` accepts
+Ready Design after confirming Accepted Specification, and `$implement`
+accepts Ready plan. Material edits downgrade affected artifacts in place. Use
+the shared first-screen presentation and visual key; do not invent parallel
+status badges, decorative headings, or duplicate handoff fields.
+Review and Ship remain outside this lifecycle.
+
+`sync-change` is only the user-requested manual checkpoint or repair path. It
+may be selected implicitly when both an exact artifact and explicit persistence
+intent exist. It does not perform automatic lifecycle writes or plan-to-task
+projection. This skill does not invoke it after a stage.
 
 ### Gen Stack brief
 
@@ -212,16 +218,17 @@ Bugfix is a Change classification. Title and summary revision is a
 cross-cutting authoring operation, not another role. Read `knowledge/gen-stack/src/work-items/index.md` when classification
 is uncertain; otherwise read the matching Guide:
 
-If the source is already an exact landed Pitch, Change coordination record,
-Change Specification, Change Design, or plan, use the `sync-change` route
-instead of reconstructing it through the general work-item authoring branch.
+If the source is already an exact landed Pitch, Change Specification, Change
+Design, or plan, do not reconstruct it through the
+general work-item authoring branch. An explicit persistence request with that
+exact source belongs to `sync-change`.
 
 - `recording-operational-incidents.md` for current or imminent qualifying
   service impact;
 - `recording-defect-reports.md` for observed behavior that may violate an
   accepted expectation;
-- `writing-change-specifications.md` for a bounded proposed or authorized
-  software change;
+- `changes.md` for Change identity, classification, coordination state, and
+  exact artifact relationships without authoring its Change Specification;
 - `addressing-defects-through-changes.md` in addition when established Defects
   and an authorized remedial purpose classify the Change as Bugfix; and
 - `titling-and-summarizing-work-items.md` for brief-only revision.
@@ -281,17 +288,20 @@ Use deterministic tooling for OKF, structural profile, and relationship-
 projection checks; preserve named semantic review and coverage or fitness as
 separate results. A structurally conforming scaffold is not adopted.
 
-### Change development and orientation
+### Method orientation and governed meaning development
 
 Use when the human wants help understanding a Signal, analyzing Requirement or
-Architecture impact, specifying a candidate Requirement change, developing
-candidate meaning, or comparing a bounded technical response. Read the
-narrowest applicable control-loop, Intent, Architecture, Requirement, Change
-Design, work-item, or Evaluation guide. Use
+Architecture impact, specifying a candidate Requirement lifecycle change, or
+developing governed candidate meaning outside a named focused-stage artifact.
+Read the narrowest applicable control-loop, Intent, Architecture, Requirement,
+work-item, or Evaluation guide. Use
 `knowledge/gen-stack/src/work-items/specifying-requirement-changes.md` only
 after impact analysis identifies an actual desired-state delta. The result may
 be analysis, alternatives, a recommendation, a draft, or a decision request;
 it is not accepted meaning unless the applicable authority explicitly says so.
+Do not emit a complete Pitch, Change Specification, Change Design,
+implementation plan, candidate implementation, review result, or shipping
+result from this branch; recommend the owning explicit stage and stop.
 
 When evidence suggests missing, underdeveloped, misplaced, disputed, stale, or
 contradicted Architecture or Requirements, first read
@@ -433,7 +443,7 @@ indeterminate expectation made visible. A Bugfix is blocked before dependent
 correction work when no accepted expectation defines corrected behavior or
 when unresolved Requirement subject or Architecture placement changes the
 authorized response. A missing required semantic Evaluation Protocol may be
-visible in a truthful draft but blocks ratification, Change coherence, and
+visible in a truthful Draft but blocks Ready state, Change coherence, and
 dependent planning.
 Derive the title and one- or two-sentence summary last from the authoritative
 body. After any external write, retrieve the persisted item and correct only

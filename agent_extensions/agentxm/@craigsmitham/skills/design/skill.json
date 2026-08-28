@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "design",
-  "version": "0.3.0",
-  "description": "Develops the canonical Change Design for one Change and reconciles it with the exact Change Specification",
+  "version": "2.0.0",
+  "description": "Explicit-only stage that accepts a persisted Ready Specification when present and produces one update-in-place Draft-to-Ready Change Design",
   "keywords": [
     "design",
     "pitch",

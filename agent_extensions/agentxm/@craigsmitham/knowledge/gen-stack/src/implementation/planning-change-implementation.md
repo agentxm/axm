@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Planning change implementation
-description: Use when one coherent Change needs an implementation-ready course of action; bind exact accepted revisions, sequence architectural realization, use required Protocols and focused review as feedback, and plan final evidence and recovery without inventing unresolved meaning.
-tags: [implementation, planning, change-specification, dependencies, sequencing, architecture-realization, evaluation-feedback, focused-review, verification, rollout, rollback]
+description: Use when one coherent Change needs a Ready implementation course; accept the exact Ready Design, bind accepted inputs, sequence realization and proportional review, and plan final evidence and recovery without inventing meaning.
+tags: [implementation, planning, change-specification, artifact-lifecycle, open-items, dependencies, sequencing, architecture-realization, evaluation-feedback, focused-review, verification, rollout, rollback]
 status: draft
 sources:
   - id: change-process
@@ -38,14 +38,16 @@ Requirement, durable Architecture, or Protocol-semantic decision.
 
 ## Plan the change
 
-1. **Verify the inputs.** Identify the Change, exact ratified Change
-   Specification and accepted Change Design revisions, accepted Requirements and Architecture, required
+1. **Verify and accept the inputs.** Identify the Change, exact Accepted Change
+   Specification and exact persisted Ready Change Design revisions, accepted Requirements and Architecture, required
    Requirement-satisfaction and Architecture-realization Evaluation Protocols,
    current Implementation revision, constraints, verification conditions,
    authority, and remaining delegated local choices. If required Protocol
    claims, criteria, coverage, or judgment remain unresolved, return to
    Change Specification. If their accepted meaning lacks a technical realization,
-   return to Design. Do not plan across either gap.
+   return to Design. Do not plan across either gap. After verifying exact
+   bindings, no Open items, persistence, and readback, `$plan` accepts the
+   Design in place before dependent planning.
 2. **Inspect realized state.** Resolve affected Implementation Units,
    interfaces, dependencies, data and state, existing tests and Evaluation
    machinery, operational paths, and repository instructions. Treat their
@@ -118,16 +120,17 @@ Requirement, durable Architecture, or Protocol-semantic decision.
    changes desired state, Architecture, or the selected response. Keep
    estimates, assignments, priorities, and target dates absent unless their
    authorities supplied them.
-10. **Derive the plan.** Present the smallest ordered set of implementation
+10. **Derive the plan.** Persist the first coherent Draft, then present the
+    smallest ordered set of implementation
     increments with
     affected units, dependencies, Protocol feedback, focused review feedback,
     final exit evidence, recovery, and fresh integrated review handoff. Bind it
-    to the exact input revision and state whether it is exploratory or
-    implementation-ready.
+    to the exact input revision. Keep it Draft while Open items remain and
+    persist it Ready in place only after every readiness condition holds.
 
-## Implementation-ready plan
+## Ready plan
 
-An implementation-ready plan establishes:
+A Ready plan establishes:
 
 - exact Change, Change Specification, Change Design, Implementation, and authority inputs;
 - affected units and material boundaries;
@@ -144,46 +147,84 @@ An implementation-ready plan establishes:
   authority; and
 - a clear first action and completion condition.
 
-An exploratory plan may support feasibility or decision-making without these
-conditions, but it must not authorize implementation.
+A Draft plan may support feasibility or decision-making without these
+conditions, but it must not authorize implementation. Ready and Accepted plans
+contain `- None.` under Open items. A valid `$implement` invocation accepts the
+exact persisted Ready plan before mutation; plan acceptance and repository
+mutation authority remain separate.
 
 ## Canonical portable form
 
-Use this exact form when a complete plan must survive beyond the current
-conversation or be synchronized into a Markdown-capable host. An exploratory
-conversation may use a lighter outline while preserving the same semantic
-fields and non-authorizing maturity.
+Use semantically matching native fields where available. Otherwise use this
+compact form. Conversation may explore details between lifecycle events, but
+the first coherent Draft and every state change use the canonical target.
 
 ```markdown
 # Implementation plan: <bounded change>
 
-- Change identity and coordination revision:
-- Change Specification revision:
-- Change Design revision:
-- Current Implementation revision:
-- Plan maturity and implementation authority:
+> **Artifact:** <stable plan identity and exact revision>
+> **State:** `<Draft | Ready | Accepted>`
+> **Canonical:** <work item, native field set, body region, or exact link>
+> **Bound to:** <exact Accepted Specification and Accepted Design identities>
+> **Implementation:** <exact current revision>
+> **Mutation authority:** <not granted | exact authorized scope>
+
+## Summary
+
+- **First action:** <smallest safe executable step>
+- **Complete when:** <observable candidate and evidence condition>
+
+## Open items
+
+- **OI-1 — <blocker>**
+  - **Authority:** <responsible role>
+  - **Resolves when:** <observable condition>
 
 ## Boundaries and invariants
 
 ## Ordered work
 
-| Step | Outcome | Affected units | Dependencies | Verification | Recovery |
-| --- | --- | --- | --- | --- | --- |
+### Step 1 — <outcome>
 
-## Evaluation feedback and exit evidence
+- **Changes:** <affected units and intended change>
+- **Depends on:** <prior step, authority, compatibility, or none>
+- **Verify:** <performed check or evidence route>
+- **Recover:** <reversal, fallback, or safe stop>
 
-| Protocol and role | Realization | Earliest execution | Re-execution triggers | Result control | Final evidence |
-| --- | --- | --- | --- | --- | --- |
+## Evaluation checkpoints
 
-## Focused review feedback
+### <Protocol identity and role>
 
-| Checkpoint | Focus | Stable subject | Authorities | Available evidence | Continue when | Return upstream when | Re-review when |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+- **Realization:** <executable family, Suite, seam, data, and environment>
+- **Run first:** <earliest credible point>
+- **Run again:** <material re-execution triggers>
+- **Result control:** <continue, correct, return, or preserve unknown>
+- **Exit evidence:** <final exact-candidate Result>
 
-## Rollout and observation
+## Review checkpoints
+
+### <checkpoint and focus>
+
+- **Stable subject:** <increment, diff, interface, or evidence set>
+- **Authorities:** <exact comparison sources>
+- **Available evidence:** <what the reviewer can inspect>
+- **Continue when:** <bounded disposition>
+- **Return upstream when:** <definition or evidence condition>
+- **Re-review when:** <material invalidation trigger>
+
+## Rollout and recovery
 
 ## Decisions, risks, and return conditions
+
+- **Decisions delegated locally:** <bounded implementation choices>
+- **Residual risks:** <risk, owner, and observation trigger>
+- **Return upstream when:** <Specification, Design, plan, or authority condition>
 ```
+
+Repeat the vertically labeled work, Evaluation, and review cards as needed.
+Omit an Evaluation or review checkpoint only when its owning focus is explicitly
+not applicable and the reason remains visible. For `Ready` or `Accepted`, write
+`- None.` under Open items.
 
 ## Final check
 
@@ -202,3 +243,6 @@ fields and non-authorizing maturity.
 - Intermediate states preserve material invariants.
 - Recovery is explicit where failure would be consequential.
 - Upstream gaps remain visible and block only dependent implementation.
+- Open items agree with Draft, Ready, or Accepted state.
+- The plan remains one canonical artifact; derived host-native implementation
+  records are outside this Guide and Sync Change.

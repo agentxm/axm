@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic pitch-first, specification-first, design-first, architecture-completeness, evaluation-agnosticism, positive-routing, and Design-collision cases.",
+    "case_source": "Synthetic pitch-first, specification-first, design-first, architecture-completeness, evaluation-agnosticism, predecessor-acceptance, lifecycle-persistence, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects spec, while the same or adjacent unprefixed semantic request must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic change sources, Gen Stack knowledge, and no implementation or release authority.",
     "support_paths": [
       "knowledge/gen-stack/src"
@@ -73,6 +73,9 @@
     "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "No invented semantic acceptance",
+      "Forward-stage acceptance requires an exact persisted Ready predecessor",
+      "Unpersisted artifacts cannot become Ready",
+      "Specification presentation is first-screen scannable without duplicating authority",
       "Complete human-ratifiable Architecture and Protocol delta",
       "No implementation-level Evaluation or test prescription",
       "No implementation or release mutation",
@@ -112,6 +115,21 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
+        "gate": "Forward-stage acceptance requires an exact persisted Ready predecessor",
+        "case_id": 5,
+        "assertion": "The valid $spec invocation changes exact persisted Pitch PITCH-5 revision 3 from Ready to Accepted before dependent Specification work begins."
+      },
+      {
+        "gate": "Unpersisted artifacts cannot become Ready",
+        "case_id": 7,
+        "assertion": "The Specification remains Draft because it has no canonical persistence target."
+      },
+      {
+        "gate": "Specification presentation is first-screen scannable without duplicating authority",
+        "case_id": 1,
+        "assertion": "The first screen exposes exact Artifact, State, Canonical target, optional Pitch binding, Summary, and Open items before detailed meaning changes."
+      },
+      {
         "gate": "No invented semantic acceptance",
         "case_id": 2,
         "assertion": "The design-first mechanism remains proposed and every implied desired-state or durable-Architecture decision is returned to its authority."
@@ -134,7 +152,7 @@
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 4,
-        "assertion": "Spec is not selected for a request whose desired outcome is only a technical response, and no task side effect occurs before selection."
+        "assertion": "Spec is not selected because the host requires explicit invocation."
       }
     ]
   },

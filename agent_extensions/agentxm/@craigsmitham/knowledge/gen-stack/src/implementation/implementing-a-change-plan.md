@@ -1,7 +1,7 @@
 ---
 type: Guide
 title: Implementing a change plan
-description: Use when an implementation-ready plan is authorized for execution; realize the exact accepted change, use Evaluation and focused reviewer feedback, disposition actions, preserve deviations and evidence, and return upstream when implementation exposes unresolved meaning.
+description: Use when an exact persisted Ready plan and separate mutation authority exist; accept the plan, realize the exact change, use Evaluation and focused reviewer feedback, preserve evidence, and return upstream when implementation exposes unresolved meaning.
 tags: [implementation, change-plan, code-change, verification, focused-review, deviation, provenance, recovery]
 status: draft
 sources:
@@ -34,10 +34,13 @@ a fresh integrated final review.
 
 ## Implement
 
-1. **Bind exact inputs and authority.** Resolve the implementation-ready plan,
-   Change, Change Specification, and Change Design revisions, current repository state, authorized
-   mutation boundary, and permitted tools, code execution, network, credentials,
-   and external effects. Preserve unrelated worktree changes.
+1. **Bind exact inputs and authority.** Resolve the exact persisted Ready plan,
+   Accepted Change Specification and Change Design revisions, current
+   repository state, authorized mutation boundary, and permitted tools, code
+   execution, network, credentials, and external effects. Verify readback,
+   empty Open items, and current bindings, then accept the plan in place before
+   mutation. Plan acceptance and mutation authority remain separate. Preserve
+   unrelated worktree changes.
 2. **Reconfirm the first safe step.** Check that the plan still matches the
    realized state. If intervening changes invalidate dependencies or safety,
    revise the plan before mutation.
@@ -72,7 +75,8 @@ a fresh integrated final review.
    - `evidence-needed` — investigation or Evaluation is required;
    - `disputed` — contrary evidence is preserved and the finding remains
      visible; or
-   - `superseded` — a later exact review explicitly replaces it.
+   - `no-longer-applicable` — later exact evidence makes the requested action
+     irrelevant without erasing its history.
 
    Record the response, resulting revision or route, and evidence. Material
    change makes affected review claims stale and triggers re-review. Do not

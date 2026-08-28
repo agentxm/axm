@@ -1,8 +1,8 @@
 ---
 type: Guide
 title: Writing Change Specifications
-description: Use when one bounded Change needs a human-ratifiable account of why and what must change; specify exact Intent, Requirement, Architecture, constraint, and semantic Evaluation Protocol changes without selecting the technical response or coordinating delivery.
-tags: [change, change-specification, intent, requirements, architecture, evaluation-protocols, ratification, artifact-contract]
+description: Use when one bounded Change needs a complete account of why and what must change; specify exact Intent, Requirement, Architecture, constraint, and semantic Evaluation Protocol changes without selecting the technical response or coordinating delivery.
+tags: [change, change-specification, intent, requirements, architecture, evaluation-protocols, artifact-lifecycle, open-items, artifact-contract]
 status: draft
 sources:
   - id: changes
@@ -57,7 +57,7 @@ Specification owns:
 - semantic Requirement-satisfaction and Architecture-realization Evaluation
   Protocol changes;
 - constraints, invariants, risks, and unresolved meaning; and
-- ratification state and request.
+- shared artifact state, decisions, authority, and Open items.
 
 It does not own technical alternatives, implementation structure, executable
 test realization, Implementation-conformance Evaluations, delivery state,
@@ -69,6 +69,10 @@ Identify the Change and its current classification, source links, authority,
 and requested specification decision. If the request is still unbounded, keep
 it as a Signal or shape a Pitch. Do not create multiple Changes merely because
 several source records or Defects are involved.
+
+When an exact Pitch is present, `$spec` first verifies that it is persisted
+`Ready` with no Open items and accepts it in place. A missing Pitch permits
+direct-entry Draft work; a Draft, stale, or unverified Pitch is not accepted.
 
 Use exact native fields where available. Keep the body focused on semantic
 content the host cannot represent faithfully.
@@ -140,20 +144,20 @@ Describe what must be assessable, not how to implement the assessment. Do not
 prescribe Suites, test files, fixtures, tools, commands, environments,
 instrumentation, or Implementation-conformance Evaluations.
 
-A missing required semantic Protocol can remain visible in an exploratory
-draft. It blocks ratification, Change coherence, and dependent planning.
+A missing required semantic Protocol can remain visible in Draft. It blocks
+Ready state, Change coherence, and dependent planning.
 
-## 7. Record constraints, risks, and authority
+## 7. Record constraints, risks, authority, and Open items
 
 Record only material legal, policy, compatibility, accessibility, performance,
 security, privacy, safety, operational, migration, rollout, rollback, and
 recovery constraints. Preserve invariants that an acceptable Design must
 conserve.
 
-List unresolved meaning, the evidence or decision that would resolve it, its
-owner, and which action it blocks. State the authority that may ratify each
-candidate semantic change. Specification status never substitutes for that
-authority.
+Put each blocker in Open items with its responsible authority role and
+observable resolution condition. Keep non-blocking risks elsewhere. State the
+authority that may ratify each governed semantic change. Specification state
+never substitutes for that authority.
 
 ## 8. Reconcile with Design without absorbing it
 
@@ -161,88 +165,125 @@ When a Change Design exists, compare its implications with the exact Change
 Specification revision. Return any changed outcome, obligation, durable
 boundary, Architecture decision, or semantic Protocol claim to its owner.
 
-Record the resulting specification revision and ratification state here. The
-Design records its own acceptance state and reconciliation result; the Change
-coordination record decides whether the exact pair is coherent.
+Record the resulting exact Specification revision and decisions here. The
+Design records reconciliation against that revision. Their current states,
+bindings, and Open items in the canonical Change target determine coherence;
+no separate coordination handoff is needed.
 
 ## Representation
 
 Native host fields may satisfy this semantic contract. In a Markdown-only host
-or conversation, use this exact fallback. Keep every top-level heading and use
-`Not applicable` where the bounded Change genuinely has no content.
+or conversation, use this exact fallback. Keep the control sections and every
+required semantic disposition. Write `No change.` when a required dimension is
+unchanged; omit only sections marked optional.
 
 ```markdown
 # Change Specification: <bounded change outcome>
 
-## Specification status and ratification request
-<Draft | ready for ratification | ratified | rejected | superseded; exact
-decision requested and authority.>
+> **Artifact:** <stable Specification identity and exact revision>
+> **State:** `<Draft | Ready | Accepted>`
+> **Canonical:** <work item, native field set, body region, or exact link>
+> **Bound to:** <exact accepted Pitch identity and revision; omit for direct entry>
 
-## Sources and provenance
-<Signals, Observations, Pitch, Defect Reports, incidents, evidence, and claim
-maturity.>
+## Summary
 
-## Problem and intended outcome
-<Current condition, consequence, and implementation-independent outcome.>
+<Implementation-independent current condition, consequence, and intended
+outcome.>
 
-## Scope, boundaries, and non-goals
-<Included and excluded actors, behavior, data, interfaces, environments, and
-time horizon.>
+## Open items
 
-## Intent change
-<Unchanged or proposed Intent meaning and authority.>
+- **OI-1 — <blocker>**
+  - **Authority:** <responsible role>
+  - **Resolves when:** <observable condition>
 
-## Requirements change
-<Exact Requirement identities, dispositions, before/after meaning, lineage,
-authority, gaps, and blockers.>
+## Sources
 
-## Architecture change
-<Exact Architecture identities and dispositions; responsibilities,
-boundaries, interfaces, interactions, data/state, qualities, operations,
-decisions, views, unchanged meaning, gaps, and blockers.>
+- <Exact Signal, Observation, Pitch, Defect Report, incident, evidence, or
+  other source with claim maturity.>
 
-## Evaluations
-<Exact Requirement-satisfaction and Architecture-realization Protocol
-identities, roles, targets, semantic claims, coverage, judgment, evidence
-expectations, lifecycle, authority, gaps, and blockers.>
+## Scope
+
+- **In scope:** <actors, behavior, data, interfaces, environments, and horizon>
+- **Out of scope:** <explicit boundaries and non-goals>
+
+## Meaning changes
+
+### Intent
+
+<`No change.` or exact proposed Intent meaning and authority.>
+
+### Requirements
+
+#### <Requirement ID> — <add | revise | retire | unchanged>
+
+- **Before:** <exact current meaning or none>
+- **After:** <complete proposed meaning or none>
+- **Lineage:** <predecessor, successor, derivation, or none>
+- **Authority:** <role and decision actually recorded>
+
+### Architecture
+
+#### <Architecture ID> — <add | revise | retire | unchanged>
+
+- **Before:** <exact current responsibility, boundary, or decision>
+- **After:** <complete proposed responsibility, boundary, or decision>
+- **Authority:** <role and decision actually recorded>
+
+## Evaluation obligations
+
+### <Protocol ID> — <add | revise | retire | unchanged>
+
+- **Role and targets:** <Requirement satisfaction or Architecture realization;
+  exact authorities>
+- **Claim and coverage:** <semantic claim and bounded coverage>
+- **Judgment and evidence:** <how a Result supports the claim>
+- **Lifecycle and authority:** <maintainer, decision role, and revision policy>
 
 ## Constraints and invariants
+
 <Material constraints and meaning an acceptable response must preserve.>
 
-## Risks and open decisions
-<Consequential risks, unknowns, decision owners, and action-relative blockers.>
+## Residual risks
 
-## Authority and ratification
-<Who may accept each semantic delta and the decisions actually recorded.>
+- **<risk>:** <consequence, owner, and decision or observation trigger>
 
-## Corpus change
-<No impact, consulted meaning, candidate gaps, accepted semantic deltas, or
-representation maintenance.>
+## Corpus effect
+
+<Optional when material: no impact, consulted meaning, candidate gaps,
+accepted semantic deltas, or representation maintenance.>
 ```
+
+Repeat the Requirement, Architecture, and Protocol cards as needed. When a
+required category has no entries, write `No change.` under that category. For
+`Ready` or `Accepted`, write `- None.` under Open items. Record authority beside
+the meaning it governs; add no second generic authority section.
 
 ## Completion criteria
 
-### Ready for ratification
+### Ready for Design
 
 - The Change boundary and intended outcome are recognizable.
 - Sources, claims, assumptions, and decisions remain distinguishable.
 - Every affected Requirement and Architecture authority has an exact
   disposition and complete ratifiable meaning.
 - Every required semantic Protocol exists with an adequate contract.
-- Constraints, risks, gaps, and ratification authority are visible.
+- Constraints, risks, authority, and decisions are visible.
+- Open items contains `- None.` and authoritative readback verifies the exact
+  Ready artifact.
 - The specification contains no technical-response or delivery decisions it
   does not own.
 
-### Ratified
+### Accepted
 
-The applicable human authorities accepted the exact semantic deltas and the
-artifact identifies that revision. Ratification does not establish Change
-coherence, implementation readiness, delivery, or verification.
+A valid `$design` invocation accepted the exact persisted Ready Specification
+before dependent Design work. Governed semantic deltas still require their
+applicable human authorities; artifact acceptance does not create that
+authority or establish implementation readiness.
 
-### Draft but blocked for a later action
+### Draft
 
-A draft may be complete enough to report or review while a named gap blocks
-ratification, coherence, planning, or mutation. State the blocked action rather
+A Draft may be complete enough to report or review while a named gap blocks
+Ready state, coherence, planning, or mutation. State the blocked action rather
 than calling the whole artifact incomplete.
 
 ## Final check

@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic defect-finding, no-supported-finding, Requirement-versus-Architecture divergence, inadequate passing Protocol, actionable checkpoint result, stale checkpoint, positive-routing, and fix-collision cases.",
+    "case_source": "Synthetic defect-finding, no-supported-finding, Requirement-versus-Architecture divergence, inadequate passing Protocol, actionable checkpoint result, stale checkpoint, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects review, while unprefixed review or review-and-fix language must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic candidate evidence, read-only review authority, and no release authority.",
     "support_paths": [
       "knowledge/gen-stack/src"
@@ -130,7 +130,7 @@
       {
         "gate": "Review results remain compact and actionable",
         "case_id": 7,
-        "assertion": "Decision, required actions, findings, assurance summary, material unknowns, and review boundary are easy to locate."
+        "assertion": "The result starts with Subject, Mode, Focus, and Result, then Decision; required actions, findings, assurance summary, material unknowns, and review boundary are easy to locate."
       },
       {
         "gate": "Checkpoint and final review remain distinct",
@@ -140,7 +140,7 @@
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 4,
-        "assertion": "Review remains the first selected stage and no fix or task side effect occurs before selection."
+        "assertion": "Review is not selected because the host requires explicit invocation."
       }
     ]
   },

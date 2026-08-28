@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, focused-stage and reviewer delegation, human-authority, boundary, native-representation, execution, provenance, and evidence failures in gen-stack before release; this suite does not approve the skill.",
+  "decision": "Detect routing, focused-stage lifecycle and predecessor acceptance, reviewer delegation, human-authority, boundary, native-representation, execution, provenance, and evidence failures in gen-stack before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "gen-stack",
     "required_result_fields": [
@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic Gen Stack current-state briefs, Process and shaping orientation, focused Pitch routing, exact change-artifact synchronization orientation and routing, decision support, Requirement impact and change operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, authority-gated adoption and migration, established-corpus authoring, governed Evaluation Protocol authoring, work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, human-ratification, and routing-collision cases.",
+    "case_source": "Synthetic Gen Stack current-state briefs, Process and shaping orientation, explicit focused-stage controls, shared Draft/Ready/Accepted lifecycle and presentation language, forward-stage acceptance, event-driven persistence, compaction boundaries, quick-change deprecation, focused-stage recommendation without activation, exact change-artifact synchronization orientation and routing, decision support, Requirement impact and lifecycle operations, identity and lifecycle, replacement lineage, non-transfer of evidence, partial acceptance, greenfield and brownfield candidate development, Surface and C4 structure extraction, Requirement inference and placement, material gap disposition, fixed repository gen-stack/ discovery, authority-gated adoption and migration, established-corpus authoring, governed Evaluation Protocol authoring, coordination and non-stage work-item authoring, native-format and exact-field mapping, fallback representation, transient Change Design, derived projections, repository-native Evaluation execution and Process artifacts, authority-precedence, provenance, metadata projection, relationship and lifecycle maintenance, persisted readback, partial batch failure, human-ratification, and routing-collision cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -45,7 +45,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; gen-stack may match method, corpus, brief, governance, and coordination work, explicit focused invocations select their sibling, unprefixed focused-stage requests abstain, and exact persistence intent selects sync-change.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": [
       "knowledge/gen-stack/src",
@@ -110,8 +110,15 @@
       "Focused review feedback remains separate from Protocol Results and final integrated review",
       "Spec and Design have explicit distinct presentation contracts",
       "Exact change-artifact persistence routes to the host-neutral synchronization sibling",
+      "Focused artifacts share one update-in-place Draft Ready Accepted lifecycle",
+      "Focused artifacts share one scannable portable presentation language",
+      "Forward stages accept only exact persisted Ready predecessors",
+      "Chat-only edits remain the user's recovery responsibility after compaction",
+      "Deprecated combined stage does not duplicate focused-stage behavior",
       "Local reversible delegated choices do not create ritual escalation",
       "Focused change-realization outcomes route to their owning sibling skill",
+      "Unprefixed focused-stage requests do not activate the umbrella or sibling",
+      "Focused-stage recommendations do not activate or reproduce the stage",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -151,6 +158,16 @@
         "gate": "Focused change-realization outcomes route to their owning sibling skill",
         "case_id": 131,
         "assertion": "Spec, not gen-stack, is selected for the focused Change Specification outcome."
+      },
+      {
+        "gate": "Unprefixed focused-stage requests do not activate the umbrella or sibling",
+        "case_id": 64,
+        "assertion": "Gen-stack is not selected to absorb the focused Change Specification stage."
+      },
+      {
+        "gate": "Focused-stage recommendations do not activate or reproduce the stage",
+        "case_id": 140,
+        "assertion": "The recommendation is not treated as invocation or semantic acceptance."
       },
       {
         "gate": "Gen Stack software work-item taxonomy contains three roles and keeps artifacts and classifications separate",
@@ -230,7 +247,7 @@
       {
         "gate": "Blocking gaps stop dependent action while non-blocking gaps allow truthful progress",
         "case_id": 88,
-        "assertion": "The Change Specification may remain a useful draft, but the Change cannot proceed to dependent planning until required semantic Protocol meaning exists."
+        "assertion": "No Change Specification is drafted, and the Change cannot proceed to dependent planning until required semantic Protocol meaning exists."
       },
       {
         "gate": "Requirement subject placement follows the load-bearing subject",
@@ -411,6 +428,31 @@
         "gate": "Exact change-artifact persistence routes to the host-neutral synchronization sibling",
         "case_id": 139,
         "assertion": "The explanation is work-item-host agnostic and prescribes no vendor fields, labels, hierarchy, workflow, or API."
+      },
+      {
+        "gate": "Focused artifacts share one scannable portable presentation language",
+        "case_id": 142,
+        "assertion": "Durable stage artifacts put title, Artifact, State, Canonical, optional Bound to, Summary, and Open items first; Review and Ship use their exact decision-first variants."
+      },
+      {
+        "gate": "Focused artifacts share one update-in-place Draft Ready Accepted lifecycle",
+        "case_id": 139,
+        "assertion": "The first coherent Draft and every state change are persisted and verified in one canonical artifact location, while ordinary chat iteration is not synchronized."
+      },
+      {
+        "gate": "Forward stages accept only exact persisted Ready predecessors",
+        "case_id": 141,
+        "assertion": "$spec accepts a persisted Ready Pitch, $design accepts a persisted Ready Specification, $plan accepts a persisted Ready Design after confirming the Specification is Accepted, and $implement accepts a persisted Ready plan."
+      },
+      {
+        "gate": "Chat-only edits remain the user's recovery responsibility after compaction",
+        "case_id": 139,
+        "assertion": "Lost chat-only edits after compaction return to the user rather than being reconstructed."
+      },
+      {
+        "gate": "Deprecated combined stage does not duplicate focused-stage behavior",
+        "case_id": 141,
+        "assertion": "Quick-change is deprecated in favor of $spec followed by $design, with no replacement skill silently activated."
       }
     ]
   },

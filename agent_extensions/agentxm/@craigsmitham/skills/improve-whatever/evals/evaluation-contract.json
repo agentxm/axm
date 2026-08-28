@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic holistic evaluation, supplied-rubric boundary, improvement-traceability, and routing cases.",
+    "case_source": "Synthetic holistic evaluation, supplied-rubric boundary, improvement-traceability, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects improve-whatever, while an unprefixed matching request must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target explicitly in a disposable task-local workspace with only declared synthetic inputs and support paths.",
     "support_paths": []
   },
@@ -119,8 +119,8 @@
       },
       {
         "gate": "Routing and execution claims remain distinct",
-        "case_id": 4,
-        "assertion": "No task side effect occurs before selection."
+        "case_id": 5,
+        "assertion": "Improve-whatever is not selected because the host requires explicit invocation."
       }
     ]
   },

@@ -1,12 +1,16 @@
 ---
 name: investigate
-description: Investigates a bounded observed condition, possible defect, failure, discrepancy, or cross-stack incoherence by gathering the smallest safe discriminating evidence and returning a conclusion no stronger than that evidence. Use when diagnosis, reproduction, root-cause isolation, or an evidence gap must be resolved before triage or change definition. Not for broad external research, silently fixing the condition, deciding defect lifecycle or priority, specifying the correction, or shipping it.
+description: Explicitly invoked Gen Stack stage that investigates one bounded observed condition with the smallest safe discriminating evidence. Select only when the user directly invokes `$investigate` or the corresponding host control; never select it from an unprefixed natural-language request, even when that request resembles investigation. Not for broad external research, silently fixing the condition, deciding defect lifecycle or priority, specifying the correction, or shipping it.
 ---
 
 # Investigate
 
 Answer one bounded diagnostic question with the safest adequate evidence, then
 return the result to the authority that owns disposition or correction.
+
+Use only after the user explicitly selects `$investigate` or the corresponding
+host control. Natural-language similarity alone does not activate this stage.
+Selection alone grants no corrective, mutation, or downstream-stage authority.
 
 This skill belongs to the Gen Stack pack. Resolve knowledge through active AXM
 scope; in this source workspace the paths below are exact. Read:
@@ -28,8 +32,9 @@ report identity, priority, lifecycle, remediation, desired state, or release. It
 reproduction or instrumentation that can mutate state requires explicit scope,
 authority, safeguards, and a stopping condition.
 
-Use `research` when the governing uncertainty is what existing external or
-distributed evidence says, not what explains a concrete observed condition.
+Recommend `$research` when the governing uncertainty is what existing external
+or distributed evidence says, not what explains a concrete observed condition.
+Do not activate it from this stage.
 
 ## Investigate
 
@@ -60,10 +65,9 @@ decisions.
 
 Consult an established corpus when applicable. Investigation may report a
 `candidate-gap`, but evidence does not become accepted Intent, Requirement, or
-Architecture automatically. Route authorized remediation to a Change through
-`spec`; route
-an unresolved external evidence question to `research`; route an accepted
-work item back to its proper triage authority.
+Architecture automatically. Recommend `$spec` for authorized remediation or
+`$research` for unresolved external evidence; return an accepted work item to
+its proper triage authority. A recommendation does not activate another stage.
 
-Do not implement a fix unless the user separately invokes or requests the
-implementation activity.
+Do not implement a fix. A later Gen Stack implementation requires explicit
+`$implement` selection and its own authority.

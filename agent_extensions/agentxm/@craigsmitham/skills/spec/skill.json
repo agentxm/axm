@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "spec",
-  "version": "0.3.0",
-  "description": "Distills why and what must change into the canonical Change Specification for one bounded Change",
+  "version": "2.0.0",
+  "description": "Explicit-only stage that accepts a persisted Ready Pitch when present and produces one update-in-place Draft-to-Ready Change Specification",
   "keywords": [
     "specification",
     "pitch",

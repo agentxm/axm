@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, exact-source, canonical-home, host-neutrality, authority, concurrency, fidelity-readback, and plan-projection failures in sync-change before release; this suite does not approve the skill.",
+  "decision": "Detect routing, exact-source, canonical-home, host-neutrality, shared-state preservation, compaction recovery, concurrency, and fidelity-readback failures in sync-change before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "sync-change",
     "required_result_fields": [
@@ -18,9 +18,9 @@
     ]
   },
   "scope": {
-    "intended_use": "Synchronizing one exact landed Pitch, Change coordination record, Change Specification, Change Design, or implementation plan with a host-neutral work-item system, and explicitly projecting one exact plan into host-native implementation records without re-authoring or expanding authority.",
+    "intended_use": "Manually synchronizing one exact Pitch, Change Specification, Change Design, or implementation plan checkpoint with its canonical host-neutral work-item target without re-authoring, changing state, or expanding authority.",
     "stages": ["routing", "execution"],
-    "case_source": "Synthetic exact-artifact synchronization, missing-source, canonical-home, concurrency, harmless-normalization, unavailable-readback, inadequate-host, plan-projection, partial-batch, authority, and routing-collision cases.",
+    "case_source": "Synthetic exact-artifact synchronization, missing-source and compacted-context refusal, stage-completion abstention, rough-source abstention, canonical-home, update-in-place state preservation, concurrency, harmless-normalization, unavailable-readback, inadequate-host, unsupported derived-record projection, authority, and routing-collision cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -42,7 +42,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required abstention is recorded.",
+    "routing_boundary": "Expose only catalog names and descriptions; select sync-change only when an exact complete landed artifact and explicit persistence intent are both present, otherwise abstain without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic public artifacts and host observations; perform no real external mutation.",
     "support_paths": ["knowledge/gen-stack/src"]
   },
@@ -60,19 +60,19 @@
     "storage": "Keep contracts, cases, fixtures, graders, and harness inputs under evals; write routine generated runs only to the ignored or external workspace."
   },
   "grading": {
-    "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of exact-source preservation, canonical ownership, authority, concurrency, persisted readback, fidelity, and projection completeness.",
+    "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of exact-source preservation, canonical ownership, state, authority, concurrency, persisted readback, fidelity, and compaction boundaries.",
     "unknown_policy": "Unavailable target, source, host capability, readback, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "Portable behavior remains work-item-host agnostic",
       "Synchronization binds complete exact source rather than reconstructing it",
       "One canonical artifact home remains identifiable",
-      "Artifact meaning, maturity, and authority are not changed",
+      "Artifact meaning, state, and authority are not changed",
+      "Compaction never licenses reconstruction of lost chat-only edits",
       "Mutation stays within explicit scope",
       "Concurrent edits are preserved or surfaced before overwrite",
       "Claimed persistence is grounded in authoritative readback",
-      "Fidelity distinguishes exact, faithful, drifted, and unverified outcomes",
-      "Plan projection remains complete and derived from one exact plan",
-      "Partial batch outcomes remain item-local",
+      "Fidelity distinguishes VERIFIED-EXACT, VERIFIED-FAITHFUL, DRIFT, and UNVERIFIED outcomes",
+      "Derived implementation-record projection remains outside synchronization",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -111,9 +111,9 @@
         "assertion": "The inadequate host receives only a linked synopsis while the complete artifact remains canonical in its exact source."
       },
       {
-        "gate": "Artifact meaning, maturity, and authority are not changed",
+        "gate": "Artifact meaning, state, and authority are not changed",
         "case_id": 5,
-        "assertion": "The proposed Specification remains proposed and no host state or polished presentation is treated as ratification."
+        "assertion": "The Draft Specification remains Draft and no host state or polished presentation is treated as acceptance."
       },
       {
         "gate": "Mutation stays within explicit scope",
@@ -128,27 +128,27 @@
       {
         "gate": "Claimed persistence is grounded in authoritative readback",
         "case_id": 9,
-        "assertion": "Unavailable readback produces unverified rather than a success claim."
+        "assertion": "Unavailable readback produces UNVERIFIED rather than a success claim."
       },
       {
-        "gate": "Fidelity distinguishes exact, faithful, drifted, and unverified outcomes",
+        "gate": "Fidelity distinguishes VERIFIED-EXACT, VERIFIED-FAITHFUL, DRIFT, and UNVERIFIED outcomes",
         "case_id": 8,
-        "assertion": "Documented harmless representation normalization is reported as verified-faithful rather than drift or byte-exact identity."
+        "assertion": "Documented harmless representation normalization is reported as VERIFIED-FAITHFUL rather than DRIFT or byte-exact identity."
       },
       {
-        "gate": "Plan projection remains complete and derived from one exact plan",
+        "gate": "Derived implementation-record projection remains outside synchronization",
         "case_id": 10,
-        "assertion": "Every selected plan step appears once with consistent artifact bindings, dependencies, evidence, review, and recovery context."
+        "assertion": "Derived implementation-record creation is identified as outside sync-change."
       },
       {
-        "gate": "Partial batch outcomes remain item-local",
-        "case_id": 11,
-        "assertion": "Created, failed, and unverified item identities remain separate and the batch is not described as atomic success."
+        "gate": "Compaction never licenses reconstruction of lost chat-only edits",
+        "case_id": 16,
+        "assertion": "No chat-only content, Ready state, resolved open item, or revision identity is invented after compaction."
       },
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 3,
-        "assertion": "No host mutation occurs before routing."
+        "assertion": "Sync-change is not selected because no exact landed artifact exists."
       }
     ]
   },

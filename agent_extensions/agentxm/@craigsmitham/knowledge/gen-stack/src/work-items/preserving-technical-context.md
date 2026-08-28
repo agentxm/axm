@@ -49,8 +49,8 @@ items](preserving-work-item-evidence-and-authority.md) for the source inventory,
 claim maturity, safe evidence, and decision-authority mechanics. This guide
 specializes that foundation for technical design and implementation material.
 
-When the source is already an exact landed Pitch, Change coordination record,
-Change Specification, Change Design, or implementation plan, use
+When the source is already an exact landed Pitch, Change Specification, Change
+Design, or implementation plan, use
 [Synchronizing change artifacts with work-item
 hosts](synchronizing-change-artifacts.md) instead. This guide remains for mixed,
 unstructured, legacy, or independently sourced technical context that must be
@@ -103,7 +103,7 @@ These dimensions can vary independently:
 | --- | --- |
 | Work-item role | Operational Incident Record, Defect Report, Change |
 | Diagnostic activity | Unexplored, suspected, reproduced, root cause established |
-| Design | None, options, proposed, accepted, superseded |
+| Design-choice maturity | None, options, proposed, accepted, superseded |
 | Implementation coordination | Unplanned, sequenced, authorized, decomposed |
 | Verification | Conditions known, strategy proposed, evidence gathered |
 | Container | One issue, linked design document, decision record, parent and child items |
@@ -147,6 +147,10 @@ Keep rejected options when their tradeoffs explain the chosen direction. Keep
 open questions open. An author may normalize wording and structure, but must
 not silently strengthen a proposal into a decision or a recommendation into
 authorization.
+
+These labels describe individual choices retained as decision history. They are
+not Change Design artifact states; the current Design artifact uses only
+Draft, Ready, and Accepted and is updated in place.
 
 ## 3. Choose a proportional home
 

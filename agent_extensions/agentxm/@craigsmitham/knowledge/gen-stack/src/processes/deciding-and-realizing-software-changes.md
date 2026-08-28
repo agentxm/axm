@@ -2,7 +2,7 @@
 type: Explanation
 title: Deciding and realizing bounded software changes
 description: A recommended Process that carries a Signal through shaping, proportional uncertainty reduction, coherent change definition, implementation with focused review feedback, fresh integrated review, authorized shipping, and renewed observation.
-tags: [process, software-change, change, shape, pitch, research, investigation, change-specification, change-design, quick-change, implementation-planning, implementation, review, shipping, feedback, compaction]
+tags: [process, software-change, change, shape, pitch, research, investigation, change-specification, change-design, artifact-lifecycle, implementation-planning, implementation, review, shipping, feedback, compaction]
 status: draft
 sources:
   - id: gen-stack-overview
@@ -16,7 +16,7 @@ sources:
     title: Changes
 generated:
   by: codex/gpt-5.6
-  at: 2026-08-27T23:32:00Z
+  at: 2026-08-28T12:00:00Z
 ---
 
 # Deciding and realizing bounded software changes
@@ -60,41 +60,43 @@ its activities or artifacts.
 ```text
 Signal, need, issue, or opportunity
                   ↓
-                /shape
+                $shape
           ↙               ↘
-    /research         /investigate
+    $research         $investigate
           ↘               ↙
-                 Pitch
-                    ↓
-                 Change
-          /spec ⇄ /design
-             ↖ /quick-change ↗
-                    ↓
+             Ready Pitch
+                    ↓ $spec accepts Pitch
+        Change Specification ⇄ Change Design
+                    ↓ $plan accepts Ready Design
            Change coherence gate
                     ↓
-                  /plan
+              Ready plan
+                    ↓ $implement accepts plan
+       Implementation ⇄ focused review
                     ↓
-       /implement ⇄ focused review
-                    ↓
-                 /review
+                 $review
                     ↓
              Release readiness gate
                     ↓
-                  /ship
+                  $ship
                     ↓
        Observe, evaluate, learn, compact
                     └───────────────↺
 ```
 
-The named slash commands are one agent-mediated realization. A person,
-workflow, service, or another agent may perform the same activities when it
-preserves their contracts and authority boundaries.
+The named skills are one agent-mediated realization. Each focused skill is a
+deliberate user-selected entry point; natural-language similarity, a completed
+prior stage, or a next-route recommendation does not activate it. A person,
+workflow, service, or another agent may perform the same activities without
+these skills when it preserves their contracts and authority boundaries.
 
 Shaping is a focused Orientation activity that frames the proposed change as a
 Pitch. Research and investigation are optional uncertainty-reduction routes
 and may be entered from shaping or any later activity. Their evidence can
-return to a revised Pitch. Change Specification and Change Design co-evolve;
-`/quick-change` may produce both in one bounded response.
+return to a revised Pitch. Change Specification and Change Design co-evolve.
+The former combined `$quick-change` stage is deprecated; explicit `$spec`
+followed by `$design` now provides one simpler sequence with exact handoff
+acceptance.
 Implementation uses focused read-only review feedback at stable checkpoints and
 may repeat increments after findings. A fresh integrated review assesses the
 exact final candidate. Shipping produces new Observations and does not
@@ -119,30 +121,29 @@ force every Signal into a Change or every Change into delivery.
 
 | Activity | Governing question | Intermediate outcome | Ordinary next route |
 | --- | --- | --- | --- |
-| Shape | What bounded change may be worth defining, and what is it likely to affect? | A provisional, repository-grounded Pitch or an explicit non-change disposition | research, investigate, spec, design, human decision, or terminate |
-| Research | What can authorized existing evidence tell us? | A Research Brief and evidence-backed Research Report with visible gaps | shape, spec, design, plan, or terminate |
-| Investigate | What explains an observed condition or discrepancy? | A bounded diagnostic conclusion no stronger than the gathered evidence | shape, triage, research, spec, or terminate |
-| Specify | What must change, why, and what semantic evidence must be possible? | Human-ratifiable Intent, Requirement, complete Architecture, and Requirement/Architecture Evaluation Protocol delta, agnostic about test realization | design or coherence review |
-| Design | How should accepted meaning and required Protocols be realized? | Proportional Change Design, alternatives and comparison, Architecture realization, Evaluation realization, consequences, and unresolved technical decisions | spec or coherence review |
-| Plan | How will the coherent change be implemented, reviewed, and evidenced safely? | Revision-bound sequence of architectural realization, required Protocol feedback, focused review checkpoints, exit evidence, dependencies, recovery, and handoffs | implement or return to definition |
-| Implement | Can the plan be realized within accepted meaning and authority? | Candidate Implementation shaped by incremental Protocol and focused review feedback, final evidence, dispositioned findings, and material deviations | review or return to definition or plan |
-| Review | Does this exact checkpoint or final candidate adequately realize the accepted change? | Focused course-correction findings or a fresh integrated result with separate Requirements, Architecture, Evaluations, Implementation, and whole-change judgments | implement, definition, ship, or terminate |
+| Shape | What bounded change may be worth defining, and what is it likely to affect? | A provisional, repository-grounded Pitch or an explicit non-change disposition | recommend `$research`, `$investigate`, `$spec`, `$design`, a human decision, or termination |
+| Research | What can authorized existing evidence tell us? | A Research Brief and evidence-backed Research Report with visible gaps | recommend `$shape`, `$spec`, `$design`, `$plan`, or termination |
+| Investigate | What explains an observed condition or discrepancy? | A bounded diagnostic conclusion no stronger than the gathered evidence | recommend `$shape`, triage, `$research`, `$spec`, or termination |
+| Specify | What must change, why, and what semantic evidence must be possible? | Human-ratifiable Intent, Requirement, complete Architecture, and Requirement/Architecture Evaluation Protocol delta, agnostic about test realization | recommend `$design` or coherence review |
+| Design | How should accepted meaning and required Protocols be realized? | Proportional Change Design, alternatives and comparison, Architecture realization, Evaluation realization, consequences, and unresolved technical decisions | recommend `$spec` or coherence review |
+| Plan | How will the coherent change be implemented, reviewed, and evidenced safely? | Revision-bound sequence of architectural realization, required Protocol feedback, focused review checkpoints, exit evidence, dependencies, recovery, and handoffs | recommend `$implement` or return to definition |
+| Implement | Can the plan be realized within accepted meaning and authority? | Candidate Implementation shaped by incremental Protocol and focused review feedback, final evidence, dispositioned findings, and material deviations | recommend `$review` or return to definition or `$plan` |
+| Review | Does this exact checkpoint or final candidate adequately realize the accepted change? | Focused course-correction findings or a fresh integrated result with separate Requirements, Architecture, Evaluations, Implementation, and whole-change judgments | recommend `$implement`, definition, `$ship`, or termination |
 | Ship | May this exact reviewed revision undergo this named final action? | Verified merge, deployment, publication, or other external result, including partial or failed state | observe, recover, or reopen |
 | Learn and compact | What did the action establish, contradict, or render obsolete? | New Observations, bounded Results, repaired provenance, and authorized refinement or compaction | close or re-enter Orientation |
 
 Each activity follows [Running a change-realization
-stage](running-change-realization-stages.md). Its output may be conversational,
-host-native, or durable according to the artifact's own authority and required
-lifetime. When a focused capability deliberately remains independent of Gen
-Stack, the caller applying this Process owns the common stage handoff and corpus
-disposition around that capability's native artifact.
+stage](running-change-realization-stages.md). Pitch, Change Specification,
+Change Design, and plan share `Draft`, `Ready`, and `Accepted`, one canonical
+target, and an explicit Open items section. The active focused stage persists
+the first coherent Draft and later state changes; ordinary conversational edits
+remain unsynchronized. A valid forward-stage invocation accepts only the exact
+persisted Ready predecessor before dependent work.
 
-Persisting an exact stage artifact is a cross-cutting representation operation,
-not another activity or readiness gate in this Process. When authorized, apply
-[Synchronizing change artifacts with work-item
-hosts](../work-items/synchronizing-change-artifacts.md) without re-authoring the
-artifact or advancing its maturity. Host-native implementation records may be
-projected from an exact plan only through that separately authorized operation.
+User-requested manual checkpoints and repairs use [Synchronizing change
+artifacts with work-item hosts](../work-items/synchronizing-change-artifacts.md).
+Sync Change copies exact current state; it does not advance lifecycle or create
+derived implementation records.
 
 ## Specification-first and design-first convergence
 
@@ -157,12 +158,13 @@ implementable merely because it is normative. The second activity reconciles
 the first; a material change sends the affected constituent back through its
 own activity.
 
-The resulting Change coordinates two sibling artifacts. The Change
+One canonical Change work item coordinates the sibling artifacts. The Change
 Specification owns why and what and remains agnostic about implementation-level
 Evaluations and tests. The Change Design owns how, including technical
 realization of required Requirement and Architecture Protocols and optional
-Implementation-conformance Evaluations. The Change binds their exact revisions
-and records whether reconciliation establishes coherence.
+Implementation-conformance Evaluations. Their current states, exact revisions,
+Open items, and reconciliation determine coherence directly; a separate Change
+coordination handoff is unnecessary.
 
 ## Readiness gates
 
@@ -187,15 +189,22 @@ Planning may rely on the Change as coherent only when:
 - no blocking product, Requirement, durable Architecture, or Protocol-semantic
   decision has been delegated to Design, planning, or implementation.
 
+At the `$plan` boundary the Specification is `Accepted`, the exact Design is
+persisted `Ready`, and both have no open items. The invocation verifies their
+bindings and accepts that Design before planning. A material later edit returns
+the affected artifact and its dependents to `Draft` in place.
+
 ### Implementation readiness
 
-Implementation may rely on the plan when it is bound to an exact coherent
+Implementation may rely on the plan when it is persisted `Ready`, has no Open
+items, and is bound to an exact coherent
 Change and exact Change Specification and Change Design revisions and identifies affected Implementation Units,
 dependencies, sequence, Evaluation or testing work, migration, observability,
 rollback, recovery, proportional Architecture, Requirements, Evaluations, and
 Implementation review checkpoints, final integrated review handoff, and
-remaining authorized local choices. An exploratory plan may exist earlier but
-must not claim this readiness.
+remaining authorized local choices. A partial plan may exist earlier but must
+remain `Draft`. A valid `$implement` invocation accepts the exact plan
+before mutation but still requires separate mutation authority.
 
 ### Release readiness
 
@@ -287,8 +296,8 @@ responsible boundary or contract rather than adding a universal phase.
 ## Realizations and views
 
 Focused Agent Skills may realize the named activities. Their portable
-instructions own execution behavior; this document owns the recommended
-Process relationship among them. Pack and skill READMEs should link here and
-show only the summary their readers need. If the operating-model diagram is
+instructions own execution behavior and require deliberate user selection;
+this document owns the recommended Process relationship among them. Pack and
+skill READMEs should link here and show only the summary their readers need. If the operating-model diagram is
 repeated in a generated surface, this document remains its source and the copy
 must be mechanically checked or regenerated.

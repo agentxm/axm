@@ -1,6 +1,6 @@
 {
   "skill_name": "ship",
-  "suite_version": "0.2.0",
+  "suite_version": "1.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -30,16 +30,16 @@
     {
       "id": 3,
       "stage": "routing",
-      "prompt": "/ship Merge exact reviewed revision r91 into the declared synthetic target under the supplied release approval, then verify persisted state.",
+      "prompt": "$ship Merge exact reviewed revision r91 into the declared synthetic target under the supplied release approval, then verify persisted state.",
       "expected_selection": "ship",
       "catalog_neighbors": [
         "review",
         "implement"
       ],
       "assertions": [
-        "The selected skill is ship.",
+        "The user's explicit skill invocation selects ship.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
         "No task side effect occurs before selection."
       ]
     },
@@ -47,16 +47,29 @@
       "id": 4,
       "stage": "routing",
       "prompt": "Review whether candidate r92 is release-ready and report evidence gaps. Do not merge or deploy it.",
-      "expected_selection": "review",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "review",
         "implement"
       ],
       "assertions": [
-        "Ship is not selected for readiness assessment alone and no task side effect occurs before selection.",
-        "Review owns the requested outcome.",
-        "The explicit no-mutation boundary is preserved.",
-        "No final action is attempted."
+        "Ship is not selected because the host requires explicit invocation.",
+        "Review is not selected merely from natural-language similarity because it is also explicit-only.",
+        "The routing result records abstention or clarification and preserves the no-mutation boundary.",
+        "No final action or other task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "$ship Perform the explicitly authorized synthetic deployment of exact reviewed candidate r105 for Change CH-105 revision 3, bound to Accepted Specification CS-105 revision 2 and Accepted Design D-105 revision 1, to synthetic staging target stg-105. The supplied authority permits only this deployment and its declared readback checks. The synthetic harness reports deployment persisted, health and behavior checks pass, the observation window completed without rollback signals, and no new operational observations were recorded. Report the result without claiming broader production authority.",
+      "expected_output": "A decision-first Ship result bound to the exact subject and target that separates authority, observed effects, verification, recovery posture, residual risk, and new observations.",
+      "assertions": [
+        "The result starts with Subject, Action, Target, and Outcome, followed immediately by Summary.",
+        "Authority is separated from observed effects and verification rather than inferred from readiness evidence.",
+        "Persisted deployment state, health checks, behavior checks, and the completed observation window are reported precisely.",
+        "Recovery posture, residual risk, and new observations are explicit, with None used where the supplied evidence supports none.",
+        "The response does not claim production deployment, broader release authority, or effects beyond the synthetic target."
       ]
     }
   ]

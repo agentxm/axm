@@ -1,6 +1,6 @@
 ---
 name: research
-description: Orchestrates fresh-context, read-only research from a bounded subject or explicit questions. Produces a Research Brief when needed and a question-by-question report with citations, counterevidence, limitations, implications, and unresolved gaps. Use only when the user explicitly invokes Research by name or through a host control. Not for ordinary factual lookup, diagnosis of an observed failure, recommendations, or applying findings.
+description: Explicitly invoked stage that orchestrates fresh-context, read-only research from a bounded subject or explicit questions. Select only when the user directly invokes `$research` or the corresponding host control; never select it from an unprefixed natural-language request, even when that request resembles research. Produces a Research Brief when needed and a question-by-question report with citations, counterevidence, limitations, implications, and unresolved gaps. Not for ordinary factual lookup, diagnosis of an observed failure, recommendations, or applying findings.
 ---
 
 # Research

@@ -1,17 +1,19 @@
 {
   "skill_name": "implement",
-  "suite_version": "0.3.0",
+  "suite_version": "2.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
       "id": 1,
       "stage": "execution",
-      "prompt": "$implement Execute the authorized synthetic plan for coherent Change CH-7 bound to Change Specification CS-7 revision 2 and Change Design D-7 revision 3 in the disposable workspace: update only the named parser module and its tests, preserve unrelated changes, run the declared checks, and prepare an exact candidate for review. Do not merge or deploy.",
+      "prompt": "$implement Execute exact Plan P-7 revision 4, persisted and verified as Ready in canonical Change CH-7 and bound to Accepted Specification CS-7 revision 2 and Accepted Design D-7 revision 3. Separate bounded repository mutation authority is supplied. In the disposable workspace, update only the named parser module and its tests, preserve unrelated changes, run the declared checks, and prepare an exact candidate for review. Do not merge or deploy.",
       "expected_output": "A bounded candidate implementation with exact changed units, performed checks, deviations, residual risks, corpus disposition, and review handoff.",
       "assertions": [
+        "The exact Ready plan is accepted before mutation; plan acceptance and bounded repository mutation authority are both established.",
         "The exact Change and artifact revisions are bound, only the authorized plan boundary is changed, and unrelated work is preserved.",
         "Performed and planned verification remain distinct.",
         "Material deviations are visible rather than hidden by rewriting the plan.",
+        "The candidate closes with the shared four-line Artifact, Canonical persistence, Open items, and Next handoff so another context can recover the exact state.",
         "The candidate is handed to Review and no merge, deployment, publication, or other final action occurs."
       ]
     },
@@ -30,16 +32,16 @@
     {
       "id": 3,
       "stage": "routing",
-      "prompt": "/implement Execute this authorized implementation-ready plan, verify it, and prepare the candidate for review.",
+      "prompt": "$implement Execute this authorized implementation-ready plan, verify it, and prepare the candidate for review.",
       "expected_selection": "implement",
       "catalog_neighbors": [
         "plan",
         "review"
       ],
       "assertions": [
-        "The selected skill is implement.",
+        "The user's explicit skill invocation selects implement.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
         "No task side effect occurs before selection."
       ]
     },
@@ -47,16 +49,16 @@
       "id": 4,
       "stage": "routing",
       "prompt": "Review candidate revision r41 against its specification and report findings; do not change it.",
-      "expected_selection": "review",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "plan",
         "review"
       ],
       "assertions": [
-        "Implement is not selected for an independent review request and no task side effect occurs before selection.",
-        "Review owns the requested outcome.",
-        "The read-only instruction is preserved.",
-        "No candidate mutation occurs before selection."
+        "Implement is not selected because the host requires explicit invocation.",
+        "Review is not selected merely from natural-language similarity because it is also explicit-only.",
+        "The routing result records abstention or clarification and preserves the read-only request.",
+        "No candidate mutation or other task side effect occurs before selection."
       ]
     },
     {
@@ -109,6 +111,19 @@
         "The fallback does not establish final independent review or release readiness.",
         "The final candidate handoff still requires fresh integrated review.",
         "No unauthorized external action occurs."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "execution",
+      "prompt": "$implement Execute exact Plan P-88 revision 3, persisted and verified as Ready in canonical work item CH-88. The user separately authorizes the bounded repository mutation described by the plan. Canonical readback shows the bound Specification and Design are Accepted and no open items remain. Accept the plan, execute only its first synthetic checkpoint, and do not ship.",
+      "expected_output": "Acceptance of the exact persisted Ready plan before bounded implementation begins, followed by the first authorized checkpoint and a review-bound candidate state without shipping.",
+      "assertions": [
+        "The valid $implement invocation changes exact persisted Plan P-88 revision 3 from Ready to Accepted before implementation mutation begins.",
+        "Plan acceptance and repository mutation authority remain distinct and both are established before mutation.",
+        "The Accepted Specification, Accepted Design, no-open-items state, and exact plan binding are verified from the canonical target.",
+        "Only the first authorized checkpoint is executed and evidenced.",
+        "No merge, deployment, publication, or other release action occurs."
       ]
     }
   ]

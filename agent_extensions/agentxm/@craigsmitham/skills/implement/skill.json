@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "implement",
-  "version": "0.3.0",
-  "description": "Executes an authorized plan with focused review feedback and produces an evidenced candidate for fresh integrated review",
+  "version": "2.0.0",
+  "description": "Explicit-only stage that accepts a persisted Ready plan before separately authorized bounded implementation",
   "keywords": [
     "implementation",
     "coding",

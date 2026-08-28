@@ -1,6 +1,6 @@
 {
   "skill_name": "review",
-  "suite_version": "0.3.0",
+  "suite_version": "1.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -30,16 +30,16 @@
     {
       "id": 3,
       "stage": "routing",
-      "prompt": "/review Independently assess this exact candidate against its Change Specification and lead with findings.",
+      "prompt": "$review Independently assess this exact candidate against its Change Specification and lead with findings.",
       "expected_selection": "review",
       "catalog_neighbors": [
         "implement",
         "ship"
       ],
       "assertions": [
-        "The selected skill is review.",
+        "The user's explicit skill invocation selects review.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
         "No task side effect occurs before selection."
       ]
     },
@@ -47,16 +47,16 @@
       "id": 4,
       "stage": "routing",
       "prompt": "Review this exact candidate, fix every issue you find, but do not ship it.",
-      "expected_selection": "review",
+      "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "implement",
         "ship"
       ],
       "assertions": [
-        "Review remains the first selected stage and no fix or task side effect occurs before selection.",
-        "Any later fix is routed through Implement after the review subject is identified.",
-        "Ship is not selected.",
-        "The initial assessment remains attributable to the pre-fix revision."
+        "Review is not selected because the host requires explicit invocation.",
+        "Implement and Ship are not selected merely from natural-language similarity because they are also explicit-only.",
+        "The routing result records abstention or clarification without reviewing or fixing the candidate.",
+        "No task side effect occurs before selection."
       ]
     },
     {
@@ -91,7 +91,8 @@
       "prompt": "$review Implementation-focused checkpoint review of immutable synthetic diff cp-9. Report only the decision and actions a busy implementer needs, supported findings, a one-line assurance summary for each material area, material unknowns, and the exact boundary. Do not print the underlying checklists. The diff has one high-confidence null dereference at parser.ts:31; owner Implement; the existing parser-null check would verify correction.",
       "expected_output": "A compact exception-based checkpoint result with the null-dereference action first and no checklist dump.",
       "assertions": [
-        "Decision, required actions, findings, assurance summary, material unknowns, and review boundary are easy to locate.",
+        "The result starts with Subject, Mode, Focus, and Result, then Decision; required actions, findings, assurance summary, material unknowns, and review boundary are easy to locate.",
+        "The action is an A-1 vertical card, the finding is an F-1 vertical card, and the assurance table has no more than four columns.",
         "The action names the owner, required outcome, observable done condition, and finding identity.",
         "The result does not dump successful checklist items or bury the action behind a long narrative.",
         "Unassessed areas are marked unknown or not applicable rather than silently passed.",

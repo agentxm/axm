@@ -140,32 +140,34 @@ evidence for the next loop.
 
 [Shaping a Pitch](control-loop/shaping-a-pitch.md) turns a raw or mixed Signal
 into a rough, bounded, repository-grounded articulation suitable for a Change
-Specification, Change Design, or combined response. A Pitch exposes anticipated
+Specification or Change Design. A Pitch exposes anticipated
 cross-stack impact and response contours while remaining provisional. It is
 not accepted Intent, another Work item, a Change Specification, or selected Design.
 
 [Change Design](design/change-design.md) supplies proportional technical
-reasoning between accepted meaning and bounded Action. It may remain in the
-conversation, be captured in a work item, or exceptionally be maintained as a
-dedicated document. It is not another required authority layer: Requirements
+reasoning between accepted meaning and bounded Action. Exploration may occur in
+conversation, while the first coherent Draft and later state changes are
+persisted in the canonical Change target. It is not another required authority layer: Requirements
 still own obligations, Architecture owns durable response meaning, Work items
 own delivery state, Implementation owns realized state, and Evaluations own
 assessment and evidence.
 
 A [Change](work-items/changes.md) coordinates one bounded case. Its Change
 Specification owns why and what, its Change Design owns how, and the Change
-owns identity, classification, exact artifact revisions, coherence, delivery,
-evidence, and next action. A Change that explicitly remediates an established
+owns the canonical target, identity, classification, current artifact states
+and exact revisions, delivery, evidence, and next action. A Change that explicitly remediates an established
 Defect is classified as a Bugfix and remains linked to its provenance-bearing
 Defect Reports; it is never a report under a new title.
 
-[Synchronizing change artifacts with work-item
-hosts](work-items/synchronizing-change-artifacts.md) preserves an exact landed
-Pitch, Change coordination record, Change Specification, Change Design, or plan
-in a host-neutral canonical home. It is a representation operation, not a new
-stage, artifact type, authority layer, or host workflow. Deliberate plan
-projection creates host-native implementation records while leaving the exact
-plan canonical.
+Pitch, Change Specification, Change Design, and plan share one update-in-place
+`Draft → Ready → Accepted` lifecycle with explicit Open items. Their portable
+fallbacks lead with exact identity, state, canonical target, bindings, Summary,
+and Open items, then disclose decision and verification detail. Focused stages
+persist the first coherent Draft and every state change; valid forward-stage
+invocations accept exact persisted Ready predecessors. [Synchronizing change
+artifacts with work-item hosts](work-items/synchronizing-change-artifacts.md)
+preserves an exact artifact for a user-requested manual checkpoint or repair.
+It is not a stage, lifecycle transition, or derived task-projection mechanism.
 
 [Specifying Requirement
 changes](work-items/specifying-requirement-changes.md) separates impact analysis
@@ -245,8 +247,9 @@ and proportional detail may vary and empty sections are omitted.
 Durability determines how much presentation machinery is justified. Durable
 authorities need stable identity, provenance, and lifecycle in their native
 form. Work items use host mechanics plus a recognizable semantic body.
-Transient analysis and conversational Change Design use lightweight contextual
-structure and do not invent persistence metadata. Reports, dashboards,
+Transient analysis and conversational Design exploration use lightweight
+contextual structure and do not invent persistence metadata; the first coherent
+focused artifact Draft uses its canonical target. Reports, dashboards,
 reciprocal links, and exports identify themselves as derived projections and
 preserve links to their canonical sources.
 
@@ -254,7 +257,7 @@ preserve links to their canonical sources.
 | --- | --- | --- |
 | Governed System, Intent, Requirement, Architecture, and Evaluation Protocol concepts | OKF v0.2 plus the adopted application profile | Only the profile delta and Guide-supported residual body meaning |
 | Operational Incident Records, Defect Reports, and Changes | Tracker identity, fields, relationships, and body | Role-specific evidence, authority, lifecycle, and fallback facts the host cannot express |
-| Change Specification and Change Design | Native fields, conversation, work item, or established repository format | Shared semantic contracts and exact Markdown fallbacks; no mandatory standalone documents |
+| Pitch, Change Specification, Change Design, and implementation plan | Native work-item fields or regions, or exact links to an established repository format | Shared Draft, Ready, Accepted lifecycle, Open items, event-driven persistence, and artifact-specific semantic contracts |
 | Process definitions | Repository process notation, workflow model, or executable format | Residual purpose, authority, rationale, exclusions, evidence, and limits |
 | Implementation Units and generation records | Repository code, schema, configuration, manifest, and provenance formats | Stable links to accepted authorities and bounded conservation context |
 | Evaluation Protocols | Governed OKF concepts under `gen-stack/evaluations/protocols/` | Stable role, target, claim, assessment, judgment, and evidence lifecycle |

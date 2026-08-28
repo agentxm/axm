@@ -3,8 +3,8 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "review",
-  "version": "0.3.0",
-  "description": "Performs focused checkpoint and independent integrated reviews with separate assurance claims and actionable results",
+  "version": "1.0.0",
+  "description": "Explicit-only stage for focused checkpoint or independent integrated review with separate assurance claims; never select from unprefixed natural language",
   "keywords": [
     "review",
     "code-review",

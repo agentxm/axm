@@ -1,6 +1,6 @@
 {
   "skill_name": "improve-whatever",
-  "suite_version": "0.0.8",
+  "suite_version": "1.0.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -42,16 +42,32 @@
     {
       "id": 4,
       "stage": "routing",
-      "prompt": "Evaluate this product proposal through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommend improvements.",
+      "prompt": "$improve-whatever Evaluate this product proposal through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommend improvements.",
       "expected_selection": "improve-whatever",
       "catalog_neighbors": [
         "audit-docs",
         "craft-effect-v4"
       ],
       "assertions": [
-        "The selected skill is improve-whatever.",
+        "The user's explicit skill invocation selects improve-whatever.",
+        "The explicit invocation is treated as a control rather than evidence of implicit routing.",
         "No neighboring skill is selected for a job it does not own.",
-        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before explicit selection."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "routing",
+      "prompt": "Evaluate this product proposal through what is true, honorable, just, pure, lovely, commendable, excellent, and praiseworthy, then recommend improvements.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": [
+        "audit-docs",
+        "craft-effect-v4"
+      ],
+      "assertions": [
+        "Improve-whatever is not selected because the host requires explicit invocation.",
+        "No neighboring skill is selected for a job it does not own.",
+        "The routing result records abstention or clarification without activating improve-whatever.",
         "No task side effect occurs before selection."
       ]
     }

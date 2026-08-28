@@ -1,7 +1,7 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, revision-binding, implementation-readiness, evidence-guided realization, proportional focused-review planning, upstream-authority, and premature-execution failures in plan before release; this suite does not approve the skill.",
+  "decision": "Detect routing, revision-binding, shared-lifecycle, predecessor-acceptance, evidence-guided realization, proportional focused-review planning, upstream-authority, and premature-execution failures in plan before release; this suite does not approve the skill.",
   "target_binding": {
     "skill_name": "plan",
     "required_result_fields": [
@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Turning one exact coherent Change and its exact accepted revisions into an outcome-oriented implementation plan that sequences architectural realization, required Protocol feedback, proportional focused review checkpoints, final evidence, integrated review handoff, rollout, and recovery without rewriting meaning.",
+    "intended_use": "Accepting an exact persisted Ready Design after confirming an Accepted Specification, then turning those exact revisions into one update-in-place Draft-to-Ready implementation plan without rewriting meaning.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic coherent-input, incoherent-input, evidence-guided realization, late-evaluation, missing-Protocol, material focused-review, proportional no-ceremony, positive-routing, product-roadmap collision, and external work-item projection collision cases.",
+    "case_source": "Synthetic coherent-input, incoherent-input, predecessor-acceptance, lifecycle-persistence, evidence-guided realization, late-evaluation, missing-Protocol, material focused-review, proportional no-ceremony, explicit-selection, implicit-abstention, and unsupported derived-record projection cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects plan, unprefixed planning language abstains, and derived implementation-record projection selects neither plan nor sync-change.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic exact revisions and no implementation mutation or scheduling authority.",
     "support_paths": [
       "knowledge/gen-stack/src"
@@ -73,6 +73,8 @@
     "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "No planning across incoherent meaning",
+      "Ready Design acceptance is exact, persisted, and ordered before planning",
+      "Plan presentation is first-screen scannable and lifecycle persistence is update-in-place",
       "Required Protocols guide realization and remain exit criteria",
       "Focused reviews are proportional, exact-subject, and separate from Protocol feedback",
       "No invention of missing Protocol meaning",
@@ -114,9 +116,19 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
+        "gate": "Ready Design acceptance is exact, persisted, and ordered before planning",
+        "case_id": 1,
+        "assertion": "The valid $plan invocation changes exact Design D-12 revision 2 from Ready to Accepted before dependent planning begins."
+      },
+      {
+        "gate": "Plan presentation is first-screen scannable and lifecycle persistence is update-in-place",
+        "case_id": 1,
+        "assertion": "The portable result starts with Artifact, State, Canonical, Bound to, Implementation, and Mutation authority, followed immediately by Summary and Open items."
+      },
+      {
         "gate": "No planning across incoherent meaning",
         "case_id": 2,
-        "assertion": "The response returns to Spec or Design and does not label the plan implementation-ready."
+        "assertion": "The response returns to Spec or Design and keeps the plan Draft."
       },
       {
         "gate": "No implementation or commitment mutation",
@@ -131,7 +143,7 @@
       {
         "gate": "No invention of missing Protocol meaning",
         "case_id": 7,
-        "assertion": "The response returns to Spec for semantic Protocol definition and does not label the plan implementation-ready."
+        "assertion": "The response returns to Spec for semantic Protocol definition and keeps the plan Draft."
       },
       {
         "gate": "Focused reviews are proportional, exact-subject, and separate from Protocol feedback",
@@ -146,7 +158,7 @@
       {
         "gate": "Plan does not create external work-item records",
         "case_id": 10,
-        "assertion": "Sync-change, not plan, is selected for external plan projection."
+        "assertion": "Sync-change is not selected because derived implementation-record projection is not canonical artifact synchronization."
       }
     ]
   },

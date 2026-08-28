@@ -23,7 +23,7 @@
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic pitch-first, specification-first, design-first, architecture-realization, evaluation-realization, optional implementation-conformance, positive-routing, and Spec-collision cases.",
+    "case_source": "Synthetic pitch-first, specification-first, design-first, architecture-realization, evaluation-realization, optional implementation-conformance, predecessor-acceptance, lifecycle-persistence, explicit-selection, and implicit-abstention cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -44,7 +44,7 @@
       "started_at",
       "ended_at"
     ],
-    "routing_boundary": "Expose only catalog names and descriptions until a single selection or required ordered composition is recorded.",
+    "routing_boundary": "Expose only catalog names, descriptions, and host invocation policy; explicit invocation selects design, while the same or adjacent unprefixed semantic request must abstain or clarify without side effects.",
     "execution_boundary": "Activate the target in a disposable task-local workspace with synthetic accepted meaning and no implementation or release authority.",
     "support_paths": [
       "knowledge/gen-stack/src"
@@ -73,6 +73,8 @@
     "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
       "No invented desired-state or Architecture acceptance",
+      "Forward-stage acceptance requires an exact persisted Ready predecessor",
+      "First-screen Design presentation and update-in-place Draft persistence",
       "Accepted Architecture and required Protocols are technically realized",
       "Implementation-conformance Evaluations remain optional and separate",
       "No implementation or planning mutation",
@@ -112,6 +114,16 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
+        "gate": "Forward-stage acceptance requires an exact persisted Ready predecessor",
+        "case_id": 7,
+        "assertion": "The valid $design invocation changes exact persisted Specification CS-73 revision 4 from Ready to Accepted before dependent Design work begins."
+      },
+      {
+        "gate": "First-screen Design presentation and update-in-place Draft persistence",
+        "case_id": 1,
+        "assertion": "The first screen exposes the exact Ready Design identity, Specification binding, Summary, and `- None.` under Open items before technical detail."
+      },
+      {
         "gate": "No invented desired-state or Architecture acceptance",
         "case_id": 2,
         "assertion": "Implied outcome, obligation, and durable-Architecture assumptions are returned to Spec or their authority rather than accepted by Design."
@@ -134,7 +146,7 @@
       {
         "gate": "Routing and execution claims remain distinct",
         "case_id": 4,
-        "assertion": "Design is not selected for a why-and-what clarification request, and no task side effect occurs before selection."
+        "assertion": "Design is not selected because the host requires explicit invocation."
       }
     ]
   },

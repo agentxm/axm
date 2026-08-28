@@ -3,11 +3,11 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "research",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "publish": {
     "ignore": []
   },
-  "description": "Frames and orchestrates fresh-context, read-only evidence research from bounded subjects or explicit questions",
+  "description": "Explicit-only stage for fresh-context, read-only evidence research; never select from unprefixed natural language",
   "keywords": [
     "research",
     "investigation",
@@ -19,7 +19,7 @@
   ],
   "standalone": false,
   "recommendedPacks": [
-    "@craigsmitham/packs/gen-stack"
+    "@craigsmitham/packs/research"
   ],
   "repository": {
     "type": "git",

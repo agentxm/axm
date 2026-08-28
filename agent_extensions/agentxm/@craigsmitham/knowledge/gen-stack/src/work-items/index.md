@@ -34,7 +34,9 @@ Use [Maintaining work-item identity, relationships, and
 lifecycle](maintaining-work-item-identity-relationships-and-lifecycle.md) for
 the full completion model. Change Specification ratification, Change Design
 acceptance, Change coherence, implementation, final action, evidence, and
-source-record disposition remain independent states.
+source-record disposition remain independent states. A Change work item may be
+closed because another proposal replaced it, but the current Pitch,
+Specification, Design, and plan never gain a `superseded` artifact state.
 
 ## Change artifacts
 
@@ -42,7 +44,7 @@ source-record disposition remain independent states.
 - [Writing Change Specifications](writing-change-specifications.md) - Use when one bounded Change needs a human-ratifiable account of why and what must change; specify exact Intent, Requirement, Architecture, constraint, and semantic Evaluation Protocol changes without selecting the technical response or coordinating delivery.
 - [Addressing defects through Changes](addressing-defects-through-changes.md) - Use when a bounded Change has the explicit remedial purpose of correcting or acceptably compensating for established Defects; classify it as a Bugfix, preserve Defect provenance, and apply the ordinary Change Specification and Change Design contracts.
 - [Developing a Change Design](../design/developing-a-change-design.md) - Use when one bounded Change needs a proportional technical response; compare material alternatives, realize accepted Architecture and required Evaluation Protocols, and reconcile the exact Change Specification without taking over specification or delivery coordination.
-- [Synchronizing change artifacts with work-item hosts](synchronizing-change-artifacts.md) - Use when an exact Pitch, Change coordination record, Change Specification, Change Design, or implementation plan must be created or updated in a work-item host without re-authoring it, or when an exact plan must be deliberately projected into host-native implementation records.
+- [Synchronizing change artifacts with work-item hosts](synchronizing-change-artifacts.md) - Use for a user-requested manual checkpoint or repair of one exact Pitch, Change Specification, Change Design, or plan in its canonical work-item target.
 
 ## Defects and incidents
 

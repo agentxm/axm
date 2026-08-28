@@ -13,7 +13,8 @@ adoption authority gate.
 
 Cases 41–65 preserve the software work-item coverage formerly owned by
 `author-software-work-items`. They cover Operational Incident Records, Defect
-Reports, Changes, Change Specifications, Change Designs, Bugfix classification, title-and-summary
+Reports, Changes, Change Specification and Change Design ownership boundaries,
+Bugfix classification, title-and-summary
 operations, originating
 evidence, Requirement and Evaluation impact, tracker persistence readback, and
 routing between the unified skill's branches.
@@ -112,8 +113,8 @@ meaning, and evidence, Implementation, Evaluations, work-item identity,
 lifecycle, and tracker metadata retain their own authority.
 
 Suite 2.0.0 adds cases 131–134 for the method-and-corpus boundary introduced by
-the focused Gen Stack operating model. Focused Specification and Implementation
-outcomes route to sibling skills, adoption remains with gen-stack, and a Process
+the focused Gen Stack operating model. Explicit Specification and Implementation
+invocations select sibling skills, adoption remains with gen-stack, and a Process
 orientation explains convergence and release authority without executing work.
 
 Suite 2.1.0 adds cases 135–136 for the Shape boundary. A focused Pitch routes
@@ -129,3 +130,20 @@ Suite 3.2.0 adds cases 138–139 for exact change-artifact synchronization. A
 focused persistence request routes to the host-neutral Sync Change sibling
 instead of re-authoring or shipping, while Gen Stack explains synchronization
 as cross-cutting representation work rather than a new stage or readiness gate.
+
+Suite 4.0.0 makes focused stages explicit-only. Case 64 now requires abstention
+for an unprefixed Change Specification request instead of letting the umbrella
+author it; cases 131, 132, and 135 retain explicit sibling selection controls;
+and case 140 requires a thin `$spec` recommendation that stops without
+performing or activating the stage.
+
+Suite 5.0.0 adds the shared Draft, Ready, Accepted lifecycle, event-driven
+canonical persistence, exact forward-stage acceptance, update-in-place
+invalidation, compaction boundary, quick-change deprecation, and removal of
+derived implementation-record projection from Sync Change.
+
+Suite 6.0.0 adds case 142 for the shared artifact presentation language:
+first-screen identity and state, structured Open items, explicit state,
+fidelity, disposition, Result, reference, transition, and absence keys,
+optional emoji decoration, vertical cards, bounded tables, and compact recovery
+handoffs.

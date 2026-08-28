@@ -1,5 +1,52 @@
 # Gen Stack Update Log
 
+## 2026-08-28
+
+- **Gen Stack 2.0.0, Gen Stack skill 6.0.0, Shape/Spec/Design/Plan/Implement/
+  Sync Change 2.0.0, Review/Ship 1.0.0, and pack 7.0.0 — shared artifact
+  presentation language**: Standardized the first screen of every durable
+  artifact around exact identity, lifecycle state, canonical location, a short
+  summary, and structured Open items. Added one explicit visual key for
+  artifact state, persistence fidelity, review dispositions, Evaluation
+  Results, stable item IDs, transitions, and explicit absence; text remains
+  authoritative and emoji decoration is optional. Refactored Pitch,
+  Specification, Design, Plan, Review, Ship, Change
+  envelope, and handoff templates for progressive disclosure, vertical cards,
+  bounded tables, and omission of empty optional sections. Consolidated shared
+  lifecycle and presentation rules in one guide, removed the duplicate Review
+  result template, and aligned evaluation suites with the portable output
+  contracts.
+
+- **Gen Stack 1.0.0, Gen Stack skill 5.0.0, Shape/Spec/Design/Plan/Implement/
+  Sync Change 1.0.0, deprecated Quick Change 1.0.0, and pack 6.0.0 — shared
+  artifact lifecycle and event-driven persistence**: Unified Pitch, Change
+  Specification, Change Design, and plan on update-in-place `Draft`, `Ready`,
+  and `Accepted` states with explicit Open items. Focused stages now persist the
+  first coherent Draft and state changes, while ordinary chat iteration remains
+  unsynchronized. Valid forward-stage invocations accept exact persisted Ready
+  predecessors before dependent work. Material edits downgrade current and
+  affected dependent artifacts to Draft. Reduced Pitch, Design, Plan, and
+  handoff templates; removed mandatory breadboarding and ritual review
+  checkpoints; deprecated Quick Change in favor of Spec then Design; and
+  removed plan-to-task projection from Sync Change. Manual synchronization now
+  remains a narrow checkpoint and repair operation, including an explicit
+  refusal to reconstruct chat-only edits lost after context compaction.
+
+- **Gen Stack 0.26.0, Gen Stack skill 4.0.0, focused stage skills, Sync Change
+  0.2.0, and pack 5.0.0 — deliberate stage invocation**: Made Shape, Research,
+  Investigate, Spec, Design, Quick Change, Plan, Implement, Review, and Ship
+  explicit user-selected stages. The Gen Stack umbrella now explains the
+  method, maintains governed corpus and coordination surfaces, and recommends
+  the smallest eligible stage without invoking or reproducing it. Sync Change
+  remains implicitly selectable only when a complete exact landed artifact and
+  explicit persistence intent are both present. Centralized the rule that
+  readiness, handoffs, and next-stage recommendations are not activation;
+  retained all semantic, mutation, review, and release authority gates; and
+  encoded explicit-only OpenAI host policy plus portable routing boundaries to
+  reduce ambient discovery and activation cost where the host supports it.
+  Revised routing suites to separate explicit controls from implicit
+  abstention.
+
 ## 2026-08-27
 
 - **Gen Stack 0.25.0, Gen Stack skill 3.2.0, Plan skill 0.5.0, Sync Change

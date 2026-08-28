@@ -23,6 +23,10 @@ relationships:
     - /architecture/surfaces/cli/sync.md
     - /architecture/surfaces/cli/uninstall.md
     - /architecture/surfaces/cli/update.md
+  is-subject-of-requirement:
+    - /architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md
+    - /architecture/surfaces/cli/requirements/functional/machine-mode-never-prompts.md
+    - /architecture/surfaces/cli/requirements/functional/output-channel-separation.md
 ---
 
 # AXM CLI
@@ -45,6 +49,11 @@ different rendering contracts.
 The CLI does not install or administer coding-agent products, run extension
 runtimes, infer choices an actor has not expressed, or provide a generic
 workspace repair system.
+
+## Requirements
+
+Canonical obligations owned by this Surface are navigable under
+[AXM CLI Requirements](cli/requirements/index.md).
 
 ## Interaction hierarchy and evidence
 

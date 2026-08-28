@@ -43,15 +43,18 @@ No command is a fallback owner for work that lacks a clear home:
 - lint does not choose a correction or perform lifecycle and reconciliation
   work;
 - sync does not edit workspace configuration or advance satisfying
-  resolutions;
+  resolutions
+  ([AXM-REQ-0012](../../../gen-stack/system/requirements/functional/reconciliation-preserves-configuration.md)
+  is canonical);
 - lifecycle commands do not repair unrelated workspace state;
 - type command groups do not define different lifecycle policy from root
   commands;
 - setup does not reconstruct intent from observed files or become a repair
   workflow;
 - inspection commands do not mutate the state they report; and
-- `--force` does not turn a command into a more general operation or bypass
-  hard invariants.
+- `--force` does not turn a command into a more general operation;
+  [AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md)
+  canonically bounds what it may bypass.
 
 When an action does not fit a command's responsibility, AXM changes the design
 or leaves the decision to the user; it does not hide the action behind an
@@ -102,15 +105,15 @@ Given the same state, preview must accurately describe what application will
 do. Before writing, AXM checks that the relevant state has not changed; a stale
 preview or plan writes nothing.
 
-`--yes` answers routine prompts. `--force` may bypass only an explicitly
-forceable policy and never a hard invariant. Routine exceptional modes receive
-their own names rather than accumulating narrow override flags.
+`--yes` answers routine prompts. The canonical force boundary is
+[AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md):
+it owns which explicitly forceable policy `--force` may bypass and whether a
+command exposes the flag at all. Routine exceptional modes receive their own
+names rather than accumulating narrow override flags.
 
 Global sync applies every ready independent closure. A nonzero result may still
 include committed closures; human and machine output report each closure's
 outcome rather than reducing the request to a misleading all-or-nothing label.
-
-If no policy safely meets the force boundary, no command exposes `--force`.
 
 ## No generic health or repair command
 

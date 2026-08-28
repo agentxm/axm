@@ -94,7 +94,9 @@ Workspace configuration answers which explicit choices the user has made.
 Desired state expands extension choices through Pack membership and derives
 the outputs required by configured agents and workspace capabilities. Accepted
 lock rows and existing files do not make an extension or
-capability desired.
+capability desired
+([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
+is canonical for lock state).
 
 ## Authority across workspace surfaces
 
@@ -160,7 +162,9 @@ path, and byte equality are observations, not ownership proof.
 AXM-managed installed state is retained when its extension is reachable from
 desired state. Direct extension configuration and Pack membership can make an
 extension reachable. Lock rows do not keep an otherwise undesired extension
-installed. Workspace-authored inventory is
+installed
+([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
+is canonical). Workspace-authored inventory is
 preserved by authorship, not retained by desired-state reachability.
 
 Removing one route to an extension does not remove it while another desired
@@ -230,9 +234,10 @@ manual preservation, relocation, or removal owns recovery.
 
 ## Safe workspace changes
 
-Two AXM changes to the same workspace scope must not interleave. Immediately
-before writing, AXM checks that the inputs and targets still match the proposed
-change. If they do not, it writes nothing.
+Two AXM changes to the same workspace scope must not interleave
+([AXM-REQ-0011](../../../gen-stack/system/requirements/functional/workspace-changes-do-not-interleave.md)
+is canonical). Immediately before writing, AXM checks that the inputs and
+targets still match the proposed change. If they do not, it writes nothing.
 
 Workspace configuration, authoritative lock state, canonical extension content,
 inline configuration, and managed outputs change atomically by semantic

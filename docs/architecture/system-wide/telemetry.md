@@ -51,17 +51,24 @@ workspace setting or command merely to persist it. Environment configuration
 may be applied to one invocation, a shell, a user profile, or an automation
 environment without changing repository state.
 
-No lower-precedence control may override `DO_NOT_TRACK`. Invalid telemetry
-configuration fails closed for collection without failing the requested
-command.
+No lower-precedence control may override `DO_NOT_TRACK`
+([AXM-REQ-0015](../../../gen-stack/system/requirements/constraint/do-not-track-takes-precedence.md)
+is canonical). Invalid telemetry configuration fails closed for collection
+without failing the requested command.
 
 ## Invariants
 
-- Workspace configuration cannot opt a user into telemetry.
+- Workspace configuration cannot opt a user into telemetry
+  ([AXM-REQ-0014](../../../gen-stack/system/requirements/constraint/workspace-configuration-cannot-enable-telemetry.md)
+  is canonical).
 - Errors-only mode emits no usage events.
 - Disabled mode emits neither usage nor error events.
-- Telemetry failure never alters command output, state changes, or exit status.
-- Telemetry payloads remain within the documented data boundary.
+- Telemetry failure never alters command output, state changes, or exit status
+  ([AXM-REQ-0016](../../../gen-stack/system/requirements/functional/telemetry-failure-never-alters-outcome.md)
+  is canonical).
+- Telemetry payloads remain within the documented data boundary
+  ([AXM-REQ-0017](../../../gen-stack/system/requirements/constraint/telemetry-collection-respects-data-boundary.md)
+  is canonical).
 - Registry request logging and CLI telemetry remain independently disclosed and
   controlled.
 

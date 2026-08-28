@@ -143,18 +143,19 @@ code directly under `src/`.
 
 ### Two TypeScript Versions
 
-Deliberate, via a dual alias in the pnpm catalog. Do not collapse it to a single
-`typescript` dependency; the exit point is TypeScript 7.1.
+The canonical decision is
+[Dual TypeScript alias toolchain](gen-stack/architecture/decisions/typescript-dual-alias.md)
+with its companion constraint
+[AXM-REQ-0019](gen-stack/system/requirements/constraint/dual-typescript-alias-retained-until-exit.md);
+the notes below are its operational projection.
 
 - `tsc` is TypeScript 7, the native compiler (`@typescript/native`), patched by
   `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics. Every
   `typecheck` target and `scripts-typecheck` runs on it.
-- `require("typescript")` is Microsoft's TypeScript 6 compatibility package.
-  TypeScript 7.0 ships no stable compiler API, so this is what keeps
-  typescript-eslint and the in-process Nx executors working.
+- `require("typescript")` is Microsoft's TypeScript 6 compatibility package; it
+  keeps typescript-eslint and the in-process Nx executors working.
 - `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process under
-  `--batch`, and `dist/**/*.d.ts` is the published contract. Move it only once
-  `@nx/js:tsc` can run on the TypeScript 7 engine.
+  `--batch`, and `dist/**/*.d.ts` is the published contract.
 - Need the TypeScript 6 CLI for a one-off check? It is installed as `tsc6`.
 
 Editors use the patched TypeScript 7 language server

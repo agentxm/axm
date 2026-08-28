@@ -18,7 +18,9 @@ used by planning, materialization, update, reinstall, and cleanup.
 Settings and workspace-authored manifests remain the only authority for desired
 intent and reachability. The lockfile answers which immutable external content
 AXM accepted for a desired source; it never answers whether an extension is
-desired.
+desired
+([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
+is canonical).
 
 ## Responsibilities
 
@@ -54,7 +56,9 @@ The lockfile does not:
 
 - express direct membership, activation, constraints, or workspace capability
   configuration;
-- create Pack-member reachability or retain otherwise unreachable content;
+- create Pack-member reachability or retain otherwise unreachable content
+  ([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
+  is canonical);
 - establish authorship or ownership of agent-native output;
 - prove that canonical content or a managed output is currently present;
 - record command history, completion timestamps, or source-free realization;

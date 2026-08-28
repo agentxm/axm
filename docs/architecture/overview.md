@@ -198,11 +198,11 @@ principles](principles.md) for the detailed authority and coexistence rules.
 ## Invalid state should be understandable and recoverable
 
 AXM should make invalid states difficult to create, clear to diagnose, and
-possible to leave through ordinary operations. Recovery belongs to one of five
+possible to leave through ordinary operations. Recovery belongs to one of four
 places:
 
 - sync of managed state;
-- the lifecycle command that expresses user intent through configuration; or
+- the lifecycle command that expresses user intent through configuration;
 - direct correction of workspace-authored settings or manifests; or
 - manual correction of unowned native content.
 

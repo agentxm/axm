@@ -70,24 +70,28 @@ baseline for sourced extensions. Canonical extension content, authoritative
 inline configuration, and managed outputs realize desired state. None of those
 artifacts creates desired state on its own.
 
-Commands that change workspace configuration must say so. Commands that
-reconcile current state with desired state must not quietly change
-configuration. An available newer version is not permission to advance a
-satisfying accepted resolution.
+Commands that change workspace configuration must say so. For commands that
+reconcile current state with desired state, the canonical boundary is
+[AXM-REQ-0012](../../gen-stack/system/requirements/functional/reconciliation-preserves-configuration.md):
+reconciliation preserves workspace configuration and satisfying accepted
+resolutions.
 
 A command input that promises durable behavior must be recorded in an
 authoritative source that later reconciliation consumes. First materialization
 alone cannot make an activation, target, or other workspace choice persistent.
 
 Missing, malformed, or incompatible lock state is consequential because it owns
-accepted external resolution. It never creates reachability and AXM never
-reconstructs it from installed bytes or obsolete trust state.
+accepted external resolution.
+[AXM-REQ-0013](../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
+canonically owns that lock state never creates reachability. AXM never
+reconstructs lock state from installed bytes or obsolete trust state.
 
 ## Require authority to change content
 
-AXM changes content only when it can establish authority over the smallest
-independently changeable unit. A familiar path, matching name, or matching
-bytes do not establish that authority.
+The canonical obligation is
+[AXM-REQ-0010](../../gen-stack/system/requirements/functional/content-changes-require-established-authority.md):
+content changes require established authority over the smallest independently
+changeable unit. The rest of this section is its elaboration.
 
 AXM preserves unowned content by default. Preservation does not prove that the
 surrounding workspace state is valid or safely reconcilable. Each extension
@@ -134,8 +138,9 @@ committed.
 ## Make repeated use safe
 
 Running a successful command again with the same inputs should produce no
-further change. Plans must be checked against current state before application,
-and concurrent workspace changes must not interleave.
+further change. Plans must be checked against current state before application.
+[AXM-REQ-0011](../../gen-stack/system/requirements/functional/workspace-changes-do-not-interleave.md)
+canonically owns that concurrent workspace changes must not interleave.
 
 Handled failures roll back the affected semantic closure, including its
 settings, lock, canonical-content, and owned-output changes. After abrupt
@@ -147,10 +152,10 @@ command intent.
 ## Keep overrides rare and honest
 
 Routine behavior deserves an explicit mode such as `--preview`, `--reinstall`,
-or `--ignore-release-age`. `--force` is an exceptional escape hatch only for a
-clearly named policy that may safely be bypassed. It never bypasses ownership,
-accepted-resolution authority, concurrency safety, stale-plan checks, rollback,
-or workspace invariants.
+or `--ignore-release-age`. The canonical force boundary is
+[AXM-REQ-0007](../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md):
+`--force` bypasses only an explicitly named forceable policy and never a hard
+invariant.
 
 `--yes` controls interaction. It does not broaden permission, and `--force`
 does not imply it.

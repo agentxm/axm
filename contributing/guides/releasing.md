@@ -18,6 +18,10 @@ prepared release is ready to publish.
 
 ## Release Model
 
+The canonical obligation is
+[AXM-REQ-0018](../../gen-stack/system/requirements/process/releases-publish-through-canonical-workflow.md);
+the model below is its operational projection.
+
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a

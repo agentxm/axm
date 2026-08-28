@@ -37,6 +37,9 @@ retain their repository-native authority.
 
 - [AXM architecture](architecture/) — Governed actor-facing Architecture
   concepts admitted for the public AXM System.
+- [AXM architecture decisions](architecture/decisions/) — Accepted AXM
+  Architecture Decision Records with durable consequences and reconsideration
+  conditions.
 
 ## Evaluation
 

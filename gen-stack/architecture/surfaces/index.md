@@ -7,3 +7,5 @@ behavior.
   people and agents use AXM behavior.
 - [AXM CLI command surfaces](cli/index.md) - Accepted named command encounters
   beneath the AXM CLI Surface.
+- [AXM CLI Requirements](cli/requirements/) - Canonical obligations owned by
+  the AXM CLI Surface.

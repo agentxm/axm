@@ -15,3 +15,7 @@ Durable obligations on how AXM is changed, reviewed, and assured.
 - [Pre-launch contract changes remain coherent](pre-launch-contract-changes-remain-coherent.md) -
   Pre-launch contract changes establish one current contract without
   compatibility-only paths.
+- [Releases publish through the canonical workflow](releases-publish-through-canonical-workflow.md) -
+  AXM releases publish only through the repository's canonical automated
+  release workflow from a release commit that completed required CI, never
+  manually.

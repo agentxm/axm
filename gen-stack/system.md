@@ -12,11 +12,21 @@ sources:
 generated: { by: codex/gpt-5.6, at: "2026-08-27T02:57:19Z" }
 relationships:
   is-subject-of-requirement:
+    - /system/requirements/constraint/do-not-track-takes-precedence.md
+    - /system/requirements/constraint/dual-typescript-alias-retained-until-exit.md
     - /system/requirements/constraint/public-private-boundary.md
+    - /system/requirements/constraint/telemetry-collection-respects-data-boundary.md
+    - /system/requirements/constraint/workspace-configuration-cannot-enable-telemetry.md
+    - /system/requirements/functional/content-changes-require-established-authority.md
+    - /system/requirements/functional/lock-state-never-creates-reachability.md
+    - /system/requirements/functional/reconciliation-preserves-configuration.md
+    - /system/requirements/functional/telemetry-failure-never-alters-outcome.md
+    - /system/requirements/functional/workspace-changes-do-not-interleave.md
     - /system/requirements/process/changes-land-through-pull-requests.md
     - /system/requirements/process/human-maintainer-approval.md
     - /system/requirements/process/pre-launch-contract-changes-remain-coherent.md
     - /system/requirements/process/public-artifacts-protect-private-context.md
+    - /system/requirements/process/releases-publish-through-canonical-workflow.md
     - /system/requirements/process/required-ci-before-merge.md
 ---
 

@@ -9,8 +9,9 @@ description: The accepted decision to type check on the native TypeScript 7 comp
 ## Context and forces
 
 The repository type checks with the native TypeScript 7 compiler: every
-`typecheck` target and `scripts-typecheck` runs `tsc` as TypeScript 7, patched
-by `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics.
+`typecheck` target — including the root `axm` project's, which checks the
+repository tooling under `scripts/` — runs `tsc` as TypeScript 7, patched by
+`@effect/tsgo` so it enforces the `@effect/language-service` diagnostics.
 Three forces prevent a single `typescript` dependency from serving every
 consumer:
 
@@ -31,8 +32,8 @@ A deliberate dual alias in the pnpm catalog:
 - `tsc` is TypeScript 7, the native compiler, aliased as `@typescript/native`
   (currently `npm:typescript@^7.0.2`), patched by `@effect/tsgo` — applied by
   the repository `prepare` script — so it enforces the
-  `@effect/language-service` diagnostics. Every `typecheck` target and
-  `scripts-typecheck` runs on it.
+  `@effect/language-service` diagnostics. Every `typecheck` target runs on it,
+  including the root `axm` project's `tsc -p scripts/tsconfig.json --noEmit`.
 - `require("typescript")` resolves to Microsoft's TypeScript 6 compatibility
   package (currently `npm:@typescript/typescript6@^6.0.2`), keeping
   typescript-eslint and the in-process Nx executors working.
@@ -77,7 +78,7 @@ explicitly temporary, with TypeScript 7.1 as the exit point.
 
 Positive:
 
-- Every `typecheck` target and `scripts-typecheck` runs on the native
+- Every `typecheck` target, repository tooling included, runs on the native
   TypeScript 7 compiler with `@effect/language-service` diagnostics enforced.
 - typescript-eslint and the in-process Nx executors keep a working, stable
   compiler API.

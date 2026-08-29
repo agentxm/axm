@@ -11,70 +11,60 @@
           "allurerc.ts",
           "eslint.config.mjs",
           "vitest.config.ts",
-          "vitest.reporting.ts"
+          "vitest.reporting.ts",
+          "scripts"
         ]
       }
     },
-    "scripts-lint": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "inputs": [
-        "{workspaceRoot}/package.json",
-        "{workspaceRoot}/scripts/**/*",
-        "sharedGlobals",
-        "{workspaceRoot}/eslint.config.mjs"
-      ],
-      "options": {
-        "command": "pnpm scripts-lint",
-        "cwd": "."
-      }
-    },
-    "scripts-typecheck": {
+    "typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
       "dependsOn": ["utils:build", "core:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
-        "command": "pnpm scripts-typecheck",
+        "command": "tsc -p scripts/tsconfig.json --noEmit",
         "cwd": "."
       }
     },
-    "scripts-test": {
+    "test": {
       "executor": "nx:run-commands",
       "cache": true,
       "dependsOn": ["utils:build", "core:build"],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
-        "command": "pnpm scripts-test",
+        "command": "pnpm exec vitest run --config scripts/vitest.config.ts",
         "cwd": "."
       }
     },
     "test-report": {
       "executor": "nx:run-commands",
       "cache": false,
+      "dependsOn": [
+        {
+          "projects": "*",
+          "target": "test"
+        }
+      ],
       "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
-        "command": "scripts/with-allure-report.sh pnpm test",
+        "command": "pnpm exec allure generate --clean \"test-results/**/allure-results\"",
         "cwd": "."
       }
     },
     "allure-report": {
       "executor": "nx:run-commands",
       "cache": false,
-      "inputs": [
-        "{workspaceRoot}/allurerc.ts",
-        "{workspaceRoot}/test-results/**/allure-results/**/*"
-      ],
       "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
-        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
+        "command": "pnpm exec allure generate --clean \"test-results/**/allure-results\"",
         "cwd": "."
       }
     },
     "allure-report-open": {
       "executor": "nx:run-commands",
       "cache": false,
+      "dependsOn": ["allure-report"],
       "options": {
         "command": "pnpm exec allure open test-results/allure-report",
         "cwd": "."
@@ -85,7 +75,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm release-prepare",
+        "command": "bun scripts/release-prepare.ts",
         "cwd": "."
       }
     },
@@ -94,7 +84,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm release-publish",
+        "command": "bun scripts/release-publish.ts",
         "cwd": "."
       }
     },
@@ -103,7 +93,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm release-publish-local",
+        "command": "bun scripts/release-publish-local.ts",
         "cwd": "."
       }
     },
@@ -112,7 +102,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm validate-release-tag",
+        "command": "bun scripts/validate-release-tag.ts",
         "cwd": "."
       }
     },
@@ -121,7 +111,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm resolve-release-meta",
+        "command": "bun scripts/resolve-release-meta.ts",
         "cwd": "."
       }
     },
@@ -130,7 +120,7 @@
       "cache": false,
       "dependsOn": ["utils:build", "core:build"],
       "options": {
-        "command": "pnpm download-ci-binaries",
+        "command": "bun scripts/download-ci-binaries.ts",
         "cwd": "."
       }
     },
@@ -138,7 +128,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm generate-release-checksums",
+        "command": "bun scripts/release-checksums.ts generate",
         "cwd": "."
       }
     },
@@ -146,7 +136,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm validate-release-assets",
+        "command": "bash scripts/validate-release-assets.sh",
         "cwd": "."
       }
     },
@@ -154,7 +144,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm update-homebrew-formula",
+        "command": "bash scripts/update-homebrew-formula.sh",
         "cwd": "."
       }
     },
@@ -162,7 +152,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "pnpm parity-ledger-check",
+        "command": "bun scripts/parity-ledger-check.ts",
         "cwd": "."
       }
     },
@@ -176,25 +166,15 @@
         "{workspaceRoot}/packages/*/src/**/*"
       ],
       "options": {
-        "command": "pnpm verify-source-hygiene",
+        "command": "bun scripts/verify-source-hygiene.ts",
         "cwd": "."
       }
     },
-    "generate-registry": {
+    "specification-verdict": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
       "options": {
-        "command": "pnpm generate-registry",
-        "cwd": "."
-      }
-    },
-    "generate-telemetry": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["utils:build"],
-      "options": {
-        "command": "pnpm generate-telemetry",
+        "command": "bun scripts/specification-verdict.ts",
         "cwd": "."
       }
     }

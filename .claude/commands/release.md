@@ -1,59 +1,36 @@
 ---
 name: Release
-description: Bump versions, commit, push, and create a GitHub Release to trigger publishing
+description: Route to the canonical release guide and its published release commands
 category: Release
 tags: [release, publish, github, npm, homebrew]
 ---
 
-Release axm through the canonical GitHub Release workflow.
+Read [contributing/guides/releasing.md](../../contributing/guides/releasing.md)
+and follow it exactly. It is the release authority
+([AGENTS.md](../../AGENTS.md#releasing)); do not follow a release flow restated
+anywhere else, including here.
 
-**Steps**
+**Published names the guide owns**
 
-1. **Verify**
+| Command                    | Step                                               |
+| -------------------------- | -------------------------------------------------- |
+| `pnpm release:plan`        | Record the semver bump and changelog entry in a PR |
+| `pnpm release:plan:check`  | Check the pending version plan (also run by CI)    |
+| `pnpm release:prepare`     | Cut the release commit, branch, and pull request   |
+| `gh pr merge --squash ...` | Land the release PR with the exact release subject |
+| `pnpm release:publish`     | Create the GitHub Release after CI is green        |
 
-   ```bash
-   pnpm run ci
-   ```
-
-   Stop if anything fails.
-
-2. **Ask for version bump type**
-
-   Confirm `patch`, `minor`, or `major`.
-
-3. **Bump versions**
-
-   ```bash
-   pnpm version:<patch|minor|major>
-   ```
-
-   Read the new version from `packages/cli/package.json`.
-
-4. **Commit and push**
-
-   ```bash
-   git add packages/core/package.json packages/cli/package.json
-   git commit -m "release: cli-v<version>"
-   git push origin main
-   ```
-
-5. **Create GitHub Release**
-
-   ```bash
-   gh release create cli-v<version> --title "cli v<version>" --generate-notes
-   ```
-
-6. **Monitor**
-
-   ```bash
-   gh run list --workflow=publish.yml --limit=1
-   ```
+`pnpm release:prepare` and `pnpm release:publish` both accept `-- --dry-run`.
+Read the guide for the exact arguments, ordering, and preconditions.
 
 **Guardrails**
 
-- Stop immediately if verification fails
-- Never bump only one package; `core` and `cli` must stay aligned
-- Use `cli-v<version>` tags only
-- Do not publish packages locally as the normal path
-- GitHub Actions is the publisher for npm, release assets, and Homebrew updates
-- Homebrew automation also depends on `HOMEBREW_TAP_TOKEN`
+- Never edit, commit, or push directly on `main`
+  ([CONTRIBUTING.md](../../CONTRIBUTING.md)). Releases land through a pull
+  request opened by `pnpm release:prepare`.
+- Do not bump versions by hand. `utils`, `core`, and `cli` are a fixed release
+  group and must stay aligned.
+- Do not create the GitHub Release with a raw `gh release create`. Use
+  `pnpm release:publish`, which enforces the tag, commit, and CI preconditions.
+- GitHub Actions is the publisher for npm, release assets, and Homebrew.
+  `pnpm release:publish:local` is preview-only, never the release path.

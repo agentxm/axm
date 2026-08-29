@@ -80,9 +80,6 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
-      - name: Create local main ref for formatting diff
-        run: git fetch --no-tags origin main:main
-
       - name: Verify formatting
         run: pnpm run format:check
 
@@ -105,7 +102,7 @@ jobs:
         run: git fetch --no-tags origin main:main
 
       - name: Render the per-change specification verdict
-        run: bun scripts/specification-verdict.ts --base "$(git merge-base main HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
 
   extension-lint:
     name: AXM extension lint
@@ -269,7 +266,7 @@ jobs:
               pnpm release:plan:check
             fi
             pnpm run verify:clean
-            scripts/with-allure-report.sh pnpm run verify:affected
+            pnpm run verify:affected:report
           '
 
       - name: Publish verification summary
@@ -356,7 +353,7 @@ jobs:
       - name: Verify main in pinned CI image
         run: >-
           scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh pnpm run ci'
+          'pnpm install --frozen-lockfile && pnpm run ci:report'
 
       - name: Upload JUnit artifacts
         if: always()
@@ -400,7 +397,7 @@ jobs:
       - name: Verify main in pinned CI image
         run: >-
           scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh pnpm run ci'
+          'pnpm install --frozen-lockfile && pnpm run ci:report'
 
       - name: Upload JUnit artifacts
         if: always()

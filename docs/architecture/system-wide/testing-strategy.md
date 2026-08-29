@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: draft
-description: The target testing architecture in which executable specifications are the sole local source of truth for AXM requirements and distinct suites provide complementary evidence.
+description: The target testing architecture in which executable specifications are the sole local source of truth for AXM requirements and orthogonally classified verification provides complementary evidence.
 depends-on:
   - ../overview.md
   - ../principles.md
@@ -11,9 +11,10 @@ depends-on:
 
 AXM uses executable specifications as the sole local normative authority for
 accepted requirements. Fast in-memory execution provides exhaustive evidence
-for functional behavior, while other specification runners and end-to-end,
-implementation, tooling, qualification, and static verification provide
-evidence with different purposes, boundaries, cadences, and blind spots.
+for functional behavior, while other specification runners, boundary
+executions, internal and tooling tests, artifact and static verification, and
+diagnostic benchmarks provide evidence with different purposes, conditions,
+cadences, and blind spots.
 
 This document defines the target testing architecture. The
 [testing strategy migration](testing-strategy-migration.md) owns the transition
@@ -29,8 +30,9 @@ The testing architecture must make two views equally clear:
   for AXM, moving from a product surface, quality, constraint, or public
   contract to a specific scenario and expected result.
 - A maintainer can tell whether a test specifies supported behavior, verifies
-  implementation details, exercises an end-to-end boundary, qualifies a
-  distribution, or protects repository tooling.
+  non-normative internal details, exercises an end-to-end boundary, verifies an
+  artifact, informs a release decision, measures a trend, or protects repository
+  tooling.
 
 The specification catalog covers every accepted AXM requirement. Its fast
 in-memory subset aims to cover all supported functional behavior. That is
@@ -74,20 +76,36 @@ performed without becoming a second requirements corpus for AXM.
 
 ## Classification model
 
-Tests are classified on independent axes instead of one flat unit/integration
+Tests and checks are classified on independent axes instead of one flat test
 taxonomy.
 
-| Axis     | Values                                                                    | Question answered                  |
-| -------- | ------------------------------------------------------------------------- | ---------------------------------- |
-| Purpose  | `specification`, `architecture-verification`, `implementation`, `tooling` | What claim does this test support? |
-| Boundary | `memory`, `process`, `binary`, `platform`, `deployed`                     | Where does the observation occur?  |
-| Method   | `example`, `property`, `conformance`, `contract`, `fuzz`, `smoke`         | How is the claim assessed?         |
-| Subject  | Surface, capability, public contract, package, or implementation unit     | What does the test assess?         |
+| Axis      | Common values or examples                                                                                                            | Question answered                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                           | What authority or claim does it support? |
+| Concern   | Functional behavior, installability, compatibility, performance, security, usability, architecture, process, or external conformance | What kind of property is assessed?       |
+| Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                          | Where does the observation occur?        |
+| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `benchmark`, `load`, or `smoke`                                  | How is the claim assessed?               |
+| Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                   | What does the assessment concern?        |
+| Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                        | When is this evidence selected?          |
+
+These values are an extensible vocabulary, not closed allowlists. Method
+metadata describes the approach a test actually uses, and new or combined
+testing methods do not require a taxonomy change before they can be used.
+Common labels are normalized only when that improves filtering and reporting
+without erasing a meaningful distinction.
+
+Concern describes the requirement or quality characteristic rather than a
+physical suite. Selection describes execution policy and may include one test
+in several workflows; it never changes the test's authority. Boundary names the
+state actually observed, so a packed-artifact or installed-product execution is
+not automatically a different kind of requirement.
 
 End-to-end is a boundary, not a competing authority. An in-memory scenario and
 an end-to-end scenario may execute the same specification through different
 drivers. A utility test is a specification when it protects a supported public
-contract and an implementation or tooling test otherwise.
+contract and an internal or tooling test otherwise. Release verification is a
+gate that selects evidence for an exact candidate, not a test purpose or source
+tree.
 
 ## Suite responsibilities
 
@@ -117,12 +135,12 @@ behavior more completely or expose different blind spots.
 ### Other requirement specifications
 
 Quality, security, usability, compatibility, architecture, and process
-requirements use the same authoritative specification model and stable
-identity as functional behavior. They may use benchmarks, static analysis,
-schema checks, dependency analysis, security tooling, platform matrices, or
-other purpose-fit runners and may execute at a slower cadence. Their execution
-method does not move their normative statement into documentation, runner
-configuration, or a report.
+requirements use the same authoritative metadata contract and stable identity
+as functional behavior while retaining their native, purpose-fit test
+frameworks and methods. They may use benchmarks, static analysis, schema checks,
+dependency analysis, security tooling, platform matrices, or other runners and
+may execute at a slower cadence. Their execution method does not move their
+normative statement into documentation, runner configuration, or a report.
 
 The generated reference keeps functional behavior as the primary
 product-shaped reading path and provides separate views for these other
@@ -152,32 +170,97 @@ requirements. Examples include package dependency direction, entry-point
 composition, ownership-unit registration, generated contract coherence, and
 adapter participation.
 
-### Implementation verification
+### Internal verification
 
-Implementation tests protect algorithms, internal state machines, parsers,
+Internal verification protects non-normative details of the current
+realization: algorithms, private state machines, parsers, collaboration,
 resource lifetimes, concurrency primitives, and difficult internal failure
-paths. They are colocated with the implementation they protect and may change
-or disappear during a behavior-preserving refactor.
+paths. These tests are colocated with the source they protect and may change or
+disappear during a behavior-preserving refactor.
 
-Implementation tests do not count toward functional-specification
-completeness, and private symbol names or call relationships do not appear in
-the functional reference.
+`Internal` describes the authority of the assertion. It does not mean secret
+or private repository content, and it does not identify code visibility, an
+execution boundary, or a test method. Internal tests do not count toward
+specification completeness, and private symbol names or call relationships do
+not appear in the functional reference.
+
+If an internal assertion is discovered to express behavior or a constraint AXM
+is required to preserve, move the normative claim into an executable
+specification. Retain an internal test only when it supplies distinct
+white-box evidence rather than a duplicate source of truth.
 
 ### Tooling verification
 
 Tooling tests protect repository scripts, generators, release automation, and
 test infrastructure. Public library utilities use functional specifications
-for supported contracts and implementation tests for internal realization.
+for supported contracts and internal tests for non-normative realization
+details.
 
-### Qualification and operational checks
+### Installed-product and platform evidence
 
-Qualification verifies the artifacts and environments users actually receive:
-compiled binaries, installation and upgrade paths, supported operating
-systems, runtime versions, packaging, and published-artifact integrity.
+Installation, update, upgrade, and removal behavior belongs to functional or
+installability specifications. Supported operating systems, runtime versions,
+filesystems, shells, and other environment combinations belong to compatibility
+specifications. These requirements remain in the product-shaped specification
+tree while their executions observe the binary, packed-artifact, installed, or
+platform boundary.
 
-A small operational smoke set may verify deployed or externally integrated
-boundaries. Qualification and smoke evidence supplement rather than replace
-the functional specifications and end-to-end suite.
+Conformance is used when AXM adopts an identified public contract, format,
+protocol, or external standard. It is not a synonym for testing AXM on a
+platform or deciding whether a release is acceptable.
+
+### Artifact and supply-chain verification
+
+Artifact verification inspects package contents, metadata, permissions,
+signatures, checksums, integrity, and provenance. A required artifact property
+is stated as a specification and the check provides evidence for it. Other
+artifact checks remain supporting release or supply-chain evidence and do not
+become requirements merely because they block publication.
+
+Artifact provenance establishes where and how an artifact was produced. It
+does not by itself establish functional correctness, security, or requirement
+satisfaction.
+
+### Release and deployment verification
+
+Release verification evaluates an exact release candidate by composing the
+specification executions and supporting checks required by release policy. It
+may include risk-selected end-to-end scenarios, compatibility matrices,
+artifact verification, install/update/uninstall flows, performance
+specifications, and smoke checks. The applicable process specification or
+release policy owns the selection and acceptance criteria. The gate only
+applies that policy and projects its decision input; it does not own the
+criteria or tests it selects.
+
+Deployment verification applies a small selection of specifications and
+supporting smoke checks after deployment or against an externally integrated
+environment. `Smoke` describes deliberately shallow coverage and cadence; it
+does not establish a separate authority or replace broader specification
+evidence.
+
+### Performance specifications and benchmarks
+
+A performance specification states a required latency, throughput, resource,
+scalability, or other measurable bound together with the material workload and
+conditions. It produces a pass, fail, or unknown requirement outcome and runs
+in a controlled environment appropriate to the bound.
+
+A benchmark measures implementation behavior for comparison, optimization, or
+regression diagnosis without establishing a required threshold. Benchmark
+completion is not a specification pass. When a benchmark threshold becomes a
+required product property, express that obligation as a performance
+specification and retain the benchmark only when it supplies distinct trend
+evidence.
+
+Load, stress, soak, and resilience describe methods or operating conditions.
+Each may realize a normative specification or a diagnostic experiment; the
+method name alone does not decide its authority.
+
+The per-change in-memory suite uses deterministic functional invariants rather
+than noisy wall-clock thresholds. Cheap deterministic performance constraints
+may run per change; environment-sensitive thresholds run in controlled CI or
+scheduled environments, with broader diagnostic benchmarks scheduled or
+invoked for targeted optimization work.
 
 ### Static verification
 
@@ -205,17 +288,25 @@ specifications/
     workspace-state/
   system/
     quality/
+      installability/
+      compatibility/
+      performance/
     security/
     architecture/
     process/
 
 tests/
   e2e/
-  qualification/
+
+verification/
+  artifacts/
+  deployment/
+
+benchmarks/
 
 packages/
-  core/src/**/*.implementation.test.ts
-  cli/src/**/*.implementation.test.ts
+  core/src/**/*.internal.test.ts
+  cli/src/**/*.internal.test.ts
 
 scripts/**/*.tooling.test.ts
 ```
@@ -223,21 +314,28 @@ scripts/**/*.tooling.test.ts
 The final Nx project and package boundaries may refine these physical roots,
 but they must preserve the semantic browsing hierarchy. End-to-end source
 mirrors the specification hierarchy where it realizes the same behavior.
-Implementation tests remain colocated with source.
+Internal tests remain colocated with source.
 
 ## Naming and readability
 
 File names expose purpose:
 
-| Suffix                     | Meaning                                      |
-| -------------------------- | -------------------------------------------- |
-| `*.spec.ts`                | Authoritative requirement specification      |
-| `*.contract.spec.ts`       | Contract or conformance specification        |
-| `*.implementation.test.ts` | Internal implementation verification         |
-| `*.e2e.test.ts`            | End-to-end boundary execution                |
-| `*.qualification.test.ts`  | Binary, installer, or platform qualification |
-| `*.tooling.test.ts`        | Repository tooling verification              |
-| `*.type-test.ts`           | Compile-time assertions                      |
+| Suffix                  | Meaning                                             |
+| ----------------------- | --------------------------------------------------- |
+| `*.spec.ts`             | Authoritative requirement specification             |
+| `*.contract.spec.ts`    | Contract or external-conformance specification      |
+| `*.performance.spec.ts` | Normative performance specification                 |
+| `*.internal.test.ts`    | Non-normative internal verification                 |
+| `*.e2e.test.ts`         | End-to-end boundary execution                       |
+| `*.artifact.test.ts`    | Non-normative artifact or supply-chain verification |
+| `*.tooling.test.ts`     | Repository tooling verification                     |
+| `*.type-test.ts`        | Compile-time assertions                             |
+| `*.bench.ts`            | Non-normative diagnostic benchmark                  |
+
+An installability or compatibility specification remains `*.spec.ts` even when
+it runs against a packed artifact or platform matrix. Boundary, method, and
+selection metadata provide those filters without creating suffix combinations
+for every axis.
 
 Specification titles use product language and form a readable hierarchy:
 
@@ -253,15 +351,27 @@ Specification titles describe conditions and observable results. They do not
 name handlers, services, Layers, private functions, mock interactions, or
 internal plan representations.
 
-## Executable specification model
+## Specification metadata contract and native frameworks
 
-A thin, Vitest-compatible specification model provides stable specification
-and scenario identities, requirement class, human-readable titles, scope
-metadata, optional rationale, runner bindings, and reporting labels. It must
-keep normative meaning visible and must not hide assertions behind an opaque
-general-purpose DSL.
+Specification tests use idiomatic constructs from their native test framework
+and any purpose-fit testing library. A small, typed, colocated metadata contract
+provides only the cross-method information that discovery and reporting need:
+a stable requirement identity, human-readable title, requirement class, scope,
+and optional rationale and reporting labels.
 
-Specification implementations:
+The contract is data, not a specification DSL. It does not replace or wrap
+native suites, tests, assertions, hooks, fixtures, lifecycle, parameterization,
+property generators, models, or control flow. Given/When/Then and other
+scenario conventions are available when they improve a particular example but
+are never required. A specification remains directly runnable, debuggable, and
+navigable through its native framework and development tools.
+
+The requirement title and source organization provide the readable reference
+path. The visible native cases, properties, models, and assertions provide its
+precise executable meaning. Metadata does not become a prose-only substitute
+for those checks.
+
+Within the fast functional subset, specification tests normally:
 
 - exercise a public or application boundary;
 - use deterministic in-memory ports rather than interaction-heavy mocks;
@@ -272,9 +382,16 @@ Specification implementations:
   their semantics must agree; and
 - use snapshots only for stable, reviewable exact contracts.
 
+Reporter adapters normalize native framework results into the specification
+catalog, Allure, and CI projections. They consume test results without
+controlling how tests are authored. Supporting a new testing method should
+require at most metadata normalization or a reporting adapter, not a redesign
+of the specification contract.
+
 Specification metadata can generate the reference catalog without requiring a
-passing execution. Executing the same specification through an end-to-end
-driver binds separate evidence to the same stable behavior identity.
+passing execution. Executing the same specification through an end-to-end or
+other boundary-specific driver binds separate evidence to the same stable
+requirement identity.
 
 ## Completeness
 
@@ -287,7 +404,7 @@ gates compare specifications against sources such as:
 - machine-output variants and error classes;
 - ownership-unit and adapter registries;
 - schemas and generated public contracts; and
-- supported platform and distribution matrices.
+- supported platform, runtime, and artifact matrices.
 
 Each inventory member either resolves to maintained specification coverage or
 is explicitly outside the accepted requirements scope. Code coverage remains a
@@ -299,37 +416,63 @@ Repository commands expose intent rather than only package topology:
 
 ```text
 pnpm test:spec
-pnpm test:implementation
+pnpm test:internal
 pnpm test:tooling
 pnpm test:e2e
-pnpm test:qualification
+pnpm test:compatibility
+pnpm test:performance
+pnpm verify:artifact
+pnpm verify:release
+pnpm verify:deployment
+pnpm bench
 pnpm test
 pnpm test:all
 ```
 
-`test` runs the required fast suites. `test:all` includes end-to-end and
-qualification evidence. Exact command composition remains repository-owned and
-may add narrower targets such as `test:spec:memory` when useful.
+`test:compatibility` and `test:performance` select authoritative
+specifications; they do not own parallel specification trees. `verify:artifact`
+and `verify:deployment` compose applicable specifications and supporting checks
+for identified artifacts or environments. `verify:release` composes the
+required evidence for one exact release candidate. `bench` runs diagnostic
+measurements separately from pass/fail specification execution.
+
+`test` runs the required fast suites. `test:all` adds broadly executable slower
+boundary and specification selections but does not pretend to verify a release
+candidate or deployment when no exact artifact or environment is supplied.
+Exact command composition remains repository-owned and may add narrower targets
+such as `test:spec:memory` when useful.
 
 The default cadence is:
 
-- every change: in-memory specifications, implementation, tooling, and static
+- every change: in-memory specifications, internal, tooling, and static
   verification;
 - pull request or merge: risk-selected end-to-end scenarios;
-- platform matrix or schedule: operating-system and runtime qualification;
-- release: packaged binary, installer, upgrade, and smoke verification; and
-- targeted or scheduled execution: performance, fuzzing, and resilience.
+- platform matrix or schedule: compatibility specifications against supported
+  operating systems and runtimes;
+- controlled targeted or scheduled execution: performance specifications,
+  fuzzing, load, soak, and resilience;
+- scheduled execution: diagnostic benchmark trends;
+- release candidate: `verify:release` over the exact candidate artifact; and
+- post-deployment: shallow deployment verification against the identified
+  environment.
 
 ## Reporting
 
 Reporting provides separate projections for:
 
 1. authoritative specifications, with functional behavior as the primary
-   product-shaped view and filters for every requirement class;
-2. architecture verification;
-3. implementation verification;
-4. end-to-end and distribution qualification; and
-5. tooling and static verification.
+   product-shaped view and filters for requirement concern and execution
+   boundary;
+2. architecture, internal, tooling, and static verification, visibly separated
+   by purpose and method;
+3. artifact integrity, contents, and provenance verification;
+4. diagnostic benchmark trends; and
+5. release and deployment verification views that compose rather than own the
+   underlying results.
+
+The internal verification projection is organized primarily by package and
+source location because its reader job is maintaining the current realization,
+not understanding AXM's normative behavior.
 
 The primary functional view is organized by product meaning:
 
@@ -343,9 +486,16 @@ Functional specifications
 ```
 
 Each specification entry links to its source and shows its available in-memory,
-end-to-end, qualification, and other evidence independently. Reports preserve
-the execution revision, environment, timing, attachments, and retry or flaky
-state.
+process, binary, packed-artifact, installed, platform, published-artifact,
+deployed, and other evidence independently. Reports preserve the execution
+revision, exact artifact identity, environment, timing, attachments, and retry
+or flaky state.
+
+Performance specification reports also preserve workload, hardware, operating
+system, runtime, configuration, dataset, warm-up, sampling, variance, and
+threshold context needed to interpret a pass or failure. Benchmark reports use
+the same provenance but present trends and comparisons separately from
+requirement outcomes.
 
 Two linked projections serve different reader jobs:
 
@@ -357,6 +507,11 @@ Two linked projections serve different reader jobs:
 An aggregate passed-test count remains diagnostic but is not the primary
 requirements-assurance statement. Missing, skipped, stale, or harness-failed
 evidence never rolls up as a pass.
+
+A release verification report identifies the exact candidate and the evidence
+selection policy it applied. Passing that gate does not strengthen the
+underlying results, fill missing specification coverage, or make release policy
+a second requirements authority.
 
 ## Change control
 

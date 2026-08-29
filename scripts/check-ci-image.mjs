@@ -337,15 +337,30 @@ requireText(
 
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
-  "nx affected -t lint typecheck build test",
-  "scripts-lint scripts-typecheck scripts-test",
+  "nx affected -t lint typecheck",
+  "scripts-lint scripts-typecheck",
   "verify-source-hygiene parity-ledger-check",
+  "nx affected -t build --batch",
+  "nx affected -t test --batch",
+  "nx affected -t scripts-test",
   "nx affected -t e2e",
 ]) {
   requireText(
     affectedVerification,
     text,
     `verify:affected must use the native Nx affected path for ${text}`,
+  );
+}
+if (
+  affectedVerification.indexOf("nx affected -t lint typecheck") >=
+    affectedVerification.indexOf("nx affected -t build --batch") ||
+  affectedVerification.indexOf("nx affected -t build --batch") >=
+    affectedVerification.indexOf("nx affected -t test --batch") ||
+  affectedVerification.indexOf("nx affected -t test --batch") >=
+    affectedVerification.indexOf("nx affected -t scripts-test")
+) {
+  errors.push(
+    "verify:affected must complete typechecking, builds, package tests, and tooling tests in order",
   );
 }
 for (const text of ["generate:check", "sync:check", "format:check"]) {

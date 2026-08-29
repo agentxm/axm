@@ -23,7 +23,7 @@
     }
   },
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json"],
+    "sharedGlobals": ["{workspaceRoot}/tsconfig*.json", "{workspaceRoot}/vitest.reporting.ts"],
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",

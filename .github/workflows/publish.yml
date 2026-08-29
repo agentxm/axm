@@ -291,12 +291,25 @@ jobs:
           AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
         run: pnpm exec nx run cli-e2e:install-verification
 
+      - name: Generate Allure report
+        if: always()
+        run: pnpm test:report:generate
+
       - name: Upload installer verification artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: install-verification-${{ matrix.os }}-${{ matrix.mode }}
           path: test-results/cli-e2e-install/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload installer verification Allure report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: allure-report-install-verification-${{ matrix.os }}-${{ matrix.mode }}
+          path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
 

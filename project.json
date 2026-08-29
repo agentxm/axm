@@ -7,7 +7,12 @@
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {
-        "lintFilePatterns": ["eslint.config.mjs", "vitest.config.ts"]
+        "lintFilePatterns": [
+          "allurerc.ts",
+          "eslint.config.mjs",
+          "vitest.config.ts",
+          "vitest.reporting.ts"
+        ]
       }
     },
     "scripts-lint": {
@@ -42,6 +47,36 @@
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
         "command": "pnpm scripts-test",
+        "cwd": "."
+      }
+    },
+    "test-report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "outputs": ["{workspaceRoot}/test-results/allure-report"],
+      "options": {
+        "command": "scripts/with-allure-report.sh pnpm test",
+        "cwd": "."
+      }
+    },
+    "allure-report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "inputs": [
+        "{workspaceRoot}/allurerc.ts",
+        "{workspaceRoot}/test-results/**/allure-results/**/*"
+      ],
+      "outputs": ["{workspaceRoot}/test-results/allure-report"],
+      "options": {
+        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
+        "cwd": "."
+      }
+    },
+    "allure-report-open": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm exec allure open test-results/allure-report",
         "cwd": "."
       }
     },

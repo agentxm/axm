@@ -10,6 +10,7 @@
       "cache": true,
       "dependsOn": ["cli:build"],
       "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run",
@@ -20,6 +21,7 @@
       "cache": true,
       "dependsOn": ["cli:build"],
       "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-windows"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.windows.config.ts",
@@ -29,6 +31,11 @@
     "e2e": {
       "cache": false,
       "dependsOn": ["cli:compile"],
+      "outputs": [
+        "{workspaceRoot}/test-results/cli-e2e",
+        "{workspaceRoot}/test-results/cli-e2e-binary",
+        "{workspaceRoot}/test-results/cli-e2e-install"
+      ],
       "executor": "nx:run-commands",
       "options": {
         "cwd": "packages/cli-e2e",
@@ -44,6 +51,7 @@
       "cache": true,
       "dependsOn": ["cli:compile"],
       "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
@@ -52,6 +60,7 @@
     },
     "binary-smoke-artifact": {
       "dependsOn": ["utils:build"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
@@ -60,6 +69,7 @@
     },
     "install-suite": {
       "dependsOn": ["utils:build", "cli:compile-host"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-install"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.install.config.ts",
@@ -68,6 +78,7 @@
     },
     "install-verification": {
       "dependsOn": ["utils:build"],
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e-install"],
       "executor": "nx:run-commands",
       "options": {
         "command": ["bun", "scripts/run-install-verification.ts"],

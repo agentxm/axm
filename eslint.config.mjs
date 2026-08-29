@@ -55,7 +55,7 @@ export default [
         "error",
         {
           enforceBuildableLibDependency: true,
-          allow: ["^.*/eslint(\\.base)?\\.config\\.[cm]?js$"],
+          allow: ["^.*/eslint(\\.base)?\\.config\\.[cm]?js$", "^.*/vitest\\.reporting\\.js$"],
           depConstraints: [
             {
               sourceTag: "type:app",

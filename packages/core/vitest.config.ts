@@ -1,11 +1,13 @@
 import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig } from "vitest/config";
+import { makeTestReporting } from "../../vitest.reporting.js";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   root: projectRoot,
   test: {
+    ...makeTestReporting({ layer: "unit", suite: "core" }),
     include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
     // `*.type-test.ts` files contain only compile-time assertions (no runtime
     // `it`/`expect` wrappers). They are typechecked via `tsconfig.spec.json`
@@ -14,7 +16,5 @@ export default defineConfig({
     // ignore set (node_modules, dist, .{idea,git,cache}, build, etc.) is
     // preserved.
     exclude: [...configDefaults.exclude, "src/**/*.type-test.ts", "src/**/*.windows.test.ts"],
-    reporters: ["default", "junit"],
-    outputFile: { junit: "../../test-results/core/junit.xml" },
   },
 });

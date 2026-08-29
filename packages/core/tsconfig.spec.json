@@ -15,5 +15,5 @@
     "vitest.config.ts",
     "vitest.windows.config.ts"
   ],
-  "references": [{ "path": "./tsconfig.lib.json" }]
+  "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../../tsconfig.json" }]
 }

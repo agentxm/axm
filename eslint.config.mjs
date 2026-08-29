@@ -55,7 +55,13 @@ export default [
         "error",
         {
           enforceBuildableLibDependency: true,
-          allow: ["^.*/eslint(\\.base)?\\.config\\.[cm]?js$", "^.*/vitest\\.reporting\\.js$"],
+          allow: [
+            "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
+            "^.*/vitest\\.reporting\\.js$",
+            // Specifications exercise the CLI application boundary in-process
+            // through its published harness entry points.
+            "^axm\\.sh/(app|runtime|unstable/specification-harness)$",
+          ],
           depConstraints: [
             {
               sourceTag: "type:app",
@@ -73,6 +79,10 @@ export default [
               sourceTag: "type:e2e",
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: ["scope:core"],
+            },
+            {
+              sourceTag: "type:specification",
+              onlyDependOnLibsWithTags: ["type:lib", "type:app"],
             },
             {
               sourceTag: "scope:test",

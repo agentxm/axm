@@ -15,6 +15,21 @@ const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
 
 /**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/install/direct-intent-recorded-and-realized",
+    "cli/install/reinstall-is-idempotent",
+  ],
+  boundary: "process",
+  rationale:
+    "Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.",
+} as const;
+
+/**
  * Install surfaces come from the generated extension-type matrix, so the suite
  * has a row per extension type whether or not that type is covered yet. A new
  * type appears here as a new row and has to be answered for — either with a

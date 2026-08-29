@@ -44,6 +44,7 @@ in the same change that introduces it.
 | Type                 | Applies to                                                                      |
 | -------------------- | ------------------------------------------------------------------------------- |
 | `Architecture`       | `architecture/` — accepted product responsibilities, boundaries, and invariants |
+| `Decision`           | `architecture/decisions/` — accepted decision records with durable consequences |
 | `Guide`              | repeatable repository procedures                                                |
 | `Agent Instructions` | scoped instruction files that live inside the bundle                            |
 

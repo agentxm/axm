@@ -2,7 +2,7 @@ import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import type { InlineConfig } from "vitest/node";
 
-type TestLayer = "e2e" | "unit";
+type TestLayer = "e2e" | "specification" | "unit";
 
 type TestReportingOptions = {
   readonly layer: TestLayer;

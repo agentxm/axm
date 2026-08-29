@@ -1,5 +1,6 @@
 packages:
   - packages/*
+  - specifications
 
 peerDependencyRules:
   allowedVersions:
@@ -24,6 +25,7 @@ catalog:
   "@typescript-eslint/parser": ^8.66.0
   "@typescript/native": npm:typescript@^7.0.2
   allure: ^3.16.0
+  allure-js-commons: ^3.11.0
   allure-vitest: ^3.11.0
   effect: 4.0.0-rc.112
   eslint: ^10.3.0

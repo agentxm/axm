@@ -4,6 +4,17 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: ["cli/install/machine-result-is-schema-backed"],
+  boundary: "process",
+  rationale:
+    "Observes the real process stdout document and stderr diagnostics of the shipped CLI, which the in-memory renderer capture cannot prove.",
+} as const;
+
 describe("axm skills install output UX", () => {
   it("warns when an install reaches no configured coding agents", async () => {
     const temp = createTempDir();

@@ -186,18 +186,6 @@ if (imagePnpmVersion === undefined) {
   );
 }
 
-requireText(
-  containerfile,
-  "python3-yaml",
-  "Containerfile must install the Python yaml module required by Gen Stack validation",
-);
-for (const [subject, message] of [
-  [workflow, "CI image workflow smoke test must import Python yaml"],
-  [candidateSmoke, "local candidate-image smoke test must import Python yaml"],
-]) {
-  requireText(subject, 'python3 -c "import yaml"', message);
-}
-
 for (const text of [
   "allowBuilds:",
   '"@swc/core": true',

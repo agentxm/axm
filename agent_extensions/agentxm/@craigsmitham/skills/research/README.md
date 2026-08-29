@@ -16,10 +16,11 @@ does not modify state, make the caller's decision, or apply its findings.
 - Independent framing matters because prior analysis contains a favored
   hypothesis, diagnosis, or solution.
 
-Use `$investigate` instead to diagnose a concrete observed condition. Ordinary
-factual lookup does not need this workflow. Research is explicit-selection-only
-and does not activate from ordinary research-like language; supported hosts use
-their native invocation-policy control to enforce that portable contract.
+Use the project's diagnostic workflow for a concrete observed condition.
+Ordinary factual lookup does not need this workflow. Research is
+explicit-selection-only and does not activate from ordinary research-like
+language; supported hosts use their native invocation-policy control to enforce
+that portable contract.
 
 ## Install
 
@@ -57,9 +58,8 @@ Research workflow and its authority remain unchanged.
 Version `3.0.0` incorporates Research Brief framing, requires fresh delegated
 contexts, removes named depth modes in favor of explicit limits, and simplifies
 the report contract. Caller-specific handoff and corpus disposition belong to
-the caller rather than this skill. The former Question skill and QRSPI pack are
-deprecated. Framing-only callers should invoke Research and request that it stop
-after the Research Brief.
+the caller rather than this skill. Framing-only callers should invoke Research
+and request that it stop after the Research Brief.
 
 ## License
 

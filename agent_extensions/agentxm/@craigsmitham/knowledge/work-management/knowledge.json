@@ -1,0 +1,42 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "work-management",
+  "version": "0.1.1",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Portable software work-item taxonomy, content contracts, templates, lifecycle, evidence, and tracker-neutral guidance",
+  "keywords": [
+    "work-management",
+    "software-work-items",
+    "defect-report",
+    "bug-report",
+    "change",
+    "bugfix",
+    "operational-incident",
+    "incident-record",
+    "triage",
+    "work-item-template",
+    "tracker-neutral",
+    "evidence",
+    "provenance",
+    "verification",
+    "lifecycle",
+    "relationships"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "standalone": false,
+  "recommendedPacks": [
+    "@craigsmitham/packs/work-management"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "knowledge/work-management"
+  }
+}

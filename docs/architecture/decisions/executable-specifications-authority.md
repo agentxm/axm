@@ -27,30 +27,22 @@ deviations.
 
 ## Context
 
-Before this decision, requirements authority was split: a separately installed
-Gen Stack corpus owned canonical Requirements, selected actor-facing
-Architecture, and Evaluation Protocols, while detailed architecture prose and
-behavior tests carried substantial exact design and scenario authority of
-their own. The [testing strategy](../system-wide/testing-strategy.md) defines
-the target model and the
-[testing strategy migration](../system-wide/testing-strategy-migration.md)
-defines the transition this decision ratifies. Maintainer direction to execute
-that migration is the accepting authority for this record.
+Before this decision, requirements authority was split among prose records,
+architecture documentation, and behavior tests. The
+[testing strategy](../system-wide/testing-strategy.md) defines the model this
+decision ratifies. Maintainer acceptance of the specification corpus is the
+authority for this record.
 
 ## Dispositions
 
 Each retired authority class has one named destination:
 
-| Former owner                               | Destination                                                                                                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Gen Stack Requirements                     | Executable specifications under `specifications/`, selected by requirement class                                         |
-| Gen Stack Evaluation Protocols             | Specification definitions and their runners                                                                              |
-| Gen Stack Architecture Decision Records    | `architecture/decisions/` records; each enforceable consequence is a specification                                       |
-| Gen Stack Surfaces                         | Non-normative command and workspace architecture explanations that already exist in this bundle                          |
-| Gen Stack System governance kernel         | The narrowest non-normative explanation: system boundary and assurance context live in this bundle and `CONTRIBUTING.md` |
-| Normative statements in architecture prose | Executable specifications; prose keeps explanation and links specification identities                                    |
-| Package-oriented functional tests          | Product-shaped specifications; remaining tests are classified internal, tooling, or boundary evidence                    |
-| Execution results                          | CI, JUnit, Allure, and the generated specification catalog                                                               |
+| Former owner                      | Destination                                                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Normative statements in prose     | Executable specifications; prose keeps explanation and links specification identities                 |
+| Architecture decisions            | `architecture/decisions/` records; each enforceable consequence is a specification                    |
+| Package-oriented functional tests | Product-shaped specifications; remaining tests are classified internal, tooling, or boundary evidence |
+| Execution results                 | CI, JUnit, Allure, and the generated specification catalog                                            |
 
 ## Consequences
 

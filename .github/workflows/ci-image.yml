@@ -111,7 +111,6 @@ jobs:
               test "$(node --version)" = "v22.23.2"
               test "$(pnpm --version)" = "11.20.0"
               test "$(bun --version)" = "1.3.14"
-              python3 -c "import yaml"
               actionlint -version
               test ! -e /workspace/.git
             '

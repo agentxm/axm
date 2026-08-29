@@ -1,6 +1,6 @@
 {
   "skill_name": "improve-whatever",
-  "suite_version": "1.0.0",
+  "suite_version": "1.0.1",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -46,7 +46,7 @@
       "expected_selection": "improve-whatever",
       "catalog_neighbors": [
         "audit-docs",
-        "craft-effect-v4"
+        "author-docs"
       ],
       "assertions": [
         "The user's explicit skill invocation selects improve-whatever.",
@@ -62,7 +62,7 @@
       "expected_selection": "clarify-or-abstain",
       "catalog_neighbors": [
         "audit-docs",
-        "craft-effect-v4"
+        "author-docs"
       ],
       "assertions": [
         "Improve-whatever is not selected because the host requires explicit invocation.",

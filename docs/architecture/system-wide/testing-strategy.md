@@ -22,11 +22,7 @@ executions, internal and tooling tests, artifact and static verification, and
 diagnostic benchmarks provide evidence with different purposes, conditions,
 cadences, and blind spots.
 
-This document defines the target testing architecture. The
-[testing strategy migration](testing-strategy-migration.md) owns the transition
-from the current package-oriented suites and Gen Stack requirement authority.
-Until that migration reaches its authority cutover, existing canonical sources
-retain their current authority.
+This document defines the active testing architecture.
 
 ## Outcomes
 

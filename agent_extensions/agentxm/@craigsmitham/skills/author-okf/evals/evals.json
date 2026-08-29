@@ -1,6 +1,6 @@
 {
   "skill_name": "author-okf",
-  "suite_version": "0.1.5",
+  "suite_version": "0.1.6",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -76,7 +76,7 @@
       "expected_selection": "author-okf",
       "catalog_neighbors": [
         "author-docs",
-        "gen-stack"
+        "audit-docs"
       ],
       "assertions": [
         "The selected skill is author-okf.",

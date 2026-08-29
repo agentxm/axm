@@ -3,6 +3,12 @@
 Every `*.spec.ts` states one accepted requirement. Directories are physical
 layout; requirement identity, intents, and class carry the taxonomy.
 
+Use the installed `engineer-requirements` skill for elicitation, review,
+impact analysis, and requirement changes. This repository maps each normative
+requirement to one `*.spec.ts`; code, tests, issues, and documentation are
+evidence or witnesses unless this file says otherwise. Maintainer review is
+the acceptance authority.
+
 ## Placement
 
 The tree under `cli/` mirrors the registered CLI command tree. Place a spec at

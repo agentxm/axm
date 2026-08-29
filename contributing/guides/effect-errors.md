@@ -10,8 +10,7 @@ depends-on:
 # Effect Errors in AXM
 
 Portable error modeling belongs to the Effect v4 Knowledge guide for
-[error modeling](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/error-modeling.md),
-routed by the installed `craft-effect-v4` skill.
+[error modeling](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/error-modeling.md).
 This guide defines AXM's application boundary.
 
 ## Boundary model

@@ -1,0 +1,170 @@
+{
+  "skill_name": "manage-work-items",
+  "suite_version": "0.1.1",
+  "evaluation_contract": "evals/evaluation-contract.json",
+  "evals": [
+    {
+      "id": 1,
+      "stage": "execution",
+      "prompt": "Turn these notes into a public bug report: On release 4.8.1, selecting Export twice sometimes leaves the button disabled. We saw it once in Firefox 131 on Linux. We have not reproduced it and do not know the cause. A support message reported a similar symptom but its private contents cannot be copied.",
+      "expected_output": "A safe, actionable Defect Report that preserves the one observation, reported occurrence, expectation, conditions, evidence limits, and uncertainty without inventing diagnosis or remediation.",
+      "assertions": [
+        "The item is classified as a Defect Report rather than a confirmed Defect or Change.",
+        "Observed behavior, relevant conditions, and lack of reproduction are explicit.",
+        "The private support message is represented only by a safe attributable synopsis or controlled evidence reference.",
+        "The report does not claim a root cause, confirmed Defect, priority, or remediation decision.",
+        "Inapplicable template sections are omitted rather than filled with N/A."
+      ]
+    },
+    {
+      "id": 2,
+      "stage": "execution",
+      "prompt": "We confirmed that DEF-14 and DEF-22 both result from the cache using a tenant-free key. Create the corrective work item to isolate cache entries per tenant. Product has authorized the correction, but do not close either report.",
+      "expected_output": "A separate Change classified as Bugfix, linked to both Defect Reports, with a bounded corrective outcome and no automatic source-report closure.",
+      "assertions": [
+        "A new Change is created and classified as Bugfix from the confirmed Defects and authorized remedial purpose.",
+        "The Defect Reports remain provenance-bearing records distinct from the Bugfix Change.",
+        "Both reports are linked with explicit remediation semantics.",
+        "Neither source report is closed or rewritten as the Change.",
+        "Acceptance and verification conditions concern tenant isolation without inventing an implementation plan."
+      ]
+    },
+    {
+      "id": 3,
+      "stage": "execution",
+      "prompt": "Draft a Change for replacing the synthetic Atlas API v1 endpoint with v2. Follow the repository instructions and do not choose the rollout implementation yet.",
+      "expected_output": "A bounded Change that applies the fixture's public-API compatibility, migration, and deprecation considerations within the portable content contract.",
+      "files": [
+        {
+          "source": "evals/files/case-3/AGENTS.md",
+          "target": "AGENTS.md"
+        }
+      ],
+      "artifact_paths": ["AGENTS.md"],
+      "assertions": [
+        "The fixture instruction is read and applied.",
+        "Compatibility, migration, and deprecation appear in the applicable Change slots without a competing local template.",
+        "The rollout implementation remains undecided rather than invented.",
+        "The Change contains observable acceptance and verification conditions.",
+        "AGENTS.md is not modified."
+      ]
+    },
+    {
+      "id": 4,
+      "stage": "execution",
+      "prompt": "Review issue 73 and tell me how its fields and body should change. It is in the synthetic Northstar tracker. Do not edit the tracker.",
+      "expected_output": "A read-only native-field and residual-body mapping with no external mutation.",
+      "assertions": [
+        "The response distinguishes read-only analysis from an external write.",
+        "Exact native fields are preferred for facts their semantics can carry.",
+        "Structured metadata is not duplicated in a second editable body block.",
+        "No tracker write, assignment, priority, label, relationship, or status mutation is performed without explicit authority.",
+        "The response states that persistence remains unverified because no write was requested."
+      ]
+    },
+    {
+      "id": 5,
+      "stage": "execution",
+      "prompt": "Write a software Change to add resumable uploads. Include why, outcome, scope, constraints, acceptance conditions, verification, risks, and next action. Keep it process-agnostic.",
+      "expected_output": "A complete portable Change using the common and role contracts without importing unrelated method artifacts or lifecycle.",
+      "assertions": [
+        "The Change includes motivation, intended outcome, bounded scope and exclusions, constraints, acceptance conditions, verification strategy, risks, and next action.",
+        "The response neither requires a specification, design, or test stage nor presents planned tests as completed evidence.",
+        "The Change does not require a Pitch, Change Specification, Change Design, focused stage, OKF corpus, or Draft/Ready/Accepted lifecycle.",
+        "No protocol, storage, API, component, sequencing, or rollout approach is invented; unsupported details remain unknown or open decisions.",
+        "The title and summary are derived from the body."
+      ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "Update the operational incident record from these notes: checkout errors started at 14:07 UTC; about 18 percent of attempts are failing in eu-west; Priya is incident lead; traffic shifting reduced failures to 3 percent; next update at 14:30 UTC; root cause is unknown.",
+      "expected_output": "A current-state-first Operational Incident Record with attributable impact, control, command, chronology, uncertainty, and next update.",
+      "assertions": [
+        "Current impact, response state, active traffic-shift control, incident lead, and next update appear before chronology.",
+        "The earlier 18 percent and later 3 percent observations retain times and sequence.",
+        "Root cause remains unknown.",
+        "Mitigation is not presented as permanent correction, verified recovery, or closure.",
+        "No technical mitigation or public communication is performed."
+      ]
+    },
+    {
+      "id": 7,
+      "stage": "execution",
+      "prompt": "Triage six reports. Four have the same message but different tenant IDs and environments; one is clearly a duplicate occurrence with the same trace; the tracker write succeeds for two reports, fails for one, and returns no readback for the others.",
+      "expected_output": "Evidence-based item-local triage that avoids superficial merging and reports persisted, failed, and unverified outcomes separately.",
+      "assertions": [
+        "Title or message similarity alone does not establish duplicate identity.",
+        "The confirmed duplicate preserves its source occurrence and canonical relationship.",
+        "Successful, failed, and no-readback identities remain item-local and explicit.",
+        "No retry or atomic-success claim is invented.",
+        "Priority and root cause are not inferred."
+      ]
+    },
+    {
+      "id": 8,
+      "stage": "routing",
+      "prompt": "Turn these observations into a tracker-ready bug report and preserve the reproduction uncertainty.",
+      "expected_selection": "manage-work-items",
+      "catalog_neighbors": ["engineer-requirements", "research", "author-docs"],
+      "assertions": [
+        "The selected skill is manage-work-items.",
+        "The request is recognized as Defect Report authoring rather than diagnosis, implementation, or general documentation.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 9,
+      "stage": "routing",
+      "prompt": "Implement the fix for the cache race, run the tests, and open a pull request.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["manage-work-items", "engineer-requirements"],
+      "assertions": [
+        "Manage-work-items is not selected for implementation work.",
+        "The request is not reframed as work-item authoring.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 10,
+      "stage": "routing",
+      "prompt": "Prioritize our backlog for next quarter and assign the top stories to the team.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["manage-work-items", "improve-whatever"],
+      "assertions": [
+        "Manage-work-items is not selected for backlog prioritization, capacity planning, or assignment.",
+        "No priority or assignment mutation occurs.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 11,
+      "stage": "routing",
+      "prompt": "Rewrite issue 44's title and two-sentence summary without changing its body or fields.",
+      "expected_selection": "manage-work-items",
+      "catalog_neighbors": ["author-docs", "engineer-requirements"],
+      "assertions": [
+        "The selected skill is manage-work-items.",
+        "The title-and-summary-only operation is recognized.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    },
+    {
+      "id": 12,
+      "stage": "routing",
+      "prompt": "Help me clean up our tickets.",
+      "expected_selection": "clarify-or-abstain",
+      "catalog_neighbors": ["manage-work-items", "improve-whatever"],
+      "assertions": [
+        "The response clarifies or abstains because the requested work-item operation and mutation scope are not bounded.",
+        "No cleanup or tracker mutation is inferred from the vague request.",
+        "Routing uses only catalog names and descriptions.",
+        "No task side effect occurs before selection."
+      ]
+    }
+  ]
+}

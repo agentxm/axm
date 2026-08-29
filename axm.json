@@ -22,6 +22,8 @@
     "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
-    "qrspi": "agentxm:@craigsmitham/packs/qrspi"
+    "research": "agentxm:@craigsmitham/packs/research",
+    "requirements-engineering": "agentxm:@craigsmitham/packs/requirements-engineering",
+    "work-management": "agentxm:@craigsmitham/packs/work-management"
   }
 }

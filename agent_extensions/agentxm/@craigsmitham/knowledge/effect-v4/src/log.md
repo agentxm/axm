@@ -1,5 +1,33 @@
 # Directory Update Log
 
+## 2026-08-29
+
+* **Discovery**: Replaced the taxonomy-heavy publisher description with a
+  reader-job description: consult the bundle when designing, implementing,
+  maintaining, or reviewing Effect v4 TypeScript.
+* **Packaging**: Published the checklist replacement as `1.0.0`, then issued
+  `1.0.1` with redundant end-of-file whitespace removed so the canonical
+  source and immutable registry artifact remain identical.
+* **Replacement**: Re-authored all twenty-four Effect topics as independent
+  eight-item `Checklist` concepts for design, implementation, maintenance,
+  and review. Removed the routing conditions, preconditions, phase labels,
+  long-form API instruction, and retired-skill lineage that made the previous
+  guide corpus expensive to consult.
+* **Evidence**: Consulted Effect `4.0.0-rc.112` source, tests, and official
+  `ai-docs`, then checked current revisions of opencode, LiveStore, Alchemy,
+  effect-local, dfx, and effect-http-recorder for applied patterns before
+  authoring the replacement checklists.
+* **Lifecycle**: Made the bundle standalone and moved version policy to the root
+  index: the exact authoring baseline is Effect `4.0.0-rc.112`, with the
+  checklists treated as stable within major version 4 while version-sensitive
+  APIs are confirmed through linked sources.
+* **Checklist review**: Reviewed the corpus against the checklist-design
+  interaction and lifecycle guidance. Named `reporting-review` as the primary
+  mode, made evidence and failed-item behavior explicit, documented interruption
+  recovery, and labeled the corpus source-reviewed but not field-validated.
+  Added comparison measures, review triggers, adaptation bounds, and
+  replacement or retirement conditions without adding per-topic routing.
+
 ## 2026-08-24
 
 * **Boundary**: Refined [Date and time](date-and-time.md) so an effective

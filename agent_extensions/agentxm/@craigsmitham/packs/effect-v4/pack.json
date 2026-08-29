@@ -1,8 +1,8 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.6.1",
-  "description": "Effect v4 guidance: a rule requiring v4 conventions, a routing skill, and an opinionated knowledge bundle covering modeling, services, failure, lifetimes, concurrency, platforms, and verification",
+  "version": "1.0.0",
+  "description": "Effect v4 guidance: a rule requiring v4 conventions and a standalone knowledge bundle of concise evaluation checklists",
   "keywords": [
     "effect",
     "effect-v4",
@@ -19,8 +19,7 @@
   "type": "pack",
   "name": "effect-v4",
   "dependencies": {
-    "@craigsmitham/knowledge/effect-v4": ">=0.5.0",
-    "@craigsmitham/skills/craft-effect-v4": ">=0.2.0",
+    "@craigsmitham/knowledge/effect-v4": ">=1.0.0",
     "@craigsmitham/rules/use-effect-v4": ">=0.1.0"
   }
 }

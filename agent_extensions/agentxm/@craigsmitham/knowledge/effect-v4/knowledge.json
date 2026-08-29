@@ -2,14 +2,14 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@craigsmitham",
   "name": "effect-v4",
-  "version": "0.5.2",
+  "version": "1.0.2",
   "type": "knowledge",
   "format": {
     "name": "okf",
     "version": "0.2"
   },
   "bundleRoot": "src",
-  "description": "Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification",
+  "description": "Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript",
   "keywords": [
     "effect",
     "effect-v4",
@@ -52,5 +52,5 @@
   "recommendedPacks": [
     "@craigsmitham/packs/effect-v4"
   ],
-  "standalone": false
+  "standalone": true
 }

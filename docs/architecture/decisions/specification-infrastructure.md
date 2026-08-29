@@ -9,9 +9,8 @@ depends-on:
 
 # Specification infrastructure decisions
 
-The pilot migration slice resolved the open design decisions the
-[testing strategy migration](../system-wide/testing-strategy-migration.md)
-required before broad migration. Each subsection records one accepted choice.
+The pilot migration slice resolved the open design decisions required before
+broad adoption. Each subsection records one accepted choice.
 
 ## Requirement identity
 

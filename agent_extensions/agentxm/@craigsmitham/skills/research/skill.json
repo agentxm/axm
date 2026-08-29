@@ -3,11 +3,11 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "research",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "publish": {
     "ignore": []
   },
-  "description": "Explicit-only stage for fresh-context, read-only evidence research; never select from unprefixed natural language",
+  "description": "Explicit-only workflow for fresh-context, read-only evidence research; never select from unprefixed natural language",
   "keywords": [
     "research",
     "investigation",

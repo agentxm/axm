@@ -96,6 +96,11 @@ needs maintainer review; implementation-scoped tasks treat `specifications/`
 as read-only and run their evidence with
 `pnpm test:spec --requirement <id>`.
 
+For requirement elicitation, review, impact analysis, or revision, use the
+installed `engineer-requirements` skill and the local mapping in
+[specifications/AGENTS.md](specifications/AGENTS.md). The skill does not grant
+acceptance authority.
+
 Read the [AXM architecture index](docs/architecture/index.md) before changing
 product responsibilities, command boundaries, workspace state, package
 responsibilities, dependency direction, output contracts, or workspace
@@ -207,8 +212,8 @@ See [Effect Guide](contributing/guides/effect.md),
 [Effect Errors Guide](contributing/guides/effect-errors.md), and
 [Effect Layers Guide](contributing/guides/effect-layers.md).
 
-- Before writing or reviewing Effect code, use the installed
-  `craft-effect-v4` skill and its routed Knowledge guide.
+- Before writing or reviewing Effect code, consult the relevant topic in the
+  installed Effect v4 Knowledge bundle.
 - Use `../external/Effect-TS/effect` for repo-matched Effect v4 references.
 - Keep expected failures typed; use defects only for violated invariants.
 - Keep dependencies in `R` through orchestration and provide them once at the
@@ -242,8 +247,8 @@ See [Effect Guide](contributing/guides/effect.md),
 - Internal tests protect non-normative realization detail and may change or
   disappear in a behavior-preserving refactor; they never count toward
   functional completeness
-- Use `@effect/vitest` for Effect tests; route testing guidance through the
-  `craft-effect-v4` skill to the installed `testing.md` Knowledge guide
+- Use `@effect/vitest` for Effect tests; consult the installed Effect v4
+  `testing.md` Knowledge guide
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
 
 ## Review guidelines
@@ -259,6 +264,10 @@ See [Effect Guide](contributing/guides/effect.md),
 - Never execute PR code, approve, or replace deterministic CI and human review
 
 ## Git Workflow
+
+Use the installed `manage-work-items` skill when creating or revising GitHub
+issues. Work items may reference specifications but do not own accepted AXM
+requirements.
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.
 
@@ -298,16 +307,20 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/docs kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/requirements-engineering kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/software-engineering kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/work-management kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/workflow-automation kind=knowledge -->
 
-| Bundle                                                                                                     | Description                                                                                                                                                            |
-| ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                 | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                       | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                           |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                   | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
-| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md) | Portable engineering craft for a repository's execution surface: task graphs, script surfaces, caching intent, and invocation contracts for humans, agents, and CI     |
-| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)   | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
+| Bundle                                                                                                             | Description                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                                         | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                               | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                     |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                           | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
+| [requirements-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/requirements-engineering/src/index.md) | Portable requirements engineering for elicitation, analysis, specification, review, traceability, lifecycle, and evidence across project methods and tools             |
+| [software-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/index.md)         | Portable engineering craft for a repository's execution surface: task graphs, script surfaces, caching intent, and invocation contracts for humans, agents, and CI     |
+| [work-management](agent_extensions/agentxm/@craigsmitham/knowledge/work-management/src/index.md)                   | Portable software work-item taxonomy, content contracts, templates, lifecycle, evidence, and tracker-neutral guidance                                                  |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md)           | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->

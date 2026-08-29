@@ -12,8 +12,8 @@ depends-on:
 Portable service, layer, resource, configuration, testing, and observability
 patterns belong to the Effect v4 Knowledge guides for
 [services and layers](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/services-and-layers.md)
-and [resource safety](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/resource-safety.md),
-routed by the installed `craft-effect-v4` skill. This guide owns AXM CLI
+and [resource safety](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/resource-safety.md).
+This guide owns AXM CLI
 composition only.
 
 ## CLI composition

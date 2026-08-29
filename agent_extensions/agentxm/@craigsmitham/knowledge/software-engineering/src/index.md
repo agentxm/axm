@@ -7,9 +7,9 @@ okf_version: "0.2"
 Portable engineering craft for a repository's execution surface: how units of
 work are defined, layered, cached, and invoked by humans, coding agents, and
 CI. Use this bundle for tool-neutral guidance on task graphs, script surfaces,
-and invocation contracts rather than for the software-change method, Requirement
-and architecture lifecycle, or work items (the Gen Stack bundle), documentation
-craft (the docs bundle), or language and framework APIs.
+and invocation contracts rather than for a software-change method, requirements
+and architecture lifecycle, work items, documentation craft (the docs bundle),
+or language and framework APIs.
 
 ## Execution surface
 

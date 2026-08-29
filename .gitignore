@@ -59,4 +59,5 @@ test-results/
 # axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases
 /CLAUDE.md
 /docs/CLAUDE.md
+/specifications/CLAUDE.md
 # axm:end v=1 region=instruction-aliases

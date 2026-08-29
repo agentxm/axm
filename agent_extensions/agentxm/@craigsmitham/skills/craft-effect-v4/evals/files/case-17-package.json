@@ -1,8 +1,0 @@
-{
-  "name": "synthetic-effect-drift-review",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "effect": "4.0.0-rc.150"
-  }
-}

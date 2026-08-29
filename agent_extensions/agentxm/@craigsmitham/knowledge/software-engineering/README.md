@@ -8,14 +8,13 @@ invocation contract, independent of language or build tool.
 
 Use it for the command execution strategy — task-graph-canonical layering,
 self-sufficient targets, deliberate cache intent, and a bounded script
-surface. It is not the software-change method, Requirement or architecture
-lifecycle, or work-item guidance (install the Gen Stack knowledge for those),
-documentation craft, or a language or framework reference.
+surface. It is not a software-change method, requirements or architecture
+lifecycle, work-item guidance, documentation craft, or a language or framework
+reference.
 
 Earlier versions of this bundle (through 1.1.0) held design-change and
-work-item guidance; that content now lives in
-`@craigsmitham/knowledge/gen-stack`, and this bundle owns the
-execution-surface scope from 2.0.0 onward.
+work-item guidance. This bundle owns the execution-surface scope from 2.0.0
+onward.
 
 Install it with:
 

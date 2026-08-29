@@ -2,149 +2,105 @@
 okf_version: "0.2"
 ---
 
-# Effect v4 knowledge
+# Effect v4 checklists
 
-Opinionated guides for building with Effect v4 in TypeScript: how to model data
-and failure, structure services, own lifetimes, integrate with platforms, and
-verify the result. Each guide opens with the conditions it applies to and what
-it deliberately leaves alone, so you can route from a symptom rather than a
-topic.
+Concise evaluation checklists for designing, implementing, maintaining, and
+reviewing Effect v4 TypeScript. Each topic contains eight concrete checks plus
+links to the primary sources used to author it.
 
-Guidance targets **Effect 4.0.0-rc.111**. Guides that make version-specific API
-claims mark them inline; the rest describe design decisions that outlast a
-prerelease. Effect v3 conventions do not carry forward and are not documented
-here.
+This bundle was last authored against **Effect 4.0.0-rc.112**. Within Effect
+major version 4, use the checklists as the stable design baseline and consult
+the linked current sources when an API has changed or remains under an
+`effect/unstable/*` import. Effect v3 APIs and conventions are out of scope.
 
-Every concept here is `type: Guide` — normative decision guidance consulted
-while making a judgment. `Playbook` is reserved for step-wise procedures, which
-this bundle does not yet contain.
+The primary mode is `reporting-review`: use a topic to expose omissions and
+make a design or implementation inspectable. During implementation it can also
+serve as a `read-do` prompt. For a selected topic, completion means every
+applicable item has inspectable code, tests, configuration, or design evidence,
+or a documented bounded exception. An unsupported item remains open; checking
+a box is only a place marker, not evidence that the work or checklist is good.
 
-## How sources are cited
-
-Every per-claim footnote resolves to the most pinned form that exists, in this
-order: an immutable permalink carrying a tag or commit (Effect source at
-`effect@4.0.0-rc.111`, applied references at a revision); a versioned publisher
-doc URL where the publisher versions its docs; and only where neither exists, a
-live URL. Live entries additionally carry `author` and `last_modified` so their
-recency is visible — for pinned entries the tag or version is that signal. The
-Effect v4 API reference is not version-pinned, so guides link it once as a
-browsable route rather than citing it per claim.
-
-The `craft-effect-v4` skill routes work through these guides.
-
-## Evidence ceiling and refresh policy
-
-A machine `verified` event means the guide's claims were checked against its
-cited sources at the recorded time. It is not independent behavioral evidence,
-an audit or release approval, or a compatibility promise for another Effect
-version. Applied-project citations show that a pattern was observed in that
-revision; they do not make the pattern universal.
-
-When the target Effect tag changes, compare the upstream tags before repinning.
-Re-review every guide that cites a changed source or test, spot-check unchanged
-pins, record material deltas in [the update log](log.md), and rerun the routing
-skill's exact-target evaluation suite. A newer prerelease existing by itself is
-a review trigger, not permission to rename evidence mechanically.
+The items are non-procedural. They run from foundational choices and boundaries
+toward operation and verification, but may be reviewed independently and
+resumed at the first open box after interruption.
 
 ## Model data
 
-* [Schema boundaries](schema-boundaries.md) - Designing the line between
-  unknown, encoded, and domain values and choosing the domain carrier; use
-  when JSON is cast, validation is duplicated, or constructors bypass
-  invariants.
-* [Branded types](branded-types.md) - Preventing invalid primitive
-  substitution; use when IDs or units share representations or raw scalars
-  cross meaningful boundaries.
-* [Option](option.md) - Modeling meaningful absence and translating nullable
-  boundaries; use when lookups can miss without failing, null checks repeat,
-  or schemas encode nullish fields.
-* [Collections](collections.md) - Choosing among Array, Chunk, Record, and
-  HashMap; use for unsafe indexing, value-based keys, or multi-pass array code.
-* [Date and time](date-and-time.md) - Choosing scoped date/time representations,
-  boundary transforms, and where "now" comes from; use when Date leaks through
-  an Effect domain, timestamps decode inconsistently, or tests cannot control
-  time.
-* [Optics](optics.md) - Reusable immutable reads and updates; use when nested
-  paths repeat, updates target optional data or union variants, or focus logic
-  should compose across modules.
+- [Schema boundaries](schema-boundaries.md) — unknown, encoded, and trusted
+  domain values.
+- [Branded types](branded-types.md) — scalar identity and runtime refinement.
+- [Option](option.md) — meaningful absence and nullable boundaries.
+- [Collections](collections.md) — representation, identity, ordering, and safe
+  operations.
+- [Date and time](date-and-time.md) — instants, calendar values, durations,
+  zones, and current time.
+- [Optics](optics.md) — reusable immutable focus and update operations.
 
 ## Model failure
 
-* [Error modeling](error-modeling.md) - Keeping expected failure, defects, and
-  interruption distinct; use for throws, `catch (unknown)`, stringified
-  failures, broad recovery, indiscriminate retry, or a `Result` used as an
-  error channel.
-* [Wrapping](wrapping.md) - Turning Promise, callback, and synchronous
-  foreign APIs into truthful Effect boundaries, and deciding what crosses back
-  out; use for raw promises, thrown `unknown` failures, cancellation that must
-  propagate, vendor SDKs becoming injectable capabilities, and Effect results
-  handed to non-Effect callers.
+- [Error modeling](error-modeling.md) — expected failure, defects,
+  interruption, recovery, and retry.
+- [Wrapping foreign APIs](wrapping.md) — synchronous, Promise, callback, and
+  SDK boundaries.
 
 ## Structure the application
 
-* [Services and layers](services-and-layers.md) - Designing service boundaries
-  and Layer graphs and running the result; use when dependencies are threaded
-  through parameters, hidden in globals, hard to replace in tests, or when a
-  runner is handed an unexhausted error channel.
-* [Config](config.md) - Centralizing typed, validated configuration; use when
-  code reads `process.env`, repeats defaults, starts before validation, or
-  mishandles secrets.
+- [Services and layers](services-and-layers.md) — capabilities,
+  implementations, dependency graphs, and runtimes.
+- [Config](config.md) — typed, validated, secret-safe configuration.
 
 ## Own lifetimes and concurrency
 
-* [Resource safety](resource-safety.md) - Making acquisition and cleanup safe
-  under success, failure, and interruption; use for open/close pairs,
-  `try/finally`, clients, locks, and background work.
-* [Structured concurrency](structured-concurrency.md) - Giving every child
-  fiber an owner, failure policy, and shutdown path — including dynamic
-  FiberSet, FiberMap, and FiberHandle collections; use for detached promises,
-  `AbortController`, manual races, or orphanable background tasks.
-* [Iteration](iteration.md) - Choosing traversal, combination, loop, and
-  Schedule primitives and the concurrency bound each traversal deserves; use
-  when replacing async loops, polling, retries, or manual accumulators.
-* [Async coordination](async-coordination.md) - Choosing among Deferred,
-  Latch, Queue, PubSub, Ref, SynchronizedRef, SubscriptionRef, Semaphore, and
-  the Tx* transactional family; use for homegrown locks, shared mutable
-  state, event emitters, polling flags, or admission control.
-* [Streams](streams.md) - Modeling workflows that produce zero to many values
-  over time; use for manual async iteration, callback consumption, or
-  paginated and unbounded input.
-* [Request batching and cache](request-batching-and-cache.md) - Deciding
-  between request batching and keyed value reuse, then setting identity, TTL,
-  and failure policy; use for N+1 access, duplicate in-flight work, and
-  homemade `Map` caches.
-* [Keyed resource sharing](keyed-resource-sharing.md) - Sharing one live
-  resource per key across concurrent consumers with RcMap, LayerMap, or Pool;
-  use for per-tenant clients, keyed registries, per-key locks, and
-  release-when-last-user-leaves lifetimes.
+- [Resource safety](resource-safety.md) — acquisition, ownership, and cleanup.
+- [Structured concurrency](structured-concurrency.md) — child ownership,
+  failure policy, bounds, and shutdown.
+- [Iteration](iteration.md) — traversal, repetition, polling, and retry.
+- [Async coordination](async-coordination.md) — signaling, state, queues,
+  admission, and transactions.
+- [Streams](streams.md) — zero-to-many production, backpressure, and
+  consumption.
+- [Request batching and cache](request-batching-and-cache.md) — coalescing,
+  value reuse, identity, TTL, and invalidation.
+- [Keyed resource sharing](keyed-resource-sharing.md) — reference-counted,
+  keyed, and pooled live resources.
 
 ## Integrate with platforms
 
-* [Filesystem](filesystem.md) - Portable, typed, testable file operations
-  through the core FileSystem and Path services; use when production code
-  imports `node:fs` or `node:path`, walks directories, or must choose a
-  platform layer.
-* [HTTP API](http-api.md) - One declarative HttpApi contract driving routing,
-  validation, OpenAPI, and typed clients; use for endpoints, schemas,
-  middleware, security, typed HTTP failures, and derived clients on any
-  platform.
-* [HTTP client](http-client.md) - Calling HTTP services you do not define
-  with the `effect/unstable/http` HttpClient; use for choosing and providing
-  a client, request policy and construction, transient retry, schema-decoded
-  responses, and swapping the client in tests.
-* [Cloudflare Workers](cloudflare-workers.md) - Integrating Effect with
-  Workers independently of any web framework; use for bindings as Layers,
-  request-scoped runtimes, `waitUntil`, isolate reuse, and Hyperdrive or SQL
-  bindings.
-* [SQL](sql.md) - Accessing relational databases with effect/unstable/sql; use
-  for client wiring, statement construction, SqlError reason handling,
-  SqlSchema boundaries, transaction ownership, and query text in traces.
+- [Filesystem](filesystem.md) — portable file and path operations.
+- [HTTP API](http-api.md) — schema-first server contracts, middleware,
+  documentation, and clients.
+- [HTTP client](http-client.md) — outbound request policy, decoding, failure,
+  and substitution.
+- [Cloudflare Workers](cloudflare-workers.md) — bindings, request scopes,
+  isolate reuse, and post-response work.
+- [SQL](sql.md) — clients, statements, schemas, transactions, and retry.
 
 ## Operate and verify
 
-* [Observability](observability.md) - Designing coherent logs, traces, and
-  metrics and wiring exporters at the edge; use for scattered `console.log`,
-  missing correlation, manual timing, or leaked secrets in telemetry.
-* [Testing](testing.md) - Building deterministic tests for programs and their
-  lifetimes; use for real-time sleeps, mocked internals, leaked fibers, or
-  nondeterminism through time, scheduling, or randomness.
+- [Observability](observability.md) — coherent logs, traces, metrics, and
+  exporter lifetimes.
+- [Testing](testing.md) — deterministic services, time, resources, and
+  concurrency.
+
+## Maintaining this bundle
+
+Before changing a checklist, compare it with the current Effect v4 source and
+tests and inspect representative current v4 applications or libraries that use
+the topic. Keep each checklist between five and ten independently judgeable
+items. Put API detail, examples, and further explanation in linked resources
+rather than expanding the checklist into a guide. Record baseline changes and
+material corrections in the [update log](log.md).
+
+These checklists are **source-reviewed candidates, not field-validated
+controls**. The package owner named in `knowledge.json` owns revisions. The
+topic boundary, five-to-ten-item form, source traceability, and separation from
+long-form guidance are invariant; local teams may adapt evidence capture and
+companion links without weakening an item.
+
+Validation should compare representative Effect authors and reviewers using
+the checklists with current review practice, measuring missed defects,
+reviewer agreement, time, misselection, and unsupported completion. Re-review a
+topic when Effect v4 behavior changes, an unstable API moves, applied practice
+diverges, or users misinterpret or routinely bypass an item. Split, replace, or
+retire a checklist when automation prevents the omission more reliably or the
+topic requires substantial branching, explanation, or a procedure.

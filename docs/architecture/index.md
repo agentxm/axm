@@ -41,3 +41,9 @@ Navigation for the accepted product and system architecture of AXM.
 
 - [Telemetry](system-wide/telemetry.md) — CLI observation, local control,
   privacy boundaries, and separation from Registry request logging
+- [Testing strategy](system-wide/testing-strategy.md) — executable
+  specifications as the sole local requirements authority, with distinct
+  verification purposes, boundaries, execution, completeness, and reporting
+- [Testing strategy migration](system-wide/testing-strategy-migration.md) —
+  phased transition from package-oriented tests and the Gen Stack pack and
+  corpus to executable specifications as the single local source of truth

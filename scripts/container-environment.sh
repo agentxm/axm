@@ -19,6 +19,12 @@ volume_key() {
 }
 
 DEPS_VOLUME=${AXM_DEV_DEPS_VOLUME:-axm-dev-deps-$(volume_key "$ROOT")}
+# Scoping the CI caches by image and lockfile keeps a stale cache from bleeding
+# across a bump, but it also means every bump mints a new pair of volumes and
+# abandons the previous pair. On an ephemeral runner that costs nothing; on a
+# persistent one the abandoned volumes accumulate until something reclaims them,
+# so a persistent runner needs a retention sweep that keeps only the newest
+# scopes.
 CI_CACHE_SCOPE=$(
   volume_key "axm|$(uname -m)|$CI_IMAGE|$(cksum <"$ROOT/pnpm-lock.yaml")"
 )

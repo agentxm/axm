@@ -8,7 +8,6 @@
     "gitignoreAliases": true
   },
   "skills": {
-    "code-review": "workspace",
     "axm": "workspace",
     "improve-whatever": "agentxm:@craigsmitham/skills/improve-whatever",
     "author-okf": "agentxm:@craigsmitham/skills/author-okf"

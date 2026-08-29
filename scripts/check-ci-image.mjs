@@ -170,6 +170,18 @@ if (imagePnpmVersion === undefined) {
   );
 }
 
+requireText(
+  containerfile,
+  "python3-yaml",
+  "Containerfile must install the Python yaml module required by Gen Stack validation",
+);
+for (const [subject, message] of [
+  [workflow, "CI image workflow smoke test must import Python yaml"],
+  [candidateSmoke, "local candidate-image smoke test must import Python yaml"],
+]) {
+  requireText(subject, 'python3 -c "import yaml"', message);
+}
+
 for (const text of [
   "allowBuilds:",
   '"@swc/core": true',
@@ -355,6 +367,14 @@ for (const [path, source] of workflowSources) {
       errors.push(`${path} action ${action} must use a full commit SHA`);
     }
   }
+}
+
+for (const text of ["Required CI failures", "GITHUB_STEP_SUMMARY"]) {
+  requireText(
+    ciWorkflow,
+    text,
+    `Required CI rollup must report actionable failure details via ${text}`,
+  );
 }
 
 if (errors.length > 0) {

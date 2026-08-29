@@ -561,4 +561,23 @@ jobs:
           RESULTS: >-
             ${{ toJSON(needs) }}
         run: |
-          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"$RESULTS"
+          failures=$(jq -r '
+            to_entries[]
+            | select(.value.result != "success" and .value.result != "skipped")
+            | "- `\(.key)`: \(.value.result)"
+          ' <<<"$RESULTS")
+          if [[ -n "$failures" ]]; then
+            {
+              echo "## Required CI failures"
+              echo
+              printf '%s\n' "$failures"
+            } >> "$GITHUB_STEP_SUMMARY"
+            failure_count=$(wc -l <<<"$failures" | tr -d ' ')
+            echo "::error title=Required CI failed::${failure_count} applicable job(s) did not succeed"
+            exit 1
+          fi
+          {
+            echo "## Required CI"
+            echo
+            echo "All applicable jobs succeeded."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -249,13 +249,6 @@ See [Effect Guide](contributing/guides/effect.md),
 
 Wait for the user to review changes and decide when to commit.
 
-## Field note subjects
-
-| Subject              | Mode   | Scope                                                                                                                                      | Target condition                                                                                                                                                                       | Retire when                                                                                                |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| axm-cli-interactions | target | Sessions that directly run `axm` to complete work in this workspace or manually validate AXM behavior; automated test invocations excluded | A fresh repository worktree can run the local AXM CLI and pass pre-push after one explicit documented bootstrap, with no hidden dependency on ignored or generated workspace artifacts | The target condition is verified to hold and this subject's promoted findings are closed as effective      |
-| ci-cd-workflows      | survey | Sessions that edit, run, inspect, or wait on GitHub Actions for CI, release, or CI images                                                  | —                                                                                                                                                                                      | Notes support graduating or splitting into specific target subjects, or two triage reviews find no pattern |
-
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery -->
 
 ## Knowledge Bundles

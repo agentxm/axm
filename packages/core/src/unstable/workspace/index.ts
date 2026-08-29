@@ -120,6 +120,7 @@ export {
 
 export {
   cleanupManagedArtifactsForRemovedAgents,
+  cleanupStaleManagedSkillDirectories,
   cleanupStaleManagedSubagentFiles,
   findManagedSubagentFiles,
   hasAxmManagedMarker,

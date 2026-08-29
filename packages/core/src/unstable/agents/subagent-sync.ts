@@ -26,6 +26,29 @@ import type {
   SubagentSyncOutcome,
 } from "./coding-agent.js";
 
+/** Render the exact managed bytes written by the standard file adapter. */
+export const renderManagedSubagentOutputs = (args: AddSubagentArgs) => {
+  const rendered = renderSubagent(args.input);
+  if (rendered === undefined || rendered._tag === "Skipped") return rendered;
+  return {
+    ...rendered,
+    outputs: rendered.outputs.map((output) => {
+      const format = managedFileFormatForPath(output.path);
+      return {
+        ...output,
+        content:
+          format === undefined
+            ? output.content
+            : insertManagedFileBanner(output.content, {
+                editPath: args.editSourcePath,
+                helpTopic: "subagents",
+                format,
+              }),
+      };
+    }),
+  };
+};
+
 /**
  * Parse a .roomodes JSON file into its expected shape.
  * Returns a default empty structure if parsing fails.
@@ -89,7 +112,7 @@ export const writeSubagentFiles = (
     const path = yield* Path.Path;
 
     // Render using the rendering engine
-    const renderResult = renderSubagent(args.input);
+    const renderResult = renderManagedSubagentOutputs(args);
     if (renderResult === undefined) {
       return {
         _tag: "unsupported",
@@ -121,15 +144,6 @@ export const writeSubagentFiles = (
 
     const renderedFilePaths: Array<string> = [];
     for (const { output, filePath } of resolvedOutputs) {
-      const format = managedFileFormatForPath(output.path);
-      const content =
-        format === undefined
-          ? output.content
-          : insertManagedFileBanner(output.content, {
-              editPath: args.editSourcePath,
-              helpTopic: "subagents",
-              format,
-            });
       // Ensure parent dir exists (for nested paths)
       const parentDir = path.dirname(filePath);
       yield* protectWorkspacePath(filePath);
@@ -143,7 +157,7 @@ export const writeSubagentFiles = (
         ),
       );
 
-      yield* fs.writeFileString(filePath, content).pipe(
+      yield* fs.writeFileString(filePath, output.content).pipe(
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",

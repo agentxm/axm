@@ -10,7 +10,7 @@
  * with structural Roo fields layered on top: `slug` is always
  * `input.name`, the body splits into `roleDefinition` / `customInstructions`,
  * and `groups` falls back to a sane default when not provided. Then
- * `agentOverrides[roo-code]` is merged on top.
+ * `agentOverrides[roo]` is merged on top.
  *
  * @experimental This API is unstable and may change without notice.
  */

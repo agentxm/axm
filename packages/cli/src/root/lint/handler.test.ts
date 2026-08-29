@@ -83,6 +83,19 @@ describe("axm lint handler", () => {
     );
   };
 
+  const writeSubagentExtension = (name: string) => {
+    const root = path.join(tempDir, "subagents", name);
+    fs.mkdirSync(path.join(root, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "subagent.json"),
+      JSON.stringify({ owner: "@acme", type: "subagent", name, version: "1.0.0" }),
+    );
+    fs.writeFileSync(
+      path.join(root, "src", `${name}.md`),
+      `---\nname: ${name}\ndescription: Test subagent\n---\n\n# Expected body\n`,
+    );
+  };
+
   const makeLayers = (opts?: { machine?: boolean; quiet?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
@@ -469,6 +482,31 @@ describe("axm lint handler", () => {
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo.command).toBe("python");
         expect(config.mcpServers.stale).toBeDefined();
+      }),
+    );
+  });
+
+  it.effect("reports managed subagent body drift without reconciling it", () => {
+    const { provide, rendererState } = makeLayers();
+    writeSettings({
+      agents: ["claude-code"],
+      subagents: { researcher: "workspace" },
+    });
+    writeEmptyLockfile();
+    writeSubagentExtension("researcher");
+    const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+    fs.mkdirSync(path.dirname(projectionPath), { recursive: true });
+    const drifted =
+      "<!-- axm:file v=1 ext=@agentxm/subagents/managed-file src=subagents/researcher/src/researcher.md -->\n# Drifted body\n";
+    fs.writeFileSync(projectionPath, drifted);
+
+    return provide(
+      Effect.gen(function* () {
+        yield* lint({ details: true }).pipe(Effect.exit);
+        const report = rendererState.logs.map(({ message }) => message).join("\n");
+        expect(report).toContain("workspace/projections-current");
+        expect(report).toContain("subagent:researcher");
+        expect(fs.readFileSync(projectionPath, "utf8")).toBe(drifted);
       }),
     );
   });

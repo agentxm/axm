@@ -91,6 +91,7 @@ const emptyRuleManager = {
 const emptySubagentManager = {
   ...managerLifecycleStubs,
   type: "subagent",
+  projectionObservation: () => Effect.succeed({ present: false, current: false }),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.void,
   listMaterializable: () => Effect.succeed([]),

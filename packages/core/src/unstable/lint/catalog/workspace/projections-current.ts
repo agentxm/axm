@@ -10,7 +10,7 @@ import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 const RULE_ID = "workspace/projections-current";
 
 /**
- * Aggregate managed output units render their complete contributor sets.
+ * Managed output units render their complete contributor sets and content.
  *
  * Evidence is read back from the outputs themselves: an extension whose
  * canonical content is installed and reachable can still be absent from, or
@@ -20,7 +20,7 @@ const RULE_ID = "workspace/projections-current";
  */
 export const projectionsCurrentRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Aggregate managed outputs render every enabled reachable contributor exactly once.",
+  description: "Managed outputs render every enabled reachable contributor exactly once.",
   kind: "advisory",
   severity: "error",
   check: (context) =>

@@ -143,6 +143,7 @@ export {
 } from "./instruction-entry.js";
 export {
   reconcileKnowledgeDiscovery,
+  observedKnowledgeContributors,
   type KnowledgeDiscoveryArtifact,
   type KnowledgeDiscoveryBundle,
   type KnowledgeDiscoveryResult,

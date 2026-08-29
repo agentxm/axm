@@ -15,6 +15,7 @@ import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/m
 import type { WorkspaceScope } from "./scope.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { protectWorkspacePath } from "./transaction.js";
+import { recordFootprint } from "./footprint-recorder.js";
 
 export interface RenderedFileCleanupResult {
   readonly removedPaths: ReadonlyArray<string>;
@@ -54,6 +55,7 @@ const removePath = (
     ? Effect.void
     : protectWorkspacePath(filePath).pipe(
         Effect.andThen(fs.remove(filePath, { recursive: true })),
+        Effect.andThen(recordFootprint({ path: filePath, change: "removed" })),
         Effect.mapError((error) =>
           makeAppError({
             code: "internal",
@@ -85,6 +87,7 @@ const cleanupSkillArtifactsInDir = (args: {
   readonly skillsDir: string;
   readonly dryRun: boolean;
   readonly ownershipRoots?: ReadonlyArray<string>;
+  readonly expectedNames?: ReadonlySet<string>;
 }) =>
   Effect.gen(function* () {
     const removedPaths: Array<string> = [];
@@ -98,6 +101,7 @@ const cleanupSkillArtifactsInDir = (args: {
     );
 
     for (const entry of entries) {
+      if (args.expectedNames?.has(entry) === true) continue;
       const artifactPath = args.path.join(args.skillsDir, entry);
       const linkTarget = yield* args.fs.readLink(artifactPath).pipe(Effect.option);
       if (linkTarget._tag === "Some") {
@@ -130,6 +134,47 @@ const cleanupSkillArtifactsInDir = (args: {
     }
 
     return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
+  });
+
+/** Remove AXM-owned skill projections whose package is no longer desired. */
+export const cleanupStaleManagedSkillDirectories = (args: {
+  readonly expectedSkillNames: ReadonlySet<string>;
+  readonly dryRun?: boolean;
+}): Effect.Effect<
+  RenderedFileCleanupResult,
+  AppError,
+  CodingAgentRepository | FileSystem.FileSystem | Path.Path | WorkspaceMutations
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* WorkspaceMutations;
+    const agentRepo = yield* CodingAgentRepository;
+    const configuredAgentIds = new Set(yield* ws.getConfiguredAgents());
+    const agents = yield* agentRepo.all;
+    const removedPaths: Array<string> = [];
+    const ownershipRoots =
+      ws.layout.scope === "project"
+        ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
+        : [ws.layout.canonicalRoot];
+
+    for (const agent of agents) {
+      if (!configuredAgentIds.has(agent.id)) continue;
+      const resolved = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
+      if (resolved._tag !== "supported") continue;
+      const result = yield* cleanupSkillArtifactsInDir({
+        fs,
+        path,
+        baseDir: ws.baseDir,
+        skillsDir: resolved.dir,
+        dryRun: args.dryRun === true,
+        ownershipRoots,
+        expectedNames: args.expectedSkillNames,
+      });
+      removedPaths.push(...result.removedPaths);
+    }
+
+    return { removedPaths: [...new Set(removedPaths)] };
   });
 
 const cleanupSubagentArtifactsInDir = (args: {
@@ -503,6 +548,7 @@ export const cleanupStaleManagedSubagentFiles = (args: {
               }),
             ),
           );
+          yield* recordFootprint({ path: filePath, change: "removed" });
         }
         removedPaths.push(filePath);
       }

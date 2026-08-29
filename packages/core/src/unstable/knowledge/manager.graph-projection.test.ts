@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { makeAppError } from "../app-error/index.js";
-import { applyPlannedProjections } from "../projection/planning.js";
+import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "../utils/path-types.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
@@ -185,6 +185,47 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       expect(instructions).not.toContain("pack-a-bundle");
       expect(instructions.split("[pack-b-bundle]").length - 1).toBe(1);
     }).pipe(Effect.provide(after));
+  });
+
+  it.effect("reads the intact region back and attributes drift to the missing contributor", () => {
+    writeBundle("pack-a-bundle");
+    writeBundle("pack-b-bundle");
+    const layer = makeTestLayer({
+      graph: completeGraph([
+        packKnowledgeNode("pack-a-bundle", "pack-a"),
+        packKnowledgeNode("pack-b-bundle", "pack-b"),
+      ]),
+      locked: {
+        "pack-a-bundle": localLock(baseDir, "pack-a-bundle"),
+        "pack-b-bundle": localLock(baseDir, "pack-b-bundle"),
+      },
+    });
+    return Effect.gen(function* () {
+      const manager = yield* KnowledgeManager;
+      yield* applyPlannedProjections(manager);
+      const instructionsPath = nodePath.join(baseDir, "AGENTS.md");
+      nodeFs.writeFileSync(
+        instructionsPath,
+        nodeFs
+          .readFileSync(instructionsPath, "utf8")
+          .replace("<!-- axm:point v=1 ext=@acme/knowledge/pack-b-bundle kind=knowledge -->\n", ""),
+      );
+
+      expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
+        [
+          expect.objectContaining({
+            path: `${instructionsPath}#knowledge`,
+            present: true,
+            current: false,
+            expectedContributors: [
+              "@acme/knowledge/pack-a-bundle",
+              "@acme/knowledge/pack-b-bundle",
+            ],
+            observedContributors: ["@acme/knowledge/pack-a-bundle"],
+          }),
+        ],
+      );
+    }).pipe(Effect.provide(layer));
   });
 
   it.effect("applies manifest defaults and workspace overrides independently per bundle", () => {

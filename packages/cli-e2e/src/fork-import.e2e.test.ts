@@ -56,6 +56,16 @@ describe("fork and native import", () => {
         },
       });
 
+      const duplicate = await runCli(
+        ["skills", "import", nativeDir, "@test/skills/native-review", "--yes", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(duplicate.exitCode).not.toBe(0);
+      expect(`${duplicate.stderr}\n${duplicate.stdout}`).toContain("Import target");
+      expect(fs.readFileSync(path.join(importedDir, "src", "SKILL.md"), "utf8")).toContain(
+        "name: native-review",
+      );
+
       const forked = await runCli(
         [
           "fork",

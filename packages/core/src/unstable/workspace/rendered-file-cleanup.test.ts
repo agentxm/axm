@@ -9,7 +9,11 @@ import { CodingAgentRepository, makeProjectOnlyCodingAgent } from "../agents/ind
 import type { CodingAgentRepositoryService } from "../agents/index.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { makeBaseWorkspaceMock } from "./test-stubs.js";
-import { cleanupManagedArtifactsForRemovedAgents, hasAxmManagedMarker } from "./index.js";
+import {
+  cleanupManagedArtifactsForRemovedAgents,
+  cleanupStaleManagedSkillDirectories,
+  hasAxmManagedMarker,
+} from "./index.js";
 
 const AXM_MANAGED_MARKER =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=.axm/extensions/@acme/subagents/test -->";
@@ -153,6 +157,69 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }),
+  );
+});
+
+describe("cleanupStaleManagedSkillDirectories", () => {
+  it.effect(
+    "previews and removes retired owned skill projections while preserving lookalikes",
+    () =>
+      Effect.gen(function* () {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-skill-residue-cleanup-"));
+        try {
+          const skillsDir = path.join(tempDir, ".cursor", "skills");
+          const canonicalRoot = path.join(tempDir, "skills");
+          const currentSource = path.join(canonicalRoot, "current", "src");
+          const retiredSource = path.join(canonicalRoot, "retired", "src");
+          fs.mkdirSync(currentSource, { recursive: true });
+          fs.mkdirSync(retiredSource, { recursive: true });
+          fs.mkdirSync(skillsDir, { recursive: true });
+          const current = path.join(skillsDir, "current");
+          const retired = path.join(skillsDir, "retired");
+          const lookalike = path.join(skillsDir, "lookalike");
+          fs.symlinkSync(currentSource, current);
+          fs.symlinkSync(retiredSource, retired);
+          fs.mkdirSync(lookalike);
+          fs.writeFileSync(path.join(lookalike, "SKILL.md"), "# User skill\n");
+
+          const cursor = makeProjectOnlyCodingAgent({
+            agentId: "cursor",
+            displayName: "Cursor",
+            skillsProjectDir: ".cursor/skills",
+          });
+          const agentRepo: CodingAgentRepositoryService = {
+            get: () => Effect.succeed(cursor),
+            all: Effect.succeed([cursor]),
+            getConfiguredAgents: () => Effect.succeed([cursor]),
+            getMaterializationAgents: () => Effect.succeed([cursor]),
+            getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+          };
+          const workspace = makeBaseWorkspaceMock(path.join(tempDir, ".axm"), {
+            getConfiguredAgents: () => Effect.succeed(["cursor"]),
+          });
+          const layer = Layer.mergeAll(
+            NodeServices.layer,
+            Layer.succeed(WorkspaceMutations, workspace),
+            Layer.succeed(CodingAgentRepository, agentRepo),
+          );
+
+          const preview = yield* cleanupStaleManagedSkillDirectories({
+            expectedSkillNames: new Set(["current"]),
+            dryRun: true,
+          }).pipe(Effect.provide(layer));
+          expect(preview.removedPaths).toEqual([retired]);
+          expect(fs.existsSync(retired)).toBe(true);
+
+          yield* cleanupStaleManagedSkillDirectories({
+            expectedSkillNames: new Set(["current"]),
+          }).pipe(Effect.provide(layer));
+          expect(fs.existsSync(current)).toBe(true);
+          expect(fs.existsSync(retired)).toBe(false);
+          expect(fs.existsSync(lookalike)).toBe(true);
+        } finally {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      }),
   );
 });
 

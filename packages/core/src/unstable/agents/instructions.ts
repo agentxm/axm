@@ -14,6 +14,7 @@ import { createSymlink } from "../utils/create-symlink.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { reconcilePatternList } from "../projection/adapters.js";
 import { AGENTS } from "./registry.js";
 import type { AgentDescriptor, AgentId, AgentInstructionsDescriptor } from "./types.js";
@@ -78,9 +79,16 @@ export interface InstructionsStatus {
 
 export interface InstructionsGitignoreStatus {
   readonly file: string;
+  readonly present: boolean;
+  readonly managed: boolean;
   readonly desired: boolean;
   readonly current: boolean;
   readonly trackedAliases: ReadonlyArray<string>;
+}
+
+export interface InstructionProjectionEffect {
+  readonly path: string;
+  readonly change: "created" | "updated" | "removed";
 }
 
 /**
@@ -107,11 +115,14 @@ export interface InstructionsSyncResult {
   readonly skipped: ReadonlyArray<string>;
 }
 
-type ManagedGitignoreRegionState = "absent" | "complete" | "malformed" | "unsupported-version";
+type ManagedGitignoreRegionState =
+  "absent" | "complete" | "legacy" | "malformed" | "unsupported-version";
 
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
 const INSTRUCTION_ALIASES_OWNER = "@agentxm/instructions/aliases";
+const LEGACY_GITIGNORE_START = "# >>> axm:instructions >>>";
+const LEGACY_GITIGNORE_END = "# <<< axm:instructions <<<";
 /** Ownership identity carried by every managed alias copy's `axm:file` banner. */
 const INSTRUCTION_ALIAS_EXT = "@agentxm/instructions/alias";
 
@@ -831,15 +842,42 @@ const observeStaleCandidate = (
     );
   });
 
+const retireLegacyGitignoreRegion = (
+  content: string,
+): { readonly state: "absent" | "complete" | "malformed"; readonly updated: string } => {
+  const starts = content.split(LEGACY_GITIGNORE_START).length - 1;
+  const ends = content.split(LEGACY_GITIGNORE_END).length - 1;
+  if (starts === 0 && ends === 0) return { state: "absent", updated: content };
+  const start = content.indexOf(LEGACY_GITIGNORE_START);
+  const end = content.indexOf(LEGACY_GITIGNORE_END);
+  if (starts !== 1 || ends !== 1 || start < 0 || end < start) {
+    return { state: "malformed", updated: content };
+  }
+  const afterMarker = end + LEGACY_GITIGNORE_END.length;
+  const afterLine = content.startsWith("\r\n", afterMarker)
+    ? afterMarker + 2
+    : content.startsWith("\n", afterMarker)
+      ? afterMarker + 1
+      : afterMarker;
+  return {
+    state: "complete",
+    updated: `${content.slice(0, start)}${content.slice(afterLine)}`,
+  };
+};
+
 const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionState => {
+  const legacy = retireLegacyGitignoreRegion(content);
+  if (legacy.state === "malformed") return "malformed";
   const reconciliation = reconcilePatternList({
-    content,
+    content: legacy.updated,
     target: ".gitignore",
     region: "instruction-aliases",
     owner: INSTRUCTION_ALIASES_OWNER,
     patterns: [],
   });
-  return Option.isSome(reconciliation) ? reconciliation.value.state.state : "malformed";
+  if (Option.isNone(reconciliation)) return "malformed";
+  if (reconciliation.value.state.state === "absent" && legacy.state === "complete") return "legacy";
+  return reconciliation.value.state.state;
 };
 
 const hasManagedRegion = (content: string): boolean =>
@@ -848,7 +886,7 @@ const hasManagedRegion = (content: string): boolean =>
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
   Option.getOrThrowWith(
     reconcilePatternList({
-      content,
+      content: retireLegacyGitignoreRegion(content).updated,
       target: ".gitignore",
       region: "instruction-aliases",
       owner: INSTRUCTION_ALIASES_OWNER,
@@ -945,6 +983,8 @@ const observeInstructionsGitignore = (args: {
     if (!gitManaged) {
       return {
         file,
+        present: false,
+        managed: false,
         desired: false,
         current: true,
         trackedAliases: [],
@@ -1000,6 +1040,8 @@ const observeInstructionsGitignore = (args: {
     ).updated;
     return {
       file,
+      present: Option.isSome(currentContent),
+      managed: currentRegionState === "complete",
       desired,
       trackedAliases,
       current:
@@ -1009,6 +1051,66 @@ const observeInstructionsGitignore = (args: {
           (Option.isSome(currentContent) && currentContent.value === next)),
     };
   });
+
+const uniqueEffects = (
+  effects: ReadonlyArray<InstructionProjectionEffect>,
+): ReadonlyArray<InstructionProjectionEffect> => {
+  const byPath = new Map<string, InstructionProjectionEffect>();
+  for (const effect of effects) byPath.set(effect.path, effect);
+  return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+};
+
+/** Exact durable paths a reconciliation from this observation will touch. */
+export const instructionProjectionEffects = (
+  snapshot: InstructionProjectionSnapshot,
+): ReadonlyArray<InstructionProjectionEffect> =>
+  uniqueEffects([
+    ...snapshot.status.items.flatMap((item): ReadonlyArray<InstructionProjectionEffect> => {
+      if (!isProjectedTarget(item) || item.health === "missing-source") return [];
+      if (item.ownership === "unowned") return [];
+      if (item.ownership === "owned-current" && item.observedForm !== "broken-link") return [];
+      return [
+        {
+          path: item.targetFile,
+          change: item.observedForm === "none" ? "created" : "updated",
+        },
+      ];
+    }),
+    ...snapshot.status.staleTargets.map((item) => ({
+      path: item.targetFile,
+      change: "removed" as const,
+    })),
+    ...(snapshot.gitignore.current
+      ? []
+      : [
+          {
+            path: snapshot.gitignore.file,
+            change: snapshot.gitignore.present ? ("updated" as const) : ("created" as const),
+          },
+        ]),
+  ]);
+
+/** Exact durable paths disabling this observed projection will touch. */
+export const instructionProjectionRemovalEffects = (
+  snapshot: InstructionProjectionSnapshot,
+): ReadonlyArray<InstructionProjectionEffect> =>
+  uniqueEffects([
+    ...snapshot.status.items.flatMap((item): ReadonlyArray<InstructionProjectionEffect> =>
+      isProjectedTarget(item) &&
+      item.ownership !== "absent" &&
+      item.ownership !== "unowned" &&
+      item.sourceFile !== item.targetFile
+        ? [{ path: item.targetFile, change: "removed" }]
+        : [],
+    ),
+    ...snapshot.status.staleTargets.map((item) => ({
+      path: item.targetFile,
+      change: "removed" as const,
+    })),
+    ...(snapshot.gitignore.managed
+      ? [{ path: snapshot.gitignore.file, change: "updated" as const }]
+      : []),
+  ]);
 
 export interface ObserveInstructionProjectionArgs {
   readonly workspaceRoot: string;
@@ -1147,6 +1249,15 @@ const writeFile = (filePath: string, content: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const existed = yield* fs.exists(filePath).pipe(
+      Effect.mapError((error) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to inspect instruction file: ${filePath}`,
+          cause: error,
+        }),
+      ),
+    );
     yield* protectWorkspacePath(filePath);
     yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
       Effect.mapError((error) =>
@@ -1166,6 +1277,7 @@ const writeFile = (filePath: string, content: string) =>
         }),
       ),
     );
+    yield* recordFootprint({ path: filePath, change: existed ? "modified" : "created" });
   });
 
 const removeTargetFile = (targetPath: string) =>
@@ -1181,6 +1293,7 @@ const removeTargetFile = (targetPath: string) =>
         }),
       ),
     );
+    yield* recordFootprint({ path: targetPath, change: "removed" });
   });
 
 /**

@@ -8,7 +8,10 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
 import { HOOK_FALLBACKS_REGION_OWNER, HookManager } from "../hooks/manager.js";
@@ -17,6 +20,9 @@ import { KnowledgeManager } from "../knowledge/manager.js";
 import { RULES_REGION_OWNER, RuleManager } from "../rules/manager.js";
 import type { AppError } from "../app-error/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { acceptedResolutionRef } from "../workspace/accepted-canonical-ref.js";
+import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
+import { SubagentManager } from "../subagents/manager.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { OwnershipUnitId } from "./units.js";
 import { observeProjectionPlans } from "./planning.js";
@@ -178,6 +184,13 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const rules = yield* RuleManager;
     const hooks = yield* HookManager;
     const knowledge = yield* KnowledgeManager;
+    const subagents = yield* SubagentManager;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const fsPathLayer = Layer.mergeAll(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
     return {
       projectionFacts: Effect.gen(function* () {
         const [ruleResult, hookResult, knowledgeResult] = yield* Effect.all(
@@ -194,6 +207,65 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         const facts = observations.map((observation) =>
           makeProjectionInvariantFact(observation, workspace.scope),
         );
+        const graph = yield* Effect.result(workspace.getDesiredStateGraph());
+        if (Result.isSuccess(graph) && graph.success.complete) {
+          const subagentFacts = yield* Effect.forEach(
+            graph.success.nodes.filter((node) => node.type === "subagent" && node.enabled),
+            (node) =>
+              Effect.result(
+                (node.source === "workspace"
+                  ? resolveWorkspaceExtensionRef({
+                      settingsName: node.name,
+                      source: node.source,
+                      expectedType: "subagent",
+                      layout: workspace.layout,
+                      scope: workspace.scope,
+                    }).pipe(Effect.map(Option.some))
+                  : acceptedResolutionRef({
+                      workspace,
+                      type: "subagent",
+                      name: node.name,
+                    })
+                ).pipe(
+                  Effect.provide(fsPathLayer),
+                  Effect.flatMap(
+                    Option.match({
+                      onNone: () => Effect.succeed(Option.none<ProjectionInvariantFact>()),
+                      onSome: (ref) =>
+                        ref.type !== "subagent"
+                          ? Effect.succeed(Option.none<ProjectionInvariantFact>())
+                          : subagents.projectionObservation(ref).pipe(
+                              Effect.map((observation) =>
+                                Option.some(
+                                  makeProjectionInvariantFact(
+                                    {
+                                      unitId: "subagent:native-profile",
+                                      path: `subagent:${node.name}`,
+                                      present: observation.present,
+                                      current: observation.current,
+                                      expectedContributors: [node.identity],
+                                      observedContributors: observation.present
+                                        ? [node.identity]
+                                        : [],
+                                    },
+                                    workspace.scope,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    }),
+                  ),
+                ),
+              ),
+          );
+          facts.push(
+            ...subagentFacts.flatMap((result) =>
+              Result.isSuccess(result) && Option.isSome(result.success)
+                ? [result.success.value]
+                : [],
+            ),
+          );
+        }
         if (
           Result.isSuccess(ruleResult) &&
           Result.isSuccess(hookResult) &&
@@ -201,7 +273,6 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         )
           return facts;
 
-        const graph = yield* Effect.result(workspace.getDesiredStateGraph());
         if (Result.isFailure(graph) || !graph.success.complete) return facts;
         const contributorsFor = (type: "rule" | "hook" | "knowledge"): ReadonlyArray<string> =>
           graph.success.nodes

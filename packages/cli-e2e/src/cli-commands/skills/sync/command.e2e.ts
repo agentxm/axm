@@ -70,7 +70,7 @@ describe("axm sync configured skills", () => {
         ok: true,
         result: {
           contract: "plan-result-v3",
-          outcome: "no-op",
+          outcome: "previewed",
           counts: { total: 0, committed: 0 },
         },
       });

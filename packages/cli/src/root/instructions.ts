@@ -9,8 +9,11 @@ import type {
   InstructionsConfigValue,
 } from "@agentxm/client-core/unstable/settings";
 import {
+  instructionProjectionEffects,
+  instructionProjectionRemovalEffects,
   observeInstructionProjection,
   resolveInstructionsConfig,
+  type InstructionProjectionEffect,
   type InstructionStatusItem,
 } from "@agentxm/client-core/unstable/agents";
 import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
@@ -22,12 +25,16 @@ import {
 } from "@agentxm/client-core/unstable/cli-renderer";
 import type {
   JobStepResult,
+  JobStepArtifact,
   OperationPresentation,
   Plan,
   PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
+import {
+  applyPlannedProjections,
+  observeProjectionPlans,
+} from "@agentxm/client-core/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
 import { emitOperationResolution } from "../operation-output.js";
@@ -151,6 +158,29 @@ const makeInstructionsConfigPlan = (args: {
   ],
 });
 
+const makeInstructionArtifact = (args: {
+  readonly ws: { readonly baseDir: string; readonly scope: "project" | "user" };
+  readonly path: Path.Path;
+  readonly effects: ReadonlyArray<InstructionProjectionEffect>;
+}): JobStepArtifact => {
+  const settings = workspaceSettingsPath(args.ws.scope);
+  const byPath = new Map<
+    string,
+    { readonly path: string; readonly change: "created" | "updated" | "removed" }
+  >();
+  byPath.set(settings, { path: settings, change: "updated" });
+  for (const effect of args.effects) {
+    const relative = args.path.relative(args.ws.baseDir, effect.path);
+    byPath.set(relative, { path: relative, change: effect.change });
+  }
+  return {
+    path: settings,
+    scope: args.ws.scope,
+    change: "updated",
+    targets: [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path)),
+  };
+};
+
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
   const renderer = yield* CliRenderer;
   const ws = yield* WorkspaceMutations;
@@ -259,16 +289,29 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
     configChanged && Option.isSome(previousConfig)
       ? yield* observeInstructions({ ws, config: previousConfig.value })
       : observed;
+  const ruleEffects = (yield* ruleManager
+    .projectionPlans()
+    .pipe(Effect.flatMap(observeProjectionPlans)))
+    .filter((observation) => !observation.current)
+    .map((observation) => ({
+      path: path.resolve(ws.baseDir, observation.path.split("#", 1)[0] ?? observation.path),
+      change: "updated" as const,
+    }));
+  const artifact = makeInstructionArtifact({
+    ws,
+    path,
+    effects: [
+      ...(configChanged ? instructionProjectionRemovalEffects(preflight) : []),
+      ...ruleEffects,
+      ...instructionProjectionEffects(observed),
+    ],
+  });
   const readiness = yield* instructionReconciliationReadiness({ ws, snapshot: preflight });
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Enable instruction-file management",
       readiness: "ready",
-      artifact: {
-        path: workspaceSettingsPath(ws.scope),
-        scope: ws.scope,
-        change: "updated",
-      },
+      artifact,
       run: ws
         .runTransaction({
           transition: reconcileInstructionTransition({
@@ -298,11 +341,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
           Effect.as({
             result: "success",
             message: "Enabled and reconciled instruction-file management",
-            artifact: {
-              path: workspaceSettingsPath(ws.scope),
-              scope: ws.scope,
-              change: "updated",
-            },
+            artifact,
           } satisfies JobStepResult),
         ),
     }),
@@ -353,16 +392,17 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
 
   const config = resolveInstructionsConfig(current.value);
   const snapshot = yield* observeInstructions({ ws, config });
+  const artifact = makeInstructionArtifact({
+    ws,
+    path,
+    effects: instructionProjectionRemovalEffects(snapshot),
+  });
   const readiness = yield* instructionReconciliationReadiness({ ws, snapshot });
   const step: PlannedJobStep = Option.match(readiness, {
     onNone: () => ({
       label: "Disable instruction-file management",
       readiness: "ready",
-      artifact: {
-        path: workspaceSettingsPath(ws.scope),
-        scope: ws.scope,
-        change: "updated",
-      },
+      artifact,
       run: ws
         .runTransaction({
           transition: disableInstructionManagement({ ws, config }).pipe(
@@ -376,11 +416,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
           Effect.as({
             result: "success",
             message: "Disabled instruction-file management and removed owned aliases",
-            artifact: {
-              path: workspaceSettingsPath(ws.scope),
-              scope: ws.scope,
-              change: "updated",
-            },
+            artifact,
           } satisfies JobStepResult),
         ),
     }),

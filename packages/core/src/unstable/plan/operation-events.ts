@@ -53,6 +53,7 @@ export type OperationLifecycleEvent =
     };
 
 export interface OperationLifecycleService {
+  readonly mode: "preview" | "apply";
   readonly pubsub: PubSub.PubSub<OperationLifecycleEvent>;
 }
 
@@ -91,5 +92,7 @@ export const subscribeToLifecycle = (
     );
   });
 
-export const makeOperationLifecycle: Effect.Effect<OperationLifecycleService> =
-  PubSub.unbounded<OperationLifecycleEvent>().pipe(Effect.map((pubsub) => ({ pubsub })));
+export const makeOperationLifecycle = (
+  mode: "preview" | "apply",
+): Effect.Effect<OperationLifecycleService> =>
+  PubSub.unbounded<OperationLifecycleEvent>().pipe(Effect.map((pubsub) => ({ mode, pubsub })));

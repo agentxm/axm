@@ -1,4 +1,9 @@
-import { AGENTS, CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import {
+  AGENTS,
+  CodingAgentRepository,
+  CodingAgentRepositoryLive,
+  resolveInstructionTarget,
+} from "@agentxm/client-core/unstable/agents";
 import type { AgentId } from "@agentxm/client-core/unstable/agents";
 import {
   isNonInteractive,
@@ -204,6 +209,7 @@ export const SetupResultSchema = Schema.Struct({
 export type SetupResult = typeof SetupResultSchema.Type;
 type SetupStatus = SetupResult["status"];
 type SetupPlanStep = typeof SetupPlanStepSchema.Type;
+type SetupArtifactTarget = typeof SetupPlanStepArtifactTargetSchema.Type;
 
 const SetupDocumentFields = {
   result: SetupResultSchema,
@@ -601,19 +607,13 @@ const setupArtifactChange = (args: {
   return args.hasChange ? "created" : "unchanged";
 };
 
-const setupSkillTargetPath = (agentId: string): string => {
-  if (agentId === "claude-code") return ".claude/skills/axm";
-  return `${agentId} skill target`;
-};
-
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project"
     ? "agent_extensions/agentxm/@agentxm/skills/axm"
     : ".axm/extensions/agentxm/@agentxm/skills/axm";
 
-const setupSkillFootprint = (scope: WorkspaceScope, agentIds: ReadonlyArray<string>): string => {
+const setupSkillFootprint = (scope: WorkspaceScope, targetPaths: ReadonlyArray<string>): string => {
   const sourcePath = bundledSkillDisplayPath(scope);
-  const targetPaths = agentIds.map(setupSkillTargetPath);
   const paths = [sourcePath, ...targetPaths];
 
   if (paths.length <= 3) {
@@ -629,7 +629,6 @@ const setupPlanFields = (args: {
   readonly initialized: boolean;
   readonly defaultSkillInstalled: boolean;
   readonly settingsPath: string;
-  readonly lockPath: string;
   readonly bundledSkillPath: string;
   readonly instructions:
     | {
@@ -639,7 +638,9 @@ const setupPlanFields = (args: {
       }
     | undefined;
   readonly agentIds: ReadonlyArray<string>;
-  readonly includeGitignore: boolean;
+  readonly workspaceTargets: ReadonlyArray<SetupArtifactTarget>;
+  readonly instructionTargets: ReadonlyArray<SetupArtifactTarget>;
+  readonly skillTargets: ReadonlyArray<SetupArtifactTarget>;
   readonly message: string;
 }): Pick<
   SetupResult,
@@ -678,18 +679,13 @@ const setupPlanFields = (args: {
         path: args.settingsPath,
         scope: args.scope,
         change: workspaceChange,
-        targets: [
-          { path: args.settingsPath, change: workspaceChange },
-          { path: args.lockPath, change: workspaceChange },
-        ],
+        targets: [...args.workspaceTargets],
       },
     },
   ];
 
   if (args.instructions !== undefined) {
-    const instructionsPath = args.instructions.enabled
-      ? (args.instructions.fileName ?? "AGENTS.md")
-      : "instructions";
+    const instructionsPath = args.instructionTargets[0]?.path ?? "instructions";
     steps.push({
       label: "Instruction files",
       status: workspaceStatus,
@@ -703,17 +699,7 @@ const setupPlanFields = (args: {
         path: instructionsPath,
         scope: args.scope,
         change: workspaceChange,
-        targets: [
-          { path: instructionsPath, change: workspaceChange },
-          ...(args.instructions.enabled
-            ? [
-                { path: "CLAUDE.md", change: workspaceChange },
-                ...(args.instructions.gitignoreAliases === true && args.includeGitignore
-                  ? [{ path: ".gitignore", change: workspaceChange }]
-                  : []),
-              ]
-            : []),
-        ],
+        targets: [...args.instructionTargets],
       },
     });
   }
@@ -740,14 +726,7 @@ const setupPlanFields = (args: {
         agents: [...args.agentIds],
         version: AXM_SKILL_VERSION,
         change: skillChange,
-        targets: [
-          { path: args.bundledSkillPath, change: skillChange },
-          ...args.agentIds.map((agentId) => ({
-            path: setupSkillTargetPath(agentId),
-            change: skillChange,
-            agentIds: [agentId],
-          })),
-        ],
+        targets: [{ path: args.bundledSkillPath, change: skillChange }, ...args.skillTargets],
       },
     });
   }
@@ -934,7 +913,6 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
   const telemetryEnabled = telemetryMode !== "off";
   const settingsPath =
     location.scope === "user" ? joinDisplayPath(path, location.path, "settings.json") : "axm.json";
-  const lockPath = location.scope === "user" ? ".axm/axm-lock.yaml" : "axm-lock.yaml";
   const bundledSkillPath = bundledSkillDisplayPath(location.scope);
   const instructionsValue = settings.instructionFiles;
   const instructions =
@@ -978,17 +956,95 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     (yield* fs
       .exists(path.join(executionDirectory.path, ".git"))
       .pipe(Effect.catch(() => Effect.succeed(false))));
+  const changeForPath = (filePath: string) =>
+    Effect.gen(function* () {
+      if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
+        return "unchanged" as const;
+      }
+      if (resolvedStatus === "initialized") return "created" as const;
+      const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+      return exists ? ("updated" as const) : ("created" as const);
+    });
+  const displayTargetPath = (filePath: string): string => {
+    const relative = path.relative(location.baseDir, filePath);
+    return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
+      ? filePath
+      : relative;
+  };
+  const workspaceTargets: ReadonlyArray<SetupArtifactTarget> = yield* Effect.forEach(
+    [
+      authoritativeSettingsPath,
+      path.join(location.scope === "project" ? location.baseDir : location.path, "axm-lock.yaml"),
+    ],
+    (filePath) =>
+      changeForPath(filePath).pipe(
+        Effect.map((change) => ({ path: displayTargetPath(filePath), change })),
+      ),
+  );
+  const instructionPaths =
+    instructions?.enabled === true
+      ? [
+          path.join(location.baseDir, instructions.fileName ?? "AGENTS.md"),
+          ...agentIds.flatMap((agentId) => {
+            if (!isKnownAgentId(agentId)) return [];
+            const resolution = resolveInstructionTarget({
+              instructions: AGENTS[agentId].instructions,
+              sourceFileName: instructions.fileName ?? "AGENTS.md",
+              symlinkSupported: true,
+            });
+            return resolution.action === "write"
+              ? [path.join(location.baseDir, resolution.relativeTarget)]
+              : [];
+          }),
+          ...(instructions.gitignoreAliases === true && includeGitignore
+            ? [path.join(location.baseDir, ".gitignore")]
+            : []),
+        ]
+      : [];
+  const instructionTargets: ReadonlyArray<SetupArtifactTarget> = yield* Effect.forEach(
+    [...new Set(instructionPaths)],
+    (filePath) =>
+      changeForPath(filePath).pipe(
+        Effect.map((change) => ({ path: displayTargetPath(filePath), change })),
+      ),
+  );
+  const agentRepo = yield* CodingAgentRepository.pipe(Effect.provide(CodingAgentRepositoryLive));
+  const skillTargets: ReadonlyArray<SetupArtifactTarget> = (yield* Effect.forEach(
+    agentIds.flatMap((agentId) => (isKnownAgentId(agentId) ? [agentId] : [])),
+    (agentId) =>
+      agentRepo.get(agentId).pipe(
+        Effect.flatMap((agent) =>
+          agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }),
+        ),
+        Effect.flatMap((resolved) => {
+          if (resolved._tag !== "supported") {
+            return Effect.succeed(Option.none<SetupArtifactTarget>());
+          }
+          const filePath = path.join(resolved.dir, "axm");
+          return changeForPath(filePath).pipe(
+            Effect.map((change) =>
+              Option.some({
+                path: displayTargetPath(filePath),
+                change,
+                agentIds: [agentId],
+              }),
+            ),
+          );
+        }),
+      ),
+  )).flatMap(Option.toArray);
   const planFields = setupPlanFields({
     status: resolvedStatus,
     scope: location.scope,
     initialized,
     defaultSkillInstalled,
     settingsPath,
-    lockPath,
     bundledSkillPath,
     instructions,
     agentIds,
-    includeGitignore,
+    workspaceTargets,
+    instructionTargets,
+    skillTargets,
     message,
   });
 
@@ -1047,7 +1103,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     }
     if (defaultSkillInstalled) {
       yield* renderer.info(
-        `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(location.scope, agentIds)}`,
+        `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(
+          location.scope,
+          skillTargets.map(({ path: targetPath }) => targetPath),
+        )}`,
       );
     }
     yield* renderSetupScopeSupport(renderer, location.scope, scopeSupport);

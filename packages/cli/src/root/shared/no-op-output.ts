@@ -1,4 +1,7 @@
 import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { OperationLifecycle } from "@agentxm/client-core/unstable/plan";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { emitNoOpOperation } from "../../operation-output.js";
 
 export const emitNoOpOutcome = <TCommand extends string>(
@@ -10,4 +13,14 @@ export const emitNoOpOutcome = <TCommand extends string>(
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
   },
-) => emitNoOpOperation(command, args);
+) =>
+  Effect.gen(function* () {
+    const lifecycle = yield* Effect.serviceOption(OperationLifecycle);
+    return yield* emitNoOpOperation(command, {
+      ...args,
+      mode: Option.match(lifecycle, {
+        onNone: () => "apply" as const,
+        onSome: ({ mode }) => mode,
+      }),
+    });
+  });

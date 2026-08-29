@@ -11,8 +11,11 @@ import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
+  expectRecord,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultUnits,
+  property,
 } from "../test-helpers.js";
 import {
   handleInstructionsDisable,
@@ -115,6 +118,7 @@ describe("instructions handler", () => {
   it.effect("previews enable without changing settings or instruction aliases", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     initWorkspace(tempDir, ["claude-code"]);
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
     const settingsPath = path.join(tempDir, "axm.json");
     const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
@@ -128,9 +132,12 @@ describe("instructions handler", () => {
 
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
-        expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
           planName: "Enable instruction-file management",
           totalSteps: 1,
+        });
+        expect(property(expectRecord(planResultUnits(result)[0]), "artifact")).toMatchObject({
+          targets: [{ path: "CLAUDE.md", change: "created" }],
         });
       }),
     );
@@ -389,9 +396,12 @@ describe("instructions handler", () => {
 
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
-        expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        const result = expectPreviewedPlanResult(rendererState.results[0]?.data, {
           planName: "Disable instruction-file management",
           totalSteps: 1,
+        });
+        expect(property(expectRecord(planResultUnits(result)[0]), "artifact")).toMatchObject({
+          targets: [{ path: "CLAUDE.md", change: "removed" }],
         });
       }),
     );

@@ -57,12 +57,17 @@ describe("reconcileKnowledgeDiscovery", () => {
         expect(instructions.split(routing)).toHaveLength(2);
         expect(instructions).toContain(`## Knowledge Bundles\n\n${routing}\n\n### @acme`);
         expect(instructions).toContain(
-          "### @acme\n\n| Bundle | Description |\n| --- | --- |\n" +
+          "### @acme\n\n" +
+            "<!-- axm:point v=1 ext=@acme/knowledge/platform kind=knowledge -->\n" +
+            "<!-- axm:point v=1 ext=@acme/knowledge/runbook kind=knowledge -->\n\n" +
+            "| Bundle | Description |\n| --- | --- |\n" +
             "| [platform](.axm/extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +
             "| [runbook](.axm/extensions/@acme/knowledge/runbook/src/index.md) | Operations |",
         );
         expect(instructions).toContain(
-          "### @zeta\n\n| Bundle | Description |\n| --- | --- |\n" +
+          "### @zeta\n\n" +
+            "<!-- axm:point v=1 ext=@zeta/knowledge/platform kind=knowledge -->\n\n" +
+            "| Bundle | Description |\n| --- | --- |\n" +
             "| [platform](.axm/extensions/@zeta/knowledge/platform/src/index.md) | — |",
         );
         expect(instructions.indexOf("### @acme")).toBeLessThan(instructions.indexOf("### @zeta"));

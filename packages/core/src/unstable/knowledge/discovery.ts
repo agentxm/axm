@@ -2,9 +2,16 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { reconcileManagedRegionFile } from "../projection/adapters.js";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  parseMarker,
+  serializeMarker,
+} from "../projection/marker-grammar.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
 
 const KNOWLEDGE_REGION = "knowledge";
@@ -26,6 +33,7 @@ export interface KnowledgeDiscoveryArtifact {
 export interface KnowledgeDiscoveryResult {
   readonly changed: boolean;
   readonly artifacts: ReadonlyArray<KnowledgeDiscoveryArtifact>;
+  readonly observedRegion: Option.Option<string>;
 }
 
 const portable = (value: string): string => value.replaceAll("\\", "/");
@@ -54,6 +62,17 @@ export const renderKnowledgeBaseTable = (args: {
     owners.set(bundle.owner, owned);
   }
   const sections = [...owners].map(([owner, owned]) => {
+    const markers = owned.map((bundle) =>
+      serializeMarker(
+        {
+          kind: MARKER_KIND_POINT,
+          v: MARKER_VERSION,
+          pointKind: "knowledge",
+          ext: `${bundle.owner}/knowledge/${bundle.name}`,
+        },
+        { kind: "block", open: "<!--", close: "-->" },
+      ),
+    );
     const rows = owned.map((bundle) => {
       const target = args.path.join(bundle.sourceDir, "index.md");
       const relative = portable(
@@ -64,6 +83,8 @@ export const renderKnowledgeBaseTable = (args: {
     });
     return [
       `### ${escapeLinkLabel(owner)}`,
+      "",
+      ...markers,
       "",
       "| Bundle | Description |",
       "| --- | --- |",
@@ -76,6 +97,16 @@ export const renderKnowledgeBaseTable = (args: {
     ...sections,
   ].join("\n\n");
 };
+
+export const observedKnowledgeContributors = (content: string): ReadonlyArray<string> =>
+  content.split(/\r?\n/u).flatMap((line) => {
+    const parsed = parseMarker(line, { kind: "block", open: "<!--", close: "-->" });
+    return parsed.state === "complete" &&
+      parsed.marker.kind === MARKER_KIND_POINT &&
+      parsed.marker.pointKind === "knowledge"
+      ? [parsed.marker.ext]
+      : [];
+  });
 
 export const reconcileKnowledgeDiscovery = (args: {
   readonly scopeRoot: string;
@@ -90,7 +121,9 @@ export const reconcileKnowledgeDiscovery = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const manageInstructions = args.instructionManagementEnabled === true;
-    if (!manageInstructions) return { changed: false, artifacts: [] };
+    if (!manageInstructions) {
+      return { changed: false, artifacts: [], observedRegion: Option.none() };
+    }
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
     const instructionRelative = portable(path.relative(args.scopeRoot, args.instructionsPath));
     const renderedRegion = tableDesired
@@ -124,7 +157,7 @@ export const reconcileKnowledgeDiscovery = (args: {
       });
     }
     const changed = artifacts.length > 0;
-    return { changed, artifacts };
+    return { changed, artifacts, observedRegion: reconciliation.observedRegion };
   }).pipe(
     Effect.mapError((cause) =>
       cause._tag === "AppError"

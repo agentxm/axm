@@ -705,6 +705,91 @@ describe("setup.handler", () => {
       );
     });
 
+    it.effect("reports exact setup projection targets instead of agent placeholders", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["codex"],
+            yes: true,
+            preview: true,
+          });
+
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(property(result, "steps")).toContainEqual(
+            expect.objectContaining({
+              label: "Instruction files",
+              artifact: expect.objectContaining({
+                targets: [{ path: "AGENTS.md", change: "created" }],
+              }),
+            }),
+          );
+          expect(property(result, "steps")).toContainEqual(
+            expect.objectContaining({
+              label: "@agentxm/skills/axm",
+              artifact: expect.objectContaining({
+                targets: expect.arrayContaining([
+                  {
+                    path: ".agents/skills/axm",
+                    change: "created",
+                    agentIds: ["codex"],
+                  },
+                ]),
+              }),
+            }),
+          );
+        }),
+      );
+    });
+
+    it.effect("uses an effective skill-directory override in the setup preview", () => {
+      const { provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: true },
+        renderer: "machine",
+      });
+      const previous = process.env["AXM_CLAUDE_SKILLS_DIR"];
+      process.env["AXM_CLAUDE_SKILLS_DIR"] = ".custom-claude-skills";
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+            yes: true,
+            preview: true,
+          });
+
+          const result = expectRecord(
+            property(expectRecord(rendererState.results[0]?.data), "result"),
+          );
+          expect(property(result, "steps")).toContainEqual(
+            expect.objectContaining({
+              label: "@agentxm/skills/axm",
+              artifact: expect.objectContaining({
+                targets: expect.arrayContaining([
+                  expect.objectContaining({ path: ".custom-claude-skills/axm" }),
+                ]),
+              }),
+            }),
+          );
+        }),
+      ).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (previous === undefined) delete process.env["AXM_CLAUDE_SKILLS_DIR"];
+            else process.env["AXM_CLAUDE_SKILLS_DIR"] = previous;
+          }),
+        ),
+      );
+    });
+
     it.effect("reports project and workstation detection separately in preview", () => {
       const { provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },

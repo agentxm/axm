@@ -98,7 +98,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     subject: "Import target",
     name: target.name,
     configured: false,
-    destinations: [],
+    destinations: [targetDir],
   });
 
   const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-import-" }).pipe(

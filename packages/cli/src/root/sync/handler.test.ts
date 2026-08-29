@@ -139,6 +139,18 @@ const writeSkillExtension = (baseDir: string, name: string) => {
   );
 };
 
+const writeRuleExtension = (baseDir: string, name: string) => {
+  const ruleDir = path.join(baseDir, "rules", name);
+  writeJson(path.join(ruleDir, "rule.json"), {
+    owner: "@acme",
+    type: "rule",
+    name,
+    version: "1.0.0",
+  });
+  fs.mkdirSync(path.join(ruleDir, "src"), { recursive: true });
+  fs.writeFileSync(path.join(ruleDir, "src", "RULE.md"), `Guidance for ${name}.`);
+};
+
 const writeLocalKnowledgePackage = (root: string, name: string, marker: string) => {
   writeJson(path.join(root, "knowledge.json"), {
     owner: "@acme",
@@ -690,7 +702,8 @@ describe("root sync handler", () => {
       const result = expectRecord(property(payload, "result"));
       expect(result).toMatchObject({
         contract: "plan-result-v3",
-        outcome: "no-op",
+        outcome: "previewed",
+        mode: "preview",
         counts: { total: 0 },
       });
       expect("divergence" in result).toBe(false);
@@ -1079,8 +1092,13 @@ describe("root sync handler", () => {
 
         machine.rendererState.results.length = 0;
         yield* machine.provide(handleSync({ preview: true }));
-        expectNoOpPlanResult(machine.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
+        expect(machine.rendererState.results[0]?.data).toMatchObject({
+          result: {
+            mode: "preview",
+            outcome: "previewed",
+            planName: "Sync workspace",
+            counts: { total: 0 },
+          },
         });
       }),
   );
@@ -1224,8 +1242,13 @@ describe("root sync handler", () => {
 
         machine.rendererState.results.length = 0;
         yield* machine.provide(handleSync({ preview: true }));
-        expectNoOpPlanResult(machine.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
+        expect(machine.rendererState.results[0]?.data).toMatchObject({
+          result: {
+            mode: "preview",
+            outcome: "previewed",
+            planName: "Sync workspace",
+            counts: { total: 0 },
+          },
         });
       }),
   );
@@ -1587,9 +1610,14 @@ describe("root sync handler", () => {
       // The preview names the residue; the apply removes exactly that file and
       // nothing else. (The applied step echoes the planned artifact, so the
       // dry-run/apply parity of the removed set is proven at the core boundary.)
-      expect(property(instructionArtifact(rendererState.results[0]?.data), "targets")).toEqual([
-        { path: "GEMINI.md", change: "removed" },
-      ]);
+      expect(instructionArtifact(rendererState.results[0]?.data)).toMatchObject({
+        path: "GEMINI.md",
+        change: "removed",
+      });
+      expect(instructionArtifact(rendererState.results[1]?.data)).toMatchObject({
+        path: "GEMINI.md",
+        change: "removed",
+      });
       expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
       expect(fs.readlinkSync(path.join(tempDir, "CLAUDE.md"))).toBe("AGENTS.md");
     }),
@@ -2058,6 +2086,44 @@ describe("root sync handler", () => {
     }),
   );
 
+  for (const instructionFiles of [false, undefined] as const) {
+    it.effect(
+      `reconciles the Rules region when instruction files are ${
+        instructionFiles === false ? "disabled" : "unconfigured"
+      }`,
+      () =>
+        Effect.gen(function* () {
+          const preview = makeLayers({ machine: true });
+          writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+            agents: [],
+            rules: { style: "workspace" },
+          });
+          writeRuleExtension(tempDir, "style");
+          writeSettings(tempDir, {
+            agents: [],
+            rules: { style: "workspace" },
+            ...(instructionFiles === undefined ? {} : { instructionFiles }),
+          });
+
+          yield* preview.provide(handleSync({ preview: true }));
+          const result = expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+            planName: "Sync workspace",
+            totalSteps: 1,
+          });
+          expect(planResultUnits(result)).toMatchObject([
+            { label: expect.stringContaining("managed Rules region"), state: "ready" },
+          ]);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+
+          const apply = makeLayers({ machine: true });
+          yield* apply.provide(handleSync({ preview: false }));
+          expect(fs.readFileSync(path.join(tempDir, "AGENTS.md"), "utf8")).toContain(
+            "Guidance for style.",
+          );
+        }),
+    );
+  }
+
   it.effect("removes managed subagent files for agents removed from settings", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
@@ -2096,11 +2162,85 @@ describe("root sync handler", () => {
       const second = makeLayers({ machine: true });
       yield* second.provide(handleSync({ preview: true, failOnChange: true }));
 
-      expectNoOpPlanResult(second.rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
+      expect(second.rendererState.results[0]?.data).toMatchObject({
+        result: {
+          mode: "preview",
+          outcome: "previewed",
+          planName: "Sync workspace",
+          counts: { total: 0 },
+        },
       });
       expect(second.rendererState.results[0]?.ok).toBe(true);
+    }),
+  );
+
+  it.effect("previews and re-renders a managed subagent whose body drifted from its source", () =>
+    Effect.gen(function* () {
+      const first = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        subagents: { researcher: "workspace" },
+      });
+      writeSubagentExtension(tempDir, "researcher");
+      yield* first.provide(handleSync({ preview: false }));
+
+      const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
+      const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+      fs.writeFileSync(
+        sourcePath,
+        "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated researcher body\n",
+      );
+
+      const preview = makeLayers({ machine: true });
+      yield* preview.provide(handleSync({ preview: true }));
+      expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Updated researcher body");
+
+      const apply = makeLayers({ machine: true });
+      yield* apply.provide(handleSync({ preview: false }));
+      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
+
+      const converged = makeLayers({ machine: true });
+      yield* converged.provide(handleSync({ preview: true }));
+      const result = expectRecord(
+        property(expectRecord(converged.rendererState.results[0]?.data), "result"),
+      );
+      expect(result).toMatchObject({ mode: "preview", outcome: "previewed", counts: { total: 0 } });
+    }),
+  );
+
+  it.effect("previews and re-renders a drifted Roo mode entry", () =>
+    Effect.gen(function* () {
+      const first = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["roo"],
+        subagents: { researcher: "workspace" },
+      });
+      writeSubagentExtension(tempDir, "researcher");
+      yield* first.provide(handleSync({ preview: false }));
+
+      const projectionPath = path.join(tempDir, ".roomodes");
+      const accepted = fs.readFileSync(projectionPath, "utf8");
+      const drifted = accepted.replace(
+        /"roleDefinition": "[^"]*"/u,
+        '"roleDefinition": "Drifted role"',
+      );
+      fs.writeFileSync(projectionPath, drifted);
+
+      const preview = makeLayers({ machine: true });
+      yield* preview.provide(handleSync({ preview: true }));
+      expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Drifted role");
+
+      const apply = makeLayers({ machine: true });
+      yield* apply.provide(handleSync({ preview: false }));
+      expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Drifted role");
     }),
   );
 

@@ -77,6 +77,7 @@ import { inspectKnowledgeBundle, type KnowledgeInspection } from "./okf.js";
 import {
   KNOWLEDGE_REGION_OWNER,
   reconcileKnowledgeDiscovery,
+  observedKnowledgeContributors,
   type KnowledgeDiscoveryBundle,
 } from "./discovery.js";
 import { resolveKnowledgeInstructionEntry } from "./instruction-entry.js";
@@ -644,14 +645,17 @@ export const KnowledgeManagerLive = Layer.effect(
               }).pipe(
                 Effect.map((result) => ({
                   unitId: "knowledge:discovery-region",
-                  path: instructionsTarget.path,
+                  path: `${instructionsTarget.path}#knowledge`,
                   owner: KNOWLEDGE_REGION_OWNER,
-                  present: input.contributors.length === 0 || !result.changed,
+                  present: Option.isSome(result.observedRegion),
                   current: !result.changed,
                   expectedContributors: input.contributors.map(
                     ({ owner, name }) => `${owner}/knowledge/${name}`,
                   ),
-                  observedContributors: [],
+                  observedContributors: Option.match(result.observedRegion, {
+                    onNone: () => [],
+                    onSome: observedKnowledgeContributors,
+                  }),
                 })),
               ),
             apply: (input) =>

@@ -82,14 +82,14 @@ const renderKiroDualFormat = (input: SubagentRenderInput): SubagentRenderOutcome
 /**
  * Select the appropriate renderer for an agent ID.
  *
- * Returns undefined for agents that need special handling (roo-code).
+ * Returns undefined for agents that need special handling (roo).
  * Handles Kiro dual-format internally.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const selectSubagentRenderer = (agentId: string): SubagentRenderer | undefined => {
   if (agentId === "kiro") return renderKiroDualFormat;
-  if (agentId === "roo-code") return undefined;
+  if (agentId === "roo") return undefined;
   return rendererMap[agentId] ?? renderMarkdownYaml;
 };
 
@@ -97,7 +97,7 @@ export const selectSubagentRenderer = (agentId: string): SubagentRenderer | unde
  * Render a subagent for a given agent ID.
  *
  * Delegates to the appropriate format-family renderer.
- * Returns undefined for roo-code (which requires special read-modify-write handling).
+ * Returns undefined for roo (which requires special read-modify-write handling).
  *
  * @experimental This API is unstable and may change without notice.
  */

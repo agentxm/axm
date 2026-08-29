@@ -25,7 +25,11 @@ import type {
   SubagentExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { CodingAgentRepository, type SubagentSyncOutcome } from "../agents/index.js";
+import {
+  CodingAgentRepository,
+  renderManagedSubagentOutputs,
+  type SubagentSyncOutcome,
+} from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
 import {
   removeIfExists,
@@ -44,6 +48,7 @@ import {
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "./subagent-content.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
+import { buildRooModeEntry } from "./rendering/index.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
@@ -78,6 +83,21 @@ import { protectWorkspacePath } from "../workspace/transaction.js";
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
+const parseRooModes = (content: string): ReadonlyArray<Readonly<Record<string, unknown>>> => {
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (typeof parsed !== "object" || parsed === null || !("customModes" in parsed)) return [];
+    const customModes = parsed.customModes;
+    if (!Array.isArray(customModes)) return [];
+    return customModes.filter(
+      (mode): mode is Readonly<Record<string, unknown>> =>
+        typeof mode === "object" && mode !== null && !Array.isArray(mode),
+    );
+  } catch {
+    return [];
+  }
+};
+
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
  * not leak into rendered files. The map is treated as opaque otherwise.
@@ -94,10 +114,18 @@ const stripAgentOverrides = (
 // Service Tag
 // -----------------------------------------------------------------------------
 
-export class SubagentManager extends ServiceMap.Service<
-  SubagentManager,
-  ExtensionManager<SubagentExtensionRef>
->()("@agentxm/client-core/unstable/subagents/manager/SubagentManager") {}
+export interface SubagentManagerService extends ExtensionManager<SubagentExtensionRef> {
+  readonly projectionObservation: (
+    ref: SubagentExtensionRef,
+  ) => Effect.Effect<
+    { readonly present: boolean; readonly current: boolean },
+    ReturnType<typeof makeAppError>
+  >;
+}
+
+export class SubagentManager extends ServiceMap.Service<SubagentManager, SubagentManagerService>()(
+  "@agentxm/client-core/unstable/subagents/manager/SubagentManager",
+) {}
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -122,6 +150,49 @@ export const SubagentManagerLive = Layer.effect(
 
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.provide(effect, fsPathLayer);
+    const roleSkillContent = (args: {
+      readonly agentId: string;
+      readonly name: string;
+      readonly body: string;
+      readonly description: string;
+    }) =>
+      insertManagedFileBanner(
+        `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`,
+        {
+          editPath: `subagents/${args.name}.md`,
+          helpTopic: "subagents",
+          format: "markdown",
+        },
+      );
+    const jsonValuesEqual = (left: unknown, right: unknown): boolean => {
+      if (left === right) return true;
+      if (Array.isArray(left) && Array.isArray(right)) {
+        return (
+          left.length === right.length &&
+          left.every((value, index) => jsonValuesEqual(value, right[index]))
+        );
+      }
+      if (
+        typeof left === "object" &&
+        left !== null &&
+        !Array.isArray(left) &&
+        typeof right === "object" &&
+        right !== null &&
+        !Array.isArray(right)
+      ) {
+        const leftEntries = Object.entries(left).sort(([a], [b]) => a.localeCompare(b));
+        const rightEntries = Object.entries(right).sort(([a], [b]) => a.localeCompare(b));
+        return (
+          leftEntries.length === rightEntries.length &&
+          leftEntries.every(
+            ([key, value], index) =>
+              key === rightEntries[index]?.[0] && jsonValuesEqual(value, rightEntries[index]?.[1]),
+          )
+        );
+      }
+      return false;
+    };
+
     const materializeRoleSkillFallback = (args: {
       readonly agentId: string;
       readonly name: string;
@@ -144,14 +215,7 @@ export const SubagentManagerLive = Layer.effect(
           polyfillHash,
         );
         const skillMdPath = path.join(polyfillDir, "SKILL.md");
-        const skillContent = insertManagedFileBanner(
-          `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`,
-          {
-            editPath: `subagents/${args.name}.md`,
-            helpTopic: "subagents",
-            format: "markdown",
-          },
-        );
+        const skillContent = roleSkillContent(args);
         yield* protectWorkspacePath(polyfillDir);
         yield* fs.makeDirectory(polyfillDir, { recursive: true });
         const current = yield* fs.readFileString(skillMdPath).pipe(Effect.option);
@@ -635,8 +699,145 @@ export const SubagentManagerLive = Layer.effect(
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
 
+    const projectionObservation = Effect.fn("SubagentManager.projectionObservation")(function* (
+      ref: SubagentExtensionRef,
+    ) {
+      const { sanitized, paths } = getCanonicalPaths(ref);
+      const manifestRaw = yield* fs
+        .readFileString(path.join(paths.canonicalPath, MANIFEST_FILENAME))
+        .pipe(Effect.option);
+      const manifestFallback = Option.isNone(manifestRaw)
+        ? undefined
+        : yield* Effect.try({
+            try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
+            catch: (cause) =>
+              makeAppError({
+                code: "validation",
+                detail: `Failed to parse ${MANIFEST_FILENAME}`,
+                cause,
+              }),
+          });
+      const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, ref.subagent.name);
+      const editSourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+      if (Option.isNone(editSourcePath)) return { present: false, current: false };
+      const { parsed } = yield* readSubagentContent(paths.subagentSrcPath, ref.subagent.name);
+      const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
+        parsed.frontmatter,
+        () => ({}),
+      );
+      const agentOverrides = Option.getOrUndefined(parsed.agentOverrides);
+      const renderFrontmatter = stripAgentOverrides(frontmatter);
+      const configuredAgents = yield* agentRepo
+        .getConfiguredAgents()
+        .pipe(Effect.provideService(WorkspaceMutations, ws));
+
+      const current = yield* Effect.forEach(configuredAgents, (agent) =>
+        agent.resolveEffectiveSubagentsDir({ workspaceRoot: baseDir, scope: ws.scope }).pipe(
+          Effect.provide(fsPathLayer),
+          Effect.flatMap((resolved) => {
+            if (resolved._tag === "disabled") {
+              return Effect.succeed({ present: true, current: true });
+            }
+            if (resolved._tag === "misconfigured") {
+              return Effect.succeed({ present: false, current: false });
+            }
+            if (resolved._tag === "supported") {
+              const rendered = renderManagedSubagentOutputs({
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+                force: false,
+                editSourcePath: editSourcePath.value,
+                input: {
+                  agentId: agent.id,
+                  name: ref.subagent.name,
+                  body: parsed.body,
+                  frontmatter: renderFrontmatter,
+                  agentOverrides: agentOverrides?.[agent.id],
+                },
+              });
+              if (rendered === undefined) {
+                const expected = buildRooModeEntry({
+                  agentId: agent.id,
+                  name: ref.subagent.name,
+                  body: parsed.body,
+                  frontmatter: renderFrontmatter,
+                  agentOverrides: agentOverrides?.[agent.id],
+                }).entry;
+                return fs.readFileString(resolved.dir).pipe(
+                  Effect.option,
+                  Effect.map((content) => {
+                    const observed = Option.isNone(content)
+                      ? undefined
+                      : parseRooModes(content.value).find(
+                          (mode) => mode["slug"] === ref.subagent.name,
+                        );
+                    return {
+                      present: observed !== undefined,
+                      current: observed !== undefined && jsonValuesEqual(observed, expected),
+                    };
+                  }),
+                );
+              }
+              if (rendered._tag === "Skipped") {
+                return Effect.succeed({ present: true, current: true });
+              }
+              return Effect.forEach(rendered.outputs, (output) =>
+                fs.readFileString(path.resolve(baseDir, output.path)).pipe(Effect.option),
+              ).pipe(
+                Effect.map((contents) => ({
+                  present: contents.every(Option.isSome),
+                  current: contents.every(
+                    (content, index) =>
+                      Option.isSome(content) && content.value === rendered.outputs[index]?.content,
+                  ),
+                })),
+              );
+            }
+            if ((ref.fallback ?? manifestFallback) === "none") {
+              return Effect.succeed({ present: false, current: false });
+            }
+            return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+              Effect.provide(fsPathLayer),
+              Effect.flatMap((skills) => {
+                if (skills._tag === "disabled" || skills._tag === "unsupported") {
+                  return Effect.succeed({ present: true, current: true });
+                }
+                if (skills._tag === "misconfigured") {
+                  return Effect.succeed({ present: false, current: false });
+                }
+                const description = Option.getOrElse(
+                  ref.subagent.description,
+                  () => `Adopt the ${ref.subagent.name} role`,
+                );
+                const expected = roleSkillContent({
+                  agentId: agent.id,
+                  name: ref.subagent.name,
+                  body: parsed.body,
+                  description,
+                });
+                return fs
+                  .readFileString(path.join(path.normalize(skills.dir), sanitized, "SKILL.md"))
+                  .pipe(
+                    Effect.option,
+                    Effect.map((content) => ({
+                      present: Option.isSome(content),
+                      current: Option.exists(content, (value) => value === expected),
+                    })),
+                  );
+              }),
+            );
+          }),
+        ),
+      );
+      return {
+        present: current.every(({ present }) => present),
+        current: current.every((observation) => observation.current),
+      };
+    });
+
     return {
       type: "subagent",
+      projectionObservation,
       runTransaction: ws.runTransaction,
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,
@@ -801,6 +1002,6 @@ export const SubagentManagerLive = Layer.effect(
         ws
           .removeSubagentLock(target.name)
           .pipe(Effect.withSpan("SubagentManager.removeLockfileEntry")),
-    } satisfies ExtensionManager<SubagentExtensionRef>;
+    } satisfies SubagentManagerService;
   }),
 );

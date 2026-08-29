@@ -3,7 +3,7 @@ import { buildRooModeEntry, mergeRooModes, removeRooMode, splitBody } from "./ro
 import type { SubagentRenderInput } from "../types.js";
 
 const baseInput: SubagentRenderInput = {
-  agentId: "roo-code",
+  agentId: "roo",
   name: "code-reviewer",
   body: "You are a code reviewer.\n\nReview all code changes carefully.\nLook for bugs and style issues.",
   frontmatter: {

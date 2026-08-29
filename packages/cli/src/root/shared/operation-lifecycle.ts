@@ -234,7 +234,7 @@ export const withOperationLifecycle = <A, E, R>(
       Effect.gen(function* () {
         const journal = yield* makeOperationJournal;
         const footprint = yield* makeFootprintRecorder;
-        const lifecycle = yield* makeOperationLifecycle;
+        const lifecycle = yield* makeOperationLifecycle(args.mode);
         const path = yield* Path.Path;
         return yield* restore(
           body.pipe(

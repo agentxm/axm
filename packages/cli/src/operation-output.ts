@@ -763,12 +763,14 @@ export const emitOperationResolution = (
   });
 
 /**
- * Terminate a plan-family invocation that planned nothing: an empty apply-mode
- * resolution whose outcome derives `no-op`, with the stated message.
+ * Terminate a plan-family invocation that planned nothing: an empty resolution
+ * in the invocation's actual mode whose outcome derives `no-op`, with the
+ * stated message.
  */
 export const emitNoOpOperation = (
   command: string,
   args: {
+    readonly mode: "preview" | "apply";
     readonly planName: string;
     readonly planDescription?: string;
     readonly message: string;
@@ -782,7 +784,7 @@ export const emitNoOpOperation = (
       name: args.planName,
       description:
         args.planDescription === undefined ? Option.none() : Option.some(args.planDescription),
-      mode: "apply",
+      mode: args.mode,
       atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
       units: [],
     }),

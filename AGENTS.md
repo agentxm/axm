@@ -264,12 +264,21 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 ### @agentxm
 
+<!-- axm:point v=1 ext=@agentxm/knowledge/agent-engineering kind=knowledge -->
+<!-- axm:point v=1 ext=@agentxm/knowledge/agentxm kind=knowledge -->
+
 | Bundle                                                                                          | Description                                                                                                                                                         |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agent-engineering](agent_extensions/agentxm/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
 | [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
+
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/docs kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/gen-stack kind=knowledge -->
+<!-- axm:point v=1 ext=@craigsmitham/knowledge/workflow-automation kind=knowledge -->
 
 | Bundle                                                                                                   | Description                                                                                                                                                                                                        |
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

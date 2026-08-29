@@ -36,6 +36,8 @@ const baseStatus: InstructionsStatus = {
 
 const gitignoreCurrent: InstructionsGitignoreStatus = {
   file: `${root}/.gitignore`,
+  present: true,
+  managed: true,
   desired: true,
   current: true,
   trackedAliases: [],
@@ -268,6 +270,8 @@ describe("instruction workspace rules", () => {
       const context = contextFor({
         gitignore: {
           file: `${root}/.gitignore`,
+          present: true,
+          managed: true,
           desired: true,
           current: false,
           trackedAliases: [],

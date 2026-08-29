@@ -18,6 +18,7 @@ import {
   CodingAgentRepository,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
+  instructionProjectionEffects,
   instructionProjectionIsCurrent,
   observeInstructionProjection,
   pruneManagedMcpServersForAgent,
@@ -40,7 +41,6 @@ import {
   buildMaterializeOperation,
   enabledConfiguredEntries,
   isConfiguredEntryEnabled,
-  managedFileMarker,
   sanitizeName,
   parseExtensionFqnParts,
   targetFromRef,
@@ -93,6 +93,7 @@ import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,
   cleanupStaleManagedSubagentFiles,
+  cleanupStaleManagedSkillDirectories,
   makeConfiguredReleaseAgeEvaluation,
   isSourcedDesiredExtension,
   WorkspaceMutations,
@@ -589,6 +590,8 @@ const isObservedMaterializationCurrent = (
   node: DesiredExtensionNode,
   configuredAgents: ReadonlyArray<string>,
   agentRepo: CodingAgentRepositoryService,
+  subagentManager: ServiceMap.Service.Shape<typeof SubagentManager>,
+  resolvedRef: ExtensionRef,
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): Effect.Effect<boolean, AppError> =>
@@ -612,68 +615,11 @@ const isObservedMaterializationCurrent = (
         }
         if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
         if (node.type === "subagent") {
-          return agentRepo.all.pipe(
-            Effect.flatMap((agents) => {
-              const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
-              if (configured.length !== configuredAgents.length) return Effect.succeed(false);
-              return Effect.forEach(
-                configured,
-                (agent) =>
-                  agent
-                    .resolveEffectiveSubagentsDir({
-                      workspaceRoot: ws.baseDir,
-                      scope: ws.scope,
-                    })
-                    .pipe(
-                      Effect.provideService(FileSystem.FileSystem, fs),
-                      Effect.provideService(Path.Path, path),
-                      Effect.flatMap((outcome) => {
-                        if (outcome._tag === "supported") {
-                          return Effect.succeed(
-                            observed.origins.includes("agent-subagent-dir") &&
-                              observed.agents.includes(agent.id),
-                          );
-                        }
-                        if (outcome._tag === "misconfigured") return Effect.succeed(false);
-                        if (outcome._tag === "disabled") return Effect.succeed(true);
-                        return agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
-                          Effect.provideService(Path.Path, path),
-                          Effect.flatMap((skillsOutcome) => {
-                            if (
-                              skillsOutcome._tag === "unsupported" ||
-                              skillsOutcome._tag === "disabled"
-                            ) {
-                              return Effect.succeed(true);
-                            }
-                            if (skillsOutcome._tag === "misconfigured") {
-                              return Effect.succeed(false);
-                            }
-                            const fallbackPath = path.join(
-                              skillsOutcome.dir,
-                              sanitizeName(node.name),
-                              "SKILL.md",
-                            );
-                            return fs.readFileString(fallbackPath).pipe(
-                              Effect.option,
-                              Effect.map((content) =>
-                                Option.exists(content, (value) =>
-                                  Option.exists(
-                                    managedFileMarker(value, "markdown"),
-                                    (marker) =>
-                                      marker.ext === "@agentxm/subagents/managed-file" &&
-                                      marker.src === `subagents/${node.name}.md`,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        );
-                      }),
-                    ),
-                { concurrency: "unbounded" },
-              ).pipe(Effect.map((results) => results.every(Boolean)));
-            }),
-          );
+          return resolvedRef.type === "subagent"
+            ? subagentManager
+                .projectionObservation(resolvedRef)
+                .pipe(Effect.map(({ current }) => current))
+            : Effect.succeed(false);
         }
         const hasProjectionOrigin = (() => {
           switch (node.type) {
@@ -814,15 +760,6 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           observation.status === "constraint-mismatch"
             ? makeExtensionConstraintInvariantFact(node, observation)
             : undefined;
-        const materializationCurrent = yield* isObservedMaterializationCurrent(
-          ws,
-          node,
-          configuredAgents,
-          agentRepo,
-          fs,
-          path,
-        );
-        const materialize = observation.status !== "usable" || !materializationCurrent;
         const forceCanonical =
           args?.retainedOnly === true ? false : observation.status !== "usable";
         const resolved = yield* Effect.gen(function* () {
@@ -866,6 +803,17 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
           );
         });
         const ref = resolved.ref;
+        const materializationCurrent = yield* isObservedMaterializationCurrent(
+          ws,
+          node,
+          configuredAgents,
+          agentRepo,
+          subagentManager,
+          ref,
+          fs,
+          path,
+        );
+        const materialize = observation.status !== "usable" || !materializationCurrent;
         const resolvedVersion =
           ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;
         const constraintDecision =
@@ -1133,6 +1081,7 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     knowledgeMayChange:
       packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
     serialMaterialization: packRecoverySteps.length > 0,
+    expectedSkillNames: new Set(skillRefs.map(({ ref }) => ref.skill.name)),
     expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
     releaseAge: {
       evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
@@ -1321,37 +1270,51 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
 });
 
 const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
+  expectedSkillNames: ReadonlySet<string>,
   expectedSubagentNames: ReadonlySet<string>,
 ) {
   const ws = yield* WorkspaceMutations;
-  const preview = yield* cleanupStaleManagedSubagentFiles({
-    expectedSubagentNames,
-    dryRun: true,
-  });
-  if (preview.removedPaths.length === 0) return Option.none<PlannedJobStep<SyncPlanRequirements>>();
+  const expectedSkillProjectionNames = new Set([...expectedSkillNames, ...expectedSubagentNames]);
+  const preview = yield* Effect.all([
+    cleanupStaleManagedSkillDirectories({
+      expectedSkillNames: expectedSkillProjectionNames,
+      dryRun: true,
+    }),
+    cleanupStaleManagedSubagentFiles({ expectedSubagentNames, dryRun: true }),
+  ]);
+  const previewPaths = preview.flatMap(({ removedPaths }) => removedPaths);
+  if (previewPaths.length === 0) return Option.none<PlannedJobStep<SyncPlanRequirements>>();
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
-    key: "subagent:cleanup",
-    label: "stale managed subagent files",
+    key: "projection:cleanup",
+    label: "stale managed agent projections",
     readiness: "ready",
     artifact: {
-      path: "stale managed subagent files",
+      path: previewPaths[0] ?? "stale managed agent projections",
       scope: ws.scope,
       change: "removed",
-      fileCount: preview.removedPaths.length,
-      targets: preview.removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
+      fileCount: previewPaths.length,
+      targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
-    run: cleanupStaleManagedSubagentFiles({ expectedSubagentNames }).pipe(
-      Effect.map((result): JobStepResult => ({
-        result: "success",
-        message: `Removed ${count(result.removedPaths.length, "stale managed subagent file")}`,
-        artifact: {
-          path: "stale managed subagent files",
-          scope: ws.scope,
-          change: "removed",
-          fileCount: result.removedPaths.length,
-          targets: result.removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
-        },
-      })),
+    run: Effect.all([
+      cleanupStaleManagedSkillDirectories({
+        expectedSkillNames: expectedSkillProjectionNames,
+      }),
+      cleanupStaleManagedSubagentFiles({ expectedSubagentNames }),
+    ]).pipe(
+      Effect.map((results): JobStepResult => {
+        const removedPaths = results.flatMap((result) => result.removedPaths);
+        return {
+          result: "success",
+          message: `Removed ${count(removedPaths.length, "stale managed agent projection")}`,
+          artifact: {
+            path: removedPaths[0] ?? previewPaths[0] ?? "stale managed agent projections",
+            scope: ws.scope,
+            change: "removed",
+            fileCount: removedPaths.length,
+            targets: removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
+          },
+        };
+      }),
     ),
   });
 });
@@ -1381,6 +1344,31 @@ const managedRegionsForFacts = (facts: ReadonlyArray<ProjectionInvariantFact>) =
       ? []
       : [{ unitId: subject.unitId, path: subject.path, owner: subject.owner }],
   );
+
+const projectionFileTargets = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): ReadonlyArray<{ readonly path: string; readonly change: "updated" }> =>
+  facts
+    .filter(projectionFactRequiresReconciliation)
+    .map(({ subject }) => ({
+      path: subject.path.split("#", 1)[0] ?? subject.path,
+      change: "updated" as const,
+    }))
+    .filter(
+      (target, index, targets) =>
+        targets.findIndex((candidate) => candidate.path === target.path) === index,
+    );
+
+const mergeArtifactTargets = (
+  targets: ReadonlyArray<{
+    readonly path: string;
+    readonly change: "created" | "updated" | "removed";
+  }>,
+) => {
+  const byPath = new Map<string, (typeof targets)[number]>();
+  for (const target of targets) byPath.set(target.path, target);
+  return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+};
 
 const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
   facts: ReadonlyArray<ProjectionInvariantFact>,
@@ -1456,11 +1444,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
 ) {
   const ws = yield* WorkspaceMutations;
   const config = yield* ws.getInstructionsConfig();
-  if (Option.isNone(config) || config.value === false)
-    return Option.none<PlannedJobStep<SyncPlanRequirements>>();
-
-  const configuredAgents = yield* ws.getConfiguredAgents();
-  const resolvedConfig = resolveInstructionsConfig(config.value);
+  const manager = yield* RuleManager;
   const unsupported = projectionFacts.find(
     ({ observation }) => observation.reasonCode === "unsupported-version",
   );
@@ -1473,13 +1457,41 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
         unsupported.observation.message ??
         "Instruction projection uses an unsupported marker version; upgrade AXM.",
       artifact: {
-        path: resolvedConfig.fileName,
+        path: unsupported.subject.path.split("#", 1)[0] ?? unsupported.subject.path,
         scope: ws.scope,
         change: "unchanged",
         managedRegions: managedRegionsForFacts(projectionFacts),
       },
     });
   }
+  if (Option.isNone(config) || config.value === false) {
+    if (!projectionFactsNeedReconciliation(projectionFacts))
+      return Option.none<PlannedJobStep<SyncPlanRequirements>>();
+    const targets = projectionFileTargets(projectionFacts);
+    const artifact = {
+      path: targets[0]?.path ?? "managed Rules region",
+      scope: ws.scope,
+      change: targets[0]?.change ?? "updated",
+      targets,
+      managedRegions: managedRegionsForFacts(projectionFacts),
+    } satisfies JobStepArtifact;
+    return Option.some<PlannedJobStep<SyncPlanRequirements>>({
+      key: SYNC_RECOVERY_IDS.instructionReconcile,
+      readiness: "ready",
+      label: projectionDivergenceLabel("managed Rules region", projectionFacts),
+      artifact,
+      run: applyPlannedProjections(manager).pipe(
+        Effect.as({
+          result: "success",
+          message: "Reconciled the managed Rules region",
+          artifact,
+        } satisfies JobStepResult),
+      ),
+    });
+  }
+
+  const configuredAgents = yield* ws.getConfiguredAgents();
+  const resolvedConfig = resolveInstructionsConfig(config.value);
   const snapshot = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
@@ -1487,7 +1499,6 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     config: resolvedConfig,
   });
   const path = yield* Path.Path;
-  const manager = yield* RuleManager;
   const regionCurrent = !projectionFactsNeedReconciliation(projectionFacts);
   const current =
     snapshot.status.missingSources.length === 0 &&
@@ -1510,18 +1521,18 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     });
   }
 
-  // Stale residue the apply will remove is named up front so the preview and
-  // the applied result list the same paths.
-  const staleTargets = snapshot.status.staleTargets.map((item) => ({
-    path: path.relative(ws.baseDir, item.targetFile),
-    change: "removed" as const,
+  const ruleTargets = projectionFileTargets(projectionFacts);
+  const instructionTargets = instructionProjectionEffects(snapshot).map((effect) => ({
+    ...effect,
+    path: path.relative(ws.baseDir, effect.path),
   }));
+  const targets = mergeArtifactTargets([...ruleTargets, ...instructionTargets]);
   const artifact = {
-    path: resolvedConfig.fileName,
+    path: targets[0]?.path ?? resolvedConfig.fileName,
     scope: ws.scope,
-    change: "updated",
+    change: targets[0]?.change ?? "updated",
     managedRegions: managedRegionsForFacts(projectionFacts),
-    ...(staleTargets.length === 0 ? {} : { targets: staleTargets }),
+    targets,
   } satisfies JobStepArtifact;
 
   return Option.some<PlannedJobStep<SyncPlanRequirements>>({
@@ -1606,6 +1617,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
           cleanupSafe,
           knowledgeMayChange,
           serialMaterialization,
+          expectedSkillNames,
           expectedSubagentNames,
           releaseAge,
         } = yield* collectMaterializeSteps({
@@ -1647,7 +1659,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
         const cleanupStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           scoped || !cleanupSafe
             ? Option.none<PlannedJobStep<SyncPlanRequirements>>()
-            : yield* collectCleanupStep(expectedSubagentNames);
+            : yield* collectCleanupStep(expectedSkillNames, expectedSubagentNames);
         const instructionStep: Option.Option<PlannedJobStep<SyncPlanRequirements>> =
           selectionTouches("rule")
             ? yield* collectInstructionStep(ruleProjectionFacts)

@@ -27,7 +27,7 @@ describe("selectSubagentRenderer", () => {
   });
 
   it("returns undefined for Roo Code", () => {
-    expect(selectSubagentRenderer("roo-code")).toBeUndefined();
+    expect(selectSubagentRenderer("roo")).toBeUndefined();
   });
 
   it("returns default renderer for unknown agents", () => {
@@ -36,8 +36,8 @@ describe("selectSubagentRenderer", () => {
 });
 
 describe("renderSubagent", () => {
-  it("returns undefined for roo-code", () => {
-    const result = renderSubagent({ ...baseInput, agentId: "roo-code" });
+  it("returns undefined for roo", () => {
+    const result = renderSubagent({ ...baseInput, agentId: "roo" });
     expect(result).toBeUndefined();
   });
 

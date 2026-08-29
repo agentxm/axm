@@ -69,7 +69,7 @@ export type {
 export { buildSubagentLockEntry } from "./lock-entry-builder.js";
 
 // Manager service
-export { SubagentManager, SubagentManagerLive } from "./manager.js";
+export { SubagentManager, SubagentManagerLive, type SubagentManagerService } from "./manager.js";
 
 // Operations
 export {

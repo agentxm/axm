@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import {
   MARKER_KIND_END,
   MARKER_KIND_START,
@@ -325,9 +326,14 @@ export const reconcileManagedRegionFile = (args: {
       updated.trim().length === 0
     ) {
       yield* fs.remove(args.targetPath, { force: true });
+      if (existed) yield* recordFootprint({ path: args.targetPath, change: "removed" });
     } else {
       yield* fs.makeDirectory(path.dirname(args.targetPath), { recursive: true });
       yield* fs.writeFileString(args.targetPath, updated);
+      yield* recordFootprint({
+        path: args.targetPath,
+        change: existed ? "modified" : "created",
+      });
     }
     return result;
   }).pipe(

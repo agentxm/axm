@@ -148,15 +148,12 @@ canonical directory, or lose authored or unowned content. The next mutation
 converges affected state from surviving authority before evaluating its own
 request; it does not resume or roll back the interrupted command.
 
-## Testing strategy
+## Specifications
 
-The recovery-conformance registry owns exhaustive blocker restoration. Sync
-tests cover shared intrinsic facts, operational blockers, preview/apply
-identity, stable locks, exact source-class rematerialization, adapter ownership
-parity, graph-complete cleanup, closure isolation, rollback, stale plans,
-concurrency, interruption, and nonzero results with committed independent
-closures.
-
-Cross-type tests exercise missing, stale, obsolete, collision, ambiguous
-ownership, safe removal, and manual unowned-collision recovery. Second-run
-assertions prove convergence and idempotence.
+The sync specifications under `specifications/cli/sync/` and the workspace
+specifications under `specifications/cli/workspace/` own sync's binding
+obligations — realizing desired state, preserving configuration and satisfying
+resolutions, non-interleaving, and closure-atomic mutation; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+Exhaustive blocker restoration is internal verification owned by the
+recovery-conformance registry in `packages/cli/src/root/sync/`.

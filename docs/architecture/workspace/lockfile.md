@@ -18,9 +18,10 @@ used by planning, materialization, update, reinstall, and cleanup.
 Settings and workspace-authored manifests remain the only authority for desired
 intent and reachability. The lockfile answers which immutable external content
 AXM accepted for a desired source; it never answers whether an extension is
-desired
-([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
-is canonical).
+desired (the executable specification
+`cli/workspace/lock-state-never-creates-reachability` in the
+[specification catalog](../../../specifications/catalog.md) owns the
+obligation).
 
 ## Responsibilities
 
@@ -56,9 +57,9 @@ The lockfile does not:
 
 - express direct membership, activation, constraints, or workspace capability
   configuration;
-- create Pack-member reachability or retain otherwise unreachable content
-  ([AXM-REQ-0013](../../../gen-stack/system/requirements/functional/lock-state-never-creates-reachability.md)
-  is canonical);
+- create Pack-member reachability or retain otherwise unreachable content (the
+  executable specification
+  `cli/workspace/lock-state-never-creates-reachability` owns the obligation);
 - establish authorship or ownership of agent-native output;
 - prove that canonical content or a managed output is currently present;
 - record command history, completion timestamps, or source-free realization;
@@ -112,15 +113,12 @@ Under the workspace mutation lock, AXM revalidates the lock preimage and every
 other material authoritative input. A stale plan performs no writes. The
 lockfile publishes through atomic replacement, preserving unrelated rows.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove strict version rejection, source-class immutable identity,
-stable sync resolution, update-only advancement, exact reinstall, atomic
-materialization and lock persistence, stale-plan safety, and unrelated-row
-preservation. Adversarial tests prove that lock-only Pack members never create
-reachability and that missing or invalid lock state is reported rather than
-reconstructed.
-
-Registry, Git, and local-path fixtures also prove that moved or changed mutable
-sources never cause sync or reinstall to substitute different bytes for the
-accepted identity.
+The workspace specifications under `specifications/cli/workspace/` own the
+lockfile's boundary obligations — lock state never creates reachability — and
+the sync and update specifications under `specifications/cli/sync/` and
+`specifications/cli/update/` own stable resolution and update-only advancement;
+the [specification catalog](../../../specifications/catalog.md) indexes them.
+Exact fields, the strict lockfile version, and source-class fixtures remain
+executable contracts owned by schemas and the implementation's internal tests.

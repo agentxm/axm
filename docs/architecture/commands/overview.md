@@ -42,19 +42,18 @@ No command is a fallback owner for work that lacks a clear home:
 
 - lint does not choose a correction or perform lifecycle and reconciliation
   work;
-- sync does not edit workspace configuration or advance satisfying
-  resolutions
-  ([AXM-REQ-0012](../../../gen-stack/system/requirements/functional/reconciliation-preserves-configuration.md)
-  is canonical);
+- sync does not edit workspace configuration or advance satisfying resolutions
+  (the executable specification
+  `cli/sync/preserves-configuration-and-resolutions` owns the obligation);
 - lifecycle commands do not repair unrelated workspace state;
 - type command groups do not define different lifecycle policy from root
   commands;
 - setup does not reconstruct intent from observed files or become a repair
   workflow;
 - inspection commands do not mutate the state they report; and
-- `--force` does not turn a command into a more general operation;
-  [AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md)
-  canonically bounds what it may bypass.
+- `--force` does not turn a command into a more general operation; the
+  executable specification `cli/commands/force-bypasses-only-named-policies`
+  bounds what it may bypass.
 
 Every command whose semantics require a project workspace first passes the
 shared project-and-user settings construction prerequisite. Command-specific
@@ -118,10 +117,11 @@ Given the same state, preview must accurately describe what application will
 do. Before writing, AXM checks that the relevant state has not changed; a stale
 preview or plan writes nothing.
 
-`--yes` answers routine prompts. The canonical force boundary is
-[AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md):
-it owns which explicitly forceable policy `--force` may bypass and whether a
-command exposes the flag at all. Routine exceptional modes receive their own
+`--yes` answers routine prompts. The binding force boundary is the executable
+specification `cli/commands/force-bypasses-only-named-policies` in the
+[specification catalog](../../../specifications/catalog.md): it owns which
+explicitly forceable policy `--force` may bypass and whether a command exposes
+the flag at all. Routine exceptional modes receive their own
 names rather than accumulating narrow override flags.
 
 Global sync applies every ready independent closure. A nonzero result may still

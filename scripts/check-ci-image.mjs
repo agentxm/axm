@@ -6,15 +6,14 @@ const containerfile = read("containers/ci/Containerfile");
 const dockerignore = read("containers/ci/.dockerignore");
 const ciImagePin = read("containers/ci/CI_IMAGE").trim();
 const version = read("containers/ci/VERSION").trim();
-const affectedCiRunner = read("scripts/verify-affected-ci.sh");
 const ciWorkflow = read(".github/workflows/ci.yml");
 const releaseWorkflow = read(".github/workflows/publish.yml");
 const nxManifest = JSON.parse(read("nx.json"));
 const packageManifest = JSON.parse(read("package.json"));
 const workspaceConfig = read("pnpm-workspace.yaml");
-const project = read("project.json");
-const projectManifest = JSON.parse(project);
+const projectManifest = JSON.parse(read("project.json"));
 const workflow = read(".github/workflows/ci-image.yml");
+const publishWorkflow = read(".github/workflows/ci-image-publish.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
   .map((path) => [path, read(`.github/workflows/${path}`)]);
@@ -47,6 +46,23 @@ const activeSmoke = activeSmokeMatch?.[1] ?? "";
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
 };
+
+if (publishWorkflow.includes("containers/ci/**")) {
+  errors.push("CI image publication must not run for consumer-only CI_IMAGE changes");
+}
+for (const path of [
+  "containers/ci/Containerfile",
+  "containers/ci/.dockerignore",
+  "containers/ci/VERSION",
+  ".github/workflows/ci-image.yml",
+]) {
+  requireText(publishWorkflow, path, `CI image publication must watch producer input ${path}`);
+}
+if (workflow.includes("--metadata-file")) {
+  errors.push(
+    "CI image promotion must resolve its digest by registry inspection for runner Buildx compatibility",
+  );
+}
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");
@@ -200,8 +216,8 @@ if (workspaceConfig.includes("onlyBuiltDependencies:")) {
 
 const storeConfigOccurrences =
   containerLauncher.match(/--env pnpm_config_store_dir=/gu)?.length ?? 0;
-if (storeConfigOccurrences !== 2 || containerLauncher.includes("--env npm_config_store_dir=")) {
-  errors.push("container launchers must pass both pnpm stores through pnpm_config_store_dir");
+if (storeConfigOccurrences !== 1 || containerLauncher.includes("--env npm_config_store_dir=")) {
+  errors.push("the CI container launcher must pass its pnpm store through pnpm_config_store_dir");
 }
 
 for (const text of [
@@ -217,14 +233,19 @@ for (const variable of [
   "AXM_HOST_UID",
   "AXM_HOST_GID",
   "AXM_DEPS_DIRS",
-  "AXM_CI_PHASE_SUMMARY_FILE",
-  "AXM_EXPECT_NX_CACHE_HIT",
   "AXM_RELEASE_PREPARATION",
 ]) {
   requireText(
     containerLauncher,
     `--env ${variable}=`,
     `container launcher must pass ${variable} to the image entrypoint`,
+  );
+}
+for (const variable of ["NX_BASE", "NX_HEAD"]) {
+  requireText(
+    containerLauncher,
+    `--env ${variable} \\\n`,
+    `container launcher must forward ${variable} when the caller sets it`,
   );
 }
 
@@ -264,8 +285,10 @@ for (const text of [
   "hashFiles('containers/ci/CI_IMAGE')",
   'AXM_CONTAINER_NX_PARALLEL: "3"',
   'AXM_CONTAINER_VITEST_MAX_WORKERS: "2"',
-  "AXM_EXPECT_NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}",
-  "scripts/verify-affected-ci.sh",
+  "NX_BASE: ${{ github.event.pull_request.base.sha }}",
+  "NX_HEAD: ${{ github.event.pull_request.head.sha }}",
+  "pnpm run verify:clean",
+  "pnpm run verify:affected",
   "if: always()",
   '>> "$GITHUB_STEP_SUMMARY"',
   "Exact hit",
@@ -281,22 +304,6 @@ if (
   )
 ) {
   errors.push("the Nx cache must use a commit-specific primary key");
-}
-
-for (const text of [
-  "::group::%s",
-  'run_phase "Install workspace dependencies"',
-  'run_phase "Validate release plan"',
-  "pnpm release:plan:check",
-  'run_phase "Validate CI image contract"',
-  'run_phase "Validate generated artifacts"',
-  'run_phase "Validate workspace synchronization"',
-  "nx affected -t lint typecheck build test e2e",
-  "-t scripts-lint scripts-typecheck scripts-test",
-  "validate_restored_nx_cache",
-  "An exact Actions cache hit produced no Nx task hits",
-]) {
-  requireText(affectedCiRunner, text, `affected CI runner is missing ${text}`);
 }
 
 const workflowFormatChecks = ciWorkflow.match(/pnpm run format:check/gu) ?? [];
@@ -323,10 +330,29 @@ if (
 }
 
 requireText(
-  project,
-  '"command": "pnpm exec nx format:check"',
-  "local verification must retain its formatting check",
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run format:check",
+  "full CI must retain formatting",
 );
+
+const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
+for (const text of [
+  "nx affected -t lint typecheck build test",
+  "scripts-lint scripts-typecheck scripts-test",
+  "verify-source-hygiene parity-ledger-check",
+  "nx affected -t e2e",
+]) {
+  requireText(
+    affectedVerification,
+    text,
+    `verify:affected must use the native Nx affected path for ${text}`,
+  );
+}
+for (const text of ["generate:check", "sync:check", "format:check"]) {
+  if (affectedVerification.includes(text)) {
+    errors.push(`verify:affected must leave clean-checkout ${text} to CI`);
+  }
+}
 
 for (const scopeInput of ['"axm|', "$(uname -m)", "$CI_IMAGE", "pnpm-lock.yaml"]) {
   requireText(

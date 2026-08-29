@@ -1,7 +1,7 @@
 /**
- * Executable Cases for:
- * - AXM-EVAL-REQ-PROJECT-WORKSPACE-SETTINGS-VALIDITY
- * - AXM-EVAL-ARCH-PROJECT-WORKSPACE-CONSTRUCTION-GATE
+ * Process-boundary evidence for the executable specification
+ * `cli/workspace/settings-validity-gates-operations`, including its
+ * workspace-construction-gate claims.
  */
 
 import * as fs from "node:fs";

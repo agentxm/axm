@@ -1,12 +1,18 @@
 ---
 type: Architecture
-status: draft
+status: stable
 description: The phased migration from AXM's package-oriented tests and Gen Stack pack and corpus to executable specifications as the sole local requirements authority.
 depends-on:
   - testing-strategy.md
 ---
 
 # Testing strategy migration
+
+> Executed 2026-08-29. Every phase below has run: `specifications/` is the
+> sole local requirements authority, the Gen Stack pack and corpus are
+> removed, and the remaining open decisions are recorded in
+> [specification infrastructure decisions](../decisions/specification-infrastructure.md).
+> This document remains as the record of the transition.
 
 This plan moves AXM from package-oriented tests and a separately installed and
 maintained Gen Stack requirements system to the target

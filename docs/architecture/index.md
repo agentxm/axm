@@ -2,11 +2,14 @@
 
 Navigation for the accepted product and system architecture of AXM.
 
-## Governed meaning
+## Requirements
 
-- [AXM Gen Stack](../../gen-stack/) — cross-cutting System governance,
-  canonical Requirements, admitted actor-facing Surfaces, Architecture
-  Decision Records, and Evaluation Protocol navigation
+- [Specification catalog](../../specifications/catalog.md) — the executable
+  specifications under `specifications/` are the sole local requirements
+  authority; the generated catalog is the reading path
+- [Decisions](decisions/index.md) — accepted decision records with durable
+  consequences; enforceable consequences live as executable specifications,
+  never in the records
 
 ## Foundations
 

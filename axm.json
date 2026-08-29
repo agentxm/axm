@@ -22,7 +22,6 @@
     "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
-    "qrspi": "agentxm:@craigsmitham/packs/qrspi",
-    "gen-stack": "agentxm:@craigsmitham/packs/gen-stack"
+    "qrspi": "agentxm:@craigsmitham/packs/qrspi"
   }
 }

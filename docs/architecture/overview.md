@@ -8,10 +8,11 @@ depends-on:
 
 # AXM overview
 
-The [AXM System concept](../../gen-stack/system.md) owns the canonical purpose,
-boundary, exclusions, and environmental relationships. This document
-elaborates the detailed accepted architecture response and summarizes that
-context only for navigation.
+This document describes AXM's purpose, boundary, exclusions, and environmental
+relationships, and elaborates the detailed accepted architecture response. The
+executable specifications in the
+[specification catalog](../../specifications/catalog.md) own required
+behavior; this corpus explains the design that satisfies them.
 
 Shared product terms such as AgentXM, AXM, agent, extension, extension type,
 extension version, registry, workspace, handle, owner, publisher, pack, and
@@ -80,10 +81,12 @@ Production dependency direction points from the CLI toward core and utilities.
 Core never depends on CLI interaction or output rendering.
 
 AXM is the public side of the AgentXM system. It may depend on published
-service contracts and published OSS-safe code packages. The canonical
-[public/private dependency constraint](../../gen-stack/system/requirements/constraint/public-private-boundary.md)
-owns that obligation. Contracts shared with the private platform belong in the
-public shared kernel only when both implementations must use identical meaning.
+service contracts and published OSS-safe code packages. The executable
+specification
+`system/architecture/public-system-depends-only-on-published-contracts` in the
+[specification catalog](../../specifications/catalog.md) owns that obligation.
+Contracts shared with the private platform belong in the public shared kernel
+only when both implementations must use identical meaning.
 
 ## The workspace model
 
@@ -214,8 +217,8 @@ principal sides of this boundary.
 Safe execution, interruption, and recovery are shared structural guarantees,
 not separate command behaviors. [Workspace execution](workspace/execution.md)
 defines those guarantees, and [Workspace invariants](workspace/invariants.md)
-defines recovery coverage. Behavior tests remain the source of truth for exact
-supported behavior.
+defines recovery coverage. The executable specifications remain the source of
+truth for exact supported behavior.
 
 ## Continue reading
 

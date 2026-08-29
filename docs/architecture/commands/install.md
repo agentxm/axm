@@ -50,9 +50,10 @@ The root command is the normal fully qualified extension surface. A type
 command group may accept additional type-specific inputs, but both forms
 express the same durable intent and produce the same underlying plan and result.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove configuration and realized-state postconditions,
-idempotence, closure atomicity, preservation of unrelated and unowned state,
-accepted-lock persistence, constraint replacement, and parity between root and
-type-specific forms.
+The install specifications under `specifications/cli/install/` own install's
+binding obligations — recorded intent and realized state, pure preview,
+idempotence, preservation of unrelated and unowned state, and parity between
+root and type-specific forms; the
+[specification catalog](../../../specifications/catalog.md) indexes them.

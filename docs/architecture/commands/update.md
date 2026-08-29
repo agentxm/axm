@@ -72,11 +72,9 @@ Reinstall is not repair. It does not choose new intent, resolve an unrelated
 invariant violation, replace workspace-authored content, or adopt an unowned
 path.
 
-## Testing strategy
+## Specifications
 
-Behavior tests distinguish constraint-preserving update, explicit constraint
-change, and reinstall. They prove replacement disclosure, closure atomicity,
-exact source-class rematerialization, idempotence, unrelated-state
-preservation, direct-only, pack-only, combined and multi-pack authority,
-pre-Registry blocking, stale-plan rejection, rollback, convergence, and parity
-between root and type-specific forms.
+The update specifications under `specifications/cli/update/` own update's
+binding obligations — advancing the accepted resolution within durable intent,
+preserving configuration and unrelated state, and repeat-run no-ops; the
+[specification catalog](../../../specifications/catalog.md) indexes them.

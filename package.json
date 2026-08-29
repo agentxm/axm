@@ -23,7 +23,6 @@
     "update-homebrew-formula": "bash scripts/update-homebrew-formula.sh",
     "verify-source-hygiene": "bun scripts/verify-source-hygiene.ts",
     "parity-ledger-check": "bun scripts/parity-ledger-check.ts",
-    "gen-stack:check": "./scripts/gen-stack-check",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",
     "generate-registry": "pnpm exec nx run core:generate:registry-client --outputStyle=static",

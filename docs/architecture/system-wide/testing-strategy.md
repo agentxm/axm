@@ -1,6 +1,6 @@
 ---
 type: Architecture
-status: draft
+status: stable
 description: The target testing architecture in which executable specifications are the sole local source of truth for AXM requirements and orthogonally classified verification provides complementary evidence.
 depends-on:
   - ../overview.md

@@ -162,24 +162,6 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: git diff --check "$BASE_SHA...$HEAD_SHA" -- '*.md' '*.mdx'
 
-  gen-stack:
-    name: Gen Stack mechanical validation
-    needs: classify
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Set up workspace toolchain
-        uses: ./.github/actions/setup-workspace
-
-      - name: Build CLI dependencies
-        run: pnpm exec nx run cli:build --outputStyle=static
-
-      - name: Validate committed Gen Stack corpus
-        run: pnpm run gen-stack:check -- --revision HEAD
-
   workflow-validation:
     name: Workflow validation
     needs: classify
@@ -568,7 +550,6 @@ jobs:
       - specification-verdict
       - extension-lint
       - documentation
-      - gen-stack
       - workflow-validation
       - image
       - verify-pr

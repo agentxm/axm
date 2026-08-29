@@ -131,21 +131,10 @@ CLI help does not own:
 Focused command and capability documents own operational responsibilities.
 Executable definitions and tests own exact interface contracts.
 
-## Verification obligations
+## Specifications
 
-Automated coverage should prove that:
-
-- every canonical and aliased command path has command help in human and
-  machine modes;
-- the root and every parent command expose their registered children;
-- every indexed topic resolves to its generated content;
-- every command and topic reference emitted by help resolves;
-- exact-topic, command-fallback, collision, and unknown-request resolution
-  follow one policy;
-- valid command-shaped help requests do not fall into generic unknown-topic
-  recovery; and
-- adding, removing, or renaming a command or topic cannot silently leave stale
-  help navigation behind.
-
-Tests compare generated and rendered surfaces with the real command tree and
-topic registry. They do not reproduce those inventories manually.
+The help specifications under `specifications/cli/help/` own help's binding
+obligations — complete, alias-free command help and consistent resolution; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+Coverage compares generated and rendered surfaces with the real command tree
+and topic registry rather than reproducing those inventories manually.

@@ -32,8 +32,9 @@ Uninstall does not break remaining Pack-derived routes, delete
 workspace-authored or unowned content, repair unrelated state, or use an
 override to make an otherwise desired extension unreachable.
 
-## Testing strategy
+## Specifications
 
-Behavior tests cover direct-only, pack-retained, multiply reachable, incomplete
-graph, and unowned-collision cases. They prove the exact permitted removal,
-atomic failure, idempotence, and parity between root and type-specific forms.
+The uninstall specifications under `specifications/cli/uninstall/` own
+uninstall's binding obligations — removing the direct route while keeping state
+another desired route still reaches, and idempotent repeat runs; the
+[specification catalog](../../../specifications/catalog.md) indexes them.

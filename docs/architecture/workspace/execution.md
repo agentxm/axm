@@ -94,9 +94,10 @@ leases, heartbeats, PID inference, lock stealing, or distributed coordination.
 
 Under the lock, AXM revalidates every material authoritative input and target
 preimage used by the plan. A stale plan performs no writes, and `--force` cannot
-bypass the check
-([AXM-REQ-0007](../../../gen-stack/architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md)
-is canonical for the force boundary).
+bypass the check (the executable specification
+`cli/commands/force-bypasses-only-named-policies` in the
+[specification catalog](../../../specifications/catalog.md) owns the force
+boundary).
 
 All production settings and lock changes pass through the shared semantic
 mutation boundary. Settings, authoritative lock state, canonical extension

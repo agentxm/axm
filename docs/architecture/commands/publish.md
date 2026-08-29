@@ -90,9 +90,9 @@ or store archive bytes. Repeating recovery against unchanged content converges
 to verified-existing no-ops. Publish writes no local receipt, lockfile,
 baseline, or manifest after a successful upload.
 
-## Testing strategy
+## Specifications
 
-Behavior tests prove complete-selection preflight, fixed-gate independence from
-local lint policy, no upload before a failed preflight, truthful partial remote
-outcomes, preservation of local authored content and workspace state, and
-result parity between root and type-specific forms.
+The publish specifications under `specifications/cli/publish/` own publish's
+binding obligations — pure preview against the fixed publication gate and
+refusing extensions the workspace does not author; the
+[specification catalog](../../../specifications/catalog.md) indexes them.

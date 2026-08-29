@@ -108,12 +108,13 @@ without relabeling them as errors.
 Local lint configuration affects local linting. The registry publish gate owns
 its fixed distribution requirements and remains authoritative for publishing.
 
-## Testing strategy
+## Specifications
 
-Lint tests own the rule catalog, views, and exact findings. The shared
-[workspace invariant design](../workspace/invariants.md) owns exhaustive
-recovery coverage. Completeness coverage proves that every lint rule emits the
-required diagnostic facts and that the schemas, help, or inspection surfaces
-needed to understand its admissible recovery choices remain available.
-Cross-type tests prevent mere unowned presence from becoming a generic error
-while proving type-specific collision and ambiguity findings.
+The lint specifications under `specifications/cli/lint/` own lint's binding
+obligations — reporting facts without mutation and naming the violated
+invariant with complete diagnostic identity; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+Exhaustive recovery coverage is internal verification described in the shared
+[workspace invariant design](../workspace/invariants.md), and the rule catalog,
+views, and exact findings remain executable contracts owned by code and its
+internal tests.

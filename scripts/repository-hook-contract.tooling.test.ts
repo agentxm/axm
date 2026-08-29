@@ -11,10 +11,6 @@ describe("repository Git hooks", () => {
     expect(content).not.toMatch(/^axm lint/m);
   });
 
-  it("validates the staged Gen Stack corpus", () => {
-    expect(readHook("pre-commit")).toContain("pnpm run gen-stack:check -- --view git-index");
-  });
-
   it("runs the canonical affected verification path before push", () => {
     const content = readHook("pre-push");
 

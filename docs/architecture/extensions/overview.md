@@ -158,21 +158,27 @@ invoked type-specific import contract is outside this recovery boundary.
 
 ## Testing strategy
 
-A catalog-driven conformance suite proves shared lifecycle, scope, authority,
-preview, idempotence, reachability, and output obligations for every type. It
-covers independently coexisting unowned content, direct collisions, ambiguous
-ownership, stale owned output, and safe removal. Each type then tests only its
-architectural differences: canonical form, supported sources, ownership unit,
-projection or merge behavior, type-specific capabilities, and unsupported
-targets. Behavior tests remain the source of truth for exact scenarios and
-formats.
+The extension-type specifications under `specifications/cli/extension-types/`
+own the binding cross-type obligations — the shared install and removal
+lifecycle, activation that follows desired state, and authored pack
+membership; the [specification catalog](../../../specifications/catalog.md)
+indexes them. Exact scenarios and native formats remain executable contracts
+owned by the implementation's internal tests.
 
-Every aggregate unit is additionally proved over a contributor set reached by
-more than one route: at least one direct declaration and members of two
-different Packs. Those cases prove that installing, updating, activating,
-deactivating, and removing one contributor leaves every other reachable
-contributor rendered exactly once, and that a unit missing a reachable
-contributor is reported and reconciled rather than treated as current. The
-conformance suite derives this obligation from the shared unit registry, so a
-type declaring an aggregate unit without that coverage fails the suite's
+Internal to the implementation, a catalog-driven conformance suite exercises
+shared lifecycle, scope, authority, preview, idempotence, reachability, and
+output behavior for every type, including independently coexisting unowned
+content, direct collisions, ambiguous ownership, stale owned output, and safe
+removal. Each type then covers only its architectural differences: canonical
+form, supported sources, ownership unit, projection or merge behavior,
+type-specific capabilities, and unsupported targets.
+
+The conformance suite additionally exercises every aggregate unit over a
+contributor set reached by more than one route: at least one direct
+declaration and members of two different Packs. Those cases show that
+installing, updating, activating, deactivating, and removing one contributor
+leaves every other reachable contributor rendered exactly once, and that a
+unit missing a reachable contributor is reported and reconciled rather than
+treated as current. The suite derives this coverage from the shared unit
+registry, so a type declaring an aggregate unit without it fails the suite's
 completeness gate.

@@ -24,8 +24,8 @@ This document owns:
 - the distinction between intrinsic violations and operational blockers;
 - root-cause reporting and dependent-check suppression;
 - closure-local evaluation and isolation; and
-- the requirement that every reported lint error and sync blocker have a
-  complete restoring-transition contract.
+- the recovery-ownership model: every reported lint error and sync blocker has
+  a demonstrated restoring transition.
 
 ## Non-responsibilities
 
@@ -144,62 +144,31 @@ Recovery ownership is a test classification, not suggested-action metadata.
 AXM does not adopt unowned native content, even when it is semantically
 equivalent to the required output.
 
-## Recovery-conformance registry
+## Recovery-conformance verification
 
-A test-only exhaustive registry is keyed by every lint error and sync blocker.
-A completeness test fails when a shipped error or blocker lacks a recovery
-contract.
+The workspace specifications under `specifications/cli/workspace/` own the
+boundary obligations for invalid-state handling — settings validity gating,
+non-interleaving, closure-atomic mutation, and lock state never creating
+reachability; the [specification catalog](../../../specifications/catalog.md)
+indexes them.
 
-Each entry defines:
+Exhaustive restoring-transition coverage is internal verification: a test-only
+recovery-conformance registry in `packages/cli/src/root/sync/` is keyed by
+every lint error and sync blocker, and a completeness check fails when a
+shipped error or blocker lacks a recovery contract. Each entry captures the
+minimal perturbation, expected diagnostic facts and dependent-rule
+suppression, the recovery owner, permitted and forbidden state changes,
+post-recovery state, and second-run idempotence.
 
-- authoritative inputs and a valid base state;
-- the minimal perturbation producing the finding or blocker;
-- expected diagnostic facts and dependent-rule suppression;
-- the recovery owner;
-- exact permitted state changes and forbidden effects;
-- post-recovery lint and projection state; and
-- second-run idempotence.
-
-The cross-type projection family covers missing, incomplete, stale, obsolete,
-unowned collision, ambiguous ownership, safe owned removal, authored inventory
-outside desired state, unreachable managed content, and unclassifiable canonical
-content wherever applicable. Type-specific tests add native merge, ordering,
-region-boundary, and fallback cases.
-
-Every aggregate unit registers the incomplete case using the shared multi-route
-contributor fixture defined by the
-[extension testing strategy](../extensions/overview.md#testing-strategy), so a
-lifecycle transition affecting one contributor is proved not to drop another
-and an incomplete unit is proved unable to produce a sync no-op.
-
-Cross-cutting adversarial coverage proves:
-
-- either project or user settings failure prevents project-workspace
-  construction and selected command evaluation without changing state;
-- missing settings retain their documented semantics and direct correction of
-  an invalid source restores the original operation;
-- handled failure leaves no partial closure;
-- unrelated invalid closures do not block ready progress;
-- authored canonical and unowned native content are never incidentally deleted,
-  overwritten, or adopted;
-- a lifecycle transition on one contributor to an aggregate unit never removes,
-  duplicates, or makes stale another reachable contributor;
-- sync does not change authored intent or advance a satisfying lock;
-- lint fix performs no acquisition, lock, canonical, ownership, or projection
-  work;
-- stale plans write nothing and concurrent plans cannot interleave;
-- interruption at every publication boundary converges from surviving
-  authority on the next mutation;
-- formatter-induced drift in an acquired package is detected and blocks
-  affected reads and mutation closures until explicit recovery;
-- update and reinstall disclose replacement of divergent external content;
-- global sync reports closure-local outcomes and nonzero overall results when
-  any requested closure does not converge, including when others commit;
-- lock-only Pack members never change reachability;
-- invalid lock authority is never reconstructed from other state;
-- mutable-source sync and reinstall never substitute a new content identity;
-  and
-- unsupported persisted state is rejected without migration or cleanup.
-
-Minimized fixtures derived from real incidents are authoritative. Live
-repositories remain a thin end-to-end confirmation layer.
+The registry's cross-type projection family exercises missing, incomplete,
+stale, obsolete, unowned collision, ambiguous ownership, safe owned removal,
+authored inventory outside desired state, unreachable managed content, and
+unclassifiable canonical content wherever applicable; type-specific cases add
+native merge, ordering, region-boundary, and fallback behavior. Every
+aggregate unit registers the incomplete case using the shared multi-route
+contributor fixture described by the
+[extension testing strategy](../extensions/overview.md#testing-strategy), and
+cross-cutting adversarial fixtures cover settings failure, partial closures,
+preservation of authored and unowned content, drift, interruption, and lock
+authority. Minimized fixtures derived from real incidents are authoritative;
+live repositories remain a thin end-to-end confirmation layer.

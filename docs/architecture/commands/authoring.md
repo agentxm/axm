@@ -158,12 +158,12 @@ legal contract. AXM follows that shape while keeping activation separate
 because activating an extension also changes durable workspace intent and may
 write outputs for several coding agents.
 
-## Testing strategy
+## Specifications
 
-A catalog-driven authoring conformance suite proves the same initial version,
-create-only behavior, inventory-only creation by default, explicit activation,
-default precedence, preview parity, transaction boundaries, and no fabricated
-legal or external identity across every extension type. Focused tests cover
-type-required files and metadata, lossless fork and Skill/Subagent import rules,
-authority transitions, version changes, unsupported command paths, and the distinction
-between local validity and publication eligibility.
+Authoring's binding obligations live with the extension-type specifications
+under `specifications/cli/extension-types/`, which carry every catalog type
+through authored creation, activation, and lifecycle transitions; the
+[specification catalog](../../../specifications/catalog.md) indexes them.
+Type-required files, conversion rules, and manifest details remain executable
+contracts owned by schemas, CLI help, and the implementation's internal
+conformance suite.

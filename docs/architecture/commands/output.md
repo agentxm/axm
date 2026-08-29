@@ -28,10 +28,11 @@ surfaces use human and machine output channels, not how help requests resolve.
 
 ## Channel boundaries
 
-The canonical channel-separation obligation is
-[AXM-REQ-0009](../../../gen-stack/architecture/surfaces/cli/requirements/functional/output-channel-separation.md);
-the separation below projects it, and this document owns the remaining
-channel-semantics detail.
+The binding channel-separation obligations are the executable output
+specifications under `specifications/cli/output/` in the
+[specification catalog](../../../specifications/catalog.md), together with
+their process-boundary end-to-end evidence; the separation below projects
+them, and this document owns the remaining channel-semantics detail.
 
 - Human stdout presents the command's primary result.
 - Machine stdout emits one complete schema-backed document for a successful
@@ -64,9 +65,9 @@ prose maintained here.
 ## Interaction
 
 Preview, confirmation, execution, and rendering refer to one operation
-candidate. Machine mode never prompts
-([AXM-REQ-0008](../../../gen-stack/architecture/surfaces/cli/requirements/functional/machine-mode-never-prompts.md)
-is canonical). Cancellation, blocked work, partial progress, rollback, and
+candidate. Machine mode never prompts (the executable specification
+`cli/output/machine-mode-never-prompts` owns the obligation). Cancellation,
+blocked work, partial progress, rollback, and
 interruption remain distinct outcomes when the underlying operation
 distinguishes them.
 

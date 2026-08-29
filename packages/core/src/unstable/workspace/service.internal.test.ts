@@ -299,8 +299,9 @@ describe("WorkspaceMutationsService", () => {
 
   describe("settings validity prerequisite", () => {
     /**
-     * AXM-EVAL-REQ-PROJECT-WORKSPACE-SETTINGS-VALIDITY
-     * AXM-EVAL-ARCH-PROJECT-WORKSPACE-CONSTRUCTION-GATE
+     * Internal evidence for the executable specification
+     * `cli/workspace/settings-validity-gates-operations`, including its
+     * workspace-construction-gate claims.
      */
     const sources = [
       {

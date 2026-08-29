@@ -12,7 +12,7 @@ and package inventory.
 
 ## Commands
 
-All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` and `pnpm spike` run Bun entrypoints from source; they do not build first.
+All commands use `pnpm` scripts. Most build/test/lint/typecheck flows delegate to Nx for caching and `affected` variants. `pnpm axm` runs the Bun entrypoint from source; it does not build first.
 
 Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
 
@@ -36,13 +36,22 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | ------------------------------------ | --------------------------------------------------------------------- |
 | `pnpm axm`                           | Run the main CLI from source                                          |
 | `./scripts/axm-local -C <workspace>` | Run the in-flight CLI against a selected workspace and local registry |
-| `pnpm spike`                         | Run the CLI spike from source                                         |
 | `pnpm watch`                         | Rebuild `cli` on changes                                              |
 | `pnpm build`                         | Build all packages                                                    |
 | `pnpm build:affected`                | Build only packages changed since `main`                              |
-| `pnpm test`                          | Run package test targets                                              |
+| `pnpm test`                          | Run the fast required suite (specifications, internal, tooling)       |
 | `pnpm test:affected`                 | Run tests only for packages changed since `main`                      |
+| `pnpm test:spec`                     | Run executable specifications; `--requirement <id>` or `--class <c>`  |
+| `pnpm test:internal`                 | Run internal verification suites only                                 |
+| `pnpm test:tooling`                  | Run repository tooling verification                                   |
 | `pnpm test:e2e`                      | Run E2E targets only                                                  |
+| `pnpm test:compatibility`            | Run compatibility-class specifications                                |
+| `pnpm test:performance`              | Run performance-class specifications                                  |
+| `pnpm test:all`                      | Fast suite plus broadly executable slower boundaries                  |
+| `pnpm verify:artifact`               | Verify one identified binary artifact                                 |
+| `pnpm verify:release`                | Compose evidence for one exact release candidate                      |
+| `pnpm verify:deployment`             | Verify an identified install endpoint                                 |
+| `pnpm bench`                         | Run diagnostic benchmarks (never a behavioral pass)                   |
 | `pnpm typecheck`                     | Type check all packages                                               |
 | `pnpm typecheck:affected`            | Type check only packages changed since `main`                         |
 | `pnpm format`                        | Format the whole repo with Prettier                                   |
@@ -74,10 +83,14 @@ For a new version release, follow `contributing/guides/releasing.md` exactly. Do
 
 ## Architecture
 
-The [AXM Gen Stack](gen-stack/index.md) owns accepted cross-cutting System
-governance, canonical Requirements, admitted actor-facing Surfaces, and
-Architecture Decision Records. Before changing that meaning, read the corpus
-and use the `gen-stack` skill.
+Executable specifications under `specifications/` are the sole local
+authority for accepted AXM requirements. The generated
+[specification catalog](specifications/catalog.md) is the reading path;
+[docs/architecture/decisions](docs/architecture/decisions/index.md) records
+durable decisions. Changing a specification is a requirements decision that
+needs maintainer review; implementation-scoped tasks treat `specifications/`
+as read-only and run their evidence with
+`pnpm test:spec --requirement <id>`.
 
 Read the [AXM architecture index](docs/architecture/index.md) before changing
 product responsibilities, command boundaries, workspace state, package
@@ -89,9 +102,10 @@ execution boundaries.
 
 ## Pre-launch backward compatibility
 
-The canonical obligation is
-[AXM-REQ-0006](gen-stack/system/requirements/process/pre-launch-contract-changes-remain-coherent.md);
-the instructions below are its operational projection.
+The binding obligation is the executable specification
+`system/process/pre-launch-changes-stay-coherent` in the
+[specification catalog](specifications/catalog.md); the instructions below are
+its operational projection.
 
 Until public launch, backward compatibility is out of scope unless the task
 explicitly requires it. During design, planning, implementation, and review,
@@ -143,10 +157,9 @@ code directly under `src/`.
 ### Two TypeScript Versions
 
 The canonical decision is
-[Dual TypeScript alias toolchain](gen-stack/architecture/decisions/typescript-dual-alias.md)
-with its companion constraint
-[AXM-REQ-0019](gen-stack/system/requirements/constraint/dual-typescript-alias-retained-until-exit.md);
-the notes below are its operational projection.
+[Dual TypeScript alias toolchain](docs/architecture/decisions/typescript-dual-alias.md);
+the executable specification `system/process/dual-typescript-alias-retained`
+owns the binding constraint. The notes below are its operational projection.
 
 - `tsc` is TypeScript 7, the native compiler (`@typescript/native`), patched by
   `@effect/tsgo` so it enforces the `@effect/language-service` diagnostics. Every
@@ -210,9 +223,21 @@ See [Effect Guide](contributing/guides/effect.md),
 
 ## Testing
 
-- Write tests first to define behavior
-- Bug fix means regression test first
-- Follow the affected feature's design-level verification obligations
+- Executable specifications under `specifications/` own supported behavior:
+  a bug fix normally adds or strengthens a specification before changing
+  implementation, and a changed expectation is a requirements decision, not
+  test maintenance — see the
+  [testing strategy](docs/architecture/system-wide/testing-strategy.md)
+- Implementation-scoped tasks treat `specifications/` as read-only and run
+  `pnpm test:spec --requirement <id>` for exactly the evidence they must
+  satisfy
+- Test filenames carry their purpose: `*.spec.ts` only under
+  `specifications/`, `*.internal.test.ts` colocated with source,
+  `*.tooling.test.ts` for repository automation, `*.e2e.test.ts` at the
+  process boundary (source hygiene enforces this)
+- Internal tests protect non-normative realization detail and may change or
+  disappear in a behavior-preserving refactor; they never count toward
+  functional completeness
 - Use `@effect/vitest` for Effect tests; route testing guidance through the
   `craft-effect-v4` skill to the installed `testing.md` Knowledge guide
 - Prefer `pnpm nx run <project>:test --args="..."` over direct `vitest`
@@ -233,11 +258,11 @@ See [Effect Guide](contributing/guides/effect.md),
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.
 
-- This repo is public; [AXM-REQ-0002](gen-stack/system/requirements/process/public-artifacts-protect-private-context.md)
-  is the canonical public-context obligation. Never include private Linear IDs,
-  links, titles, content,
-  comments, customer details, private-repo links, or screenshots in branches,
-  commits, issues, PRs, or release notes
+- This repo is public; the executable specification
+  `system/process/public-artifacts-protect-private-context` owns the
+  public-context obligation. Never include private Linear IDs, links, titles,
+  content, comments, customer details, private-repo links, or screenshots in
+  branches, commits, issues, PRs, or release notes
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
@@ -269,16 +294,14 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/docs kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
-<!-- axm:point v=1 ext=@craigsmitham/knowledge/gen-stack kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/workflow-automation kind=knowledge -->
 
-| Bundle                                                                                                   | Description                                                                                                                                                                                                        |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns                                                 |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                                                                       |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                                                            |
-| [gen-stack](agent_extensions/agentxm/@craigsmitham/knowledge/gen-stack/src/index.md)                     | A cohesive, opinionated software-change system spanning shaping, OODA control, intent, canonical Requirement lifecycle and change, architecture, work items, implementation, evaluations, and operational learning |
-| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices                                             |
+| Bundle                                                                                                   | Description                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns     |
+| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Opinionated Effect v4 guides for data modeling, services and layers, failure, lifetimes, concurrency, platform integration, and verification                           |
+| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action                |
+| [workflow-automation](agent_extensions/agentxm/@craigsmitham/knowledge/workflow-automation/src/index.md) | Platform-agnostic understanding of workflow automation through a common model, vendor mappings, recurring patterns, and established integration and delivery practices |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->

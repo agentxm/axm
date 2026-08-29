@@ -226,7 +226,8 @@ type McpServerVerboseEntryObject = {
   readonly agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type> | undefined;
 };
 
-type CanonicalMcpServerEntry = {
+type CanonicalSourcedMcpServerEntry = {
+  readonly kind?: "sourced" | undefined;
   readonly source: string;
   readonly command?: string | undefined;
   readonly args?: ReadonlyArray<string> | undefined;
@@ -236,6 +237,20 @@ type CanonicalMcpServerEntry = {
   readonly env: Readonly<Record<string, string>>;
   readonly agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type> | undefined;
 };
+
+type CanonicalInlineMcpServerEntry = {
+  readonly kind: "inline";
+  readonly source?: undefined;
+  readonly command?: string | undefined;
+  readonly args?: ReadonlyArray<string> | undefined;
+  readonly url?: string | undefined;
+  readonly headers?: Readonly<Record<string, string>> | undefined;
+  readonly enabled: boolean;
+  readonly env: Readonly<Record<string, string>>;
+  readonly agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type> | undefined;
+};
+
+type CanonicalMcpServerEntry = CanonicalSourcedMcpServerEntry | CanonicalInlineMcpServerEntry;
 
 const ExtensionMapKeySchema = Schema.String.check(
   Schema.isPattern(EXTENSION_NAME_PATTERN, {
@@ -276,6 +291,18 @@ const workspaceEntriesMatch = (pluralType: string) =>
     }
     return undefined;
   });
+
+const mcpWorkspaceEntriesMatch = Schema.makeFilter(
+  (entries: Readonly<Record<string, CanonicalMcpServerEntry>>) => {
+    for (const [entryName, entry] of Object.entries(entries)) {
+      if (entry.kind !== "sourced") continue;
+      if (entry.source.startsWith("workspace:") || entry.source === "authored") {
+        return `Workspace package "${entryName}" must use the compact source "workspace" in mcps`;
+      }
+    }
+    return undefined;
+  },
+);
 
 const McpServerEnvSchema = Schema.Union([
   Schema.Record(Schema.String, Schema.String),
@@ -769,37 +796,55 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
  */
 export const McpServerEntrySchema = compactOrVerboseEntry(
   McpServerVerboseEntryObjectSchema,
-  Schema.Struct({
-    source: Schema.String,
-    command: Schema.optional(Schema.String),
-    args: Schema.optional(Schema.Array(Schema.String)),
-    url: Schema.optional(Schema.String),
-    headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-    enabled: Schema.Boolean,
-    env: Schema.Record(Schema.String, Schema.String),
-    agents: Schema.optional(Schema.Array(ConfigurableAgentIdSchema)),
-  }),
+  Schema.Union([
+    Schema.Struct({
+      kind: Schema.optional(Schema.Literal("sourced")),
+      source: Schema.String,
+      command: Schema.optional(Schema.String),
+      args: Schema.optional(Schema.Array(Schema.String)),
+      url: Schema.optional(Schema.String),
+      headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+      enabled: Schema.Boolean,
+      env: Schema.Record(Schema.String, Schema.String),
+      agents: Schema.optional(Schema.Array(ConfigurableAgentIdSchema)),
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("inline"),
+      source: Schema.optional(Schema.Never),
+      command: Schema.optional(Schema.String),
+      args: Schema.optional(Schema.Array(Schema.String)),
+      url: Schema.optional(Schema.String),
+      headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+      enabled: Schema.Boolean,
+      env: Schema.Record(Schema.String, Schema.String),
+      agents: Schema.optional(Schema.Array(ConfigurableAgentIdSchema)),
+    }),
+  ]),
   {
     decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
       typeof entry === "string"
-        ? { source: entry, enabled: true, env: {} }
-        : {
-            source: "source" in entry && entry.source !== undefined ? entry.source : "inline",
-            ...("command" in entry && entry.command !== undefined
-              ? { command: entry.command }
-              : {}),
-            ...("args" in entry && entry.args !== undefined ? { args: entry.args } : {}),
-            ...("url" in entry && entry.url !== undefined ? { url: entry.url } : {}),
-            ...("headers" in entry && entry.headers !== undefined
-              ? { headers: entry.headers }
-              : {}),
-            enabled: entry.enabled ?? true,
-            env: decodeMcpEnv(entry.env),
-            ...("agents" in entry && entry.agents !== undefined ? { agents: entry.agents } : {}),
-          },
+        ? { kind: "sourced", source: entry, enabled: true, env: {} }
+        : entry.source !== undefined
+          ? {
+              kind: "sourced",
+              source: entry.source,
+              enabled: entry.enabled ?? true,
+              env: decodeMcpEnv(entry.env),
+              ...(entry.agents === undefined ? {} : { agents: entry.agents }),
+            }
+          : {
+              kind: "inline",
+              ...(entry.command === undefined ? {} : { command: entry.command }),
+              ...(entry.args === undefined ? {} : { args: entry.args }),
+              ...(entry.url === undefined ? {} : { url: entry.url }),
+              ...(entry.headers === undefined ? {} : { headers: entry.headers }),
+              enabled: entry.enabled ?? true,
+              env: decodeMcpEnv(entry.env),
+              ...(entry.agents === undefined ? {} : { agents: entry.agents }),
+            },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
       if (
-        entry.source !== "inline" &&
+        entry.kind !== "inline" &&
         entry.enabled &&
         Object.keys(entry.env).length === 0 &&
         entry.agents === undefined
@@ -816,17 +861,22 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         env?: Readonly<Record<string, string>>;
         agents?: ReadonlyArray<typeof ConfigurableAgentIdSchema.Type>;
       } = {};
-      if (entry.source !== "inline") obj.source = entry.source;
-      if (entry.command !== undefined) obj.command = entry.command;
-      if (entry.args !== undefined && entry.args.length > 0) obj.args = entry.args;
-      if (entry.url !== undefined) obj.url = entry.url;
-      if (entry.headers !== undefined && Object.keys(entry.headers).length > 0) {
+      if (entry.kind !== "inline") obj.source = entry.source;
+      if (entry.kind === "inline" && entry.command !== undefined) obj.command = entry.command;
+      if (entry.kind === "inline" && entry.args !== undefined && entry.args.length > 0)
+        obj.args = entry.args;
+      if (entry.kind === "inline" && entry.url !== undefined) obj.url = entry.url;
+      if (
+        entry.kind === "inline" &&
+        entry.headers !== undefined &&
+        Object.keys(entry.headers).length > 0
+      ) {
         obj.headers = entry.headers;
       }
       if (!entry.enabled) obj.enabled = false;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
       if (entry.agents !== undefined) obj.agents = entry.agents;
-      if (entry.source !== "inline") {
+      if (entry.kind !== "inline") {
         return {
           source: entry.source,
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
@@ -878,6 +928,14 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
  */
 export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
 
+export const isSourcedMcpServerEntry = (
+  entry: McpServerEntry,
+): entry is McpServerEntry & { readonly source: string } => entry.kind !== "inline";
+
+export const isInlineMcpServerEntry = (
+  entry: McpServerEntry,
+): entry is Extract<McpServerEntry, { readonly kind: "inline" }> => entry.kind === "inline";
+
 /**
  * MCP servers map - maps MCP server names to MCP server entries.
  *
@@ -887,7 +945,7 @@ export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
  */
 export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
-  .check(workspaceEntriesMatch("mcps"))
+  .check(mcpWorkspaceEntriesMatch)
   .annotate({
     identifier: "McpServersMap",
     title: "MCP Servers Map",

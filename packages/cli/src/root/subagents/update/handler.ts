@@ -153,7 +153,9 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
 
   const subagentEntries: ReadonlyArray<readonly [string, string]> = Object.entries(
     allSubagents,
-  ).flatMap(([name, entry]) => (entry.enabled ? [[name, entry.source]] : []));
+  ).flatMap(([name, entry]) =>
+    entry.enabled && entry.source !== undefined ? [[name, entry.source]] : [],
+  );
 
   if (subagentEntries.length === 0) {
     yield* emitNoOpOutcome("subagents.update", {

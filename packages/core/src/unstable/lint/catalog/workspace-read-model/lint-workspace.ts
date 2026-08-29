@@ -998,7 +998,9 @@ const mcpServerPackageRoot = (
   }
 
   if (mcpServer.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(mcpServer.installationOrigin.declared.entry.source);
+    const source = mcpServer.installationOrigin.declared.entry.source;
+    if (source === undefined) return undefined;
+    const parsed = parseRegistrySourceRef(source);
     if (parsed !== undefined && parsed.type === "mcps") {
       return args.platform.path.resolve(
         args.workspaceRoot,

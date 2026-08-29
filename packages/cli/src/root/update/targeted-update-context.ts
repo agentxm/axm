@@ -38,7 +38,7 @@ export interface TargetedUpdatePublicContext {
   readonly activation: "enabled" | "disabled";
   readonly authority: TargetedUpdateAuthority;
   readonly direct?: {
-    readonly source: "registry" | "workspace";
+    readonly source: "inline" | "registry" | "workspace";
     readonly enabled: boolean;
     readonly constraint?: string;
   };
@@ -102,6 +102,7 @@ const configuredPackFqn = (
   entry: ConfiguredRecordRow,
   configuredOwner?: string,
 ): string | undefined => {
+  if (entry.source === undefined) return undefined;
   if (entry.source === "registry" || isWorkspaceSourceLocator(entry.source)) {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }
@@ -132,7 +133,8 @@ const intersectConstraints = (constraints: ReadonlyArray<string>): string | unde
   return intersections.join(" || ");
 };
 
-const originConstraint = (origin: DesiredExtensionOrigin): string | undefined => origin.constraint;
+const originConstraint = (origin: DesiredExtensionOrigin): string | undefined =>
+  origin.type === "settings" && origin.authority === "inline" ? undefined : origin.constraint;
 
 const blockedEffects = {
   settings: "unchanged",
@@ -195,7 +197,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     return {
       fqn: normalizedIdentity(origin.pack),
       ...(configured === undefined ? {} : { configuredName: configured.name }),
-      ...(configured === undefined
+      ...(configured?.source === undefined
         ? {}
         : {
             source: sourceAuthority(configured.source),
@@ -205,11 +207,12 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       enabled: origin.enabled,
     };
   });
-  const direct =
+  const direct: TargetedUpdatePublicContext["direct"] =
     directOrigin === undefined
       ? undefined
       : {
-          source: sourceAuthority(directOrigin.source),
+          source:
+            directOrigin.source === undefined ? "inline" : sourceAuthority(directOrigin.source),
           enabled: directOrigin.enabled,
           ...(directOrigin.constraint === undefined ? {} : { constraint: directOrigin.constraint }),
         };
@@ -233,6 +236,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
   } else if (!node.enabled) {
     blocker = "disabled";
   } else if (
+    direct?.source === "inline" ||
     direct?.source === "workspace" ||
     packOrigins.some((origin) => isWorkspaceSourceLocator(origin.source))
   ) {

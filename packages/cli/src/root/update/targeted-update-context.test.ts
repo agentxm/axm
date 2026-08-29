@@ -52,6 +52,37 @@ const node = (origins: ReadonlyArray<TestOrigin>): DesiredExtensionNode => ({
 });
 
 describe("classifyTargetedUpdate", () => {
+  it("blocks an inline MCP target as configuration authority", () => {
+    const inlineTarget = {
+      type: "mcp-server" as const,
+      name: "linear",
+      fqn: "@workspace/mcps/linear",
+    };
+    const context = classifyTargetedUpdate({
+      target: inlineTarget,
+      graph: graph([
+        {
+          type: "mcp-server",
+          name: "linear",
+          identity: inlineTarget.fqn,
+          authority: "inline",
+          enabled: true,
+          constraints: [],
+          origins: [{ type: "settings", authority: "inline", enabled: true }],
+        },
+      ]),
+      configuredPacks: [],
+    });
+
+    expect(context.public).toMatchObject({
+      ownership: "direct-only",
+      activation: "enabled",
+      authority: "blocked",
+      blocker: "source-authority",
+      direct: { source: "inline", enabled: true },
+    });
+  });
+
   it("blocks a target with no desired origin", () => {
     const context = classifyTargetedUpdate({ target, graph: graph([]), configuredPacks: [] });
 

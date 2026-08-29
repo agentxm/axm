@@ -25,7 +25,7 @@ const finding = (message: string, path: string): AdvisoryFinding => ({
 const externalSkills = (nodes: ReadonlyArray<DesiredExtensionNode>) =>
   nodes.filter(
     (node) =>
-      node.type === "skill" && node.source !== "inline" && !isWorkspaceSourceLocator(node.source),
+      node.type === "skill" && node.source !== undefined && !isWorkspaceSourceLocator(node.source),
   );
 
 const collectFindings = (
@@ -38,6 +38,7 @@ const collectFindings = (
   const findings: Array<AdvisoryFinding> = [];
 
   for (const node of desired) {
+    if (node.source === undefined) continue;
     const accepted = lockfile.skills[node.name];
     if (accepted === undefined) {
       findings.push(

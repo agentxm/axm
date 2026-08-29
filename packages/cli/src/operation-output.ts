@@ -290,7 +290,7 @@ const TargetedUpdateContextSchema = Schema.Struct({
   authority: Schema.Literals(["direct", "pack-aware", "blocked"] as const),
   direct: Schema.optional(
     Schema.Struct({
-      source: Schema.Literals(["registry", "workspace"] as const),
+      source: Schema.Literals(["inline", "registry", "workspace"] as const),
       enabled: Schema.Boolean,
       constraint: Schema.optional(Schema.String),
     }),

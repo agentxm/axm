@@ -334,7 +334,7 @@ const candidateMatchesSettings = (
   entry: McpServerEntry | undefined,
 ): boolean =>
   entry !== undefined &&
-  entry.source === "inline" &&
+  entry.kind === "inline" &&
   entry.enabled &&
   entry.command ===
     (candidate.definition.type === "stdio" ? candidate.definition.command : undefined) &&
@@ -372,7 +372,7 @@ const applyImport = (
 ): Effect.Effect<void, AppError> => {
   const adoptions = candidates.flatMap((candidate) => candidate.adoptions);
   const settingsEntry = (candidate: McpImportCandidate): McpServerEntry => ({
-    source: "inline",
+    kind: "inline",
     ...(candidate.definition.type === "stdio"
       ? { command: candidate.definition.command, args: candidate.definition.args }
       : { url: candidate.definition.url, headers: candidate.definition.headers }),

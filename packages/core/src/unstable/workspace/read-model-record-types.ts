@@ -15,15 +15,17 @@ import type * as Option from "effect/Option";
 export type PackagingKind = "native" | "non-native";
 
 export type ReadModelRecordRow =
-  | {
+  | ({
       readonly type: string;
       readonly name: string;
-      readonly source: string;
       readonly enabled: boolean;
       readonly origin?: "bundled";
       readonly packagingKind: PackagingKind;
       readonly lifecycle: "configured";
-    }
+    } & (
+      | { readonly authority?: "sourced"; readonly source: string }
+      | { readonly authority: "inline"; readonly source?: undefined }
+    ))
   | {
       readonly type: string;
       readonly name: string;

@@ -10,8 +10,7 @@ import { lockfileDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/lockfile-valid";
 
-const isExternalSource = (source: string): boolean =>
-  source !== "inline" && !isWorkspaceSourceLocator(source);
+const isExternalSource = (source: string): boolean => !isWorkspaceSourceLocator(source);
 
 const finding = (message: string, path: string): AdvisoryFinding => ({
   kind: "advisory",
@@ -53,7 +52,9 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         const graph = yield* Effect.result(context.health.desiredState);
         if (
           Result.isSuccess(graph) &&
-          graph.success.nodes.some((node) => isExternalSource(node.source))
+          graph.success.nodes.some(
+            (node) => node.source !== undefined && isExternalSource(node.source),
+          )
         ) {
           return [
             finding(
@@ -76,7 +77,9 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
         ...Object.values(settings.success.value.hooks ?? {}),
         ...Object.values(settings.success.value.knowledge ?? {}),
       ];
-      return declarations.some((entry) => isExternalSource(entry.source))
+      return declarations.some(
+        (entry) => entry.source !== undefined && isExternalSource(entry.source),
+      )
         ? [
             finding(
               "Accepted external-resolution state is missing for desired external content.",

@@ -182,7 +182,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =
     Object.entries(allSkills).flatMap(([name, entry]) =>
-      entry.enabled === false
+      entry.enabled === false && entry.source !== undefined
         ? [
             {
               type: "skip",
@@ -194,7 +194,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
         : [],
     );
   const skillEntries: ReadonlyArray<readonly [string, string]> = Object.entries(allSkills).flatMap(
-    ([name, entry]) => (entry.enabled ? [[name, entry.source]] : []),
+    ([name, entry]) => (entry.enabled && entry.source !== undefined ? [[name, entry.source]] : []),
   );
 
   if (skillEntries.length === 0) {

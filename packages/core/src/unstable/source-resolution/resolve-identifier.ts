@@ -182,6 +182,7 @@ const installedCandidates = (
 
     for (const node of graph.nodes) {
       if (node.type !== resourceType) continue;
+      if (node.source === undefined) continue;
       const graphIdentity = node.identity.startsWith("workspace:")
         ? node.identity.slice("workspace:".length)
         : node.identity;

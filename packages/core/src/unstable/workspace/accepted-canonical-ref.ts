@@ -252,6 +252,12 @@ const refForDesired = (
   desired: DesiredExtensionNode,
 ): Effect.Effect<ExtensionRef, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
+    if (desired.source === undefined) {
+      return yield* makeAppError({
+        code: "validation",
+        detail: `Inline MCP server "${desired.name}" has no package source to resolve.`,
+      });
+    }
     if (desired.identity.startsWith("bundled:")) {
       const path = yield* Path.Path;
       return yield* resolveWorkspaceExtensionRef({

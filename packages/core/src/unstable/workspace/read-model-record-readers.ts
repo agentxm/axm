@@ -197,7 +197,7 @@ export const makeReadModelRecordReaders = (args: {
   const installedRowToReadModelRecordRow = <
     TDeclared extends {
       readonly entry: {
-        readonly source: string;
+        readonly source?: string | undefined;
         readonly enabled?: boolean;
         readonly origin?: "bundled";
       };
@@ -216,17 +216,22 @@ export const makeReadModelRecordReaders = (args: {
   ): ReadModelRecordRow => {
     if (row.installationOrigin._tag === "direct") {
       const source = row.installationOrigin.declared.entry.source;
-      return {
+      const common = {
         type,
         name: row.key.name,
-        source,
         enabled: row.activation === "enabled",
         ...(row.installationOrigin.declared.entry.origin === undefined
           ? {}
           : { origin: row.installationOrigin.declared.entry.origin }),
-        packagingKind: packagingKindForResolved(row.resolved, type, source),
-        lifecycle: "configured",
+        lifecycle: "configured" as const,
       };
+      return source === undefined
+        ? { ...common, authority: "inline", packagingKind: "non-native" }
+        : {
+            ...common,
+            source,
+            packagingKind: packagingKindForResolved(row.resolved, type, source),
+          };
     }
 
     return packMemberToImplicit(type, row.key.name);
@@ -282,7 +287,7 @@ export const makeReadModelRecordReaders = (args: {
   const collectReadModelRecordRows = <
     TDeclared extends {
       readonly entry: {
-        readonly source: string;
+        readonly source?: string | undefined;
         readonly enabled?: boolean;
         readonly origin?: "bundled";
       };

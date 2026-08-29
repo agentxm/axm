@@ -12,7 +12,11 @@ import {
   PackManifestSchema,
 } from "../packs/index.js";
 import { computePackPaths, computePackPathsForLayout } from "../packs/paths.js";
-import type { DesiredStateGraph, DesiredStateProblem } from "./desired-state-graph.js";
+import {
+  isInlineDesiredExtension,
+  type DesiredStateGraph,
+  type DesiredStateProblem,
+} from "./desired-state-graph.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
 
@@ -35,7 +39,8 @@ const withoutInvalidPackOrigins = (
   graph: DesiredStateGraph,
   invalidPacks: ReadonlySet<string>,
 ): DesiredStateGraph["nodes"] =>
-  graph.nodes.flatMap((node) => {
+  graph.nodes.flatMap((node): ReadonlyArray<DesiredStateGraph["nodes"][number]> => {
+    if (isInlineDesiredExtension(node)) return [node];
     if (node.type === "pack") return [node];
     const origins = node.origins.filter(
       (origin) => origin.type !== "pack" || !invalidPacks.has(normalizedPackIdentity(origin.pack)),
@@ -44,13 +49,22 @@ const withoutInvalidPackOrigins = (
     const settingsOrigin = origins.find((origin) => origin.type === "settings");
     const packOrigin = origins.find((origin) => origin.type === "pack");
     const constraints = origins.flatMap((origin) =>
-      origin.constraint === undefined ? [] : [origin.constraint],
+      origin.type === "settings" && origin.authority === "inline"
+        ? []
+        : origin.constraint === undefined
+          ? []
+          : [origin.constraint],
     );
+    if (settingsOrigin?.type === "settings" && settingsOrigin.authority === "inline") {
+      return [{ ...node, enabled: isDesiredExtensionActive(origins), constraints, origins }];
+    }
     return [
       {
         ...node,
         source:
-          settingsOrigin?.source ??
+          (settingsOrigin !== undefined && "source" in settingsOrigin
+            ? settingsOrigin.source
+            : undefined) ??
           (packOrigin === undefined
             ? node.source
             : `${packOrigin.source}@${packOrigin.constraint}`),

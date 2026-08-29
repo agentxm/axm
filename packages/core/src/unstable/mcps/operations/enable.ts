@@ -66,7 +66,7 @@ export const enableMcpServer = (
       });
     }
 
-    if (entry.source === "inline") {
+    if (entry.kind === "inline") {
       const agentIds = yield* ws.getConfiguredAgents();
       const outcomes = yield* ws
         .runTransaction({

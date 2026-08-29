@@ -10,3 +10,6 @@ Required interaction and output behavior of the AXM CLI.
 - [Project workspace settings are valid before operations begin](project-workspace-settings-validity-prerequisite.md) -
   Every project-workspace-backed CLI operation begins only after both project
   and user settings are readable and valid.
+- [Inline MCP authority is operation-coherent](inline-mcp-authority-is-operation-coherent.md) -
+  Inline MCP configuration is structurally distinct from sourced content and
+  participates only in operations that honor workspace authority.

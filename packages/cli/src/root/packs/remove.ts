@@ -75,6 +75,9 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
 
   // Resolve pack owner
   const packSource = packEntry.source;
+  if (packSource === undefined) {
+    return yield* makeAppError({ code: "validation", detail: `Pack "${packName}" has no source.` });
+  }
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",

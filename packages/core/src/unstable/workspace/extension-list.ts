@@ -102,7 +102,9 @@ const getAcceptedEntry = (
 
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
   if (row === undefined) return undefined;
-  return typeof row.source === "string" ? row.source : Option.getOrUndefined(row.source);
+  const source = row.source;
+  if (source === undefined) return undefined;
+  return typeof source === "string" ? source : Option.getOrUndefined(source);
 };
 
 const refName = (ref: ExtensionRef): string => {

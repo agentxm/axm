@@ -16,7 +16,7 @@ import { Flag } from "effect/unstable/cli";
 
 import { emitNoOpOutcome } from "./no-op-output.js";
 
-export type UpdateTargetEntry = readonly [name: string, source: string];
+export type UpdateTargetEntry = readonly [name: string, source: string | undefined];
 
 /**
  * Every non-container type an update selector can name. Container placement
@@ -37,11 +37,11 @@ export const updateNameFilterFlag = Flag.string("name").pipe(
 /** Flag name reported in the "nothing matched" envelope. */
 export const UPDATE_NAME_FILTER_FLAG = "--name";
 
-export interface ResolveUpdateTargetsArgs {
+export interface ResolveUpdateTargetsArgs<TEntry extends UpdateTargetEntry = UpdateTargetEntry> {
   readonly command: string;
   readonly planName: string;
   readonly planDescription: string;
-  readonly entries: ReadonlyArray<UpdateTargetEntry>;
+  readonly entries: ReadonlyArray<TEntry>;
   readonly source: Option.Option<string>;
   readonly nameFilters: ReadonlyArray<string>;
   readonly nameFilterFlag: string;
@@ -52,10 +52,10 @@ export interface ResolveUpdateTargetsArgs {
   readonly noNameMatchSuggestions?: ReadonlyArray<SuggestedAction>;
 }
 
-export type ResolveUpdateTargetsResult =
+export type ResolveUpdateTargetsResult<TEntry extends UpdateTargetEntry = UpdateTargetEntry> =
   | {
       readonly type: "targets";
-      readonly entries: ReadonlyArray<UpdateTargetEntry>;
+      readonly entries: ReadonlyArray<TEntry>;
     }
   | {
       readonly type: "no-op";
@@ -77,8 +77,9 @@ export const allUpdateTargetResolutionsFailed = (args: AllUpdateTargetResolution
     ...(args.suggestions === undefined ? {} : { suggestions: args.suggestions }),
   });
 
-const sourceMatchesEntrySource = (sourceValue: string, entrySource: string) =>
+const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | undefined) =>
   Effect.gen(function* () {
+    if (entrySource === undefined) return false;
     const sources = yield* SourceHostProviders;
     const sourceArgResult = yield* Effect.result(resolveSource(sourceValue));
     if (sourceArgResult._tag === "Failure") {
@@ -93,7 +94,10 @@ const sourceMatchesEntrySource = (sourceValue: string, entrySource: string) =>
     return sources.origin(entrySourceResult.success) === sources.origin(sourceArgResult.success);
   });
 
-const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: string) =>
+const filterBySource = <TEntry extends UpdateTargetEntry>(
+  entries: ReadonlyArray<TEntry>,
+  sourceValue: string,
+) =>
   Effect.gen(function* () {
     const nameMatchedEntries = entries.filter(([name]) => name === sourceValue);
     if (nameMatchedEntries.length > 0) {
@@ -104,7 +108,7 @@ const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: 
       entries,
       (entry) =>
         Effect.map(sourceMatchesEntrySource(sourceValue, entry[1]), (matches) =>
-          matches ? Option.some(entry) : Option.none<UpdateTargetEntry>(),
+          matches ? Option.some(entry) : Option.none<TEntry>(),
         ),
       { concurrency: "unbounded" },
     );
@@ -112,8 +116,8 @@ const filterBySource = (entries: ReadonlyArray<UpdateTargetEntry>, sourceValue: 
     return sourceMatches.filter(Option.isSome).map((match) => match.value);
   });
 
-const filterByNameFilters = (
-  entries: ReadonlyArray<UpdateTargetEntry>,
+const filterByNameFilters = <TEntry extends UpdateTargetEntry>(
+  entries: ReadonlyArray<TEntry>,
   nameFilters: ReadonlyArray<string>,
   resourceType: UpdateTargetResource,
 ) =>
@@ -136,7 +140,9 @@ const filterByNameFilters = (
     return entries.filter(([name]) => matchedSet.has(name));
   });
 
-export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
+export const resolveUpdateTargets = <TEntry extends UpdateTargetEntry>(
+  args: ResolveUpdateTargetsArgs<TEntry>,
+) =>
   Effect.gen(function* () {
     const sourceValue = Option.getOrUndefined(args.source);
     const sourceFilteredEntries =
@@ -151,7 +157,7 @@ export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
           ? {}
           : { suggestions: args.noSourceMatchSuggestions }),
       });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult;
+      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
     }
 
     const filteredEntries = yield* filterByNameFilters(
@@ -169,13 +175,13 @@ export const resolveUpdateTargets = (args: ResolveUpdateTargetsArgs) =>
           ? {}
           : { suggestions: args.noNameMatchSuggestions }),
       });
-      return { type: "no-op" } satisfies ResolveUpdateTargetsResult;
+      return { type: "no-op" } satisfies ResolveUpdateTargetsResult<TEntry>;
     }
 
     return {
       type: "targets",
       entries: filteredEntries,
-    } satisfies ResolveUpdateTargetsResult;
+    } satisfies ResolveUpdateTargetsResult<TEntry>;
   });
 
 export type WorkspaceUpdateSelection =

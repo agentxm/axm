@@ -51,6 +51,12 @@ because the command explicitly requests replacement. AXM discloses that
 replacement; it does not require `--force` for the routine operation the user
 selected.
 
+Inline MCP definitions have no accepted external resolution to advance or
+reinstall. Workspace-wide update reports each as not applicable, continues with
+independent sourced entries, and points to sync for projection reconciliation.
+A targeted inline MCP update blocks before source lookup as a source-authority
+mismatch.
+
 ## Non-responsibilities
 
 Update does not broaden a constraint unless the user supplies one, reinterpret

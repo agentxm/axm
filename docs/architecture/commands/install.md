@@ -28,6 +28,11 @@ Installing an extension already desired at the requested constraint is a
 successful no-op. Supplying a different constraint explicitly authorizes
 changing that durable choice; it does not require a replacement override.
 
+An inline MCP definition is already authoritative configuration, not an
+extension acquisition target. Workspace-wide install reports it as not
+applicable and directs reconciliation to sync; it neither resolves a source nor
+prevents applicable configured extensions from proceeding.
+
 ## Non-responsibilities
 
 Install does not repair unrelated workspace state, adopt existing unowned

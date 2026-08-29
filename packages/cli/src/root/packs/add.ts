@@ -111,6 +111,9 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
 
   // Resolve pack owner from the entry (format: "@owner/packs/name" or { source: "@owner/packs/name" })
   const packSource = packEntry.source;
+  if (packSource === undefined) {
+    return yield* makeAppError({ code: "validation", detail: `Pack "${packName}" has no source.` });
+  }
   if (!isWorkspaceSourceLocator(packSource)) {
     return yield* makeAppError({
       code: "conflict",
@@ -209,6 +212,7 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
   const candidates: Array<PackAddCandidate> = [];
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
+    if (node.source === undefined) continue;
     const ref = node.identity.startsWith("workspace:")
       ? yield* resolveWorkspaceExtensionRef({
           settingsName: node.name,

@@ -169,11 +169,11 @@ export const resolveConfiguredRegistryEntry = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) return Option.none();
 
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid ${expectedType} source for ${name}: ${cause.message}`,
+          detail: `Invalid ${expectedType} source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -281,11 +281,11 @@ export const resolveConfiguredSkill = (
       return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "skill" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid skill source for ${name}: ${cause.message}`,
+          detail: `Invalid skill source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -385,11 +385,11 @@ export const resolveConfiguredSubagent = (
       return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "subagent" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid subagent source for ${name}: ${cause.message}`,
+          detail: `Invalid subagent source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -486,11 +486,11 @@ export const resolveConfiguredRule = (
       return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "rule" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid rule source for ${name}: ${cause.message}`,
+          detail: `Invalid rule source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -589,11 +589,11 @@ export const resolveConfiguredHook = (
       return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "hook" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid hook source for ${name}: ${cause.message}`,
+          detail: `Invalid hook source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -695,11 +695,11 @@ export const resolveConfiguredKnowledge = (
       return { ...registry.value, ref: registry.value.ref };
     }
     const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "knowledge" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid knowledge source for ${name}: ${cause.message}`,
+          detail: `Invalid knowledge source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -797,11 +797,11 @@ export const resolveConfiguredMcpServer = (
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "mcp-server" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid MCP server source for ${name}: ${cause.message}`,
+          detail: `Invalid MCP server source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),
@@ -898,11 +898,11 @@ export const resolveConfiguredPack = (
 
     const providers = yield* SourceHostProviders;
     const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const resolvedSource = yield* resolveSource(source).pipe(
+    const resolvedSource = yield* resolveSource(source, { expectedType: "pack" }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail: `Invalid pack source for ${name}: ${cause.message}`,
+          detail: `Invalid pack source for ${name}: ${cause.detail}`,
           cause,
         }),
       ),

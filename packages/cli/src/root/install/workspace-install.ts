@@ -70,6 +70,7 @@ import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
+import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -133,6 +134,7 @@ const configuredAgentOperationsFromCollections = (
     const collection = collections[index];
     if (collection === undefined) continue;
     for (const fragment of collection.fragments) {
+      if (fragment.key.startsWith("not-applicable:")) continue;
       const name = fragment.step.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "");
       const operation = { extensionType: collector.type, name, targetEnabled: true };
       operations.set(`${operation.extensionType}:${operation.name}`, operation);
@@ -621,24 +623,24 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.getConfiguredMcpServerEntries();
-    const entries = enabledConfiguredEntries(configured).filter(
-      ([, entry]) => entry.source !== "inline",
-    );
+    const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolveMcpServerIntent(name, entry.source, releaseAgeEvaluation).pipe(
-          Effect.flatMap(({ intent, releaseAge }) =>
-            actions
-              .buildPlan(intent)
-              .pipe(
-                Effect.map((plan) =>
-                  attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
-                ),
+        entry.kind === "inline"
+          ? Effect.succeed(inlineMcpNotApplicablePlan(name, "install"))
+          : resolveMcpServerIntent(name, entry.source, releaseAgeEvaluation).pipe(
+              Effect.flatMap(({ intent, releaseAge }) =>
+                actions
+                  .buildPlan(intent)
+                  .pipe(
+                    Effect.map((plan) =>
+                      attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+                    ),
+                  ),
               ),
-          ),
-        ),
+            ),
       { concurrency: "unbounded" },
     );
 

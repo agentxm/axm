@@ -27,9 +27,17 @@ import {
 export type DesiredExtensionOrigin =
   | {
       readonly type: "settings";
+      readonly authority?: "sourced";
       readonly source: string;
       readonly enabled: boolean;
       readonly constraint?: string;
+    }
+  | {
+      readonly type: "settings";
+      readonly authority: "inline";
+      readonly source?: undefined;
+      readonly constraint?: undefined;
+      readonly enabled: boolean;
     }
   | {
       readonly type: "pack";
@@ -40,15 +48,32 @@ export type DesiredExtensionOrigin =
       readonly enabled: boolean;
     };
 
-export interface DesiredExtensionNode {
+interface DesiredExtensionNodeCommon {
   readonly type: ExtensionType;
   readonly name: string;
   readonly identity: string;
-  readonly source: string;
   readonly enabled: boolean;
   readonly constraints: ReadonlyArray<string>;
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
 }
+
+export type DesiredExtensionNode = DesiredExtensionNodeCommon &
+  (
+    | { readonly authority?: "sourced"; readonly source: string }
+    | {
+        readonly type: "mcp-server";
+        readonly authority: "inline";
+        readonly source?: undefined;
+      }
+  );
+
+export const isInlineDesiredExtension = (
+  node: DesiredExtensionNode,
+): node is DesiredExtensionNode & { readonly authority: "inline" } => node.authority === "inline";
+
+export const isSourcedDesiredExtension = (
+  node: DesiredExtensionNode,
+): node is DesiredExtensionNode & { readonly source: string } => node.authority !== "inline";
 
 export interface DesiredConstraintContributor {
   readonly source: "settings" | "pack";
@@ -120,15 +145,24 @@ interface DesiredStateGraphArgs {
   readonly layout?: WorkspaceLayout;
 }
 
-interface Candidate {
+interface CandidateCommon {
   readonly type: ExtensionType;
   readonly name: string;
   readonly identity: string;
-  readonly source: string;
   readonly enabled: boolean;
   readonly constraint?: string;
   readonly origin: DesiredExtensionOrigin;
 }
+
+type Candidate = CandidateCommon &
+  (
+    | { readonly authority: "sourced"; readonly source: string }
+    | {
+        readonly type: "mcp-server";
+        readonly authority: "inline";
+        readonly source?: undefined;
+      }
+  );
 
 interface PackIdentity {
   readonly owner: Handle;
@@ -237,6 +271,7 @@ export const collectDesiredConstraintContributors = (
 ): ReadonlyArray<DesiredConstraintContributor> =>
   origins
     .flatMap((origin): ReadonlyArray<DesiredConstraintContributor> => {
+      if (origin.type === "settings" && origin.authority === "inline") return [];
       if (origin.constraint === undefined) return [];
       if (origin.type === "settings") {
         return [
@@ -316,11 +351,13 @@ export const buildDesiredStateGraph = ({
           type,
           name,
           identity: identity.identity,
+          authority: "sourced",
           source: entry.source,
           enabled: entry.enabled,
           ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
           origin: {
             type: "settings",
+            authority: "sourced",
             source: entry.source,
             enabled: entry.enabled,
             ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
@@ -330,7 +367,39 @@ export const buildDesiredStateGraph = ({
     };
 
     addSettingsEntries("skill", settings.skills);
-    addSettingsEntries("mcp-server", settings.mcpServers);
+    for (const [name, entry] of Object.entries(settings.mcpServers ?? {})) {
+      if (entry.kind === "inline") {
+        candidates.push({
+          type: "mcp-server",
+          name,
+          identity: `@workspace/mcps/${name}`,
+          authority: "inline",
+          enabled: entry.enabled,
+          origin: { type: "settings", authority: "inline", enabled: entry.enabled },
+        });
+        continue;
+      }
+      const identity = sourceIdentity("mcp-server", name, entry.source, settings);
+      if (isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
+        problems.push({ type: "workspace-owner-missing", extensionType: "mcp-server", name });
+      }
+      candidates.push({
+        type: "mcp-server",
+        name,
+        identity: identity.identity,
+        authority: "sourced",
+        source: entry.source,
+        enabled: entry.enabled,
+        ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
+        origin: {
+          type: "settings",
+          authority: "sourced",
+          source: entry.source,
+          enabled: entry.enabled,
+          ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
+        },
+      });
+    }
     addSettingsEntries("subagent", settings.subagents);
     addSettingsEntries("rule", settings.rules);
     addSettingsEntries("hook", settings.hooks);
@@ -354,11 +423,13 @@ export const buildDesiredStateGraph = ({
         identity: isWorkspaceSourceLocator(entry.source)
           ? `workspace:${identity.fqn}`
           : identity.fqn,
+        authority: "sourced",
         source: entry.source,
         enabled: entry.enabled !== false,
         ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
         origin: {
           type: "settings",
+          authority: "sourced",
           source: entry.source,
           enabled: entry.enabled !== false,
           ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
@@ -428,6 +499,7 @@ export const buildDesiredStateGraph = ({
           type: parsed.type,
           name: parsed.name,
           identity: `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`,
+          authority: "sourced",
           source: `${fqn}@${constraint}`,
           enabled: entry.enabled !== false,
           constraint,
@@ -448,19 +520,43 @@ export const buildDesiredStateGraph = ({
       const key = nodeKey(candidate.type, candidate.name);
       const existing = nodes.get(key);
       if (existing === undefined) {
-        nodes.set(key, {
-          type: candidate.type,
-          name: candidate.name,
-          identity: candidate.identity,
-          source: candidate.source,
-          enabled: candidate.enabled,
-          constraints: candidate.constraint === undefined ? [] : [candidate.constraint],
-          origins: [candidate.origin],
-        });
+        nodes.set(
+          key,
+          candidate.authority === "sourced"
+            ? {
+                type: candidate.type,
+                name: candidate.name,
+                identity: candidate.identity,
+                authority: "sourced",
+                source: candidate.source,
+                enabled: candidate.enabled,
+                constraints: candidate.constraint === undefined ? [] : [candidate.constraint],
+                origins: [candidate.origin],
+              }
+            : {
+                type: "mcp-server",
+                name: candidate.name,
+                identity: candidate.identity,
+                authority: "inline",
+                enabled: candidate.enabled,
+                constraints: [],
+                origins: [candidate.origin],
+              },
+        );
         continue;
       }
 
       if (packageIdentity(existing.identity) !== packageIdentity(candidate.identity)) {
+        problems.push({
+          type: "projection-collision",
+          extensionType: candidate.type,
+          name: candidate.name,
+          identities: [existing.identity, candidate.identity],
+        });
+        continue;
+      }
+
+      if (isInlineDesiredExtension(existing) || candidate.authority === "inline") {
         problems.push({
           type: "projection-collision",
           extensionType: candidate.type,
@@ -500,6 +596,7 @@ export const buildDesiredStateGraph = ({
     const typeOrder = new Map(extensionTypes.map((type, index) => [type, index]));
     const orderedNodes = [...nodes.values()]
       .map((node) => {
+        if (isInlineDesiredExtension(node)) return node;
         const constraint = intersectConstraints(node.constraints);
         return {
           ...node,

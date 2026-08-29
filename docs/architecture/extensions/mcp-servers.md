@@ -42,6 +42,12 @@ no artificial lock row is created. AXM owns only entries
 it created and can still identify; unrelated entries and surrounding
 configuration remain untouched.
 
+Authority is structural in the workspace model. A sourced definition carries a
+source locator. An inline definition carries a command or URL transport and no
+source locator. Encoding preserves the authored `axm.json` forms: sourced
+entries remain strings or source objects, while inline entries remain command
+or URL objects.
+
 For a publishable MCP Server extension, the server name, transport, external
 software-package or endpoint identity, inputs, and runtime requirements are
 author declarations. AXM may validate them or import them from an explicit

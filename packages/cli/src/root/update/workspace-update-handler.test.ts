@@ -13,6 +13,7 @@ import {
   expectNoOpPlanResult,
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
+  planResultUnits,
 } from "../../test-helpers.js";
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
@@ -143,6 +144,92 @@ describe("workspace update handler output", () => {
         });
         expect(result).toMatchObject({
           planDescription: "Update configured MCP servers",
+        });
+      }),
+    );
+  });
+
+  it.effect("reports inline MCP servers as sync-owned without source resolution", () => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
+    const fullLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      Layer.succeed(InstallMcpServerCommandWorkflowActions, unusedInstallMcpServerActions),
+    );
+    const provide = makeEffectProvide(fullLayer);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      mcps: {
+        linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
+        sentry: { url: "https://mcp.sentry.dev/sse" },
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleWorkspaceUpdate({
+          command: "mcps.update",
+          type: Option.some("mcp-server"),
+          planName: "Update configured MCP servers",
+          planDescription: Option.some("Update configured MCP servers"),
+          flags: { yes: false, preview: false },
+        });
+
+        const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
+          planName: "Update configured MCP servers",
+          totalSteps: 2,
+        });
+        expect(planResultUnits(result)).toEqual([
+          expect.objectContaining({
+            label: "linear",
+            state: "skipped",
+            message: "linear is inline workspace configuration; run axm sync to reconcile it",
+          }),
+          expect.objectContaining({
+            label: "sentry",
+            state: "skipped",
+            message: "sentry is inline workspace configuration; run axm sync to reconcile it",
+          }),
+        ]);
+      }),
+    );
+  });
+
+  it.effect("keeps independent MCP planning results when one source is invalid", () => {
+    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
+    const fullLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      Layer.succeed(InstallMcpServerCommandWorkflowActions, unusedInstallMcpServerActions),
+    );
+    const provide = makeEffectProvide(fullLayer);
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      mcps: {
+        linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
+        broken: "missing-server",
+      },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleWorkspaceUpdate({
+          command: "mcps.update",
+          type: Option.some("mcp-server"),
+          planName: "Update configured MCP servers",
+          planDescription: Option.some("Update configured MCP servers"),
+          flags: { yes: false, preview: false },
+        });
+
+        expect(ctx.rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "failed",
+            counts: { total: 2, failed: 1 },
+            units: expect.arrayContaining([
+              expect.objectContaining({ label: "linear", state: "skipped" }),
+              expect.objectContaining({
+                label: "broken",
+                state: "failed",
+                message: expect.stringContaining('Unknown MCP server "missing-server"'),
+              }),
+            ]),
+          },
         });
       }),
     );

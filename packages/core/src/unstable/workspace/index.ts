@@ -58,6 +58,8 @@ export {
 
 export {
   buildDesiredStateGraph,
+  isInlineDesiredExtension,
+  isSourcedDesiredExtension,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
   type DesiredConstraintContributor,

@@ -107,7 +107,7 @@ export const configuredSkillsToDiskRefs = (
           ),
         );
       }
-      if (isWorkspaceSourceLocator(entry.source)) {
+      if (entry.source !== undefined && isWorkspaceSourceLocator(entry.source)) {
         return resolveWorkspaceFromDisk(env, settingsName, entry.source, "skill").pipe(
           Effect.map((ref) =>
             ref.type === "skill" ? Option.some(ref) : Option.none<SkillExtensionRef>(),
@@ -163,7 +163,7 @@ export const configuredMcpServersToDiskRefs = (
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      isWorkspaceSourceLocator(entry.source)
+      entry.source !== undefined && isWorkspaceSourceLocator(entry.source)
         ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "mcp-server").pipe(
             Effect.map((ref) =>
               ref.type === "mcp-server" ? Option.some(ref) : Option.none<McpServerExtensionRef>(),
@@ -180,7 +180,7 @@ export const configuredSubagentsToDiskRefs = (
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      isWorkspaceSourceLocator(entry.source)
+      entry.source !== undefined && isWorkspaceSourceLocator(entry.source)
         ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "subagent").pipe(
             Effect.map((ref) =>
               ref.type === "subagent" ? Option.some(ref) : Option.none<SubagentExtensionRef>(),
@@ -197,7 +197,7 @@ export const configuredPacksToDiskRefs = (
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
-      isWorkspaceSourceLocator(entry.source)
+      entry.source !== undefined && isWorkspaceSourceLocator(entry.source)
         ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "pack").pipe(
             Effect.map((ref) => (ref.type === "pack" ? Option.some(ref) : Option.none<PackRef>())),
           )

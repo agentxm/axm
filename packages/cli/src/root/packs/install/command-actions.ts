@@ -484,7 +484,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
             node.type === "pack" &&
             node.name === pack.name &&
             node.origins.some(
-              (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
+              (origin) =>
+                origin.type === "settings" &&
+                origin.source !== undefined &&
+                isWorkspaceSourceLocator(origin.source),
             ),
         );
         if (root !== undefined) {
@@ -514,7 +517,10 @@ export const InstallPackCommandWorkflowActionsLive = Layer.effect(
               node.type === parsed.type &&
               node.name === parsed.name &&
               node.origins.some(
-                (origin) => origin.type === "settings" && isWorkspaceSourceLocator(origin.source),
+                (origin) =>
+                  origin.type === "settings" &&
+                  origin.source !== undefined &&
+                  isWorkspaceSourceLocator(origin.source),
               ),
           );
           if (desired === undefined) continue;

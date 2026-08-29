@@ -28,6 +28,7 @@ const configuredPackFqn = (
   entry: ConfiguredRecordRow,
   configuredOwner?: string,
 ): string | undefined => {
+  if (entry.source === undefined) return undefined;
   if (entry.source === "registry") {
     return configuredOwner === undefined ? undefined : `${configuredOwner}/packs/${entry.name}`;
   }

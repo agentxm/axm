@@ -88,6 +88,7 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           }
           if (
             observation.status === "locally-modified" &&
+            desired.source !== undefined &&
             isWorkspaceSourceLocator(desired.source)
           ) {
             return [];

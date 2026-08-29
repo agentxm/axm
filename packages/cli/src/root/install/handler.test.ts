@@ -375,7 +375,7 @@ describe("root install handler", () => {
     }),
   );
 
-  it.effect("ignores configured inline MCP servers during workspace install", () =>
+  it.effect("reports configured inline MCP servers as sync-owned during workspace install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
       const { provide, rendererState } = makeLayers(calls, { machine: true });
@@ -400,10 +400,17 @@ describe("root install handler", () => {
       );
 
       expect(calls).toEqual([]);
-      expectNoOpPlanResult(rendererState.results[0]?.data, {
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
         planName: "Install configured extensions",
-        message: "No configured extensions.",
+        totalSteps: 1,
       });
+      expect(planResultUnits(result)).toEqual([
+        expect.objectContaining({
+          label: "linear",
+          state: "skipped",
+          message: "linear is inline workspace configuration; run axm sync to reconcile it",
+        }),
+      ]);
     }),
   );
 

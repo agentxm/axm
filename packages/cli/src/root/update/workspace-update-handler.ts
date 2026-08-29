@@ -114,6 +114,16 @@ const handleWorkspaceUpdateBody = (args: {
       return;
     }
 
+    const nonConvergingNames = new Set(
+      planResult.plan.jobs.flatMap((job) =>
+        job.steps.flatMap((step) =>
+          step.key?.startsWith("not-applicable:") === true ||
+          step.key?.endsWith(":planning-error") === true
+            ? [step.label]
+            : [],
+        ),
+      ),
+    );
     const execution = yield* makePlanExecution(
       args.flags,
       makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
@@ -132,7 +142,9 @@ const handleWorkspaceUpdateBody = (args: {
                   job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
                 ),
             ),
-          ].map((name) => ({ extensionType, name, targetEnabled: true })),
+          ]
+            .filter((name) => !nonConvergingNames.has(name))
+            .map((name) => ({ extensionType, name, targetEnabled: true })),
       }),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });

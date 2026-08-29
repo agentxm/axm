@@ -339,6 +339,7 @@ const resolvePackage = (
     capability,
     serverName: manifest.name,
     entry: {
+      kind: "sourced",
       source: "registry",
       command: command ?? "",
       args: commandArgs,
@@ -395,6 +396,7 @@ const resolveRemote = (
       capability,
       serverName: manifest.name,
       entry: {
+        kind: "sourced",
         source: "registry",
         command: executable ?? "",
         args: commandArgs,
@@ -439,6 +441,7 @@ const resolveRemote = (
     capability,
     serverName: manifest.name,
     entry: {
+      kind: "sourced",
       source: "registry",
       url: materializedRemote.url,
       headers: headers.headers,

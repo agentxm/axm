@@ -42,6 +42,7 @@ import type {
 } from "../../lockfile/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
 import type { WorkspaceMutationsService } from "../service-interface.js";
+import { isSourcedDesiredExtension } from "../desired-state-graph.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 
 // Registry currency reads share the same four-request transport cap used by
@@ -166,7 +167,9 @@ const collectCurrency = (
       });
     }
     const accepted = yield* Effect.forEach(
-      graph.nodes.filter((node) => node.type === extensionType && node.enabled),
+      graph.nodes
+        .filter(isSourcedDesiredExtension)
+        .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
         getAcceptedResolution(ws, node.type, node.name).pipe(
           Effect.map((resolution) => ({ node, resolution })),
@@ -318,7 +321,9 @@ const collectSourceFreshness = (args: {
       });
     }
     const accepted = yield* Effect.forEach(
-      graph.nodes.filter((node) => node.type === extensionType && node.enabled),
+      graph.nodes
+        .filter(isSourcedDesiredExtension)
+        .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
         getAcceptedResolution(ws, node.type, node.name).pipe(
           Effect.map((resolution) => ({ node, resolution })),

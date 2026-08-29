@@ -25,6 +25,7 @@ relationships:
     - /architecture/surfaces/cli/update.md
   is-subject-of-requirement:
     - /architecture/surfaces/cli/requirements/constraint/force-bypasses-only-forceable-policies.md
+    - /architecture/surfaces/cli/requirements/functional/inline-mcp-authority-is-operation-coherent.md
     - /architecture/surfaces/cli/requirements/functional/machine-mode-never-prompts.md
     - /architecture/surfaces/cli/requirements/functional/output-channel-separation.md
     - /architecture/surfaces/cli/requirements/functional/project-workspace-settings-validity-prerequisite.md

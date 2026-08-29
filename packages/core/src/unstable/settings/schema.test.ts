@@ -904,6 +904,7 @@ describe("Settings schema", () => {
 
       expect(result.mcpServers).toEqual({
         batcomputer: {
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -934,6 +935,7 @@ describe("Settings schema", () => {
       });
       expect(result.mcpServers).toEqual({
         batcomputer: {
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -958,6 +960,7 @@ describe("Settings schema", () => {
 
       expect(result).toEqual({
         batcomputer: {
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -971,6 +974,7 @@ describe("Settings schema", () => {
 
       expect(result).toEqual({
         batcomputer: {
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -991,6 +995,7 @@ describe("Settings schema", () => {
         const result = Schema.decodeUnknownSync(McpServerEntrySchema)("@wayne/mcps/batcomputer");
 
         expect(result).toEqual({
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -1003,6 +1008,7 @@ describe("Settings schema", () => {
         });
 
         expect(result).toEqual({
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -1017,7 +1023,7 @@ describe("Settings schema", () => {
         });
 
         expect(result).toEqual({
-          source: "inline",
+          kind: "inline",
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           enabled: true,
@@ -1032,7 +1038,7 @@ describe("Settings schema", () => {
         });
 
         expect(result).toEqual({
-          source: "inline",
+          kind: "inline",
           command: "npx",
           enabled: true,
           env: {},
@@ -1059,7 +1065,7 @@ describe("Settings schema", () => {
         });
 
         expect(result).toEqual({
-          source: "inline",
+          kind: "inline",
           url: "https://mcp.sentry.dev/sse",
           headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
           enabled: true,
@@ -1084,6 +1090,7 @@ describe("Settings schema", () => {
     describe("encode", () => {
       it("encodes a default entry to string", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},
@@ -1093,7 +1100,7 @@ describe("Settings schema", () => {
 
       it("encodes inline entries without a visible source field", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
-          source: "inline",
+          kind: "inline",
           command: "npx",
           args: ["-y", "linear-mcp-server"],
           enabled: true,
@@ -1109,6 +1116,7 @@ describe("Settings schema", () => {
 
       it("preserves MCP server agent targets in encoded settings", () => {
         const result = Schema.encodeSync(McpServerEntrySchema)({
+          kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
           env: {},

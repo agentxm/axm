@@ -44,7 +44,7 @@ const neverRetain: UninstallRetentionPolicy = {
 
 const promoteToDirectSettings = (
   ws: WorkspaceMutationsService,
-  node: DesiredExtensionNode,
+  node: DesiredExtensionNode & { readonly source: string },
 ): PlannedJobStep => {
   const entry = { source: node.source, enabled: node.enabled };
   const run = (() => {
@@ -200,6 +200,14 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
           result: "success",
           message: "already directly configured",
         }),
+      };
+    }
+
+    if (node.source === undefined) {
+      return {
+        readiness: "error",
+        errorMessage: "Inline MCP configuration has no Pack source.",
+        label: node.name,
       };
     }
 

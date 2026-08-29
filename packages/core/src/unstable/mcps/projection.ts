@@ -358,7 +358,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       enabled: args.entry.enabled,
       activationField: args.activationField,
       envExpansion,
-      source: args.entry.source,
+      source: args.entry.kind === "inline" ? "inline" : args.entry.source,
       serverName: args.serverName,
       ...(args.remoteTransport === undefined ? {} : { transport: args.remoteTransport }),
     });
@@ -387,7 +387,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
       enabled: args.entry.enabled,
       activationField: args.activationField,
       envExpansion,
-      source: args.entry.source,
+      source: args.entry.kind === "inline" ? "inline" : args.entry.source,
       serverName: args.serverName,
     });
     if (projected._tag === "unsupported") return projected;

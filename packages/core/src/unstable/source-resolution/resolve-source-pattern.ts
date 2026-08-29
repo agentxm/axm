@@ -102,7 +102,7 @@ const buildCandidates = Effect.gen(function* () {
 /** Resolve a single skill name with fallbacks: resolveSource → configured source → on-disk path. */
 const resolveNameWithFallback = (
   name: string,
-  configuredSkills: Readonly<Record<string, { readonly source: string }>>,
+  configuredSkills: Readonly<Record<string, { readonly source?: string | undefined }>>,
   onDiskByName: ReadonlyMap<string, string>,
 ) =>
   resolveSource(name).pipe(
@@ -112,7 +112,7 @@ const resolveNameWithFallback = (
       }
 
       const configuredEntry = configuredSkills[name];
-      if (configuredEntry !== undefined) {
+      if (configuredEntry?.source !== undefined) {
         return resolveSource(configuredEntry.source);
       }
 

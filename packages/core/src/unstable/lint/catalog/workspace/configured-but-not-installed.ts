@@ -28,7 +28,7 @@ interface InstalledRow {
         readonly _tag: "direct";
         readonly declared: {
           readonly entry: {
-            readonly source: string;
+            readonly source?: string | undefined;
           };
         };
       }
@@ -95,6 +95,7 @@ const findingFor = (
   severity: "error",
   message:
     row.installationOrigin._tag === "direct" &&
+    row.installationOrigin.declared.entry.source !== undefined &&
     categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source).kind === "workspace"
       ? `${extensionLabel(row.key.type)} '${row.key.name}' declares a workspace source, but its authored canonical package is missing from the configured authored root.`
       : `${extensionLabel(row.key.type)} '${row.key.name}' is desired, but its canonical content is missing from ${canonicalDisplayRoot(scope)}.`,
@@ -103,7 +104,9 @@ const findingFor = (
 
 const hasLintableInstallSource = (row: InstalledRow): boolean => {
   if (row.installationOrigin._tag === "pack-member") return true;
-  const categorized = categorizeEntry(row.key.name, row.installationOrigin.declared.entry.source);
+  const source = row.installationOrigin.declared.entry.source;
+  if (source === undefined) return false;
+  const categorized = categorizeEntry(row.key.name, source);
   return (
     categorized.kind === "registry" ||
     categorized.kind === "workspace" ||

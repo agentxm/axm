@@ -37,9 +37,11 @@ import { decodeHandleSync, type Handle } from "../extensions/handle.js";
 import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/index.js";
 import {
   decodeExtensionNameSync,
+  extensionTypeSentenceLabels,
   isExtensionTypePlural,
   parseRegistrySourcePatternParts,
   toExtensionType,
+  toExtensionTypePlural,
 } from "../extensions/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
@@ -458,6 +460,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 export const routeNameInput = (
   name: string,
   _input: string,
+  expectedType: ExtensionType = "skill",
 ): Effect.Effect<
   Source,
   AppError,
@@ -469,19 +472,24 @@ export const routeNameInput = (
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
-        detail: "Cannot resolve the skill while the desired extension graph is incomplete.",
+        detail: `Cannot resolve the ${extensionTypeSentenceLabels[expectedType]} while the desired extension graph is incomplete.`,
         recover: "Repair or reinstall the configured packs, then retry.",
       });
     }
-    const desired = graph.nodes.find((node) => node.type === "skill" && node.name === name);
-    if (desired !== undefined) {
+    const desired = graph.nodes.find((node) => node.type === expectedType && node.name === name);
+    if (desired?.source !== undefined) {
       return yield* resolveSource(desired.source);
     }
 
     return yield* makeAppError({
       code: "validation",
-      detail: `Unknown skill "${name}".`,
-      suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
+      detail: `Unknown ${extensionTypeSentenceLabels[expectedType]} "${name}".`,
+      suggestions: [
+        {
+          description: `Inspect configured ${extensionTypeSentenceLabels[expectedType]} entries.`,
+          cmd: `axm ${toExtensionTypePlural(expectedType)} list`,
+        },
+      ],
     });
   });
 
@@ -643,6 +651,7 @@ export const resolveSlashInputSource = (
  */
 export const resolveSource = (
   input: string,
+  options?: { readonly expectedType?: ExtensionType },
 ): Effect.Effect<
   Source,
   AppError,
@@ -678,7 +687,11 @@ export const resolveSource = (
           originalInput: parsed.originalInput,
         });
       case "name-input":
-        return yield* routeNameInput(pattern.name, parsed.originalInput);
+        return yield* routeNameInput(
+          pattern.name,
+          parsed.originalInput,
+          options?.expectedType ?? "skill",
+        );
       case "file-path-pattern":
         return { type: "local" as const, path: pattern.path };
       case "registry-pattern-input":

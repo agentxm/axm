@@ -174,7 +174,7 @@ const matchesInlineMcpEntry = (args: {
   readonly agents: ReadonlyArray<ConfigurableAgentId> | undefined;
 }): boolean =>
   args.existing !== undefined &&
-  args.existing.source === "inline" &&
+  args.existing.kind === "inline" &&
   args.existing.enabled &&
   args.existing.command ===
     (args.definition.type === "stdio" ? args.definition.command : undefined) &&
@@ -400,7 +400,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
       readiness: "ready",
       run: ws
         .setMcpServerEntry(args.name, {
-          source: "inline",
+          kind: "inline",
           ...(definition.type === "stdio"
             ? { command: definition.command, args: definition.args }
             : { url: definition.url, headers: definition.headers }),

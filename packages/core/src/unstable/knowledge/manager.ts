@@ -55,7 +55,10 @@ import {
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
-import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import {
+  isSourcedDesiredExtension,
+  type DesiredStateGraph,
+} from "../workspace/desired-state-graph.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
 import {
   applyProjectionPlans,
@@ -544,7 +547,9 @@ export const KnowledgeManagerLive = Layer.effect(
         Effect.flatMap((graph) =>
           graph.complete
             ? Effect.succeed(
-                graph.nodes.filter((node) => node.type === "knowledge" && node.enabled),
+                graph.nodes
+                  .filter(isSourcedDesiredExtension)
+                  .filter((node) => node.type === "knowledge" && node.enabled),
               )
             : makeAppError({
                 code: "conflict",

@@ -43,6 +43,7 @@ import {
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
 import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
 
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
@@ -120,6 +121,11 @@ const selectedEntries = <TEntry>(
   return entries.filter(([name]) => names.has(name));
 };
 
+const hasConfiguredSource = <TEntry extends { readonly source?: string | undefined }>(
+  entry: readonly [string, TEntry],
+): entry is readonly [string, TEntry & { readonly source: string }] =>
+  entry[1].source !== undefined;
+
 export type WorkspaceUpdatePlanResult =
   | {
       readonly _tag: "NoConfiguredExtensions";
@@ -169,6 +175,29 @@ const workspaceSourceUnchangedPlan = (
               targets: [{ path: source, change: "unchanged" }],
             },
           } satisfies JobStepResult),
+        },
+      ],
+    },
+  ],
+});
+
+const workspacePlanningErrorPlan = (
+  type: InstallableExtensionType,
+  name: string,
+  error: AppError,
+): Plan => ({
+  _tag: "Plan",
+  name: `Block configured ${type} update`,
+  description: Option.some(`${name} could not be planned`),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          key: `${type}:${name}:planning-error`,
+          readiness: "ready",
+          label: name,
+          run: Effect.fail(error),
         },
       ],
     },
@@ -507,6 +536,7 @@ interface ResolvedPlanCollection {
 const collectResolvedPlan = <TIntent, RResolution, RPlan>(
   resolution: Effect.Effect<ConfiguredUpdateResolution<TIntent>, AppError, RResolution>,
   buildPlan: (intent: TIntent) => Effect.Effect<Plan, AppError, RPlan>,
+  onError: (error: AppError) => Plan,
 ) =>
   resolution.pipe(
     Effect.flatMap((resolved) =>
@@ -524,6 +554,13 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
             })),
           ),
     ),
+    Effect.catchTag("AppError", (error) =>
+      Effect.succeed<ResolvedPlanCollection>({
+        plans: [onError(error)],
+        holdbacks: [],
+        bypasses: [],
+      }),
+    ),
   );
 
 const collectedWorkspaceSourcePlan = (plan: Plan): ResolvedPlanCollection => ({
@@ -537,7 +574,9 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSkillCommandWorkflowActions;
     const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
+      hasConfiguredSource,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -551,6 +590,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("skill", name, error),
             ),
       { concurrency: "unbounded" },
     );
@@ -581,6 +621,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("rule", name, error),
             ),
       { concurrency: "unbounded" },
     );
@@ -611,6 +652,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("hook", name, error),
             ),
       { concurrency: "unbounded" },
     );
@@ -641,6 +683,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolveKnowledgeIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("knowledge", name, error),
             ),
       { concurrency: "unbounded" },
     );
@@ -657,7 +700,9 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallSubagentCommandWorkflowActions;
     const configured = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
+      hasConfiguredSource,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -671,6 +716,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolveSubagentIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("subagent", name, error),
             ),
       { concurrency: "unbounded" },
     );
@@ -692,16 +738,19 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const resolved = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("mcp-server", name, entry.source, ws.scope),
+        entry.source === undefined
+          ? Effect.succeed(collectedWorkspaceSourcePlan(inlineMcpNotApplicablePlan(name, "update")))
+          : isWorkspaceSourceLocator(entry.source)
+            ? Effect.succeed(
+                collectedWorkspaceSourcePlan(
+                  workspaceSourceUnchangedPlan("mcp-server", name, entry.source, ws.scope),
+                ),
+              )
+            : collectResolvedPlan(
+                resolveMcpServerIntent(name, entry.source, selection.releaseAgeEvaluation),
+                (intent) => actions.buildPlan(intent),
+                (error) => workspacePlanningErrorPlan("mcp-server", name, error),
               ),
-            )
-          : collectResolvedPlan(
-              resolveMcpServerIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => actions.buildPlan(intent),
-            ),
       { concurrency: "unbounded" },
     );
 
@@ -717,7 +766,9 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const ws = yield* WorkspaceMutations;
     const actions = yield* InstallPackCommandWorkflowActions;
     const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
-    const entries = selectedEntries(Object.entries(configured), selection);
+    const entries = selectedEntries(Object.entries(configured), selection).filter(
+      hasConfiguredSource,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -731,6 +782,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : collectResolvedPlan(
               resolvePackRef(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => actions.buildPlan(intent),
+              (error) => workspacePlanningErrorPlan("pack", name, error),
             ),
       { concurrency: "unbounded" },
     );

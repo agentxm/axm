@@ -65,6 +65,9 @@ Sync realizes configured agents, instruction-file behavior, and inline MCP
 definitions without inventing extension archives, canonical copies, or lock
 rows. It does not add detected agents, enable instruction management, choose a
 different canonical instruction file, or activate a disabled contributor.
+Inline MCP definitions are sync-owned reconciliation inputs: their command or
+URL transport is projected directly from workspace configuration without a
+source-resolution step.
 
 ## Accepted resolution and source availability
 

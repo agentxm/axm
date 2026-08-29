@@ -229,6 +229,25 @@ describe("resolveSource", () => {
     );
   });
 
+  describe("typed name resolution", () => {
+    it.effect("reports an unknown MCP server with MCP-specific recovery", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          resolveSource("missing-server", { expectedType: "mcp-server" }).pipe(
+            Effect.provide(makeWorkspaceLayer(BUILT_IN_SOURCES)),
+          ),
+        );
+        expect(error.detail).toBe('Unknown MCP server "missing-server".');
+        expect(error.suggestions).toEqual([
+          {
+            description: "Inspect configured MCP server entries.",
+            cmd: "axm mcps list",
+          },
+        ]);
+      }),
+    );
+  });
+
   describe("registry resolution", () => {
     it.effect("resolves @owner/skills/name with registry host config", () =>
       Effect.gen(function* () {

@@ -744,6 +744,7 @@ export const installMcpServer: (
     const enabled = currentEntry?.enabled ?? true;
     const agents = op.args.agents ?? currentEntry?.agents;
     const settingsEntry: McpServerEntry = {
+      kind: "sourced",
       source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
       env: persistedEnv,
       enabled,

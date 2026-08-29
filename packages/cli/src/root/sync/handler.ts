@@ -94,6 +94,7 @@ import {
   acceptedCanonicalObservation,
   cleanupStaleManagedSubagentFiles,
   makeConfiguredReleaseAgeEvaluation,
+  isSourcedDesiredExtension,
   WorkspaceMutations,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -326,7 +327,7 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
 );
 
 const resolveDesiredExtensionRef = (
-  node: DesiredExtensionNode,
+  node: DesiredExtensionNode & { readonly source: string },
   canonicalStatus: CanonicalObservationStatus,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   constraintDetail?: string,
@@ -474,8 +475,7 @@ const buildMcpServerSyncOperation = ({
   };
 };
 
-const isInlineMcpServerEntry = (entry: McpServerEntry): boolean =>
-  entry.source === "inline" && (entry.command !== undefined || entry.url !== undefined);
+const isInlineMcpServerEntry = (entry: McpServerEntry): boolean => entry.kind === "inline";
 
 const buildInlineMcpServerSyncOperation = ({
   name,
@@ -796,12 +796,9 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   }
 
   const reconciled = yield* Effect.forEach(
-    selectedDesiredNodes(desiredState, selection).filter(
-      (node) =>
-        node.enabled &&
-        node.type !== "pack" &&
-        !(node.type === "mcp-server" && node.source === "inline"),
-    ),
+    selectedDesiredNodes(desiredState, selection)
+      .filter(isSourcedDesiredExtension)
+      .filter((node) => node.enabled && node.type !== "pack"),
     (node) =>
       Effect.gen(function* () {
         const canonical = yield* acceptedCanonicalObservation({

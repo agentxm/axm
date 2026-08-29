@@ -112,7 +112,7 @@ export const canonicalPathForAcceptedExtension = (
   desired: DesiredExtensionNode,
   accepted: AcceptedExtensionResolution | undefined,
 ): string | undefined => {
-  if (desired.source === "inline") return undefined;
+  if (desired.source === undefined) return undefined;
   if (desired.identity.startsWith("bundled:")) {
     return layout.scope === "project"
       ? path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name)
@@ -176,7 +176,7 @@ const parseJson = (raw: string): unknown | undefined => {
 
 const constraintMismatchObservation = (args: {
   readonly path: Path.Path;
-  readonly desired: DesiredExtensionNode;
+  readonly desired: DesiredExtensionNode & { readonly source: string };
   readonly canonicalPath?: string;
   readonly acceptedVersion?: string;
   readonly observedVersion?: string;
@@ -207,7 +207,7 @@ export const observeCanonicalExtension = ({
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (desired.type === "mcp-server" && desired.source === "inline") {
+    if (desired.source === undefined) {
       return {
         type: desired.type,
         name: desired.name,

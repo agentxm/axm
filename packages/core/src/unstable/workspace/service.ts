@@ -1792,6 +1792,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
             const currentEnv = currentMcpServers[name]?.env ?? {};
             const currentAgents = currentMcpServers[name]?.agents;
             const settingsEntry = {
+              kind: "sourced" as const,
               source:
                 lockEntry.type === "registry"
                   ? (() => {

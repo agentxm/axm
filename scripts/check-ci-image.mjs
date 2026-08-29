@@ -15,6 +15,7 @@ const workspaceConfig = read("pnpm-workspace.yaml");
 const project = read("project.json");
 const projectManifest = JSON.parse(project);
 const workflow = read(".github/workflows/ci-image.yml");
+const publishWorkflow = read(".github/workflows/ci-image-publish.yml");
 const workflowSources = readdirSync(".github/workflows")
   .filter((path) => path.endsWith(".yml") || path.endsWith(".yaml"))
   .map((path) => [path, read(`.github/workflows/${path}`)]);
@@ -47,6 +48,17 @@ const activeSmoke = activeSmokeMatch?.[1] ?? "";
 const requireText = (subject, text, message) => {
   if (!subject.includes(text)) errors.push(message);
 };
+
+if (publishWorkflow.includes("containers/ci/**")) {
+  errors.push("CI image publication must not run for consumer-only CI_IMAGE changes");
+}
+for (const path of [
+  "containers/ci/Containerfile",
+  "containers/ci/.dockerignore",
+  "containers/ci/VERSION",
+]) {
+  requireText(publishWorkflow, path, `CI image publication must watch producer input ${path}`);
+}
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   errors.push("containers/ci/VERSION must contain one semantic version");

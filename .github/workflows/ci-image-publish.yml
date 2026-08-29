@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - containers/ci/**
+      - containers/ci/Containerfile
+      - containers/ci/.dockerignore
+      - containers/ci/VERSION
       - scripts/check-ci-image.mjs
       - .github/workflows/ci-image.yml
       - .github/workflows/ci-image-publish.yml

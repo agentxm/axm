@@ -1,6 +1,5 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -44,191 +43,185 @@ export interface ParsedRuleInstallArgs {
 
 export type RuleInstallSourceRequest = ParsedRuleInstallArgs;
 
-export class InstallRuleCommandWorkflowActions extends ServiceMap.Service<
-  InstallRuleCommandWorkflowActions,
-  InstallExtensionCommandWorkflowActions<
-    InstallRuleHandlerArgs,
-    ParsedRuleInstallArgs,
-    RuleInstallSourceRequest,
-    RuleExtensionRef,
-    InstallRuleCommandIntent
-  >
->()("axm.sh/root/rules/install/command-actions/InstallRuleCommandWorkflowActions") {}
+type InstallRuleActions = InstallExtensionCommandWorkflowActions<
+  InstallRuleHandlerArgs,
+  ParsedRuleInstallArgs,
+  RuleInstallSourceRequest,
+  RuleExtensionRef,
+  InstallRuleCommandIntent
+>;
 
-export const InstallRuleCommandWorkflowActionsLive = Layer.effect(
-  InstallRuleCommandWorkflowActions,
-  Effect.gen(function* () {
-    const sources = yield* SourceHostProviders;
-    const httpClient = yield* HttpClient.HttpClient;
-    const ws = yield* WorkspaceMutations;
-    const ruleManager = yield* RuleManager;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
+export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
+  const sources = yield* SourceHostProviders;
+  const httpClient = yield* HttpClient.HttpClient;
+  const ws = yield* WorkspaceMutations;
+  const ruleManager = yield* RuleManager;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
 
-    const envLayer = Layer.mergeAll(
-      Layer.succeed(SourceHostProviders, sources),
-      Layer.succeed(HttpClient.HttpClient, httpClient),
-      Layer.succeed(WorkspaceMutations, ws),
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
+  const envLayer = Layer.mergeAll(
+    Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(HttpClient.HttpClient, httpClient),
+    Layer.succeed(WorkspaceMutations, ws),
+    Layer.succeed(FileSystem.FileSystem, fs),
+    Layer.succeed(Path.Path, path),
+  );
+  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 
-    const parseArgs = (
-      args: InstallRuleHandlerArgs,
-    ): Effect.Effect<ParsedRuleInstallArgs, AppError> =>
-      provide(
-        Effect.gen(function* () {
-          const input = args.source.trim();
-          const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
-          const source = yield* resolveSource(input).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid rule source: ${error.message}`,
-                cause: error,
-              }),
-            ),
-          );
-
-          const names = parsed?.type === "rules" && parsed.name !== undefined ? [parsed.name] : [];
-
-          return {
-            source,
-            names,
-            owner:
-              parsed?.type === "rules"
-                ? Option.some(parsed.owner)
-                : source.type === "registry"
-                  ? source.owner
-                  : Option.none<Handle>(),
-            versionRange:
-              source.type === "registry" && parsed?.type === "rules"
-                ? Option.fromUndefinedOr(parsed.versionRange)
-                : Option.none<VersionRange>(),
-          };
-        }),
-      );
-
-    const resolveSourceRequests = (parsed: ParsedRuleInstallArgs) => Effect.succeed([parsed]);
-
-    const discoverRefs = (reqs: ReadonlyArray<RuleInstallSourceRequest>) =>
+  const parseArgs = (
+    args: InstallRuleHandlerArgs,
+  ): Effect.Effect<ParsedRuleInstallArgs, AppError> =>
+    provide(
       Effect.gen(function* () {
-        const discovered = yield* Effect.forEach(
-          reqs,
-          (req) =>
-            sources
-              .find(req.source, {
-                names: req.names,
-                type: "rule",
-                owner: req.owner,
-                versionRange: req.versionRange,
-              })
-              .pipe(
-                Effect.map((refs) =>
-                  refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule"),
-                ),
-              ),
-          { concurrency: "unbounded" },
-        );
-        return discovered.flat();
-      });
-
-    const finalizeIntent = (
-      parsed: ParsedRuleInstallArgs,
-      refs: ReadonlyArray<RuleExtensionRef>,
-    ): Effect.Effect<InstallRuleCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        if (refs.length === 0) {
-          const suggestions =
-            parsed.source.type === "registry"
-              ? yield* loginSuggestionsFor([parsed.source.location.href])
-              : [];
-          return yield* makeAppError({
-            code: "not_found",
-            detail: "No rules found in source",
-            suggestions,
-          });
-        }
-        return {
-          refs: refs.map((ref) => ({
-            ref,
-            versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
-          })),
-        };
-      });
-
-    const buildPlan = (intent: InstallRuleCommandIntent): Effect.Effect<Plan, AppError> => {
-      const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
-      const memberSteps = intent.refs.map(({ ref, versionRange }) =>
-        buildInstallOperation(ruleManager, {
-          ref,
-          versionRange,
-          skipProjections: deferProjections,
-          installedBefore: ruleManager.isInstalled({
-            target: { type: "rule", name: ref.rule.name },
-          }),
-          buildArtifact: ({ installedBefore }) =>
-            Effect.gen(function* () {
-              const materialization =
-                ruleManager.getLastMaterialization === undefined
-                  ? { agents: [], targets: [] }
-                  : yield* ruleManager.getLastMaterialization({
-                      target: { type: "rule", name: ref.rule.name },
-                    });
-              const change: JobStepArtifact["change"] = installedBefore ? "updated" : "created";
-              const targets = materialization.targets.map((target) => ({
-                path: target.path,
-                change,
-                ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
-              }));
-              return {
-                path: targets[0]?.path ?? ref.rule.name,
-                scope: ws.scope,
-                agents: materialization.agents,
-                ...(ref.refType === "registry" ? { version: ref.version } : {}),
-                change,
-                ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-              } satisfies JobStepArtifact;
+        const input = args.source.trim();
+        const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
+        const source = yield* resolveSource(input).pipe(
+          Effect.mapError((error) =>
+            makeAppError({
+              code: "validation",
+              detail: `Invalid rule source: ${error.message}`,
+              cause: error,
             }),
-        }),
-      );
-      const projectionSteps: ReadonlyArray<PlannedJobStep> =
-        deferProjections && intent.deferProjections !== true
-          ? [
-              {
-                key: "projection:rule:instructions-region",
-                label: "rule projections",
-                readiness: "ready",
-                run: applyPlannedProjections(ruleManager).pipe(
-                  Effect.as({
-                    result: "success",
-                    message: "Rendered installed Rules from the complete contributor set",
-                  } satisfies JobStepResult),
-                ),
-              },
-            ]
-          : [];
-      return Effect.succeed({
-        _tag: "Plan",
-        name: "Install rules",
-        description: Option.some("Install rule"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: [...memberSteps, ...projectionSteps],
-          },
-        ],
-      } satisfies Plan);
-    };
+          ),
+        );
 
-    return {
-      parseArgs,
-      resolveSourceRequests,
-      discoverRefs,
-      finalizeIntent,
-      buildPlan,
-    };
-  }),
-);
+        const names = parsed?.type === "rules" && parsed.name !== undefined ? [parsed.name] : [];
+
+        return {
+          source,
+          names,
+          owner:
+            parsed?.type === "rules"
+              ? Option.some(parsed.owner)
+              : source.type === "registry"
+                ? source.owner
+                : Option.none<Handle>(),
+          versionRange:
+            source.type === "registry" && parsed?.type === "rules"
+              ? Option.fromUndefinedOr(parsed.versionRange)
+              : Option.none<VersionRange>(),
+        };
+      }),
+    );
+
+  const resolveSourceRequests = (parsed: ParsedRuleInstallArgs) => Effect.succeed([parsed]);
+
+  const discoverRefs = (reqs: ReadonlyArray<RuleInstallSourceRequest>) =>
+    Effect.gen(function* () {
+      const discovered = yield* Effect.forEach(
+        reqs,
+        (req) =>
+          sources
+            .find(req.source, {
+              names: req.names,
+              type: "rule",
+              owner: req.owner,
+              versionRange: req.versionRange,
+            })
+            .pipe(
+              Effect.map((refs) =>
+                refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule"),
+              ),
+            ),
+        { concurrency: "unbounded" },
+      );
+      return discovered.flat();
+    });
+
+  const finalizeIntent = (
+    parsed: ParsedRuleInstallArgs,
+    refs: ReadonlyArray<RuleExtensionRef>,
+  ): Effect.Effect<InstallRuleCommandIntent, AppError> =>
+    Effect.gen(function* () {
+      if (refs.length === 0) {
+        const suggestions =
+          parsed.source.type === "registry"
+            ? yield* loginSuggestionsFor([parsed.source.location.href])
+            : [];
+        return yield* makeAppError({
+          code: "not_found",
+          detail: "No rules found in source",
+          suggestions,
+        });
+      }
+      return {
+        refs: refs.map((ref) => ({
+          ref,
+          versionRange: ref.refType === "registry" ? parsed.versionRange : Option.none(),
+        })),
+      };
+    });
+
+  const buildPlan = (intent: InstallRuleCommandIntent): Effect.Effect<Plan, AppError> => {
+    const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
+    const memberSteps = intent.refs.map(({ ref, versionRange }) =>
+      buildInstallOperation(ruleManager, {
+        ref,
+        versionRange,
+        skipProjections: deferProjections,
+        installedBefore: ruleManager.isInstalled({
+          target: { type: "rule", name: ref.rule.name },
+        }),
+        buildArtifact: ({ installedBefore }) =>
+          Effect.gen(function* () {
+            const materialization =
+              ruleManager.getLastMaterialization === undefined
+                ? { agents: [], targets: [] }
+                : yield* ruleManager.getLastMaterialization({
+                    target: { type: "rule", name: ref.rule.name },
+                  });
+            const change: JobStepArtifact["change"] = installedBefore ? "updated" : "created";
+            const targets = materialization.targets.map((target) => ({
+              path: target.path,
+              change,
+              ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
+            }));
+            return {
+              path: targets[0]?.path ?? ref.rule.name,
+              scope: ws.scope,
+              agents: materialization.agents,
+              ...(ref.refType === "registry" ? { version: ref.version } : {}),
+              change,
+              ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
+            } satisfies JobStepArtifact;
+          }),
+      }),
+    );
+    const projectionSteps: ReadonlyArray<PlannedJobStep> =
+      deferProjections && intent.deferProjections !== true
+        ? [
+            {
+              key: "projection:rule:instructions-region",
+              label: "rule projections",
+              readiness: "ready",
+              run: applyPlannedProjections(ruleManager).pipe(
+                Effect.as({
+                  result: "success",
+                  message: "Rendered installed Rules from the complete contributor set",
+                } satisfies JobStepResult),
+              ),
+            },
+          ]
+        : [];
+    return Effect.succeed({
+      _tag: "Plan",
+      name: "Install rules",
+      description: Option.some("Install rule"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [...memberSteps, ...projectionSteps],
+        },
+      ],
+    } satisfies Plan);
+  };
+
+  return {
+    parseArgs,
+    resolveSourceRequests,
+    discoverRefs,
+    finalizeIntent,
+    buildPlan,
+  };
+}).pipe(Effect.map((actions): InstallRuleActions => actions));

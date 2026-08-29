@@ -267,9 +267,6 @@ export const resolvePlatformBinary = (platform: string, arch: string) => {
   return target === undefined ? Option.none<PlatformBinaryInfo>() : Option.some(target);
 };
 
-export const makeDownloadUrl = (repo: string, version: string, binaryName: string) =>
-  `https://github.com/${repo}/releases/download/cli-v${version}/${binaryName}`;
-
 const displayArgument = (argument: string): string =>
   /^[A-Za-z0-9_./:@=-]+$/u.test(argument) ? argument : `'${argument.replaceAll("'", "'\\''")}'`;
 

@@ -1,4 +1,3 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -52,12 +51,7 @@ interface ParsedKnowledgeInstallArgs {
   readonly versionRange: Option.Option<VersionRange>;
 }
 
-export class InstallKnowledgeCommandWorkflowActions extends ServiceMap.Service<
-  InstallKnowledgeCommandWorkflowActions,
-  KnowledgeInstallActions
->()("axm.sh/root/knowledge/install/command-actions/InstallKnowledgeCommandWorkflowActions") {}
-
-const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
+export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
   const httpClient = yield* HttpClient.HttpClient;
   const manager = yield* KnowledgeManager;
@@ -210,9 +204,4 @@ const makeInstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
       } satisfies Plan);
     },
   } satisfies KnowledgeInstallActions;
-});
-
-export const InstallKnowledgeCommandWorkflowActionsLive = Layer.effect(
-  InstallKnowledgeCommandWorkflowActions,
-  makeInstallKnowledgeCommandWorkflowActions,
-);
+}).pipe(Effect.map((actions): KnowledgeInstallActions => actions));

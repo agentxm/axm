@@ -19,11 +19,12 @@ import { operationPresentation } from "@agentxm/client-core/unstable/plan";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 import {
-  InstallSubagentCommandWorkflowActions,
-  InstallSubagentCommandWorkflowActionsLive,
-} from "./command-actions.js";
-import { handleInstall, type InstallSubagentHandlerArgs } from "./handler.js";
+  handleInstall,
+  handleInstallWithActions,
+  type InstallSubagentHandlerArgs,
+} from "./handler.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -107,21 +108,12 @@ describe("subagents install handler — error propagation", () => {
         CodingAgentRepositoryLive,
       ),
     );
-    const ActionsLayer = Layer.provide(
-      InstallSubagentCommandWorkflowActionsLive,
-      Layer.mergeAll(
-        handlerTestContext.baseLayer,
-        handlerTestContext.wsLayer,
-        SPLayer,
-        SMLayer,
-        CodingAgentRepositoryLive,
-      ),
-    );
     const FullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
-      ActionsLayer,
+      SMLayer,
+      CodingAgentRepositoryLive,
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -136,7 +128,7 @@ describe("subagents install handler — error propagation", () => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       machine: options?.machine,
     });
-    const actionsLayer = Layer.succeed(InstallSubagentCommandWorkflowActions, {
+    const actions = {
       parseArgs: () =>
         Effect.succeed({
           source: { type: "local" as const, path: tempDir },
@@ -156,16 +148,17 @@ describe("subagents install handler — error propagation", () => {
           description: Option.none<string>(),
           jobs: [{ concurrency: 1 as const, steps: [] }],
         }),
-    });
-    const fullLayer = Layer.mergeAll(
-      handlerTestContext.baseLayer,
-      handlerTestContext.wsLayer,
-      actionsLayer,
-    );
+    } satisfies Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
+    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
     const provide = makeEffectProvide(fullLayer);
+    const handleTestInstall = (
+      args: InstallSubagentHandlerArgs,
+      flags: Parameters<typeof handleInstall>[1],
+    ) => handleInstallWithActions(args, flags, actions);
 
     return {
       provide,
+      handleInstall: handleTestInstall,
       logs: handlerTestContext.logs,
       rendererState: handlerTestContext.rendererState,
     };
@@ -173,7 +166,7 @@ describe("subagents install handler — error propagation", () => {
 
   const makeUnchangedInstallLayers = () => {
     const handlerTestContext = makeWorkspaceHandlerTestContext();
-    const actionsLayer = Layer.succeed(InstallSubagentCommandWorkflowActions, {
+    const actions = {
       parseArgs: () =>
         Effect.succeed({
           source: { type: "local" as const, path: tempDir },
@@ -223,16 +216,17 @@ describe("subagents install handler — error propagation", () => {
             },
           ],
         }),
-    });
-    const fullLayer = Layer.mergeAll(
-      handlerTestContext.baseLayer,
-      handlerTestContext.wsLayer,
-      actionsLayer,
-    );
+    } satisfies Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
+    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
     const provide = makeEffectProvide(fullLayer);
+    const handleTestInstall = (
+      args: InstallSubagentHandlerArgs,
+      flags: Parameters<typeof handleInstall>[1],
+    ) => handleInstallWithActions(args, flags, actions);
 
     return {
       provide,
+      handleInstall: handleTestInstall,
       logs: handlerTestContext.logs,
       rendererState: handlerTestContext.rendererState,
     };
@@ -298,7 +292,7 @@ describe("subagents install handler — error propagation", () => {
   });
 
   it.effect("reports no-op when interactive selection chooses no subagents", () => {
-    const { provide, logs } = makeNoSelectionLayers();
+    const { provide, handleInstall, logs } = makeNoSelectionLayers();
 
     return provide(
       Effect.gen(function* () {
@@ -315,7 +309,7 @@ describe("subagents install handler — error propagation", () => {
   });
 
   it.effect("does not append the empty-selection message when install is unchanged", () => {
-    const { provide, logs, rendererState } = makeUnchangedInstallLayers();
+    const { provide, handleInstall, logs, rendererState } = makeUnchangedInstallLayers();
 
     return provide(
       Effect.gen(function* () {
@@ -334,7 +328,9 @@ describe("subagents install handler — error propagation", () => {
   });
 
   it.effect("emits JSON no-op when interactive selection chooses no subagents", () => {
-    const { provide, logs, rendererState } = makeNoSelectionLayers({ machine: true });
+    const { provide, handleInstall, logs, rendererState } = makeNoSelectionLayers({
+      machine: true,
+    });
 
     return provide(
       Effect.gen(function* () {

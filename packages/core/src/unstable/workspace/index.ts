@@ -276,7 +276,6 @@ export {
   readFootprint,
   recordFootprint,
   type FootprintObservation,
-  type FootprintRecorderService,
 } from "./footprint-recorder.js";
 export {
   TRANSITION_WAIT_BOUND_MILLIS,

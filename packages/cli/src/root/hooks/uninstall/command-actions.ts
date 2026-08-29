@@ -1,6 +1,4 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
@@ -35,6 +33,12 @@ export interface UninstallHookHandlerArgs {
 export interface ParsedHookUninstallArgs {
   readonly name: string;
 }
+
+type UninstallHookActions = UninstallExtensionCommandWorkflowActions<
+  UninstallHookHandlerArgs,
+  ParsedHookUninstallArgs,
+  UninstallHookCommandIntent
+>;
 
 const hookUninstallArtifactTargets = (
   entry: Option.Option<HookLockEntry>,
@@ -107,70 +111,55 @@ const withHookUninstallArtifact = (args: {
   };
 };
 
-export class UninstallHookCommandWorkflowActions extends ServiceMap.Service<
-  UninstallHookCommandWorkflowActions,
-  UninstallExtensionCommandWorkflowActions<
-    UninstallHookHandlerArgs,
-    ParsedHookUninstallArgs,
-    UninstallHookCommandIntent
-  >
->()("axm.sh/root/hooks/uninstall/command-actions/UninstallHookCommandWorkflowActions") {}
+export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const hookManager = yield* HookManager;
 
-export const UninstallHookCommandWorkflowActionsLive = Layer.effect(
-  UninstallHookCommandWorkflowActions,
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const hookManager = yield* HookManager;
+  const parseArgs = (args: UninstallHookHandlerArgs) => Effect.succeed({ name: args.name.trim() });
 
-    const parseArgs = (args: UninstallHookHandlerArgs) =>
-      Effect.succeed({ name: args.name.trim() });
+  const finalizeIntent = (
+    parsed: ParsedHookUninstallArgs,
+  ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
+    Effect.gen(function* () {
+      const target: HookExtensionTarget = { type: "hook", name: parsed.name };
+      const configured =
+        hookManager.getConfiguredSource === undefined
+          ? Option.none<string>()
+          : yield* hookManager.getConfiguredSource({ target });
+      const installed = yield* hookManager.isInstalled({ target });
+      if (Option.isNone(configured) && !installed) {
+        return { targets: [] };
+      }
+      return { targets: [target] };
+    });
 
-    const finalizeIntent = (
-      parsed: ParsedHookUninstallArgs,
-    ): Effect.Effect<UninstallHookCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        const target: HookExtensionTarget = { type: "hook", name: parsed.name };
-        const configured =
-          hookManager.getConfiguredSource === undefined
-            ? Option.none<string>()
-            : yield* hookManager.getConfiguredSource({ target });
-        const installed = yield* hookManager.isInstalled({ target });
-        if (Option.isNone(configured) && !installed) {
-          return { targets: [] };
-        }
-        return { targets: [target] };
-      });
+  const buildUninstallPlan = (intent: UninstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
+    Effect.succeed({
+      _tag: "Plan",
+      name: "Uninstall hooks",
+      description: Option.some("Uninstall hooks package"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: intent.targets.map((target) =>
+            withHookUninstallArtifact({
+              step: buildUninstallOperation<HookExtensionRef>(
+                hookManager,
+                makeWorkspaceRetentionPolicy(ws),
+                { target },
+              ),
+              scope: ws.scope,
+              targetName: target.name,
+              ws,
+            }),
+          ),
+        },
+      ],
+    } satisfies Plan);
 
-    const buildUninstallPlan = (
-      intent: UninstallHookCommandIntent,
-    ): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall hooks",
-        description: Option.some("Uninstall hooks package"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: intent.targets.map((target) =>
-              withHookUninstallArtifact({
-                step: buildUninstallOperation<HookExtensionRef>(
-                  hookManager,
-                  makeWorkspaceRetentionPolicy(ws),
-                  { target },
-                ),
-                scope: ws.scope,
-                targetName: target.name,
-                ws,
-              }),
-            ),
-          },
-        ],
-      } satisfies Plan);
-
-    return {
-      parseArgs,
-      finalizeIntent,
-      buildUninstallPlan,
-    };
-  }),
-);
+  return {
+    parseArgs,
+    finalizeIntent,
+    buildUninstallPlan,
+  };
+}).pipe(Effect.map((actions): UninstallHookActions => actions));

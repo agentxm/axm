@@ -3,9 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -15,34 +13,29 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-helpers.js";
-import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
-import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
-import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
-import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import { handleWorkspaceUpdateWithActions } from "./workspace-update-handler.js";
+import type { InstallCommandActions } from "../shared/install-command-actions.js";
 
-const unusedInstallHookActions = {
+const unusedInstallActions = {
   parseArgs: () => Effect.die("unused"),
   resolveSourceRequests: () => Effect.die("unused"),
   discoverRefs: () => Effect.die("unused"),
   finalizeIntent: () => Effect.die("unused"),
   buildPlan: () => Effect.die("unused"),
-} satisfies ServiceMap.Service.Shape<typeof InstallHookCommandWorkflowActions>;
+};
 
-const unusedInstallKnowledgeActions = {
-  parseArgs: () => Effect.die("unused"),
-  resolveSourceRequests: () => Effect.die("unused"),
-  discoverRefs: () => Effect.die("unused"),
-  finalizeIntent: () => Effect.die("unused"),
-  buildPlan: () => Effect.die("unused"),
-} satisfies ServiceMap.Service.Shape<typeof InstallKnowledgeCommandWorkflowActions>;
+const workspaceUpdateActions = {
+  skill: unusedInstallActions,
+  rule: unusedInstallActions,
+  hook: unusedInstallActions,
+  knowledge: unusedInstallActions,
+  subagent: unusedInstallActions,
+  mcpServer: unusedInstallActions,
+  pack: unusedInstallActions,
+} satisfies InstallCommandActions;
 
-const unusedInstallMcpServerActions = {
-  parseArgs: () => Effect.die("unused"),
-  resolveSourceRequests: () => Effect.die("unused"),
-  discoverRefs: () => Effect.die("unused"),
-  finalizeIntent: () => Effect.die("unused"),
-  buildPlan: () => Effect.die("unused"),
-} satisfies ServiceMap.Service.Shape<typeof InstallMcpServerCommandWorkflowActions>;
+const handleWorkspaceUpdate = (args: Parameters<typeof handleWorkspaceUpdateWithActions>[0]) =>
+  handleWorkspaceUpdateWithActions(args, workspaceUpdateActions);
 
 describe("workspace update handler output", () => {
   let tempDir: string;
@@ -61,10 +54,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits hooks update JSON no-op for an empty hooks configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallHookCommandWorkflowActions, unusedInstallHookActions),
-    );
+    const fullLayer = ctx.fullLayer;
     const provide = makeEffectProvide(fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
@@ -91,10 +81,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits knowledge update JSON no-op for an empty knowledge configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallKnowledgeCommandWorkflowActions, unusedInstallKnowledgeActions),
-    );
+    const fullLayer = ctx.fullLayer;
     const provide = makeEffectProvide(fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
@@ -121,10 +108,7 @@ describe("workspace update handler output", () => {
 
   it.effect("emits MCP update JSON no-op for an empty MCP server configuration", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallMcpServerCommandWorkflowActions, unusedInstallMcpServerActions),
-    );
+    const fullLayer = ctx.fullLayer;
     const provide = makeEffectProvide(fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
@@ -151,10 +135,7 @@ describe("workspace update handler output", () => {
 
   it.effect("reports inline MCP servers as sync-owned without source resolution", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallMcpServerCommandWorkflowActions, unusedInstallMcpServerActions),
-    );
+    const fullLayer = ctx.fullLayer;
     const provide = makeEffectProvide(fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
@@ -195,10 +176,7 @@ describe("workspace update handler output", () => {
 
   it.effect("keeps independent MCP planning results when one source is invalid", () => {
     const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(InstallMcpServerCommandWorkflowActions, unusedInstallMcpServerActions),
-    );
+    const fullLayer = ctx.fullLayer;
     const provide = makeEffectProvide(fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {

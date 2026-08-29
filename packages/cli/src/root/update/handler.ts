@@ -42,30 +42,13 @@ import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions"
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  type InstallMcpServerHandlerArgs,
-} from "../mcps/install/command-actions.js";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "../hooks/install/command-actions.js";
-import {
-  InstallKnowledgeCommandWorkflowActions,
-  type InstallKnowledgeHandlerArgs,
-} from "../knowledge/install/command-actions.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "../packs/install/command-actions.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "../rules/install/command-actions.js";
-import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
-import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
+import { type InstallMcpServerHandlerArgs } from "../mcps/install/command-actions.js";
+import { type InstallHookHandlerArgs } from "../hooks/install/command-actions.js";
+import { type InstallKnowledgeHandlerArgs } from "../knowledge/install/command-actions.js";
+import { type InstallPackHandlerArgs } from "../packs/install/command-actions.js";
+import { type InstallRuleHandlerArgs } from "../rules/install/command-actions.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./resolve-root-update-intent.js";
-import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import { handleWorkspaceUpdateWithActions } from "./workspace-update-handler.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { buildPackMemberInstallStep } from "../packs/member-install-step.js";
 import {
@@ -74,6 +57,10 @@ import {
   type TargetedUpdatePublicContext,
 } from "./targeted-update-context.js";
 import { TARGETED_UPDATE_STALE_DETAIL, wrapTargetedUpdatePlan } from "./targeted-update-plan.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -90,16 +77,16 @@ export interface RootUpdateHandlerArgs extends RootUpdateFlags {
 const runUpdateIntent = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
+  actions: InstallCommandActions,
   releaseAgeEvaluation?: ReleaseAgeEvaluation,
   transformPlan?: (plan: Plan) => Effect.Effect<Plan, AppError, WorkspaceMutations>,
 ) =>
   Effect.gen(function* () {
     switch (intent.type) {
       case "skill": {
-        const actions = yield* InstallSkillCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
-          actions,
+          actions.skill,
           {
             execution,
             ...(transformPlan === undefined ? {} : { transformPlan }),
@@ -114,18 +101,16 @@ const runUpdateIntent = (
         );
       }
       case "mcp-server": {
-        const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, {
+        return yield* runInstallCommandWorkflow(mcpArgs, actions.mcpServer, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
         });
       }
       case "rule": {
-        const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, {
+        return yield* runInstallCommandWorkflow(ruleArgs, actions.rule, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -138,9 +123,8 @@ const runUpdateIntent = (
         });
       }
       case "hook": {
-        const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, {
+        return yield* runInstallCommandWorkflow(hookArgs, actions.hook, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -153,9 +137,8 @@ const runUpdateIntent = (
         });
       }
       case "knowledge": {
-        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions.knowledge, {
           execution,
           ...(transformPlan === undefined ? {} : { transformPlan }),
           transformIntent: (resolved) => ({
@@ -168,10 +151,9 @@ const runUpdateIntent = (
         });
       }
       case "subagent": {
-        const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
-          actions,
+          actions.subagent,
           {
             execution,
             ...(transformPlan === undefined ? {} : { transformPlan }),
@@ -186,7 +168,6 @@ const runUpdateIntent = (
         );
       }
       case "pack": {
-        const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = {
           source: intent.source,
           unattended: true,
@@ -197,7 +178,7 @@ const runUpdateIntent = (
                 releaseAgeHoldbackBehavior: "preserve-or-block",
               }),
         };
-        return yield* runInstallCommandWorkflow(packArgs, actions, {
+        return yield* runInstallCommandWorkflow(packArgs, actions.pack, {
           execution,
           transformIntent: (resolved) => ({ ...resolved, versionRange: intent.versionRange }),
         });
@@ -519,6 +500,7 @@ const resolveTargetedUpdate = (
   intent: RootUpdateIntent,
   execution: PlanExecution,
   ignoreReleaseAge: boolean,
+  actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
     let targetedContext: TargetedUpdateContext | undefined;
@@ -625,6 +607,7 @@ const resolveTargetedUpdate = (
       resolution = yield* runUpdateIntent(
         exactIntent,
         execution,
+        actions,
         releaseAgeEvaluation,
         targetedContext === undefined
           ? (plan) =>
@@ -687,7 +670,10 @@ const resolveTargetedUpdate = (
     } satisfies TargetedUpdateResolution;
   });
 
-export const handleUpdate = (args: RootUpdateHandlerArgs) =>
+const handleUpdateWithActionEffect = <R>(
+  args: RootUpdateHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: "update",
@@ -699,47 +685,59 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         gerund: "Updating",
       }),
     },
-    handleUpdateBody(args),
+    Effect.flatMap(actionsEffect, (actions) => handleUpdateBody(args, actions)),
   );
 
-const handleUpdateBody = (args: RootUpdateHandlerArgs) =>
-  Option.match(args.source, {
-    onNone: () =>
-      handleWorkspaceUpdate({
-        command: "update",
-        type: Option.none(),
-        planName: "Update configured extensions",
-        planDescription: Option.some("Update configured workspace extensions"),
-        flags: args,
-      }),
-    onSome: (source) =>
-      Effect.gen(function* () {
-        const execution = yield* makePlanExecution(
-          args,
-          makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
-            recoverySwitch("--refresh", args.force),
-            recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
-            recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
-          ]),
-        );
-        const intent = yield* resolveRootUpdateIntent(source);
-        const resolved = yield* resolveTargetedUpdate(
-          intent,
-          execution,
-          args.ignoreReleaseAge === true,
-        );
-        const outputResolution = resolved.resolution;
-        yield* setCommandSemanticProperties(
-          summarizeCommandOutcome(
-            operationResolutionSummary(outputResolution, {
-              subjectType: intent.type,
-              sourceKind: "registry",
-            }),
-          ),
-        );
-        yield* emitOperationResolution("update", outputResolution, {
-          suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
-          ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
-        });
-      }),
+export const handleUpdate = (args: RootUpdateHandlerArgs) =>
+  handleUpdateWithActionEffect(args, makeInstallCommandActions);
+
+export const handleUpdateWithActions = (
+  args: RootUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) => handleUpdateWithActionEffect(args, Effect.succeed(actions));
+
+const handleUpdateBody = (args: RootUpdateHandlerArgs, actions: InstallCommandActions) =>
+  Effect.gen(function* () {
+    if (Option.isNone(args.source)) {
+      return yield* handleWorkspaceUpdateWithActions(
+        {
+          command: "update",
+          type: Option.none(),
+          planName: "Update configured extensions",
+          planDescription: Option.some("Update configured workspace extensions"),
+          flags: args,
+        },
+        actions,
+      );
+    }
+
+    const source = args.source.value;
+    const execution = yield* makePlanExecution(
+      args,
+      makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
+        recoverySwitch("--refresh", args.force),
+        recoverySwitch("--ignore-release-age", args.ignoreReleaseAge === true),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
+      ]),
+    );
+    const intent = yield* resolveRootUpdateIntent(source);
+    const resolved = yield* resolveTargetedUpdate(
+      intent,
+      execution,
+      args.ignoreReleaseAge === true,
+      actions,
+    );
+    const outputResolution = resolved.resolution;
+    yield* setCommandSemanticProperties(
+      summarizeCommandOutcome(
+        operationResolutionSummary(outputResolution, {
+          subjectType: intent.type,
+          sourceKind: "registry",
+        }),
+      ),
+    );
+    yield* emitOperationResolution("update", outputResolution, {
+      suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+      ...(resolved.context === undefined ? {} : { targetedUpdate: resolved.context }),
+    });
   });

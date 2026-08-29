@@ -57,17 +57,36 @@ const validateWorkspaceInstallArgs = (args: InstallSubagentHandlerArgs) =>
     }
   });
 
-export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSubagentFlags) =>
+type InstallSubagentActions = Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
+
+const handleInstallWithActionEffect = <R>(
+  args: InstallSubagentHandlerArgs,
+  flags: InstallSubagentFlags,
+  actionsEffect: Effect.Effect<InstallSubagentActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: "subagents.install",
       mode: flags.preview ? "preview" : "apply",
       planName: "Install subagents",
     },
-    handleInstallBody(args, flags),
+    handleInstallBody(args, flags, actionsEffect),
   );
 
-const handleInstallBody = (args: InstallSubagentHandlerArgs, flags: InstallSubagentFlags) =>
+export const handleInstall = (args: InstallSubagentHandlerArgs, flags: InstallSubagentFlags) =>
+  handleInstallWithActionEffect(args, flags, InstallSubagentCommandWorkflowActions);
+
+export const handleInstallWithActions = (
+  args: InstallSubagentHandlerArgs,
+  flags: InstallSubagentFlags,
+  actions: InstallSubagentActions,
+) => handleInstallWithActionEffect(args, flags, Effect.succeed(actions));
+
+const handleInstallBody = <R>(
+  args: InstallSubagentHandlerArgs,
+  flags: InstallSubagentFlags,
+  actionsEffect: Effect.Effect<InstallSubagentActions, never, R>,
+) =>
   Effect.gen(function* () {
     if (Option.isNone(args.source)) {
       yield* validateWorkspaceInstallArgs(args);
@@ -80,7 +99,7 @@ const handleInstallBody = (args: InstallSubagentHandlerArgs, flags: InstallSubag
       });
     }
 
-    const actions = yield* InstallSubagentCommandWorkflowActions;
+    const actions = yield* actionsEffect;
     const execution = yield* makeInstallPlanExecution(
       flags,
       ["subagents", "install"],

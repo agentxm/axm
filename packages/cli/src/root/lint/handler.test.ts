@@ -44,12 +44,6 @@ import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/works
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
-import { InstallHookCommandWorkflowActionsLive } from "../hooks/install/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "../mcps/install/command-actions.js";
-import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
-import { InstallRuleCommandWorkflowActionsLive } from "../rules/install/command-actions.js";
-import { InstallSkillCommandWorkflowActionsLive } from "../skills/install/command-actions.js";
-import { InstallSubagentCommandWorkflowActionsLive } from "../subagents/install/command-actions.js";
 import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";
 
 describe("axm lint handler", () => {
@@ -136,21 +130,12 @@ describe("axm lint handler", () => {
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
     );
-    const mcpServersLayer = Layer.provideMerge(
-      InstallMcpServerCommandWorkflowActionsLive,
-      McpServerManagerLive,
-    );
-    const hooksLayer = Layer.provideMerge(InstallHookCommandWorkflowActionsLive, HookManagerLive);
-    const rulesLayer = Layer.provideMerge(InstallRuleCommandWorkflowActionsLive, RuleManagerLive);
-    const skillsLayer = Layer.provideMerge(
-      InstallSkillCommandWorkflowActionsLive,
-      SkillManagerLive,
-    );
-    const subagentsLayer = Layer.provideMerge(
-      InstallSubagentCommandWorkflowActionsLive,
-      SubagentManagerLive,
-    );
-    const packsLayer = Layer.provideMerge(InstallPackCommandWorkflowActionsLive, PackManagerLive);
+    const mcpServersLayer = McpServerManagerLive;
+    const hooksLayer = HookManagerLive;
+    const rulesLayer = RuleManagerLive;
+    const skillsLayer = SkillManagerLive;
+    const subagentsLayer = SubagentManagerLive;
+    const packsLayer = PackManagerLive;
     const coreExtensions = Layer.mergeAll(
       hooksLayer,
       KnowledgeManagerLive,

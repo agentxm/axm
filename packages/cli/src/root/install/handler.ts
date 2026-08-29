@@ -14,35 +14,22 @@ import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflo
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  type InstallMcpServerHandlerArgs,
-} from "../mcps/install/command-actions.js";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "../hooks/install/command-actions.js";
-import {
-  InstallKnowledgeCommandWorkflowActions,
-  type InstallKnowledgeHandlerArgs,
-} from "../knowledge/install/command-actions.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "../packs/install/command-actions.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "../rules/install/command-actions.js";
-import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
-import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
+import { type InstallMcpServerHandlerArgs } from "../mcps/install/command-actions.js";
+import { type InstallHookHandlerArgs } from "../hooks/install/command-actions.js";
+import { type InstallKnowledgeHandlerArgs } from "../knowledge/install/command-actions.js";
+import { type InstallPackHandlerArgs } from "../packs/install/command-actions.js";
+import { type InstallRuleHandlerArgs } from "../rules/install/command-actions.js";
 import {
   resolveRootInstallIntent,
   type RootInstallIntent,
   type RootInstallableType,
 } from "./resolve-root-install-intent.js";
-import { handleWorkspaceInstall } from "./workspace-install-handler.js";
+import { handleWorkspaceInstallWithActions } from "./workspace-install-handler.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
 
 export interface RootInstallFlags {
   readonly yes: boolean;
@@ -71,53 +58,59 @@ const withInstallPresentation = (type: RootInstallableType) => (plan: Plan) =>
 const runRegistryInstallIntent = (
   intent: RegistryExtensionRootInstallIntent,
   execution: PlanExecution,
+  actions: InstallCommandActions,
 ) =>
   Effect.gen(function* () {
     const transformPlan = withInstallPresentation(intent.type);
     switch (intent.type) {
       case "skill": {
-        const actions = yield* InstallSkillCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, skills: [], all: false },
-          actions,
+          actions.skill,
           { execution, transformPlan },
         );
       }
       case "mcp-server": {
-        const actions = yield* InstallMcpServerCommandWorkflowActions;
         const mcpArgs: InstallMcpServerHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(mcpArgs, actions, { execution, transformPlan });
+        return yield* runInstallCommandWorkflow(mcpArgs, actions.mcpServer, {
+          execution,
+          transformPlan,
+        });
       }
       case "rule": {
-        const actions = yield* InstallRuleCommandWorkflowActions;
         const ruleArgs: InstallRuleHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(ruleArgs, actions, { execution, transformPlan });
+        return yield* runInstallCommandWorkflow(ruleArgs, actions.rule, {
+          execution,
+          transformPlan,
+        });
       }
       case "hook": {
-        const actions = yield* InstallHookCommandWorkflowActions;
         const hookArgs: InstallHookHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(hookArgs, actions, { execution, transformPlan });
+        return yield* runInstallCommandWorkflow(hookArgs, actions.hook, {
+          execution,
+          transformPlan,
+        });
       }
       case "knowledge": {
-        const actions = yield* InstallKnowledgeCommandWorkflowActions;
         const knowledgeArgs: InstallKnowledgeHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(knowledgeArgs, actions, {
+        return yield* runInstallCommandWorkflow(knowledgeArgs, actions.knowledge, {
           execution,
           transformPlan,
         });
       }
       case "subagent": {
-        const actions = yield* InstallSubagentCommandWorkflowActions;
         return yield* runInstallCommandWorkflow(
           { source: intent.source, subagents: [], all: false },
-          actions,
+          actions.subagent,
           { execution, transformPlan },
         );
       }
       case "pack": {
-        const actions = yield* InstallPackCommandWorkflowActions;
         const packArgs: InstallPackHandlerArgs = { source: intent.source };
-        return yield* runInstallCommandWorkflow(packArgs, actions, { execution, transformPlan });
+        return yield* runInstallCommandWorkflow(packArgs, actions.pack, {
+          execution,
+          transformPlan,
+        });
       }
     }
   });
@@ -142,46 +135,44 @@ const runLocatorWorkflow = <A, E, R>(type: RootInstallableType, effect: Effect.E
     ),
   );
 
-const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
+const runLocatorInstallIntent = (
+  source: string,
+  execution: PlanExecution,
+  actions: InstallCommandActions,
+) =>
   Effect.gen(function* () {
-    const skillActions = yield* InstallSkillCommandWorkflowActions;
-    const ruleActions = yield* InstallRuleCommandWorkflowActions;
-    const hookActions = yield* InstallHookCommandWorkflowActions;
-    const knowledgeActions = yield* InstallKnowledgeCommandWorkflowActions;
-    const subagentActions = yield* InstallSubagentCommandWorkflowActions;
-
     const attempts = [
       yield* runLocatorWorkflow(
         "skill",
-        runInstallCommandWorkflow({ source, skills: [], all: true }, skillActions, {
+        runInstallCommandWorkflow({ source, skills: [], all: true }, actions.skill, {
           execution,
           transformPlan: withInstallPresentation("skill"),
         }),
       ),
       yield* runLocatorWorkflow(
         "rule",
-        runInstallCommandWorkflow({ source }, ruleActions, {
+        runInstallCommandWorkflow({ source }, actions.rule, {
           execution,
           transformPlan: withInstallPresentation("rule"),
         }),
       ),
       yield* runLocatorWorkflow(
         "hook",
-        runInstallCommandWorkflow({ source }, hookActions, {
+        runInstallCommandWorkflow({ source }, actions.hook, {
           execution,
           transformPlan: withInstallPresentation("hook"),
         }),
       ),
       yield* runLocatorWorkflow(
         "knowledge",
-        runInstallCommandWorkflow({ source }, knowledgeActions, {
+        runInstallCommandWorkflow({ source }, actions.knowledge, {
           execution,
           transformPlan: withInstallPresentation("knowledge"),
         }),
       ),
       yield* runLocatorWorkflow(
         "subagent",
-        runInstallCommandWorkflow({ source, subagents: [], all: true }, subagentActions, {
+        runInstallCommandWorkflow({ source, subagents: [], all: true }, actions.subagent, {
           execution,
           transformPlan: withInstallPresentation("subagent"),
         }),
@@ -207,7 +198,10 @@ const runLocatorInstallIntent = (source: string, execution: PlanExecution) =>
     }
   });
 
-export const handleInstall = (args: RootInstallHandlerArgs) =>
+const handleInstallWithActionEffect = <R>(
+  args: RootInstallHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: "install",
@@ -219,19 +213,30 @@ export const handleInstall = (args: RootInstallHandlerArgs) =>
         gerund: "Installing",
       }),
     },
-    handleInstallBody(args),
+    Effect.flatMap(actionsEffect, (actions) => handleInstallBody(args, actions)),
   );
 
-const handleInstallBody = (args: RootInstallHandlerArgs) =>
+export const handleInstall = (args: RootInstallHandlerArgs) =>
+  handleInstallWithActionEffect(args, makeInstallCommandActions);
+
+export const handleInstallWithActions = (
+  args: RootInstallHandlerArgs,
+  actions: InstallCommandActions,
+) => handleInstallWithActionEffect(args, Effect.succeed(actions));
+
+const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommandActions) =>
   Option.match(args.source, {
     onNone: () =>
-      handleWorkspaceInstall({
-        command: "install",
-        type: Option.none(),
-        planName: "Install configured extensions",
-        planDescription: Option.some("Install configured workspace extensions"),
-        flags: args,
-      }),
+      handleWorkspaceInstallWithActions(
+        {
+          command: "install",
+          type: Option.none(),
+          planName: "Install configured extensions",
+          planDescription: Option.some("Install configured workspace extensions"),
+          flags: args,
+        },
+        actions,
+      ),
     onSome: (source) =>
       Effect.gen(function* () {
         const execution = yield* makePlanExecution(
@@ -247,10 +252,10 @@ const handleInstallBody = (args: RootInstallHandlerArgs) =>
         );
         const intent = yield* resolveRootInstallIntent(source);
         if (intent.type === "locator") {
-          yield* runLocatorInstallIntent(intent.source, execution);
+          yield* runLocatorInstallIntent(intent.source, execution, actions);
           return;
         }
-        const resolution = yield* runRegistryInstallIntent(intent, execution);
+        const resolution = yield* runRegistryInstallIntent(intent, execution, actions);
         yield* setCommandSemanticProperties(
           summarizeCommandOutcome(
             operationResolutionSummary(resolution, {

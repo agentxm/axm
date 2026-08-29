@@ -124,13 +124,9 @@ export const reportCliError = (
 // Command semantic properties (Ref-based forwarding)
 // ---------------------------------------------------------------------------
 
-export interface CommandSemanticPropertiesService {
-  readonly ref: Ref.Ref<TelemetryProperties>;
-}
-
 export class CommandSemanticProperties extends ServiceMap.Service<
   CommandSemanticProperties,
-  CommandSemanticPropertiesService
+  { readonly ref: Ref.Ref<TelemetryProperties> }
 >()("@agentxm/client-core/unstable/cli-runtime/telemetry/CommandSemanticProperties") {}
 
 /**

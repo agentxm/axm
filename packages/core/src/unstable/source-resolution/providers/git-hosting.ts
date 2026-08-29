@@ -18,10 +18,6 @@ import { shallowClone } from "../../git/index.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type {
   SourceHostProvider,
-  GitHubSourceHost,
-  GitLabSourceHost,
-  BitbucketSourceHost,
-  AzureReposSourceHost,
   GitHubSource,
   GitLabSource,
   BitbucketSource,
@@ -114,35 +110,3 @@ export const buildCloneUrlForSource = (
       return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
   }
 };
-
-// -----------------------------------------------------------------------------
-// Concrete Providers (SourceHostProvider)
-// -----------------------------------------------------------------------------
-
-/**
- * Source host provider for GitHub repositories.
- * @experimental This API is unstable and may change without notice.
- */
-export const createGitHubSourceHostProvider = (host: GitHubSourceHost) =>
-  createGitHostingSourceHostProvider<GitHubSource>(host);
-
-/**
- * Source host provider for GitLab repositories.
- * @experimental This API is unstable and may change without notice.
- */
-export const createGitLabSourceHostProvider = (host: GitLabSourceHost) =>
-  createGitHostingSourceHostProvider<GitLabSource>(host);
-
-/**
- * Source host provider for Bitbucket repositories.
- * @experimental This API is unstable and may change without notice.
- */
-export const createBitbucketSourceHostProvider = (host: BitbucketSourceHost) =>
-  createGitHostingSourceHostProvider<BitbucketSource>(host);
-
-/**
- * Source host provider for Azure Repos repositories.
- * @experimental This API is unstable and may change without notice.
- */
-export const createAzureReposSourceHostProvider = (host: AzureReposSourceHost) =>
-  createGitHostingSourceHostProvider<AzureReposSource>(host);

@@ -55,22 +55,17 @@ import {
   type PackRef,
 } from "@agentxm/client-core/unstable/packs";
 
-import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
-import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
-import { InstallMcpServerCommandWorkflowActions } from "../mcps/install/command-actions.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
-import { InstallRuleCommandWorkflowActions } from "../rules/install/command-actions.js";
 import type { InstallRuleCommandIntent } from "../rules/install/intent.js";
-import { InstallSkillCommandWorkflowActions } from "../skills/install/command-actions.js";
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
-import { InstallSubagentCommandWorkflowActions } from "../subagents/install/command-actions.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
+import type { InstallCommandActions } from "../shared/install-command-actions.js";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -96,13 +91,6 @@ type WorkspaceInstallCollectorContext =
   | Path.Path
   | WorkspaceMutations
   | SourceHostProviders
-  | InstallSkillCommandWorkflowActions
-  | InstallHookCommandWorkflowActions
-  | InstallKnowledgeCommandWorkflowActions
-  | InstallRuleCommandWorkflowActions
-  | InstallSubagentCommandWorkflowActions
-  | InstallMcpServerCommandWorkflowActions
-  | InstallPackCommandWorkflowActions
   | HookManager
   | KnowledgeManager
   | RuleManager;
@@ -481,10 +469,12 @@ const resolvePackRef = (
     };
   });
 
-const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectSkillPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["skill"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallSkillCommandWorkflowActions;
     const configured = yield* ws.getConfiguredSkillEntries();
     const entries = enabledConfiguredEntries(configured).filter(
       ([, entry]) => entry.origin !== "bundled",
@@ -510,10 +500,12 @@ const collectSkillPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectRulePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectRulePlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["rule"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallRuleCommandWorkflowActions;
     const configured = yield* ws.getConfiguredRuleEntries();
     const entries = enabledConfiguredEntries(configured);
 
@@ -537,10 +529,12 @@ const collectRulePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectHookPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectHookPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["hook"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallHookCommandWorkflowActions;
     const configured = yield* ws.getConfiguredHookEntries();
     const entries = enabledConfiguredEntries(configured);
 
@@ -564,10 +558,12 @@ const collectHookPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectKnowledgePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectKnowledgePlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["knowledge"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallKnowledgeCommandWorkflowActions;
     const configured = yield* ws.getConfiguredKnowledgeEntries();
     const entries = enabledConfiguredEntries(configured);
 
@@ -591,10 +587,12 @@ const collectKnowledgePlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectSubagentPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectSubagentPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["subagent"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallSubagentCommandWorkflowActions;
     const configured = yield* ws.getConfiguredSubagentEntries();
     const entries = enabledConfiguredEntries(configured);
 
@@ -618,10 +616,12 @@ const collectSubagentPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
     return toCollectedWorkspaceInstallPlans({ plans });
   });
 
-const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
+const collectMcpServerPlans = (
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["mcpServer"],
+) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallMcpServerCommandWorkflowActions;
     const configured = yield* ws.getConfiguredMcpServerEntries();
     const entries = enabledConfiguredEntries(configured);
 
@@ -649,13 +649,13 @@ const collectMcpServerPlans = (releaseAgeEvaluation: ReleaseAgeEvaluation) =>
 
 const collectPackPlans = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
+  actions: InstallCommandActions["pack"],
   selectedNames?: ReadonlySet<string>,
   forceCanonical?: boolean,
   deferProjections?: boolean,
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const actions = yield* InstallPackCommandWorkflowActions;
     const configured = yield* ws.getConfiguredPackEntries();
     const entries = enabledConfiguredEntries(configured).filter(
       ([name]) => selectedNames === undefined || selectedNames.has(name),
@@ -737,22 +737,24 @@ const collectPackPlans = (
 
 // Total over InstallableExtensionType: a missing key is a compile error, so a
 // type can never again be silently dropped from workspace install.
-const workspaceInstallCollectorsByType = {
-  skill: collectSkillPlans,
-  rule: collectRulePlans,
-  hook: collectHookPlans,
-  knowledge: collectKnowledgePlans,
-  subagent: collectSubagentPlans,
-  "mcp-server": collectMcpServerPlans,
-  pack: (releaseAgeEvaluation) =>
-    collectPackPlans(releaseAgeEvaluation, undefined, undefined, true),
-} satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
+const makeWorkspaceInstallCollectors = (
+  actions: InstallCommandActions,
+): ReadonlyArray<WorkspaceInstallCollector> => {
+  const collectorsByType = {
+    skill: (releaseAge) => collectSkillPlans(releaseAge, actions.skill),
+    rule: (releaseAge) => collectRulePlans(releaseAge, actions.rule),
+    hook: (releaseAge) => collectHookPlans(releaseAge, actions.hook),
+    knowledge: (releaseAge) => collectKnowledgePlans(releaseAge, actions.knowledge),
+    subagent: (releaseAge) => collectSubagentPlans(releaseAge, actions.subagent),
+    "mcp-server": (releaseAge) => collectMcpServerPlans(releaseAge, actions.mcpServer),
+    pack: (releaseAge) => collectPackPlans(releaseAge, actions.pack, undefined, undefined, true),
+  } satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
 
-const workspaceInstallCollectors: ReadonlyArray<WorkspaceInstallCollector> =
-  installableExtensionTypes.map((type) => ({
+  return installableExtensionTypes.map((type) => ({
     type,
-    collect: workspaceInstallCollectorsByType[type],
+    collect: collectorsByType[type],
   }));
+};
 
 const makePlan = (
   name: string,
@@ -785,7 +787,8 @@ export const buildConfiguredPackInstallPlan = (args: {
     );
     // Recovery only runs for Packs whose observed tree already diverged from the
     // accepted resolution, so the installed tree must never be reused.
-    const collection = yield* collectPackPlans(releaseAgeEvaluation, args.packNames, true);
+    const actions = yield* InstallPackCommandWorkflowActions;
+    const collection = yield* collectPackPlans(releaseAgeEvaluation, actions, args.packNames, true);
     const fragments = mergeFragments([collection]);
     if (fragments.length === 0) {
       return {
@@ -821,17 +824,20 @@ export const buildConfiguredPackInstallPlan = (args: {
     } satisfies WorkspaceInstallPlanResult;
   });
 
-export const buildWorkspaceInstallPlan = (args: {
-  readonly type: Option.Option<WorkspaceInstallableType>;
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly ignoreReleaseAge?: boolean;
-}) =>
+export const buildWorkspaceInstallPlan = (
+  args: {
+    readonly type: Option.Option<WorkspaceInstallableType>;
+    readonly planName: string;
+    readonly planDescription: Option.Option<string>;
+    readonly ignoreReleaseAge?: boolean;
+  },
+  actions: InstallCommandActions,
+) =>
   Effect.gen(function* () {
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
       args.ignoreReleaseAge === true ? "ignore" : "enforce",
     );
-    const selectedCollectors = workspaceInstallCollectors.filter(({ type }) =>
+    const selectedCollectors = makeWorkspaceInstallCollectors(actions).filter(({ type }) =>
       matchesRequestedType(args.type, type),
     );
     const collections = yield* Effect.forEach(

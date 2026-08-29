@@ -1,4 +1,3 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -45,11 +44,6 @@ type KnowledgeUninstallActions = UninstallExtensionCommandWorkflowActions<
   UninstallKnowledgeCommandIntent
 >;
 
-export class UninstallKnowledgeCommandWorkflowActions extends ServiceMap.Service<
-  UninstallKnowledgeCommandWorkflowActions,
-  KnowledgeUninstallActions
->()("axm.sh/root/knowledge/uninstall/command-actions/UninstallKnowledgeCommandWorkflowActions") {}
-
 interface KnowledgeUninstallOwnership {
   readonly target: KnowledgeExtensionTarget;
   readonly settingsPresent: boolean;
@@ -76,7 +70,7 @@ const lockCanonicalRoot = (
     locked.workspaceName,
   ).canonicalPath;
 
-export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
+export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
   const manager = yield* KnowledgeManager;
   const fs = yield* FileSystem.FileSystem;
@@ -276,9 +270,7 @@ export const makeUninstallKnowledgeCommandWorkflowActions = Effect.gen(function*
         } satisfies Plan;
       }),
   } satisfies KnowledgeUninstallActions;
-}).pipe(Effect.provide(KnowledgeManagerLive));
-
-export const UninstallKnowledgeCommandWorkflowActionsLive = Layer.effect(
-  UninstallKnowledgeCommandWorkflowActions,
-  makeUninstallKnowledgeCommandWorkflowActions,
+}).pipe(
+  Effect.provide(KnowledgeManagerLive),
+  Effect.map((actions): KnowledgeUninstallActions => actions),
 );

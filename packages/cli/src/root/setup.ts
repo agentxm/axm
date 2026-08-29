@@ -21,8 +21,7 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import { envOption } from "@agentxm/client-core/unstable/utils";
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { ExitCode, makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
 import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
@@ -49,7 +48,6 @@ import {
   ensureSkillAgentArtifact,
   evaluateAxmSkillCompatibility,
 } from "@agentxm/client-core/unstable/skills";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -59,8 +57,6 @@ import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Terminal from "effect/Terminal";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { LearnMore, formatLearnMore } from "../formatter.js";
@@ -219,18 +215,11 @@ export type SetupDocument = typeof SetupDocumentSchema.Type;
 
 const isKnownAgentId = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
 
-interface SetupSkillInstallerService {
-  readonly installDefaultSkill: (args: {
-    readonly scope: WorkspaceScope;
-    readonly yes: boolean;
-    readonly preview: boolean;
-  }) => Effect.Effect<void, AppError | PromptCancelled, Verbosity>;
+interface InstallDefaultSkillArgs {
+  readonly scope: WorkspaceScope;
+  readonly yes: boolean;
+  readonly preview: boolean;
 }
-
-export class SetupSkillInstaller extends ServiceMap.Service<
-  SetupSkillInstaller,
-  SetupSkillInstallerService
->()("axm.sh/root/setup/SetupSkillInstaller") {}
 
 const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
   makeAppError({
@@ -421,34 +410,9 @@ export const installBundledAxmSkill = Effect.gen(function* () {
     .pipe(surfaceRestorationIncomplete);
 });
 
-export const SetupSkillInstallerLive = Layer.effect(
-  SetupSkillInstaller,
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const terminal = yield* Terminal.Terminal;
-    const nonInteractive = yield* nonInteractiveFlag;
-    const registryUrl = yield* RegistryUrl;
-    const executionDirectory = yield* ExecutionDirectory;
-    const httpClient = yield* HttpClient.HttpClient;
-    const capturedLayer = Layer.mergeAll(
-      Layer.succeed(CliRenderer, renderer),
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(Terminal.Terminal, terminal),
-      Layer.succeed(nonInteractiveFlag, nonInteractive),
-      Layer.succeed(RegistryUrl, registryUrl),
-      Layer.succeed(ExecutionDirectory, executionDirectory),
-      Layer.succeed(HttpClient.HttpClient, httpClient),
-    );
-
-    return {
-      installDefaultSkill: (args) =>
-        installBundledAxmSkill.pipe(withWorkspace(args.scope), Effect.provide(capturedLayer)),
-    };
-  }),
-);
+const installDefaultSkill = (args: InstallDefaultSkillArgs) =>
+  installBundledAxmSkill.pipe(withWorkspace(args.scope));
+type InstallDefaultSkill = typeof installDefaultSkill;
 
 /**
  * Render subagent file summary to the CLI output.
@@ -768,13 +732,16 @@ const setupPlanFields = (args: {
   };
 };
 
-export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
-  readonly scope: WorkspaceScope;
-  readonly agents?: ReadonlyArray<string>;
-  readonly yes?: boolean;
-  readonly preview?: boolean;
-  readonly scopeExplicit?: boolean;
-}) {
+export const handleSetup = Effect.fn("Setup.handle")(function* (
+  args: {
+    readonly scope: WorkspaceScope;
+    readonly agents?: ReadonlyArray<string>;
+    readonly yes?: boolean;
+    readonly preview?: boolean;
+    readonly scopeExplicit?: boolean;
+  },
+  installSkill: InstallDefaultSkill = installDefaultSkill,
+) {
   const renderer = yield* CliRenderer;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
@@ -790,7 +757,6 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
     ...(args.yes !== undefined ? { yes: args.yes } : {}),
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
   };
-  const installer = yield* SetupSkillInstaller;
   const initialize = Effect.gen(function* () {
     const result = yield* bootstrapWorkspace(workspaceOptions).pipe(
       machineOutput
@@ -798,7 +764,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: {
         : (effect) => effect,
     );
     if (result.initialized) {
-      yield* installer.installDefaultSkill({
+      yield* installSkill({
         scope: args.scope,
         yes: args.yes ?? false,
         preview: args.preview ?? false,
@@ -1147,7 +1113,7 @@ export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, 
     yes,
     preview,
     ...(agent.length > 0 ? { agents: agent } : {}),
-  }).pipe(Effect.provide(SetupSkillInstallerLive), withRuntime("setup"));
+  }).pipe(withRuntime("setup"));
 }).pipe(
   withArgvTracking(setupConfig),
   Command.withDescription("Set up AXM in the current project"),

@@ -17,10 +17,7 @@ import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-re
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { computePackManifestContentIdentity } from "@agentxm/client-core/unstable/packs";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import {
-  UninstallSkillCommandWorkflowActionsLive,
-  type UninstallHandlerArgs,
-} from "./command-actions.js";
+import { type UninstallHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {
   expectNoOpPlanResult,
@@ -171,11 +168,7 @@ describe("uninstall.handler", () => {
       SkillManagerLive,
       Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive),
     );
-    const ActionsLayer = Layer.provide(
-      UninstallSkillCommandWorkflowActionsLive,
-      Layer.mergeAll(BaseLayer, WsLayer, SMLayer, CodingAgentRepositoryLive),
-    );
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SMLayer, CodingAgentRepositoryLive);
     const provide = makeEffectProvide(FullLayer);
 
     return {

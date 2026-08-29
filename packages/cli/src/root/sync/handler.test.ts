@@ -50,7 +50,6 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import { InstallPackCommandWorkflowActionsLive } from "../packs/install/command-actions.js";
 import { handleListMcpServers } from "../mcps/list.js";
 import { handleSync } from "./handler.js";
 
@@ -631,10 +630,6 @@ describe("root sync handler", () => {
       PackManagerLive,
       Layer.mergeAll(managerDependencies, managersLayer),
     );
-    const packActionsLayer = Layer.provide(
-      InstallPackCommandWorkflowActionsLive,
-      Layer.mergeAll(managerDependencies, managersLayer, packManagerLayer),
-    );
     const invariantFactsLayer = Layer.provide(
       WorkspaceInvariantFactsLive,
       Layer.mergeAll(managerDependencies, managersLayer),
@@ -648,7 +643,6 @@ describe("root sync handler", () => {
           CodingAgentRepositoryLive,
           managersLayer,
           packManagerLayer,
-          packActionsLayer,
           invariantFactsLayer,
         ),
       ),

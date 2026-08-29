@@ -4,38 +4,16 @@ import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "../hooks/install/command-actions.js";
-import {
-  InstallKnowledgeCommandWorkflowActions,
-  type InstallKnowledgeHandlerArgs,
-} from "../knowledge/install/command-actions.js";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  type InstallMcpServerHandlerArgs,
-} from "../mcps/install/command-actions.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "../packs/install/command-actions.js";
+import { type InstallHookHandlerArgs } from "../hooks/install/command-actions.js";
+import { type InstallKnowledgeHandlerArgs } from "../knowledge/install/command-actions.js";
+import { type InstallMcpServerHandlerArgs } from "../mcps/install/command-actions.js";
+import { type InstallPackHandlerArgs } from "../packs/install/command-actions.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "../rules/install/command-actions.js";
-import {
-  InstallSkillCommandWorkflowActions,
-  type InstallSkillSourceHandlerArgs,
-} from "../skills/install/command-actions.js";
-import {
-  InstallSubagentCommandWorkflowActions,
-  type InstallSubagentSourceHandlerArgs,
-} from "../subagents/install/command-actions.js";
+import { type InstallRuleHandlerArgs } from "../rules/install/command-actions.js";
+import { type InstallSkillSourceHandlerArgs } from "../skills/install/command-actions.js";
+import { type InstallSubagentSourceHandlerArgs } from "../subagents/install/command-actions.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -50,7 +28,8 @@ import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 
-import { handleInstall, type RootInstallFlags } from "./handler.js";
+import { handleInstallWithActions, type RootInstallFlags } from "./handler.js";
+import type { InstallCommandActions } from "../shared/install-command-actions.js";
 
 interface InstallCall extends RootInstallFlags {
   readonly source: string;
@@ -242,63 +221,26 @@ describe("root install handler", () => {
         cloneUrl: () => Option.none(),
         origin: () => "test source",
       }),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallSkillCommandWorkflowActions,
-        skillActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallSkillCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallMcpServerCommandWorkflowActions,
-        mcpServerActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallMcpServerCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallSubagentCommandWorkflowActions,
-        subagentActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallSubagentCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallHookCommandWorkflowActions,
-        hookActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallHookCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallPackCommandWorkflowActions,
-        packActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallPackCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallKnowledgeCommandWorkflowActions,
-        knowledgeActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallKnowledgeCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallRuleCommandWorkflowActions,
-        ruleActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallRuleCommandWorkflowActions
-        >,
-      ),
     );
     const layerWithManagers = Layer.provideMerge(
       Layer.mergeAll(HookManagerLive, KnowledgeManagerLive, RuleManagerLive),
       fullLayer,
     );
 
+    const actions = {
+      skill: skillActions as unknown as InstallCommandActions["skill"],
+      mcpServer: mcpServerActions as unknown as InstallCommandActions["mcpServer"],
+      subagent: subagentActions as unknown as InstallCommandActions["subagent"],
+      hook: hookActions as unknown as InstallCommandActions["hook"],
+      pack: packActions as unknown as InstallCommandActions["pack"],
+      knowledge: knowledgeActions as unknown as InstallCommandActions["knowledge"],
+      rule: ruleActions as unknown as InstallCommandActions["rule"],
+    } satisfies InstallCommandActions;
+
     return {
       provide: makeEffectProvide(layerWithManagers),
+      handleInstall: (args: Parameters<typeof handleInstallWithActions>[0]) =>
+        handleInstallWithActions(args, actions),
       logs: ctx.logs,
       packIntents,
       rendererState: ctx.rendererState,
@@ -313,7 +255,7 @@ describe("root install handler", () => {
         force: false,
         preview: true,
       } satisfies RootInstallFlags;
-      const { provide } = makeLayers(calls);
+      const { provide, handleInstall } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -348,7 +290,7 @@ describe("root install handler", () => {
   it.effect("emits JSON no-op when workspace has no configured extensions to install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
-      const { provide, logs, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleInstall, logs, rendererState } = makeLayers(calls, { machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -378,7 +320,7 @@ describe("root install handler", () => {
   it.effect("reports configured inline MCP servers as sync-owned during workspace install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
-      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleInstall, rendererState } = makeLayers(calls, { machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -417,7 +359,7 @@ describe("root install handler", () => {
   it.effect("installs configured knowledge bundles on workspace install", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
-      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleInstall, rendererState } = makeLayers(calls, { machine: true });
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
@@ -453,7 +395,9 @@ describe("root install handler", () => {
   it.effect("defers Pack projections to the configured workspace aggregate step", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
-      const { provide, packIntents, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleInstall, packIntents, rendererState } = makeLayers(calls, {
+        machine: true,
+      });
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
@@ -502,7 +446,9 @@ describe("root install handler", () => {
   it.effect("replans a configured Pack immediately before applying it", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
-      const { provide, packIntents, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleInstall, packIntents, rendererState } = makeLayers(calls, {
+        machine: true,
+      });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -555,7 +501,7 @@ describe("root install handler", () => {
         force: true,
         preview: true,
       } satisfies RootInstallFlags;
-      const { provide } = makeLayers(calls);
+      const { provide, handleInstall } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",

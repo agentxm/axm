@@ -14,6 +14,10 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceInstallPlan, type WorkspaceInstallableType } from "./workspace-install.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
 
 const workspaceInstallSubjectType = (type: Option.Option<WorkspaceInstallableType>): SubjectType =>
   Option.match(type, {
@@ -53,13 +57,18 @@ export interface WorkspaceInstallFlags {
   readonly ignoreReleaseAge?: boolean;
 }
 
-export const handleWorkspaceInstall = (args: {
+export interface WorkspaceInstallHandlerArgs {
   readonly command: string;
   readonly type: Option.Option<WorkspaceInstallableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly flags: WorkspaceInstallFlags;
-}) =>
+}
+
+const handleWorkspaceInstallWithActionEffect = <R>(
+  args: WorkspaceInstallHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: args.command,
@@ -70,23 +79,31 @@ export const handleWorkspaceInstall = (args: {
         Option.getOrUndefined(args.type),
       ),
     },
-    handleWorkspaceInstallBody(args),
+    Effect.flatMap(actionsEffect, (actions) => handleWorkspaceInstallBody(args, actions)),
   );
 
-const handleWorkspaceInstallBody = (args: {
-  readonly command: string;
-  readonly type: Option.Option<WorkspaceInstallableType>;
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly flags: WorkspaceInstallFlags;
-}) =>
+export const handleWorkspaceInstall = (args: WorkspaceInstallHandlerArgs) =>
+  handleWorkspaceInstallWithActionEffect(args, makeInstallCommandActions);
+
+export const handleWorkspaceInstallWithActions = (
+  args: WorkspaceInstallHandlerArgs,
+  actions: InstallCommandActions,
+) => handleWorkspaceInstallWithActionEffect(args, Effect.succeed(actions));
+
+const handleWorkspaceInstallBody = (
+  args: WorkspaceInstallHandlerArgs,
+  actions: InstallCommandActions,
+) =>
   Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceInstallPlan({
-      type: args.type,
-      planName: args.planName,
-      planDescription: args.planDescription,
-      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
-    });
+    const planResult = yield* buildWorkspaceInstallPlan(
+      {
+        type: args.type,
+        planName: args.planName,
+        planDescription: args.planDescription,
+        ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
+      },
+      actions,
+    );
 
     if (planResult._tag === "NoConfiguredExtensions") {
       yield* setCommandSemanticProperties(

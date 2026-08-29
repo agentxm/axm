@@ -1,6 +1,4 @@
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
@@ -21,65 +19,56 @@ export interface ParsedRuleUninstallArgs {
   readonly name: string;
 }
 
-export class UninstallRuleCommandWorkflowActions extends ServiceMap.Service<
-  UninstallRuleCommandWorkflowActions,
-  UninstallExtensionCommandWorkflowActions<
-    UninstallRuleHandlerArgs,
-    ParsedRuleUninstallArgs,
-    UninstallRuleCommandIntent
-  >
->()("axm.sh/root/rules/uninstall/command-actions/UninstallRuleCommandWorkflowActions") {}
+type UninstallRuleActions = UninstallExtensionCommandWorkflowActions<
+  UninstallRuleHandlerArgs,
+  ParsedRuleUninstallArgs,
+  UninstallRuleCommandIntent
+>;
 
-export const UninstallRuleCommandWorkflowActionsLive = Layer.effect(
-  UninstallRuleCommandWorkflowActions,
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const ruleManager = yield* RuleManager;
+export const UninstallRuleCommandWorkflowActions = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const ruleManager = yield* RuleManager;
 
-    const parseArgs = (args: UninstallRuleHandlerArgs) =>
-      Effect.succeed({ name: args.name.trim() });
+  const parseArgs = (args: UninstallRuleHandlerArgs) => Effect.succeed({ name: args.name.trim() });
 
-    const finalizeIntent = (
-      parsed: ParsedRuleUninstallArgs,
-    ): Effect.Effect<UninstallRuleCommandIntent, AppError> =>
-      Effect.gen(function* () {
-        const target: RuleExtensionTarget = { type: "rule", name: parsed.name };
-        const configured =
-          ruleManager.getConfiguredSource === undefined
-            ? Option.none<string>()
-            : yield* ruleManager.getConfiguredSource({ target });
-        const installed = yield* ruleManager.isInstalled({ target });
-        if (Option.isNone(configured) && !installed) {
-          return { targets: [] };
-        }
-        return { targets: [target] };
-      });
+  const finalizeIntent = (
+    parsed: ParsedRuleUninstallArgs,
+  ): Effect.Effect<UninstallRuleCommandIntent, AppError> =>
+    Effect.gen(function* () {
+      const target: RuleExtensionTarget = { type: "rule", name: parsed.name };
+      const configured =
+        ruleManager.getConfiguredSource === undefined
+          ? Option.none<string>()
+          : yield* ruleManager.getConfiguredSource({ target });
+      const installed = yield* ruleManager.isInstalled({ target });
+      if (Option.isNone(configured) && !installed) {
+        return { targets: [] };
+      }
+      return { targets: [target] };
+    });
 
-    const buildUninstallPlan = (
-      intent: UninstallRuleCommandIntent,
-    ): Effect.Effect<Plan, AppError> =>
-      Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall rule",
-        description: Option.some("Uninstall rule"),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: intent.targets.map((target) =>
-              buildUninstallOperation<RuleExtensionRef>(
-                ruleManager,
-                makeWorkspaceRetentionPolicy(ws),
-                { target },
-              ),
+  const buildUninstallPlan = (intent: UninstallRuleCommandIntent): Effect.Effect<Plan, AppError> =>
+    Effect.succeed({
+      _tag: "Plan",
+      name: "Uninstall rule",
+      description: Option.some("Uninstall rule"),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: intent.targets.map((target) =>
+            buildUninstallOperation<RuleExtensionRef>(
+              ruleManager,
+              makeWorkspaceRetentionPolicy(ws),
+              { target },
             ),
-          },
-        ],
-      } satisfies Plan);
+          ),
+        },
+      ],
+    } satisfies Plan);
 
-    return {
-      parseArgs,
-      finalizeIntent,
-      buildUninstallPlan,
-    };
-  }),
-);
+  return {
+    parseArgs,
+    finalizeIntent,
+    buildUninstallPlan,
+  };
+}).pipe(Effect.map((actions): UninstallRuleActions => actions));

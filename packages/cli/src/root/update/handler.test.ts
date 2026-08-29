@@ -4,37 +4,15 @@ import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
-import {
-  InstallHookCommandWorkflowActions,
-  type InstallHookHandlerArgs,
-} from "../hooks/install/command-actions.js";
-import {
-  InstallKnowledgeCommandWorkflowActions,
-  type InstallKnowledgeHandlerArgs,
-} from "../knowledge/install/command-actions.js";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  type InstallMcpServerHandlerArgs,
-} from "../mcps/install/command-actions.js";
-import {
-  InstallPackCommandWorkflowActions,
-  type InstallPackHandlerArgs,
-} from "../packs/install/command-actions.js";
-import {
-  InstallRuleCommandWorkflowActions,
-  type InstallRuleHandlerArgs,
-} from "../rules/install/command-actions.js";
-import {
-  InstallSkillCommandWorkflowActions,
-  type InstallSkillSourceHandlerArgs,
-} from "../skills/install/command-actions.js";
-import {
-  InstallSubagentCommandWorkflowActions,
-  type InstallSubagentSourceHandlerArgs,
-} from "../subagents/install/command-actions.js";
+import { type InstallHookHandlerArgs } from "../hooks/install/command-actions.js";
+import { type InstallKnowledgeHandlerArgs } from "../knowledge/install/command-actions.js";
+import { type InstallMcpServerHandlerArgs } from "../mcps/install/command-actions.js";
+import { type InstallPackHandlerArgs } from "../packs/install/command-actions.js";
+import { type InstallRuleHandlerArgs } from "../rules/install/command-actions.js";
+import { type InstallSkillSourceHandlerArgs } from "../skills/install/command-actions.js";
+import { type InstallSubagentSourceHandlerArgs } from "../subagents/install/command-actions.js";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -61,7 +39,8 @@ import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
 import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
 
-import { handleUpdate, type RootUpdateFlags } from "./handler.js";
+import { handleUpdateWithActions, type RootUpdateFlags } from "./handler.js";
+import type { InstallCommandActions } from "../shared/install-command-actions.js";
 
 interface UpdateCall extends RootUpdateFlags {
   readonly source: string;
@@ -343,57 +322,6 @@ describe("root update handler", () => {
     const coreLayer = Layer.mergeAll(
       ctx.fullLayer,
       CodingAgentRepositoryLive,
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallSkillCommandWorkflowActions,
-        skillActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallSkillCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallMcpServerCommandWorkflowActions,
-        mcpServerActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallMcpServerCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallSubagentCommandWorkflowActions,
-        subagentActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallSubagentCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallRuleCommandWorkflowActions,
-        ruleActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallRuleCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallHookCommandWorkflowActions,
-        hookActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallHookCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallPackCommandWorkflowActions,
-        packActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallPackCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        InstallKnowledgeCommandWorkflowActions,
-        knowledgeActions as unknown as ServiceMap.Service.Shape<
-          typeof InstallKnowledgeCommandWorkflowActions
-        >,
-      ),
       Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
     );
     const managerLayer = Layer.provide(
@@ -408,8 +336,20 @@ describe("root update handler", () => {
     );
     const fullLayer = Layer.merge(coreLayer, managerLayer);
 
+    const actions = {
+      skill: skillActions as unknown as InstallCommandActions["skill"],
+      mcpServer: mcpServerActions as unknown as InstallCommandActions["mcpServer"],
+      subagent: subagentActions as unknown as InstallCommandActions["subagent"],
+      rule: ruleActions as unknown as InstallCommandActions["rule"],
+      hook: hookActions as unknown as InstallCommandActions["hook"],
+      pack: packActions as unknown as InstallCommandActions["pack"],
+      knowledge: knowledgeActions as unknown as InstallCommandActions["knowledge"],
+    } satisfies InstallCommandActions;
+
     return {
       provide: makeEffectProvide(fullLayer),
+      handleUpdate: (args: Parameters<typeof handleUpdateWithActions>[0]) =>
+        handleUpdateWithActions(args, actions),
       logs: ctx.logs,
       rendererState: ctx.rendererState,
     };
@@ -423,7 +363,7 @@ describe("root update handler", () => {
         force: false,
         preview: true,
       } satisfies RootUpdateFlags;
-      const { provide } = makeLayers(calls);
+      const { provide, handleUpdate } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -465,7 +405,7 @@ describe("root update handler", () => {
   it.effect("rejects invalid FQN with guidance", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide } = makeLayers(calls);
+      const { provide, handleUpdate } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -489,7 +429,7 @@ describe("root update handler", () => {
   it.effect("accepts release-age bypass for an untargeted root update", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide } = makeLayers(calls);
+      const { provide, handleUpdate } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -513,7 +453,7 @@ describe("root update handler", () => {
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
       let registryCalls = 0;
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
@@ -574,7 +514,7 @@ describe("root update handler", () => {
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
       let requestedRange: string | undefined;
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
@@ -647,7 +587,7 @@ describe("root update handler", () => {
   it.effect("preserves trusted usable desired state for a targeted held release", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
@@ -741,7 +681,7 @@ describe("root update handler", () => {
       const acceptedRequests: Array<
         { readonly version: string; readonly publisherBindingId: string } | undefined
       > = [];
-      const { provide } = makeLayers(calls, {
+      const { provide, handleUpdate } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
@@ -845,7 +785,7 @@ describe("root update handler", () => {
   it.effect("records a one-shot targeted release-age bypass", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           ...selectedSourceHostProviders,
@@ -913,7 +853,7 @@ describe("root update handler", () => {
   it.effect("emits JSON no-op when workspace has no configured extensions to update", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, logs, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleUpdate, logs, rendererState } = makeLayers(calls, { machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -943,7 +883,7 @@ describe("root update handler", () => {
   it.effect("includes configured knowledge bundles in the workspace update plan", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, { machine: true });
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code"],
@@ -978,7 +918,7 @@ describe("root update handler", () => {
   it.effect("returns a holdback-only root update as a successful zero-step result", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           find: () => Effect.die("unused"),
@@ -1037,7 +977,7 @@ describe("root update handler", () => {
   it.effect("renders an actionable minimum-release-age section for people", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, logs } = makeLayers(calls, {
+      const { provide, handleUpdate, logs } = makeLayers(calls, {
         sources: {
           find: () => Effect.die("unused"),
           resolveNamedRegistry: (_source, options) =>
@@ -1078,7 +1018,7 @@ describe("root update handler", () => {
   it.effect("names the exemption and both timestamps when a release skips the age gate", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];
-      const { provide, logs } = makeLayers(calls, {
+      const { provide, handleUpdate, logs } = makeLayers(calls, {
         sources: {
           ...selectedSourceHostProviders,
           resolveNamedRegistry: (source, options) =>
@@ -1134,7 +1074,7 @@ describe("root update handler", () => {
         knowledge: "knowledge",
         pack: "packs",
       } as const;
-      const { provide, rendererState } = makeLayers(calls, {
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
         machine: true,
         sources: {
           find: () => Effect.die("unused"),

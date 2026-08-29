@@ -44,9 +44,6 @@ export const installCommand = Command.make(
           }),
         onSome: (value) =>
           Effect.gen(function* () {
-            // Resolve the workflow actions as a service: `runtime.ts` wires
-            // InstallKnowledgeCommandWorkflowActionsLive over KnowledgeManagerLive
-            // so one KnowledgeManager instance serves the whole run.
             const actions = yield* InstallKnowledgeCommandWorkflowActions;
             const execution = yield* makeInstallPlanExecution(
               { yes, preview },

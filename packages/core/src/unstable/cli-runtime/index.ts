@@ -63,8 +63,8 @@ export { handleError, classifyError, type ErrorClassification } from "./handle-e
 export { withGracefulShutdown } from "./graceful-shutdown.js";
 export { recordInterruptionSignal, requestedInterruptionSignal } from "./interruption.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
-export { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 export {
+  type CliTelemetryConfig,
   type CliRuntimeFoundation,
   type WithCliRuntimeOptions,
   withCliRuntime,
@@ -82,7 +82,6 @@ export {
   getCommandSemanticProperties,
   CommandSemanticProperties,
   CommandSemanticPropertiesLive,
-  type CommandSemanticPropertiesService,
   type CliCommandTelemetryOptions,
   type CliCommandCompletedOptions,
 } from "./telemetry.js";
@@ -91,7 +90,6 @@ export {
   OperationExitLive,
   getOperationExitCode,
   setOperationExitCode,
-  type OperationExitService,
 } from "./operation-exit.js";
 export {
   CommandCompletion,

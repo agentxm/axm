@@ -10,13 +10,7 @@
 
 // Provider implementations
 export { createGitSourceHostProvider } from "./providers/git.js";
-export {
-  createAzureReposSourceHostProvider,
-  createBitbucketSourceHostProvider,
-  createGitHostingSourceHostProvider,
-  createGitHubSourceHostProvider,
-  createGitLabSourceHostProvider,
-} from "./providers/git-hosting.js";
+export { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 export { createLocalSourceHostProvider } from "./providers/local.js";
 export {
   createLocalRegistrySourceHostProvider,

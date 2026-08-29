@@ -16,10 +16,7 @@ import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/wo
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import {
-  UninstallSubagentCommandWorkflowActionsLive,
-  type UninstallSubagentHandlerArgs,
-} from "./command-actions.js";
+import { type UninstallSubagentHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {
   expectAppliedPlanResult,
@@ -114,11 +111,7 @@ describe("uninstall.handler (subagents)", () => {
       SubagentManagerLive,
       Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive),
     );
-    const ActionsLayer = Layer.provide(
-      UninstallSubagentCommandWorkflowActionsLive,
-      Layer.mergeAll(BaseLayer, WsLayer, SMLayer, CodingAgentRepositoryLive),
-    );
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SMLayer, CodingAgentRepositoryLive);
     const provide = makeEffectProvide(FullLayer);
 
     return {

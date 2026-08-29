@@ -155,7 +155,13 @@ const handleBundledInstall = (flags: InstallSkillFlags) =>
     });
   });
 
-export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
+type InstallSkillActions = Effect.Success<typeof InstallSkillCommandWorkflowActions>;
+
+const handleInstallWithActionEffect = <R>(
+  args: InstallHandlerArgs,
+  flags: InstallSkillFlags,
+  actionsEffect: Effect.Effect<InstallSkillActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: "skills.install",
@@ -166,10 +172,23 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
         "skill",
       ),
     },
-    handleInstallBody(args, flags),
+    handleInstallBody(args, flags, actionsEffect),
   );
 
-const handleInstallBody = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
+export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags) =>
+  handleInstallWithActionEffect(args, flags, InstallSkillCommandWorkflowActions);
+
+export const handleInstallWithActions = (
+  args: InstallHandlerArgs,
+  flags: InstallSkillFlags,
+  actions: InstallSkillActions,
+) => handleInstallWithActionEffect(args, flags, Effect.succeed(actions));
+
+const handleInstallBody = <R>(
+  args: InstallHandlerArgs,
+  flags: InstallSkillFlags,
+  actionsEffect: Effect.Effect<InstallSkillActions, never, R>,
+) =>
   Effect.gen(function* () {
     if (args.bundled === true) {
       yield* validateBundledInstallArgs(args);
@@ -187,7 +206,7 @@ const handleInstallBody = (args: InstallHandlerArgs, flags: InstallSkillFlags) =
       });
     }
 
-    const actions = yield* InstallSkillCommandWorkflowActions;
+    const actions = yield* actionsEffect;
     const execution = yield* makeInstallPlanExecution(
       flags,
       ["skills", "install"],

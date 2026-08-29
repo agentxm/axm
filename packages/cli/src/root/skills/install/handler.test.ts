@@ -24,11 +24,8 @@ import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runt
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import {
-  InstallSkillCommandWorkflowActions,
-  InstallSkillCommandWorkflowActionsLive,
-} from "./command-actions.js";
-import { handleInstall, type InstallHandlerArgs } from "./handler.js";
+import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
+import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,
   expectRecord,
@@ -226,22 +223,12 @@ describe("skills install handler — error propagation", () => {
         CodingAgentRepositoryLive,
       ),
     );
-    const ActionsLayer = Layer.provide(
-      InstallSkillCommandWorkflowActionsLive,
-      Layer.mergeAll(
-        handlerTestContext.baseLayer,
-        handlerTestContext.wsLayer,
-        SPLayer,
-        SMLayer,
-        CodingAgentRepositoryLive,
-      ),
-    );
     const FullLayer = Layer.mergeAll(
       handlerTestContext.baseLayer,
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
-      ActionsLayer,
+      SMLayer,
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -257,7 +244,7 @@ describe("skills install handler — error propagation", () => {
     const handlerTestContext = makeWorkspaceHandlerTestContext({
       machine: options?.machine,
     });
-    const actionsLayer = Layer.succeed(InstallSkillCommandWorkflowActions, {
+    const actions = {
       parseArgs: () =>
         Effect.succeed({
           source: { type: "local" as const, path: tempDir },
@@ -278,16 +265,17 @@ describe("skills install handler — error propagation", () => {
           description: Option.none<string>(),
           jobs: [{ concurrency: 1 as const, steps: [] }],
         }),
-    });
-    const fullLayer = Layer.mergeAll(
-      handlerTestContext.baseLayer,
-      handlerTestContext.wsLayer,
-      actionsLayer,
-    );
+    } satisfies Effect.Success<typeof InstallSkillCommandWorkflowActions>;
+    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
     const provide = makeEffectProvide(fullLayer);
+    const handleTestInstall = (
+      args: InstallHandlerArgs,
+      flags: Parameters<typeof handleInstall>[1],
+    ) => handleInstallWithActions(args, flags, actions);
 
     return {
       provide,
+      handleInstall: handleTestInstall,
       logs: handlerTestContext.logs,
       rendererState: handlerTestContext.rendererState,
     };
@@ -493,7 +481,7 @@ describe("skills install handler — error propagation", () => {
   });
 
   it.effect("reports no-op when interactive selection chooses no skills", () => {
-    const { provide, logs } = makeNoSelectionLayers();
+    const { provide, handleInstall, logs } = makeNoSelectionLayers();
 
     return provide(
       Effect.gen(function* () {
@@ -510,7 +498,9 @@ describe("skills install handler — error propagation", () => {
   });
 
   it.effect("emits JSON no-op when interactive selection chooses no skills", () => {
-    const { provide, logs, rendererState } = makeNoSelectionLayers({ machine: true });
+    const { provide, handleInstall, logs, rendererState } = makeNoSelectionLayers({
+      machine: true,
+    });
 
     return provide(
       Effect.gen(function* () {

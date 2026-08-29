@@ -21,13 +21,9 @@ export interface FootprintObservation {
   readonly change: "created" | "modified" | "removed" | "restored";
 }
 
-export interface FootprintRecorderService {
-  readonly ref: Ref.Ref<ReadonlyArray<FootprintObservation>>;
-}
-
 export class FootprintRecorder extends ServiceMap.Service<
   FootprintRecorder,
-  FootprintRecorderService
+  { readonly ref: Ref.Ref<ReadonlyArray<FootprintObservation>> }
 >()("@agentxm/client-core/unstable/workspace/footprint-recorder/FootprintRecorder") {}
 
 /** Record one observed durable change. No-op without a recorder. */
@@ -46,6 +42,6 @@ export const readFootprint: Effect.Effect<ReadonlyArray<FootprintObservation>> =
   },
 );
 
-export const makeFootprintRecorder: Effect.Effect<FootprintRecorderService> = Ref.make<
-  ReadonlyArray<FootprintObservation>
->([]).pipe(Effect.map((ref) => ({ ref })));
+export const makeFootprintRecorder: Effect.Effect<
+  ServiceMap.Service.Shape<typeof FootprintRecorder>
+> = Ref.make<ReadonlyArray<FootprintObservation>>([]).pipe(Effect.map((ref) => ({ ref })));

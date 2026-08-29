@@ -16,6 +16,10 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./workspace-update.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
+import {
+  makeInstallCommandActions,
+  type InstallCommandActions,
+} from "../shared/install-command-actions.js";
 
 const workspaceUpdateSubjectType = (type: Option.Option<WorkspaceUpdatableType>): SubjectType =>
   Option.match(type, {
@@ -55,7 +59,7 @@ const workspaceUpdateCommand = (
     },
   });
 
-export const handleWorkspaceUpdate = (args: {
+export interface WorkspaceUpdateHandlerArgs {
   readonly command: string;
   readonly type: Option.Option<WorkspaceUpdatableType>;
   readonly planName: string;
@@ -63,7 +67,12 @@ export const handleWorkspaceUpdate = (args: {
   readonly flags: WorkspaceUpdateFlags;
   /** Installed names a selector resolved to; omit to update every entry. */
   readonly names?: ReadonlyArray<string>;
-}) =>
+}
+
+const handleWorkspaceUpdateWithActionEffect = <R>(
+  args: WorkspaceUpdateHandlerArgs,
+  actionsEffect: Effect.Effect<InstallCommandActions, never, R>,
+) =>
   withOperationLifecycle(
     {
       command: args.command,
@@ -75,25 +84,32 @@ export const handleWorkspaceUpdate = (args: {
         Option.getOrUndefined(args.type),
       ),
     },
-    handleWorkspaceUpdateBody(args),
+    Effect.flatMap(actionsEffect, (actions) => handleWorkspaceUpdateBody(args, actions)),
   );
 
-const handleWorkspaceUpdateBody = (args: {
-  readonly command: string;
-  readonly type: Option.Option<WorkspaceUpdatableType>;
-  readonly planName: string;
-  readonly planDescription: Option.Option<string>;
-  readonly flags: WorkspaceUpdateFlags;
-  readonly names?: ReadonlyArray<string>;
-}) =>
+export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
+  handleWorkspaceUpdateWithActionEffect(args, makeInstallCommandActions);
+
+export const handleWorkspaceUpdateWithActions = (
+  args: WorkspaceUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) => handleWorkspaceUpdateWithActionEffect(args, Effect.succeed(actions));
+
+const handleWorkspaceUpdateBody = (
+  args: WorkspaceUpdateHandlerArgs,
+  actions: InstallCommandActions,
+) =>
   Effect.gen(function* () {
-    const planResult = yield* buildWorkspaceUpdatePlan({
-      type: args.type,
-      planName: args.planName,
-      planDescription: args.planDescription,
-      ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
-      ...(args.names === undefined ? {} : { names: args.names }),
-    });
+    const planResult = yield* buildWorkspaceUpdatePlan(
+      {
+        type: args.type,
+        planName: args.planName,
+        planDescription: args.planDescription,
+        ignoreReleaseAge: args.flags.ignoreReleaseAge === true,
+        ...(args.names === undefined ? {} : { names: args.names }),
+      },
+      actions,
+    );
 
     if (planResult._tag === "NoConfiguredExtensions") {
       yield* setCommandSemanticProperties(

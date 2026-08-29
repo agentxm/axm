@@ -15,11 +15,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/client-core/unstable/app-error";
 import { KnowledgeIndexLive } from "@agentxm/client-core/unstable/knowledge";
-import {
-  AuthGuardInteractionTest,
-  CredentialStoreTest,
-  RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
+import { CredentialStoreTest, RegistryUrl } from "@agentxm/client-core/unstable/auth";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
 import {
   TestMachineRenderer,
@@ -66,7 +62,7 @@ export interface TestPromptConfig {
 }
 
 export interface TestPromptState {
-  readonly confirmCalls: Array<{ readonly kind: "auth-guard" | "resolve-plan" }>;
+  readonly confirmCalls: Array<{ readonly kind: "resolve-plan" }>;
   readonly multiselectCalls: Array<{
     readonly message: string;
     readonly options: ReadonlyArray<{
@@ -387,21 +383,20 @@ export const makeCliTestContext = (opts?: {
   const confirmQueue = Array.from(opts?.prompt?.confirmResponses ?? []);
   const multiselectQueue = Array.from(opts?.prompt?.multiselectResponses ?? []);
 
-  const nextConfirm = (kind: "auth-guard" | "resolve-plan") =>
+  const nextConfirm = () =>
     Effect.gen(function* () {
-      promptState.confirmCalls.push({ kind });
+      promptState.confirmCalls.push({ kind: "resolve-plan" });
       const response = confirmQueue.shift();
       if (response === undefined) {
-        return yield* Effect.die(new Error(`Test prompt: no canned confirm response for ${kind}.`));
+        return yield* Effect.die(
+          new Error("Test prompt: no canned confirm response for resolve-plan."),
+        );
       }
       return response;
     });
 
-  const authGuardTest = AuthGuardInteractionTest({
-    confirmLogin: () => nextConfirm("auth-guard"),
-  });
   const resolvePlanTest = ResolvePlanInteractionTest({
-    confirmApplyChanges: () => nextConfirm("resolve-plan"),
+    confirmApplyChanges: nextConfirm,
   });
   const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
     selectAgents: ({ allAgents, detectedIds }) =>
@@ -429,7 +424,6 @@ export const makeCliTestContext = (opts?: {
     NodeServices.layer,
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     rendererLayer,
-    authGuardTest.layer,
     resolvePlanTest.layer,
     workspaceInitializationTest.layer,
     TestFlagsLayer(opts?.flags),
@@ -443,7 +437,6 @@ export const makeCliTestContext = (opts?: {
     logs: logsByTag(rendererState),
     promptState,
     rendererState,
-    authGuardState: authGuardTest.state,
     resolvePlanState: resolvePlanTest.state,
     workspaceInitializationState: workspaceInitializationTest.state,
   };

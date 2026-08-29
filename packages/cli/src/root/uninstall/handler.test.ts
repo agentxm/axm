@@ -2,39 +2,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
-import {
-  UninstallMcpServerCommandWorkflowActions,
-  type UninstallMcpServerHandlerArgs,
-} from "../mcps/uninstall/command-actions.js";
-import {
-  UninstallHookCommandWorkflowActions,
-  type UninstallHookHandlerArgs,
-} from "../hooks/uninstall/command-actions.js";
-import {
-  UninstallKnowledgeCommandWorkflowActions,
-  type UninstallKnowledgeHandlerArgs,
-} from "../knowledge/uninstall/command-actions.js";
-import {
-  UninstallPackCommandWorkflowActions,
-  type UninstallPackHandlerArgs,
-} from "../packs/uninstall/command-actions.js";
-import {
-  UninstallSkillCommandWorkflowActions,
-  type UninstallHandlerArgs,
-} from "../skills/uninstall/command-actions.js";
-import {
-  UninstallSubagentCommandWorkflowActions,
-  type UninstallSubagentHandlerArgs,
-} from "../subagents/uninstall/command-actions.js";
-import {
-  UninstallRuleCommandWorkflowActions,
-  type UninstallRuleHandlerArgs,
-} from "../rules/uninstall/command-actions.js";
+import { type UninstallMcpServerHandlerArgs } from "../mcps/uninstall/command-actions.js";
+import { type UninstallHookHandlerArgs } from "../hooks/uninstall/command-actions.js";
+import { type UninstallKnowledgeHandlerArgs } from "../knowledge/uninstall/command-actions.js";
+import { type UninstallPackHandlerArgs } from "../packs/uninstall/command-actions.js";
+import { type UninstallHandlerArgs } from "../skills/uninstall/command-actions.js";
+import { type UninstallSubagentHandlerArgs } from "../subagents/uninstall/command-actions.js";
+import { type UninstallRuleHandlerArgs } from "../rules/uninstall/command-actions.js";
 import {
   expectAppliedPlanResult,
   getAppError,
@@ -43,7 +20,11 @@ import {
 } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 
-import { handleUninstall, type RootUninstallFlags } from "./handler.js";
+import {
+  handleUninstallWithActions,
+  type RootUninstallActions,
+  type RootUninstallFlags,
+} from "./handler.js";
 
 interface UninstallCall {
   readonly type: string;
@@ -165,63 +146,20 @@ describe("root uninstall handler", () => {
       buildUninstallPlan: () => Effect.succeed(makePlan("knowledge")),
     };
 
-    const fullLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallSkillCommandWorkflowActions,
-        skillActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallSkillCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallMcpServerCommandWorkflowActions,
-        mcpServerActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallMcpServerCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallSubagentCommandWorkflowActions,
-        subagentActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallSubagentCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallRuleCommandWorkflowActions,
-        ruleActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallRuleCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallHookCommandWorkflowActions,
-        hookActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallHookCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallPackCommandWorkflowActions,
-        packActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallPackCommandWorkflowActions
-        >,
-      ),
-      // Assertion needed: workflow action test doubles satisfy the service contracts for this dispatch test.
-      Layer.succeed(
-        UninstallKnowledgeCommandWorkflowActions,
-        knowledgeActions as unknown as ServiceMap.Service.Shape<
-          typeof UninstallKnowledgeCommandWorkflowActions
-        >,
-      ),
-    );
+    const actions = {
+      skill: skillActions as unknown as RootUninstallActions["skill"],
+      mcpServer: mcpServerActions as unknown as RootUninstallActions["mcpServer"],
+      subagent: subagentActions as unknown as RootUninstallActions["subagent"],
+      rule: ruleActions as unknown as RootUninstallActions["rule"],
+      hook: hookActions as unknown as RootUninstallActions["hook"],
+      pack: packActions as unknown as RootUninstallActions["pack"],
+      knowledge: knowledgeActions as unknown as RootUninstallActions["knowledge"],
+    } satisfies RootUninstallActions;
 
     return {
-      provide: makeEffectProvide(fullLayer),
+      provide: makeEffectProvide(ctx.fullLayer),
+      handleUninstall: (args: Parameters<typeof handleUninstallWithActions>[0]) =>
+        handleUninstallWithActions(args, actions),
       logs: ctx.logs,
       rendererState: ctx.rendererState,
     };
@@ -236,7 +174,7 @@ describe("root uninstall handler", () => {
           yes: false,
           preview: true,
         } satisfies RootUninstallFlags;
-        const { provide } = makeLayers(calls);
+        const { provide, handleUninstall } = makeLayers(calls);
         writeWorkspaceFiles(path.join(tempDir, ".axm"), {
           agents: ["claude-code"],
           owner: "@axm",
@@ -271,7 +209,7 @@ describe("root uninstall handler", () => {
         yes: false,
         preview: true,
       } satisfies RootUninstallFlags;
-      const { provide } = makeLayers(calls);
+      const { provide, handleUninstall } = makeLayers(calls);
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
@@ -294,7 +232,7 @@ describe("root uninstall handler", () => {
         yes: true,
         preview: false,
       } satisfies RootUninstallFlags;
-      const { provide, rendererState } = makeLayers(calls, { machine: true });
+      const { provide, handleUninstall, rendererState } = makeLayers(calls, { machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",

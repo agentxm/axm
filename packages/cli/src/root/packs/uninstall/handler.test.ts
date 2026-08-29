@@ -28,10 +28,7 @@ import {
 import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
-import {
-  type UninstallPackHandlerArgs,
-  UninstallPackCommandWorkflowActionsLive,
-} from "./command-actions.js";
+import { type UninstallPackHandlerArgs } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
 import {
   computePackManifestContentIdentity,
@@ -244,11 +241,7 @@ describe("packs uninstall handler", () => {
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
-    const ActionsLayer = Layer.provide(
-      UninstallPackCommandWorkflowActionsLive,
-      Layer.merge(CoreLayer, MgrLayer),
-    );
-    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
+    const FullLayer = Layer.merge(CoreLayer, MgrLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

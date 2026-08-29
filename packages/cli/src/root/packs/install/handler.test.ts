@@ -44,7 +44,6 @@ import { handleInstallPack } from "./handler.js";
 import {
   type InstallPackHandlerArgs,
   InstallPackCommandWorkflowActions,
-  InstallPackCommandWorkflowActionsLive,
 } from "./command-actions.js";
 import type { PackInstallHandlerArgs } from "./handler.js";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -184,11 +183,7 @@ describe("packs install handler", () => {
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
-    const ActionsLayer = Layer.provide(
-      InstallPackCommandWorkflowActionsLive,
-      Layer.merge(CoreLayer, MgrLayer),
-    );
-    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
+    const FullLayer = Layer.merge(CoreLayer, MgrLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -236,11 +231,7 @@ describe("packs install handler", () => {
     );
     const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
-    const ActionsLayer = Layer.provide(
-      InstallPackCommandWorkflowActionsLive,
-      Layer.merge(CoreLayer, MgrLayer),
-    );
-    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
+    const FullLayer = Layer.merge(CoreLayer, MgrLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

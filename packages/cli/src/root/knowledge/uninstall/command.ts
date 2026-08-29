@@ -13,7 +13,7 @@ import { emitOperationResolution } from "../../../operation-output.js";
 import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
-import { makeUninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
+import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
 const uninstallPresentation = operationPresentation(
   { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
@@ -48,7 +48,7 @@ export const uninstallCommand = Command.make(
         presentation: uninstallPresentation,
       },
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const execution = yield* makeUninstallPlanExecution(
           { yes, preview },
           ["knowledge", "uninstall"],

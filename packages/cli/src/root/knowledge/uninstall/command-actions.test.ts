@@ -17,7 +17,7 @@ import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolu
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
-import { makeUninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
+import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
 
 const sourceProvidersLayer = Layer.succeed(SourceHostProviders, {
   resolveNamedRegistry: () => Effect.die("not used"),
@@ -99,10 +99,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         expect(plan.jobs[0]?.steps[0]).toMatchObject({
           readiness: "error",
           label: "handbook",
@@ -157,10 +157,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         expect(plan.jobs[0]?.steps[0]).toMatchObject({
           readiness: "error",
           errorMessage: expect.stringContaining("accepted resolution is missing"),
@@ -187,10 +187,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
@@ -228,10 +228,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
@@ -279,10 +279,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });
@@ -343,10 +343,10 @@ describe("Knowledge uninstall ownership", () => {
 
     return provide(
       Effect.gen(function* () {
-        const actions = yield* makeUninstallKnowledgeCommandWorkflowActions;
+        const actions = yield* UninstallKnowledgeCommandWorkflowActions;
         const parsed = yield* actions.parseArgs({ name: "handbook" });
         const intent = yield* actions.finalizeIntent(parsed);
-        const plan = yield* actions.buildUninstallPlan(intent);
+        const plan = yield* actions.buildUninstallPlan(intent, { execution: previewPlanExecution });
         const resolution = yield* previewOrApplyPlan(plan, {
           execution: preapprovedPlanExecution,
         });

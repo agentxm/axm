@@ -22,7 +22,7 @@ import {
 import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
 
 import {
-  type CliTelemetryConfigService,
+  type CliTelemetryConfig,
   type OutputFormat,
   getCommandSemanticProperties,
   makeFoundationLayer,
@@ -56,7 +56,6 @@ import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-re
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import {
   AuthClientLive,
-  AuthGuardInteractionLive,
   AuthLoginInteractionLive,
   AuthMiddlewareLive,
   CredentialStoreLive,
@@ -64,20 +63,6 @@ import {
   PendingDeviceLoginStoreLive,
   RegistryUrl,
 } from "@agentxm/client-core/unstable/auth";
-import { InstallHookCommandWorkflowActionsLive } from "./root/hooks/install/command-actions.js";
-import { UninstallHookCommandWorkflowActionsLive } from "./root/hooks/uninstall/command-actions.js";
-import { InstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/install/command-actions.js";
-import { UninstallKnowledgeCommandWorkflowActionsLive } from "./root/knowledge/uninstall/command-actions.js";
-import { InstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/install/command-actions.js";
-import { UninstallMcpServerCommandWorkflowActionsLive } from "./root/mcps/uninstall/command-actions.js";
-import { InstallPackCommandWorkflowActionsLive } from "./root/packs/install/command-actions.js";
-import { UninstallPackCommandWorkflowActionsLive } from "./root/packs/uninstall/command-actions.js";
-import { InstallRuleCommandWorkflowActionsLive } from "./root/rules/install/command-actions.js";
-import { UninstallRuleCommandWorkflowActionsLive } from "./root/rules/uninstall/command-actions.js";
-import { InstallSkillCommandWorkflowActionsLive } from "./root/skills/install/command-actions.js";
-import { UninstallSkillCommandWorkflowActionsLive } from "./root/skills/uninstall/command-actions.js";
-import { InstallSubagentCommandWorkflowActionsLive } from "./root/subagents/install/command-actions.js";
-import { UninstallSubagentCommandWorkflowActionsLive } from "./root/subagents/uninstall/command-actions.js";
 import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
 import type {
   WorkspaceMutationsOptions,
@@ -270,7 +255,7 @@ const readRuntimeEnvConfig = Effect.gen(function* () {
   };
 });
 
-const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfigService => ({
+const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig => ({
   mode: resolveTelemetryMode({
     doNotTrack: Option.getOrUndefined(envConfig.doNotTrack),
     telemetry: Option.getOrUndefined(envConfig.telemetry),
@@ -294,58 +279,17 @@ const makeWorkspaceProgramLayer = (
     CodingAgentRepositoryLive,
   );
 
-  // Extensions: wire workflow actions with core managers.
   // Leaf managers are independent. Packs depend on the other managers.
-  const rulesLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallRuleCommandWorkflowActionsLive, UninstallRuleCommandWorkflowActionsLive),
-    RuleManagerLive,
-  );
-  const hooksLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallHookCommandWorkflowActionsLive, UninstallHookCommandWorkflowActionsLive),
-    HookManagerLive,
-  );
-  const mcpServersLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallMcpServerCommandWorkflowActionsLive,
-      UninstallMcpServerCommandWorkflowActionsLive,
-    ),
-    McpServerManagerLive,
-  );
-  const skillsLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallSkillCommandWorkflowActionsLive,
-      UninstallSkillCommandWorkflowActionsLive,
-    ),
-    SkillManagerLive,
-  );
-  const subagentsLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallSubagentCommandWorkflowActionsLive,
-      UninstallSubagentCommandWorkflowActionsLive,
-    ),
-    SubagentManagerLive,
-  );
-  const knowledgeLayer = Layer.provideMerge(
-    Layer.mergeAll(
-      InstallKnowledgeCommandWorkflowActionsLive,
-      UninstallKnowledgeCommandWorkflowActionsLive,
-    ),
-    KnowledgeManagerLive,
-  );
-  const packsLayer = Layer.provideMerge(
-    Layer.mergeAll(InstallPackCommandWorkflowActionsLive, UninstallPackCommandWorkflowActionsLive),
-    PackManagerLive,
-  );
   const coreExtensions = Layer.mergeAll(
-    rulesLayer,
-    hooksLayer,
-    mcpServersLayer,
-    skillsLayer,
-    subagentsLayer,
-    knowledgeLayer,
+    RuleManagerLive,
+    HookManagerLive,
+    McpServerManagerLive,
+    SkillManagerLive,
+    SubagentManagerLive,
+    KnowledgeManagerLive,
     KnowledgeIndexLive,
   );
-  const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
+  const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
   return Layer.merge(fullLayer, invariantFactsLayer);
@@ -452,7 +396,6 @@ export const withRuntime =
         envDebug: config.envDebug,
       });
       const interactionLayer = Layer.mergeAll(
-        AuthGuardInteractionLive,
         ResolvePlanInteractionLive,
         WorkspaceInitializationInteractionLive,
       );

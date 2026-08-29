@@ -17,7 +17,6 @@ import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
 import { OperationExitLive, getOperationExitCode } from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
-import { makeCliTelemetryLayer, type CliTelemetryConfigService } from "./telemetry-layer.js";
 import {
   readGlobalFlagProperties,
   reportCliDefect,
@@ -28,7 +27,11 @@ import {
   CommandSemanticPropertiesLive,
 } from "./telemetry.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
-import type { TelemetryProperties } from "../telemetry/index.js";
+import {
+  TelemetryClientLive,
+  type TelemetryClientOptions,
+  type TelemetryProperties,
+} from "../telemetry/index.js";
 
 import {
   InteractiveRenderer,
@@ -42,6 +45,11 @@ import { makeJsonErrorEnvelope } from "./json-envelope.js";
 const writeStderr = (message: string): void => {
   process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
 };
+
+export interface CliTelemetryConfig {
+  readonly mode: TelemetryClientOptions["mode"];
+  readonly client: TelemetryClientOptions["client"];
+}
 
 const defectMessage = (cause: Cause.Cause<unknown>): string => {
   const squashed = Cause.squash(cause);
@@ -229,11 +237,15 @@ export const withCliErrorHandling = <A, R>(
   options: {
     readonly command?: string | undefined;
     readonly format: OutputFormat;
-    readonly telemetryConfig: CliTelemetryConfigService;
+    readonly telemetryConfig: CliTelemetryConfig;
   },
 ) => {
   const command = options.command ?? "unknown";
-  const telemetryLayer = makeCliTelemetryLayer(command, options.telemetryConfig);
+  const telemetryLayer = TelemetryClientLive({
+    mode: options.telemetryConfig.mode,
+    command,
+    client: options.telemetryConfig.client,
+  });
 
   const enrichedProgram = Effect.gen(function* () {
     // Read optional CommandArgv (won't fail if not provided)
@@ -408,7 +420,7 @@ export const withCliErrorHandling = <A, R>(
 
 export interface WithCliRuntimeOptions {
   readonly command?: string | undefined;
-  readonly telemetryConfig: CliTelemetryConfigService;
+  readonly telemetryConfig: CliTelemetryConfig;
 }
 
 export const withCliRuntime = <A, R>(

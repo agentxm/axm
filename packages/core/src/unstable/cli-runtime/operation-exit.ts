@@ -13,13 +13,10 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 
-export interface OperationExitService {
-  readonly ref: Ref.Ref<Option.Option<number>>;
-}
-
-export class OperationExit extends ServiceMap.Service<OperationExit, OperationExitService>()(
-  "@agentxm/client-core/unstable/cli-runtime/operation-exit/OperationExit",
-) {}
+export class OperationExit extends ServiceMap.Service<
+  OperationExit,
+  { readonly ref: Ref.Ref<Option.Option<number>> }
+>()("@agentxm/client-core/unstable/cli-runtime/operation-exit/OperationExit") {}
 
 /** Record the exit code the operation's outcome mapped to. No-op when absent. */
 export const setOperationExitCode = (exitCode: number): Effect.Effect<void> =>

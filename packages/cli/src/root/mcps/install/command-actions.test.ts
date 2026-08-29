@@ -22,11 +22,7 @@ import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
 import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import {
-  InstallMcpServerCommandWorkflowActions,
-  InstallMcpServerCommandWorkflowActionsLive,
-  parseEnvFlag,
-} from "./command-actions.js";
+import { InstallMcpServerCommandWorkflowActions, parseEnvFlag } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
   getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),
@@ -66,17 +62,15 @@ const testLayer = Layer.mergeAll(
   FetchHttpClient.layer,
 );
 
-const actionsLayer = Layer.provide(InstallMcpServerCommandWorkflowActionsLive, testLayer);
-
 const runWithActions = <A, E>(
   fn: (
-    actions: ServiceMap.Service.Shape<typeof InstallMcpServerCommandWorkflowActions>,
+    actions: Effect.Success<typeof InstallMcpServerCommandWorkflowActions>,
   ) => Effect.Effect<A, E>,
 ) =>
   Effect.gen(function* () {
     const actions = yield* InstallMcpServerCommandWorkflowActions;
     return yield* fn(actions);
-  }).pipe(Effect.provide(actionsLayer));
+  }).pipe(Effect.provide(testLayer));
 
 describe("parseMcpServerInstallArgs", () => {
   it.effect("parses @owner/mcps/name registry pattern", () =>
@@ -143,16 +137,12 @@ describe("parseMcpServerInstallArgs", () => {
 
   it.effect("sets force to false (force is now passed through plan flags, not parsed args)", () =>
     Effect.gen(function* () {
-      const forceActionsLayer = Layer.provide(
-        InstallMcpServerCommandWorkflowActionsLive,
-        testLayer,
-      );
       const result = yield* Effect.gen(function* () {
         const actions = yield* InstallMcpServerCommandWorkflowActions;
         return yield* actions.parseArgs({
           source: "my-server",
         });
-      }).pipe(Effect.provide(forceActionsLayer));
+      }).pipe(Effect.provide(testLayer));
       expect(result.force).toBe(false);
     }),
   );

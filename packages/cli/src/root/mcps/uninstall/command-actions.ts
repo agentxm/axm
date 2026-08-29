@@ -8,9 +8,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/client-core/unstable/app-error";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
@@ -47,110 +45,92 @@ export interface ParsedMcpServerUninstallArgs {
   readonly serverName: string;
 }
 
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
+type UninstallMcpServerActions = UninstallExtensionCommandWorkflowActions<
+  UninstallMcpServerHandlerArgs,
+  ParsedMcpServerUninstallArgs,
+  UninstallMcpServerCommandIntent
+>;
 
-export class UninstallMcpServerCommandWorkflowActions extends ServiceMap.Service<
-  UninstallMcpServerCommandWorkflowActions,
-  UninstallExtensionCommandWorkflowActions<
-    UninstallMcpServerHandlerArgs,
-    ParsedMcpServerUninstallArgs,
-    UninstallMcpServerCommandIntent
-  >
->()("axm.sh/root/mcps/uninstall/command-actions/UninstallMcpServerCommandWorkflowActions") {}
+export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
+  const ws = yield* WorkspaceMutations;
+  const mcpServerMgr = yield* McpServerManager;
 
-// -----------------------------------------------------------------------------
-// Live Layer
-// -----------------------------------------------------------------------------
+  const parseArgs = (
+    args: UninstallMcpServerHandlerArgs,
+  ): Effect.Effect<ParsedMcpServerUninstallArgs, AppError> =>
+    Effect.succeed({ serverName: args.serverName.trim() });
 
-/**
- * Constructs the actions by resolving all services at layer-build time.
- * Each action method closes over the captured services so `R = never`.
- */
-export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
-  UninstallMcpServerCommandWorkflowActions,
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const mcpServerMgr = yield* McpServerManager;
+  const finalizeIntent = (
+    parsed: ParsedMcpServerUninstallArgs,
+  ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
+    Effect.succeed({
+      targets: [
+        {
+          type: "mcp-server",
+          name: parsed.serverName,
+        } satisfies McpServerExtensionTarget,
+      ],
+    });
 
-    const parseArgs = (
-      args: UninstallMcpServerHandlerArgs,
-    ): Effect.Effect<ParsedMcpServerUninstallArgs, AppError> =>
-      Effect.succeed({ serverName: args.serverName.trim() });
+  const buildUninstallPlan = (
+    intent: UninstallMcpServerCommandIntent,
+  ): Effect.Effect<Plan, AppError> => {
+    const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
-    const finalizeIntent = (
-      parsed: ParsedMcpServerUninstallArgs,
-    ): Effect.Effect<UninstallMcpServerCommandIntent, AppError> =>
-      Effect.succeed({
-        targets: [
-          {
-            type: "mcp-server",
-            name: parsed.serverName,
-          } satisfies McpServerExtensionTarget,
-        ],
+    const steps = intent.targets.map((target): PlannedJobStep => {
+      const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
+        target,
       });
+      if (step.readiness !== "ready") {
+        return step;
+      }
+      return {
+        ...step,
+        run: Effect.gen(function* () {
+          const lockEntry = Option.getOrUndefined(
+            yield* ws
+              .getLockedMcpServer(target.name)
+              .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+          );
+          const result = yield* step.run;
+          if (result.result !== "success") return result;
+          const unchanged = result.message === "not installed";
+          const sourceTarget =
+            lockEntry?.type === "registry"
+              ? mcpSourceTarget(ws.scope, lockEntry, "removed")
+              : undefined;
+          return {
+            ...result,
+            artifact: mcpServerArtifact({
+              lockEntry,
+              scope: ws.scope,
+              change: unchanged ? "unchanged" : "removed",
+              targets: unchanged
+                ? []
+                : [
+                    { path: workspaceLockfilePath(ws.scope), change: "updated" },
+                    { path: workspaceSettingsPath(ws.scope), change: "updated" },
+                    ...(sourceTarget === undefined ? [] : [sourceTarget]),
+                  ],
+            }),
+          } satisfies JobStepResult;
+        }),
+      };
+    });
 
-    const buildUninstallPlan = (
-      intent: UninstallMcpServerCommandIntent,
-    ): Effect.Effect<Plan, AppError> => {
-      const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+    return Effect.succeed({
+      _tag: "Plan",
+      name: "Uninstall MCP server",
+      description: Option.some(
+        `Uninstall MCP server ${intent.targets.map((t) => t.name).join(", ")}`,
+      ),
+      jobs: [{ concurrency: 1 as const, steps }],
+    } satisfies Plan);
+  };
 
-      const steps = intent.targets.map((target): PlannedJobStep => {
-        const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
-          target,
-        });
-        if (step.readiness !== "ready") {
-          return step;
-        }
-        return {
-          ...step,
-          run: Effect.gen(function* () {
-            const lockEntry = Option.getOrUndefined(
-              yield* ws
-                .getLockedMcpServer(target.name)
-                .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
-            );
-            const result = yield* step.run;
-            if (result.result !== "success") return result;
-            const unchanged = result.message === "not installed";
-            const sourceTarget =
-              lockEntry?.type === "registry"
-                ? mcpSourceTarget(ws.scope, lockEntry, "removed")
-                : undefined;
-            return {
-              ...result,
-              artifact: mcpServerArtifact({
-                lockEntry,
-                scope: ws.scope,
-                change: unchanged ? "unchanged" : "removed",
-                targets: unchanged
-                  ? []
-                  : [
-                      { path: workspaceLockfilePath(ws.scope), change: "updated" },
-                      { path: workspaceSettingsPath(ws.scope), change: "updated" },
-                      ...(sourceTarget === undefined ? [] : [sourceTarget]),
-                    ],
-              }),
-            } satisfies JobStepResult;
-          }),
-        };
-      });
-
-      return Effect.succeed({
-        _tag: "Plan",
-        name: "Uninstall MCP server",
-        description: Option.some(
-          `Uninstall MCP server ${intent.targets.map((t) => t.name).join(", ")}`,
-        ),
-        jobs: [{ concurrency: 1 as const, steps }],
-      } satisfies Plan);
-    };
-
-    return {
-      parseArgs,
-      finalizeIntent,
-      buildUninstallPlan,
-    };
-  }),
-);
+  return {
+    parseArgs,
+    finalizeIntent,
+    buildUninstallPlan,
+  };
+}).pipe(Effect.map((actions): UninstallMcpServerActions => actions));

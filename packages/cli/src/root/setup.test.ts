@@ -30,7 +30,7 @@ import {
   AXM_SKILL_SOURCE_FILES,
   AXM_SKILL_VERSION,
 } from "../__generated__/bundled-axm-skill.js";
-import { handleSetup, SetupSkillInstaller, SetupSkillInstallerLive } from "./setup.js";
+import { handleSetup as handleSetupLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 const readLockfile = (filePath: string) =>
@@ -98,28 +98,27 @@ const makeSetupTestContext = (opts?: {
       exists: () => Effect.succeed(false),
     }),
   );
-  const layer =
+  const layer = baseLayer;
+  const handleSetup = (args: Parameters<typeof handleSetupLive>[0]) =>
     opts?.installer === "live"
-      ? Layer.provideMerge(SetupSkillInstallerLive, baseLayer)
-      : Layer.mergeAll(
-          baseLayer,
-          Layer.succeed(SetupSkillInstaller, {
-            installDefaultSkill: (args) =>
-              opts?.installer === "fail"
-                ? makeAppError({
-                    code: "internal",
-                    detail: "Injected bundled skill installation failure",
-                  })
-                : Effect.sync(() => {
-                    installCalls.push(args);
-                  }),
-          }),
+      ? handleSetupLive(args)
+      : handleSetupLive(args, (installArgs) =>
+          opts?.installer === "fail"
+            ? makeAppError({
+                code: "internal",
+                detail: "Injected bundled skill installation failure",
+              })
+            : Effect.sync(() => {
+                installCalls.push(installArgs);
+                return undefined;
+              }),
         );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
   const provide = <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
 
   return {
+    handleSetup,
     provide,
     installCalls,
     promptState: workspaceInitInteraction.state,
@@ -155,7 +154,7 @@ describe("setup.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates the project workspace config and lockfile", () => {
-      const { provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -181,7 +180,7 @@ describe("setup.handler", () => {
     it.effect(
       "reports already initialized on re-run without reinstalling the bundled skill",
       () => {
-        const { provide, installCalls, rendererState } = makeSetupTestContext({
+        const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
           flags: { nonInteractive: true },
         });
 
@@ -204,7 +203,7 @@ describe("setup.handler", () => {
     );
 
     it.effect("ignores explicit agent changes on rerun without rewriting workspace state", () => {
-      const { provide, installCalls, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -232,7 +231,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("uses a small catalog suggestion set when no agents are detected", () => {
-      const { provide } = makeSetupTestContext({ flags: { nonInteractive: true } });
+      const { handleSetup, provide } = makeSetupTestContext({ flags: { nonInteractive: true } });
 
       return provide(
         Effect.gen(function* () {
@@ -250,7 +249,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not auto-select a detected retired agent during setup", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
       fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
@@ -277,7 +276,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits initialized status in machine output", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: false },
         renderer: "machine",
       });
@@ -346,7 +345,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("ends initialized setup with actionable suggestions", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -363,7 +362,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("reports the bundled AXM skill footprint in normal setup output", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -390,7 +389,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("fails on unrecognized requested agents before setup output", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -424,7 +423,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits already-initialized status in machine output on re-run", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -469,7 +468,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("pseudo-installs the bundled AXM skill without registry services", () => {
-      const { provide } = makeSetupTestContext({ installer: "live" });
+      const { handleSetup, provide } = makeSetupTestContext({ installer: "live" });
 
       return provide(
         Effect.gen(function* () {
@@ -517,7 +516,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("preserves existing settings", () => {
-      const { provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -545,7 +544,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("enables instruction sync and writes the shared source", () => {
-      const { provide } = makeSetupTestContext();
+      const { handleSetup, provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -572,7 +571,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("enables instruction sync without writing gitignore outside a git workspace", () => {
-      const { provide } = makeSetupTestContext();
+      const { handleSetup, provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -586,7 +585,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("seeds AGENTS.md from the richest existing instruction file", () => {
-      const { provide } = makeSetupTestContext();
+      const { handleSetup, provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -602,7 +601,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("preview renders the setup plan without writing workspace files", () => {
-      const { provide, installCalls } = makeSetupTestContext();
+      const { handleSetup, provide, installCalls } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -622,7 +621,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("ends setup preview with an apply suggestion", () => {
-      const { provide, rendererState } = makeSetupTestContext();
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -644,7 +643,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("emits preview status in machine output without writing workspace files", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -706,7 +705,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("reports exact setup projection targets instead of agent placeholders", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -750,7 +749,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("uses an effective skill-directory override in the setup preview", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -791,7 +790,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("reports project and workstation detection separately in preview", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -835,7 +834,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("uses user detection as the strong signal for user-scope preview", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -879,7 +878,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("reports combined project and user detection for one agent", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -914,7 +913,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("offers catalog suggestions when preview finds no agents", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -961,7 +960,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("requires complete explicit intent for unattended setup", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: false },
         renderer: "machine",
       });
@@ -989,7 +988,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not let --yes apply an inferred candidate", () => {
-      const { provide, installCalls, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -1012,7 +1011,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("applies unattended setup with approval, explicit scope, and agents", () => {
-      const { provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -1032,7 +1031,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("includes the managed gitignore target in preview only for git workspaces", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -1067,10 +1066,11 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves project setup untouched when interactive confirmation is declined", () => {
-      const { provide, installCalls, promptState, rendererState } = makeSetupTestContext({
-        flags: { nonInteractive: false },
-        confirmSetup: false,
-      });
+      const { handleSetup, provide, installCalls, promptState, rendererState } =
+        makeSetupTestContext({
+          flags: { nonInteractive: false },
+          confirmSetup: false,
+        });
 
       return provide(
         Effect.gen(function* () {
@@ -1089,7 +1089,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves user setup untouched when interactive confirmation is declined", () => {
-      const { provide, installCalls, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls, promptState } = makeSetupTestContext({
         flags: { nonInteractive: false },
         confirmSetup: false,
       });
@@ -1107,7 +1107,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves setup untouched when interactive confirmation is interrupted", () => {
-      const { provide, installCalls } = makeSetupTestContext({
+      const { handleSetup, provide, installCalls } = makeSetupTestContext({
         flags: { nonInteractive: false },
         confirmSetup: "interrupt",
       });
@@ -1128,7 +1128,7 @@ describe("setup.handler", () => {
 
   describe("user scope", () => {
     it.effect("reports user-scope category outcomes and scoped follow-up commands", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
       });
@@ -1182,7 +1182,7 @@ describe("setup.handler", () => {
     it.effect(
       "creates settings in the user workspace without touching the project workspace",
       () => {
-        const { provide, installCalls } = makeSetupTestContext({ scope: "user" });
+        const { handleSetup, provide, installCalls } = makeSetupTestContext({ scope: "user" });
 
         return provide(
           Effect.gen(function* () {
@@ -1207,7 +1207,7 @@ describe("setup.handler", () => {
     it.effect(
       "records initial user-scope agents and ignores later setup membership changes",
       () => {
-        const { provide, installCalls } = makeSetupTestContext({ scope: "user" });
+        const { handleSetup, provide, installCalls } = makeSetupTestContext({ scope: "user" });
 
         return provide(
           Effect.gen(function* () {
@@ -1228,7 +1228,7 @@ describe("setup.handler", () => {
 
   describe("agent selection", () => {
     it.effect("interactive mode prompts for agent selection", () => {
-      const { provide, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -1241,7 +1241,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("non-interactive mode auto-selects detected agents without prompting", () => {
-      const { provide, promptState } = makeSetupTestContext({
+      const { handleSetup, provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -1259,7 +1259,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("uses the explicit agent multiselect result", () => {
-      const { provide } = makeSetupTestContext({
+      const { handleSetup, provide } = makeSetupTestContext({
         flags: { nonInteractive: false },
         selectAgents: ["claude-code"],
       });
@@ -1277,7 +1277,7 @@ describe("setup.handler", () => {
 
   describe("telemetry notice", () => {
     it.effect("displays telemetry guidance after setup", () => {
-      const { provide, rendererState } = makeSetupTestContext();
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -1298,7 +1298,7 @@ describe("setup.handler", () => {
     it.effect("suppresses telemetry guidance when AXM_TELEMETRY=0", () => {
       const previousTelemetry = process.env["AXM_TELEMETRY"];
       process.env["AXM_TELEMETRY"] = "0";
-      const { provide, rendererState } = makeSetupTestContext();
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -1326,7 +1326,7 @@ describe("setup.handler", () => {
 
   describe("branding", () => {
     it.effect("shows AXM branding at the start of text setup", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
 
@@ -1344,7 +1344,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not emit branding in JSON mode", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true },
         renderer: "machine",
       });
@@ -1360,7 +1360,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not emit branding in non-interactive mode", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
 
@@ -1379,7 +1379,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("keeps quiet setup to the outcome line", () => {
-      const { provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { quiet: true, nonInteractive: true },
       });
 
@@ -1401,7 +1401,7 @@ describe("setup.handler", () => {
 
   describe("subagent detection", () => {
     it.effect("notes existing subagent files", () => {
-      const { provide, rendererState } = makeSetupTestContext();
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {
@@ -1425,7 +1425,7 @@ describe("setup.handler", () => {
 
   describe("error handling", () => {
     it.effect("rolls back first-time setup when bundled skill installation fails", () => {
-      const { provide } = makeSetupTestContext({
+      const { handleSetup, provide } = makeSetupTestContext({
         installer: "fail",
         flags: { nonInteractive: true },
       });
@@ -1451,7 +1451,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("fails when the existing settings file is invalid JSON", () => {
-      const { provide } = makeSetupTestContext();
+      const { handleSetup, provide } = makeSetupTestContext();
 
       return provide(
         Effect.gen(function* () {

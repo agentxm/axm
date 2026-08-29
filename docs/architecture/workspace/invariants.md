@@ -146,8 +146,8 @@ equivalent to the required output.
 
 ## Recovery-conformance verification
 
-The workspace specifications under `specifications/cli/workspace/` own the
-boundary obligations for invalid-state handling — settings validity gating,
+The whole-surface workspace specifications at the root of `specifications/cli/`
+own the boundary obligations for invalid-state handling — settings validity gating,
 non-interleaving, closure-atomic mutation, and lock state never creating
 reachability; the [specification catalog](../../../specifications/catalog.md)
 indexes them.

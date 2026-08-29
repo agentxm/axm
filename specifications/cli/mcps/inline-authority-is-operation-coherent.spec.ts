@@ -9,7 +9,7 @@ import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/inline-mcp/authority-is-operation-coherent",
+  requirement: "cli/mcps/inline-authority-is-operation-coherent",
   title: "Inline MCP entries stay authoritative workspace configuration realized only by sync",
   class: "functional",
   intents: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],

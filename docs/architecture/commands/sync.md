@@ -150,8 +150,8 @@ request; it does not resume or roll back the interrupted command.
 
 ## Specifications
 
-The sync specifications under `specifications/cli/sync/` and the workspace
-specifications under `specifications/cli/workspace/` own sync's binding
+The sync specifications under `specifications/cli/sync/` and the whole-surface
+workspace specifications at the root of `specifications/cli/` own sync's binding
 obligations — realizing desired state, preserving configuration and satisfying
 resolutions, non-interleaving, and closure-atomic mutation; the
 [specification catalog](../../../specifications/catalog.md) indexes them.

@@ -17,7 +17,7 @@ import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/inline-mcp/lifecycle-is-idempotent",
+  requirement: "cli/mcps/inline-lifecycle-is-idempotent",
   title: "The inline MCP server lifecycle is explicit and safe to repeat",
   class: "functional",
   intents: ["safe-repetition", "workspace-intent-fidelity"],

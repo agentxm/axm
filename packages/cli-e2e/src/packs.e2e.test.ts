@@ -7,7 +7,7 @@ import "./cli-commands/packs/publish/publish.e2e.js";
  * cli-e2e deliberately has no code dependency on the specifications package.
  */
 export const executionBinding = {
-  requirements: ["cli/extension-types/authored-packs-expand-membership"],
+  requirements: ["cli/packs/authored-packs-expand-membership"],
   boundary: "process",
   rationale:
     "Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.",

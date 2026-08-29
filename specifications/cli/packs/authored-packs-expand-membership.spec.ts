@@ -17,7 +17,7 @@ import { makeSpecWorkspace } from "../../support/install-harness.js";
 import { makeSpecRegistry } from "../../support/registry-fixture.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/extension-types/authored-packs-expand-membership",
+  requirement: "cli/packs/authored-packs-expand-membership",
   title: "Authored packs grow membership that stays reachable through the pack",
   class: "functional",
   intents: ["authoring-and-creation", "workspace-intent-fidelity", "extension-adoption"],

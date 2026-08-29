@@ -160,8 +160,8 @@ write outputs for several coding agents.
 
 ## Specifications
 
-Authoring's binding obligations live with the extension-type specifications
-under `specifications/cli/extension-types/`, which carry every catalog type
+Authoring's binding obligations live with the cross-type lifecycle
+specifications at the root of `specifications/cli/`, which carry every catalog type
 through authored creation, activation, and lifecycle transitions; the
 [specification catalog](../../../specifications/catalog.md) indexes them.
 Type-required files, conversion rules, and manifest details remain executable

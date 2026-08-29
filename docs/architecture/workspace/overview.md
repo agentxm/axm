@@ -98,7 +98,7 @@ Desired state expands extension choices through Pack membership and derives
 the outputs required by configured agents and workspace capabilities. Accepted
 lock rows and existing files do not make an extension or capability desired
 (the executable specification
-`cli/workspace/lock-state-never-creates-reachability` in the
+`cli/lock-state-never-creates-reachability` in the
 [specification catalog](../../../specifications/catalog.md) owns the
 lock-state obligation).
 
@@ -178,7 +178,7 @@ AXM-managed installed state is retained when its extension is reachable from
 desired state. Direct extension configuration and Pack membership can make an
 extension reachable. Lock rows do not keep an otherwise undesired extension
 installed (the executable specification
-`cli/workspace/lock-state-never-creates-reachability` owns the obligation).
+`cli/lock-state-never-creates-reachability` owns the obligation).
 Workspace-authored inventory is preserved by authorship, not retained by
 desired-state reachability.
 
@@ -256,7 +256,7 @@ manual preservation, relocation, or removal owns recovery.
 ## Safe workspace changes
 
 Two AXM changes to the same workspace scope must not interleave (the
-executable specification `cli/workspace/changes-do-not-interleave` owns the
+executable specification `cli/changes-do-not-interleave` owns the
 obligation). Immediately before writing, AXM checks that the inputs and
 targets still match the proposed change. If they do not, it writes nothing.
 

@@ -4,10 +4,10 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { collectHelpFiles } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "../support/contract.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/commands/force-bypasses-only-named-policies",
+  requirement: "cli/force-bypasses-only-named-policies",
   title: "Force flags exist only for explicitly named forceable policies",
   class: "functional",
   intents: ["workspace-intent-fidelity", "actionable-diagnostics"],

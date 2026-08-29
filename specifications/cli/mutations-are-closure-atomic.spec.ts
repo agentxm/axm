@@ -8,12 +8,12 @@ import { afterAll, afterEach } from "vitest";
 
 import { getAppError, handleInstall, handleSync } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace } from "../../support/install-harness.js";
-import { pinSpecUserHome, snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace } from "../support/install-harness.js";
+import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/workspace/mutations-are-closure-atomic",
+  requirement: "cli/mutations-are-closure-atomic",
   title: "A failed workspace mutation leaves every authoritative state family unchanged",
   class: "functional",
   intents: ["safe-repetition"],

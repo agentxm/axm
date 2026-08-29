@@ -10,10 +10,10 @@ import {
   rootCommand,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "../support/contract.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/help/command-help-is-complete-and-alias-free",
+  requirement: "cli/command-help-is-complete-and-alias-free",
   title: "Every supported command presents help and no alias routes exist",
   class: "functional",
   intents: ["knowledge-access"],

@@ -158,10 +158,10 @@ invoked type-specific import contract is outside this recovery boundary.
 
 ## Testing strategy
 
-The extension-type specifications under `specifications/cli/extension-types/`
-own the binding cross-type obligations — the shared install and removal
-lifecycle, activation that follows desired state, and authored pack
-membership; the [specification catalog](../../../specifications/catalog.md)
+The cross-type lifecycle specifications at the root of `specifications/cli/`
+and the pack specification under `specifications/cli/packs/` own the binding
+cross-type obligations — the shared install and removal lifecycle, activation
+that follows desired state, and authored pack membership; the [specification catalog](../../../specifications/catalog.md)
 indexes them. Exact scenarios and native formats remain executable contracts
 owned by the implementation's internal tests.
 

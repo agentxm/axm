@@ -12,11 +12,11 @@ import {
   handleSkillsEnable,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/extension-types/activation-follows-desired-state",
+  requirement: "cli/activation-follows-desired-state",
   title: "Activation commands change realized surfaces without touching content or resolutions",
   class: "functional",
   intents: ["workspace-intent-fidelity", "agent-interoperability"],

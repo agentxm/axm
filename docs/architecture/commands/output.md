@@ -29,7 +29,9 @@ surfaces use human and machine output channels, not how help requests resolve.
 ## Channel boundaries
 
 The binding channel-separation obligations are the executable output
-specifications under `specifications/cli/output/` in the
+specifications `cli/machine-errors-use-the-stable-envelope`,
+`cli/machine-mode-never-prompts`, and `cli/exit-codes-match-published-reference`
+in the
 [specification catalog](../../../specifications/catalog.md), together with
 their process-boundary end-to-end evidence; the separation below projects
 them, and this document owns the remaining channel-semantics detail.
@@ -66,7 +68,7 @@ prose maintained here.
 
 Preview, confirmation, execution, and rendering refer to one operation
 candidate. Machine mode never prompts (the executable specification
-`cli/output/machine-mode-never-prompts` owns the obligation). Cancellation,
+`cli/machine-mode-never-prompts` owns the obligation). Cancellation,
 blocked work, partial progress, rollback, and
 interruption remain distinct outcomes when the underlying operation
 distinguishes them.

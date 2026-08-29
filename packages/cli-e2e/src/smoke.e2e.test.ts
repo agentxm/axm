@@ -12,7 +12,7 @@ import { runCli } from "./utils.js";
  * cli-e2e deliberately has no code dependency on the specifications package.
  */
 export const executionBinding = {
-  requirements: ["cli/output/machine-errors-use-the-stable-envelope"],
+  requirements: ["cli/machine-errors-use-the-stable-envelope"],
   boundary: "process",
   rationale:
     "Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.",

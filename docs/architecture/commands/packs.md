@@ -46,7 +46,7 @@ requirements.
 
 ## Specifications
 
-Pack obligations live with the extension-type specifications under
-`specifications/cli/extension-types/` — authored pack membership growth and
+Pack obligations live with the pack specification under
+`specifications/cli/packs/` — authored pack membership growth and
 pack-route reachability; the
-[specification catalog](../../../specifications/catalog.md) indexes them.
+[specification catalog](../../../specifications/catalog.md) indexes it.

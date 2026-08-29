@@ -6,11 +6,11 @@ import { afterEach } from "vitest";
 
 import { SetupDocumentSchema, handleSetup } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSetupSpecContext } from "../../support/setup-harness.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSetupSpecContext } from "../support/setup-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/output/machine-mode-never-prompts",
+  requirement: "cli/machine-mode-never-prompts",
   title: "Machine output mode terminates deterministically instead of prompting",
   class: "functional",
   intents: ["machine-automation"],

@@ -9,11 +9,11 @@ import { afterEach } from "vitest";
 import { JsonErrorEnvelopeSchema, classifyError } from "@agentxm/client-core/unstable/cli-runtime";
 import { handleInstall } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace } from "../../support/install-harness.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/output/machine-errors-use-the-stable-envelope",
+  requirement: "cli/machine-errors-use-the-stable-envelope",
   title: "A failed machine invocation still emits the stable error envelope",
   class: "functional",
   intents: ["machine-automation", "actionable-diagnostics"],

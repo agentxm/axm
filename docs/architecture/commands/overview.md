@@ -52,7 +52,7 @@ No command is a fallback owner for work that lacks a clear home:
   workflow;
 - inspection commands do not mutate the state they report; and
 - `--force` does not turn a command into a more general operation; the
-  executable specification `cli/commands/force-bypasses-only-named-policies`
+  executable specification `cli/force-bypasses-only-named-policies`
   bounds what it may bypass.
 
 Every command whose semantics require a project workspace first passes the
@@ -118,7 +118,7 @@ do. Before writing, AXM checks that the relevant state has not changed; a stale
 preview or plan writes nothing.
 
 `--yes` answers routine prompts. The binding force boundary is the executable
-specification `cli/commands/force-bypasses-only-named-policies` in the
+specification `cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../../specifications/catalog.md): it owns which
 explicitly forceable policy `--force` may bypass and whether a command exposes
 the flag at all. Routine exceptional modes receive their own

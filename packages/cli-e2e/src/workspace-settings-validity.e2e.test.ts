@@ -1,6 +1,6 @@
 /**
  * Process-boundary evidence for the executable specification
- * `cli/workspace/settings-validity-gates-operations`, including its
+ * `cli/settings-validity-gates-operations`, including its
  * workspace-construction-gate claims.
  */
 
@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./e2e/utils.js";
 
 export const executionBinding = {
-  requirements: ["cli/workspace/settings-validity-gates-operations"],
+  requirements: ["cli/settings-validity-gates-operations"],
   boundary: "process",
   rationale:
     "Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.",

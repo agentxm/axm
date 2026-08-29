@@ -10,12 +10,12 @@ import {
   handleSync,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace } from "../../support/install-harness.js";
-import { pinSpecUserHome } from "../../support/workspace-fixtures.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace } from "../support/install-harness.js";
+import { pinSpecUserHome } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/workspace/lock-state-never-creates-reachability",
+  requirement: "cli/lock-state-never-creates-reachability",
   title: "A lockfile row alone never makes an extension desired or retained",
   class: "functional",
   intents: ["workspace-intent-fidelity", "trustworthy-distribution"],

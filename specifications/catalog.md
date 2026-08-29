@@ -8,6 +8,22 @@ never here.
 
 ## CLI
 
+### Activation Follows Desired State
+
+#### Activation commands change realized surfaces without touching content or resolutions
+
+- Requirement: `cli/activation-follows-desired-state`
+- Class: functional
+- Intents: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
+- Source: [`specifications/cli/activation-follows-desired-state.spec.ts`](../specifications/cli/activation-follows-desired-state.spec.ts)
+- Cases:
+  - `cli/activation-follows-desired-state#suspension-changes-surfaces-only` — disabling a skill suspends its agent surfaces and preserves canonical content and the accepted resolution
+  - `cli/activation-follows-desired-state#reactivation-restores-surfaces` — enabling the skill restores its agent surfaces exactly
+  - `cli/activation-follows-desired-state#inline-round-trip` — disabling and enabling an inline MCP server changes only its agent projection
+
 ### Agents
 
 #### Agent membership changes update the durable target set and its owned outputs together
@@ -25,103 +41,66 @@ never here.
   - `cli/agents/membership-changes-realize-affected-outputs#remove-removes-owned-outputs` — removing an agent removes it from the target set together with its managed outputs
   - `cli/agents/membership-changes-realize-affected-outputs#remove-preserves-unowned-content` — removing an agent preserves native content it cannot prove it owns
 
-### Commands
+### Changes Do Not Interleave
 
-#### Force flags exist only for explicitly named forceable policies
+#### Concurrent changes to one workspace never interleave
 
-- Requirement: `cli/commands/force-bypasses-only-named-policies`
+- Requirement: `cli/changes-do-not-interleave`
 - Class: functional
-- Intents: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: contract
-- Source: [`specifications/cli/commands/force-bypasses-only-named-policies.spec.ts`](../specifications/cli/commands/force-bypasses-only-named-policies.spec.ts)
-
-### Extension Types
-
-#### Activation commands change realized surfaces without touching content or resolutions
-
-- Requirement: `cli/extension-types/activation-follows-desired-state`
-- Class: functional
-- Intents: `workspace-intent-fidelity`, `agent-interoperability`
+- Intents: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
-- Source: [`specifications/cli/extension-types/activation-follows-desired-state.spec.ts`](../specifications/cli/extension-types/activation-follows-desired-state.spec.ts)
-- Cases:
-  - `cli/extension-types/activation-follows-desired-state#suspension-changes-surfaces-only` — disabling a skill suspends its agent surfaces and preserves canonical content and the accepted resolution
-  - `cli/extension-types/activation-follows-desired-state#reactivation-restores-surfaces` — enabling the skill restores its agent surfaces exactly
-  - `cli/extension-types/activation-follows-desired-state#inline-round-trip` — disabling and enabling an inline MCP server changes only its agent projection
+- Source: [`specifications/cli/changes-do-not-interleave.spec.ts`](../specifications/cli/changes-do-not-interleave.spec.ts)
 
-#### Authored packs grow membership that stays reachable through the pack
+### Command Help Is Complete And Alias Free
 
-- Requirement: `cli/extension-types/authored-packs-expand-membership`
+#### Every supported command presents help and no alias routes exist
+
+- Requirement: `cli/command-help-is-complete-and-alias-free`
 - Class: functional
-- Intents: `authoring-and-creation`, `workspace-intent-fidelity`, `extension-adoption`
+- Intents: `knowledge-access`
 - Boundary: memory; selection: per-change
-- Methods: example
-- Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/extension-types/authored-packs-expand-membership.spec.ts`](../specifications/cli/extension-types/authored-packs-expand-membership.spec.ts)
+- Methods: model
+- Source: [`specifications/cli/command-help-is-complete-and-alias-free.spec.ts`](../specifications/cli/command-help-is-complete-and-alias-free.spec.ts)
 - Cases:
-  - `cli/extension-types/authored-packs-expand-membership#authors-the-pack` — creating a pack records workspace authorship with an empty dependency graph
-  - `cli/extension-types/authored-packs-expand-membership#records-membership` — adding an installed extension records it as a pack dependency
-  - `cli/extension-types/authored-packs-expand-membership#pack-route-sustains-member` — the member stays resolved and realized through the pack after its direct configuration is removed
+  - `cli/command-help-is-complete-and-alias-free#every-command-renders-help` — every registered command path renders usable command help
+  - `cli/command-help-is-complete-and-alias-free#listed-commands-are-discoverable` — the rendered help walk reaches exactly the listed command tree
+  - `cli/command-help-is-complete-and-alias-free#tree-is-alias-free` — no registered command carries an alias route before launch
+
+### Every Type Completes The Shared Lifecycle
 
 #### Every extension type completes the shared install and removal lifecycle
 
-- Requirement: `cli/extension-types/every-type-completes-the-shared-lifecycle`
+- Requirement: `cli/every-type-completes-the-shared-lifecycle`
 - Class: functional
 - Intents: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Additional evidence: process via [`packages/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../packages/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Additional evidence: process via [`packages/cli-e2e/src/root-install.e2e.test.ts`](../packages/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`specifications/cli/extension-types/every-type-completes-the-shared-lifecycle.spec.ts`](../specifications/cli/extension-types/every-type-completes-the-shared-lifecycle.spec.ts)
+- Source: [`specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts`](../specifications/cli/every-type-completes-the-shared-lifecycle.spec.ts)
 
-### Help
+### Exit Codes Match Published Reference
 
-#### Every supported command presents help and no alias routes exist
+#### The published exit-code reference matches the runtime exit codes
 
-- Requirement: `cli/help/command-help-is-complete-and-alias-free`
+- Requirement: `cli/exit-codes-match-published-reference`
 - Class: functional
-- Intents: `knowledge-access`
+- Intents: `machine-automation`, `knowledge-access`
 - Boundary: memory; selection: per-change
 - Methods: model
-- Source: [`specifications/cli/help/command-help-is-complete-and-alias-free.spec.ts`](../specifications/cli/help/command-help-is-complete-and-alias-free.spec.ts)
-- Cases:
-  - `cli/help/command-help-is-complete-and-alias-free#every-command-renders-help` — every registered command path renders usable command help
-  - `cli/help/command-help-is-complete-and-alias-free#listed-commands-are-discoverable` — the rendered help walk reaches exactly the listed command tree
-  - `cli/help/command-help-is-complete-and-alias-free#tree-is-alias-free` — no registered command carries an alias route before launch
+- Source: [`specifications/cli/exit-codes-match-published-reference.spec.ts`](../specifications/cli/exit-codes-match-published-reference.spec.ts)
 
-### Inline Mcp
+### Force Bypasses Only Named Policies
 
-#### Inline MCP entries stay authoritative workspace configuration realized only by sync
+#### Force flags exist only for explicitly named forceable policies
 
-- Requirement: `cli/inline-mcp/authority-is-operation-coherent`
+- Requirement: `cli/force-bypasses-only-named-policies`
 - Class: functional
-- Intents: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
+- Intents: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Methods: example, decision-table
-- Source: [`specifications/cli/inline-mcp/authority-is-operation-coherent.spec.ts`](../specifications/cli/inline-mcp/authority-is-operation-coherent.spec.ts)
-- Cases:
-  - `cli/inline-mcp/authority-is-operation-coherent#round-trip-preserves-authored-form` — a settings change preserves the authored form of untouched inline entries
-  - `cli/inline-mcp/authority-is-operation-coherent#sync-projects-supported-agents` — sync reconciles inline entries into agent configuration
-  - `cli/inline-mcp/authority-is-operation-coherent#no-lock-row` — inline entries never gain a lock row
-  - `cli/inline-mcp/authority-is-operation-coherent#disabled-not-projected` — a disabled inline entry is not projected into agent configuration
-
-#### The inline MCP server lifecycle is explicit and safe to repeat
-
-- Requirement: `cli/inline-mcp/lifecycle-is-idempotent`
-- Class: functional
-- Intents: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
-- Source: [`specifications/cli/inline-mcp/lifecycle-is-idempotent.spec.ts`](../specifications/cli/inline-mcp/lifecycle-is-idempotent.spec.ts)
-- Cases:
-  - `cli/inline-mcp/lifecycle-is-idempotent#add-records-configuration` — adding an inline server records authoritative configuration and projects it
-  - `cli/inline-mcp/lifecycle-is-idempotent#repeat-add-is-already-configured` — repeating an identical add changes nothing and says so
-  - `cli/inline-mcp/lifecycle-is-idempotent#uninstall-removes-owned-state` — uninstalling removes the configuration and its projections while preserving unowned entries
-  - `cli/inline-mcp/lifecycle-is-idempotent#repeat-uninstall-is-a-no-op` — repeating the uninstall reports nothing left to do
+- Methods: contract
+- Source: [`specifications/cli/force-bypasses-only-named-policies.spec.ts`](../specifications/cli/force-bypasses-only-named-policies.spec.ts)
 
 ### Install
 
@@ -157,7 +136,7 @@ never here.
 - Boundary: memory; selection: per-change
 - Methods: contract
 - Additional evidence: process via [`packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts`](../packages/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts) — Observes the real process stdout document and stderr diagnostics of the shipped CLI, which the in-memory renderer capture cannot prove.
-- Source: [`specifications/cli/install/machine-result-contract.spec.ts`](../specifications/cli/install/machine-result-contract.spec.ts)
+- Source: [`specifications/cli/install/machine-result-is-schema-backed.spec.ts`](../specifications/cli/install/machine-result-is-schema-backed.spec.ts)
 
 #### Install rejects a source it cannot install without changing the workspace
 
@@ -247,38 +226,100 @@ never here.
   - `cli/lint/reports-facts-without-mutation#broken-workspace-reports-read-only` — a broken invariant is reported with a failing exit while every byte of workspace state survives
   - `cli/lint/reports-facts-without-mutation#valid-workspace-reports-clean` — a valid workspace reports clean and exits successfully
 
-### Output
+### Lock State Never Creates Reachability
 
-#### The published exit-code reference matches the runtime exit codes
+#### A lockfile row alone never makes an extension desired or retained
 
-- Requirement: `cli/output/exit-codes-match-published-reference`
+- Requirement: `cli/lock-state-never-creates-reachability`
 - Class: functional
-- Intents: `machine-automation`, `knowledge-access`
+- Intents: `workspace-intent-fidelity`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
-- Methods: model
-- Source: [`specifications/cli/output/exit-codes-match-published-reference.spec.ts`](../specifications/cli/output/exit-codes-match-published-reference.spec.ts)
+- Methods: decision-table, contract
+- Source: [`specifications/cli/lock-state-never-creates-reachability.spec.ts`](../specifications/cli/lock-state-never-creates-reachability.spec.ts)
+
+### Machine Errors Use The Stable Envelope
 
 #### A failed machine invocation still emits the stable error envelope
 
-- Requirement: `cli/output/machine-errors-use-the-stable-envelope`
+- Requirement: `cli/machine-errors-use-the-stable-envelope`
 - Class: functional
 - Intents: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: contract, decision-table
 - Additional evidence: process via [`packages/cli-e2e/src/smoke.e2e.test.ts`](../packages/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
-- Source: [`specifications/cli/output/machine-errors-use-the-stable-envelope.spec.ts`](../specifications/cli/output/machine-errors-use-the-stable-envelope.spec.ts)
+- Source: [`specifications/cli/machine-errors-use-the-stable-envelope.spec.ts`](../specifications/cli/machine-errors-use-the-stable-envelope.spec.ts)
+
+### Machine Mode Never Prompts
 
 #### Machine output mode terminates deterministically instead of prompting
 
-- Requirement: `cli/output/machine-mode-never-prompts`
+- Requirement: `cli/machine-mode-never-prompts`
 - Class: functional
 - Intents: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`specifications/cli/output/machine-mode-never-prompts.spec.ts`](../specifications/cli/output/machine-mode-never-prompts.spec.ts)
+- Source: [`specifications/cli/machine-mode-never-prompts.spec.ts`](../specifications/cli/machine-mode-never-prompts.spec.ts)
 - Cases:
-  - `cli/output/machine-mode-never-prompts#machine-mode-blocks-without-prompting` — a setup that needs interactive input reports approval required without raising any prompt
-  - `cli/output/machine-mode-never-prompts#interactive-mode-prompts-for-the-same-request` — the same request prompts and honors the answer when machine output is off
+  - `cli/machine-mode-never-prompts#machine-mode-blocks-without-prompting` — a setup that needs interactive input reports approval required without raising any prompt
+  - `cli/machine-mode-never-prompts#interactive-mode-prompts-for-the-same-request` — the same request prompts and honors the answer when machine output is off
+
+### Mcps
+
+#### Inline MCP entries stay authoritative workspace configuration realized only by sync
+
+- Requirement: `cli/mcps/inline-authority-is-operation-coherent`
+- Class: functional
+- Intents: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`specifications/cli/mcps/inline-authority-is-operation-coherent.spec.ts`](../specifications/cli/mcps/inline-authority-is-operation-coherent.spec.ts)
+- Cases:
+  - `cli/mcps/inline-authority-is-operation-coherent#round-trip-preserves-authored-form` — a settings change preserves the authored form of untouched inline entries
+  - `cli/mcps/inline-authority-is-operation-coherent#sync-projects-supported-agents` — sync reconciles inline entries into agent configuration
+  - `cli/mcps/inline-authority-is-operation-coherent#no-lock-row` — inline entries never gain a lock row
+  - `cli/mcps/inline-authority-is-operation-coherent#disabled-not-projected` — a disabled inline entry is not projected into agent configuration
+
+#### The inline MCP server lifecycle is explicit and safe to repeat
+
+- Requirement: `cli/mcps/inline-lifecycle-is-idempotent`
+- Class: functional
+- Intents: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Additional evidence: process via [`packages/cli-e2e/src/command.e2e.test.ts`](../packages/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI end to end so the inline MCP add/uninstall cycle proves argv parsing, exit codes, JSON envelopes on stdout, and native agent config files on disk that in-memory execution cannot observe.
+- Source: [`specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts`](../specifications/cli/mcps/inline-lifecycle-is-idempotent.spec.ts)
+- Cases:
+  - `cli/mcps/inline-lifecycle-is-idempotent#add-records-configuration` — adding an inline server records authoritative configuration and projects it
+  - `cli/mcps/inline-lifecycle-is-idempotent#repeat-add-is-already-configured` — repeating an identical add changes nothing and says so
+  - `cli/mcps/inline-lifecycle-is-idempotent#uninstall-removes-owned-state` — uninstalling removes the configuration and its projections while preserving unowned entries
+  - `cli/mcps/inline-lifecycle-is-idempotent#repeat-uninstall-is-a-no-op` — repeating the uninstall reports nothing left to do
+
+### Mutations Are Closure Atomic
+
+#### A failed workspace mutation leaves every authoritative state family unchanged
+
+- Requirement: `cli/mutations-are-closure-atomic`
+- Class: functional
+- Intents: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`specifications/cli/mutations-are-closure-atomic.spec.ts`](../specifications/cli/mutations-are-closure-atomic.spec.ts)
+
+### Packs
+
+#### Authored packs grow membership that stays reachable through the pack
+
+- Requirement: `cli/packs/authored-packs-expand-membership`
+- Class: functional
+- Intents: `authoring-and-creation`, `workspace-intent-fidelity`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Additional evidence: process via [`packages/cli-e2e/src/packs.e2e.test.ts`](../packages/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
+- Source: [`specifications/cli/packs/authored-packs-expand-membership.spec.ts`](../specifications/cli/packs/authored-packs-expand-membership.spec.ts)
+- Cases:
+  - `cli/packs/authored-packs-expand-membership#authors-the-pack` — creating a pack records workspace authorship with an empty dependency graph
+  - `cli/packs/authored-packs-expand-membership#records-membership` — adding an installed extension records it as a pack dependency
+  - `cli/packs/authored-packs-expand-membership#pack-route-sustains-member` — the member stays resolved and realized through the pack after its direct configuration is removed
 
 ### Publish
 
@@ -304,6 +345,18 @@ never here.
 - Source: [`specifications/cli/publish/requires-established-authorship.spec.ts`](../specifications/cli/publish/requires-established-authorship.spec.ts)
 - Cases:
   - `cli/publish/requires-established-authorship#bulk-selection-excludes` — a bulk publish reports the installed extension as not authored instead of selecting it
+
+### Settings Validity Gates Operations
+
+#### Workspace operations begin only after both settings sources validate
+
+- Requirement: `cli/settings-validity-gates-operations`
+- Class: functional
+- Intents: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
+- Source: [`specifications/cli/settings-validity-gates-operations.spec.ts`](../specifications/cli/settings-validity-gates-operations.spec.ts)
 
 ### Sync
 
@@ -377,45 +430,6 @@ never here.
   - `cli/update/advances-resolution-within-intent#preserves-configuration` — changes no workspace configuration and no unrelated extension
   - `cli/update/advances-resolution-within-intent#repeat-is-noop` — repeating an update at the advanced resolution reports a no-op
   - `cli/update/advances-resolution-within-intent#blocks-before-lookup` — blocks an update of an extension the workspace does not desire
-
-### Workspace
-
-#### Concurrent changes to one workspace never interleave
-
-- Requirement: `cli/workspace/changes-do-not-interleave`
-- Class: functional
-- Intents: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Source: [`specifications/cli/workspace/changes-do-not-interleave.spec.ts`](../specifications/cli/workspace/changes-do-not-interleave.spec.ts)
-
-#### A lockfile row alone never makes an extension desired or retained
-
-- Requirement: `cli/workspace/lock-state-never-creates-reachability`
-- Class: functional
-- Intents: `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, contract
-- Source: [`specifications/cli/workspace/lock-state-never-creates-reachability.spec.ts`](../specifications/cli/workspace/lock-state-never-creates-reachability.spec.ts)
-
-#### A failed workspace mutation leaves every authoritative state family unchanged
-
-- Requirement: `cli/workspace/mutations-are-closure-atomic`
-- Class: functional
-- Intents: `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Source: [`specifications/cli/workspace/mutations-are-closure-atomic.spec.ts`](../specifications/cli/workspace/mutations-are-closure-atomic.spec.ts)
-
-#### Workspace operations begin only after both settings sources validate
-
-- Requirement: `cli/workspace/settings-validity-gates-operations`
-- Class: functional
-- Intents: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Additional evidence: process via [`packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../packages/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
-- Source: [`specifications/cli/workspace/settings-validity-gates-operations.spec.ts`](../specifications/cli/workspace/settings-validity-gates-operations.spec.ts)
 
 ## Client core
 
@@ -532,6 +546,19 @@ never here.
 - Boundary: repository; selection: per-change
 - Methods: contract
 - Source: [`specifications/system/architecture/public-system-depends-only-on-published-contracts.spec.ts`](../specifications/system/architecture/public-system-depends-only-on-published-contracts.spec.ts)
+
+#### Specification layout mirrors the command tree and declared identities
+
+- Requirement: `system/architecture/specification-folders-mirror-command-tree`
+- Class: architecture
+- Intents: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Methods: contract
+- Source: [`specifications/system/architecture/specification-folders-mirror-command-tree.spec.ts`](../specifications/system/architecture/specification-folders-mirror-command-tree.spec.ts)
+- Cases:
+  - `system/architecture/specification-folders-mirror-command-tree#directories-name-command-paths` — every specification directory under cli names a registered command path
+  - `system/architecture/specification-folders-mirror-command-tree#no-symbolic-links` — no symbolic link hides specification content from discovery
+  - `system/architecture/specification-folders-mirror-command-tree#identities-equal-paths` — every requirement identity equals its specification file path
 
 ### Compatibility
 

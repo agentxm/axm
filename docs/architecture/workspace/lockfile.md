@@ -19,7 +19,7 @@ Settings and workspace-authored manifests remain the only authority for desired
 intent and reachability. The lockfile answers which immutable external content
 AXM accepted for a desired source; it never answers whether an extension is
 desired (the executable specification
-`cli/workspace/lock-state-never-creates-reachability` in the
+`cli/lock-state-never-creates-reachability` in the
 [specification catalog](../../../specifications/catalog.md) owns the
 obligation).
 
@@ -59,7 +59,7 @@ The lockfile does not:
   configuration;
 - create Pack-member reachability or retain otherwise unreachable content (the
   executable specification
-  `cli/workspace/lock-state-never-creates-reachability` owns the obligation);
+  `cli/lock-state-never-creates-reachability` owns the obligation);
 - establish authorship or ownership of agent-native output;
 - prove that canonical content or a managed output is currently present;
 - record command history, completion timestamps, or source-free realization;
@@ -115,8 +115,8 @@ lockfile publishes through atomic replacement, preserving unrelated rows.
 
 ## Specifications
 
-The workspace specifications under `specifications/cli/workspace/` own the
-lockfile's boundary obligations — lock state never creates reachability — and
+The whole-surface workspace specifications at the root of `specifications/cli/`
+own the lockfile's boundary obligations — lock state never creates reachability — and
 the sync and update specifications under `specifications/cli/sync/` and
 `specifications/cli/update/` own stable resolution and update-only advancement;
 the [specification catalog](../../../specifications/catalog.md) indexes them.

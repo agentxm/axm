@@ -95,7 +95,7 @@ leases, heartbeats, PID inference, lock stealing, or distributed coordination.
 Under the lock, AXM revalidates every material authoritative input and target
 preimage used by the plan. A stale plan performs no writes, and `--force` cannot
 bypass the check (the executable specification
-`cli/commands/force-bypasses-only-named-policies` in the
+`cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../../specifications/catalog.md) owns the force
 boundary).
 

@@ -82,7 +82,7 @@ alone cannot make an activation, target, or other workspace choice persistent.
 
 Missing, malformed, or incompatible lock state is consequential because it owns
 accepted external resolution. The executable specification
-`cli/workspace/lock-state-never-creates-reachability` owns the obligation that
+`cli/lock-state-never-creates-reachability` owns the obligation that
 lock state never creates reachability. AXM never reconstructs lock state from
 installed bytes or obsolete trust state.
 
@@ -91,7 +91,7 @@ installed bytes or obsolete trust state.
 The binding obligation — content changes require established authority over
 the smallest independently changeable unit — is owned by the executable
 specification `cli/install/preserves-unrelated-and-unowned-state` and the
-workspace specifications under `specifications/cli/workspace/` in the
+whole-surface workspace specifications at the root of `specifications/cli/` in the
 [specification catalog](../../specifications/catalog.md). The rest of this
 section elaborates that boundary.
 
@@ -141,7 +141,7 @@ committed.
 
 Running a successful command again with the same inputs should produce no
 further change. Plans must be checked against current state before application.
-The executable specification `cli/workspace/changes-do-not-interleave` owns the
+The executable specification `cli/changes-do-not-interleave` owns the
 obligation that concurrent workspace changes must not interleave.
 
 Handled failures roll back the affected semantic closure, including its
@@ -155,7 +155,7 @@ command intent.
 
 Routine behavior deserves an explicit mode such as `--preview`, `--reinstall`,
 or `--ignore-release-age`. The binding force boundary is the executable
-specification `cli/commands/force-bypasses-only-named-policies` in the
+specification `cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../specifications/catalog.md): `--force` bypasses
 only an explicitly named forceable policy and never a hard invariant.
 

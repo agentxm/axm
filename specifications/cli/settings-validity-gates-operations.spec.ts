@@ -14,12 +14,12 @@ import {
   handleSync,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
-import { pinSpecUserHome, snapshotWorkspaceContent } from "../../support/workspace-fixtures.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { pinSpecUserHome, snapshotWorkspaceContent } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/workspace/settings-validity-gates-operations",
+  requirement: "cli/settings-validity-gates-operations",
   title: "Workspace operations begin only after both settings sources validate",
   class: "functional",
   intents: ["workspace-intent-fidelity", "actionable-diagnostics"],

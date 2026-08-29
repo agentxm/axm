@@ -10,10 +10,10 @@ import {
   rootCommand,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "../support/contract.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/output/exit-codes-match-published-reference",
+  requirement: "cli/exit-codes-match-published-reference",
   title: "The published exit-code reference matches the runtime exit codes",
   class: "functional",
   intents: ["machine-automation", "knowledge-access"],

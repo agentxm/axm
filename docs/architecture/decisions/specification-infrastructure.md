@@ -16,10 +16,15 @@ required before broad migration. Each subsection records one accepted choice.
 ## Requirement identity
 
 A requirement identity is two or more lowercase kebab segments joined by `/`,
-for example `cli/install/reinstall-is-idempotent`. The leading segments name
-the product area and capability; the last names the requirement. Identities
-are declared, not derived: a file may move without changing its identity, and
-the catalog warns when identity and directory disagree. Optional case
+for example `cli/install/reinstall-is-idempotent`. The first segment names the
+product area, interior segments name the command path or concept, and the last
+names the requirement; a whole-surface requirement carries no interior segment,
+for example `cli/machine-mode-never-prompts`. Repository policy
+([`specifications/AGENTS.md`](../../../specifications/AGENTS.md)) keeps every
+identity equal to its file path and the layout specification enforces it, so
+moving a file is an identity change — a requirements decision. Identities
+remain declared in metadata, not derived from the filesystem: the catalog
+generator itself only warns when identity and directory disagree. Optional case
 identities append `#<slug>` for an independently reportable claim. Retiring or
 renaming an identity is a requirements decision visible in the catalog diff.
 

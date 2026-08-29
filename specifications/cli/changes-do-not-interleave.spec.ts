@@ -13,12 +13,12 @@ import {
   handleInstall,
 } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
-import { pinSpecUserHome } from "../../support/workspace-fixtures.js";
+import { defineSpecification } from "../support/contract.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
+import { pinSpecUserHome } from "../support/workspace-fixtures.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/workspace/changes-do-not-interleave",
+  requirement: "cli/changes-do-not-interleave",
   title: "Concurrent changes to one workspace never interleave",
   class: "functional",
   intents: ["safe-repetition", "workspace-intent-fidelity"],

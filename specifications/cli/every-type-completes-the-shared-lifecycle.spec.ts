@@ -9,18 +9,18 @@ import { afterEach } from "vitest";
 import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
 import { handleInstall, handleUninstall } from "axm.sh/unstable/specification-harness";
 
-import { defineSpecification } from "../../support/contract.js";
+import { defineSpecification } from "../support/contract.js";
 import {
   writeLocalHookPackage,
   writeLocalKnowledgePackage,
   writeLocalRulePackage,
   writeLocalSubagentPackage,
   type LocalExtensionFixture,
-} from "../../support/extension-fixtures.js";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";
+} from "../support/extension-fixtures.js";
+import { makeSpecWorkspace, writeLocalSkillPackage } from "../support/install-harness.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/extension-types/every-type-completes-the-shared-lifecycle",
+  requirement: "cli/every-type-completes-the-shared-lifecycle",
   title: "Every extension type completes the shared install and removal lifecycle",
   class: "functional",
   intents: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],

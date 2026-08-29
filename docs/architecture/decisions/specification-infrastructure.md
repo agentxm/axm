@@ -23,9 +23,10 @@ for example `cli/machine-mode-never-prompts`. Repository policy
 identity equal to its file path and the layout specification enforces it, so
 moving a file is an identity change — a requirements decision. Identities
 remain declared in metadata, not derived from the filesystem: the catalog
-generator itself only warns when identity and directory disagree. Optional case
-identities append `#<slug>` for an independently reportable claim. Retiring or
-renaming an identity is a requirements decision visible in the catalog diff.
+generator itself only warns when identity and directory disagree. Scenario
+identities are not duplicated in metadata: native test names are the reportable
+scenarios. Retiring or renaming a requirement identity is a requirements
+decision visible in the catalog diff.
 
 ## Metadata carrier and discovery
 
@@ -42,7 +43,7 @@ wrapper.
 
 `specifications/` is one workspace package (`@agentxm/specifications`, Nx
 project `specifications`) holding the semantic trees `cli/`, `client-core/`,
-and `system/`, shared harness code under `support/`, and the intent registry.
+and `system/`, shared harness code under `support/`, and the product-goal registry.
 It depends on `@agentxm/client-core` and `axm.sh` published surfaces and has
 no build target. The catalog generator and selection runner live in
 `scripts/` with the other repository automation.
@@ -50,8 +51,8 @@ no build target. The catalog generator and selection runner live in
 ## Result adapters
 
 - `specifications/support/reporting.setup.ts` joins exported metadata onto
-  native Vitest results as Allure labels (purpose, requirement, class,
-  boundary, selection, intent, method) and the product-shaped
+  native Vitest results as Allure labels (purpose, requirement, class, role,
+  boundary, selection, product goal, method) and the role-first
   epic/feature/story hierarchy.
 - JUnit and Allure writers stay in `vitest.reporting.ts`, shared with every
   other suite.
@@ -82,14 +83,25 @@ and runs exactly the evidence for those requirements, so an
 implementation-scoped task can execute the specification it must satisfy
 without running unrelated suites.
 
-## Intent registry
+## Product-goal registry
 
-`specifications/intents.ts` registers product intents at outcome granularity
+`specifications/product-goals.ts` registers product goals at outcome granularity
 — roughly one per durable product promise, not one per feature. Maintainers
 own it through the same review as specifications. Traceability gates run in
-the catalog generator: referencing a retired intent is an error; an active
-intent with no referencing specification is a standing warning until covered
+the catalog generator: referencing a retired goal is an error; an active
+goal with no referencing specification is a standing warning until covered
 or retired.
+
+## Requirement roles
+
+Every specification declares one role independent of its requirement class:
+`experience` for behavior meaningful while a person or agent completes a
+product task, `interface` for public machine-consumable contracts, and
+`supporting` for subordinate system or engineering obligations. The catalog
+and Allure behavior hierarchy present those roles as Product behavior,
+Programmatic interfaces, and Supporting system behavior. Native test names,
+not duplicated case metadata, carry reportable scenarios beneath each
+requirement.
 
 ## Release, artifact, and deployment verification
 

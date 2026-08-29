@@ -16,14 +16,9 @@ export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete-and-alias-free",
   title: "Every supported command presents help and no alias routes exist",
   class: "functional",
-  intents: ["knowledge-access"],
+  role: "experience",
+  goals: ["knowledge-access"],
   methods: ["model"],
-  cases: {
-    "every-command-renders-help": "every registered command path renders usable command help",
-    "listed-commands-are-discoverable":
-      "the rendered help walk reaches exactly the listed command tree",
-    "tree-is-alias-free": "no registered command carries an alias route before launch",
-  },
 });
 
 interface RegisteredCommand {

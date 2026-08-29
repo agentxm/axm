@@ -1,7 +1,8 @@
 # Authoring specifications
 
 Every `*.spec.ts` states one accepted requirement. Directories are physical
-layout; requirement identity, intents, and class carry the taxonomy.
+layout; requirement identity, product goals, class, and role carry the
+taxonomy.
 
 Use the installed `engineer-requirements` skill for elicitation, review,
 impact analysis, and requirement changes. This repository maps each normative
@@ -22,12 +23,24 @@ this).
 Library requirements go under `client-core/<concept>/`; repository, release,
 and platform requirements under `system/<class>/`.
 
+## Requirement roles
+
+Give every requirement one primary role:
+
+- `experience` — behavior meaningful to a person or agent completing an AXM
+  task;
+- `interface` — a public machine-consumable contract; or
+- `supporting` — a subordinate system or engineering obligation.
+
+Split independently promised experience and interface behavior into separate
+requirements. Keep non-normative implementation detail in internal tests.
+
 ## Recurring invariant families
 
 Idempotency, preview purity, and preserved-unowned-state recur per command.
 Keep them in each command's folder with the shared names (`preview-is-pure`,
-`*-is-idempotent`, `preserves-*`) and tag the matching intent. Cross-cutting
-views come from intent metadata, never duplicate directories.
+`*-is-idempotent`, `preserves-*`) and tag the matching product goal.
+Cross-cutting views come from goal metadata, never duplicate directories.
 
 ## Moves and identity
 

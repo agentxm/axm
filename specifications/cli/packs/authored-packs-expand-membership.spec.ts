@@ -20,15 +20,9 @@ export const specification = defineSpecification({
   requirement: "cli/packs/authored-packs-expand-membership",
   title: "Authored packs grow membership that stays reachable through the pack",
   class: "functional",
-  intents: ["authoring-and-creation", "workspace-intent-fidelity", "extension-adoption"],
+  role: "experience",
+  goals: ["authoring-and-creation", "workspace-intent-fidelity", "extension-adoption"],
   methods: ["example"],
-  cases: {
-    "authors-the-pack":
-      "creating a pack records workspace authorship with an empty dependency graph",
-    "records-membership": "adding an installed extension records it as a pack dependency",
-    "pack-route-sustains-member":
-      "the member stays resolved and realized through the pack after its direct configuration is removed",
-  },
 });
 
 describe("Authored pack membership", () => {

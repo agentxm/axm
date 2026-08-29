@@ -12,15 +12,9 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/inline-authority-is-operation-coherent",
   title: "Inline MCP entries stay authoritative workspace configuration realized only by sync",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
   methods: ["example", "decision-table"],
-  cases: {
-    "round-trip-preserves-authored-form":
-      "a settings change preserves the authored form of untouched inline entries",
-    "sync-projects-supported-agents": "sync reconciles inline entries into agent configuration",
-    "no-lock-row": "inline entries never gain a lock row",
-    "disabled-not-projected": "a disabled inline entry is not projected into agent configuration",
-  },
 });
 
 /** Authored inline entries exactly as a person would write them in `axm.json`. */

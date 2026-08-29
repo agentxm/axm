@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",
   title: "Install preview describes the plan without changing any state",
   class: "functional",
-  intents: ["safe-repetition", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
 });
 

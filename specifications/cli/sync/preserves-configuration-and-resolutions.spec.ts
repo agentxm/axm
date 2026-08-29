@@ -16,15 +16,9 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "safe-repetition"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
-  cases: {
-    "no-op-after-install": "leaves a fully realized workspace byte-identical and reports no work",
-    "no-advance":
-      "restores realized state from the accepted resolution instead of an available newer version",
-    "resolve-once":
-      "resolves a desired extension without a resolution once, changing no configuration",
-  },
 });
 
 describe("Sync preserves configuration and accepted resolutions", () => {

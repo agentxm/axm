@@ -17,7 +17,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/machine-result-is-schema-backed",
   title: "Machine install output is one complete schema-backed plan document",
   class: "functional",
-  intents: ["machine-automation"],
+  role: "interface",
+  goals: ["machine-automation"],
   methods: ["contract"],
 });
 

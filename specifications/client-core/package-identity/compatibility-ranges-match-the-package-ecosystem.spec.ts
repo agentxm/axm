@@ -14,7 +14,8 @@ export const specification = defineSpecification({
   title:
     "A companion compatibility range is a concrete ecosystem range matching its package identity",
   class: "functional",
-  intents: ["authoring-and-creation", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["authoring-and-creation", "trustworthy-distribution"],
   methods: ["example", "decision-table"],
 });
 

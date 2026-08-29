@@ -8,7 +8,7 @@ import {
   collectCatalog,
   lintSpecificationTitle,
   parseExecutionBindingFile,
-  parseIntentRegistry,
+  parseProductGoalRegistry,
   parseSpecificationFile,
   renderCatalogMarkdown,
 } from "./specification-catalog-lib.js";
@@ -20,9 +20,9 @@ export const specification = defineSpecification({
   requirement: "cli/install/realizes-direct-intent",
   title: "Install realizes directly desired extensions",
   class: "functional",
-  intents: ["extension-adoption"],
+  role: "experience",
+  goals: ["extension-adoption"],
   methods: ["example"],
-  cases: { "records-source": "records its accepted source and integrity" },
 });
 
 describe("Install", () => {});
@@ -39,11 +39,11 @@ describe("parseSpecificationFile", () => {
       requirement: "cli/install/realizes-direct-intent",
       title: "Install realizes directly desired extensions",
       requirementClass: "functional",
-      intents: ["extension-adoption"],
+      requirementRole: "experience",
+      goals: ["extension-adoption"],
       boundary: "memory",
       selection: "per-change",
       methods: ["example"],
-      cases: { "records-source": "records its accepted source and integrity" },
     });
   });
 
@@ -58,7 +58,7 @@ describe("parseSpecificationFile", () => {
 
   it("rejects computed metadata", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "cli/install/" + name, title: "t", class: "functional", intents: ["a"] });`,
+      `export const specification = defineSpecification({ requirement: "cli/install/" + name, title: "t", class: "functional", role: "experience", goals: ["a"] });`,
       "specifications/cli/install/computed.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();
@@ -67,11 +67,29 @@ describe("parseSpecificationFile", () => {
 
   it("rejects a malformed requirement identity", () => {
     const parsed = parseSpecificationFile(
-      `export const specification = defineSpecification({ requirement: "Install", title: "t", class: "functional", intents: ["a"] });`,
+      `export const specification = defineSpecification({ requirement: "Install", title: "t", class: "functional", role: "experience", goals: ["a"] });`,
       "specifications/cli/install/bad-identity.spec.ts",
     );
     expect(parsed.specification).toBeUndefined();
     expect(parsed.issues[0]?.message).toContain("requirement");
+  });
+
+  it("rejects an unknown requirement role", () => {
+    const parsed = parseSpecificationFile(
+      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", class: "functional", role: "technical", goals: ["a"] });`,
+      "specifications/cli/install/a.spec.ts",
+    );
+    expect(parsed.specification).toBeUndefined();
+    expect(parsed.issues[0]?.message).toContain("role");
+  });
+
+  it("rejects duplicated case metadata", () => {
+    const parsed = parseSpecificationFile(
+      `export const specification = defineSpecification({ requirement: "cli/install/a", title: "t", class: "functional", role: "experience", goals: ["a"], cases: { duplicate: "native test name" } });`,
+      "specifications/cli/install/a.spec.ts",
+    );
+    expect(parsed.specification).toBeUndefined();
+    expect(parsed.issues[0]?.message).toContain("native test names");
   });
 
   it("rejects implementation vocabulary in titles", () => {
@@ -81,22 +99,22 @@ describe("parseSpecificationFile", () => {
   });
 });
 
-describe("parseIntentRegistry", () => {
-  it("extracts intents with default active status", () => {
-    const parsed = parseIntentRegistry(
-      `export const intents = defineIntents({ "extension-adoption": { outcome: "Extensions install." } });`,
-      "specifications/intents.ts",
+describe("parseProductGoalRegistry", () => {
+  it("extracts product goals with default active status", () => {
+    const parsed = parseProductGoalRegistry(
+      `export const productGoals = defineProductGoals({ "extension-adoption": { outcome: "Extensions install." } });`,
+      "specifications/product-goals.ts",
     );
     expect(parsed.issues).toEqual([]);
-    expect(parsed.intents).toEqual([
+    expect(parsed.productGoals).toEqual([
       { id: "extension-adoption", outcome: "Extensions install.", status: "active" },
     ]);
   });
 
-  it("rejects an intent without an outcome", () => {
-    const parsed = parseIntentRegistry(
-      `export const intents = defineIntents({ "extension-adoption": { status: "active" } });`,
-      "specifications/intents.ts",
+  it("rejects a product goal without an outcome", () => {
+    const parsed = parseProductGoalRegistry(
+      `export const productGoals = defineProductGoals({ "extension-adoption": { status: "active" } });`,
+      "specifications/product-goals.ts",
     );
     expect(parsed.issues.some((issue) => issue.severity === "error")).toBe(true);
   });
@@ -145,8 +163,8 @@ describe("collectCatalog", () => {
     repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-spec-catalog-"));
     fs.mkdirSync(path.join(repoRoot, "specifications", "cli", "install"), { recursive: true });
     fs.writeFileSync(
-      path.join(repoRoot, "specifications", "intents.ts"),
-      `export const intents = defineIntents({
+      path.join(repoRoot, "specifications", "product-goals.ts"),
+      `export const productGoals = defineProductGoals({
         "extension-adoption": { outcome: "Extensions install." },
         "retired-outcome": { outcome: "No longer wanted.", status: "retired" },
         "unreferenced-outcome": { outcome: "Nothing references this." },
@@ -158,7 +176,7 @@ describe("collectCatalog", () => {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  const writeSpec = (relativePath: string, requirement: string, intent: string): void => {
+  const writeSpec = (relativePath: string, requirement: string, goal: string): void => {
     const target = path.join(repoRoot, "specifications", relativePath);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(
@@ -167,7 +185,8 @@ describe("collectCatalog", () => {
         requirement: "${requirement}",
         title: "Install realizes directly desired extensions",
         class: "functional",
-        intents: ["${intent}"],
+        role: "experience",
+        goals: ["${goal}"],
       });`,
     );
   };
@@ -183,14 +202,16 @@ describe("collectCatalog", () => {
     ).toBe(true);
   });
 
-  it("flags unregistered and retired intents, and unreferenced active intents", () => {
-    writeSpec("cli/install/a.spec.ts", "cli/install/a", "missing-intent");
+  it("flags unregistered and retired product goals, and unreferenced active goals", () => {
+    writeSpec("cli/install/a.spec.ts", "cli/install/a", "missing-goal");
     writeSpec("cli/install/b.spec.ts", "cli/install/b", "retired-outcome");
     const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
-    expect(catalog.issues.some((issue) => issue.message.includes("unregistered intent"))).toBe(
+    expect(
+      catalog.issues.some((issue) => issue.message.includes("unregistered product goal")),
+    ).toBe(true);
+    expect(catalog.issues.some((issue) => issue.message.includes("retired product goal"))).toBe(
       true,
     );
-    expect(catalog.issues.some((issue) => issue.message.includes("retired intent"))).toBe(true);
     expect(
       catalog.issues.some((issue) => issue.message.includes("no referencing specification")),
     ).toBe(true);
@@ -210,9 +231,10 @@ describe("collectCatalog", () => {
     writeSpec("cli/install/a.spec.ts", "cli/install/a", "extension-adoption");
     const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
     const markdown = renderCatalogMarkdown(catalog);
-    expect(markdown).toContain("## CLI");
-    expect(markdown).toContain("### Install");
+    expect(markdown).toContain("## Product behavior");
+    expect(markdown).toContain("### CLI");
+    expect(markdown).toContain("#### Install");
     expect(markdown).toContain("`cli/install/a`");
-    expect(markdown).toContain("## Intents");
+    expect(markdown).toContain("## Product goals");
   });
 });

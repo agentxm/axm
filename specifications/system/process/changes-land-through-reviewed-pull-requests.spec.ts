@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   title:
     "Changes land through human-reviewed pull requests, with requirements changes routed to maintainers",
   class: "process",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

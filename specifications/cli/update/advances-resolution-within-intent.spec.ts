@@ -13,15 +13,9 @@ export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
   class: "functional",
-  intents: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
+  role: "experience",
+  goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
-  cases: {
-    "advances-resolution":
-      "advances the accepted resolution and realized content to a later published version",
-    "preserves-configuration": "changes no workspace configuration and no unrelated extension",
-    "repeat-is-noop": "repeating an update at the advanced resolution reports a no-op",
-    "blocks-before-lookup": "blocks an update of an extension the workspace does not desire",
-  },
 });
 
 describe("Update a desired Registry extension", () => {

@@ -17,7 +17,8 @@ export const specification = defineSpecification({
   requirement: "client-core/version-constraints/range-satisfaction-follows-semver",
   title: "A version constraint accepts exactly the versions its semver range allows",
   class: "functional",
-  intents: ["extension-adoption", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["property", "decision-table", "example"],
 });
 

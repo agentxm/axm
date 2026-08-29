@@ -23,6 +23,7 @@ export interface AffectedRequirement {
   readonly requirement: string;
   readonly title: string;
   readonly requirementClass: string;
+  readonly requirementRole: string;
   readonly change: "added" | "removed" | "revised-contract" | "revised-evidence";
   readonly evidence: EvidenceStatus;
 }
@@ -40,11 +41,11 @@ const metadataDigest = (specification: CatalogSpecification): string =>
     JSON.stringify({
       title: specification.title,
       requirementClass: specification.requirementClass,
-      intents: specification.intents,
+      requirementRole: specification.requirementRole,
+      goals: specification.goals,
       boundary: specification.boundary,
       selection: specification.selection,
       methods: specification.methods,
-      cases: specification.cases,
     }),
   );
 
@@ -119,6 +120,7 @@ export const computeVerdict = (
         requirement,
         title: headEntry.specification.title,
         requirementClass: headEntry.specification.requirementClass,
+        requirementRole: headEntry.specification.requirementRole,
         change: "added",
         evidence,
       });
@@ -129,6 +131,7 @@ export const computeVerdict = (
         requirement,
         title: headEntry.specification.title,
         requirementClass: headEntry.specification.requirementClass,
+        requirementRole: headEntry.specification.requirementRole,
         change: "revised-contract",
         evidence,
       });
@@ -139,6 +142,7 @@ export const computeVerdict = (
         requirement,
         title: headEntry.specification.title,
         requirementClass: headEntry.specification.requirementClass,
+        requirementRole: headEntry.specification.requirementRole,
         change: "revised-evidence",
         evidence,
       });
@@ -153,6 +157,7 @@ export const computeVerdict = (
         requirement,
         title: baseEntry.specification.title,
         requirementClass: baseEntry.specification.requirementClass,
+        requirementRole: baseEntry.specification.requirementRole,
         change: "removed",
         evidence: "missing",
       });
@@ -183,12 +188,12 @@ export const renderVerdictMarkdown = (verdict: Verdict): string => {
     "This change affects the requirement contract. Review it as a requirements",
     "decision, not test maintenance.",
     "",
-    "| Requirement | Change | Class | Evidence |",
-    "| --- | --- | --- | --- |",
+    "| Requirement | Change | Class | Role | Evidence |",
+    "| --- | --- | --- | --- | --- |",
   );
   for (const entry of verdict.affected) {
     lines.push(
-      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.requirementClass} | ${entry.evidence} |`,
+      `| \`${entry.requirement}\` — ${entry.title} | ${CHANGE_LABEL[entry.change]} | ${entry.requirementClass} | ${entry.requirementRole} | ${entry.evidence} |`,
     );
   }
   lines.push("", `${verdict.unchangedCount} requirement(s) unchanged.`, "");

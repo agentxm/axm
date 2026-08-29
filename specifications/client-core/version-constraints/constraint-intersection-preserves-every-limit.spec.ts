@@ -16,7 +16,8 @@ export const specification = defineSpecification({
   title:
     "Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable",
   class: "functional",
-  intents: ["extension-adoption", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["property", "example"],
 });
 

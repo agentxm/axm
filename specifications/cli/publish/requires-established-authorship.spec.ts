@@ -12,12 +12,9 @@ export const specification = defineSpecification({
   requirement: "cli/publish/requires-established-authorship",
   title: "Publish refuses extensions the workspace does not author",
   class: "functional",
-  intents: ["trustworthy-distribution", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
   methods: ["decision-table", "example"],
-  cases: {
-    "bulk-selection-excludes":
-      "a bulk publish reports the installed extension as not authored instead of selecting it",
-  },
 });
 
 /**

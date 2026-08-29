@@ -16,14 +16,9 @@ export const specification = defineSpecification({
   requirement: "cli/managed-projection-guidance-respects-authority",
   title: "Managed projections name editable sources only when the workspace owns them",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "agent-interoperability", "knowledge-access"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "agent-interoperability", "knowledge-access"],
   methods: ["decision-table", "example"],
-  cases: {
-    "authored-source-named":
-      "a workspace-authored package names its canonical content as the editable source",
-    "acquired-source-not-editable":
-      "an acquired package retains provenance without presenting accepted content as editable",
-  },
 });
 
 const writeAuthoredSubagentPackage = (workspaceRoot: string, name: string): void => {

@@ -13,7 +13,8 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
   title: "Telemetry payloads carry only the documented observation fields",
   class: "security",
-  intents: ["privacy-and-consent"],
+  role: "interface",
+  goals: ["privacy-and-consent"],
   methods: ["golden-output"],
 });
 

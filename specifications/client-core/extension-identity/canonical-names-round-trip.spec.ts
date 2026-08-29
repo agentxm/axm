@@ -23,7 +23,8 @@ export const specification = defineSpecification({
   requirement: "client-core/extension-identity/canonical-names-round-trip",
   title: "A canonical extension name always parses back to the identity that produced it",
   class: "functional",
-  intents: ["extension-adoption", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["property", "example"],
 });
 

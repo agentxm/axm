@@ -15,12 +15,9 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-consent-and-precedence",
   title: "Telemetry collection follows only the operator's environment consent",
   class: "security",
-  intents: ["privacy-and-consent"],
+  role: "experience",
+  goals: ["privacy-and-consent"],
   methods: ["decision-table", "contract"],
-  cases: {
-    "do-not-track-wins": "the do-not-track convention disables collection over every other control",
-    "workspace-cannot-enable": "committed workspace configuration carries no telemetry control",
-  },
 });
 
 interface ConsentCase {

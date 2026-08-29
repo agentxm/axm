@@ -44,12 +44,12 @@ if (checkOnly) {
     process.exit(1);
   }
   console.log(
-    `Specification catalog is fresh: ${catalog.specifications.length} specification(s), ${catalog.intents.length} intent(s).`,
+    `Specification catalog is fresh: ${catalog.specifications.length} specification(s), ${catalog.productGoals.length} product goal(s).`,
   );
   process.exit(0);
 }
 
 fs.writeFileSync(catalogPath, rendered);
 console.log(
-  `Wrote specifications/catalog.md: ${catalog.specifications.length} specification(s), ${catalog.intents.length} intent(s), ${catalog.executionBindings.length} execution binding(s).`,
+  `Wrote specifications/catalog.md: ${catalog.specifications.length} specification(s), ${catalog.productGoals.length} product goal(s), ${catalog.executionBindings.length} execution binding(s).`,
 );

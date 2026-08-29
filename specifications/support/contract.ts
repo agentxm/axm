@@ -26,6 +26,9 @@ export type RequirementClass =
   | "process"
   | "external-conformance";
 
+/** How a requirement participates in the product contract and its reading paths. */
+export type RequirementRole = "experience" | "interface" | "supporting";
+
 /**
  * Where the specification's default execution observes the system. Additional
  * boundary-specific executions (for example end-to-end) bind their own
@@ -59,10 +62,17 @@ export interface SpecificationMetadata {
   /** The requirement class this specification states. */
   readonly class: RequirementClass;
   /**
-   * Registered intent identities this requirement serves. Every entry must
-   * exist in `specifications/intents.ts` and be active.
+   * The requirement's primary role in the product contract. Experience
+   * requirements describe tasks in product language, interface requirements
+   * state public machine-consumable contracts, and supporting requirements
+   * state subordinate system or engineering obligations.
    */
-  readonly intents: readonly [string, ...string[]];
+  readonly role: RequirementRole;
+  /**
+   * Registered product-goal identities this requirement supports. Every entry
+   * must exist in `specifications/product-goals.ts` and be active.
+   */
+  readonly goals: readonly [string, ...string[]];
   /** Observation boundary of the default execution. Defaults to `memory`. */
   readonly boundary?: ExecutionBoundary;
   /**
@@ -73,14 +83,9 @@ export interface SpecificationMetadata {
   readonly methods?: readonly [string, ...string[]];
   /** Default evidence-selection policy. Defaults to `per-change`. */
   readonly selection?: ExecutionSelection;
-  /**
-   * Optional independently reportable case identities: slug to the exact
-   * native test title that carries the claim.
-   */
-  readonly cases?: Readonly<Record<string, string>>;
 }
 
-/** Segments of a requirement identity or intent identity. */
+/** Segments of a requirement identity or product-goal identity. */
 export const IDENTITY_SEGMENT_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const REQUIREMENT_CLASSES: readonly RequirementClass[] = [
@@ -93,6 +98,12 @@ export const REQUIREMENT_CLASSES: readonly RequirementClass[] = [
   "architecture",
   "process",
   "external-conformance",
+];
+
+export const REQUIREMENT_ROLES: readonly RequirementRole[] = [
+  "experience",
+  "interface",
+  "supporting",
 ];
 
 export const EXECUTION_BOUNDARIES: readonly ExecutionBoundary[] = [
@@ -122,22 +133,22 @@ export const EXECUTION_SELECTIONS: readonly ExecutionSelection[] = [
 export const defineSpecification = <const M extends SpecificationMetadata>(metadata: M): M =>
   metadata;
 
-/** One registered product intent. */
-export interface IntentDefinition {
-  /** One-sentence statement of the product outcome this intent names. */
+/** One registered product goal. */
+export interface ProductGoalDefinition {
+  /** One-sentence statement of the desired outcome this goal names. */
   readonly outcome: string;
   /**
-   * Retired intents stay registered so specifications referencing them are
+   * Retired goals stay registered so specifications referencing them are
    * flagged as retirement candidates instead of silently orphaned.
    */
   readonly status?: "active" | "retired";
 }
 
 /**
- * Declares the intent registry. Identity function with the same literal-only
- * discipline as `defineSpecification`.
+ * Declares the product-goal registry. Identity function with the same
+ * literal-only discipline as `defineSpecification`.
  */
-export const defineIntents = <const R extends Readonly<Record<string, IntentDefinition>>>(
+export const defineProductGoals = <const R extends Readonly<Record<string, ProductGoalDefinition>>>(
   registry: R,
 ): R => registry;
 

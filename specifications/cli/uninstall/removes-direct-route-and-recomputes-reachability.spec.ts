@@ -13,16 +13,9 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
   title: "Uninstall removes direct intent and keeps state another desired route still reaches",
   class: "functional",
-  intents: ["extension-adoption", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["extension-adoption", "workspace-intent-fidelity"],
   methods: ["example"],
-  cases: {
-    "removes-direct-route": "removes the direct workspace configuration route and its resolution",
-    "removes-realized-state":
-      "removes canonical content and agent projections nothing else desires",
-    "preserves-other-extensions": "preserves other desired extensions and their realized state",
-    "retains-pack-reached-state":
-      "keeps the resolution, canonical content, and projection of a pack-reached extension",
-  },
 });
 
 describe("Uninstall a directly desired extension", () => {

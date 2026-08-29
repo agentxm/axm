@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "system/process/public-artifacts-protect-private-context",
   title: "Tracked repository content references no private coordination context",
   class: "process",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

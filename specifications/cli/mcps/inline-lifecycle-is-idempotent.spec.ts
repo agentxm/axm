@@ -20,16 +20,9 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/inline-lifecycle-is-idempotent",
   title: "The inline MCP server lifecycle is explicit and safe to repeat",
   class: "functional",
-  intents: ["safe-repetition", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
-  cases: {
-    "add-records-configuration":
-      "adding an inline server records authoritative configuration and projects it",
-    "repeat-add-is-already-configured": "repeating an identical add changes nothing and says so",
-    "uninstall-removes-owned-state":
-      "uninstalling removes the configuration and its projections while preserving unowned entries",
-    "repeat-uninstall-is-a-no-op": "repeating the uninstall reports nothing left to do",
-  },
 });
 
 describe("Inline MCP server lifecycle", () => {

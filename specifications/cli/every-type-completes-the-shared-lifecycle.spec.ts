@@ -23,7 +23,8 @@ export const specification = defineSpecification({
   requirement: "cli/every-type-completes-the-shared-lifecycle",
   title: "Every extension type completes the shared install and removal lifecycle",
   class: "functional",
-  intents: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
+  role: "experience",
+  goals: ["extension-adoption", "workspace-intent-fidelity", "agent-interoperability"],
   methods: ["decision-table", "example"],
 });
 

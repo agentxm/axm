@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "system/process/merges-require-aggregate-verification",
   title: "Changes are verified by one aggregate required check before merge",
   class: "process",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

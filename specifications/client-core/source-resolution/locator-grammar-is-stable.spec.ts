@@ -15,7 +15,8 @@ export const specification = defineSpecification({
   requirement: "client-core/source-resolution/locator-grammar-is-stable",
   title: "Source locators resolve through a stable grammar and configured hosts",
   class: "functional",
-  intents: ["extension-adoption", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["decision-table", "property", "example"],
 });
 

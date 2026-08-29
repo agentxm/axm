@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "system/process/releases-publish-through-canonical-workflow",
   title: "Releases publish only through the canonical automated workflow",
   class: "process",
-  intents: ["dependable-change-process", "trustworthy-distribution"],
+  role: "supporting",
+  goals: ["dependable-change-process", "trustworthy-distribution"],
   boundary: "repository",
   methods: ["contract"],
 });

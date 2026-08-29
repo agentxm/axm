@@ -18,12 +18,9 @@ export const specification = defineSpecification({
   requirement: "cli/publish/preview-is-pure-and-gate-is-fixed",
   title: "Publish preview evaluates the fixed publication gate and distributes nothing",
   class: "functional",
-  intents: ["trustworthy-distribution", "safe-repetition"],
+  role: "experience",
+  goals: ["trustworthy-distribution", "safe-repetition"],
   methods: ["example", "decision-table"],
-  cases: {
-    "preview-is-pure":
-      "a preview reports the admitted publication set without uploading or changing state",
-  },
 });
 
 describe("Publish preview purity and the fixed publication gate", () => {

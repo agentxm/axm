@@ -19,19 +19,9 @@ export const specification = defineSpecification({
   requirement: "cli/instructions/management-is-explicit",
   title: "Instruction-file management is inspected, enabled, and disabled explicitly",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "agent-interoperability"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "agent-interoperability"],
   methods: ["example"],
-  cases: {
-    "status-reports-unconfigured":
-      "reports the capability as not configured without changing state",
-    "enable-records-and-reconciles":
-      "enabling records the explicit choice and reconciles aliases as one operation",
-    "status-reports-managed-targets": "reports the managed target for each configured agent",
-    "disable-removes-only-owned":
-      "disabling removes only owned aliases and regions while preserving authored prose",
-    "repeat-disable-is-a-no-op":
-      "disabling an already-disabled capability changes nothing and says so",
-  },
 });
 
 describe("Instruction-file management", () => {

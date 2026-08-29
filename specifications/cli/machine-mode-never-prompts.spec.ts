@@ -13,14 +13,9 @@ export const specification = defineSpecification({
   requirement: "cli/machine-mode-never-prompts",
   title: "Machine output mode terminates deterministically instead of prompting",
   class: "functional",
-  intents: ["machine-automation"],
+  role: "interface",
+  goals: ["machine-automation"],
   methods: ["example"],
-  cases: {
-    "machine-mode-blocks-without-prompting":
-      "a setup that needs interactive input reports approval required without raising any prompt",
-    "interactive-mode-prompts-for-the-same-request":
-      "the same request prompts and honors the answer when machine output is off",
-  },
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(SetupDocumentSchema);

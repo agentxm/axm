@@ -10,7 +10,7 @@ depends-on:
 # Testing strategy
 
 Every accepted AXM requirement is a runnable, readable specification traced to
-the intent it serves; every change is judged by the evidence those
+the product goal it supports; every change is judged by the evidence those
 specifications produce; humans govern behavior at the specification layer
 while implementation — human- or agent-written — changes freely beneath it;
 and nothing else claims local requirements authority.
@@ -50,10 +50,10 @@ in-memory subset aims to cover all supported functional behavior. That is
 behavioral coverage against an explicit product inventory, not a claim about
 line or branch coverage.
 
-Each specification traces to the product intent it serves. A requirement whose
-motivating intent has lapsed is retired through change control rather than
-preserved, keeping the corpus a living contract instead of a ratchet of
-accidental behavior.
+Each specification traces to the product goal it supports. A requirement whose
+motivating goal has lapsed becomes a retirement candidate rather than being
+preserved automatically, keeping the corpus a living contract instead of a
+ratchet of accidental behavior.
 
 ## Authority
 
@@ -90,18 +90,18 @@ decision to adopt a named version, its applicability, and any deviations.
 Repository instructions and contributor procedures may govern how work is
 performed without becoming a second requirements corpus for AXM.
 
-## Intent registry
+## Product-goal registry
 
-Requirement intent is registered, not free text. A small intent registry
+Product goals are registered, not free text. A small product-goal registry
 records the product outcomes and capabilities AXM serves, each with a stable
 identity and a short statement of the outcome it names. Specification metadata
-references intent identities; the registry does not restate, own, or rank the
-requirements that serve an intent.
+references goal identities; the registry does not restate, own, or rank the
+requirements that support a goal.
 
 Two completeness-style gates keep the traceability live: a specification that
-references a retired intent is a retirement candidate, and a registered intent
+references a retired goal is a retirement candidate, and a registered goal
 with no referencing specification identifies either missing coverage or a dead
-intent. Requirements review walks intents rather than specifications, asking
+goal. Requirements review walks goals rather than specifications, asking
 whether each registered outcome is still wanted and still sufficiently
 specified. That review — never implementation convenience — is what retires
 requirements.
@@ -111,20 +111,29 @@ requirements.
 Tests and checks are classified on independent axes instead of one flat test
 taxonomy.
 
-| Axis      | Common values or examples                                                                                                            | Question answered                        |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                           | What authority or claim does it support? |
-| Concern   | Functional behavior, installability, compatibility, performance, security, usability, architecture, process, or external conformance | What kind of property is assessed?       |
-| Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                          | Where does the observation occur?        |
-| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `measurement`, `load`, or `smoke`                                | How is the claim assessed?               |
-| Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                   | What does the assessment concern?        |
-| Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                        | When is this evidence selected?          |
+| Axis      | Common values or examples                                                                                                            | Question answered                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                           | What authority or claim does it support?                      |
+| Concern   | Functional behavior, installability, compatibility, performance, security, usability, architecture, process, or external conformance | What kind of property is assessed?                            |
+| Role      | `experience`, `interface`, `supporting`                                                                                              | How does the requirement participate in the product contract? |
+| Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                          | Where does the observation occur?                             |
+| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `measurement`, `load`, or `smoke`                                | How is the claim assessed?                                    |
+| Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                   | What does the assessment concern?                             |
+| Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                        | When is this evidence selected?                               |
 
 These values are an extensible vocabulary, not closed allowlists. Method
 metadata describes the approach a test actually uses, and new or combined
 testing methods do not require a taxonomy change before they can be used.
 Common labels are normalized only when that improves filtering and reporting
 without erasing a meaningful distinction.
+
+Role is independent of concern. Experience requirements describe behavior
+meaningful to a person or agent completing an AXM task. Interface requirements
+state public machine-consumable contracts. Supporting requirements state
+subordinate system or engineering obligations. A requirement has one primary
+role; independently promised experience and interface behavior is split rather
+than hidden behind a reporting tag. Non-normative implementation detail remains
+internal verification rather than a supporting requirement.
 
 Concern describes the requirement or quality characteristic rather than a
 physical suite. Selection describes execution policy and may include one test
@@ -398,8 +407,9 @@ assertions.
 Specification tests use idiomatic constructs from their native test framework
 and any purpose-fit testing library. A small, typed, colocated metadata contract
 provides only the cross-method information that discovery and reporting need:
-a stable requirement identity, human-readable title, requirement class, scope,
-the intent the requirement serves, and optional reporting labels.
+a stable requirement identity, human-readable title, requirement class and
+role, scope, the product goals the requirement supports, and optional reporting
+labels.
 
 The contract is data, not a specification DSL. It does not replace or wrap
 native suites, tests, assertions, hooks, fixtures, lifecycle, parameterization,
@@ -409,9 +419,10 @@ are never required. A specification remains directly runnable, debuggable, and
 navigable through its native framework and development tools.
 
 The requirement title and source organization provide the readable reference
-path. The visible native cases, properties, models, and assertions provide its
-precise executable meaning. Metadata does not become a prose-only substitute
-for those checks.
+path. Native tests are the reportable scenarios; properties, models,
+parameters, steps, attachments, and assertions provide their precise
+executable meaning. Metadata neither duplicates native test titles nor becomes
+a prose-only substitute for those checks.
 
 Within the fast functional subset, specification tests normally:
 
@@ -517,9 +528,9 @@ The default cadence is:
 Reporting provides separate projections for:
 
 1. authoritative specifications — functional, installability, compatibility,
-   performance, security, usability, architecture, and process — with
-   functional behavior as the primary product-shaped view and filters for
-   requirement concern and execution boundary;
+   performance, security, usability, architecture, and process — organized by
+   requirement role, with product behavior as the primary reading path and
+   filters for requirement concern and execution boundary;
 2. diagnostic architecture checks, internal, tooling, and static verification,
    visibly separated by purpose and method;
 3. artifact integrity, contents, and provenance verification;
@@ -539,15 +550,23 @@ The internal verification projection is organized primarily by package and
 source location because its reader job is maintaining the current realization,
 not understanding AXM's normative behavior.
 
-The primary functional view is organized by product meaning:
+The primary specification view is organized first by requirement role, then by
+product meaning:
 
 ```text
-Functional specifications
-  CLI
-    Install
-      Install configured extensions
-        when a configured extension is absent
-          acquires and realizes the selected version
+Product behavior
+  CLI — Install
+    Install configured extensions
+      when a configured extension is absent
+        acquires and realizes the selected version
+
+Programmatic interfaces
+  CLI — Install
+    Machine install output is one complete schema-backed plan document
+
+Supporting system behavior
+  System — Process
+    Changes are verified by one aggregate required check before merge
 ```
 
 Each specification entry links to its source and shows its available in-memory,
@@ -585,9 +604,9 @@ and removed requirements. A bug fix normally adds or strengthens a
 specification before changing implementation. Reviewers distinguish a changed
 requirement from a correction that makes implementation satisfy an unchanged
 specification. Retirement is as deliberate as addition: when a requirement's
-motivating intent lapses, the specification is removed through the same
-reviewed diff rather than kept because it exists. Documentation changes cannot
-create, revise, retire, or replace a requirement.
+motivating goal lapses, the specification is reviewed for retirement through
+the same governed diff rather than kept because it exists. Documentation
+changes cannot create, revise, retire, or replace a requirement.
 
 The specification layer is governed asymmetrically. Implementation-scoped work
 — human- or agent-performed — treats `specifications/` as read-only; changing

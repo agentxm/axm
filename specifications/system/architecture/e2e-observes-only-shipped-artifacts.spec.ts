@@ -11,7 +11,8 @@ export const specification = defineSpecification({
   requirement: "system/architecture/e2e-observes-only-shipped-artifacts",
   title: "End-to-end suites reach the product only as a shipped artifact, never as imported code",
   class: "architecture",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

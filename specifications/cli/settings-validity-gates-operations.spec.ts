@@ -22,7 +22,8 @@ export const specification = defineSpecification({
   requirement: "cli/settings-validity-gates-operations",
   title: "Workspace operations begin only after both settings sources validate",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["decision-table", "example"],
 });
 

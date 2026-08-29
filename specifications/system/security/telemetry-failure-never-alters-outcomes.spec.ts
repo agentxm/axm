@@ -13,7 +13,8 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-failure-never-alters-outcomes",
   title: "Telemetry collection or delivery failure is invisible to the operation",
   class: "functional",
-  intents: ["privacy-and-consent", "safe-repetition"],
+  role: "experience",
+  goals: ["privacy-and-consent", "safe-repetition"],
   methods: ["example"],
 });
 

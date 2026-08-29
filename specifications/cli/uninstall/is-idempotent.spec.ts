@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/is-idempotent",
   title: "Uninstalling an extension the workspace does not desire is a safe no-op",
   class: "functional",
-  intents: ["safe-repetition"],
+  role: "experience",
+  goals: ["safe-repetition"],
   methods: ["decision-table"],
 });
 

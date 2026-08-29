@@ -21,7 +21,8 @@ export const specification = defineSpecification({
   requirement: "cli/changes-do-not-interleave",
   title: "Concurrent changes to one workspace never interleave",
   class: "functional",
-  intents: ["safe-repetition", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["safe-repetition", "workspace-intent-fidelity"],
   methods: ["example"],
 });
 

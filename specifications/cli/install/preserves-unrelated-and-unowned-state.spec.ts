@@ -15,7 +15,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/preserves-unrelated-and-unowned-state",
   title: "Install leaves unrelated configuration and unowned content untouched",
   class: "functional",
-  intents: ["workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity"],
   methods: ["example"],
 });
 

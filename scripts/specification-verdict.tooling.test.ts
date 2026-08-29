@@ -13,11 +13,11 @@ const specification = (overrides: Partial<CatalogSpecification>): CatalogSpecifi
   requirement: "cli/install/realizes-direct-intent",
   title: "Install realizes directly desired extensions",
   requirementClass: "functional",
-  intents: ["extension-adoption"],
+  requirementRole: "experience",
+  goals: ["extension-adoption"],
   boundary: "memory",
   selection: "per-change",
   methods: [],
-  cases: {},
   source: "specifications/cli/install/realizes-direct-intent.spec.ts",
   ...overrides,
 });

@@ -11,7 +11,8 @@ export const specification = defineSpecification({
   requirement: "system/process/pre-launch-changes-stay-coherent",
   title: "Pre-launch contract changes land as one coherent break without compatibility paths",
   class: "process",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

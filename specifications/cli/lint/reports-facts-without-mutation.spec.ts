@@ -22,13 +22,9 @@ export const specification = defineSpecification({
   requirement: "cli/lint/reports-facts-without-mutation",
   title: "Lint reports invariant violations without changing any workspace state",
   class: "functional",
-  intents: ["actionable-diagnostics", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example"],
-  cases: {
-    "broken-workspace-reports-read-only":
-      "a broken invariant is reported with a failing exit while every byte of workspace state survives",
-    "valid-workspace-reports-clean": "a valid workspace reports clean and exits successfully",
-  },
 });
 
 const decodeDocument = Schema.decodeUnknownEffect(LintResultDocumentSchema);

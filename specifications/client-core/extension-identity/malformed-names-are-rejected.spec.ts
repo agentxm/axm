@@ -13,7 +13,8 @@ export const specification = defineSpecification({
   requirement: "client-core/extension-identity/malformed-names-are-rejected",
   title: "A malformed extension name is rejected with a typed failure naming the input",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  role: "interface",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["decision-table", "property", "example"],
 });
 

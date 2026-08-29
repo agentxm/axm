@@ -13,7 +13,8 @@ export const specification = defineSpecification({
   requirement: "client-core/package-identity/companion-packages-are-identities-not-pins",
   title: "A companion package names an ecosystem package identity, never a pinned version",
   class: "functional",
-  intents: ["authoring-and-creation", "trustworthy-distribution"],
+  role: "interface",
+  goals: ["authoring-and-creation", "trustworthy-distribution"],
   methods: ["example", "decision-table"],
 });
 

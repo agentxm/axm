@@ -12,14 +12,9 @@ export const specification = defineSpecification({
   requirement: "cli/install/direct-intent-recorded-and-realized",
   title: "Install records direct workspace intent and realizes the extension",
   class: "functional",
-  intents: ["extension-adoption", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["extension-adoption", "workspace-intent-fidelity"],
   methods: ["example"],
-  cases: {
-    "records-configuration": "records the extension as directly desired workspace configuration",
-    "records-resolution": "records the accepted resolution in the authoritative lockfile",
-    "materializes-content": "materializes canonical extension content inside the workspace",
-    "realizes-projections": "realizes the extension for every configured agent",
-  },
 });
 
 describe("Install a directly desired extension", () => {

@@ -1,15 +1,15 @@
-import { defineIntents } from "./support/contract.js";
+import { defineProductGoals } from "./support/contract.js";
 
 /**
- * The intent registry: the product outcomes and capabilities AXM serves.
+ * The product-goal registry: the outcomes and capabilities AXM serves.
  *
  * Specification metadata references these identities. The registry does not
- * restate, own, or rank the requirements that serve an intent. Requirements
- * review walks this registry: a retired intent makes its referencing
- * specifications retirement candidates, and an active intent with no
- * referencing specification identifies missing coverage or a dead intent.
+ * restate, own, or rank the requirements that support a goal. Requirements
+ * review walks this registry: a retired goal makes its referencing
+ * specifications retirement candidates, and an active goal with no
+ * referencing specification identifies missing coverage or a dead goal.
  */
-export const intents = defineIntents({
+export const productGoals = defineProductGoals({
   "extension-adoption": {
     outcome:
       "People and agents can find, install, update, and remove reusable extensions across coding agents through one dependable command surface.",

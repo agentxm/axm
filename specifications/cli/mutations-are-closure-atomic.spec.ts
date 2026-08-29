@@ -16,7 +16,8 @@ export const specification = defineSpecification({
   requirement: "cli/mutations-are-closure-atomic",
   title: "A failed workspace mutation leaves every authoritative state family unchanged",
   class: "functional",
-  intents: ["safe-repetition"],
+  role: "experience",
+  goals: ["safe-repetition"],
   methods: ["decision-table", "example"],
 });
 

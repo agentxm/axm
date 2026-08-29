@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/reinstall-is-idempotent",
   title: "Installing an already desired extension at the same constraint is a successful no-op",
   class: "functional",
-  intents: ["safe-repetition"],
+  role: "experience",
+  goals: ["safe-repetition"],
   methods: ["decision-table"],
 });
 

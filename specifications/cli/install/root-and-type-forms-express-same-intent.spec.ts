@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/root-and-type-forms-express-same-intent",
   title: "Root install and the type command express the same durable intent",
   class: "functional",
-  intents: ["extension-adoption"],
+  role: "experience",
+  goals: ["extension-adoption"],
   methods: ["model"],
 });
 

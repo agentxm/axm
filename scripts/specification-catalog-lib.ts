@@ -17,11 +17,11 @@ export interface CatalogSpecification {
   readonly requirement: string;
   readonly title: string;
   readonly requirementClass: string;
-  readonly intents: readonly string[];
+  readonly requirementRole: string;
+  readonly goals: readonly string[];
   readonly boundary: string;
   readonly selection: string;
   readonly methods: readonly string[];
-  readonly cases: Readonly<Record<string, string>>;
   /** Repository-relative source path. */
   readonly source: string;
 }
@@ -34,7 +34,7 @@ export interface CatalogExecutionBinding {
   readonly source: string;
 }
 
-export interface CatalogIntent {
+export interface CatalogProductGoal {
   readonly id: string;
   readonly outcome: string;
   readonly status: "active" | "retired";
@@ -48,7 +48,7 @@ export interface CatalogIssue {
 
 export interface SpecificationCatalog {
   readonly specifications: readonly CatalogSpecification[];
-  readonly intents: readonly CatalogIntent[];
+  readonly productGoals: readonly CatalogProductGoal[];
   readonly executionBindings: readonly CatalogExecutionBinding[];
   readonly issues: readonly CatalogIssue[];
 }
@@ -64,6 +64,15 @@ const REQUIREMENT_CLASSES = new Set([
   "process",
   "external-conformance",
 ]);
+
+const REQUIREMENT_ROLE_ORDER = ["experience", "interface", "supporting"] as const;
+const REQUIREMENT_ROLES: ReadonlySet<string> = new Set(REQUIREMENT_ROLE_ORDER);
+
+const REQUIREMENT_ROLE_LABELS: Readonly<Record<(typeof REQUIREMENT_ROLE_ORDER)[number], string>> = {
+  experience: "Product behavior",
+  interface: "Programmatic interfaces",
+  supporting: "Supporting system behavior",
+};
 
 const EXECUTION_BOUNDARIES = new Set([
   "memory",
@@ -307,7 +316,8 @@ export const parseSpecificationFile = (
   const requirement = record["requirement"];
   const title = record["title"];
   const requirementClass = record["class"];
-  const intents = record["intents"];
+  const requirementRole = record["role"];
+  const goals = record["goals"];
   if (!isStringValue(requirement) || !isValidIdentity(requirement)) {
     issues.push({
       severity: "error",
@@ -332,11 +342,19 @@ export const parseSpecificationFile = (
     });
     return { issues };
   }
-  if (!isStringArray(intents) || intents.length === 0) {
+  if (!isStringValue(requirementRole) || !REQUIREMENT_ROLES.has(requirementRole)) {
     issues.push({
       severity: "error",
       source: relativePath,
-      message: "`intents` must name at least one registered intent",
+      message: "`role` must be a known requirement role",
+    });
+    return { issues };
+  }
+  if (!isStringArray(goals) || goals.length === 0) {
+    issues.push({
+      severity: "error",
+      source: relativePath,
+      message: "`goals` must name at least one registered product goal",
     });
     return { issues };
   }
@@ -367,26 +385,13 @@ export const parseSpecificationFile = (
     });
     return { issues };
   }
-  const casesValue = record["cases"] ?? {};
-  if (!isRecordValue(casesValue)) {
+  if (record["cases"] !== undefined) {
     issues.push({
       severity: "error",
       source: relativePath,
-      message: "`cases` must map case slugs to native test titles",
+      message: "`cases` duplicates native test names; use native tests as reportable scenarios",
     });
     return { issues };
-  }
-  const cases: Record<string, string> = {};
-  for (const [slug, caseTitle] of Object.entries(casesValue)) {
-    if (!IDENTITY_SEGMENT.test(slug) || typeof caseTitle !== "string") {
-      issues.push({
-        severity: "error",
-        source: relativePath,
-        message: `case \`${slug}\` must use a kebab slug and a string title`,
-      });
-      continue;
-    }
-    cases[slug] = caseTitle;
   }
   const titleFinding = lintSpecificationTitle(title);
   if (titleFinding !== undefined) {
@@ -397,39 +402,41 @@ export const parseSpecificationFile = (
       requirement,
       title,
       requirementClass,
-      intents,
+      requirementRole,
+      goals,
       boundary,
       selection,
       methods,
-      cases,
       source: relativePath,
     },
     issues,
   };
 };
 
-export const parseIntentRegistry = (
+export const parseProductGoalRegistry = (
   sourceText: string,
   relativePath: string,
-): { readonly intents: readonly CatalogIntent[]; readonly issues: CatalogIssue[] } => {
+): { readonly productGoals: readonly CatalogProductGoal[]; readonly issues: CatalogIssue[] } => {
   const issues: CatalogIssue[] = [];
-  const extraction = extractDefinedLiteral(sourceText, relativePath, "intents", ["defineIntents"]);
+  const extraction = extractDefinedLiteral(sourceText, relativePath, "productGoals", [
+    "defineProductGoals",
+  ]);
   issues.push(...extraction.issues);
   if (extraction.value === undefined || !isRecordValue(extraction.value)) {
     issues.push({
       severity: "error",
       source: relativePath,
-      message: "intent registry must export an `intents` object literal",
+      message: "product-goal registry must export a `productGoals` object literal",
     });
-    return { intents: [], issues };
+    return { productGoals: [], issues };
   }
-  const intents: CatalogIntent[] = [];
+  const productGoals: CatalogProductGoal[] = [];
   for (const [id, definition] of Object.entries(extraction.value)) {
     if (!IDENTITY_SEGMENT.test(id)) {
       issues.push({
         severity: "error",
         source: relativePath,
-        message: `intent id \`${id}\` must be a lowercase kebab identifier`,
+        message: `product-goal id \`${id}\` must be a lowercase kebab identifier`,
       });
       continue;
     }
@@ -437,7 +444,7 @@ export const parseIntentRegistry = (
       issues.push({
         severity: "error",
         source: relativePath,
-        message: `intent \`${id}\` must declare a string outcome`,
+        message: `product goal \`${id}\` must declare a string outcome`,
       });
       continue;
     }
@@ -446,13 +453,13 @@ export const parseIntentRegistry = (
       issues.push({
         severity: "error",
         source: relativePath,
-        message: `intent \`${id}\` status must be "active" or "retired"`,
+        message: `product goal \`${id}\` status must be "active" or "retired"`,
       });
       continue;
     }
-    intents.push({ id, outcome: definition["outcome"], status });
+    productGoals.push({ id, outcome: definition["outcome"], status });
   }
-  return { intents, issues };
+  return { productGoals, issues };
 };
 
 export const parseExecutionBindingFile = (
@@ -541,20 +548,20 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
   const specifications: CatalogSpecification[] = [];
 
   const specificationsRoot = path.join(repoRoot, "specifications");
-  const intentsPath = path.join(specificationsRoot, "intents.ts");
-  let intents: readonly CatalogIntent[] = [];
-  if (fs.existsSync(intentsPath)) {
-    const parsed = parseIntentRegistry(
-      fs.readFileSync(intentsPath, "utf8"),
-      path.relative(repoRoot, intentsPath),
+  const productGoalsPath = path.join(specificationsRoot, "product-goals.ts");
+  let productGoals: readonly CatalogProductGoal[] = [];
+  if (fs.existsSync(productGoalsPath)) {
+    const parsed = parseProductGoalRegistry(
+      fs.readFileSync(productGoalsPath, "utf8"),
+      path.relative(repoRoot, productGoalsPath),
     );
-    intents = parsed.intents;
+    productGoals = parsed.productGoals;
     issues.push(...parsed.issues);
   } else {
     issues.push({
       severity: "error",
-      source: "specifications/intents.ts",
-      message: "intent registry file is missing",
+      source: "specifications/product-goals.ts",
+      message: "product-goal registry file is missing",
     });
   }
 
@@ -583,23 +590,23 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
     byRequirement.set(specification.requirement, specification);
   }
 
-  const intentIds = new Map(intents.map((intent) => [intent.id, intent] as const));
-  const referencedIntents = new Set<string>();
+  const productGoalIds = new Map(productGoals.map((goal) => [goal.id, goal] as const));
+  const referencedProductGoals = new Set<string>();
   for (const specification of specifications) {
-    for (const intent of specification.intents) {
-      referencedIntents.add(intent);
-      const registered = intentIds.get(intent);
+    for (const goal of specification.goals) {
+      referencedProductGoals.add(goal);
+      const registered = productGoalIds.get(goal);
       if (registered === undefined) {
         issues.push({
           severity: "error",
           source: specification.source,
-          message: `references unregistered intent \`${intent}\``,
+          message: `references unregistered product goal \`${goal}\``,
         });
       } else if (registered.status === "retired") {
         issues.push({
           severity: "error",
           source: specification.source,
-          message: `references retired intent \`${intent}\`; the specification is a retirement candidate`,
+          message: `references retired product goal \`${goal}\`; the specification is a retirement candidate`,
         });
       }
     }
@@ -612,16 +619,16 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
       });
     }
   }
-  for (const intent of intents) {
+  for (const goal of productGoals) {
     if (
-      intent.status === "active" &&
-      !referencedIntents.has(intent.id) &&
+      goal.status === "active" &&
+      !referencedProductGoals.has(goal.id) &&
       specifications.length > 0
     ) {
       issues.push({
         severity: "warning",
-        source: "specifications/intents.ts",
-        message: `active intent \`${intent.id}\` has no referencing specification (missing coverage or a dead intent)`,
+        source: "specifications/product-goals.ts",
+        message: `active product goal \`${goal.id}\` has no referencing specification (missing coverage or a dead goal)`,
       });
     }
   }
@@ -649,7 +656,7 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
     }
   }
 
-  return { specifications, intents, executionBindings, issues };
+  return { specifications, productGoals, executionBindings, issues };
 };
 
 const groupLabel = (segment: string): string => {
@@ -677,20 +684,25 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     "Do not edit by hand: run `pnpm run generate` after a specification change.",
     "This catalog lists every authoritative requirement whether or not its",
     "implementation currently passes; execution evidence lives in test results,",
-    "never here.",
+    "never here. Requirements are organized by their role in the product contract:",
+    "product behavior, programmatic interfaces, and supporting system behavior.",
     "",
   ];
 
-  const byArea = new Map<string, Map<string, CatalogSpecification[]>>();
+  const byRole = new Map<string, Map<string, Map<string, CatalogSpecification[]>>>();
   for (const specification of catalog.specifications) {
     const segments = specification.requirement.split("/");
     const area = segments[0] ?? "system";
     const capability = segments[1] ?? "general";
-    const capabilities = byArea.get(area) ?? new Map<string, CatalogSpecification[]>();
+    const areas =
+      byRole.get(specification.requirementRole) ??
+      new Map<string, Map<string, CatalogSpecification[]>>();
+    const capabilities = areas.get(area) ?? new Map<string, CatalogSpecification[]>();
     const entries = capabilities.get(capability) ?? [];
     entries.push(specification);
     capabilities.set(capability, entries);
-    byArea.set(area, capabilities);
+    areas.set(area, capabilities);
+    byRole.set(specification.requirementRole, areas);
   }
 
   const bindingsByRequirement = new Map<string, CatalogExecutionBinding[]>();
@@ -702,47 +714,50 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
     }
   }
 
-  for (const area of [...byArea.keys()].sort()) {
-    lines.push(`## ${groupLabel(area)}`, "");
-    const capabilities = byArea.get(area);
-    if (capabilities === undefined) {
+  for (const role of REQUIREMENT_ROLE_ORDER) {
+    const areas = byRole.get(role);
+    if (areas === undefined) {
       continue;
     }
-    for (const capability of [...capabilities.keys()].sort()) {
-      lines.push(`### ${groupLabel(capability)}`, "");
-      const entries = capabilities.get(capability) ?? [];
-      for (const entry of [...entries].sort((a, b) => a.requirement.localeCompare(b.requirement))) {
-        lines.push(`#### ${entry.title}`, "");
-        lines.push(`- Requirement: \`${entry.requirement}\``);
-        lines.push(`- Class: ${entry.requirementClass}`);
-        lines.push(`- Intents: ${entry.intents.map((intent) => `\`${intent}\``).join(", ")}`);
-        lines.push(`- Boundary: ${entry.boundary}; selection: ${entry.selection}`);
-        if (entry.methods.length > 0) {
-          lines.push(`- Methods: ${entry.methods.join(", ")}`);
-        }
-        const bindings = bindingsByRequirement.get(entry.requirement) ?? [];
-        for (const binding of bindings) {
-          lines.push(
-            `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
-          );
-        }
-        lines.push(`- Source: [\`${entry.source}\`](../${entry.source})`);
-        const caseEntries = Object.entries(entry.cases);
-        if (caseEntries.length > 0) {
-          lines.push("- Cases:");
-          for (const [slug, caseTitle] of caseEntries) {
-            lines.push(`  - \`${entry.requirement}#${slug}\` — ${caseTitle}`);
+    lines.push(`## ${REQUIREMENT_ROLE_LABELS[role]}`, "");
+    for (const area of [...areas.keys()].sort()) {
+      lines.push(`### ${groupLabel(area)}`, "");
+      const capabilities = areas.get(area);
+      if (capabilities === undefined) {
+        continue;
+      }
+      for (const capability of [...capabilities.keys()].sort()) {
+        lines.push(`#### ${groupLabel(capability)}`, "");
+        const entries = capabilities.get(capability) ?? [];
+        for (const entry of [...entries].sort((a, b) =>
+          a.requirement.localeCompare(b.requirement),
+        )) {
+          lines.push(`##### ${entry.title}`, "");
+          lines.push(`- Requirement: \`${entry.requirement}\``);
+          lines.push(`- Class: ${entry.requirementClass}`);
+          lines.push(`- Role: ${entry.requirementRole}`);
+          lines.push(`- Product goals: ${entry.goals.map((goal) => `\`${goal}\``).join(", ")}`);
+          lines.push(`- Boundary: ${entry.boundary}; selection: ${entry.selection}`);
+          if (entry.methods.length > 0) {
+            lines.push(`- Methods: ${entry.methods.join(", ")}`);
           }
+          const bindings = bindingsByRequirement.get(entry.requirement) ?? [];
+          for (const binding of bindings) {
+            lines.push(
+              `- Additional evidence: ${binding.boundary} via [\`${binding.source}\`](../${binding.source}) — ${binding.rationale}`,
+            );
+          }
+          lines.push(`- Source: [\`${entry.source}\`](../${entry.source})`);
+          lines.push("");
         }
-        lines.push("");
       }
     }
   }
 
-  lines.push("## Intents", "");
-  for (const intent of [...catalog.intents].sort((a, b) => a.id.localeCompare(b.id))) {
-    const suffix = intent.status === "retired" ? " (retired)" : "";
-    lines.push(`- \`${intent.id}\`${suffix} — ${intent.outcome}`);
+  lines.push("## Product goals", "");
+  for (const goal of [...catalog.productGoals].sort((a, b) => a.id.localeCompare(b.id))) {
+    const suffix = goal.status === "retired" ? " (retired)" : "";
+    lines.push(`- \`${goal.id}\`${suffix} — ${goal.outcome}`);
   }
   lines.push("");
   return lines.join("\n");

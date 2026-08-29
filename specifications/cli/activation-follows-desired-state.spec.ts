@@ -19,15 +19,9 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation commands change realized surfaces without touching content or resolutions",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "agent-interoperability"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "agent-interoperability"],
   methods: ["example"],
-  cases: {
-    "suspension-changes-surfaces-only":
-      "disabling a skill suspends its agent surfaces and preserves canonical content and the accepted resolution",
-    "reactivation-restores-surfaces": "enabling the skill restores its agent surfaces exactly",
-    "inline-round-trip":
-      "disabling and enabling an inline MCP server changes only its agent projection",
-  },
 });
 
 describe("Activation follows desired state", () => {

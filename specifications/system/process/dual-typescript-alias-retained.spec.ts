@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "system/process/dual-typescript-alias-retained",
   title: "The dual TypeScript alias stays in place until its recorded exit condition",
   class: "process",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

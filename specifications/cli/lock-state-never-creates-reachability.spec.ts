@@ -18,7 +18,8 @@ export const specification = defineSpecification({
   requirement: "cli/lock-state-never-creates-reachability",
   title: "A lockfile row alone never makes an extension desired or retained",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "trustworthy-distribution"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
   methods: ["decision-table", "contract"],
 });
 

@@ -14,15 +14,10 @@ export const specification = defineSpecification({
   requirement: "system/architecture/specification-folders-mirror-command-tree",
   title: "Specification layout mirrors the command tree and declared identities",
   class: "architecture",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
-  cases: {
-    "directories-name-command-paths":
-      "every specification directory under cli names a registered command path",
-    "no-symbolic-links": "no symbolic link hides specification content from discovery",
-    "identities-equal-paths": "every requirement identity equals its specification file path",
-  },
 });
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");

@@ -10,7 +10,8 @@ export const specification = defineSpecification({
   requirement: "cli/force-bypasses-only-named-policies",
   title: "Force flags exist only for explicitly named forceable policies",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["contract"],
 });
 

@@ -15,7 +15,8 @@ export const specification = defineSpecification({
   requirement: "client-core/settings-contract/saving-settings-preserves-authored-formatting",
   title: "Saving settings preserves authored formatting, ordering, and unrecognized content",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "safe-repetition"],
+  role: "interface",
+  goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["golden-output", "example"],
 });
 

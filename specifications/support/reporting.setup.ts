@@ -14,9 +14,11 @@ import {
   EXECUTION_SELECTIONS,
   IDENTITY_SEGMENT_PATTERN,
   REQUIREMENT_CLASSES,
+  REQUIREMENT_ROLES,
   type ExecutionBoundary,
   type ExecutionSelection,
   type RequirementClass,
+  type RequirementRole,
   type SpecificationMetadata,
 } from "./contract.js";
 
@@ -25,6 +27,9 @@ const isNonEmptyStringArray = (value: unknown): value is readonly [string, ...st
 
 const isRequirementClass = (value: unknown): value is RequirementClass =>
   typeof value === "string" && REQUIREMENT_CLASSES.some((entry) => entry === value);
+
+const isRequirementRole = (value: unknown): value is RequirementRole =>
+  typeof value === "string" && REQUIREMENT_ROLES.some((entry) => entry === value);
 
 const isExecutionBoundary = (value: unknown): value is ExecutionBoundary =>
   typeof value === "string" && EXECUTION_BOUNDARIES.some((entry) => entry === value);
@@ -65,8 +70,13 @@ const readSpecificationMetadata = (
   if (!isRequirementClass(record.class)) {
     throw new Error(`Specification class is not a known requirement class: ${filepath}`);
   }
-  if (!isNonEmptyStringArray(record.intents)) {
-    throw new Error(`Specification intents must name at least one registered intent: ${filepath}`);
+  if (!isRequirementRole(record.role)) {
+    throw new Error(`Specification role is not a known requirement role: ${filepath}`);
+  }
+  if (!isNonEmptyStringArray(record.goals)) {
+    throw new Error(
+      `Specification goals must name at least one registered product goal: ${filepath}`,
+    );
   }
   if (record.boundary !== undefined && !isExecutionBoundary(record.boundary)) {
     throw new Error(`Specification boundary is not a known execution boundary: ${filepath}`);
@@ -83,7 +93,8 @@ const readSpecificationMetadata = (
     requirement: record.requirement,
     title: record.title,
     class: record.class,
-    intents: record.intents,
+    role: record.role,
+    goals: record.goals,
     ...(record.boundary !== undefined ? { boundary: record.boundary } : {}),
     ...(record.methods !== undefined && isNonEmptyStringArray(record.methods)
       ? { methods: record.methods }
@@ -96,6 +107,12 @@ const SUBJECT_DISPLAY: Readonly<Record<string, string>> = {
   cli: "CLI",
   "client-core": "Client Core",
   system: "System",
+};
+
+const ROLE_DISPLAY: Readonly<Record<RequirementRole, string>> = {
+  experience: "Product behavior",
+  interface: "Programmatic interfaces",
+  supporting: "Supporting system behavior",
 };
 
 const displaySegment = (segment: string): string =>
@@ -117,13 +134,14 @@ beforeEach(async (context) => {
   await label("purpose", "specification");
   await label("requirement", specification.requirement);
   await label("requirement-class", specification.class);
+  await label("requirement-role", specification.role);
   await label("boundary", specification.boundary ?? "memory");
   await label("selection", specification.selection ?? "per-change");
   await labels(
-    ...specification.intents.map((intent) => ({ name: "intent", value: intent })),
+    ...specification.goals.map((goal) => ({ name: "product-goal", value: goal })),
     ...(specification.methods ?? []).map((method) => ({ name: "method", value: method })),
   );
-  await epic(displaySegment(area));
-  await feature(displaySegment(capability));
+  await epic(ROLE_DISPLAY[specification.role]);
+  await feature(`${displaySegment(area)} — ${displaySegment(capability)}`);
   await story(specification.title);
 });

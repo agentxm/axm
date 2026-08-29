@@ -16,7 +16,8 @@ export const specification = defineSpecification({
   requirement: "cli/exit-codes-match-published-reference",
   title: "The published exit-code reference matches the runtime exit codes",
   class: "functional",
-  intents: ["machine-automation", "knowledge-access"],
+  role: "interface",
+  goals: ["machine-automation", "knowledge-access"],
   methods: ["model"],
 });
 

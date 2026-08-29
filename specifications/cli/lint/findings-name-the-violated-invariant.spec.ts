@@ -21,7 +21,8 @@ export const specification = defineSpecification({
   requirement: "cli/lint/findings-name-the-violated-invariant",
   title: "Lint findings identify the violated invariant and affected subject as facts",
   class: "functional",
-  intents: ["actionable-diagnostics", "machine-automation"],
+  role: "interface",
+  goals: ["actionable-diagnostics", "machine-automation"],
   methods: ["contract"],
 });
 

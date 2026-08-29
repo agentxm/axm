@@ -20,17 +20,9 @@ export const specification = defineSpecification({
   requirement: "cli/agents/membership-changes-realize-affected-outputs",
   title: "Agent membership changes update the durable target set and its owned outputs together",
   class: "functional",
-  intents: ["agent-interoperability", "workspace-intent-fidelity"],
+  role: "experience",
+  goals: ["agent-interoperability", "workspace-intent-fidelity"],
   methods: ["example"],
-  cases: {
-    "add-realizes-installed-extensions":
-      "adding an agent records it as a durable target and realizes installed extensions for it",
-    "repeat-add-is-a-no-op": "adding an already-configured agent changes nothing and says so",
-    "remove-removes-owned-outputs":
-      "removing an agent removes it from the target set together with its managed outputs",
-    "remove-preserves-unowned-content":
-      "removing an agent preserves native content it cannot prove it owns",
-  },
 });
 
 describe("Coding-agent membership changes", () => {

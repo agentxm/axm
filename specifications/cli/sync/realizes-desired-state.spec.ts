@@ -15,13 +15,9 @@ export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
   title: "Sync restores managed state until it agrees with desired state",
   class: "functional",
-  intents: ["safe-repetition", "agent-interoperability"],
+  role: "experience",
+  goals: ["safe-repetition", "agent-interoperability"],
   methods: ["example"],
-  cases: {
-    "restores-projection": "restores a deleted agent projection from canonical content",
-    "restores-canonical": "restores deleted canonical content from the exact accepted identity",
-    converges: "reports an up-to-date workspace once managed state agrees with desired state",
-  },
 });
 
 describe("Sync realizes desired workspace state", () => {

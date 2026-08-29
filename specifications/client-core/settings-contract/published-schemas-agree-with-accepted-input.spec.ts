@@ -17,7 +17,8 @@ export const specification = defineSpecification({
   requirement: "client-core/settings-contract/published-schemas-agree-with-accepted-input",
   title: "The published settings and lockfile schemas describe what the product accepts",
   class: "functional",
-  intents: ["machine-automation", "workspace-intent-fidelity"],
+  role: "interface",
+  goals: ["machine-automation", "workspace-intent-fidelity"],
   methods: ["contract", "example"],
 });
 

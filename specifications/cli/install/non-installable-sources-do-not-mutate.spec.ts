@@ -13,7 +13,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/non-installable-sources-do-not-mutate",
   title: "Install rejects a source it cannot install without changing the workspace",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["property"],
 });
 

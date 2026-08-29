@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   title:
     "The public system depends on private platform responsibilities only through published contracts",
   class: "architecture",
-  intents: ["dependable-change-process"],
+  role: "supporting",
+  goals: ["dependable-change-process"],
   boundary: "repository",
   methods: ["contract"],
 });

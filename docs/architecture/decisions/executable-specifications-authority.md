@@ -55,9 +55,9 @@ Each retired authority class has one named destination:
   realized behavior; it never weakens the requirement.
 - Completeness is judged against independent product inventories, never
   against the set of specifications that happen to exist.
-- Requirements review walks the intent registry in
-  `specifications/intents.ts`; a lapsed intent retires its specifications
-  through the same reviewed diff that would add one.
+- Requirements review walks the product-goal registry in
+  `specifications/product-goals.ts`; a lapsed goal makes its specifications
+  retirement candidates through the same reviewed diff that would add one.
 
 ## Reconsideration
 

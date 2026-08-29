@@ -12,7 +12,8 @@ export const specification = defineSpecification({
   requirement: "cli/install/inline-mcp-configuration-not-acquirable",
   title: "Workspace install treats inline MCP configuration as sync-owned, not acquirable",
   class: "functional",
-  intents: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  role: "experience",
+  goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["example"],
 });
 

@@ -16,7 +16,8 @@ export const specification = defineSpecification({
   requirement: "cli/machine-errors-use-the-stable-envelope",
   title: "A failed machine invocation still emits the stable error envelope",
   class: "functional",
-  intents: ["machine-automation", "actionable-diagnostics"],
+  role: "interface",
+  goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["contract", "decision-table"],
 });
 

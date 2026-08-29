@@ -406,7 +406,8 @@ export const makeCliTestContext = (opts?: {
           options: allAgents.map((agent) => ({
             value: agent.id,
             label: agent.name,
-            hint: `skills: ${agent.skills.dir}`,
+            hint:
+              agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
           })),
           initialValues: detectedIds,
           required: false,

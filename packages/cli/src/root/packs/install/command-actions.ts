@@ -19,6 +19,11 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
+import {
+  formatRegistryProbe,
+  type RegistryLookupProbe,
+} from "../../shared/install-source-resolution.js";
+
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
@@ -190,12 +195,6 @@ const isRemoteReadNotImplemented = (error: unknown): boolean =>
   isAppError(error) &&
   (error.detail.includes("not implemented") || error.detail.includes("not yet supported"));
 
-interface RegistryLookupProbe {
-  readonly location: string;
-  readonly outcome: "matched" | "not-found" | "error";
-  readonly reason: Option.Option<string>;
-}
-
 type PackDependencyNameSets = {
   readonly skill: Set<string>;
   readonly "mcp-server": Set<string>;
@@ -284,20 +283,6 @@ const collectDroppedPackDependencyTargets = (args: {
   }
 
   return droppedTargets;
-};
-
-const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
-  switch (probe.outcome) {
-    case "matched":
-      return `${probe.location}: matched`;
-    case "not-found":
-      return `${probe.location}: no match`;
-    case "error":
-      return Option.match(probe.reason, {
-        onNone: () => `${probe.location}: error`,
-        onSome: (reason) => `${probe.location}: ${reason}`,
-      });
-  }
 };
 
 const formatRegistrySourceLabel = ({

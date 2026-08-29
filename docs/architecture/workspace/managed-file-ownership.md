@@ -88,21 +88,6 @@ ambiguous unmarked Hook entries, unowned files at planned instruction targets,
 stale AXM-owned instruction aliases, tracked instruction aliases covered by a
 managed ignore pattern, malformed regions, and unsupported marker versions.
 
-## One-time pre-launch cutover
-
 The version-1 grammar is a clean break. AXM has no legacy reader, dual writer,
-or compatibility migration. For each known workspace—`agentxm-internal`,
-`axm`, `riverstone-examples`, `polyglot-examples`, and `community`—perform this
-one-time procedure:
-
-1. Remove the complete stale AXM-derived block, including both old markers.
-   Preserve all prose outside it.
-2. Remove old AXM-managed alias copies or Hook/MCP entries only when their
-   prior ownership is known independently; preserve ambiguous content.
-3. Run the current `axm sync` to render version-1 units.
-4. Run the workspace formatter, then `axm sync --preview --fail-on-change`.
-5. Run `axm lint` and resolve every ownership or ambiguity finding.
-
-The final preview must exit successfully without proposing changes. Repeating
-the procedure is unnecessary once every derived unit carries version-1
-ownership.
+or compatibility migration. Content without current ownership evidence remains
+unowned even if it resembles an older AXM output.

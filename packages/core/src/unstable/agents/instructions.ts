@@ -116,14 +116,11 @@ export interface InstructionsSyncResult {
   readonly skipped: ReadonlyArray<string>;
 }
 
-type ManagedGitignoreRegionState =
-  "absent" | "complete" | "legacy" | "malformed" | "unsupported-version";
+type ManagedGitignoreRegionState = "absent" | "complete" | "malformed" | "unsupported-version";
 
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
 const INSTRUCTION_ALIASES_OWNER = "@agentxm/instructions/aliases";
-const LEGACY_GITIGNORE_START = "# >>> axm:instructions >>>";
-const LEGACY_GITIGNORE_END = "# <<< axm:instructions <<<";
 /** Ownership identity carried by every managed alias copy's `axm:file` banner. */
 const INSTRUCTION_ALIAS_EXT = "@agentxm/instructions/alias";
 
@@ -863,41 +860,15 @@ const observeStaleCandidate = (
     );
   });
 
-const retireLegacyGitignoreRegion = (
-  content: string,
-): { readonly state: "absent" | "complete" | "malformed"; readonly updated: string } => {
-  const starts = content.split(LEGACY_GITIGNORE_START).length - 1;
-  const ends = content.split(LEGACY_GITIGNORE_END).length - 1;
-  if (starts === 0 && ends === 0) return { state: "absent", updated: content };
-  const start = content.indexOf(LEGACY_GITIGNORE_START);
-  const end = content.indexOf(LEGACY_GITIGNORE_END);
-  if (starts !== 1 || ends !== 1 || start < 0 || end < start) {
-    return { state: "malformed", updated: content };
-  }
-  const afterMarker = end + LEGACY_GITIGNORE_END.length;
-  const afterLine = content.startsWith("\r\n", afterMarker)
-    ? afterMarker + 2
-    : content.startsWith("\n", afterMarker)
-      ? afterMarker + 1
-      : afterMarker;
-  return {
-    state: "complete",
-    updated: `${content.slice(0, start)}${content.slice(afterLine)}`,
-  };
-};
-
 const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionState => {
-  const legacy = retireLegacyGitignoreRegion(content);
-  if (legacy.state === "malformed") return "malformed";
   const reconciliation = reconcilePatternList({
-    content: legacy.updated,
+    content,
     target: ".gitignore",
     region: "instruction-aliases",
     owner: INSTRUCTION_ALIASES_OWNER,
     patterns: [],
   });
   if (Option.isNone(reconciliation)) return "malformed";
-  if (reconciliation.value.state.state === "absent" && legacy.state === "complete") return "legacy";
   return reconciliation.value.state.state;
 };
 
@@ -907,7 +878,7 @@ const hasManagedRegion = (content: string): boolean =>
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
   Option.getOrThrowWith(
     reconcilePatternList({
-      content: retireLegacyGitignoreRegion(content).updated,
+      content,
       target: ".gitignore",
       region: "instruction-aliases",
       owner: INSTRUCTION_ALIASES_OWNER,

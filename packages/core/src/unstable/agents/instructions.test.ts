@@ -529,37 +529,36 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect(
-    "retires the provably owned legacy gitignore block instead of appending beside it",
-    () =>
-      run(
-        Effect.gen(function* () {
-          fs.mkdirSync(path.join(tempDir, ".git"));
-          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-          fs.writeFileSync(
-            path.join(tempDir, ".gitignore"),
-            "dist/\n\n# >>> axm:instructions >>>\n**/CLAUDE.md\n# <<< axm:instructions <<<\n",
-          );
+  it.effect("preserves pre-v1 gitignore comments as unowned content", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(
+          path.join(tempDir, ".gitignore"),
+          "dist/\n\n# >>> axm:instructions >>>\n**/CLAUDE.md\n# <<< axm:instructions <<<\n",
+        );
 
-          const before = yield* observe({ configuredAgents: ["claude-code"], config: IGNORED });
-          expect(before.gitignore).toMatchObject({ managed: false, current: false });
+        const before = yield* observe({ configuredAgents: ["claude-code"], config: IGNORED });
+        expect(before.gitignore).toMatchObject({ managed: false, current: false });
 
-          yield* sync({
-            configuredAgents: ["claude-code"],
-            config: IGNORED,
-            symlinkSupported: true,
-          });
+        yield* sync({
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: true,
+        });
 
-          const content = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8");
-          expect(content).not.toContain(">>> axm:instructions >>>");
-          expect(content.match(/region=instruction-aliases/g)).toHaveLength(2);
-          expect(
-            instructionProjectionIsCurrent(
-              yield* observe({ configuredAgents: ["claude-code"], config: IGNORED }),
-            ),
-          ).toBe(true);
-        }),
-      ),
+        const content = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8");
+        expect(content).toContain(">>> axm:instructions >>>");
+        expect(content).toContain("**/CLAUDE.md");
+        expect(content.match(/region=instruction-aliases/g)).toHaveLength(2);
+        expect(
+          instructionProjectionIsCurrent(
+            yield* observe({ configuredAgents: ["claude-code"], config: IGNORED }),
+          ),
+        ).toBe(true);
+      }),
+    ),
   );
 
   it.effect("writes idempotent managed copies when symlinks are unavailable", () =>

@@ -366,7 +366,6 @@ describe("auth token handler", () => {
           bypassMfa: false,
         });
 
-        // Token commands keep the legacy single-step operation-plan document shape.
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
@@ -377,19 +376,6 @@ describe("auth token handler", () => {
           },
         });
         expect(result).toMatchObject({
-          outcome: "applied",
-          planName: "Create AXM access token",
-          steps: [
-            {
-              label: "Registry access token",
-              status: "applied",
-              artifact: {
-                path: "token_123",
-                scope: "user",
-                change: "created",
-              },
-            },
-          ],
           status: "created",
           tokenId: "token_123",
           name: "ci",
@@ -535,20 +521,7 @@ describe("auth token handler", () => {
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "applied",
-          planName: "Revoke AXM access token",
-          steps: [
-            {
-              label: "Registry access token",
-              status: "applied",
-              artifact: {
-                path: "token_123",
-                scope: "user",
-                change: "removed",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "revoked",
           tokenId: "token_123",
           stepUpCompleted: false,
@@ -657,20 +630,7 @@ describe("auth token handler", () => {
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "applied",
-          planName: "Revoke AXM access token",
-          steps: [
-            {
-              label: "Registry access token",
-              status: "applied",
-              artifact: {
-                path: "token_123",
-                scope: "user",
-                change: "removed",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "revoked",
           tokenId: "token_123",
           stepUpCompleted: true,

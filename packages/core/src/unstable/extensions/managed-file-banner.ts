@@ -102,13 +102,7 @@ const stripMarkdownBanner = (content: string): string => {
   if (!hasFileMarker(content, "markdown")) return content;
   const end = body.indexOf("-->");
   if (end < 0) return content;
-  let remainder = body.slice(end + "-->".length).replace(/^(?:\r?\n){1,2}/u, "");
-  if (remainder.startsWith("<!-- AXM managed file")) {
-    const guidanceEnd = remainder.indexOf("-->");
-    if (guidanceEnd >= 0) {
-      remainder = remainder.slice(guidanceEnd + "-->".length).replace(/^(?:\r?\n){1,2}/u, "");
-    }
-  }
+  const remainder = body.slice(end + "-->".length).replace(/^(?:\r?\n){1,2}/u, "");
   return `${prefix}${remainder}`;
 };
 

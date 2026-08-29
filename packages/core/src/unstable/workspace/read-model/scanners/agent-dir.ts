@@ -91,16 +91,18 @@ interface SubjectDir {
 
 const subjectsForAgent = (descriptor: AgentDescriptor): ReadonlyArray<SubjectDir> => {
   const out: Array<SubjectDir> = [];
-  if (descriptor.skills.dir.length > 0) {
-    out.push({
-      type: "skill",
-      relativeDir: descriptor.skills.dir,
-      isFile: false,
-      readPathStatus: "primary",
-    });
-  }
-  for (const { path, status } of descriptor.skills.additionalReadPaths) {
-    out.push({ type: "skill", relativeDir: path, isFile: false, readPathStatus: status });
+  if (descriptor.skills !== undefined) {
+    if (descriptor.skills.dir.length > 0) {
+      out.push({
+        type: "skill",
+        relativeDir: descriptor.skills.dir,
+        isFile: false,
+        readPathStatus: "primary",
+      });
+    }
+    for (const { path, status } of descriptor.skills.additionalReadPaths) {
+      out.push({ type: "skill", relativeDir: path, isFile: false, readPathStatus: status });
+    }
   }
   if (descriptor.subagents !== undefined) {
     out.push({

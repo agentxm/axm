@@ -38,10 +38,11 @@ import {
   type Plan,
 } from "@agentxm/client-core/unstable/plan";
 import type { InstallSubagentCommandIntent } from "./intent.js";
+import { resolveSubagentInstallSource } from "./resolve-subagent-install-source.js";
 import {
-  resolveSubagentInstallSource,
+  formatRegistryProbe,
   type RegistryLookupProbe,
-} from "./resolve-subagent-install-source.js";
+} from "../../shared/install-source-resolution.js";
 import { determineSubagentsToInstall } from "./select-subagents.js";
 
 // -----------------------------------------------------------------------------
@@ -112,20 +113,6 @@ const noSubagentsFoundHowToFix = (source: Source): string => {
     return "Verify the source path contains subagent directories with <name>.md files.";
   }
   return "Verify the source contains subagent directories with <name>.md files.";
-};
-
-const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
-  switch (probe.outcome) {
-    case "matched":
-      return `${probe.location}: matched`;
-    case "not-found":
-      return `${probe.location}: no match`;
-    case "error":
-      return Option.match(probe.reason, {
-        onNone: () => `${probe.location}: error`,
-        onSome: (reason) => `${probe.location}: ${reason}`,
-      });
-  }
 };
 
 const extractRequestedSubagents = (

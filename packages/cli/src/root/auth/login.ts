@@ -25,8 +25,6 @@ import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { isNonInteractive, jsonFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
 import {
-  OperationPlanFields,
-  makeSingleStepOperationPlan,
   setCommandSemanticProperties,
   type SuggestedAction,
   withArgvTracking,
@@ -41,7 +39,6 @@ import { envOption } from "@agentxm/client-core/unstable/utils";
 import { withRuntime } from "../../runtime.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literal("already-logged-in"),
   registryHost: Schema.String,
   handle: Schema.String,
@@ -173,21 +170,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(function* (
     );
 
     if (Option.isSome(meResult)) {
-      const noOpMessage = `Already logged in to ${registryHost} as ${meResult.value.userHandle}`;
       const noOpResult: LoginNoOpResult = {
-        ...makeSingleStepOperationPlan({
-          planName: "Log in to AXM registry",
-          planDescription: "Persist registry credentials for this machine",
-          message: noOpMessage,
-          stepLabel: "Registry credentials",
-          stepStatus: "unchanged",
-          stepMessage: noOpMessage,
-          artifact: {
-            path: registryHost,
-            scope: "user",
-            change: "unchanged",
-          },
-        }),
         status: "already-logged-in",
         registryHost,
         handle: meResult.value.userHandle,

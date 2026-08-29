@@ -15,9 +15,14 @@ const unsupportedCapability = (agentId: AgentId, capability: string): never => {
 };
 
 /** @experimental */
-export const agentSkillsProjectDir = (agentId: AgentId): string => AGENTS[agentId].skills.dir;
+export const agentSkillsProjectDir = (agentId: AgentId): string => {
+  const skills = AGENTS[agentId].skills;
+  if (skills === undefined) {
+    return unsupportedCapability(agentId, "skills");
+  }
+  return skills.dir;
+};
 
-/** @experimental */
 /** @experimental */
 export const agentSubagentsProjectDirOptional = (agentId: AgentId): string | undefined =>
   AGENTS[agentId].subagents?.dir;

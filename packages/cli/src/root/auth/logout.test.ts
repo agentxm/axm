@@ -110,25 +110,10 @@ describe("auth logout handler", () => {
         yield* handleLogout();
         expect(logs.success).toEqual([]);
         expect(logs.warn).toEqual([]);
-        // Logout keeps the legacy single-step operation-plan document shape.
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "no-op",
-          planName: "Log out of AXM registry",
-          totalSteps: 1,
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: REGISTRY_HOST,
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "not-logged-in",
           registryHost: REGISTRY_HOST,
         });
@@ -198,22 +183,7 @@ describe("auth logout handler", () => {
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "applied",
-          planName: "Log out of AXM registry",
-          warningCount: 1,
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "applied",
-              warnings: ["Remote revocation failed; token will expire automatically."],
-              artifact: {
-                path: REGISTRY_HOST,
-                scope: "user",
-                change: "removed",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "logged-out-local-only",
           registryHost: REGISTRY_HOST,
           handle: ALICE,

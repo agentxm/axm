@@ -4,17 +4,11 @@ import { Command } from "effect/unstable/cli";
 
 import { AuthClient, RegistryUrl, CredentialStore } from "@agentxm/client-core/unstable/auth";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  OperationPlanFields,
-  makeSingleStepOperationPlan,
-  type SuggestedAction,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
 import { withRuntime } from "../../runtime.js";
 
 export const LogoutResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
   registryHost: Schema.String,
   handle: Schema.optional(Schema.String),
@@ -47,19 +41,6 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
     const status: LogoutStatus = "not-logged-in";
     const suggestions = logoutSuggestions(status);
     const result = {
-      ...makeSingleStepOperationPlan({
-        planName: "Log out of AXM registry",
-        planDescription: "Remove persisted registry credentials from this machine",
-        message: `Not logged in to ${registryHost}`,
-        stepLabel: "Registry credentials",
-        stepStatus: "unchanged",
-        stepMessage: "No persisted credentials found",
-        artifact: {
-          path: registryHost,
-          scope: "user",
-          change: "unchanged",
-        },
-      }),
       status,
       registryHost,
     };
@@ -88,29 +69,6 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(function* () {
   // Step 4: Build result and render
   const status: LogoutStatus = Option.isSome(revokeResult) ? "logged-out" : "logged-out-local-only";
   const result = {
-    ...makeSingleStepOperationPlan({
-      planName: "Log out of AXM registry",
-      planDescription: "Remove persisted registry credentials from this machine",
-      message:
-        status === "logged-out"
-          ? `Logged out of ${registryHost}${identity}`
-          : `Logged out of ${registryHost}${identity} locally`,
-      stepLabel: "Registry credentials",
-      stepStatus: "applied",
-      stepMessage:
-        status === "logged-out"
-          ? "Revoked remote session and cleared local credentials"
-          : "Cleared local credentials",
-      warnings:
-        status === "logged-out-local-only"
-          ? ["Remote revocation failed; token will expire automatically."]
-          : [],
-      artifact: {
-        path: registryHost,
-        scope: "user",
-        change: "removed",
-      },
-    }),
     status,
     registryHost,
     ...optionalHandle,

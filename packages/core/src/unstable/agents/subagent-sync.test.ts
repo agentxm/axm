@@ -5,21 +5,22 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import { claudeCodeCodingAgent } from "./claude-code/service.js";
-import { codexCodingAgent } from "./codex/service.js";
-import { kiroCliCodingAgent } from "./kiro-cli/service.js";
-import { rooCodingAgent } from "./roo/service.js";
-import { windsurfCodingAgent } from "./windsurf/service.js";
 import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "./coding-agent.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import { RenderedFilePathSchema } from "../extensions/rendered-files.js";
 import * as Schema from "effect/Schema";
+import { codingAgentForId } from "./repository.js";
 
 const TestLayer = NodeServices.layer;
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(TestLayer));
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
+const claudeCodeCodingAgent = codingAgentForId("claude-code");
+const codexCodingAgent = codingAgentForId("codex");
+const kiroCliCodingAgent = codingAgentForId("kiro-cli");
+const rooCodingAgent = codingAgentForId("roo");
+const windsurfCodingAgent = codingAgentForId("windsurf");
 
 const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
   agentId: "claude-code",
@@ -123,14 +124,17 @@ describe("resolveEffectiveSubagentsDir", () => {
       ),
     );
 
-    it.effect("returns unsupported for user scope", () =>
+    it.effect("resolves the catalog-declared user-scope directory", () =>
       withNode(
         Effect.gen(function* () {
           const outcome = yield* kiroCliCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "user",
           });
-          expect(outcome._tag).toBe("unsupported");
+          expect(outcome._tag).toBe("supported");
+          if (outcome._tag === "supported") {
+            expect(outcome.dir).toContain(".kiro/agents");
+          }
         }),
       ),
     );
@@ -152,14 +156,17 @@ describe("resolveEffectiveSubagentsDir", () => {
       ),
     );
 
-    it.effect("returns unsupported for user scope", () =>
+    it.effect("resolves the catalog-declared user-scope file", () =>
       withNode(
         Effect.gen(function* () {
           const outcome = yield* rooCodingAgent.resolveEffectiveSubagentsDir({
             workspaceRoot: "/workspace",
             scope: "user",
           });
-          expect(outcome._tag).toBe("unsupported");
+          expect(outcome._tag).toBe("supported");
+          if (outcome._tag === "supported") {
+            expect(outcome.dir).toContain(".roomodes");
+          }
         }),
       ),
     );
@@ -175,7 +182,7 @@ describe("resolveEffectiveSubagentsDir", () => {
           });
           expect(outcome).toEqual({
             _tag: "unsupported",
-            reason: "Windsurf does not support custom subagents",
+            reason: "Subagents are not supported for windsurf",
           });
         }),
       ),

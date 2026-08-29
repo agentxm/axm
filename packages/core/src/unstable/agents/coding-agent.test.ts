@@ -5,12 +5,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { claudeCodeCodingAgent } from "./claude-code/service.js";
-import { codexCodingAgent } from "./codex/service.js";
-import { geminiCliCodingAgent } from "./gemini-cli/service.js";
+import { codingAgentForId } from "./repository.js";
 import { handle } from "../test-helpers.js";
 
 const mcpSyncTimeoutMs = 20_000;
+const claudeCodeCodingAgent = codingAgentForId("claude-code");
+const codexCodingAgent = codingAgentForId("codex");
+const geminiCliCodingAgent = codingAgentForId("gemini-cli");
 
 describe("coding-agent services", () => {
   const TestLayer = NodeServices.layer;

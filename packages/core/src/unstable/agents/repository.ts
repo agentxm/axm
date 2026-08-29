@@ -15,27 +15,23 @@ import {
   agentSupportsType,
   type ConfigurableAgentId as CatalogAgentId,
 } from "../agent-capabilities/index.js";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import type { AppError } from "../app-error/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   type CodingAgent,
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "./coding-agent.js";
-import { augmentCodingAgent } from "./augment/service.js";
-import { claudeCodeCodingAgent } from "./claude-code/service.js";
-import { codexCodingAgent } from "./codex/service.js";
-import { cursorCodingAgent } from "./cursor/service.js";
-import { geminiCliCodingAgent } from "./gemini-cli/service.js";
-import { githubCopilotCliCodingAgent } from "./github-copilot-cli/service.js";
-import { junieCodingAgent } from "./junie/service.js";
-import { kiloCodingAgent } from "./kilo/service.js";
-import { kiroCliCodingAgent } from "./kiro-cli/service.js";
-import { opencodeCodingAgent } from "./opencode/service.js";
-import { rooCodingAgent } from "./roo/service.js";
-import { addSubagentViaResolve, removeSubagentViaResolve } from "./subagent-sync.js";
+import { envOption } from "../utils/index.js";
+import {
+  addRooSubagent,
+  addSubagentViaResolve,
+  dirOutcomeToSubagentSyncOutcome,
+  removeRooSubagent,
+  removeSubagentViaResolve,
+} from "./subagent-sync.js";
 import { userScopeRefusal } from "./scope-refusal.js";
-import { windsurfCodingAgent } from "./windsurf/service.js";
+import { getHome } from "./constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
 import { AGENTS } from "./registry.js";
 import { AGENT_IDS, isConfigurableAgentId } from "./types.js";
@@ -49,45 +45,84 @@ const catalogAgentIds = new Set<string>(CATALOG_AGENT_IDS);
 
 const isCatalogAgentId = (id: string): id is CatalogAgentId => catalogAgentIds.has(id);
 
-/**
- * Whether the capability catalog records a skills surface AXM can write for
- * this agent. Descriptors outside the catalog (`universal`) own their skills
- * directory outright and are always writable.
- */
-const descriptorSupportsSkills = (descriptor: AgentDescriptor): boolean =>
-  isCatalogAgentId(descriptor.id) ? agentSupportsType(agentById(descriptor.id), "skill") : true;
+interface AgentRuntimeOverride {
+  readonly skillsDirectoryEnvironment?: string;
+  readonly subagentRenderAgentId?: string;
+  readonly subagentStorage?: "roo";
+}
+
+const AGENT_RUNTIME_OVERRIDES: Readonly<Partial<Record<AgentId, AgentRuntimeOverride>>> = {
+  "claude-code": { skillsDirectoryEnvironment: "AXM_CLAUDE_SKILLS_DIR" },
+  "gemini-cli": { skillsDirectoryEnvironment: "AXM_GEMINI_CLI_SKILLS_DIR" },
+  "kiro-cli": { subagentRenderAgentId: "kiro" },
+  roo: { subagentStorage: "roo" },
+};
+
+const descriptorSupports = (
+  descriptor: AgentDescriptor,
+  type: "mcp-server" | "skill" | "subagent",
+): boolean =>
+  isCatalogAgentId(descriptor.id)
+    ? agentSupportsType(agentById(descriptor.id), type)
+    : type === "skill" && descriptor.skills !== undefined;
 
 const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => {
+  const runtimeOverride = AGENT_RUNTIME_OVERRIDES[descriptor.id];
   const agent: CodingAgent = {
     id: descriptor.id,
     resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
       Effect.gen(function* () {
-        // Do not assume every catalog entry supports skills. Without this, an
-        // entry with no verified skill surface would resolve an empty directory
-        // and render into the workspace root.
-        if (!descriptorSupportsSkills(descriptor)) {
+        if (descriptor.skills === undefined || !descriptorSupports(descriptor, "skill")) {
           return {
             _tag: "unsupported",
             reason: `Skills are not supported for ${descriptor.id}`,
           } as const;
         }
         const path = yield* Path.Path;
+        const environmentName = runtimeOverride?.skillsDirectoryEnvironment;
+        if (environmentName !== undefined) {
+          const configuredDirectory = yield* envOption(environmentName);
+          if (Option.isSome(configuredDirectory)) {
+            if (configuredDirectory.value.trim().length === 0) {
+              return {
+                _tag: "misconfigured",
+                reason: `${environmentName} is set but empty`,
+              } as const;
+            }
+            return {
+              _tag: "supported",
+              dir: path.resolve(workspaceRoot, configuredDirectory.value),
+            } as const;
+          }
+        }
         return {
           _tag: "supported",
           dir: path.resolve(workspaceRoot, descriptor.skills.dir),
         } as const;
       }),
-    addMcpServer: (args) => addMcpServerFromManifest(descriptor.id, args),
-    removeMcpServer: (args) => removeMcpServerFromManifest(descriptor.id, args),
+    addMcpServer: descriptorSupports(descriptor, "mcp-server")
+      ? (args) => addMcpServerFromManifest(descriptor.id, args)
+      : () =>
+          Effect.succeed({
+            _tag: "unsupported",
+            reason: `MCP add is not supported for ${descriptor.id}`,
+          } as const),
+    removeMcpServer: descriptorSupports(descriptor, "mcp-server")
+      ? (args) => removeMcpServerFromManifest(descriptor.id, args)
+      : () =>
+          Effect.succeed({
+            _tag: "unsupported",
+            reason: `MCP remove is not supported for ${descriptor.id}`,
+          } as const),
     resolveEffectiveSubagentsDir: ({ workspaceRoot, scope }) =>
       Effect.gen(function* () {
-        if (descriptor.subagents === undefined) {
+        if (descriptor.subagents === undefined || !descriptorSupports(descriptor, "subagent")) {
           return {
             _tag: "unsupported",
             reason: `Subagents are not supported for ${descriptor.id}`,
           } as const;
         }
-        if (scope === "user") {
+        if (!descriptor.subagents.scopes.includes(scope)) {
           return {
             _tag: "unsupported",
             reason: userScopeRefusal({
@@ -98,56 +133,58 @@ const codingAgentFromDescriptor = (descriptor: AgentDescriptor): CodingAgent => 
           } as const;
         }
         const path = yield* Path.Path;
+        if (scope === "user") {
+          const home = yield* getHome;
+          return {
+            _tag: "supported",
+            dir: path.join(home, descriptor.subagents.dir),
+            warnings: [],
+          } as const;
+        }
         return {
           _tag: "supported",
           dir: path.resolve(workspaceRoot, descriptor.subagents.dir),
           warnings: [],
         } as const;
       }),
-    addSubagent: (args) => addSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
-    removeSubagent: (args) =>
-      removeSubagentViaResolve(agent.resolveEffectiveSubagentsDir(args), args),
+    addSubagent: (args) => {
+      const resolution = agent.resolveEffectiveSubagentsDir(args);
+      if (runtimeOverride?.subagentStorage === "roo") {
+        return Effect.flatMap(resolution, (outcome) =>
+          outcome._tag === "supported"
+            ? addRooSubagent(outcome.dir, args)
+            : Effect.succeed(dirOutcomeToSubagentSyncOutcome(outcome)),
+        );
+      }
+      const effectiveArgs =
+        runtimeOverride?.subagentRenderAgentId === undefined
+          ? args
+          : {
+              ...args,
+              input: { ...args.input, agentId: runtimeOverride.subagentRenderAgentId },
+            };
+      return addSubagentViaResolve(resolution, effectiveArgs);
+    },
+    removeSubagent: (args) => {
+      const resolution = agent.resolveEffectiveSubagentsDir(args);
+      if (runtimeOverride?.subagentStorage === "roo") {
+        return Effect.flatMap(resolution, (outcome) =>
+          outcome._tag === "supported"
+            ? removeRooSubagent(outcome.dir, args.subagentName)
+            : Effect.succeed(dirOutcomeToSubagentSyncOutcome(outcome)),
+        );
+      }
+      return removeSubagentViaResolve(resolution, args);
+    },
   };
   return agent;
 };
 
-const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> => {
-  switch (id) {
-    case "augment":
-      return Effect.succeed(augmentCodingAgent);
-    case "claude-code":
-      return Effect.succeed(claudeCodeCodingAgent);
-    case "codex":
-      return Effect.succeed(codexCodingAgent);
-    case "cursor":
-      return Effect.succeed(cursorCodingAgent);
-    case "gemini-cli":
-      return Effect.succeed(geminiCliCodingAgent);
-    case "github-copilot-cli":
-      return Effect.succeed(githubCopilotCliCodingAgent);
-    case "junie":
-      return Effect.succeed(junieCodingAgent);
-    case "kilo":
-      return Effect.succeed(kiloCodingAgent);
-    case "kiro-cli":
-      return Effect.succeed(kiroCliCodingAgent);
-    case "opencode":
-      return Effect.succeed(opencodeCodingAgent);
-    case "roo":
-      return Effect.succeed(rooCodingAgent);
-    case "windsurf":
-      return Effect.succeed(windsurfCodingAgent);
-    default:
-      return isKnownAgentId(id)
-        ? Effect.succeed(codingAgentFromDescriptor(AGENTS[id]))
-        : Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: `Unsupported coding agent: ${id}`,
-            }),
-          );
-  }
-};
+/** @experimental This API is unstable and may change without notice. */
+export const codingAgentForId = (id: AgentId): CodingAgent => codingAgentFromDescriptor(AGENTS[id]);
+
+const fromId = (id: AgentId): Effect.Effect<CodingAgent, AppError> =>
+  Effect.succeed(codingAgentForId(id));
 
 const get = (id: AgentId) => fromId(id);
 

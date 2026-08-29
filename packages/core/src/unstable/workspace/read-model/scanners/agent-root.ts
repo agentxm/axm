@@ -13,12 +13,12 @@
  * 2. `descriptor.rootDir` is explicitly `undefined` (key present but
  *    nullish) — the agent has opted out of native-config scanning. Return
  *    `Option.none()` and the scanners SHALL skip this agent.
- * 3. `descriptor.rootDir` is omitted entirely — fall back to the
- *    first-segment heuristic over `descriptor.skills.dir`. This handles
- *    platform-native separators and collapses `.` segments through the
- *    Path service's normalization.
- * 4. If the heuristic still produces nothing (empty `skills.dir` or first
- *    segment empty), fall back to `.${descriptor.id}`.
+ * 3. `descriptor.rootDir` is omitted entirely — use the first segment of
+ *    `descriptor.skills.dir` when the Skill surface exists. This handles
+ *    platform-native separators and collapses `.` segments through the Path
+ *    service's normalization.
+ * 4. If there is no Skill surface, or the heuristic produces nothing, fall
+ *    back to `.${descriptor.id}`.
  *
  * The heuristic-fallback path emits a one-time `scanner-config` diagnostic
  * warning per scanner instance per agent so agent maintainers see a nudge
@@ -92,7 +92,7 @@ export const agentRootSegment = (
       state.heuristicWarned.add(descriptor.id);
       yield* diagnostics.append({
         source: "scanner",
-        message: `agent-root: descriptor for "${descriptor.id}" has no rootDir; falling back to first-segment heuristic over skills.dir`,
+        message: `agent-root: descriptor for "${descriptor.id}" has no rootDir; falling back to its Skill directory or agent id`,
         code: "scanner-config",
       });
     }
@@ -105,7 +105,8 @@ export const agentRootSegment = (
 // ---------------------------------------------------------------------------
 
 const heuristicSegment = (path: Path.Path, descriptor: AgentDescriptor): string => {
-  const dir = descriptor.skills.dir;
+  const dir = descriptor.skills?.dir;
+  if (dir === undefined) return `.${descriptor.id}`;
   if (dir.length === 0) return `.${descriptor.id}`;
   const segments = splitPathSegments(path, dir);
   const first = segments[0];

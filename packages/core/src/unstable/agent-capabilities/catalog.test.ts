@@ -106,7 +106,6 @@ const ORIGINAL_SKILL_DIRS: Readonly<Record<string, string>> = {
   cline: ".cline/skills",
   "codearts-agent": ".codeartsdoer/skills",
   codebuddy: ".codebuddy/skills",
-  codemaker: ".codemaker/skills",
   codestudio: ".codestudio/skills",
   codex: ".agents/skills",
   "command-code": ".commandcode/skills",
@@ -165,13 +164,13 @@ describe("agent capability catalog", () => {
   });
   it("keeps every original agent's primary Skill write directory byte-identical", () => {
     const actual = Object.fromEntries(
-      AGENTS.flatMap((agent) =>
-        Object.hasOwn(ORIGINAL_SKILL_DIRS, agent.id)
-          ? [[agent.id, deriveAgentDescriptor(agent).skills.dir]]
-          : [],
-      ),
+      AGENTS.flatMap((agent) => {
+        if (!Object.hasOwn(ORIGINAL_SKILL_DIRS, agent.id)) return [];
+        const skills = deriveAgentDescriptor(agent).skills;
+        return skills === undefined ? [] : [[agent.id, skills.dir]];
+      }),
     );
-    expect(Object.keys(actual)).toHaveLength(54);
+    expect(Object.keys(actual)).toHaveLength(53);
     expect(actual).toEqual(ORIGINAL_SKILL_DIRS);
   });
   it("accepts omitted Skill read paths and rejects invalid statuses", () => {

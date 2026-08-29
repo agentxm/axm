@@ -85,10 +85,12 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(
-    AGENT_IDS.flatMap((id) => [
-      AGENTS[id].skills.dir,
-      ...AGENTS[id].skills.additionalReadPaths.map(({ path }) => path),
-    ]),
+    AGENT_IDS.flatMap((id) => {
+      const skills = AGENTS[id].skills;
+      return skills === undefined
+        ? []
+        : [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)];
+    }),
   );
   return Array.dedupe([".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs]);
 };

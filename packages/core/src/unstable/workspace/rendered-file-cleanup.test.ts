@@ -5,7 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CodingAgentRepository, makeProjectOnlyCodingAgent } from "../agents/index.js";
+import { codingAgentForId, CodingAgentRepository } from "../agents/index.js";
 import type { CodingAgentRepositoryService } from "../agents/index.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { makeBaseWorkspaceMock } from "./test-stubs.js";
@@ -55,12 +55,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         fs.writeFileSync(managedSubagent, `${AXM_MANAGED_MARKER}\nsubagent body\n`);
         fs.writeFileSync(unmanagedSubagent, "# Manual subagent\n");
 
-        const cursor = makeProjectOnlyCodingAgent({
-          agentId: "cursor",
-          displayName: "Cursor",
-          skillsProjectDir: ".cursor/skills",
-          subagentsProjectDir: ".cursor/agents",
-        });
+        const cursor = codingAgentForId("cursor");
         const agentRepo: CodingAgentRepositoryService = {
           get: () => Effect.succeed(cursor),
           all: Effect.succeed([cursor]),
@@ -127,11 +122,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           fs.writeFileSync(file, `${AXM_MANAGED_MARKER}\nbody\n`);
         }
 
-        const cursor = makeProjectOnlyCodingAgent({
-          agentId: "cursor",
-          displayName: "Cursor",
-          skillsProjectDir: ".cursor/skills",
-        });
+        const cursor = codingAgentForId("cursor");
         const agentRepo: CodingAgentRepositoryService = {
           get: () => Effect.succeed(cursor),
           all: Effect.succeed([cursor]),
@@ -182,11 +173,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
           fs.mkdirSync(lookalike);
           fs.writeFileSync(path.join(lookalike, "SKILL.md"), "# User skill\n");
 
-          const cursor = makeProjectOnlyCodingAgent({
-            agentId: "cursor",
-            displayName: "Cursor",
-            skillsProjectDir: ".cursor/skills",
-          });
+          const cursor = codingAgentForId("cursor");
           const agentRepo: CodingAgentRepositoryService = {
             get: () => Effect.succeed(cursor),
             all: Effect.succeed([cursor]),
@@ -227,12 +214,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
   const managedHookCommand = "agent_extensions/@acme/hooks/guard/src/guard.sh";
 
   const makeClaudeCodeLayer = (tempDir: string) => {
-    const claudeCode = makeProjectOnlyCodingAgent({
-      agentId: "claude-code",
-      displayName: "Claude Code",
-      skillsProjectDir: ".claude/skills",
-      subagentsProjectDir: ".claude/agents",
-    });
+    const claudeCode = codingAgentForId("claude-code");
     const agentRepo: CodingAgentRepositoryService = {
       get: () => Effect.succeed(claudeCode),
       all: Effect.succeed([claudeCode]),

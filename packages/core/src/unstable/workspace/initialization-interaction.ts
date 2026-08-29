@@ -89,7 +89,7 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
                 projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
                 userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
                 suggestedIds.includes(agent.id) ? "suggested" : undefined,
-                `skills: ${agent.skills.dir}`,
+                agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
               ]
                 .filter((part) => part !== undefined)
                 .join(" · "),

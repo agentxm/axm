@@ -199,16 +199,14 @@ describe("installed-state scope consistency", () => {
         "axm agents list --scope user",
       );
 
-      const userSettingsBeforeRefusal = fs.readFileSync(userSettingsPath, "utf-8");
-      const refused = await runCli(
+      const installedSubagent = await runCli(
         ["subagents", "install", `${OWNER}/subagents/${SUBAGENT}`, "--scope", "user", "--yes"],
         { cwd: consumer.path, env },
       );
-      expect(refused.exitCode).not.toBe(0);
-      expect(`${refused.stderr}\n${refused.stdout}`).toContain(
-        "supports user-scope subagents natively but AXM has not modeled that location",
-      );
-      expect(fs.readFileSync(userSettingsPath, "utf-8")).toBe(userSettingsBeforeRefusal);
+      expect(
+        installedSubagent.exitCode,
+        `${installedSubagent.stderr}\n${installedSubagent.stdout}`,
+      ).toBe(0);
       expect(
         fs.existsSync(
           path.join(
@@ -220,9 +218,14 @@ describe("installed-state scope consistency", () => {
             OWNER,
             "subagents",
             SUBAGENT,
+            "src",
+            `${SUBAGENT}.md`,
           ),
         ),
-      ).toBe(false);
+      ).toBe(true);
+      expect(fs.existsSync(path.join(userHome.path, ".cursor", "agents", `${SUBAGENT}.md`))).toBe(
+        true,
+      );
 
       const installed = await runCli(
         ["packs", "install", `${OWNER}/packs/${PACK}`, "--scope", "user", "--yes"],

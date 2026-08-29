@@ -211,14 +211,15 @@ const makeServices = (
   const configuredAgents: ReadonlyArray<CodingAgent> = configuredAgentIds
     .map((id) => {
       const descriptor = descriptorFor(id);
-      if (!descriptor) return undefined;
+      if (descriptor?.skills === undefined) return undefined;
+      const skillsDir = descriptor.skills.dir;
       const agent: CodingAgent = makeCodingAgentStub(descriptor.id, {
         resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
           Effect.gen(function* () {
             const p = yield* Path.Path;
             return {
               _tag: "supported" as const,
-              dir: p.resolve(workspaceRoot, descriptor.skills.dir),
+              dir: p.resolve(workspaceRoot, skillsDir),
             };
           }),
         addMcpServer: () => Effect.succeed({ _tag: "unsupported" as const, reason: "test" }),
@@ -230,13 +231,15 @@ const makeServices = (
   const unknownAgentIds = configuredAgentIds.filter((id) => descriptorFor(id) === undefined);
   const universalAgent = (() => {
     const descriptor = AGENTS.universal;
+    if (descriptor.skills === undefined) throw new Error("Universal Skill directory missing");
+    const skillsDir = descriptor.skills.dir;
     return makeCodingAgentStub(descriptor.id, {
       resolveEffectiveSkillsDir: ({ workspaceRoot }) =>
         Effect.gen(function* () {
           const p = yield* Path.Path;
           return {
             _tag: "supported" as const,
-            dir: p.resolve(workspaceRoot, descriptor.skills.dir),
+            dir: p.resolve(workspaceRoot, skillsDir),
           };
         }),
     });

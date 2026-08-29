@@ -8,8 +8,6 @@ import {
 } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { handle } from "../test-helpers.js";
-import { claudeCodeCodingAgent } from "./claude-code/service.js";
-import { cursorCodingAgent } from "./cursor/service.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 
 const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
@@ -38,7 +36,7 @@ describe("DefaultCodingAgentRepository", () => {
       });
       expect(addOutcome).toEqual({
         _tag: "unsupported",
-        reason: "adal does not have MCP config support",
+        reason: "MCP add is not supported for adal",
       });
 
       const removeOutcome = yield* agent.removeMcpServer({
@@ -47,7 +45,7 @@ describe("DefaultCodingAgentRepository", () => {
       });
       expect(removeOutcome).toEqual({
         _tag: "unsupported",
-        reason: "adal does not have MCP config support",
+        reason: "MCP remove is not supported for adal",
       });
     }).pipe(Effect.provide(withWorkspace(["adal"]))),
   );
@@ -56,8 +54,6 @@ describe("DefaultCodingAgentRepository", () => {
     Effect.gen(function* () {
       const agents = yield* DefaultCodingAgentRepository.getConfiguredAgents();
       expect(agents.map((agent) => agent.id)).toEqual(["claude-code", "cursor"]);
-      expect(agents[0]).toBe(claudeCodeCodingAgent);
-      expect(agents[1]).toBe(cursorCodingAgent);
     }).pipe(Effect.provide(withWorkspace(["claude-code", "cursor"]))),
   );
 

@@ -816,11 +816,15 @@ describe("skillsInDir", () => {
 
       // Agent dirs derived from registry
       const agents = Object.values(AGENTS);
-      const uniqueAgentDirs = [...new Set(agents.map((a) => a.skills.dir))];
+      const uniqueAgentDirs = [
+        ...new Set(
+          agents.flatMap((agent) => (agent.skills === undefined ? [] : [agent.skills.dir])),
+        ),
+      ];
       for (const agentDir of uniqueAgentDirs) {
         expect(dirs).toContain(agentDir);
       }
-      for (const readPath of agents.flatMap((agent) => agent.skills.additionalReadPaths)) {
+      for (const readPath of agents.flatMap((agent) => agent.skills?.additionalReadPaths ?? [])) {
         expect(dirs).toContain(readPath.path);
       }
     });

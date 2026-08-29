@@ -591,7 +591,7 @@ describe("agent capability derivation", () => {
     const descriptor = deriveAgentDescriptor(agentById("codemaker"));
 
     expect(descriptor.rootDir).toBeUndefined();
-    expect(descriptor.skills.dir).toBe(".codemaker/skills");
+    expect(descriptor.skills).toBeUndefined();
   });
   it("treats per-agent Markdown collections as directories, not opaque files", () => {
     for (const agentId of [

@@ -27,6 +27,7 @@ import {
   type HookMechanismFamily,
   type HookModifyOperation,
   type Scope,
+  type SkillReadPath,
   type StandardsCompliance,
   type LeafExtensionType,
   type McpConfigTarget,
@@ -131,26 +132,13 @@ const deriveRootDir = (agent: Agent): string | undefined =>
         ? firstPathSegment(agent.capabilities.skill.native.directory)
         : undefined);
 
-const deriveSkillsDir = (agent: Agent): string => {
-  if ("directory" in agent.capabilities.skill.native) {
-    return agent.capabilities.skill.native.directory;
-  }
-
-  // AgentDescriptor predates capability availability and requires a concrete
-  // skills directory. Keep retired/unverified agents on an isolated legacy
-  // path while the repository capability gate prevents installs or writes.
-  return `${agent.rootDir ?? `.${agent.id}`}/skills`;
-};
-
 /** @experimental This API is unstable and may change without notice. */
 export const deriveSkillConvention = (directory: string): "universal" | "vendor" =>
   directory === ".agents/skills" || directory.startsWith(".agents/skills/")
     ? "universal"
     : "vendor";
 
-const deriveAdditionalSkillReadPaths = (
-  agent: Agent,
-): AgentDescriptor["skills"]["additionalReadPaths"] =>
+const deriveAdditionalSkillReadPaths = (agent: Agent): ReadonlyArray<SkillReadPath> =>
   "additionalReadPaths" in agent.capabilities.skill.native
     ? (agent.capabilities.skill.native.additionalReadPaths ?? [])
     : [];
@@ -291,16 +279,21 @@ export const deriveAgentDescriptor = (agent: Agent): AgentDescriptor => {
   const instructions = deriveInstructionsDescriptor(agent);
   const rootDir = deriveRootDir(agent);
   const detection = deriveDetection(agent, rootDir);
+  const skills =
+    isCapabilitySupported(agent.capabilities.skill) &&
+    "directory" in agent.capabilities.skill.native
+      ? {
+          dir: agent.capabilities.skill.native.directory,
+          additionalReadPaths: deriveAdditionalSkillReadPaths(agent),
+        }
+      : undefined;
 
   return {
     id: deriveAgentId(agent),
     name: agent.name,
     rootDir,
-    skills: {
-      dir: deriveSkillsDir(agent),
-      additionalReadPaths: deriveAdditionalSkillReadPaths(agent),
-    },
     detection,
+    ...(skills === undefined ? {} : { skills }),
     ...(subagents === undefined ? {} : { subagents }),
     ...(instructions === undefined ? {} : { instructions }),
   };

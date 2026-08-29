@@ -183,17 +183,6 @@ const managedTomlBlock = (raw: string, serverName: string) =>
     rendered: "",
   });
 
-const legacyManagedTomlBlock = (raw: string, serverName: string): Option.Option<string> => {
-  const lines = raw.split(/\r?\n/u);
-  const start = `# axm managed mcp-server ${serverName} start`;
-  const end = `# axm managed mcp-server ${serverName} end`;
-  const startIndex = lines.findIndex((line) => line.trim() === start);
-  if (startIndex < 0) return Option.none();
-  const endOffset = lines.slice(startIndex + 1).findIndex((line) => line.trim() === end);
-  if (endOffset < 0) return Option.none();
-  return Option.some(lines.slice(startIndex + 1, startIndex + 1 + endOffset).join("\n"));
-};
-
 const tableHeader = (serversKey: string, serverName: string, suffix?: string): string =>
   `[${stringifyTomlKey(serversKey)}.${stringifyTomlKey(serverName)}${suffix === undefined ? "" : `.${stringifyTomlKey(suffix)}`}]`;
 
@@ -280,14 +269,6 @@ const inspectActual = (args: {
         });
       }
       if (actualBlock.body === undefined) {
-        const legacyBlock = legacyManagedTomlBlock(raw.value, args.serverName);
-        if (Option.isSome(legacyBlock)) {
-          return {
-            status: "drift",
-            fields: ["ownership-marker"],
-            actual: parseTomlEntry(legacyBlock.value, args.serversKey, args.serverName),
-          };
-        }
         if (!hasTomlEntry(raw.value, args.serversKey, args.serverName)) {
           return { status: "absent", fields: [] };
         }

@@ -210,7 +210,8 @@ const resolveAgentContentRoot = (agentId: string): string => {
   const isKnown = (id: string): id is AgentId => Object.hasOwn(AGENTS, id);
   if (!isKnown(agentId)) return `.${agentId}`;
   const descriptor = AGENTS[agentId];
-  const skillsDir = descriptor.skills.dir;
+  const skillsDir = descriptor.skills?.dir;
+  if (skillsDir === undefined) return descriptor.rootDir ?? `.${agentId}`;
   const firstSegment = skillsDir.split("/")[0];
   return firstSegment !== undefined && firstSegment.length > 0 ? firstSegment : `.${agentId}`;
 };

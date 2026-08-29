@@ -1,6 +1,5 @@
 /**
- * Shared per-agent types used by every per-agent module under `agents/<id>.ts`
- * and by the registry barrel `agents/index.ts`.
+ * Shared agent projection types used by the generated module registry.
  *
  * Per Decision 3 (agents have declared + actual only; no resolved layer) and
  * Decision 4 (per-subject modules carry the genuine variance) of the
@@ -8,9 +7,8 @@
  *
  * - `DeclaredAgent` / `ActualAgent` / `DetectedAgent` are the per-agent
  *   payload shapes the projectors return through `Option`.
- * - `AgentModule<TNativeConfig, TId>` is the contract every per-agent file
- *   under `agents/<id>.ts` exports; the registry barrel collects them into
- *   `registeredAgentModules`.
+ * - `AgentModule<TId>` is the common projector contract generated from the
+ *   canonical agent catalog.
  * - `AgentScannerObservations` is the input projector helpers consume from the
  *   live composition (Phase 9). It carries the agent-specific slice of scanner
  *   outputs — directly observable evidence that this agent has any presence in
@@ -147,19 +145,11 @@ export interface DeclaredSettingsShape {
 // ---------------------------------------------------------------------------
 
 /**
- * Contract every per-agent module under `agents/<id>.ts` exports. The registry
- * barrel collects modules into `registeredAgentModules` and exposes the open
- * `AgentNativeConfig` union as the union of every module's `TNativeConfig`
- * variant.
- *
- * The generic `TNativeConfig` constrains future native-config variants to
- * keep the `agentId` discriminator so the open union remains well-formed.
- * `TId` narrows the module's `agentId` to a single literal when known.
+ * Common projector contract for one catalog agent. Agent-specific native
+ * configuration belongs in the capability catalog, not phantom read-model
+ * types.
  */
-export interface AgentModule<
-  TNativeConfig extends { readonly agentId: TId },
-  TId extends AgentId = AgentId,
-> {
+export interface AgentModule<TId extends AgentId = AgentId> {
   readonly agentId: TId;
   readonly subjects: ReadonlyArray<AgentSubjectType>;
   readonly declared: (
@@ -176,7 +166,6 @@ export interface AgentModule<
     present: boolean,
     actual: Option.Option<ActualAgent>,
   ) => Option.Option<DetectedAgent>;
-  readonly _nativeConfig?: TNativeConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,7 +174,7 @@ export interface AgentModule<
 
 /**
  * Inputs to `defineAgentModule`. The factory derives `subjects` from the
- * descriptor (see Decision 4) so per-agent files don't repeat the scanner-relevant subject list.
+ * descriptor so registration does not repeat scanner-relevant subject data.
  */
 export interface DefineAgentModuleInput<TId extends AgentId> {
   readonly agentId: TId;
@@ -194,11 +183,11 @@ export interface DefineAgentModuleInput<TId extends AgentId> {
 
 /**
  * Derive the subjects the agent renders into per-agent directories from its
- * descriptor. `skills` is always present on an `AgentDescriptor`; `subagents`
- * are optional.
+ * descriptor.
  */
 const subjectsFromDescriptor = (descriptor: AgentDescriptor): ReadonlyArray<AgentSubjectType> => {
-  const out: Array<AgentSubjectType> = ["skill"];
+  const out: Array<AgentSubjectType> = [];
+  if (descriptor.skills !== undefined) out.push("skill");
   if (descriptor.subagents !== undefined) out.push("subagent");
   return out;
 };
@@ -208,15 +197,11 @@ const subjectsFromDescriptor = (descriptor: AgentDescriptor): ReadonlyArray<Agen
  * `defaultDeclared` / `defaultActual` / `defaultDetected` helpers from
  * `shared.ts`. `subjects` is derived from `descriptor`.
  *
- * Per-agent files become a per-agent native-config interface declaration plus
- * a single `defineAgentModule({ agentId, descriptor })` call.
+ * The registry creates these modules directly from the canonical catalog.
  */
-export const defineAgentModule = <
-  TId extends AgentId,
-  TNativeConfig extends { readonly agentId: TId },
->(
+export const defineAgentModule = <TId extends AgentId>(
   input: DefineAgentModuleInput<TId>,
-): AgentModule<TNativeConfig, TId> => {
+): AgentModule<TId> => {
   const { agentId, descriptor } = input;
   const subjects = subjectsFromDescriptor(descriptor);
   return {

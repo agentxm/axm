@@ -19,16 +19,19 @@ const WORKSPACE_ROOT = "/ws";
 const USER_HOME = "/home/user";
 
 const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
-  const observedDirs = agentIds.map((agentId) => AGENTS[agentId].skills.dir);
+  const observedDirs = agentIds.flatMap((agentId) => {
+    const skills = AGENTS[agentId].skills;
+    return skills === undefined ? [] : [skills.dir];
+  });
   return observedDirs
     .flatMap((observedDir) =>
-      Object.values(AGENTS).flatMap((agent) =>
-        [agent.skills.dir, ...agent.skills.additionalReadPaths.map(({ path }) => path)].includes(
-          observedDir,
-        )
+      Object.values(AGENTS).flatMap((agent) => {
+        const skills = agent.skills;
+        return skills !== undefined &&
+          [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)
           ? [agent.id]
-          : [],
-      ),
+          : [];
+      }),
     )
     .sort();
 };
@@ -75,7 +78,7 @@ layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
     }),
   );
 
-  it.effect("does not scan the workspace root for agents without a skills directory", () =>
+  it.effect("does not scan the workspace root for an empty skills directory", () =>
     Effect.gen(function* () {
       const codemakerDescriptor = AGENTS.codemaker;
       const { occurrences } = yield* runScanner(

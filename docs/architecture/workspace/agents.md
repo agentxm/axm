@@ -46,6 +46,26 @@ contract permits bounded targeting. Agent-specific files are derived outputs,
 not additional authoring sources. [Agent-specific extension content](../extensions/targeting.md)
 defines the portable baseline and enhancement boundary.
 
+## Capability authority and adapters
+
+The capability catalog is the single authority for whether an agent exposes a
+native extension surface and whether AXM has a verified writer for it. Runtime
+services, workspace scanners, setup choices, and lint rules derive their
+support decisions and paths from that catalog. A missing Skill descriptor means
+AXM has no verified writable Skill surface; AXM does not synthesize a directory
+from the agent ID.
+
+Agents use one catalog-driven runtime adapter for common Skill, MCP, and
+subagent behavior. A small override table carries only irreducible native
+differences such as an environment-selected directory, a renderer identifier,
+or a single-file storage format. Adding an agent or changing its ordinary
+capability does not require a bespoke service module.
+
+The workspace read model follows the same boundary. Its common declared,
+actual, and detected projectors are generated from the catalog. Agent-specific
+native configuration belongs in catalog data or the bounded runtime override,
+not in placeholder per-agent projection modules or phantom configuration types.
+
 ## Invariants
 
 - Detection, support, and configuration remain distinct facts.
@@ -55,6 +75,8 @@ defines the portable baseline and enhancement boundary.
 - Unsupported realization blocks the affected capability instead of silently
   weakening it.
 - Removing an agent removes only outputs AXM can still prove it owns.
+- Every support claim and default native path is derivable from the capability
+  catalog; runtime overrides describe behavior the catalog cannot express.
 
 ## Testing strategy
 

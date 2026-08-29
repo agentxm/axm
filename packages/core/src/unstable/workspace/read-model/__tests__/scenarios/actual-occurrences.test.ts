@@ -56,16 +56,19 @@ const spec = (project: NonNullable<FixtureSpec["project"]>): FixtureSpec => ({
 const runActual = (s: FixtureSpec) => runScenario(s, (ctx) => ctx.scope("project").skills.actual);
 
 const expectedSkillAgentIdsFor = (agentIds: ReadonlyArray<AgentId>): ReadonlyArray<string> => {
-  const observedDirs = agentIds.map((agentId) => AGENTS[agentId].skills.dir);
+  const observedDirs = agentIds.flatMap((agentId) => {
+    const skills = AGENTS[agentId].skills;
+    return skills === undefined ? [] : [skills.dir];
+  });
   return observedDirs
     .flatMap((observedDir) =>
-      Object.values(AGENTS).flatMap((agent) =>
-        [agent.skills.dir, ...agent.skills.additionalReadPaths.map(({ path }) => path)].includes(
-          observedDir,
-        )
+      Object.values(AGENTS).flatMap((agent) => {
+        const skills = agent.skills;
+        return skills !== undefined &&
+          [skills.dir, ...skills.additionalReadPaths.map(({ path }) => path)].includes(observedDir)
           ? [agent.id]
-          : [],
-      ),
+          : [];
+      }),
     )
     .sort();
 };

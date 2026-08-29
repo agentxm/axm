@@ -6,10 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import {
-  CodingAgentRepository,
-  makeProjectOnlyCodingAgent,
-} from "@agentxm/client-core/unstable/agents";
+import { codingAgentForId, CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import type { CodingAgentRepositoryService } from "@agentxm/client-core/unstable/agents";
 import { makeAppError } from "@agentxm/client-core/unstable/app-error";
 import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
@@ -86,12 +83,7 @@ describe("agents remove.handler", () => {
       }),
       baseLayer,
     );
-    const opencode = makeProjectOnlyCodingAgent({
-      agentId: "opencode",
-      displayName: "OpenCode",
-      skillsProjectDir: ".opencode/skills",
-      subagentsProjectDir: ".opencode/agent",
-    });
+    const opencode = codingAgentForId("opencode");
     let skillsResolutionCount = 0;
     const cleanupAgent =
       opts?.failCleanupAtApply === true

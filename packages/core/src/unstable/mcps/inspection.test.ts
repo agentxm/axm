@@ -197,7 +197,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("reports the legacy Codex ownership fence as drift", () =>
+  it.effect("does not treat pre-v1 Codex comments as ownership", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-legacy-"));
@@ -207,11 +207,6 @@ describe("agent MCP config inspection", () => {
             "[mcp_servers.context]",
             'url = "https://mcp.acme.test/mcp"',
             "enabled = true",
-            "",
-            "[mcp_servers.context.x-axm]",
-            "managed = true",
-            'source = "registry"',
-            'ref = "@acme/mcps/context"',
             "# axm managed mcp-server context end",
           ]);
 
@@ -223,8 +218,8 @@ describe("agent MCP config inspection", () => {
             entry: registryContextEntry,
           });
 
-          expect(result.status).toBe("drift");
-          expect(result.fields).toEqual(["ownership-marker"]);
+          expect(result.status).toBe("unmanaged");
+          expect(result.fields).toEqual([]);
           expect(result.path).toBe(".codex/config.toml");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

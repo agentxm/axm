@@ -136,8 +136,8 @@ export interface AgentDescriptor {
    * Three states (with `exactOptionalPropertyTypes: true`):
    *
    * - `string` — use this directory as the explicit native config root.
-   * - omitted (key not present) — fall back to the first-segment heuristic
-   *   (the first segment of `skills.dir`).
+   * - omitted (key not present) — fall back to the first segment of
+   *   `skills.dir` when a verified Skill surface exists, otherwise `.<id>`.
    * - `undefined` — explicit opt-out. Scanners SHALL NOT attempt to
    *   discover native config for this agent. Use this when an agent's
    *   first `skills.dir` segment collides with another agent's (e.g.,
@@ -145,8 +145,8 @@ export interface AgentDescriptor {
    *   authoritative answer about the real native config root.
    */
   readonly rootDir?: string | undefined;
-  /** Skills installation configuration */
-  readonly skills: AgentSkillsDescriptor;
+  /** Skills installation configuration, omitted when AXM has no verified writable surface. */
+  readonly skills?: AgentSkillsDescriptor;
   /** Subagents installation configuration (optional — not all agents support subagents) */
   readonly subagents?: AgentSubagentsDescriptor;
   /** Workspace instruction-file convention for this coding agent. */

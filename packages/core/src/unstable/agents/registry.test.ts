@@ -10,17 +10,28 @@ import { AGENTS, getAgentIds } from "./registry.js";
 
 describe("AGENTS registry", () => {
   const agents = Object.values(AGENTS);
+  const skillAgents = agents.filter(
+    (agent): agent is typeof agent & { readonly skills: NonNullable<typeof agent.skills> } =>
+      agent.skills !== undefined,
+  );
 
-  it.each(agents)("agent $id has required skills.dir", (config) => {
-    expect(config.skills.dir).toBeDefined();
+  it("only exposes verified writable Skill surfaces", () => {
+    expect(skillAgents).toHaveLength(61);
+    expect(agents.length - skillAgents.length).toBe(2);
+  });
+
+  it.each(skillAgents)("agent $id has required skills.dir", (config) => {
     expect(config.skills.dir.length).toBeGreaterThan(0);
   });
 
-  it.each(agents)("agent $id dir ends with /skills or /rules (per reference spec)", (config) => {
-    // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
-    // openclaw uses bare "skills" directory (no leading dot-folder)
-    expect(config.skills.dir).toMatch(/(\/skills$|\/rules$|^skills$)/);
-  });
+  it.each(skillAgents)(
+    "agent $id dir ends with /skills or /rules (per reference spec)",
+    (config) => {
+      // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
+      // openclaw uses bare "skills" directory (no leading dot-folder)
+      expect(config.skills.dir).toMatch(/(\/skills$|\/rules$|^skills$)/);
+    },
+  );
 
   it.each(agents)("agent $id id exists in AGENTS registry", (config) => {
     expect(AGENTS[config.id]).toBe(config);
@@ -42,12 +53,12 @@ describe("AGENTS registry", () => {
     expect(uniqueNames.size).toBe(names.length);
   });
 
-  it.each(agents)("agent $id dir is relative (not absolute)", (config) => {
+  it.each(skillAgents)("agent $id dir is relative (not absolute)", (config) => {
     expect(config.skills.dir.startsWith("/")).toBe(false);
     expect(config.skills.dir.startsWith("~")).toBe(false);
   });
 
-  it.each(agents)("agent $id additional Skill read paths are relative", (config) => {
+  it.each(skillAgents)("agent $id additional Skill read paths are relative", (config) => {
     for (const { path } of config.skills.additionalReadPaths) {
       expect(path.startsWith("/")).toBe(false);
       expect(path.startsWith("~")).toBe(false);

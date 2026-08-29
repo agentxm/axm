@@ -62,10 +62,11 @@ import {
   type PackageUrlParts,
 } from "@agentxm/client-core/unstable/packaging";
 import type { InstallSkillCommandIntent } from "./intent.js";
+import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
 import {
-  resolveSkillInstallSource,
+  formatRegistryProbe,
   type RegistryLookupProbe,
-} from "./resolve-skill-install-source.js";
+} from "../../shared/install-source-resolution.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -115,20 +116,6 @@ const noSkillsFoundHowToFix = (source: Source): string => {
     return "Verify the source path contains directories with SKILL.md files";
   }
   return "Verify the source contains skill directories with SKILL.md files";
-};
-
-const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
-  switch (probe.outcome) {
-    case "matched":
-      return `${probe.location}: matched`;
-    case "not-found":
-      return `${probe.location}: no match`;
-    case "error":
-      return Option.match(probe.reason, {
-        onNone: () => `${probe.location}: error`,
-        onSome: (reason) => `${probe.location}: ${reason}`,
-      });
-  }
 };
 
 const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));

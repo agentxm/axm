@@ -54,15 +54,17 @@ const addAgentSkillArtifact = (
   relativePath: string,
 ): void => {
   const agent = AGENTS[agentId];
-  const agentRoot = agentRootForSkillsDir(agent.skills.dir);
+  const skills = agent.skills;
+  if (skills === undefined) return;
+  const agentRoot = agentRootForSkillsDir(skills.dir);
   if (agentRoot === undefined) return;
   const relative = relativeUnderAgentRoot(agentRoot, relativePath);
   if (relative === undefined) return;
-  const skillName = skillNameFromPath(agent.skills.dir, relativePath);
+  const skillName = skillNameFromPath(skills.dir, relativePath);
   const materializedPath =
     skillName === undefined
       ? relative
-      : `${agent.skills.dir.slice(agentRoot.length + 1)}/${skillName}/SKILL.md`;
+      : `${skills.dir.slice(agentRoot.length + 1)}/${skillName}/SKILL.md`;
   if (materializedPath.length === 0) return;
   const tree = agentDirs[agentId] ?? {};
   agentDirs[agentId] = tree;
@@ -98,7 +100,10 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
     }
 
     for (const agent of agents) {
-      if (skillNameFromPath(agent.skills.dir, relativePath) !== undefined) {
+      if (
+        agent.skills !== undefined &&
+        skillNameFromPath(agent.skills.dir, relativePath) !== undefined
+      ) {
         addAgentSkillArtifact(agentDirs, agent.id, relativePath);
       }
     }

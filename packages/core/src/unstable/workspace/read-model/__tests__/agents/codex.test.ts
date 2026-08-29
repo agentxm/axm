@@ -5,8 +5,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { makeAgentDirOccurrence } from "../../__fixtures__/occurrences.js";
-import { agentModule as module } from "../../agents/codex.js";
+import { getAgentModule } from "../../agents/index.js";
 import type { AgentScannerObservations } from "../../agents/types.js";
+
+const module = getAgentModule("codex");
 
 const noObservations: AgentScannerObservations = {
   agentDir: [],

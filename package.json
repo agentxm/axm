@@ -63,7 +63,6 @@
     "container:build:ci-image": "bash scripts/container-environment.sh build-ci-image",
     "container:smoke:ci-image": "bash scripts/container-environment.sh smoke-ci-image",
     "prepare": "husky && effect-tsgo patch",
-    "release": "pnpm exec nx run axm:release-prepare --outputStyle=static",
     "release:plan": "nx release plan --only-touched=false",
     "release:plan:check": "nx release plan:check",
     "release:prepare": "pnpm exec nx run axm:release-prepare --outputStyle=static",

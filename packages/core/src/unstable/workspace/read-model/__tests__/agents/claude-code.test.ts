@@ -13,8 +13,10 @@ import {
   makeAgentMcpConfigOccurrence,
   makeAgentSettingsOccurrence,
 } from "../../__fixtures__/occurrences.js";
-import { agentModule as module } from "../../agents/claude-code.js";
+import { getAgentModule } from "../../agents/index.js";
 import type { AgentScannerObservations } from "../../agents/types.js";
+
+const module = getAgentModule("claude-code");
 
 const noObservations: AgentScannerObservations = {
   agentDir: [],

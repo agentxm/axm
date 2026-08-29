@@ -189,21 +189,6 @@ describe("runDeviceLogin", () => {
         });
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
-            outcome: "applied",
-            planName: "Log in to AXM registry",
-            appliedCount: 1,
-            totalSteps: 1,
-            steps: [
-              {
-                label: "Registry credentials",
-                status: "applied",
-                artifact: {
-                  path: "registry.agentxm.ai",
-                  scope: "user",
-                  change: "created",
-                },
-              },
-            ],
             status: "logged-in",
             registryHost: "registry.agentxm.ai",
             handle: "@alice",

@@ -1,18 +1,7 @@
 /**
- * Agent registry barrel tests: the `agents/index.ts` barrel SHALL list every
- * registered agent module, expose the `AgentNativeConfig` open union as the
- * union of every module's typed `nativeConfig` shape, and serve as the single
- * registration site so adding a new agent does not touch `WorkspaceReadModel`.
- *
- * Per Decision 4 of the workspace read-model design and Phase 8 hand-off notes:
- *   - The barrel exposes `registeredAgentModules: ReadonlyArray<AgentModule>`.
- *   - The barrel re-exports per-agent `*NativeConfig` variants and
- *     `AgentNativeConfig` as their open union.
- *   - Every `AgentId` from the canonical `AGENT_IDS` tuple maps to exactly one
- *     module via the typed-record registry — missing entries fail at
- *     type-check.
- *   - Every module exposes `agentId`, `subjects`, and the three projector
- *     functions: `declared`, `actual`, `detected`.
+ * Catalog-derived agent registry tests. Every configurable catalog agent gets
+ * the common declared, actual, and detected projectors without a per-agent
+ * placeholder module.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -23,18 +12,9 @@ import { AGENT_IDS, type AgentId } from "../../../../agents/types.js";
 import { absentAll } from "../../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../../__fixtures__/test-layer.js";
 import { makeWorkspaceReadModel } from "../../service.js";
-import {
-  getAgentModule,
-  registeredAgentModules,
-  type AgentModule,
-  type AgentNativeConfig,
-} from "../../agents/index.js";
+import { getAgentModule, registeredAgentModules, type AgentModule } from "../../agents/index.js";
 
 const readModelAgentIds = AGENT_IDS.filter((id) => id !== "universal");
-
-// Compile-time `AgentNativeConfig`-union assertions live in
-// `registry.type-test.ts` so they are typechecked but excluded from the
-// runtime suite.
 
 describe("agents/index.ts barrel", () => {
   it("lists every registered agent id exactly once in canonical order", () => {
@@ -59,7 +39,7 @@ describe("agents/index.ts barrel", () => {
 
   it("each module exposes the required projector functions and subjects", () => {
     for (const module of registeredAgentModules) {
-      const m: AgentModule<AgentNativeConfig> = module;
+      const m: AgentModule = module;
       expect(typeof m.declared).toBe("function");
       expect(typeof m.actual).toBe("function");
       expect(typeof m.detected).toBe("function");

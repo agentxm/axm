@@ -1425,7 +1425,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("agrees with MCP list that a legacy Codex ownership fence is stale", () =>
+  it.effect("agrees with MCP list that a legacy Codex ownership fence is unmanaged", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
@@ -1464,7 +1464,7 @@ describe("root sync handler", () => {
               {
                 agentId: "codex",
                 outcome: "failed",
-                reasonCode: "stale-projection",
+                reasonCode: "mcp-unmanaged",
                 path: ".codex/config.toml",
               },
             ],

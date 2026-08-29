@@ -174,15 +174,12 @@ describe("auth login handler", () => {
           },
         );
         expect(promptCalls).toBe(0);
-        // Login keeps the legacy single-step operation-plan document shape.
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "no-op",
-          planName: "Log in to AXM registry",
-          totalSteps: 1,
+        expect(result).toEqual({
           status: "already-logged-in",
+          registryHost: "registry.agentxm.ai",
           handle: ALICE,
         });
       }),
@@ -405,20 +402,7 @@ describe("auth login handler", () => {
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "applied",
-          planName: "Log in to AXM registry",
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "applied",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "created",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "logged-in",
           registryHost: "registry.agentxm.ai",
           handle: ALICE,
@@ -458,20 +442,7 @@ describe("auth login handler", () => {
           const result = expectRecord(
             property(expectRecord(rendererState.results[0]?.data), "result"),
           );
-          expect(result).toMatchObject({
-            outcome: "applied",
-            planName: "Log in to AXM registry",
-            steps: [
-              {
-                label: "Registry credentials",
-                status: "applied",
-                artifact: {
-                  path: "registry.agentxm.ai",
-                  scope: "user",
-                  change: "created",
-                },
-              },
-            ],
+          expect(result).toEqual({
             status: "logged-in",
             registryHost: "registry.agentxm.ai",
             handle: ALICE,
@@ -614,21 +585,7 @@ describe("auth login handler", () => {
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
-        expect(result).toMatchObject({
-          outcome: "no-op",
-          planName: "Log in to AXM registry",
-          totalSteps: 1,
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
+        expect(result).toEqual({
           status: "already-logged-in",
           registryHost: "registry.agentxm.ai",
           handle: ALICE,

@@ -149,7 +149,9 @@ export const skillsArtifactsCorrectRule: AdvisoryRule<WorkspaceRuleContext> = {
 
       const universalAgentIds = new Set(
         declaredAgents
-          .filter((agent) => isUniversalSkillsRelativeDir(agent.skills.dir))
+          .filter(
+            (agent) => agent.skills !== undefined && isUniversalSkillsRelativeDir(agent.skills.dir),
+          )
           .map((agent) => agent.id),
       );
       const installedResult = yield* Effect.result(scoped.skills.installed);

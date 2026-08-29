@@ -42,21 +42,8 @@ describe("structured output (--json)", () => {
       expect(document).toMatchObject({
         ok: true,
         result: {
-          outcome: "no-op",
-          planName: "Log out of AXM registry",
           status: "not-logged-in",
           registryHost: "registry.agentxm.ai",
-          steps: [
-            {
-              label: "Registry credentials",
-              status: "unchanged",
-              artifact: {
-                path: "registry.agentxm.ai",
-                scope: "user",
-                change: "unchanged",
-              },
-            },
-          ],
         },
         suggestions: [{ description: "Log in to this registry", cmd: "axm login" }],
       });

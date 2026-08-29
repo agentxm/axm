@@ -92,15 +92,13 @@ export { CodingAgentRepository } from "./coding-agent.js";
 // Constants (path helpers)
 export { getHome, getConfigHome } from "./constants.js";
 
-// Agent factory
-export { makeProjectOnlyCodingAgent, type ProjectOnlyAgentConfig } from "./project-only-agent.js";
-
 // Subagent sync helpers
 export {
   writeSubagentFiles,
   renderManagedSubagentOutputs,
   removeSubagentFiles,
   addSubagentViaResolve,
+  dirOutcomeToSubagentSyncOutcome,
   removeSubagentViaResolve,
   addRooSubagent,
   removeRooSubagent,
@@ -127,18 +125,9 @@ export {
   type SyncInlineMcpServerArgs,
 } from "./mcp-sync.js";
 
-// Agent service implementations
-export { augmentCodingAgent } from "./augment/service.js";
-export { claudeCodeCodingAgent } from "./claude-code/service.js";
-export { codexCodingAgent } from "./codex/service.js";
-export { cursorCodingAgent } from "./cursor/service.js";
-export { geminiCliCodingAgent } from "./gemini-cli/service.js";
-export { githubCopilotCliCodingAgent } from "./github-copilot-cli/service.js";
-export { junieCodingAgent } from "./junie/service.js";
-export { kiloCodingAgent } from "./kilo/service.js";
-export { kiroCliCodingAgent } from "./kiro-cli/service.js";
-export { opencodeCodingAgent } from "./opencode/service.js";
-export { rooCodingAgent } from "./roo/service.js";
-
 // Repository implementation
-export { DefaultCodingAgentRepository, CodingAgentRepositoryLive } from "./repository.js";
+export {
+  codingAgentForId,
+  DefaultCodingAgentRepository,
+  CodingAgentRepositoryLive,
+} from "./repository.js";

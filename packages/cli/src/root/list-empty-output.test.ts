@@ -207,7 +207,7 @@ describe("list command empty output", () => {
     );
   });
 
-  it.effect("reports a legacy Codex ownership fence as stale rather than missing", () => {
+  it.effect("reports a legacy Codex ownership fence as unmanaged", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeRegistryMcpWorkspace();
     writeCodexConfig([
@@ -236,7 +236,7 @@ describe("list command empty output", () => {
                 {
                   agentId: "codex",
                   outcome: "failed",
-                  reasonCode: "stale-projection",
+                  reasonCode: "mcp-unmanaged",
                   path: ".codex/config.toml",
                 },
               ],

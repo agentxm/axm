@@ -178,7 +178,7 @@ const loginFamily = defineResultFamily({
   schemaNames: ["LoginDocumentSchema", "LoginNoOpDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged in", "already logged in", "auth failure"],
-  rationale: "Login has applied and already-authenticated operation-plan documents.",
+  rationale: "Login reports the authoritative registry authentication transition.",
   humanOutputKind: "mutation",
   commandCoverage: [
     "packages/cli/src/root/auth/login.test.ts",
@@ -214,7 +214,7 @@ const tokenCreateFamily = defineResultFamily({
   requiredTopLevelKeys: ["result", "data"],
   scenarios: ["created", "step-up authentication", "auth failure"],
   rationale:
-    "Token creation intentionally returns the newly created token once alongside its plan.",
+    "Token creation intentionally returns the newly created token once alongside the remote transition.",
   humanOutputKind: "mutation",
   commandCoverage: ["packages/cli/src/root/auth/token.test.ts"],
 });

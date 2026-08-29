@@ -18,12 +18,7 @@ import {
   type DetailView,
   type TableView,
 } from "@agentxm/client-core/unstable/cli-renderer";
-import {
-  OperationPlanFields,
-  makeSingleStepOperationPlan,
-  type SuggestedAction,
-  withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";
 
@@ -45,7 +40,6 @@ export const CreatedTokenDataSchema = Schema.Struct({
   expiresAt: DateTimeUtcSchema,
 });
 export const CreatedTokenResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literal("created"),
   tokenId: Schema.String,
   name: Schema.String,
@@ -78,7 +72,6 @@ export const TokenListDocumentSchema = Schema.Struct(TokenListDocumentFields);
 export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 
 export const RevokeTokenResultSchema = Schema.Struct({
-  ...OperationPlanFields,
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
   stepUpCompleted: Schema.Boolean,
@@ -248,19 +241,6 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(function* (
     yield* renderer.result(
       {
         result: {
-          ...makeSingleStepOperationPlan({
-            planName: "Create AXM access token",
-            planDescription: "Create a registry access token",
-            message: `Created token ${created.id}`,
-            stepLabel: "Registry access token",
-            stepStatus: "applied",
-            stepMessage: `Created token ${created.id}`,
-            artifact: {
-              path: created.id,
-              scope: "user",
-              change: "created",
-            },
-          }),
           status: "created",
           tokenId: created.id,
           name: created.name,
@@ -383,19 +363,6 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(function* (
     yield* renderer.result(
       {
         result: {
-          ...makeSingleStepOperationPlan({
-            planName: "Revoke AXM access token",
-            planDescription: "Revoke a registry access token",
-            message: `Revoked token ${tokenId}`,
-            stepLabel: "Registry access token",
-            stepStatus: "applied",
-            stepMessage: `Revoked token ${tokenId}`,
-            artifact: {
-              path: tokenId,
-              scope: "user",
-              change: "removed",
-            },
-          }),
           status: "revoked",
           tokenId,
           stepUpCompleted: revokeResult.stepUpCompleted,

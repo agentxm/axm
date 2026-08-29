@@ -190,6 +190,5 @@ available from GitHub Actions).
 
 - If the tag version and package manifest versions do not match, publishing
   fails fast.
-- `pnpm release` remains an alias for `pnpm release:prepare`.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.

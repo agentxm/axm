@@ -94,6 +94,12 @@ and machine-result semantics. A type command group must not develop different
 lifecycle policy. [Extension architecture](../extensions/overview.md) owns the
 semantic differences among types.
 
+Skill and subagent install commands share registry-source probing, first-match
+semantics, login suggestions, probe diagnostics, and error classification.
+Their resolvers retain only genuine syntax and routing differences, such as
+whether an SCP address is accepted. A new name-resolving install surface should
+extend this shared policy instead of copying it into another command group.
+
 ## Shared lifecycle model
 
 Install, update, uninstall, enable, and disable express durable workspace

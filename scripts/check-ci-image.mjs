@@ -56,8 +56,14 @@ for (const path of [
   "containers/ci/Containerfile",
   "containers/ci/.dockerignore",
   "containers/ci/VERSION",
+  ".github/workflows/ci-image.yml",
 ]) {
   requireText(publishWorkflow, path, `CI image publication must watch producer input ${path}`);
+}
+if (workflow.includes("--metadata-file")) {
+  errors.push(
+    "CI image promotion must resolve its digest by registry inspection for runner Buildx compatibility",
+  );
 }
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {

@@ -215,7 +215,6 @@ jobs:
             --tag "${IMAGE}:${VERSION}" \
             --tag "${IMAGE}:sha-${GITHUB_SHA}" \
             --tag "${IMAGE}:latest" \
-            --metadata-file manifest-metadata.json \
             "${IMAGE}:sha-${GITHUB_SHA}-amd64" \
             "${IMAGE}:sha-${GITHUB_SHA}-arm64"
 
@@ -224,12 +223,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
-          if [[ -f manifest-metadata.json ]]; then
-            digest=$(jq -r '."containerimage.descriptor".digest' manifest-metadata.json)
-          else
-            digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" \
-              --format '{{json .Manifest}}' | jq -r '.digest')
-          fi
+          digest=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" \
+            --format '{{json .Manifest}}' | jq -r '.digest')
           test "$digest" != "null"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 

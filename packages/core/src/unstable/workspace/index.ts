@@ -75,7 +75,9 @@ export {
   type DesiredConstraintContributor,
   type DesiredStateGraph,
   type DesiredStateProblem,
+  type ProspectivePackRef,
 } from "./desired-state-graph.js";
+export { desiredStateProblemText, desiredStateProblemsText } from "./desired-state-problem-text.js";
 export {
   isDesiredExtensionActive,
   type DesiredStateEnabledOrigin,

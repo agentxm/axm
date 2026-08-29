@@ -13,12 +13,14 @@ import {
 } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../packs/manifest-schema.js";
+import type { PackRef } from "../packs/refs.js";
 import { computePackPathsForLayout } from "../packs/paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "../sources/index.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import { configuredAuthoredDirectory, SETTINGS_FILENAME, type WorkspaceLayout } from "./layout.js";
 import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
+import { intersectVersionConstraints } from "../version-constraints/version-constraints.js";
 
 export type DesiredExtensionOrigin =
   | {
@@ -135,10 +137,14 @@ export interface DesiredStateGraph {
   readonly problems: ReadonlyArray<DesiredStateProblem>;
 }
 
+export type ProspectivePackRef = Pick<PackRef, "owner" | "pack" | "version">;
+
 interface DesiredStateGraphArgs {
   readonly baseDir: string;
   readonly settings: Settings;
   readonly layout?: WorkspaceLayout;
+  /** Resolved Pack roots whose manifests supersede the currently materialized copy. */
+  readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }
 
 interface CandidateCommon {
@@ -242,25 +248,6 @@ const packIdentity = (
   return undefined;
 };
 
-const intersectConstraints = (constraints: ReadonlyArray<string>): string | undefined => {
-  let intersections = [""];
-  for (const constraint of constraints) {
-    const validRange = semver.validRange(constraint);
-    if (validRange === null) return undefined;
-    const range = new semver.Range(validRange);
-    intersections = intersections.flatMap((current) =>
-      range.set.flatMap((comparators) => {
-        const candidate = [current, ...comparators.map((comparator) => comparator.value)]
-          .filter((part) => part.length > 0)
-          .join(" ");
-        return semver.minVersion(candidate) === null ? [] : [candidate];
-      }),
-    );
-    if (intersections.length === 0) return undefined;
-  }
-  return intersections.join(" || ");
-};
-
 export const collectDesiredConstraintContributors = (
   _path: Path.Path,
   origins: ReadonlyArray<DesiredExtensionOrigin>,
@@ -309,6 +296,7 @@ export const buildDesiredStateGraph = ({
   baseDir,
   settings,
   layout,
+  prospectivePacks = [],
 }: DesiredStateGraphArgs): Effect.Effect<
   DesiredStateGraph,
   never,
@@ -319,6 +307,9 @@ export const buildDesiredStateGraph = ({
     const path = yield* Path.Path;
     const candidates: Candidate[] = [];
     const problems: DesiredStateProblem[] = [];
+    const prospectivePacksByIdentity = new Map(
+      prospectivePacks.map((ref) => [`${ref.owner}/packs/${ref.pack.name}`, ref]),
+    );
 
     const addSettingsEntries = (
       type: Exclude<ExtensionType, "pack">,
@@ -457,27 +448,37 @@ export const buildDesiredStateGraph = ({
             ).canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
-      const readResult = yield* Effect.result(fs.readFileString(manifestPath));
-      if (Result.isFailure(readResult)) {
-        problems.push({
-          type: "pack-manifest-unavailable",
-          pack: identity.fqn,
-          path: manifestPath,
-        });
-        continue;
-      }
+      const prospective = prospectivePacksByIdentity.get(identity.fqn);
+      const manifest = yield* prospective === undefined
+        ? Effect.gen(function* () {
+            const readResult = yield* Effect.result(fs.readFileString(manifestPath));
+            if (Result.isFailure(readResult)) {
+              problems.push({
+                type: "pack-manifest-unavailable",
+                pack: identity.fqn,
+                path: manifestPath,
+              });
+              return undefined;
+            }
 
-      const decoded = parsePackManifest(readResult.success);
-      if (decoded === undefined) {
-        problems.push({
-          type: "pack-manifest-invalid",
-          pack: identity.fqn,
-          path: manifestPath,
-        });
-        continue;
-      }
-
-      const manifest = decoded;
+            const decoded = parsePackManifest(readResult.success);
+            if (decoded === undefined) {
+              problems.push({
+                type: "pack-manifest-invalid",
+                pack: identity.fqn,
+                path: manifestPath,
+              });
+            }
+            return decoded;
+          })
+        : Effect.succeed({
+            owner: prospective.owner,
+            type: "pack" as const,
+            name: prospective.pack.name,
+            version: prospective.version,
+            dependencies: prospective.pack.dependencies,
+          });
+      if (manifest === undefined) continue;
       if (
         manifest.owner !== identity.owner ||
         manifest.name !== identity.name ||
@@ -583,7 +584,7 @@ export const buildDesiredStateGraph = ({
     }
 
     for (const node of nodes.values()) {
-      if (intersectConstraints(node.constraints) === undefined) {
+      if (intersectVersionConstraints(node.constraints) === undefined) {
         problems.push({
           type: "constraint-conflict",
           extensionType: node.type,
@@ -598,7 +599,7 @@ export const buildDesiredStateGraph = ({
     const orderedNodes = [...nodes.values()]
       .map((node) => {
         if (isInlineDesiredExtension(node)) return node;
-        const constraint = intersectConstraints(node.constraints);
+        const constraint = intersectVersionConstraints(node.constraints);
         return {
           ...node,
           source:

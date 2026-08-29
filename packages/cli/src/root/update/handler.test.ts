@@ -30,7 +30,10 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/client-core/unstable/source-resolution";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import {
+  decodeVersionRangeSync,
+  decodeVersionSync,
+} from "@agentxm/client-core/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
 import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
@@ -192,6 +195,7 @@ describe("root update handler", () => {
       flags: { nonInteractive: true },
       machine: opts?.machine,
     });
+    let packPlanCount = 0;
 
     const skillActions = {
       parseArgs: (args: InstallSkillSourceHandlerArgs) =>
@@ -298,7 +302,11 @@ describe("root update handler", () => {
       resolveSourceRequests: () => Effect.succeed([]),
       discoverRefs: () => Effect.succeed([]),
       finalizeIntent: () => Effect.succeed({}),
-      buildPlan: () => Effect.succeed(makePlan("pack")),
+      buildPlan: () =>
+        Effect.sync(() => {
+          packPlanCount += 1;
+          return makePlan("pack");
+        }),
     };
 
     const knowledgeActions = {
@@ -351,6 +359,7 @@ describe("root update handler", () => {
       handleUpdate: (args: Parameters<typeof handleUpdateWithActions>[0]) =>
         handleUpdateWithActions(args, actions),
       logs: ctx.logs,
+      packPlanCount: () => packPlanCount,
       rendererState: ctx.rendererState,
     };
   };
@@ -968,6 +977,75 @@ describe("root update handler", () => {
             eligibleAt: "2026-08-12T12:00:00.000Z",
           },
         ],
+      });
+    }),
+  );
+
+  it.effect("blocks incompatible prospective Pack updates before building either Pack plan", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      const { provide, handleUpdate, packPlanCount, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) =>
+            selectedSourceHostProviders.resolveNamedRegistry(source, options).pipe(
+              Effect.map((resolution) => {
+                if (resolution.kind !== "selected" || resolution.ref.type !== "pack") {
+                  return resolution;
+                }
+                const range = decodeVersionRangeSync(
+                  resolution.ref.name === "one" ? "^1.0.0" : "^2.0.0",
+                );
+                return {
+                  ...resolution,
+                  ref: {
+                    ...resolution.ref,
+                    pack: {
+                      ...resolution.ref.pack,
+                      dependencies: { "@acme/skills/review": range },
+                    },
+                  },
+                };
+              }),
+            ),
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@axm",
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        packs: { one: "@acme/packs/one", two: "@acme/packs/two" },
+      });
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+
+      yield* provide(
+        handleUpdate({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+          ignoreReleaseAge: true,
+        }),
+      );
+
+      expect(packPlanCount()).toBe(0);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "blocked",
+          mode: "apply",
+          blocking: {
+            class: "precondition-unmet",
+            phase: "planning",
+            detail: expect.stringMatching(
+              /skill review: incompatible constraints .*@acme\/packs\/one range=\^1\.0\.0.*@acme\/packs\/two range=\^2\.0\.0/u,
+            ),
+          },
+          counts: { committed: 0, failed: 0 },
+        },
       });
     }),
   );

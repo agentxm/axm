@@ -19,7 +19,6 @@ import {
 } from "@agentxm/client-core/unstable/registry";
 import {
   operationPresentation,
-  type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/client-core/unstable/plan";
@@ -59,6 +58,10 @@ import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";
 import type { InstallMcpServerCommandIntent } from "../mcps/install/intent.js";
 import { InstallPackCommandWorkflowActions } from "../packs/install/command-actions.js";
+import {
+  configuredPackConstraintBlockPlan,
+  prospectivePackConstraintProblems,
+} from "../packs/constraint-gate.js";
 import type { InstallPackCommandIntent } from "../packs/install/intent.js";
 import type { InstallRuleCommandIntent } from "../rules/install/intent.js";
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
@@ -661,73 +664,47 @@ const collectPackPlans = (
       ([name]) => selectedNames === undefined || selectedNames.has(name),
     );
 
-    const resolvedPlans = yield* Effect.forEach(
+    const resolvedPacks = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
-        resolvePackRef(
-          name,
-          entry.source,
-          releaseAgeEvaluation,
-          forceCanonical,
-          deferProjections,
-        ).pipe(
-          Effect.flatMap(({ intent, releaseAge }) =>
-            actions.buildPlan(intent).pipe(
-              Effect.map((plan) => ({
-                intent,
-                plan: attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
-              })),
-            ),
-          ),
-        ),
+        resolvePackRef(name, entry.source, releaseAgeEvaluation, forceCanonical, deferProjections),
       { concurrency: "unbounded" },
     );
 
-    const plans = resolvedPlans.map(({ intent, plan }) => {
-      if (deferProjections !== true) return plan;
-      return {
-        ...plan,
-        jobs: plan.jobs.map((job) => ({
-          ...job,
-          steps: job.steps.map((step): PlannedJobStep => {
-            if (step.readiness === "error") return step;
-            return {
-              ...step,
-              run: actions.buildPlan(intent).pipe(
-                Effect.flatMap((freshPlan) => {
-                  const freshSteps = flattenPlanSteps(freshPlan);
-                  const freshStep = freshSteps[0];
-                  if (freshStep === undefined || freshSteps.length !== 1) {
-                    return Effect.fail(
-                      makeAppError({
-                        code: "internal",
-                        detail: `Configured Pack replan expected one graph step and received ${freshSteps.length}`,
-                      }),
-                    );
-                  }
-                  if (freshStep.readiness === "error") {
-                    return Effect.fail(
-                      makeAppError({
-                        code: "conflict",
-                        detail: freshStep.errorMessage,
-                      }),
-                    );
-                  }
-                  return freshStep.run;
-                }),
-                Effect.catch((error) =>
-                  Effect.succeed({
-                    result: "error",
-                    message: `Configured Pack replan failed: ${error.detail}`,
-                    error,
-                  } satisfies JobStepResult),
-                ),
-              ),
-            };
-          }),
-        })),
-      };
+    const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
+    const constraintProblems = yield* prospectivePackConstraintProblems({
+      workspace: ws,
+      prospectivePacks,
+      ...(selectedNames === undefined ? {} : { selectedNames }),
     });
+    const releaseAge = resolvedPacks.flatMap(({ releaseAge }) =>
+      releaseAge === undefined ? [] : [releaseAge],
+    );
+    if (constraintProblems.length > 0) {
+      return toCollectedWorkspaceInstallPlans({
+        plans: [
+          configuredPackConstraintBlockPlan({
+            operation: "install",
+            problems: constraintProblems,
+          }),
+        ],
+        holdbacks: releaseAge.flatMap((record) => record.holdbacks),
+        bypasses: releaseAge.flatMap((record) => record.bypasses),
+      });
+    }
+
+    const plans = yield* Effect.forEach(
+      resolvedPacks,
+      ({ intent, releaseAge }) =>
+        actions
+          .buildPlan(intent)
+          .pipe(
+            Effect.map((plan) =>
+              attachConfiguredReleaseAge(plan, releaseAgeEvaluation, releaseAge),
+            ),
+          ),
+      { concurrency: "unbounded" },
+    );
 
     return toCollectedWorkspaceInstallPlans({
       plans,

@@ -4,9 +4,11 @@ import * as nodePath from "node:path";
 import { expect, layer } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { handle } from "../test-helpers.js";
-import { buildDesiredStateGraph } from "./desired-state-graph.js";
+import { PackManifestSchema } from "../packs/manifest-schema.js";
+import { buildDesiredStateGraph, type ProspectivePackRef } from "./desired-state-graph.js";
 
 const writePack = (
   root: string,
@@ -45,6 +47,24 @@ const writeAuthoredPack = (
       dependencies,
     }),
   );
+};
+
+const prospectivePack = (
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+): ProspectivePackRef => {
+  const manifest = Schema.decodeUnknownSync(PackManifestSchema)({
+    owner: "@acme",
+    type: "pack",
+    name,
+    version: "1.0.0",
+    dependencies,
+  });
+  return {
+    owner: manifest.owner,
+    version: manifest.version,
+    pack: { name: manifest.name, dependencies: manifest.dependencies },
+  };
 };
 
 layer(NodeServices.layer, { excludeTestServices: true })("desired workspace state graph", (it) => {
@@ -142,6 +162,41 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
           },
         ],
       });
+    }),
+  );
+
+  it.effect("gates prospective Pack manifests before either Pack is materialized", () =>
+    Effect.gen(function* () {
+      const graph = yield* buildDesiredStateGraph({
+        baseDir: root,
+        settings: {
+          packs: {
+            one: { source: "@acme/packs/one", enabled: true },
+            two: { source: "@acme/packs/two", enabled: true },
+          },
+        },
+        prospectivePacks: [
+          prospectivePack("one", { "@acme/skills/review": "^1.0.0" }),
+          prospectivePack("two", { "@acme/skills/review": "^2.0.0" }),
+        ],
+      });
+
+      expect(graph.problems).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ type: "pack-manifest-unavailable" })]),
+      );
+      expect(graph.problems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "constraint-conflict",
+            extensionType: "skill",
+            name: "review",
+            contributors: [
+              expect.objectContaining({ dependingPack: "@acme/packs/one", range: "^1.0.0" }),
+              expect.objectContaining({ dependingPack: "@acme/packs/two", range: "^2.0.0" }),
+            ],
+          }),
+        ]),
+      );
     }),
   );
 

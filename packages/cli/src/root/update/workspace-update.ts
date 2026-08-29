@@ -54,6 +54,10 @@ import type { InstallRuleCommandIntent } from "../rules/install/intent.js";
 import type { InstallSkillCommandIntent } from "../skills/install/intent.js";
 import type { InstallSubagentCommandIntent } from "../subagents/install/intent.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
+import {
+  configuredPackConstraintBlockPlan,
+  prospectivePackConstraintProblems,
+} from "../packs/constraint-gate.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -222,6 +226,16 @@ type ConfiguredUpdateResolution<TIntent> =
       readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
   | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> };
+
+type CollectedPackResolution =
+  | {
+      readonly kind: "planned";
+      readonly collection: ResolvedPlanCollection;
+    }
+  | {
+      readonly kind: "resolved";
+      readonly resolution: ConfiguredUpdateResolution<InstallPackCommandIntent>;
+    };
 
 const releaseAgeRecord = (args: {
   readonly target: string;
@@ -773,25 +787,82 @@ const collectPackPlans = (
 
     const resolved = yield* Effect.forEach(
       entries,
-      ([name, entry]) =>
+      ([name, entry]): Effect.Effect<
+        CollectedPackResolution,
+        never,
+        WorkspaceUpdateCollectorContext
+      > =>
         isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
+          ? Effect.succeed({
+              kind: "planned",
+              collection: collectedWorkspaceSourcePlan(
                 workspaceSourceUnchangedPlan("pack", name, entry.source, ws.scope),
               ),
-            )
-          : collectResolvedPlan(
-              resolvePackRef(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => actions.buildPlan(intent),
-              (error) => workspacePlanningErrorPlan("pack", name, error),
+            } satisfies CollectedPackResolution)
+          : resolvePackRef(name, entry.source, selection.releaseAgeEvaluation).pipe(
+              Effect.map(
+                (resolution) =>
+                  ({
+                    kind: "resolved",
+                    resolution,
+                  }) satisfies CollectedPackResolution,
+              ),
+              Effect.catch((error) =>
+                Effect.succeed({
+                  kind: "planned",
+                  collection: toCollectedWorkspaceUpdatePlans({
+                    plans: [workspacePlanningErrorPlan("pack", name, error)],
+                  }),
+                } satisfies CollectedPackResolution),
+              ),
             ),
       { concurrency: "unbounded" },
     );
 
+    const selected = resolved.flatMap((item) =>
+      item.kind === "resolved" && item.resolution.kind === "selected" ? [item.resolution] : [],
+    );
+    const prospectivePacks = selected.map(({ intent }) => intent.packToInstall);
+    const constraintProblems = yield* prospectivePackConstraintProblems({
+      workspace: ws,
+      prospectivePacks,
+      ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
+    });
+    const resolvedHoldbacks = resolved.flatMap((item) =>
+      item.kind === "resolved" ? item.resolution.holdbacks : item.collection.holdbacks,
+    );
+    const resolvedBypasses = resolved.flatMap((item) =>
+      item.kind === "resolved" && item.resolution.kind === "selected"
+        ? item.resolution.bypasses
+        : item.kind === "planned"
+          ? item.collection.bypasses
+          : [],
+    );
+    if (constraintProblems.length > 0) {
+      return toCollectedWorkspaceUpdatePlans({
+        plans: [
+          configuredPackConstraintBlockPlan({
+            operation: "update",
+            problems: constraintProblems,
+          }),
+        ],
+        holdbacks: resolvedHoldbacks,
+        bypasses: resolvedBypasses,
+      });
+    }
+
+    const selectedPlans = yield* Effect.forEach(
+      selected,
+      ({ intent }) => actions.buildPlan(intent),
+      { concurrency: "unbounded" },
+    );
+    const plannedCollections = resolved.flatMap((item) =>
+      item.kind === "planned" ? [item.collection] : [],
+    );
     return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
+      plans: [...plannedCollections.flatMap((collection) => collection.plans), ...selectedPlans],
+      holdbacks: resolvedHoldbacks,
+      bypasses: resolvedBypasses,
       originForStep: (index) => (index === 0 ? "direct" : "dependency"),
     });
   });

@@ -7,12 +7,28 @@ import { exactVersion, versionRange } from "../test-helpers.js";
 
 import type { VersionEntryLike } from "./version-constraints.js";
 import {
+  intersectVersionConstraints,
   isValidVersionRange,
   parseVersionRange,
   resolveVersionInRange,
   versionSatisfiesRange,
   VersionRangeSchema,
 } from "./version-constraints.js";
+
+describe("intersectVersionConstraints", () => {
+  it("returns one satisfiable range for every contributor", () => {
+    const intersection = intersectVersionConstraints([">=1.0.0", "^1.2.0"]);
+    expect(intersection).toBeDefined();
+    expect(semver.satisfies("1.5.0", intersection ?? "<0.0.0")).toBe(true);
+    expect(semver.satisfies("2.0.0", intersection ?? "<0.0.0")).toBe(false);
+  });
+
+  it("rejects a three-way empty intersection even when every pair intersects", () => {
+    expect(
+      intersectVersionConstraints(["^1.0.0 || ^3.0.0", "^1.0.0 || ^2.0.0", "^2.0.0 || ^3.0.0"]),
+    ).toBeUndefined();
+  });
+});
 
 // -----------------------------------------------------------------------------
 // Helpers

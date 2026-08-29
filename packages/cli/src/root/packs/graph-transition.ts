@@ -9,6 +9,7 @@ import type {
   WarnJobStep,
 } from "@agentxm/client-core/unstable/plan";
 import {
+  desiredStateProblemsText,
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/client-core/unstable/workspace";
@@ -229,7 +230,7 @@ export const validatePackGraphPostcondition = (args: {
     if (relevantProblems.length > 0) {
       return yield* makeAppError({
         code: "conflict",
-        detail: "Pack transition left its desired member graph incomplete",
+        detail: `Pack transition left its desired member graph incomplete: ${desiredStateProblemsText(relevantProblems)}`,
       });
     }
 

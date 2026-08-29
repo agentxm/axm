@@ -96,6 +96,7 @@ import {
   cleanupStaleManagedSkillDirectories,
   makeConfiguredReleaseAgeEvaluation,
   isSourcedDesiredExtension,
+  desiredStateProblemsText,
   WorkspaceMutations,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -159,36 +160,6 @@ const SYNC_PRESENTATION: OperationPresentation = {
   verb: { imperative: "sync", past: "Synced", gerund: "Syncing" },
   subject: { singular: "workspace item", plural: "workspace items" },
 };
-
-const desiredStateProblemText = (graph: DesiredStateGraph): string =>
-  graph.problems
-    .map((problem) => {
-      switch (problem.type) {
-        case "pack-manifest-unavailable":
-          return `${problem.pack}: installed pack manifest is unavailable`;
-        case "pack-manifest-invalid":
-          return `${problem.pack}: installed pack manifest is invalid`;
-        case "pack-identity-mismatch":
-          return `${problem.pack}: ${problem.detail}`;
-        case "pack-resolution-unavailable":
-          return `${problem.pack}: ${problem.detail}`;
-        case "pack-manifest-content-mismatch":
-          return `${problem.pack}: accepted version=${problem.acceptedVersion} content=${problem.acceptedContentIdentity}; observed status=${problem.status}${problem.observedVersion === undefined ? "" : ` version=${problem.observedVersion} content=${problem.observedContentIdentity}`}`;
-        case "projection-collision":
-          return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
-        case "constraint-conflict":
-          return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.contributors
-            .map((contributor) =>
-              contributor.source === "pack"
-                ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-                : `settings range=${contributor.range} location=${contributor.location}`,
-            )
-            .join(", ")}; decision=blocked; reason=no-satisfying-version`;
-        case "workspace-owner-missing":
-          return `${problem.extensionType} ${problem.name}: workspace owner is missing`;
-      }
-    })
-    .join("; ");
 
 interface SyncSelection {
   readonly target: Option.Option<string>;
@@ -316,10 +287,9 @@ const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecov
           return {
             ...step,
             key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${step.key ?? step.label}`,
-            label: `Recover ${step.label} (${desiredStateProblemText({
-              ...graph,
-              problems: stepProblems.length === 0 ? recoveryProblems : stepProblems,
-            })})`,
+            label: `Recover ${step.label} (${desiredStateProblemsText(
+              stepProblems.length === 0 ? recoveryProblems : stepProblems,
+            )})`,
           };
         }),
       ),
@@ -718,10 +688,9 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
     return name === undefined || args?.packRecovery?.packNames.has(name) !== true;
   });
   if (blockers.length > 0) {
-    const scopedGraph = { ...desiredState, problems: blockers };
     return yield* makeAppError({
       code: "conflict",
-      detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemText(scopedGraph)}`,
+      detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemsText(blockers)}`,
       suggestions: [
         {
           description: "Inspect workspace facts",

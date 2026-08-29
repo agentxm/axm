@@ -64,7 +64,7 @@ import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
-import type { DesiredStateGraph } from "./desired-state-graph.js";
+import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
 import type { AbsolutePath } from "../utils/path-types.js";
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "../agent-capabilities/index.js";
@@ -390,8 +390,10 @@ export interface WorkspaceMutationsService {
   readonly acquireTransition: WorkspaceTransitionAcquirer;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
-  /** Build the authoritative desired extension graph from settings and installed pack manifests. */
-  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
+  /** Build desired extension state from settings and installed or prospective Pack manifests. */
+  readonly getDesiredStateGraph: (options?: {
+    readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
+  }) => Effect.Effect<DesiredStateGraph, AppError>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
   /** Lookup a source by name from the merged sources list. */

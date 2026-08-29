@@ -30,11 +30,8 @@ import {
   type TreeIntegrity,
 } from "../extensions/materialized-tree.js";
 import type { Handle } from "../extensions/handle.js";
-import type {
-  DesiredExtensionNode,
-  DesiredStateGraph,
-  DesiredStateProblem,
-} from "../workspace/desired-state-graph.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import { desiredStateProblemsText } from "../workspace/desired-state-problem-text.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**
@@ -59,11 +56,6 @@ export interface AggregateContributor {
   readonly identityOwner: Option.Option<Handle>;
 }
 
-const problemSummary = (problems: ReadonlyArray<DesiredStateProblem>): string =>
-  problems
-    .map((problem) => ("pack" in problem ? `${problem.type} (${problem.pack})` : problem.type))
-    .join("; ");
-
 /** Stable recovery-conformance identity for aggregate writes blocked by an incomplete graph. */
 export const INCOMPLETE_DESIRED_STATE_BLOCKER_ID =
   "projection/desired-state-graph-complete" as const;
@@ -79,7 +71,7 @@ export const requireCompleteGraph = (
     ? Effect.succeed(graph)
     : makeAppError({
         code: "conflict",
-        detail: `Desired state cannot be enumerated completely; fix pack and declaration problems first: ${problemSummary(graph.problems)}`,
+        detail: `Desired state cannot be enumerated completely; fix pack and declaration problems first: ${desiredStateProblemsText(graph.problems)}`,
       });
 
 /** Enabled desired nodes of one extension type. */

@@ -122,6 +122,28 @@ export const parseVersionRange = (sourceString: string): Option.Option<VersionRa
  */
 export const isValidVersionRange = (range: string): boolean => semver.validRange(range) !== null;
 
+/** Return one range representing the complete intersection, or undefined when unsatisfiable. */
+export const intersectVersionConstraints = (
+  constraints: ReadonlyArray<string>,
+): string | undefined => {
+  let intersections = [""];
+  for (const constraint of constraints) {
+    const validRange = semver.validRange(constraint);
+    if (validRange === null) return undefined;
+    const range = new semver.Range(validRange);
+    intersections = intersections.flatMap((current) =>
+      range.set.flatMap((comparators) => {
+        const candidate = [current, ...comparators.map((comparator) => comparator.value)]
+          .filter((part) => part.length > 0)
+          .join(" ");
+        return semver.minVersion(candidate) === null ? [] : [candidate];
+      }),
+    );
+    if (intersections.length === 0) return undefined;
+  }
+  return intersections.join(" || ");
+};
+
 /**
  * Check whether moving from `previousVersion` to `currentVersion` includes at
  * least a minor version bump.

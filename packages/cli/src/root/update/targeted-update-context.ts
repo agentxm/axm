@@ -1,10 +1,10 @@
 import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as semver from "semver";
 
 import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
+import { intersectVersionConstraints } from "@agentxm/client-core/unstable/version-constraints";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
@@ -113,26 +113,6 @@ const configuredPackFqn = (
     : undefined;
 };
 
-const intersectConstraints = (constraints: ReadonlyArray<string>): string | undefined => {
-  if (constraints.length === 0) return "";
-  let intersections = [""];
-  for (const constraint of constraints) {
-    const validRange = semver.validRange(constraint);
-    if (validRange === null) return undefined;
-    const range = new semver.Range(validRange);
-    intersections = intersections.flatMap((current) =>
-      range.set.flatMap((comparators) => {
-        const candidate = [current, ...comparators.map((comparator) => comparator.value)]
-          .filter((part) => part.length > 0)
-          .join(" ");
-        return semver.minVersion(candidate) === null ? [] : [candidate];
-      }),
-    );
-    if (intersections.length === 0) return undefined;
-  }
-  return intersections.join(" || ");
-};
-
 const originConstraint = (origin: DesiredExtensionOrigin): string | undefined =>
   origin.type === "settings" && origin.authority === "inline" ? undefined : origin.constraint;
 
@@ -224,7 +204,7 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
         )),
     ...packOrigins.map((origin) => origin.constraint),
   ];
-  const intersection = intersectConstraints(constraints);
+  const intersection = intersectVersionConstraints(constraints);
   const activation = node?.enabled === true ? "enabled" : "disabled";
   let blocker: TargetedUpdateBlocker | undefined;
   if (relevantProblems.length > 0) {

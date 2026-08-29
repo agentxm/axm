@@ -453,10 +453,19 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.mapError(contextCellErrorToAppError),
       );
 
-    const readDesiredStateGraph = () =>
+    const readDesiredStateGraph = (graphOptions?: {
+      readonly prospectivePacks?: Parameters<typeof buildDesiredStateGraph>[0]["prospectivePacks"];
+    }) =>
       Effect.gen(function* () {
         const settings = yield* readSettingsSafe(workspaceDir);
-        const graph = yield* buildDesiredStateGraph({ baseDir, settings, layout }).pipe(
+        const graph = yield* buildDesiredStateGraph({
+          baseDir,
+          settings,
+          layout,
+          ...(graphOptions?.prospectivePacks === undefined
+            ? {}
+            : { prospectivePacks: graphOptions.prospectivePacks }),
+        }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
@@ -551,8 +560,10 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
 
       getLockfileState,
 
-      getDesiredStateGraph: () =>
-        readDesiredStateGraph().pipe(Effect.withSpan("WorkspaceMutations.getDesiredStateGraph")),
+      getDesiredStateGraph: (graphOptions?: Parameters<typeof readDesiredStateGraph>[0]) =>
+        readDesiredStateGraph(graphOptions).pipe(
+          Effect.withSpan("WorkspaceMutations.getDesiredStateGraph"),
+        ),
 
       getConfiguredSources,
 

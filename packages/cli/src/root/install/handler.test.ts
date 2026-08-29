@@ -443,7 +443,7 @@ describe("root install handler", () => {
     }),
   );
 
-  it.effect("replans a configured Pack immediately before applying it", () =>
+  it.effect("applies the exact configured Pack candidate without replanning it", () =>
     Effect.gen(function* () {
       const calls: Array<InstallCall> = [];
       const { provide, handleInstall, packIntents, rendererState } = makeLayers(calls, {
@@ -476,7 +476,7 @@ describe("root install handler", () => {
         }),
       );
 
-      expect(packIntents).toHaveLength(2);
+      expect(packIntents).toHaveLength(1);
       expect(packIntents.every((intent) => intent.deferProjections === true)).toBe(true);
       const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Install configured extensions",
@@ -490,6 +490,67 @@ describe("root install handler", () => {
           state: "committed",
         },
       ]);
+    }),
+  );
+
+  it.effect("blocks incompatible configured Packs at planning before any Pack plan runs", () =>
+    Effect.gen(function* () {
+      const calls: Array<InstallCall> = [];
+      const { provide, handleInstall, packIntents, rendererState } = makeLayers(calls, {
+        machine: true,
+      });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code"],
+        owner: "@axm",
+        packs: { one: "workspace", two: "workspace" },
+      });
+      for (const [name, range] of [
+        ["one", "^1.0.0"],
+        ["two", "^2.0.0"],
+      ] as const) {
+        const packDir = path.join(tempDir, "packs", name);
+        fs.mkdirSync(packDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(packDir, "pack.json"),
+          JSON.stringify({
+            owner: "@axm",
+            type: "pack",
+            name,
+            version: "1.0.0",
+            dependencies: { "@axm/skills/review": range },
+          }),
+        );
+      }
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+
+      yield* provide(
+        handleInstall({
+          source: Option.none(),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(packIntents).toEqual([]);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "blocked",
+          mode: "apply",
+          blocking: {
+            class: "precondition-unmet",
+            phase: "planning",
+            detail: expect.stringMatching(
+              /skill review: incompatible constraints .*@axm\/packs\/one range=\^1\.0\.0.*@axm\/packs\/two range=\^2\.0\.0/u,
+            ),
+          },
+          counts: { committed: 0, failed: 0 },
+        },
+      });
     }),
   );
 

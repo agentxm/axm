@@ -51,6 +51,12 @@ const requireText = (subject, text, message) => {
 if (publishWorkflow.includes("containers/ci/**")) {
   errors.push("CI image publication must not run for consumer-only CI_IMAGE changes");
 }
+if (publishWorkflow.includes("scripts/check-ci-image.mjs")) {
+  errors.push("CI image publication must not run for checker-only changes");
+}
+if (publishWorkflow.includes(".github/workflows/ci-image-publish.yml")) {
+  errors.push("CI image publication must not run for publication-wrapper-only changes");
+}
 for (const path of [
   "containers/ci/Containerfile",
   "containers/ci/.dockerignore",

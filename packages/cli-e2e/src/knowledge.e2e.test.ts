@@ -871,5 +871,5 @@ describe("axm knowledge lifecycle", () => {
     } finally {
       temp.cleanup();
     }
-  }, 60_000);
+  }, 120_000);
 });

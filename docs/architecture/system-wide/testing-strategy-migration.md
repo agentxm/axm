@@ -65,7 +65,7 @@ Confirm the target authority model before moving tests:
 
 - executable specifications are the sole local authority for all accepted AXM
   requirements, including functional, installability, compatibility,
-  performance, security, usability, quality, architecture, process, and
+  performance, security, usability, architecture, process, and
   external-conformance requirements;
 - specification execution supplies evidence rather than changing the
   specification;
@@ -99,6 +99,9 @@ Implement the smallest infrastructure needed for one vertical slice:
   specification test-definition wrapper;
 - stable requirement identities and optional case identities when a case has an
   independently reportable claim;
+- an intent registry with stable intent identities referenced by specification
+  metadata;
+- execution selection by stable requirement identity;
 - requirement-class metadata and a product-shaped functional reading path;
 - in-memory application-boundary harnesses;
 - purpose, concern, boundary, extensible method, subject, and selection
@@ -175,8 +178,9 @@ Generalize only the mechanisms proven by the pilot:
   scenario rather than package;
 - normalize native runner results through reporting adapters without requiring
   tests to adopt a reporting-oriented DSL;
-- render architecture, internal, tooling, artifact, and static verification
-  separately from authoritative specifications and diagnostic benchmarks;
+- render diagnostic architecture checks, internal, tooling, artifact, and
+  static verification separately from authoritative specifications and
+  diagnostic benchmarks;
 - link one specification to all available execution boundaries;
 - render end-to-end as a boundary filter rather than a competing requirement
   category;
@@ -184,6 +188,13 @@ Generalize only the mechanisms proven by the pilot:
   results rather than independently authoritative suites;
 - distinguish missing, skipped, stale, harness-failed, passed, and failed
   evidence;
+- render a per-change verdict: the requirement diff in product language with
+  the evidence status of every affected requirement;
+- generate intent-traceability gates for specifications referencing retired
+  intents and registered intents with no referencing specification;
+- lint specification titles against implementation symbol inventories;
+- run mutation testing as a diagnostic of specification strength, mapping
+  surviving mutants to the requirements whose evidence missed them;
 - expose retries, flakes, duration, and slow-suite budgets;
 - preserve controlled-environment and statistical context for performance
   specifications and benchmarks while keeping their outcomes distinct;
@@ -203,6 +214,8 @@ Generalize only the mechanisms proven by the pilot:
   a pass.
 - A release verification view identifies its exact candidate and selection
   policy without owning duplicate test outcomes.
+- A proposed change renders a per-change verdict whose requirement diff reads
+  in product language and whose missing or stale evidence is visible.
 
 ## Phase 4: classify the existing suite
 
@@ -254,7 +267,7 @@ Migrate one product-shaped slice at a time. Recommended ordering is:
 6. lint, inspection, machine output, help, and diagnostics; and
 7. remaining public client-core contracts;
 8. supported platform, runtime, shell, and filesystem compatibility;
-9. performance, security, usability, and other quality obligations; and
+9. performance, security, and usability obligations; and
 10. architecture, process, and external-conformance requirements.
 
 The exact order may change when a dependency or risk boundary makes another
@@ -329,6 +342,13 @@ coverage, binary and installed-product evidence, artifact integrity and
 provenance checks, JUnit output, and Allure generation. Update CI job names and
 artifacts so failures communicate their purpose immediately.
 
+Introduce the governance controls with the targets: specification paths
+require human approval as a requirements decision, a change touching both
+specifications and implementation is classified and reviewed as a requirements
+change, and implementation-scoped agent tasks treat `specifications/` as
+read-only. The per-change verdict renders on every pull request as the primary
+review artifact for these decisions.
+
 `test:compatibility` and `test:performance` select specifications by concern.
 `verify:artifact` and `verify:deployment` require an identified artifact or
 environment. `verify:release` composes policy-required evidence for one exact
@@ -345,6 +365,9 @@ count.
   target environment is absent rather than reporting a vacuous pass.
 - No required current platform or release evidence was dropped during target
   reorganization.
+- Specification-path changes cannot merge without human approval, and a change
+  touching both specifications and implementation is reviewed as a
+  requirements change.
 
 ## Phase 8: cut over authority, uninstall the Gen Stack pack, and remove the corpus
 
@@ -353,20 +376,20 @@ destination.
 
 Map current sources as follows:
 
-| Current meaning                                            | Target owner                                                                                                          |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Functional requirements                                    | Product-shaped executable specifications                                                                              |
-| Installability and compatibility requirements              | Executable specifications selected across installed-product and platform boundaries                                   |
-| Performance, security, usability, and quality requirements | Executable specifications with purpose-fit runners, controlled conditions, and cadence                                |
-| Required architecture constraints                          | Architecture-class executable specifications                                                                          |
-| Process and repository requirements                        | Executable process or tooling specifications                                                                          |
-| Evaluation Protocol criteria and cases                     | Specification definitions and their runners                                                                           |
-| Architecture responsibilities, boundaries, and decisions   | Non-normative `docs/architecture/` explanations and decision records; enforceable consequences remain specifications  |
-| External standards and schemas                             | The external authority for definitions plus a specification for AXM's local adoption, applicability, and deviations   |
-| Artifact contents, integrity, and provenance evidence      | Repository-native artifact and supply-chain verification bound to specifications only when it evaluates a requirement |
-| Non-normative benchmark histories                          | Diagnostic benchmark storage and trend reports                                                                        |
-| Intent and rationale needed for future decisions           | The narrowest non-normative product or architecture explanation                                                       |
-| Execution results                                          | CI, JUnit, Allure, and other repository-native evidence stores                                                        |
+| Current meaning                                          | Target owner                                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Functional requirements                                  | Product-shaped executable specifications                                                                              |
+| Installability and compatibility requirements            | Executable specifications selected across installed-product and platform boundaries                                   |
+| Performance, security, and usability requirements        | Executable specifications with purpose-fit runners, controlled conditions, and cadence                                |
+| Required architecture constraints                        | Architecture-class executable specifications                                                                          |
+| Process and repository requirements                      | Executable process or tooling specifications                                                                          |
+| Evaluation Protocol criteria and cases                   | Specification definitions and their runners                                                                           |
+| Architecture responsibilities, boundaries, and decisions | Non-normative `docs/architecture/` explanations and decision records; enforceable consequences remain specifications  |
+| External standards and schemas                           | The external authority for definitions plus a specification for AXM's local adoption, applicability, and deviations   |
+| Artifact contents, integrity, and provenance evidence    | Repository-native artifact and supply-chain verification bound to specifications only when it evaluates a requirement |
+| Non-normative benchmark histories                        | Diagnostic benchmark storage and trend reports                                                                        |
+| Intent and rationale needed for future decisions         | Specification intent metadata for the requirement it motivates; otherwise the narrowest non-normative explanation     |
+| Execution results                                        | CI, JUnit, Allure, and other repository-native evidence stores                                                        |
 
 Perform cutover as one bounded sequence:
 
@@ -467,9 +490,16 @@ The pilot must resolve these decisions before broad migration:
   trends;
 - the exact artifact identity and evidence-selection policy used by
   `verify:release`;
+- the intent registry's granularity, ownership, and requirements-review
+  cadence;
+- the mutation-testing tool, scope, and execution budget for
+  specification-strength diagnostics;
+- the repository controls that enforce human approval of specification paths,
+  requirements-change classification, and specification read-only status for
+  implementation-scoped agent tasks;
 - the policy for preserving removed public behavior beyond Git history; and
-- which runners and cadences provide evidence for quality, security, usability,
-  installability, compatibility, performance, architecture, process, and
+- which runners and cadences provide evidence for installability,
+  compatibility, performance, security, usability, architecture, process, and
   external-conformance specifications.
 
 Resolve these from the pilot's evidence. Do not expand the metadata contract or

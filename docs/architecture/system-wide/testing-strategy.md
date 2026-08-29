@@ -9,7 +9,13 @@ depends-on:
 
 # Testing strategy
 
-AXM uses executable specifications as the sole local normative authority for
+Every accepted AXM requirement is a runnable, readable specification traced to
+the intent it serves; every change is judged by the evidence those
+specifications produce; humans govern behavior at the specification layer
+while implementation — human- or agent-written — changes freely beneath it;
+and nothing else claims local requirements authority.
+
+Executable specifications are therefore the sole local normative authority for
 accepted requirements. Fast in-memory execution provides exhaustive evidence
 for functional behavior, while other specification runners, boundary
 executions, internal and tooling tests, artifact and static verification, and
@@ -24,7 +30,16 @@ retain their current authority.
 
 ## Outcomes
 
-The testing architecture must make two views equally clear:
+The testing architecture exists to enable one decision capability: any change
+can be judged safe or unsafe on specification evidence alone, without tribal
+knowledge or implementation archaeology. Because implementation is
+increasingly written and rewritten by agents, the specification corpus is the
+human control surface for AXM's behavior: review attention concentrates on the
+small, product-shaped specification diff rather than the large implementation
+diff, and specification readability is the property that keeps that control
+real rather than nominal.
+
+To support that decision, the architecture must make two views equally clear:
 
 - A reader can navigate executable specifications as the requirements reference
   for AXM, moving from a product surface, quality, constraint, or public
@@ -39,12 +54,17 @@ in-memory subset aims to cover all supported functional behavior. That is
 behavioral coverage against an explicit product inventory, not a claim about
 line or branch coverage.
 
+Each specification traces to the product intent it serves. A requirement whose
+motivating intent has lapsed is retired through change control rather than
+preserved, keeping the corpus a living contract instead of a ratchet of
+accidental behavior.
+
 ## Authority
 
 Executable specification source under `specifications/` is the sole local
 source of truth for what AXM is required to do, achieve, preserve, prevent, or
-constrain. This includes accepted functional, quality, security, usability,
-compatibility, architecture, and process requirements. Executing a
+constrain. This includes accepted functional, installability, compatibility,
+performance, security, usability, architecture, and process requirements. Executing a
 specification against an implementation produces evidence about whether the
 implementation satisfies it. A result or report never changes the
 specification.
@@ -74,6 +94,22 @@ decision to adopt a named version, its applicability, and any deviations.
 Repository instructions and contributor procedures may govern how work is
 performed without becoming a second requirements corpus for AXM.
 
+## Intent registry
+
+Requirement intent is registered, not free text. A small intent registry
+records the product outcomes and capabilities AXM serves, each with a stable
+identity and a short statement of the outcome it names. Specification metadata
+references intent identities; the registry does not restate, own, or rank the
+requirements that serve an intent.
+
+Two completeness-style gates keep the traceability live: a specification that
+references a retired intent is a retirement candidate, and a registered intent
+with no referencing specification identifies either missing coverage or a dead
+intent. Requirements review walks intents rather than specifications, asking
+whether each registered outcome is still wanted and still sufficiently
+specified. That review — never implementation convenience — is what retires
+requirements.
+
 ## Classification model
 
 Tests and checks are classified on independent axes instead of one flat test
@@ -84,7 +120,7 @@ taxonomy.
 | Purpose   | `specification`, `architecture-verification`, `internal`, `tooling`, `artifact-verification`, `diagnostic`                           | What authority or claim does it support? |
 | Concern   | Functional behavior, installability, compatibility, performance, security, usability, architecture, process, or external conformance | What kind of property is assessed?       |
 | Boundary  | `memory`, `process`, `binary`, `packed-artifact`, `installed`, `platform`, `published-artifact`, `deployed`                          | Where does the observation occur?        |
-| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `benchmark`, `load`, or `smoke`                                  | How is the claim assessed?               |
+| Method    | Extensible; for example `example`, `property`, `model`, `contract`, `measurement`, `load`, or `smoke`                                | How is the claim assessed?               |
 | Subject   | Surface, capability, public contract, package, environment, or implementation unit                                                   | What does the assessment concern?        |
 | Selection | Per change, platform matrix, scheduled, release candidate, or post-deployment                                                        | When is this evidence selected?          |
 
@@ -134,10 +170,11 @@ behavior more completely or expose different blind spots.
 
 ### Other requirement specifications
 
-Quality, security, usability, compatibility, architecture, and process
-requirements use the same authoritative metadata contract and stable identity
-as functional behavior while retaining their native, purpose-fit test
-frameworks and methods. They may use benchmarks, static analysis, schema checks,
+Installability, compatibility, performance, security, usability, architecture,
+and process requirements use the same authoritative metadata contract and
+stable identity as functional behavior while retaining their native,
+purpose-fit test frameworks and methods. They may use performance measurement,
+static analysis, schema checks,
 dependency analysis, security tooling, platform matrices, or other runners and
 may execute at a slower cadence. Their execution method does not move their
 normative statement into documentation, runner configuration, or a report.
@@ -168,7 +205,9 @@ an architecture-class specification and the architecture check is its runner.
 Other architecture checks are diagnostic evidence and do not create
 requirements. Examples include package dependency direction, entry-point
 composition, ownership-unit registration, generated contract coherence, and
-adapter participation.
+adapter participation. Architecture-class specifications report with the other
+authoritative specifications; only diagnostic architecture checks report in
+the verification projection.
 
 ### Internal verification
 
@@ -287,11 +326,11 @@ specifications/
     source-resolution/
     workspace-state/
   system/
-    quality/
-      installability/
-      compatibility/
-      performance/
+    installability/
+    compatibility/
+    performance/
     security/
+    usability/
     architecture/
     process/
 
@@ -351,13 +390,20 @@ Specification titles describe conditions and observable results. They do not
 name handlers, services, Layers, private functions, mock interactions, or
 internal plan representations.
 
+Readability is verified, not aspired to. Specification titles lint against
+implementation symbol inventories so handler, service, Layer, and private
+function names cannot enter the reference. The generated catalog rendering of
+a changed specification is part of its review: a specification whose catalog
+entry does not read as a product requirement fails review regardless of its
+assertions.
+
 ## Specification metadata contract and native frameworks
 
 Specification tests use idiomatic constructs from their native test framework
 and any purpose-fit testing library. A small, typed, colocated metadata contract
 provides only the cross-method information that discovery and reporting need:
 a stable requirement identity, human-readable title, requirement class, scope,
-and optional rationale and reporting labels.
+the intent the requirement serves, and optional reporting labels.
 
 The contract is data, not a specification DSL. It does not replace or wrap
 native suites, tests, assertions, hooks, fixtures, lifecycle, parameterization,
@@ -410,6 +456,13 @@ Each inventory member either resolves to maintained specification coverage or
 is explicitly outside the accepted requirements scope. Code coverage remains a
 diagnostic measure and never substitutes for behavioral completeness.
 
+Completeness gates measure breadth; specification strength measures depth.
+Mutation testing runs as a diagnostic: a surviving mutant maps to a
+requirement whose evidence could not detect a behavior change and therefore
+cannot support a change verdict on its own. Strength results are diagnostic
+evidence, not requirement outcomes, and never substitute for reviewing what a
+specification means.
+
 ## Execution and cadence
 
 Repository commands expose intent rather than only package topology:
@@ -442,6 +495,13 @@ candidate or deployment when no exact artifact or environment is supplied.
 Exact command composition remains repository-owned and may add narrower targets
 such as `test:spec:memory` when useful.
 
+Specifications are also execution targets for agent-performed implementation.
+Selection by stable requirement identity — for example
+`pnpm test:spec --requirement <id>` — lets a task run exactly the evidence for
+the requirement it implements, and specification failure output stays in
+product language so a failing specification corrects an implementer's
+understanding of the requirement rather than only pointing at code.
+
 The default cadence is:
 
 - every change: in-memory specifications, internal, tooling, and static
@@ -460,15 +520,24 @@ The default cadence is:
 
 Reporting provides separate projections for:
 
-1. authoritative specifications, with functional behavior as the primary
-   product-shaped view and filters for requirement concern and execution
-   boundary;
-2. architecture, internal, tooling, and static verification, visibly separated
-   by purpose and method;
+1. authoritative specifications — functional, installability, compatibility,
+   performance, security, usability, architecture, and process — with
+   functional behavior as the primary product-shaped view and filters for
+   requirement concern and execution boundary;
+2. diagnostic architecture checks, internal, tooling, and static verification,
+   visibly separated by purpose and method;
 3. artifact integrity, contents, and provenance verification;
-4. diagnostic benchmark trends; and
+4. diagnostic benchmark trends;
 5. release and deployment verification views that compose rather than own the
-   underlying results.
+   underlying results; and
+6. a per-change verdict for one proposed change: the requirement diff — added,
+   changed, and removed identities rendered in product language from the
+   catalog — together with the evidence status of every affected requirement.
+
+The per-change verdict is the primary human review surface for a change. A
+reviewer reads the requirement diff as a requirements decision and the
+affected-requirement evidence as its supporting proof; missing or stale
+evidence appears in the verdict rather than silently narrowing it.
 
 The internal verification projection is organized primarily by package and
 source location because its reader job is maintaining the current realization,
@@ -519,8 +588,20 @@ Specification changes receive an explicit diff that identifies added, changed,
 and removed requirements. A bug fix normally adds or strengthens a
 specification before changing implementation. Reviewers distinguish a changed
 requirement from a correction that makes implementation satisfy an unchanged
-specification. Documentation changes cannot create, revise, retire, or replace
-a requirement.
+specification. Retirement is as deliberate as addition: when a requirement's
+motivating intent lapses, the specification is removed through the same
+reviewed diff rather than kept because it exists. Documentation changes cannot
+create, revise, retire, or replace a requirement.
+
+The specification layer is governed asymmetrically. Implementation-scoped work
+— human- or agent-performed — treats `specifications/` as read-only; changing
+a specification is a distinct requirements task. Repository controls enforce
+the asymmetry: specification paths require human approval as a requirements
+decision, and a change that touches both specifications and implementation is
+reviewed as a requirements change, never waved through as a refactor. Review
+tooling surfaces the direction of a specification diff — deleted cases,
+loosened assertions, widened tolerances — so a weakened requirement is visible
+as a weakening, not just a change.
 
 No permanent compatibility aliases or dual authorities are retained during the
 pre-launch migration. Temporary overlap is permitted only within a bounded

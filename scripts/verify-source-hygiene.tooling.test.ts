@@ -11,6 +11,7 @@ import {
   findMachineOutputBoundaryViolations,
   findPromptBoundaryViolations,
   findSourceHygieneViolations,
+  findTestTaxonomyViolations,
   countUnboundedConcurrencySites,
   formatAxmEnvironmentContractViolation,
   formatMachineOutputBoundaryViolation,
@@ -200,5 +201,27 @@ describe("countUnboundedConcurrencySites", () => {
     });
 
     expect(countUnboundedConcurrencySites(repoRoot)).toBe(2);
+  });
+});
+
+describe("findTestTaxonomyViolations", () => {
+  it("flags stray spec files, generic tests, and misplaced benchmarks", () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axm-taxonomy-"));
+    try {
+      fs.mkdirSync(path.join(repoRoot, "packages", "demo", "src"), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "a.spec.ts"), "");
+      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "b.test.ts"), "");
+      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "c.bench.ts"), "");
+      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "d.internal.test.ts"), "");
+      fs.writeFileSync(path.join(repoRoot, "packages", "demo", "src", "e.e2e.test.ts"), "");
+      const violations = findTestTaxonomyViolations(repoRoot);
+      expect(violations.map((violation) => path.basename(violation.filePath))).toEqual([
+        "a.spec.ts",
+        "b.test.ts",
+        "c.bench.ts",
+      ]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

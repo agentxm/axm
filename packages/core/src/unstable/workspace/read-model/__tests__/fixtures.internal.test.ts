@@ -134,7 +134,7 @@ describe("buildFixture: settings cell variants", () => {
       const raw = yield* readBytes(deps, PROJECT_SETTINGS_PATH);
       // The literal-bytes assertion is the contract: the builder writes the
       // exact corrupt input verbatim. Whether the JSON parser rejects them is
-      // covered by `state.test.ts` and `state-source-independence.test.ts`.
+      // covered by `state.internal.test.ts` and `state-source-independence.internal.test.ts`.
       expect(raw).toBe("{ this is not json");
     }),
   );

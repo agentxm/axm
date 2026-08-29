@@ -7,8 +7,8 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   root: projectRoot,
   test: {
-    ...makeTestReporting({ layer: "unit", suite: "core" }),
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    ...makeTestReporting({ layer: "internal", suite: "core" }),
+    include: ["src/**/*.internal.test.ts"],
     // `*.type-test.ts` files contain only compile-time assertions (no runtime
     // `it`/`expect` wrappers). They are typechecked via `tsconfig.spec.json`
     // but excluded from the runtime suite so vitest does not try to load a

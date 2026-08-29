@@ -1,7 +1,7 @@
 /**
  * Shared payload-shape checks.
  *
- * Command-path exhaustiveness belongs to `machine-output-contracts.test.ts`,
+ * Command-path exhaustiveness belongs to `machine-output-contracts.internal.test.ts`,
  * which derives the public surface from the real Effect command tree. This
  * file focuses on cross-command schema invariants that are easier to verify at
  * the shared payload level.

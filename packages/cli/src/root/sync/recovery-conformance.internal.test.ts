@@ -94,15 +94,15 @@ const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConforman
 
 const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("skill/")) {
-    return ["packages/core/src/unstable/lint/catalog/skill.fixtures.test.ts"];
+    return ["packages/core/src/unstable/lint/catalog/skill.fixtures.internal.test.ts"];
   }
   if (id.startsWith("pack/")) {
-    return ["packages/core/src/unstable/lint/catalog/pack.fixtures.test.ts"];
+    return ["packages/core/src/unstable/lint/catalog/pack.fixtures.internal.test.ts"];
   }
   if (id.startsWith("knowledge/")) {
-    return ["packages/core/src/unstable/lint/catalog/knowledge.test.ts"];
+    return ["packages/core/src/unstable/lint/catalog/knowledge.internal.test.ts"];
   }
-  return ["packages/core/src/unstable/extension-types/parity/parity.test.ts"];
+  return ["packages/core/src/unstable/extension-types/parity/parity.internal.test.ts"];
 };
 
 const packageLintErrorIds = [
@@ -166,16 +166,22 @@ const packageLintEntries = packageLintErrorIds.map((id) =>
 );
 
 const workspaceEvidence = [
-  "packages/core/src/unstable/lint/catalog/workspace.test.ts",
-  "packages/cli/src/root/lint/handler.test.ts",
+  "packages/core/src/unstable/lint/catalog/workspace.internal.test.ts",
+  "packages/cli/src/root/lint/handler.internal.test.ts",
 ] as const;
 
 const aggregateCoverage = {
-  "rule:instructions-region": ["packages/core/src/unstable/rules/manager.graph-projection.test.ts"],
-  "hook:agent-hook-entries": ["packages/core/src/unstable/hooks/manager.graph-projection.test.ts"],
-  "hook:fallback-region": ["packages/core/src/unstable/hooks/manager.graph-projection.test.ts"],
+  "rule:instructions-region": [
+    "packages/core/src/unstable/rules/manager.graph-projection.internal.test.ts",
+  ],
+  "hook:agent-hook-entries": [
+    "packages/core/src/unstable/hooks/manager.graph-projection.internal.test.ts",
+  ],
+  "hook:fallback-region": [
+    "packages/core/src/unstable/hooks/manager.graph-projection.internal.test.ts",
+  ],
   "knowledge:discovery-region": [
-    "packages/core/src/unstable/knowledge/manager.graph-projection.test.ts",
+    "packages/core/src/unstable/knowledge/manager.graph-projection.internal.test.ts",
   ],
 } as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
 
@@ -227,8 +233,8 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "sync",
     field: "ownedProjection",
     evidence: [
-      "packages/cli/src/root/sync/handler.test.ts",
-      "packages/core/src/unstable/projection/invariant-facts.test.ts",
+      "packages/cli/src/root/sync/handler.internal.test.ts",
+      "packages/core/src/unstable/projection/invariant-facts.internal.test.ts",
     ],
     aggregateCoverage,
   }),
@@ -266,7 +272,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/src/unstable/lint/catalog/workspace/source-endpoints-aligned.test.ts",
+      "packages/core/src/unstable/lint/catalog/workspace/source-endpoints-aligned.internal.test.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {
@@ -286,27 +292,27 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   }),
 ];
 
-const syncEvidence = ["packages/cli/src/root/sync/handler.test.ts"] as const;
+const syncEvidence = ["packages/cli/src/root/sync/handler.internal.test.ts"] as const;
 const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
   makeEntry("pack:manifest-divergence", {
     owner: "sync",
     field: "canonicalContent",
-    evidence: ["packages/cli/src/root/sync/handler.test.ts"],
+    evidence: ["packages/cli/src/root/sync/handler.internal.test.ts"],
   }),
   makeEntry("extension:constraint-mismatch", {
     owner: "sync",
     field: "lockAuthority",
     evidence: [
-      "packages/core/src/unstable/projection/constraint-invariant-fact.test.ts",
-      "packages/cli/src/root/sync/handler.test.ts",
+      "packages/core/src/unstable/projection/constraint-invariant-fact.internal.test.ts",
+      "packages/cli/src/root/sync/handler.internal.test.ts",
     ],
   }),
   makeEntry(INCOMPLETE_DESIRED_STATE_BLOCKER_ID, {
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/src/unstable/projection/planning.test.ts",
-      "packages/cli/src/root/sync/handler.test.ts",
+      "packages/core/src/unstable/projection/planning.internal.test.ts",
+      "packages/cli/src/root/sync/handler.internal.test.ts",
     ],
   }),
   makeEntry("mcp-server:inline", {
@@ -332,8 +338,8 @@ const packUninstallEntries: ReadonlyArray<RecoveryConformanceEntry> =
       owner: "direct-correction",
       field: "canonicalContent",
       evidence: [
-        "packages/cli/src/root/packs/uninstall/command-actions.test.ts",
-        "packages/cli/src/root/packs/uninstall/handler.test.ts",
+        "packages/cli/src/root/packs/uninstall/command-actions.internal.test.ts",
+        "packages/cli/src/root/packs/uninstall/handler.internal.test.ts",
       ],
     }),
   );
@@ -346,42 +352,57 @@ const recoveryRegistry: ReadonlyArray<RecoveryConformanceEntry> = [
 ];
 
 const adversarialContracts = [
-  ["handled-failure-leaves-no-partial-closure", "packages/cli/src/root/sync/handler.test.ts"],
-  ["unrelated-invalid-closure-allows-progress", "packages/cli/src/root/sync/handler.test.ts"],
+  [
+    "handled-failure-leaves-no-partial-closure",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
+  [
+    "unrelated-invalid-closure-allows-progress",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
   [
     "authored-and-unowned-content-preserved",
-    "packages/core/src/unstable/workspace/transaction.test.ts",
+    "packages/core/src/unstable/workspace/transaction.internal.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",
-    "packages/core/src/unstable/rules/manager.graph-projection.test.ts",
+    "packages/core/src/unstable/rules/manager.graph-projection.internal.test.ts",
   ],
-  ["sync-preserves-intent-and-satisfying-lock", "packages/cli/src/root/sync/handler.test.ts"],
-  ["lint-fix-does-no-lifecycle-work", "packages/cli/src/root/lint/handler.test.ts"],
+  [
+    "sync-preserves-intent-and-satisfying-lock",
+    "packages/cli/src/root/sync/handler.internal.test.ts",
+  ],
+  ["lint-fix-does-no-lifecycle-work", "packages/cli/src/root/lint/handler.internal.test.ts"],
   [
     "stale-and-concurrent-plans-do-not-interleave",
-    "packages/core/src/unstable/projection/planning.test.ts",
+    "packages/core/src/unstable/projection/planning.internal.test.ts",
   ],
   [
     "publication-interruption-converges",
-    "packages/core/src/unstable/extensions/package-materialization.test.ts",
+    "packages/core/src/unstable/extensions/package-materialization.internal.test.ts",
   ],
-  ["formatter-drift-remains-projectable", "packages/core/src/unstable/knowledge/manager.test.ts"],
-  ["divergent-external-replacement-is-disclosed", "packages/cli/src/root/update/handler.test.ts"],
-  ["global-sync-reports-local-outcomes", "packages/cli/src/root/sync/handler.test.ts"],
+  [
+    "formatter-drift-remains-projectable",
+    "packages/core/src/unstable/knowledge/manager.internal.test.ts",
+  ],
+  [
+    "divergent-external-replacement-is-disclosed",
+    "packages/cli/src/root/update/handler.internal.test.ts",
+  ],
+  ["global-sync-reports-local-outcomes", "packages/cli/src/root/sync/handler.internal.test.ts"],
   [
     "lock-only-pack-members-do-not-create-reachability",
-    "packages/core/src/unstable/workspace/desired-state-graph.test.ts",
+    "packages/core/src/unstable/workspace/desired-state-graph.internal.test.ts",
   ],
   [
     "invalid-lock-authority-is-not-reconstructed",
-    "packages/core/src/unstable/lockfile/authority-schema.test.ts",
+    "packages/core/src/unstable/lockfile/authority-schema.internal.test.ts",
   ],
-  ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.test.ts"],
-  ["unsupported-state-is-rejected", "packages/core/src/unstable/settings/schema.test.ts"],
+  ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.internal.test.ts"],
+  ["unsupported-state-is-rejected", "packages/core/src/unstable/settings/schema.internal.test.ts"],
   [
     "pack-uninstall-readiness-agrees-with-apply",
-    "packages/cli/src/root/packs/uninstall/handler.test.ts",
+    "packages/cli/src/root/packs/uninstall/handler.internal.test.ts",
   ],
 ] as const;
 

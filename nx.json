@@ -33,7 +33,8 @@
       "!{projectRoot}/**/*.e2e.test.ts",
       "!{projectRoot}/**/*.spec.ts",
       "!{projectRoot}/**/*.type-test.ts",
-      "!{projectRoot}/vitest*.config.ts"
+      "!{projectRoot}/vitest*.config.ts",
+      "!{projectRoot}/**/*.bench.ts"
     ]
   },
   "targetDefaults": {

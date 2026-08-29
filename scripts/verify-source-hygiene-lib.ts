@@ -344,3 +344,89 @@ export const formatPromptBoundaryViolation = (violation: PromptBoundaryViolation
 export const formatAxmEnvironmentContractViolation = (
   violation: AxmEnvironmentContractViolation,
 ): string => `${violation.filePath}:${violation.line} ${violation.variable}: ${violation.reason}`;
+
+export type TestTaxonomyViolation = {
+  readonly _tag: "TestTaxonomyViolation";
+  readonly filePath: string;
+  readonly reason: string;
+};
+
+const PACKAGE_TEST_SUFFIXES = [
+  ".internal.test.ts",
+  ".e2e.test.ts",
+  ".windows.test.ts",
+  ".windows.e2e.test.ts",
+  ".tooling.test.ts",
+  ".artifact.test.ts",
+] as const;
+
+const walkFiles = (dir: string, results: string[]): void => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "out-tsc") {
+      continue;
+    }
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(entryPath, results);
+    } else {
+      results.push(entryPath);
+    }
+  }
+};
+
+/**
+ * Enforce the test-purpose filename taxonomy: authoritative `*.spec.ts` lives
+ * only under `specifications/`, every test in a package names its purpose
+ * (`internal`, `e2e`, `windows`, `tooling`, `artifact`), no generic
+ * `*.test.ts` remains, and diagnostic benchmarks live under `benchmarks/`.
+ */
+export const findTestTaxonomyViolations = (
+  repoRoot: string,
+): ReadonlyArray<TestTaxonomyViolation> => {
+  const violations: TestTaxonomyViolation[] = [];
+  const roots = ["packages", "scripts"];
+  for (const root of roots) {
+    const rootPath = path.join(repoRoot, root);
+    if (!fs.existsSync(rootPath)) {
+      continue;
+    }
+    const files: string[] = [];
+    walkFiles(rootPath, files);
+    for (const filePath of files) {
+      const relativePath = path.relative(repoRoot, filePath).split(path.sep).join("/");
+      const name = path.basename(filePath);
+      if (name.endsWith(".spec.ts")) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason:
+            "authoritative *.spec.ts files live only under specifications/; classify this file's purpose",
+        });
+        continue;
+      }
+      if (name.endsWith(".bench.ts")) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason: "diagnostic benchmarks live under benchmarks/",
+        });
+        continue;
+      }
+      if (
+        name.endsWith(".test.ts") &&
+        !PACKAGE_TEST_SUFFIXES.some((suffix) => name.endsWith(suffix))
+      ) {
+        violations.push({
+          _tag: "TestTaxonomyViolation",
+          filePath: relativePath,
+          reason:
+            "generic *.test.ts is retired; name the purpose (.internal|.e2e|.windows|.tooling|.artifact).test.ts",
+        });
+      }
+    }
+  }
+  return violations.sort((left, right) => left.filePath.localeCompare(right.filePath));
+};
+
+export const formatTestTaxonomyViolation = (violation: TestTaxonomyViolation): string =>
+  `${violation.filePath}: ${violation.reason}`;

@@ -318,7 +318,7 @@ describe("runWorkspaceTransaction", () => {
     expect(error.detail).toBe(
       "Transition failed: Error: injected transition defect. Workspace restoration did not complete; the affected paths keep the state the failure left.",
     );
-    expect(error.detail).not.toContain("transaction.test.ts");
+    expect(error.detail).not.toContain("transaction.internal.test.ts");
   });
 
   it.live("stops a compromised mutation without restoring over the successor", () => {

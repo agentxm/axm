@@ -7,8 +7,8 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   root: projectRoot,
   test: {
-    ...makeTestReporting({ layer: "unit", suite: "scripts" }),
-    include: ["**/*.test.ts"],
+    ...makeTestReporting({ layer: "tooling", suite: "scripts" }),
+    include: ["**/*.tooling.test.ts"],
     testTimeout: 20000,
   },
 });

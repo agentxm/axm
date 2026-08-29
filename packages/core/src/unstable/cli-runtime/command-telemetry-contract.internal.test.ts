@@ -7,7 +7,7 @@ import { trackCliCommandCompleted, setCommandSemanticProperties } from "./teleme
 import { summarizeCommandOutcome } from "./command-summary.js";
 
 // ---------------------------------------------------------------------------
-// Capture layer — mirrors pattern from telemetry.test.ts but uses wide types
+// Capture layer — mirrors pattern from telemetry.internal.test.ts but uses wide types
 // ---------------------------------------------------------------------------
 
 interface Capture {

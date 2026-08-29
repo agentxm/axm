@@ -2,7 +2,7 @@
  * CLI surface tests for `axm lint`.
  *
  * Exercise the command tree via Effect CLI's help-doc harness — the same
- * pattern `app.test.ts` uses — to pin: (a) `axm lint` is registered with the
+ * pattern `app.internal.test.ts` uses — to pin: (a) `axm lint` is registered with the
  * expected flag set, and (b) doctor commands are unknown.
  */
 

@@ -999,7 +999,7 @@ describe("installSkill", () => {
 
     // Range versions (e.g. "^1.0.0") are now statically prevented by the
     // Version branded type on RegistrySkillRef.version.
-    // Schema-level rejection is tested in version-constraints.test.ts.
+    // Schema-level rejection is tested in version-constraints.internal.test.ts.
   });
 
   describe("canonical reuse — installed content is workspace-owned", () => {

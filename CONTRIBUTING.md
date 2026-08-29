@@ -47,7 +47,7 @@ ranges.
 | `pnpm lint`                  | Lint with ESLint                          |
 | `pnpm lint:fix`              | Lint and auto-fix                         |
 | `pnpm run ci`                | Run the full CI pipeline locally          |
-| `pnpm run ci:affected`       | Run CI pipeline for affected packages     |
+| `pnpm run verify:affected`   | Verify projects changed from the Nx base  |
 | `pnpm run container:ci`      | Run full CI in the pinned Linux image     |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |

@@ -53,7 +53,7 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | `pnpm lint:affected`                 | Lint only packages changed since `main`                               |
 | `pnpm lint:fix`                      | Lint and auto-fix                                                     |
 | `pnpm run ci`                        | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
-| `pnpm run ci:affected`               | Run CI pipeline for affected packages only                            |
+| `pnpm run verify:affected`           | Verify only projects changed from Nx's selected base                  |
 | `pnpm run container:ci`              | Run full CI in the shared Linux image                                 |
 | `pnpm generate`                      | Generate registry and telemetry clients                               |
 

@@ -1,11 +1,7 @@
 export NX_TUI=false
-pnpm axm:local lint --strict
-pnpm run gen-stack:check -- --revision HEAD
-pnpm sync
+export NX_DEFAULT_OUTPUT_STYLE=static
+export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
+export NX_BASE=origin/main
+export NX_HEAD=HEAD
 
-if ! git diff --quiet --exit-code; then
-  echo "nx sync updated workspace files. Review and commit those changes before pushing."
-  exit 1
-fi
-
-pnpm nx affected -t e2e --parallel=1
+pnpm run verify:affected

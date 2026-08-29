@@ -105,14 +105,14 @@ run_ci() {
     --env AXM_HOST_UID="$uid" \
     --env AXM_HOST_GID="$gid" \
     --env AXM_DEPS_DIRS="$ROOT/node_modules" \
-    --env AXM_CI_PHASE_SUMMARY_FILE="${AXM_CI_PHASE_SUMMARY_FILE:-}" \
-    --env AXM_EXPECT_NX_CACHE_HIT="${AXM_EXPECT_NX_CACHE_HIT:-false}" \
     --env AXM_RELEASE_PREPARATION="${AXM_RELEASE_PREPARATION:-false}" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
     --env pnpm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
     --env NX_CACHE_DIRECTORY=/tmp/axm-home/.cache/nx/cache \
     --env NX_WORKSPACE_DATA_DIRECTORY=/tmp/axm-home/.cache/nx/workspace-data \
+    --env NX_BASE \
+    --env NX_HEAD \
     --env NX_PARALLEL="$NX_PARALLEL" \
     --env VITEST_MAX_WORKERS="$VITEST_MAX_WORKERS" \
     --volume "$ROOT:$ROOT" \

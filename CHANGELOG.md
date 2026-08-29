@@ -3,6 +3,7 @@
 ### 🩹 Fixes
 
 - Remove low-value CLI action service layers and redundant wrappers.
+- Uninstall source-free inline MCP servers from user workspaces and agent projections.
 
 ### ❤️ Thank You
 

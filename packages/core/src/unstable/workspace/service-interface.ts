@@ -246,6 +246,13 @@ export interface ExtensionManager<TRef extends ExtensionRef> {
   readonly getConfiguredSource?: (args: {
     readonly target: ExtensionTarget;
   }) => Effect.Effect<Option.Option<string>, AppError, never>;
+  /**
+   * Observe whether desired state declares the target independently of whether
+   * that declaration points at a package source.
+   */
+  readonly isConfigured?: (args: {
+    readonly target: ExtensionTarget;
+  }) => Effect.Effect<boolean, AppError, never>;
   readonly listMaterializable: () => Effect.Effect<ReadonlyArray<TRef>, AppError, never>;
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;

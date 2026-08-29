@@ -161,6 +161,11 @@ import {
   alreadyPublishedVersionConflict,
   nonMonotonicVersionConflict,
 } from "../shared/publish-preflight.js";
+import {
+  settlePublish,
+  type PublishSettlement,
+  type SettledPublish,
+} from "./publish-settlement.js";
 
 /**
  * Publish policy, total over every extension type: a new type cannot be added
@@ -460,6 +465,7 @@ type PublishPlanOutput =
       readonly targetKey: string;
       readonly visibility: PublishVisibility;
       readonly warnings: ReadonlyArray<PublishAdvisoryFinding>;
+      readonly settlement: Exclude<PublishSettlement, "unresolved">;
     };
 
 type PublishPlanRequirements =
@@ -1679,6 +1685,13 @@ const publishCandidate = (
         detail: `Missing exact visibility input for ${candidate.fqn}.`,
       });
     }
+    const authoritativeVisibility = publishPreview?.visibility ?? exactCapability?.visibility;
+    if (authoritativeVisibility === undefined) {
+      return yield* makeAppError({
+        code: "internal",
+        detail: `Missing authoritative visibility outcome for ${candidate.fqn}.`,
+      });
+    }
     const uploadBinding =
       exactCapability === undefined
         ? publishPreview === undefined
@@ -1692,11 +1705,11 @@ const publishCandidate = (
     // process; the response wait itself stays interruptible. Publication is
     // replay-unsafe, so an unrecorded response is never auto-retried — it is
     // reported indeterminate and recovery verifies before re-running.
-    const response = yield* Effect.uninterruptibleMask((restore) =>
+    const settlement = yield* Effect.uninterruptibleMask((restore) =>
       onUploadDispatched.pipe(
         Effect.andThen(
           restore(
-            client.publishExtension({
+            settlePublish(client, {
               owner: candidate.owner,
               type: candidate.type,
               name: candidate.name,
@@ -1709,14 +1722,23 @@ const publishCandidate = (
         ),
       ),
     );
+    if (settlement.status === "unknown") return settlement;
+    const response = settlement.response;
     return {
+      status: "published" as const,
       stepResult: {
         result: "success",
-        message: `Published ${candidate.fqn}@${candidate.version}`,
-        ...(response.links === undefined ? {} : { links: response.links }),
+        message:
+          settlement.settlement === "response"
+            ? `Published ${candidate.fqn}@${candidate.version}`
+            : settlement.settlement === "replay"
+              ? `Published ${candidate.fqn}@${candidate.version} after one exact replay`
+              : `Verified ${candidate.fqn}@${candidate.version} by Registry readback`,
+        ...(response?.links === undefined ? {} : { links: response.links }),
       } satisfies JobStepResult,
-      visibility: response.visibility,
-      warnings: response.warnings,
+      visibility: response?.visibility ?? authoritativeVisibility,
+      warnings: response?.warnings ?? [],
+      settlement: settlement.settlement,
     };
   });
 
@@ -2261,6 +2283,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   // Invocation-local evidence of dispatched uploads: which candidates'
   // requests were released toward the registry before termination.
   const dispatchedUploads = yield* Ref.make<ReadonlySet<string>>(new Set());
+  const unresolvedSettlements = yield* Ref.make<ReadonlyMap<string, SettledPublish>>(new Map());
   const candidateStep = (
     candidate: PublishCandidate,
   ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
@@ -2287,6 +2310,13 @@ const runPublish = Effect.fn("Publish.run")(function* (
         visibilityInputsByTarget.get(publishTargetKey(candidate)),
         Ref.update(dispatchedUploads, (dispatched) => new Set([...dispatched, candidate.fqn])),
       );
+      if (published.status === "unknown") {
+        yield* Ref.update(
+          unresolvedSettlements,
+          (settlements) => new Map([...settlements, [publishTargetKey(candidate), published]]),
+        );
+        return yield* published.error;
+      }
       return {
         ...published.stepResult,
         output: {
@@ -2294,6 +2324,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           targetKey: publishTargetKey(candidate),
           visibility: published.visibility,
           warnings: published.warnings,
+          settlement: published.settlement,
         },
       } satisfies JobStepResult<PublishPlanOutput>;
     });
@@ -2467,7 +2498,11 @@ const runPublish = Effect.fn("Publish.run")(function* (
         ? "usage"
         : (planBlocking.causeCode ?? "conflict"));
   const planFailureReason = planBlocking?.class ?? "execution-failed";
-  const applyExecuted = resolution.mode === "apply" && resolution.declined !== true && !planFailed;
+  const applyExecuted =
+    resolution.mode === "apply" &&
+    resolution.declined !== true &&
+    (!planFailed ||
+      resolution.units.some((unit) => unit.state === "committed" || unit.state === "failed"));
   const executionOutputs = resolution.units.flatMap((unit) =>
     unit.output === undefined ? [] : [unit.output],
   );
@@ -2479,6 +2514,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
     ),
   );
+  const unresolvedOutputs = yield* Ref.get(unresolvedSettlements);
   const failedStepErrors = resolution.units.flatMap((unit) =>
     unit.state === "failed" && unit.error !== undefined ? [unit.error] : [],
   );
@@ -2511,6 +2547,19 @@ const runPublish = Effect.fn("Publish.run")(function* (
             blockedBy,
           };
         }
+        const unresolved =
+          candidate === undefined ? undefined : unresolvedOutputs.get(publishTargetKey(candidate));
+        if (unresolved?.status === "unknown") {
+          return {
+            ...result,
+            phase: "upload_execution",
+            reason: unresolved.reason,
+            status: "unknown",
+            settlement: unresolved.settlement,
+            message:
+              "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
+          };
+        }
         const failedResult: PublishResultItem = {
           id: result.id,
           owner: result.owner,
@@ -2525,7 +2574,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
           reason:
             unit.error?.metadata?.response?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
-              : "upload_failed",
+              : unit.error?.code === "conflict"
+                ? "integrity_conflict"
+                : "upload_failed",
           status: "failed",
           ...(unit.message === undefined ? {} : { message: unit.message }),
           ...(unit.error === undefined ? {} : { cause: publicPublishCause(unit.error) }),
@@ -2552,6 +2603,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         status: "success",
         ...(unit.message === undefined ? {} : { message: unit.message }),
         ...(publishedOutput === undefined ? {} : { visibility: publishedOutput.visibility }),
+        ...(publishedOutput === undefined ? {} : { settlement: publishedOutput.settlement }),
         ...(unit.links === undefined ? {} : { links: unit.links }),
         ...(findings.length === 0 ? {} : { findings }),
       };

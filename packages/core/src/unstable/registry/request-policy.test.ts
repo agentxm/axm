@@ -13,6 +13,7 @@ import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { RegistryClientError } from "./__generated__/registry-client.js";
 import {
   executeRegistryRequest,
+  PUBLISH_REGISTRY_REQUEST_POLICY,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -83,6 +84,14 @@ const responseError = (status: number, args?: { retryAfter?: string; bodyDelay?:
 };
 
 describe("executeRegistryRequest", () => {
+  it("gives publish one long attempt without transport replay", () => {
+    expect(PUBLISH_REGISTRY_REQUEST_POLICY).toMatchObject({
+      requestTimeout: "5 minutes",
+      totalDeadline: "5 minutes",
+      maxAttempts: 1,
+    });
+  });
+
   it.effect("returns a successful first attempt without replaying it", () =>
     Effect.gen(function* () {
       const attempts = yield* Ref.make(0);

@@ -714,14 +714,10 @@ describe("buildUninstallOperation", () => {
       }),
   );
 
-  it.effect("removes workspace-authored source without a disposition override", () =>
+  it.effect("reports preserved workspace-authored source after unconfiguring it", () =>
     Effect.gen(function* () {
-      let installed = true;
-      const materializeUninstall = vi.fn(() =>
-        Effect.sync(() => {
-          installed = false;
-        }),
-      );
+      const installed = true;
+      const materializeUninstall = vi.fn(() => Effect.void);
       let configured = true;
       const manager = {
         type: "skill",
@@ -729,7 +725,7 @@ describe("buildUninstallOperation", () => {
         isInstalled: () => Effect.succeed(installed),
         materializeInstall: () => Effect.void,
         getConfiguredSource: () =>
-          Effect.succeed(configured ? Option.some("workspace:@acme/skills/review") : Option.none()),
+          Effect.succeed(configured ? Option.some("workspace") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall,
         materializeDeactivate: () => Effect.void,
@@ -750,11 +746,12 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      yield* operation.run;
+      const result = yield* operation.run;
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
       });
+      expect(result.message).toBe("Unconfigured review; preserved its workspace-authored source");
     }),
   );
 
@@ -870,9 +867,13 @@ describe("buildUninstallOperation", () => {
           throw new Error(operation.errorMessage);
         }
 
-        yield* operation.run;
+        const result = yield* operation.run;
 
         expect(removeLockfileEntry).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+          disposition: "unchanged",
+          message: "review is already absent",
+        });
       }),
   );
 

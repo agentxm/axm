@@ -76,13 +76,9 @@
                 "properties": {
                   "client_id": {
                     "type": "string",
-                    "allOf": [
-                      {
-                        "minLength": 1,
-                        "description": "OAuth public client identifier.",
-                        "examples": ["example-client"]
-                      }
-                    ]
+                    "minLength": 1,
+                    "description": "OAuth public client identifier.",
+                    "examples": ["example-client"]
                   },
                   "scope": {
                     "anyOf": [
@@ -138,6 +134,14 @@
                 "schema": { "$ref": "#/components/schemas/TokenOAuthErrorEncoded" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Exchange OAuth grant for access token",
@@ -175,13 +179,9 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "allOf": [
-                          {
-                            "minLength": 1,
-                            "description": "OAuth client identifier.",
-                            "examples": ["example-client"]
-                          }
-                        ]
+                        "minLength": 1,
+                        "description": "OAuth client identifier.",
+                        "examples": ["example-client"]
                       },
                       { "type": "null" }
                     ]
@@ -247,6 +247,14 @@
                 "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+              }
+            }
           }
         },
         "summary": "Revoke an OAuth token (RFC 7009)",
@@ -258,12 +266,8 @@
                 "properties": {
                   "token": {
                     "type": "string",
-                    "allOf": [
-                      {
-                        "minLength": 1,
-                        "description": "The access token or refresh token to revoke. Revocation is idempotent."
-                      }
-                    ]
+                    "minLength": 1,
+                    "description": "The access token or refresh token to revoke. Revocation is idempotent."
                   },
                   "token_type_hint": {
                     "anyOf": [
@@ -398,14 +402,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Poll step-up request status"
@@ -456,10 +452,10 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "client_id": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "redirect_uri": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "state": { "type": "string", "allOf": [{ "minLength": 1 }] },
-                  "code_challenge": { "type": "string", "allOf": [{ "minLength": 1 }] },
+                  "client_id": { "type": "string", "minLength": 1 },
+                  "redirect_uri": { "type": "string", "minLength": 1 },
+                  "state": { "type": "string", "minLength": 1 },
+                  "code_challenge": { "type": "string", "minLength": 1 },
                   "code_challenge_method": { "type": "string", "enum": ["S256"] },
                   "publication_set": { "$ref": "#/components/schemas/PreviewPublicationSetRequest" }
                 },
@@ -555,7 +551,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           }
         ],
@@ -633,14 +631,6 @@
           },
           "422": {
             "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
             "content": {
               "application/problem+json": {
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
@@ -772,9 +762,19 @@
                           "owner": { "$ref": "#/components/schemas/Handle" },
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
-                          "description": { "$ref": "#/components/schemas/Union_" },
-                          "repository": { "$ref": "#/components/schemas/Union_2" },
-                          "license": { "$ref": "#/components/schemas/Union_3" },
+                          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "repository": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/Repository" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "license": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/LicenseExpression" },
+                              { "type": "null" }
+                            ]
+                          },
                           "authors": {
                             "anyOf": [
                               {
@@ -865,9 +865,19 @@
                           "owner": { "$ref": "#/components/schemas/Handle" },
                           "type": { "$ref": "#/components/schemas/ExtensionType" },
                           "latestVersion": { "$ref": "#/components/schemas/Version" },
-                          "description": { "$ref": "#/components/schemas/Union_" },
-                          "repository": { "$ref": "#/components/schemas/Union_2" },
-                          "license": { "$ref": "#/components/schemas/Union_3" },
+                          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "repository": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/Repository" },
+                              { "type": "null" }
+                            ]
+                          },
+                          "license": {
+                            "anyOf": [
+                              { "$ref": "#/components/schemas/LicenseExpression" },
+                              { "type": "null" }
+                            ]
+                          },
                           "authors": {
                             "anyOf": [
                               {
@@ -891,7 +901,12 @@
                         "additionalProperties": false
                       }
                     },
-                    "total": { "$ref": "#/components/schemas/Union_4" }
+                    "total": {
+                      "anyOf": [
+                        { "type": "number" },
+                        { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                      ]
+                    }
                   },
                   "required": ["extensions", "total"],
                   "additionalProperties": false
@@ -980,10 +995,19 @@
                     "owner": { "$ref": "#/components/schemas/Handle" },
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "publisher_binding_id": { "type": "string", "readOnly": true },
-                    "description": { "$ref": "#/components/schemas/Union_" },
-                    "repository": { "$ref": "#/components/schemas/Union_2" },
-                    "bugs": { "$ref": "#/components/schemas/Union_6" },
-                    "license": { "$ref": "#/components/schemas/Union_3" },
+                    "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "repository": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+                    },
+                    "bugs": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
+                    },
+                    "license": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/LicenseExpression" },
+                        { "type": "null" }
+                      ]
+                    },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1024,8 +1048,8 @@
                               { "type": "null" }
                             ]
                           },
-                          "yank_category": { "$ref": "#/components/schemas/Union_" },
-                          "yank_notice": { "$ref": "#/components/schemas/Union_" }
+                          "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                          "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                         },
                         "required": ["version", "published", "integrity"],
                         "additionalProperties": false
@@ -1102,7 +1126,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           },
           { "name": "if-match", "in": "header", "schema": { "type": "string" }, "required": true }
@@ -1191,14 +1217,6 @@
                 "schema": { "$ref": "#/components/schemas/PreconditionFailedErrorEncoded" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Update extension visibility",
@@ -1236,7 +1254,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           }
         ],
@@ -1256,10 +1276,28 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": { "$ref": "#/components/schemas/Union_4" },
-                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_4" },
+                        "dependentPackCount": {
+                          "anyOf": [
+                            { "type": "number" },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "libraryMembershipCount": {
+                          "anyOf": [
+                            { "type": "number" },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
                         "downloadCount": {
-                          "anyOf": [{ "$ref": "#/components/schemas/Union_4" }, { "type": "null" }]
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                              ]
+                            },
+                            { "type": "null" }
+                          ]
                         }
                       },
                       "required": [
@@ -1343,14 +1381,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Permanently delete a whole Extension",
@@ -1406,17 +1436,22 @@
                     "type": { "$ref": "#/components/schemas/ExtensionType" },
                     "publisher_binding_id": { "type": "string", "readOnly": true },
                     "version": { "$ref": "#/components/schemas/Version" },
-                    "status": {
-                      "type": "string",
-                      "enum": ["pending", "available", "failed"],
-                      "readOnly": true
-                    },
+                    "status": { "type": "string", "enum": ["available"], "readOnly": true },
                     "published": { "$ref": "#/components/schemas/IsoDateTimeString" },
                     "integrity": { "type": "string", "readOnly": true },
-                    "description": { "$ref": "#/components/schemas/Union_" },
-                    "repository": { "$ref": "#/components/schemas/Union_2" },
-                    "bugs": { "$ref": "#/components/schemas/Union_6" },
-                    "license": { "$ref": "#/components/schemas/Union_3" },
+                    "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "repository": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+                    },
+                    "bugs": {
+                      "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }]
+                    },
+                    "license": {
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/LicenseExpression" },
+                        { "type": "null" }
+                      ]
+                    },
                     "authors": {
                       "anyOf": [
                         { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -1457,8 +1492,8 @@
                         { "type": "null" }
                       ]
                     },
-                    "yank_category": { "$ref": "#/components/schemas/Union_" },
-                    "yank_notice": { "$ref": "#/components/schemas/Union_" }
+                    "yank_category": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "yank_notice": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                   },
                   "required": [
                     "name",
@@ -1560,6 +1595,47 @@
         ],
         "security": [{ "bearer": [] }],
         "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": { "$ref": "#/components/schemas/Handle" },
+                    "type": { "$ref": "#/components/schemas/ExtensionType" },
+                    "name": { "$ref": "#/components/schemas/ExtensionName" },
+                    "version": { "$ref": "#/components/schemas/Version" },
+                    "integrity": { "type": "string", "readOnly": true },
+                    "sha256_hex": { "type": "string", "readOnly": true },
+                    "published_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                    "publish_status": { "type": "string", "enum": ["available"], "readOnly": true },
+                    "visibility": { "$ref": "#/components/schemas/PublishVisibility" },
+                    "warnings": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/PublishLintFinding" },
+                      "readOnly": true
+                    },
+                    "links": { "$ref": "#/components/schemas/ExtensionLinks" }
+                  },
+                  "required": [
+                    "owner",
+                    "type",
+                    "name",
+                    "version",
+                    "integrity",
+                    "sha256_hex",
+                    "published_at",
+                    "publish_status",
+                    "visibility",
+                    "warnings",
+                    "links"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
           "201": {
             "description": "Success",
             "content": {
@@ -1574,11 +1650,7 @@
                     "integrity": { "type": "string", "readOnly": true },
                     "sha256_hex": { "type": "string", "readOnly": true },
                     "published_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
-                    "publish_status": {
-                      "type": "string",
-                      "enum": ["pending", "available", "failed"],
-                      "readOnly": true
-                    },
+                    "publish_status": { "type": "string", "enum": ["available"], "readOnly": true },
                     "visibility": { "$ref": "#/components/schemas/PublishVisibility" },
                     "warnings": {
                       "type": "array",
@@ -1697,14 +1769,6 @@
                     }
                   }
                 }
-              }
-            }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
           },
@@ -2347,7 +2411,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           }
         ],
@@ -2450,14 +2516,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Yank an extension version",
@@ -2499,7 +2557,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           }
         ],
@@ -2597,14 +2657,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Un-yank an extension version"
@@ -2636,7 +2688,9 @@
           {
             "name": "x-axm-step-up-request",
             "in": "header",
-            "schema": { "$ref": "#/components/schemas/Union_1" },
+            "schema": {
+              "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
+            },
             "required": false
           }
         ],
@@ -2723,14 +2777,6 @@
                 "schema": { "$ref": "#/components/schemas/ProblemDetails" }
               }
             }
-          },
-          "429": {
-            "description": "TooManyRequestsError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
           }
         },
         "summary": "Yank all currently available extension versions",
@@ -2782,10 +2828,28 @@
                       "type": "object",
                       "properties": {
                         "versions": { "type": "array", "items": { "type": "string" } },
-                        "dependentPackCount": { "$ref": "#/components/schemas/Union_4" },
-                        "libraryMembershipCount": { "$ref": "#/components/schemas/Union_4" },
+                        "dependentPackCount": {
+                          "anyOf": [
+                            { "type": "number" },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
+                        "libraryMembershipCount": {
+                          "anyOf": [
+                            { "type": "number" },
+                            { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                          ]
+                        },
                         "downloadCount": {
-                          "anyOf": [{ "$ref": "#/components/schemas/Union_4" }, { "type": "null" }]
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                { "type": "number" },
+                                { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                              ]
+                            },
+                            { "type": "null" }
+                          ]
                         }
                       },
                       "required": [
@@ -2944,7 +3008,7 @@
           {
             "name": "q",
             "in": "query",
-            "schema": { "$ref": "#/components/schemas/Union_" },
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
           },
           {
@@ -3086,7 +3150,7 @@
           {
             "name": "q",
             "in": "query",
-            "schema": { "$ref": "#/components/schemas/Union_" },
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
           },
           {
@@ -3251,7 +3315,9 @@
                             "type": "object",
                             "properties": {
                               "ref": { "$ref": "#/components/schemas/ExtensionFqn" },
-                              "versionRange": { "$ref": "#/components/schemas/Union_" }
+                              "versionRange": {
+                                "anyOf": [{ "type": "string" }, { "type": "null" }]
+                              }
                             },
                             "required": ["ref"],
                             "additionalProperties": false
@@ -3305,6 +3371,92 @@
         },
         "description": "Returns pass/fail status. Public, no auth required.",
         "summary": "Shallow health check"
+      }
+    },
+    "/v1/health/dependencies": {
+      "get": {
+        "tags": ["Health"],
+        "operationId": "Health.getDeepHealth",
+        "parameters": [
+          {
+            "name": "x-health-key",
+            "in": "header",
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+                    "serviceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "releaseId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "commit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "environment": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "region": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "checks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "componentName": { "type": "string" },
+                                "componentType": {
+                                  "type": "string",
+                                  "enum": ["datastore", "system", "component"]
+                                },
+                                "measurementName": { "type": "string" },
+                                "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
+                                "observedValue": { "type": "number" },
+                                "observedUnit": { "type": "string" },
+                                "time": { "$ref": "#/components/schemas/IsoDateTimeString" },
+                                "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                              },
+                              "required": [
+                                "componentName",
+                                "componentType",
+                                "measurementName",
+                                "status",
+                                "observedValue",
+                                "observedUnit",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        { "type": "null" }
+                      ]
+                    },
+                    "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  },
+                  "required": ["status"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+              }
+            }
+          }
+        },
+        "description": "Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.",
+        "summary": "Deep health check with dependency status"
       }
     },
     "/v1/search": {
@@ -3372,19 +3524,19 @@
           {
             "name": "owner",
             "in": "query",
-            "schema": { "$ref": "#/components/schemas/Union_" },
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
           },
           {
             "name": "package",
             "in": "query",
-            "schema": { "$ref": "#/components/schemas/Union_" },
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
           },
           {
             "name": "license",
             "in": "query",
-            "schema": { "$ref": "#/components/schemas/Union_" },
+            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
             "required": false
           },
           {
@@ -3497,7 +3649,12 @@
                               "type": "object",
                               "properties": {
                                 "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-                                "after": { "$ref": "#/components/schemas/Union_4" }
+                                "after": {
+                                  "anyOf": [
+                                    { "type": "number" },
+                                    { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                                  ]
+                                }
                               },
                               "required": ["_tag", "after"],
                               "additionalProperties": false
@@ -3618,12 +3775,9 @@
           },
           "expires_in": {
             "type": "integer",
-            "allOf": [{ "description": "Lifetime of the device code in seconds." }]
+            "description": "Lifetime of the device code in seconds."
           },
-          "interval": {
-            "type": "integer",
-            "allOf": [{ "description": "Minimum polling interval in seconds." }]
-          }
+          "interval": { "type": "integer", "description": "Minimum polling interval in seconds." }
         },
         "required": [
           "device_code",
@@ -3655,7 +3809,7 @@
           },
           "retryAfterSeconds": {
             "type": "number",
-            "allOf": [{ "description": "Suggested delay in seconds before retrying." }]
+            "description": "Suggested delay in seconds before retrying."
           },
           "requiredScope": {
             "type": "string",
@@ -3733,7 +3887,6 @@
         "title": "Publish Visibility",
         "description": "Authoritative whole-Extension visibility and provenance resolved for a publication."
       },
-      "Union_": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
@@ -3750,7 +3903,7 @@
           "token_type": { "type": "string", "enum": ["Bearer"] },
           "expires_in": {
             "type": "integer",
-            "allOf": [{ "description": "Access token lifetime remaining in seconds." }]
+            "description": "Access token lifetime remaining in seconds."
           },
           "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
           "scope": {
@@ -3790,25 +3943,21 @@
               { "type": "null" }
             ]
           },
-          "publication_set_digest": { "$ref": "#/components/schemas/Union_" },
-          "publication_descriptor_digest": { "$ref": "#/components/schemas/Union_" }
+          "publication_set_digest": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "publication_descriptor_digest": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
         },
         "required": ["access_token", "token_type", "expires_in", "expires_at"],
         "additionalProperties": false,
         "title": "Session Token Response",
         "description": "OAuth 2.0 token response containing an access/refresh token pair."
       },
-      "Sha256Hex": { "type": "string", "allOf": [{ "pattern": "^[a-f0-9]{64}$" }] },
+      "Sha256Hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
       "Handle": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-            "title": "Handle",
-            "description": "A unique username or organization name starting with @, like @my-org.",
-            "examples": ["@my-org", "@username"]
-          }
-        ]
+        "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+        "title": "Handle",
+        "description": "A unique username or organization name starting with @, like @my-org.",
+        "examples": ["@my-org", "@username"]
       },
       "ExtensionType": {
         "type": "string",
@@ -3818,26 +3967,18 @@
       },
       "ExtensionName": {
         "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-            "title": "Extension Name",
-            "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-            "examples": ["my-skill", "code-review", "prettier"]
-          }
-        ]
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "title": "Extension Name",
+        "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+        "examples": ["my-skill", "code-review", "prettier"]
       },
       "Version": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-            "title": "Version",
-            "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-            "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-          }
-        ]
+        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+        "title": "Version",
+        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
       },
       "PublicationTarget": {
         "type": "object",
@@ -3852,16 +3993,12 @@
       },
       "ExtensionFqn": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-            "title": "Extension FQN",
-            "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-            "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
-          }
-        ]
+        "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+        "title": "Extension FQN",
+        "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
       },
-      "VisibilityFingerprint": { "type": "string", "allOf": [{ "pattern": "^[a-f0-9]{64}$" }] },
+      "VisibilityFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
       "VisibilityIntent": {
         "type": "object",
         "properties": {
@@ -3874,12 +4011,8 @@
       },
       "VisibilityRevision": {
         "type": "string",
-        "allOf": [
-          {
-            "minLength": 1,
-            "description": "Opaque revision for conditional whole-Extension visibility mutation."
-          }
-        ]
+        "minLength": 1,
+        "description": "Opaque revision for conditional whole-Extension visibility mutation."
       },
       "VisibilityActual": {
         "type": "object",
@@ -3964,15 +4097,11 @@
       },
       "VersionRange": {
         "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
-            "title": "Version Range",
-            "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-            "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
-          }
-        ]
+        "minLength": 1,
+        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+        "title": "Version Range",
+        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
       },
       "PackDependencyDescriptor": {
         "type": "object",
@@ -3990,13 +4119,9 @@
       },
       "DeprecationMessage": {
         "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "maxLength": 500,
-            "description": "Concise publisher guidance for consumers of a deprecated extension."
-          }
-        ]
+        "minLength": 1,
+        "maxLength": 500,
+        "description": "Concise publisher guidance for consumers of a deprecated extension."
       },
       "DeprecationReplacement": {
         "anyOf": [
@@ -4059,8 +4184,8 @@
         "type": "object",
         "properties": {
           "description": { "type": "string" },
-          "cmd": { "$ref": "#/components/schemas/Union_" },
-          "url": { "$ref": "#/components/schemas/Union_" }
+          "cmd": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
         },
         "required": ["description"],
         "additionalProperties": false
@@ -4149,7 +4274,7 @@
                     "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
                     "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
                     "visibility": { "$ref": "#/components/schemas/VisibilityEvaluation" },
-                    "condition": { "$ref": "#/components/schemas/Union_" }
+                    "condition": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
                   },
                   "required": ["kind", "target", "participation", "descriptorDigest", "visibility"],
                   "additionalProperties": false
@@ -4278,14 +4403,10 @@
       },
       "UserId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "User ID",
-            "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-            "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "User ID",
+        "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+        "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
       },
       "AuthMeUser": {
         "type": "object",
@@ -4387,14 +4508,10 @@
       },
       "StepUpRequestId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^step_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Step-Up Request ID",
-            "description": "Identifies one short-lived cross-channel authentication request.",
-            "examples": ["step_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^step_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Step-Up Request ID",
+        "description": "Identifies one short-lived cross-channel authentication request.",
+        "examples": ["step_01h455vb4pexka56gq5w2r7cpc"]
       },
       "StepUpRequestStatusResponse": {
         "type": "object",
@@ -4465,25 +4582,17 @@
       },
       "PublishAuthorizationRequestId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Publish Authorization Request ID",
-            "description": "Identifies one exact browser-reviewed publish authorization request.",
-            "examples": ["pubreq_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Publish Authorization Request ID",
+        "description": "Identifies one exact browser-reviewed publish authorization request.",
+        "examples": ["pubreq_01h455vb4pexka56gq5w2r7cpc"]
       },
       "TokenId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Token ID",
-            "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-            "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Token ID",
+        "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
+        "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
       },
       "TokenListItem": {
         "type": "object",
@@ -4691,33 +4800,22 @@
         "properties": {
           "name": {
             "type": "string",
-            "allOf": [
-              {
-                "minLength": 1,
-                "description": "Human-readable name for the token.",
-                "examples": ["CI publish token"]
-              }
-            ]
+            "minLength": 1,
+            "description": "Human-readable name for the token.",
+            "examples": ["CI publish token"]
           },
           "permissions": { "$ref": "#/components/schemas/CreateTokenPermissionsRequest" },
           "expires_in": {
             "type": "integer",
-            "allOf": [
-              { "minimum": 3600 },
-              {
-                "maximum": 31536000,
-                "description": "How long the token lasts, in seconds (1 hour to 365 days)."
-              }
-            ]
+            "minimum": 3600,
+            "maximum": 31536000,
+            "description": "How long the token lasts, in seconds (1 hour to 365 days)."
           }
         },
         "required": ["name", "permissions", "expires_in"],
         "additionalProperties": false,
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
-      },
-      "Union_1": {
-        "anyOf": [{ "$ref": "#/components/schemas/StepUpRequestId" }, { "type": "null" }]
       },
       "CreateTokenResponse": {
         "type": "object",
@@ -4821,16 +4919,12 @@
         "title": "Repository",
         "description": "Repository details for an extension manifest."
       },
-      "Union_2": { "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }] },
       "LicenseExpression": {
         "type": "string",
         "title": "License Expression",
         "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
         "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
         "format": "spdx-expression"
-      },
-      "Union_3": {
-        "anyOf": [{ "$ref": "#/components/schemas/LicenseExpression" }, { "type": "null" }]
       },
       "Author": {
         "type": "object",
@@ -4872,8 +4966,6 @@
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs)."
       },
-      "Union_5": { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
-      "Union_4": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_5" }] },
       "Bugs": {
         "type": "object",
         "properties": {
@@ -4902,18 +4994,13 @@
         "title": "Bugs",
         "description": "Bug reporting details for an extension manifest."
       },
-      "Union_6": { "anyOf": [{ "$ref": "#/components/schemas/Bugs" }, { "type": "null" }] },
       "PackageIdentityPurl": {
         "type": "string",
-        "allOf": [
-          { "minLength": 1 },
-          {
-            "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
-            "title": "Package Identity Purl",
-            "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
-            "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
-          }
-        ]
+        "minLength": 1,
+        "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+        "title": "Package Identity Purl",
+        "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+        "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
       },
       "CompanionPackage": {
         "type": "object",
@@ -4923,15 +5010,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "allOf": [
-                  {
-                    "minLength": 1,
-                    "examples": [
-                      "vers:npm/>=18.0.0|<19.0.0",
-                      "vers:pypi/>=2.31.0",
-                      "vers:cargo/>=1.0.0"
-                    ]
-                  }
+                "minLength": 1,
+                "examples": [
+                  "vers:npm/>=18.0.0|<19.0.0",
+                  "vers:pypi/>=2.31.0",
+                  "vers:cargo/>=1.0.0"
                 ]
               },
               { "type": "null" }
@@ -4945,14 +5028,10 @@
       },
       "ExtensionDeletionOperationId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Extension Deletion Operation ID",
-            "description": "Identifies a durable owner-requested whole-Extension deletion operation.",
-            "examples": ["edel_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Extension Deletion Operation ID",
+        "description": "Identifies a durable owner-requested whole-Extension deletion operation.",
+        "examples": ["edel_01h455vb4pexka56gq5w2r7cpc"]
       },
       "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
       "VisibilityMutationAuthority": {
@@ -4982,9 +5061,7 @@
           "visibility": { "$ref": "#/components/schemas/ExtensionVisibility" },
           "revision": { "$ref": "#/components/schemas/VisibilityRevision" },
           "authority": { "$ref": "#/components/schemas/VisibilityMutationAuthority" },
-          "verification": {
-            "anyOf": [{ "type": "string", "allOf": [{ "minLength": 1 }] }, { "type": "null" }]
-          }
+          "verification": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }
         },
         "required": ["target", "visibility", "revision", "authority"],
         "additionalProperties": false
@@ -5026,12 +5103,8 @@
       },
       "DeprecationRevision": {
         "type": "string",
-        "allOf": [
-          {
-            "minLength": 1,
-            "description": "Opaque publisher lifecycle revision used for conditional writes."
-          }
-        ]
+        "minLength": 1,
+        "description": "Opaque publisher lifecycle revision used for conditional writes."
       },
       "DeprecationManagementView": {
         "type": "object",
@@ -5076,12 +5149,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "allOf": [
-                  {
-                    "maxLength": 500,
-                    "description": "Publisher migration guidance, normalized by the Registry."
-                  }
-                ]
+                "maxLength": 500,
+                "description": "Publisher migration guidance, normalized by the Registry."
               },
               { "type": "null" }
             ]
@@ -5110,16 +5179,34 @@
         "required": ["target", "before", "after", "disposition", "revision"],
         "additionalProperties": false
       },
-      "Union_7": { "type": "string", "enum": ["error", "warning", "info"] },
-      "Union_8": { "anyOf": [{ "type": "number" }, { "$ref": "#/components/schemas/Union_5" }] },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
           "file": { "type": "string" },
-          "line": { "$ref": "#/components/schemas/Union_8" },
-          "column": { "$ref": "#/components/schemas/Union_8" },
-          "byteOffset": { "$ref": "#/components/schemas/Union_8" },
-          "byteLength": { "$ref": "#/components/schemas/Union_8" }
+          "line": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "column": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "byteOffset": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          },
+          "byteLength": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          }
         },
         "required": ["file"],
         "additionalProperties": false,
@@ -5131,7 +5218,7 @@
         "properties": {
           "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
           "ruleId": { "type": "string" },
-          "severity": { "$ref": "#/components/schemas/Union_7" },
+          "severity": { "type": "string", "enum": ["error", "warning", "info"] },
           "message": { "type": "string" },
           "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
           "path": { "type": "string" },
@@ -5170,8 +5257,8 @@
         "type": "object",
         "properties": {
           "description": { "type": "string" },
-          "cmd": { "$ref": "#/components/schemas/Union_" },
-          "url": { "$ref": "#/components/schemas/Union_" }
+          "cmd": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
         },
         "required": ["description"],
         "additionalProperties": false
@@ -5181,7 +5268,7 @@
         "properties": {
           "kind": { "type": "string", "enum": ["advisory", "autofixable"] },
           "ruleId": { "type": "string" },
-          "severity": { "$ref": "#/components/schemas/Union_7" },
+          "severity": { "type": "string", "enum": ["error", "warning", "info"] },
           "message": { "type": "string" },
           "location": { "$ref": "#/components/schemas/PublishFindingLocation" },
           "path": { "type": "string" },
@@ -5278,9 +5365,7 @@
               { "type": "null" }
             ]
           },
-          "notice": {
-            "anyOf": [{ "type": "string", "allOf": [{ "maxLength": 500 }] }, { "type": "null" }]
-          }
+          "notice": { "anyOf": [{ "type": "string", "maxLength": 500 }, { "type": "null" }] }
         },
         "additionalProperties": false,
         "title": "Yank Version Body",
@@ -5296,9 +5381,7 @@
               { "type": "null" }
             ]
           },
-          "notice": {
-            "anyOf": [{ "type": "string", "allOf": [{ "maxLength": 500 }] }, { "type": "null" }]
-          }
+          "notice": { "anyOf": [{ "type": "string", "maxLength": 500 }, { "type": "null" }] }
         },
         "required": ["selection"],
         "additionalProperties": false,
@@ -5340,14 +5423,10 @@
       },
       "LibraryId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Library ID",
-            "description": "Identifies an account-owned curated collection of extension identities in the registry.",
-            "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Library ID",
+        "description": "Identifies an account-owned curated collection of extension identities in the registry.",
+        "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
       },
       "LibraryName": {
         "type": "string",
@@ -5382,14 +5461,10 @@
       },
       "LibraryMemberId": {
         "type": "string",
-        "allOf": [
-          {
-            "pattern": "^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-            "title": "Library Member ID",
-            "description": "Identifies an extension identity membership inside a curated registry library.",
-            "examples": ["lmem_01h455vb4pexka56gq5w2r7cpc"]
-          }
-        ]
+        "pattern": "^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Library Member ID",
+        "description": "Identifies an extension identity membership inside a curated registry library.",
+        "examples": ["lmem_01h455vb4pexka56gq5w2r7cpc"]
       },
       "LibraryMember": {
         "type": "object",
@@ -5419,7 +5494,7 @@
         "properties": {
           "library": { "$ref": "#/components/schemas/Library" },
           "members": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryMember" } },
-          "accessibleMemberCount": { "type": "integer", "allOf": [{ "minimum": 0 }] }
+          "accessibleMemberCount": { "type": "integer", "minimum": 0 }
         },
         "required": ["library", "members", "accessibleMemberCount"],
         "additionalProperties": false,
@@ -5445,9 +5520,13 @@
           "owner": { "$ref": "#/components/schemas/Handle" },
           "type": { "$ref": "#/components/schemas/ExtensionType" },
           "latestVersion": { "$ref": "#/components/schemas/Version" },
-          "description": { "$ref": "#/components/schemas/Union_" },
-          "repository": { "$ref": "#/components/schemas/Union_2" },
-          "license": { "$ref": "#/components/schemas/Union_3" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "repository": {
+            "anyOf": [{ "$ref": "#/components/schemas/Repository" }, { "type": "null" }]
+          },
+          "license": {
+            "anyOf": [{ "$ref": "#/components/schemas/LicenseExpression" }, { "type": "null" }]
+          },
           "authors": {
             "anyOf": [
               { "type": "array", "items": { "$ref": "#/components/schemas/Author" } },
@@ -5490,12 +5569,8 @@
           },
           "total": {
             "type": "integer",
-            "allOf": [
-              {
-                "minimum": 0,
-                "description": "Exact number of viewer-visible extensions matching the query."
-              }
-            ]
+            "minimum": 0,
+            "description": "Exact number of viewer-visible extensions matching the query."
           },
           "total_relation": { "type": "string", "enum": ["exact"] }
         },
@@ -5509,7 +5584,12 @@
         "type": "object",
         "properties": {
           "_tag": { "type": "string", "enum": ["DebugStreamInterrupted"] },
-          "after": { "$ref": "#/components/schemas/Union_4" }
+          "after": {
+            "anyOf": [
+              { "type": "number" },
+              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+            ]
+          }
         },
         "required": ["_tag", "after"],
         "additionalProperties": false

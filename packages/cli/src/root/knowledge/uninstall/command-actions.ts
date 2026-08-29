@@ -18,7 +18,6 @@ import {
 } from "@agentxm/client-core/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
 import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { MARKER_KIND_START, parseMarker } from "@agentxm/client-core/unstable/projection";
 import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
 import {
   WorkspaceMutations,
@@ -46,14 +45,6 @@ type KnowledgeUninstallActions = UninstallExtensionCommandWorkflowActions<
 
 interface KnowledgeUninstallOwnership {
   readonly target: KnowledgeExtensionTarget;
-  readonly settingsPresent: boolean;
-  readonly lockPresent: boolean;
-  readonly acceptedProvenance: "absent" | "lock" | "workspace";
-  readonly canonical: "absent" | "owned" | "owned-with-unowned-namesake" | "unowned";
-  readonly renderedInstructions:
-    "absent" | "managed-absent" | "managed-present" | "unmanaged-present";
-  readonly managedAgentProjections: "none";
-  readonly expectedCanonicalPath?: string;
   readonly blocker?: string;
 }
 
@@ -109,22 +100,10 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
         .flatMap((item) => item.paths.map((itemPath) => path.resolve(ws.baseDir, itemPath)));
       const normalizedExpected =
         expectedCanonicalPath === undefined ? undefined : path.resolve(expectedCanonicalPath);
-      const ownsExpectedCanonical =
-        normalizedExpected !== undefined &&
-        actualPaths.some((actualPath) => path.resolve(actualPath) === normalizedExpected);
-      const unownedCanonicalCount = actualPaths.filter(
-        (actualPath) =>
-          normalizedExpected === undefined || path.resolve(actualPath) !== normalizedExpected,
-      ).length;
       const workspaceOwned = desired?.identity.startsWith("workspace:") === true;
       const hasAcceptedOwnership = workspaceOwned || Option.isSome(locked);
       const settingsPresent = configured[target.name] !== undefined;
       const instructionsConfig = yield* ws.getInstructionsConfig();
-      const discoveryConfig = yield* ws.getKnowledgeDiscoveryConfig();
-      const instructionsManaged =
-        discoveryConfig.instructions &&
-        Option.isSome(instructionsConfig) &&
-        instructionsConfig.value !== false;
       const resolvedInstructions = resolveInstructionsConfig(
         Option.match(instructionsConfig, {
           onNone: () => undefined,
@@ -136,40 +115,6 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
         ws.baseDir,
         resolvedInstructions.fileName,
       );
-      const instructionBody = Option.isNone(instructionRelative)
-        ? Option.none<string>()
-        : yield* fs
-            .readFileString(path.resolve(ws.baseDir, instructionRelative.value))
-            .pipe(Effect.option);
-      const instructionRegionPresent = Option.exists(instructionBody, (content) =>
-        content.split(/\r?\n/u).some((line) => {
-          const parsed = parseMarker(line, {
-            kind: "block",
-            open: "<!--",
-            close: "-->",
-          });
-          return (
-            parsed.state === "complete" &&
-            parsed.marker.kind === MARKER_KIND_START &&
-            parsed.marker.region === "knowledge"
-          );
-        }),
-      );
-      const renderedInstructions = instructionRegionPresent
-        ? instructionsManaged
-          ? "managed-present"
-          : "unmanaged-present"
-        : instructionsManaged
-          ? "managed-absent"
-          : "absent";
-      const canonical =
-        actualPaths.length === 0
-          ? "absent"
-          : ownsExpectedCanonical
-            ? unownedCanonicalCount > 0
-              ? "owned-with-unowned-namesake"
-              : "owned"
-            : "unowned";
       const ownershipBlocker =
         actualPaths.length === 0 || (hasAcceptedOwnership && normalizedExpected !== undefined)
           ? undefined
@@ -183,17 +128,6 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
           : undefined);
       return {
         target,
-        settingsPresent,
-        lockPresent: Option.isSome(locked),
-        acceptedProvenance: workspaceOwned
-          ? "workspace"
-          : Option.isSome(locked)
-            ? "lock"
-            : "absent",
-        canonical,
-        renderedInstructions,
-        managedAgentProjections: "none",
-        ...(expectedCanonicalPath === undefined ? {} : { expectedCanonicalPath }),
         ...(blocker === undefined ? {} : { blocker }),
       };
     });

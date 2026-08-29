@@ -54,7 +54,7 @@ export const configuredAgentLifecycleOutcomes = (args: {
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: WorkspaceScope;
   readonly state: ConfiguredAgentLifecycleState;
-  readonly enabled: boolean;
+  readonly targetState: "enabled" | "disabled" | "absent";
   readonly installed: boolean;
   readonly observedAgentIds?: ReadonlyArray<string>;
   readonly applicableAgentIds?: ReadonlyArray<string>;
@@ -82,14 +82,17 @@ export const configuredAgentLifecycleOutcomes = (args: {
   );
 
   return args.agentIds.map((agentId): ConfiguredAgentOutcome => {
-    if (!args.enabled) {
+    if (args.targetState !== "enabled") {
       return {
         extensionType: args.type,
         name: args.name,
         agentId,
         outcome: "not-applicable",
-        reasonCode: "extension-disabled",
-        reason: "The extension is disabled, so no agent projection is expected.",
+        reasonCode: args.targetState === "absent" ? "extension-absent" : "extension-disabled",
+        reason:
+          args.targetState === "absent"
+            ? "The extension is absent, so no agent projection is expected."
+            : "The extension is disabled, so no agent projection is expected.",
       };
     }
     if (applicable !== undefined && !applicable.has(agentId)) {

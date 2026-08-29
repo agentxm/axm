@@ -462,7 +462,7 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
               job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
             ),
       ),
-    ].map((name) => ({ extensionType: "subagent", name, targetEnabled: true })),
+    ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const })),
   );
   const executionPlan: Plan = {
     ...plan,

@@ -71,6 +71,9 @@ const PublishReasonSchema = Schema.Literals([
   "stale_material",
   "publish_precondition_changed",
   "upload_failed",
+  "integrity_conflict",
+  "settlement_unresolved",
+  "authorization_expired",
   "blocked_by_dependency",
   "interrupted",
   "version_exists",
@@ -171,6 +174,9 @@ const PublishResultItemSchema = Schema.Struct({
     }),
   ),
   visibility: Schema.optional(PublishVisibilitySchema),
+  settlement: Schema.optional(
+    Schema.Literals(["response", "readback", "replay", "unresolved"] as const),
+  ),
   links: Schema.optional(
     Schema.Struct({
       html: Schema.String,

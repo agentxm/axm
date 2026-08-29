@@ -163,6 +163,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   getExtensionsByScope: () => Effect.succeed(toResult([])),
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
+  getExactExtensionVersion: () => Effect.succeed(Option.none()),
   getExtensionPackage: () =>
     Effect.fail(
       makeAppError({
@@ -223,6 +224,8 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+  getExactExtensionVersion: () =>
+    Effect.fail(makeAppError({ code: "internal", detail: "remote registry not yet supported" })),
   getExtensionPackage: () =>
     Effect.fail(
       makeAppError({

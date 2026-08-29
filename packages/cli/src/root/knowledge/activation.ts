@@ -123,7 +123,9 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
     },
     {
       preview,
-      configuredAgentOperations: [{ extensionType: "knowledge", name, targetEnabled: enabled }],
+      configuredAgentOperations: [
+        { extensionType: "knowledge", name, plannedState: enabled ? "enabled" : "disabled" },
+      ],
     },
   );
   yield* emitOperationResolution(enabled ? "knowledge.enable" : "knowledge.disable", resolution, {

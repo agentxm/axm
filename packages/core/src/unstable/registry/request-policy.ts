@@ -26,6 +26,15 @@ export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   maxBackoff: "2 seconds",
 };
 
+/** A publish may legitimately spend longer validating and persisting an archive. */
+export const PUBLISH_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
+  requestTimeout: "5 minutes",
+  totalDeadline: "5 minutes",
+  maxAttempts: 1,
+  initialBackoff: "200 millis",
+  maxBackoff: "2 seconds",
+};
+
 export type RegistryRequestReplaySafety =
   | { readonly kind: "safe" }
   | { readonly kind: "mutation" }

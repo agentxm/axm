@@ -17,7 +17,7 @@ describe("configuredAgentLifecycleOutcomes", () => {
       agentIds: ["claude-code", "adal", "unknown"],
       scope: "project",
       state: "projected",
-      enabled: true,
+      targetState: "enabled",
       installed: false,
     });
 
@@ -41,7 +41,7 @@ describe("configuredAgentLifecycleOutcomes", () => {
     expect(
       configuredAgentLifecycleOutcomes({
         ...base,
-        enabled: true,
+        targetState: "enabled",
         observedAgentIds: ["claude-code"],
         applicableAgentIds: ["claude-code"],
       }),
@@ -50,16 +50,21 @@ describe("configuredAgentLifecycleOutcomes", () => {
       { agentId: "codex", outcome: "not-applicable", reasonCode: "target-policy-excluded" },
     ]);
 
-    expect(configuredAgentLifecycleOutcomes({ ...base, enabled: false })).toMatchObject([
+    expect(configuredAgentLifecycleOutcomes({ ...base, targetState: "disabled" })).toMatchObject([
       { outcome: "not-applicable", reasonCode: "extension-disabled" },
       { outcome: "not-applicable", reasonCode: "extension-disabled" },
     ]);
 
     expect(
-      configuredAgentLifecycleOutcomes({ ...base, enabled: true, observedAgentIds: [] }),
+      configuredAgentLifecycleOutcomes({ ...base, targetState: "enabled", observedAgentIds: [] }),
     ).toMatchObject([
       { outcome: "failed", reasonCode: "projection-missing" },
       { outcome: "failed", reasonCode: "projection-missing" },
+    ]);
+
+    expect(configuredAgentLifecycleOutcomes({ ...base, targetState: "absent" })).toMatchObject([
+      { outcome: "not-applicable", reasonCode: "extension-absent" },
+      { outcome: "not-applicable", reasonCode: "extension-absent" },
     ]);
   });
 
@@ -72,7 +77,7 @@ describe("configuredAgentLifecycleOutcomes", () => {
           agentIds: ["claude-code"],
           scope: "project",
           state: "current",
-          enabled: true,
+          targetState: "enabled",
           installed: true,
         }),
       ).toMatchObject([{ agentId: "claude-code", outcome: "not-applicable" }]);

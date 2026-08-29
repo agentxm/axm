@@ -127,7 +127,7 @@ const configuredAgentOperationsFromCollections = (
     for (const fragment of collection.fragments) {
       if (fragment.key.startsWith("not-applicable:")) continue;
       const name = fragment.step.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "");
-      const operation = { extensionType: collector.type, name, targetEnabled: true };
+      const operation = { extensionType: collector.type, name, plannedState: "enabled" as const };
       operations.set(`${operation.extensionType}:${operation.name}`, operation);
     }
   }
@@ -796,7 +796,7 @@ export const buildConfiguredPackInstallPlan = (args: {
       configuredAgentOperations: [...args.packNames].map((name) => ({
         extensionType: "pack",
         name,
-        targetEnabled: true,
+        plannedState: "enabled",
       })),
     } satisfies WorkspaceInstallPlanResult;
   });

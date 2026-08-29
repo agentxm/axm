@@ -201,10 +201,10 @@ export const UninstallSubagentCommandWorkflowActions = Effect.gen(function* () {
             });
 
             const result = yield* step.run;
-            if (result.result === "error" || result.message.includes("Kept on disk")) {
+            if (result.result === "error" || result.message.includes("retained its package")) {
               return result;
             }
-            if (result.message === "not installed") {
+            if (result.disposition === "unchanged") {
               return {
                 ...result,
                 artifact: unchangedArtifact,

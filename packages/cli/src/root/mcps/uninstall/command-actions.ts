@@ -94,7 +94,7 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
           );
           const result = yield* step.run;
           if (result.result !== "success") return result;
-          const unchanged = result.message === "not installed";
+          const unchanged = result.disposition === "unchanged";
           const sourceTarget =
             lockEntry?.type === "registry"
               ? mcpSourceTarget(ws.scope, lockEntry, "removed")

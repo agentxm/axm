@@ -36,6 +36,8 @@ import type {
   DiscoverPackagesArgs,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
+  ExactExtensionVersion,
+  GetExactExtensionVersionArgs,
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
@@ -59,6 +61,7 @@ import {
 } from "./failure-mapping.js";
 import {
   executeRegistryRequest,
+  PUBLISH_REGISTRY_REQUEST_POLICY,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -72,6 +75,13 @@ import type {
 // list discovery share the same registry service and must not multiply it via
 // nested traversals.
 const REGISTRY_READ_CONCURRENCY = 4;
+const SETTLEMENT_READ_REQUEST_POLICY: RegistryRequestPolicy = {
+  requestTimeout: "10 seconds",
+  totalDeadline: "10 seconds",
+  maxAttempts: 1,
+  initialBackoff: "200 millis",
+  maxBackoff: "2 seconds",
+};
 import type { ArchiveCache } from "./archive-cache.js";
 import {
   PreviewPublicationSetResponseSchema,
@@ -310,6 +320,7 @@ export const createRemoteRegistryClient = (
       readonly path: string;
       readonly replaySafety: RegistryRequestReplaySafety;
       readonly mapError: (error: E) => AppError;
+      readonly policy?: RegistryRequestPolicy;
     },
   ) =>
     executeRegistryRequest(effect, {
@@ -317,7 +328,9 @@ export const createRemoteRegistryClient = (
       request: registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
       replaySafety: args.replaySafety,
       mapError: args.mapError,
-      ...(requestPolicy === undefined ? {} : { policy: requestPolicy }),
+      ...(requestPolicy === undefined && args.policy === undefined
+        ? {}
+        : { policy: requestPolicy ?? args.policy }),
     });
   const safe = { kind: "safe" } as const;
   const mutation = { kind: "mutation" } as const;
@@ -379,6 +392,56 @@ export const createRemoteRegistryClient = (
         });
       }),
     );
+
+  const getExactExtensionVersion = (
+    args: GetExactExtensionVersionArgs,
+  ): Effect.Effect<Option.Option<ExactExtensionVersion>, AppError> => {
+    const exactClient = GeneratedRegistryClient.make(remoteHttpClient, {
+      transformClient: (baseClient) =>
+        Effect.succeed(
+          args.accessToken === undefined
+            ? baseClient
+            : baseClient.pipe(
+                HttpClient.mapRequest(HttpClientRequest.bearerToken(args.accessToken)),
+              ),
+        ),
+    });
+    return executeRemoteRequest(
+      exactClient
+        .ExtensionsGetVersion(
+          args.owner,
+          pluralizeType(args.type),
+          args.name,
+          args.version,
+          undefined,
+        )
+        .pipe(
+          Effect.map((response) =>
+            Option.some({
+              owner: decodeHandleSync(response.owner),
+              type: narrowExtensionType(response.type),
+              name: decodeExtensionNameSync(response.name),
+              version: decodeVersionSync(response.version),
+              integrity: response.integrity,
+              status: response.status,
+            } satisfies ExactExtensionVersion),
+          ),
+          Effect.catch((error) =>
+            isRegistryClientError("ExtensionsGetVersion404")(error)
+              ? Effect.succeed(Option.none<ExactExtensionVersion>())
+              : Effect.fail(error),
+          ),
+        ),
+      {
+        operation: "get exact extension version",
+        method: "GET",
+        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
+        replaySafety: safe,
+        mapError: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+        policy: SETTLEMENT_READ_REQUEST_POLICY,
+      },
+    );
+  };
 
   /**
    * Map all discovery/read errors to AppError.
@@ -802,6 +865,7 @@ export const createRemoteRegistryClient = (
         path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
         replaySafety: mutation,
         mapError: mapPublishError,
+        policy: PUBLISH_REGISTRY_REQUEST_POLICY,
       },
     );
   };
@@ -962,6 +1026,7 @@ export const createRemoteRegistryClient = (
 
   return {
     getExtensionIndex,
+    getExactExtensionVersion,
     getExtensionsByScope,
     ownerExists,
     getExtensionPackage,

@@ -53,6 +53,8 @@ export type {
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,
+  GetExactExtensionVersionArgs,
+  ExactExtensionVersion,
   GetExtensionVisibilityArgs,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
@@ -113,6 +115,7 @@ export { createLocalRegistryClient } from "./local-client.js";
 export { createRemoteRegistryClient } from "./remote-client.js";
 export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
+  PUBLISH_REGISTRY_REQUEST_POLICY,
   executeRegistryRequest,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,

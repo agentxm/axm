@@ -139,6 +139,24 @@ export interface GetExtensionIndexArgs {
   readonly name: ExtensionName;
 }
 
+export interface GetExactExtensionVersionArgs {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  /** Ephemeral exact publish capability used to settle an ambiguous upload. */
+  readonly accessToken?: string;
+}
+
+export interface ExactExtensionVersion {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+  readonly integrity: string;
+  readonly status: "available";
+}
+
 // -----------------------------------------------------------------------------
 // Publish Extension Args
 // -----------------------------------------------------------------------------
@@ -359,6 +377,9 @@ export interface RegistryClient {
   readonly getExtensionIndex: (
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, AppError>;
+  readonly getExactExtensionVersion: (
+    args: GetExactExtensionVersionArgs,
+  ) => Effect.Effect<Option.Option<ExactExtensionVersion>, AppError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
   ) => Effect.Effect<GetExtensionPackageResponse, AppError>;

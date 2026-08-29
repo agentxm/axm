@@ -5,7 +5,7 @@ import type { ExtensionType } from "../extensions/common.js";
 export interface ConfiguredAgentOperation {
   readonly extensionType: ExtensionType;
   readonly name: string;
-  readonly targetEnabled: boolean;
+  readonly plannedState: "enabled" | "disabled" | "absent";
 }
 
 export type ConfirmationRecoveryValue =

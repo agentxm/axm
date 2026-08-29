@@ -148,7 +148,7 @@ export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
           agentIds: configuredAgents,
           scope: ws.scope,
           state: "current",
-          enabled: true,
+          targetState: "enabled",
           installed: true,
         }),
       })),

@@ -802,7 +802,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
               job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
             ),
       ),
-    ].map((name) => ({ extensionType: "skill", name, targetEnabled: true })),
+    ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const })),
   );
   const publisherOwnershipChanged = [...warningsBySkill.values()].some((warnings) =>
     warnings.some((warning) => warning.startsWith("Publisher identity changed")),

@@ -748,6 +748,26 @@ export const createLocalRegistryClient = (
       return Option.some(yield* readExtensionIndex(fs, idxPath));
     }),
 
+  getExactExtensionVersion: (args) =>
+    Effect.gen(function* () {
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const idxPath = path.join(dir, "index.json");
+      const exists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+      if (!exists) return Option.none();
+      const index = yield* readExtensionIndex(fs, idxPath);
+      const version = index.versions.find((entry) => entry.version === args.version);
+      return version === undefined
+        ? Option.none()
+        : Option.some({
+            owner: args.owner,
+            type: args.type,
+            name: args.name,
+            version: args.version,
+            integrity: version.integrity,
+            status: "available" as const,
+          });
+    }),
+
   getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
       const owner = args.owner;

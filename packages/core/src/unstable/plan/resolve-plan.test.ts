@@ -255,7 +255,7 @@ describe("previewOrApplyPlan", () => {
           approval: "preapproved",
           recovery: testRecovery,
           configuredAgentOperations: [
-            { extensionType: "skill", name: "code-review", targetEnabled: true },
+            { extensionType: "skill", name: "code-review", plannedState: "enabled" },
           ],
         }),
       });

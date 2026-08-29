@@ -105,7 +105,7 @@ const configuredAgentOperation = (
   return {
     extensionType: toExtensionType(group),
     name,
-    targetEnabled: verb !== "disable" && verb !== "uninstall",
+    plannedState: verb === "uninstall" ? "absent" : verb === "disable" ? "disabled" : "enabled",
   };
 };
 
@@ -163,7 +163,7 @@ export const makeUninstallPlanExecution = (
           : {
               extensionType: rootParts.type,
               name: rootParts.name,
-              targetEnabled: false,
+              plannedState: "absent",
             },
       ].filter((operation): operation is ConfiguredAgentOperation => operation !== undefined);
     })(),

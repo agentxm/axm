@@ -572,6 +572,34 @@ export interface UninstallOperationArgs<TRef extends ExtensionRef> {
   readonly skipProjections?: boolean;
 }
 
+type UninstallSettlement = {
+  readonly declaration: "removed" | "absent";
+  readonly canonical:
+    "removed" | "absent" | "retained-by-pack" | "preserved-authored" | "preserved-unowned";
+};
+
+const uninstallSettlementMessage = (
+  target: ExtensionTarget,
+  settlement: UninstallSettlement,
+): string => {
+  const label = toLabel(target);
+  if (settlement.declaration === "absent" && settlement.canonical === "absent") {
+    return `${label} is already absent`;
+  }
+  switch (settlement.canonical) {
+    case "absent":
+      return `Unconfigured ${label}; no canonical package was present`;
+    case "removed":
+      return `Removed ${label}`;
+    case "retained-by-pack":
+      return `Unconfigured ${label}; retained its package because an installed pack still requires it`;
+    case "preserved-authored":
+      return `Unconfigured ${label}; preserved its workspace-authored source`;
+    case "preserved-unowned":
+      return `Unconfigured ${label}; preserved canonical content without an accepted source owner`;
+  }
+};
+
 /**
  * Execute the uninstall sequence with retention check.
  *
@@ -608,15 +636,12 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
           yield* manager.removeLockfileEntry({ target: args.target });
           yield* applyProjections();
           return {
-            job: {
-              result: "success" as const,
-              message: `Removed configured ${toLabel(args.target)}; no installed artifacts were observed`,
-            } satisfies JobStepResult,
+            settlement: { declaration: "removed", canonical: "absent" } as const,
             expectedInstalled: false,
           };
         }
         return {
-          job: { result: "success" as const, message: "not installed" } satisfies JobStepResult,
+          settlement: { declaration: "absent", canonical: "absent" } as const,
           expectedInstalled: false,
         };
       }
@@ -628,10 +653,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         yield* manager.removeSettingsEntry({ target: args.target });
         yield* applyProjections();
         return {
-          job: {
-            result: "success" as const,
-            message: "Kept on disk because dependency is still required by an installed pack",
-          } satisfies JobStepResult,
+          settlement: { declaration: "removed", canonical: "retained-by-pack" } as const,
           expectedInstalled: true,
         };
       }
@@ -643,10 +665,16 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       // aggregate unit once so only reachable contributors remain.
       yield* applyProjections();
       return {
-        job: {
-          result: "success" as const,
-          message: `Removed ${toLabel(args.target)}`,
-        } satisfies JobStepResult,
+        settlement: {
+          declaration: "removed" as const,
+          canonical: Option.match(configuredSource, {
+            onNone: () => "preserved-unowned" as const,
+            onSome: (source) =>
+              isWorkspaceSourceLocator(source)
+                ? ("preserved-authored" as const)
+                : ("removed" as const),
+          }),
+        },
         expectedInstalled: Option.match(configuredSource, {
           onNone: () => undefined,
           onSome: (source) => (isWorkspaceSourceLocator(source) ? undefined : false),
@@ -681,7 +709,11 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
           }),
       })
       .pipe(surfaceRestorationIncomplete);
-    return result.job;
+    return {
+      result: "success",
+      message: uninstallSettlementMessage(args.target, result.settlement),
+      ...(result.settlement.declaration === "absent" ? { disposition: "unchanged" as const } : {}),
+    } satisfies JobStepResult;
   });
 
 /**

@@ -83,6 +83,8 @@ export interface HttpRegistryOptions {
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
   /** Fail the first upload for each plural/name key, then allow recovery. */
   readonly failPublishOnce?: ReadonlyArray<string>;
+  /** Reject every matching upload as invalid without creating a version. */
+  readonly rejectPublish?: ReadonlyArray<string>;
   /**
    * Store the first upload for each plural/name key and never respond — the
    * commit-before-response ambiguity a client cannot distinguish from a lost
@@ -324,6 +326,7 @@ export const startHttpRegistry = async (
   >();
   const publishes: Array<PublishRecord> = [];
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
+  const rejectedPublishes = new Set(options.rejectPublish ?? []);
   const pendingPublishHangs = new Set(options.commitThenHangPublishOnce ?? []);
   let hangWaiters: Array<(key: string) => void> = [];
   const notifyHungPublish = (hungKey: string) => {
@@ -581,6 +584,10 @@ export const startHttpRegistry = async (
         const archive = await readBody(request);
         const integrity = sha512Integrity(archive);
         const failureKey = `${plural}/${name}`;
+        if (rejectedPublishes.has(failureKey)) {
+          sendProblem(response, 422, `Injected publish rejection for ${failureKey}.`);
+          return;
+        }
         if (pendingPublishFailures.delete(failureKey)) {
           sendProblem(response, 500, `Injected one-time publish failure for ${failureKey}.`);
           return;

@@ -1071,6 +1071,60 @@ describe("previewExtensionPublishes", () => {
 });
 
 // =============================================================================
+// getExactExtensionVersion
+// =============================================================================
+
+describe("getExactExtensionVersion", () => {
+  it.effect("returns an exact digest and sends the ephemeral capability", () =>
+    Effect.gen(function* () {
+      let authorization: string | undefined;
+      const httpClient = makeMockHttpClient((request) => {
+        authorization = request.headers["authorization"];
+        return new Response(
+          JSON.stringify({
+            name: "test-skill",
+            owner: "@acme",
+            type: "skill",
+            publisher_binding_id: "hbnd_test",
+            version: "1.0.0",
+            status: "available",
+            published: "2025-01-01T00:00:00Z",
+            integrity: "sha512-abc123",
+          }),
+          { status: 200 },
+        );
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExactExtensionVersion({
+        ...makeIndexArgs(),
+        version: exactVersion("1.0.0"),
+        accessToken: "exact-capability",
+      });
+
+      expect(Option.getOrThrow(result).integrity).toBe("sha512-abc123");
+      expect(authorization).toBe("Bearer exact-capability");
+    }),
+  );
+
+  it.effect("returns none while an exact version is not yet visible", () =>
+    Effect.gen(function* () {
+      const client = createRemoteRegistryClient(
+        BASE_URL,
+        makeMockHttpClient(() => typedErrorResponse(404, "version_not_found", "Not found")),
+      );
+
+      const result = yield* client.getExactExtensionVersion({
+        ...makeIndexArgs(),
+        version: exactVersion("1.0.0"),
+      });
+
+      expect(Option.isNone(result)).toBe(true);
+    }),
+  );
+});
+
+// =============================================================================
 // publishExtension
 // =============================================================================
 

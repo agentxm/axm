@@ -519,7 +519,7 @@ export const makeReadModelRecordReaders = (args: {
                         agentIds: configuredAgents,
                         scope: row.scope,
                         state: "current",
-                        enabled: row.enabled !== false,
+                        targetState: row.enabled === false ? "disabled" : "enabled",
                         installed: row.installed,
                         observedAgentIds: row.agents,
                         ...(mcpEntry === undefined

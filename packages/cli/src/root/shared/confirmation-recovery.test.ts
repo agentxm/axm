@@ -10,7 +10,11 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
-import { makeConfirmationRecovery, makePlanExecution } from "./confirmation-recovery.js";
+import {
+  makeConfirmationRecovery,
+  makePlanExecution,
+  makeUninstallPlanExecution,
+} from "./confirmation-recovery.js";
 
 describe("confirmation recovery CLI boundary", () => {
   it.effect("preserves explicit global flags and user scope in a confirmable retry", () =>
@@ -56,5 +60,26 @@ describe("confirmation recovery CLI boundary", () => {
         confirmableRiskApproval: "preapproved",
       });
     }),
+  );
+
+  it.effect("classifies an uninstall target as planned absent", () =>
+    Effect.gen(function* () {
+      const execution = yield* makeUninstallPlanExecution(
+        { yes: true, preview: false },
+        ["skills", "uninstall"],
+        ["review"],
+      );
+
+      expect(execution.configuredAgentOperations).toEqual([
+        { extensionType: "skill", name: "review", plannedState: "absent" },
+      ]);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          TestFlagsLayer({}),
+          WorkspaceMutations.layer(makeBaseWorkspaceMock("/tmp/axm-confirmation-recovery/.axm")),
+        ),
+      ),
+    ),
   );
 });

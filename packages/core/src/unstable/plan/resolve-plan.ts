@@ -213,7 +213,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       agentIds: configuredAgents,
       scope: ws.scope,
       state,
-      enabled: operation.targetEnabled,
+      targetState: operation.plannedState,
       installed: state === "projected",
       observedAgentIds: state === "projected" ? configuredAgents : [],
       ...(mcpEntry === undefined
@@ -225,7 +225,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           }),
     });
     if (
-      operation.targetEnabled &&
+      operation.plannedState === "enabled" &&
       operation.extensionType === "hook" &&
       Option.isSome(hookManager) &&
       hookManager.value.configuredAgentOutcomes !== undefined
@@ -601,14 +601,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
     const currentOutcomes = (yield* Effect.forEach(operations, (operation) =>
-      operation.targetEnabled &&
+      operation.plannedState === "enabled" &&
       operation.extensionType === "hook" &&
       Option.isSome(hookManager) &&
       hookManager.value.configuredAgentOutcomes !== undefined
         ? hookManager.value
             .configuredAgentOutcomes("current")
             .pipe(Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)))
-        : operation.targetEnabled
+        : operation.plannedState === "enabled"
           ? ws.records.getExtensionInventory(operation.extensionType, {}).pipe(
               Effect.map(
                 (inventory) =>
@@ -619,7 +619,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
                     agentIds: configuredAgents,
                     scope: ws.scope,
                     state: "current",
-                    enabled: true,
+                    targetState: "enabled",
                     installed: false,
                   }),
               ),
@@ -631,7 +631,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
                 agentIds: configuredAgents,
                 scope: ws.scope,
                 state: "current",
-                enabled: false,
+                targetState: operation.plannedState,
                 installed: false,
               }),
             ),

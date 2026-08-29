@@ -211,8 +211,8 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
               const result = yield* step.run;
               if (
                 result.result === "error" ||
-                result.message === "not installed" ||
-                result.message.includes("Kept on disk")
+                result.disposition === "unchanged" ||
+                result.message.includes("retained its package")
               ) {
                 return result;
               }

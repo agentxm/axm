@@ -667,7 +667,7 @@ describe("HTTP registry transport", () => {
     }
   });
 
-  it("recovers an immutable partial publish and converges on the repeated command", async () => {
+  it("settles a transient pre-commit failure with one exact replay", async () => {
     const registry = await startHttpRegistry({ failPublishOnce: ["skills/retry-second"] });
     const workspace = createTempDir();
 
@@ -691,62 +691,14 @@ describe("HTTP registry transport", () => {
         ],
         { cwd: workspace.path, env: registryEnv(registry.url) },
       );
-      expect(initial.exitCode).not.toBe(0);
-      expect(registry.publishes).toHaveLength(1);
-      const initialOutput: unknown = JSON.parse(initial.stdout);
-      if (!isRecord(initialOutput) || !isRecord(initialOutput["result"])) {
-        throw new Error("Expected partial publish result");
-      }
-      const recovery = initialOutput["result"]["recovery"];
-      if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
-        throw new Error("Expected executable recovery command");
-      }
-      expect(recovery["cmd"]).toContain("axm publish --on-existing verify");
-      expect(recovery["cmd"]).not.toContain(`${OWNER}/skills/retry-first`);
-      expect(recovery["cmd"]).toContain(`${OWNER}/skills/retry-second`);
-      expect(recovery).toMatchObject({
-        remainingItems: [`${OWNER}/skills/retry-second`],
-        blockedDependents: [],
-      });
-      expect(initialOutput["result"]["execution"]).toMatchObject({
+      expect(initial.exitCode, initial.stderr).toBe(0);
+      expect(registry.publishes).toHaveLength(2);
+      const initialOutput = JSON.parse(initial.stdout);
+      expect(initialOutput.result.execution).toMatchObject({
         outcomes: [
-          { name: "retry-first", status: "success" },
-          {
-            name: "retry-second",
-            status: "failed",
-            cause: {
-              retryable: true,
-              attemptCount: 1,
-              maxAttempts: 1,
-              attemptsExhausted: true,
-              retryStoppedBy: "replay-unsafe",
-            },
-          },
+          { name: "retry-first", status: "success", settlement: "response" },
+          { name: "retry-second", status: "success", settlement: "replay" },
         ],
-      });
-
-      const recoveryArgs = recovery["cmd"].split(" ").slice(1);
-      const firstRecovery = await runCli(recoveryArgs, {
-        cwd: workspace.path,
-        env: registryEnv(registry.url),
-      });
-      expect(firstRecovery.exitCode, firstRecovery.stderr).toBe(0);
-      expect(registry.publishes).toHaveLength(2);
-      expect(JSON.parse(firstRecovery.stdout).result.execution.outcomes).toMatchObject([
-        { name: "retry-second", status: "success" },
-      ]);
-
-      const secondRecovery = await runCli(recoveryArgs, {
-        cwd: workspace.path,
-        env: registryEnv(registry.url),
-      });
-      expect(secondRecovery.exitCode, secondRecovery.stderr).toBe(0);
-      expect(registry.publishes).toHaveLength(2);
-      expect(JSON.parse(secondRecovery.stdout).result.counts).toMatchObject({
-        published: 0,
-        alreadyPublished: 1,
-        failed: 0,
-        blocked: 0,
       });
     } finally {
       await registry.close();
@@ -869,7 +821,7 @@ describe("HTTP registry transport", () => {
   });
 
   it("blocks only a pack whose included dependency upload fails", async () => {
-    const registry = await startHttpRegistry({ failPublishOnce: ["skills/failing-member"] });
+    const registry = await startHttpRegistry({ rejectPublish: ["skills/failing-member"] });
     const workspace = createTempDir();
 
     try {

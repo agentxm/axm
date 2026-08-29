@@ -160,7 +160,7 @@ const handleWorkspaceUpdateBody = (
             ),
           ]
             .filter((name) => !nonConvergingNames.has(name))
-            .map((name) => ({ extensionType, name, targetEnabled: true })),
+            .map((name) => ({ extensionType, name, plannedState: "enabled" as const })),
       }),
     );
     const resolution = yield* previewOrApplyPlan(planResult.plan, { execution });

@@ -311,6 +311,20 @@ knowledge:
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:4d712b066d01aebfae6c09063eb831554df49354a6bec36d9a78aaf05a0dfaa2
+  software-engineering:
+    type: registry
+    sourceType: registry
+    endpoint: https://registry.agentxm.ai/
+    extensionType: knowledge
+    workspaceName: software-engineering
+    packageFormat: agentxm
+    owner: "@craigsmitham"
+    name: software-engineering
+    resolvedVersion: 2.0.0
+    integrity: sha512-E0YMPIDQtHDiX1CTbWy3RMb3r6793M7VPKcuywvhFItL/ZJAcmzWfXa0Hj1Avl2rqHusWHZTN5rjRKz8Mhbbmg==
+    sourceName: agentxm
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    treeIntegrity: sha256-tree-v1:70c31421fd6a11a594cd76a9b027443494a2dcc7402656d20626e3ff50a4abeb
 packs:
   field-notes:
     type: registry

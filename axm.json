@@ -14,7 +14,8 @@
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm",
-    "workflow-automation": "agentxm:@craigsmitham/knowledge/workflow-automation"
+    "workflow-automation": "agentxm:@craigsmitham/knowledge/workflow-automation",
+    "software-engineering": "agentxm:@craigsmitham/knowledge/software-engineering"
   },
   "packs": {
     "field-notes": "agentxm:@craigsmitham/packs/field-notes",

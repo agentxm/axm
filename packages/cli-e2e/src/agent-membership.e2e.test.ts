@@ -3,6 +3,18 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: ["cli/agents/membership-changes-realize-affected-outputs"],
+  boundary: "process",
+  rationale:
+    "Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.",
+} as const;
+
 const readAgents = (workspace: string): ReadonlyArray<string> => {
   const settings: unknown = JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"));
   if (typeof settings !== "object" || settings === null || !("agents" in settings)) return [];

@@ -23,6 +23,7 @@ export const executionBinding = {
   requirements: [
     "cli/install/direct-intent-recorded-and-realized",
     "cli/install/reinstall-is-idempotent",
+    "cli/extension-types/every-type-completes-the-shared-lifecycle",
   ],
   boundary: "process",
   rationale:

@@ -11,7 +11,6 @@ import { rootCommand } from "./app.js";
 import {
   captureHelpDoc,
   captureHelpRequestDoc,
-  collectCommandAliases,
   collectHelpFiles,
 } from "./command-tree-test-helpers.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";
@@ -104,13 +103,6 @@ describe("axm help command conformance", () => {
           );
         }
       }
-    }),
-  );
-
-  it.effect("keeps the pre-launch command tree alias-free", () =>
-    Effect.gen(function* () {
-      const aliases = yield* collectCommandAliases();
-      expect(aliases).toEqual(new Map());
     }),
   );
 

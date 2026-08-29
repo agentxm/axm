@@ -22,11 +22,15 @@ import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
 import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
 import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
 import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import {
+  SkillManagerLive,
+  makeAxmSkillCompatibilityPolicyLayer,
+} from "@agentxm/client-core/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+import * as Effect from "effect/Effect";
+
 import {
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
   type TestPromptConfig,
@@ -58,7 +62,11 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   });
 
   const workspaceServiceLayer = Layer.provideMerge(
-    Layer.mergeAll(SourceHostProvidersLive, CodingAgentRepositoryLive),
+    Layer.mergeAll(
+      SourceHostProvidersLive,
+      CodingAgentRepositoryLive,
+      makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
+    ),
     context.fullLayer,
   );
   const coreExtensions = Layer.mergeAll(
@@ -79,7 +87,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     /** Absolute project root of the temporary workspace. */
     root,
     layer,
-    provide: makeEffectProvide(layer),
+    provide: Effect.provide(layer),
     rendererState: context.rendererState,
     logs: context.logs,
     readSettings: (): unknown => JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8")),

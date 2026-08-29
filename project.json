@@ -2,7 +2,10 @@
   "$schema": "./node_modules/nx/schemas/project-schema.json",
   "name": "axm",
   "root": ".",
-  "tags": ["type:tooling", "scope:root"],
+  "tags": [
+    "type:tooling",
+    "scope:root"
+  ],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint",
@@ -32,8 +35,15 @@
     "scripts-typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build", "core:build"],
-      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals"
+      ],
       "options": {
         "command": "pnpm scripts-typecheck",
         "cwd": "."
@@ -42,9 +52,18 @@
     "scripts-test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build", "core:build"],
-      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
-      "outputs": ["{workspaceRoot}/test-results/scripts"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "sharedGlobals"
+      ],
+      "outputs": [
+        "{workspaceRoot}/test-results/scripts"
+      ],
       "options": {
         "command": "pnpm scripts-test",
         "cwd": "."
@@ -53,7 +72,9 @@
     "test-report": {
       "executor": "nx:run-commands",
       "cache": false,
-      "outputs": ["{workspaceRoot}/test-results/allure-report"],
+      "outputs": [
+        "{workspaceRoot}/test-results/allure-report"
+      ],
       "options": {
         "command": "scripts/with-allure-report.sh pnpm test",
         "cwd": "."
@@ -66,7 +87,9 @@
         "{workspaceRoot}/allurerc.ts",
         "{workspaceRoot}/test-results/**/allure-results/**/*"
       ],
-      "outputs": ["{workspaceRoot}/test-results/allure-report"],
+      "outputs": [
+        "{workspaceRoot}/test-results/allure-report"
+      ],
       "options": {
         "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
         "cwd": "."
@@ -83,7 +106,10 @@
     "release-prepare": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm release-prepare",
         "cwd": "."
@@ -92,7 +118,10 @@
     "release-publish": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm release-publish",
         "cwd": "."
@@ -101,7 +130,10 @@
     "release-publish-local": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm release-publish-local",
         "cwd": "."
@@ -110,7 +142,10 @@
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm validate-release-tag",
         "cwd": "."
@@ -119,7 +154,10 @@
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm resolve-release-meta",
         "cwd": "."
@@ -128,7 +166,10 @@
     "download-ci-binaries": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "utils:build",
+        "core:build"
+      ],
       "options": {
         "command": "pnpm download-ci-binaries",
         "cwd": "."
@@ -180,27 +221,12 @@
         "cwd": "."
       }
     },
-    "verify-e2e-boundaries": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "inputs": [
-        "{workspaceRoot}/package.json",
-        "{workspaceRoot}/scripts/**/*",
-        "sharedGlobals",
-        "{workspaceRoot}/packages/e2e-utils/package.json",
-        "{workspaceRoot}/packages/e2e-utils/**/tsconfig*.json",
-        "{workspaceRoot}/packages/cli-e2e/package.json",
-        "{workspaceRoot}/packages/cli-e2e/**/tsconfig*.json"
-      ],
-      "options": {
-        "command": "pnpm verify-e2e-boundaries",
-        "cwd": "."
-      }
-    },
     "generate-registry": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": [
+        "utils:build"
+      ],
       "options": {
         "command": "pnpm generate-registry",
         "cwd": "."
@@ -209,7 +235,9 @@
     "generate-telemetry": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build"],
+      "dependsOn": [
+        "utils:build"
+      ],
       "options": {
         "command": "pnpm generate-telemetry",
         "cwd": "."

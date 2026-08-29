@@ -63,9 +63,13 @@ no build target. The catalog generator and selection runner live in
 
 ## Fast-suite performance budget
 
-The in-memory specification suite must report at most 60 seconds of total
+The in-memory specification suite must report at most 120 seconds of total
 vitest suite time, enforced by `scripts/check-spec-budget-lib.ts` after
-`pnpm test:spec`. Raising the budget is a deliberate revision of this record.
+`pnpm test:spec`. The initial 60-second pilot budget was revised to 120
+seconds when the full first migration wave (55 specifications, 251 tests,
+~37 seconds unloaded and ~67 seconds under full-workspace load) left too
+little headroom for suite-load variance. Raising the budget again is a
+deliberate revision of this record.
 
 ## Selection by requirement identity
 

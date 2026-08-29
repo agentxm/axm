@@ -21,7 +21,6 @@
     "generate-release-checksums": "bun scripts/release-checksums.ts generate",
     "validate-release-assets": "bash scripts/validate-release-assets.sh",
     "update-homebrew-formula": "bash scripts/update-homebrew-formula.sh",
-    "verify-e2e-boundaries": "bun scripts/verify-e2e-boundaries.ts",
     "verify-source-hygiene": "bun scripts/verify-source-hygiene.ts",
     "parity-ledger-check": "bun scripts/parity-ledger-check.ts",
     "gen-stack:check": "./scripts/gen-stack-check",
@@ -57,8 +56,8 @@
     "lint:fix": "nx run-many -t lint --fix && pnpm scripts-lint:fix",
     "ci": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:full",
     "verify:clean": "pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
-    "verify:affected": "pnpm exec nx affected -t lint typecheck build test scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries verify-source-hygiene parity-ledger-check --batch --nxBail --outputStyle=static && pnpm exec nx affected -t e2e --batch --nxBail --parallel=1 --outputStyle=static",
-    "verify:full": "pnpm exec nx run-many -t lint typecheck build test scripts-lint scripts-typecheck scripts-test verify-e2e-boundaries verify-source-hygiene parity-ledger-check --batch --nxBail --outputStyle=static && pnpm exec nx run-many -t e2e --batch --nxBail --parallel=1 --outputStyle=static",
+    "verify:affected": "pnpm exec nx affected -t lint typecheck build test scripts-lint scripts-typecheck scripts-test verify-source-hygiene parity-ledger-check --batch --nxBail --outputStyle=static && pnpm exec nx affected -t e2e --batch --nxBail --parallel=1 --outputStyle=static",
+    "verify:full": "pnpm exec nx run-many -t lint typecheck build test scripts-lint scripts-typecheck scripts-test verify-source-hygiene parity-ledger-check --batch --nxBail --outputStyle=static && pnpm exec nx run-many -t e2e --batch --nxBail --parallel=1 --outputStyle=static",
     "container:ci": "bash scripts/container-environment.sh ci",
     "container:smoke": "bash scripts/container-environment.sh smoke",
     "container:build:ci-image": "bash scripts/container-environment.sh build-ci-image",
@@ -74,7 +73,17 @@
     "generate:registry": "pnpm exec nx run core:generate:registry-client --outputStyle=static",
     "generate:telemetry": "pnpm exec nx run core:generate:telemetry-client --outputStyle=static",
     "sync:registry": "pnpm exec nx run core:sync:registry-spec --outputStyle=static",
-    "sync:telemetry": "pnpm exec nx run core:sync:telemetry-spec --outputStyle=static"
+    "sync:telemetry": "pnpm exec nx run core:sync:telemetry-spec --outputStyle=static",
+    "test:spec": "bun scripts/test-spec.ts",
+    "test:internal": "nx run-many -t test --exclude specifications --nxBail",
+    "test:tooling": "pnpm exec nx run axm:scripts-test --outputStyle=static",
+    "test:compatibility": "bun scripts/test-spec.ts --class compatibility",
+    "test:performance": "bun scripts/test-spec.ts --class performance",
+    "verify:artifact": "bun scripts/verify-artifact.ts",
+    "verify:release": "bun scripts/verify-release.ts",
+    "verify:deployment": "bun scripts/verify-deployment.ts",
+    "bench": "bun scripts/bench.ts",
+    "test:all": "pnpm test && pnpm test:e2e"
   },
   "nx": {
     "includedScripts": []

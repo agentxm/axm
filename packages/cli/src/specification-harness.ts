@@ -46,6 +46,32 @@ export { resolveRootInstallIntent } from "./root/install/resolve-root-install-in
 export { PLAN_RESULT_CONTRACT, PlanResolutionDocumentSchema } from "./operation-output.js";
 export { handleUninstall } from "./root/uninstall/handler.js";
 export { handleSync } from "./root/sync/handler.js";
+export { handleUpdate } from "./root/update/handler.js";
+export { ExtensionListDocumentSchema, handleList } from "./root/list/command.js";
+export { handleView } from "./root/view/handler.js";
+export { SetupDocumentSchema, handleSetup } from "./root/setup.js";
+export { LintResultDocumentSchema, handleLint } from "./root/lint/handler.js";
+export {
+  handleInstructionsDisable,
+  handleInstructionsEnable,
+  handleInstructionsStatus,
+} from "./root/instructions.js";
+export { handleAgentsAdd } from "./root/agents/add.js";
+export { handleAgentsRemove } from "./root/agents/remove.js";
+export { handleAgentsList } from "./root/agents/list.js";
+export { handleEnable as handleSkillsEnable } from "./root/skills/enable.js";
+export { handleDisable as handleSkillsDisable } from "./root/skills/disable.js";
+export { handleMcpsAdd } from "./root/mcps/add.js";
+export { handleUninstallMcpServer } from "./root/mcps/uninstall/handler.js";
+export { handleEnableMcpServer } from "./root/mcps/enable.js";
+export { handleDisableMcpServer } from "./root/mcps/disable.js";
+export { handleListMcpServers } from "./root/mcps/list.js";
+export { handlePacksAdd } from "./root/packs/add.js";
+export { handlePacksRemove } from "./root/packs/remove.js";
+export { handlePacksNew } from "./root/packs/new.js";
+export { handlePacksShow } from "./root/packs/show.js";
+export { handlePackActivation } from "./root/packs/activation.js";
+export { handleRootPublish } from "./root/publish/command.js";
 export { makeAxmFormatter } from "./formatter.js";
 export { ExecutionDirectory, type ExecutionDirectoryService } from "./execution-directory.js";
 export {
@@ -57,3 +83,6 @@ export {
   collectHelpFiles,
   formatCommandPath,
 } from "./command-tree-test-helpers.js";
+export { rootCommand } from "./app.js";
+export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
+export { loadVersion } from "./version.js";

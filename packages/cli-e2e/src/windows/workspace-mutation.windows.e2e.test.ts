@@ -4,6 +4,17 @@ import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes. The
+ * literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: ["system/compatibility/supported-platform-matrix"],
+  boundary: "platform",
+  rationale:
+    "Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.",
+} as const;
+
 const runCli = (args: ReadonlyArray<string>, options?: Parameters<typeof runBaseCli>[1]) =>
   runBaseCli(["--verbose", ...args], options);
 

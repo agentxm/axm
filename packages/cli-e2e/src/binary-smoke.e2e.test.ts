@@ -7,6 +7,17 @@ import { describe, expect, it } from "vitest";
 
 import { resolveBinaryPath } from "./distribution-targets.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes. The
+ * literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: ["system/compatibility/supported-platform-matrix"],
+  boundary: "binary",
+  rationale:
+    "Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.",
+} as const;
+
 const binaryPath = resolveBinaryPath();
 
 const runBinary = createBinaryRunner(binaryPath);

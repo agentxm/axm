@@ -12,6 +12,17 @@ import {
   resolveInstallMode,
 } from "./distribution-targets.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes. The
+ * literal shape is read by the specification catalog.
+ */
+export const executionBinding = {
+  requirements: ["system/installability/product-installs-through-supported-channels"],
+  boundary: "installed",
+  rationale:
+    "Runs the published installer scripts end to end against a served release layout, proving checksum verification, PATH guidance, and a working installed product.",
+} as const;
+
 const installMode = resolveInstallMode();
 const expectedVersion = process.env["AXM_EXPECTED_VERSION"];
 const fixtureBinaryPath = resolveBinaryPath();

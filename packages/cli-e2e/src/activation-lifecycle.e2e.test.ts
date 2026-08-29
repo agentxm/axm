@@ -4,6 +4,21 @@ import { describe, expect, it } from "vitest";
 import { EXTENSION_TYPE_MATRIX } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/extension-types/every-type-completes-the-shared-lifecycle",
+    "cli/extension-types/activation-follows-desired-state",
+  ],
+  boundary: "process",
+  rationale:
+    "Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.",
+} as const;
+
 const readJson = (filePath: string): Record<string, unknown> =>
   JSON.parse(fs.readFileSync(filePath, "utf8"));
 

@@ -21,6 +21,22 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  * rows run the same flows against a local HTTP server instead.
  */
 
+/**
+ * Binds this file's evidence to the requirement identities it executes at the
+ * process boundary. The literal shape is read by the specification catalog;
+ * cli-e2e deliberately has no code dependency on the specifications package.
+ */
+export const executionBinding = {
+  requirements: [
+    "cli/update/advances-resolution-within-intent",
+    "cli/publish/preview-is-pure-and-gate-is-fixed",
+    "client-core/source-resolution/locator-grammar-is-stable",
+  ],
+  boundary: "process",
+  rationale:
+    "Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.",
+} as const;
+
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 

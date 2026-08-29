@@ -57,8 +57,4 @@ export const intents = defineIntents({
     outcome:
       "AXM changes and releases land through the governed repository process with required evidence and human approval.",
   },
-  "responsive-operation": {
-    outcome:
-      "Common operations complete fast enough to sit inside interactive and agent workflows.",
-  },
 });

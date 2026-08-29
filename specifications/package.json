@@ -24,6 +24,7 @@
     "allure-js-commons": "catalog:",
     "effect": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }

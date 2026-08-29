@@ -86,6 +86,27 @@ jobs:
       - name: Verify formatting
         run: pnpm run format:check
 
+  specification-verdict:
+    name: Specification verdict
+    needs: classify
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Create local main ref for the requirement diff
+        run: git fetch --no-tags origin main:main
+
+      - name: Render the per-change specification verdict
+        run: bun scripts/specification-verdict.ts --base "$(git merge-base main HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+
   extension-lint:
     name: AXM extension lint
     needs: classify
@@ -544,6 +565,7 @@ jobs:
     needs:
       - classify
       - format
+      - specification-verdict
       - extension-lint
       - documentation
       - gen-stack

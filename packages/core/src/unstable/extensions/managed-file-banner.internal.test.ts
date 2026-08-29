@@ -29,7 +29,11 @@ name: reviewer
 Review code.`;
 
     const result = insertManagedFileBanner(content, {
-      editPath: "agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
+      ext: "@acme/subagents/reviewer",
+      source: {
+        kind: "acquired",
+        path: "agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
+      },
       helpTopic: "subagents",
       format: "markdown",
     });
@@ -38,9 +42,9 @@ Review code.`;
 name: reviewer
 ---
 <!-- axm:file v=1 ext=@acme/subagents/reviewer src=agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md
-     AXM managed file — do not edit directly, instead:
-     1. Edit: agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md
-     2. Sync: \`axm sync\`
+     AXM managed projection — do not edit directly.
+     Source: agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md (acquired, immutable)
+     Use \`axm fork\` to create an authored copy before customizing.
      Learn more: \`axm help subagents\` -->
 
 
@@ -49,16 +53,16 @@ Review code.`);
 
   it("inserts markdown banner at the top without frontmatter", () => {
     const result = insertManagedFileBanner("Review code.", {
-      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      ext: "@acme/rules/review",
+      source: { kind: "workspace-authored", path: "rules/review/src/review.md" },
       helpTopic: "rules",
       format: "markdown",
     });
 
-    expect(result)
-      .toBe(`<!-- axm:file v=1 ext=@acme/rules/review src=agent_extensions/agentxm/@acme/rules/review/src/review.md
-     AXM managed file — do not edit directly, instead:
-     1. Edit: agent_extensions/agentxm/@acme/rules/review/src/review.md
-     2. Sync: \`axm sync\`
+    expect(result).toBe(`<!-- axm:file v=1 ext=@acme/rules/review src=rules/review/src/review.md
+     AXM managed projection — do not edit directly.
+     Source: rules/review/src/review.md
+     Change the source, then run \`axm sync\`.
      Learn more: \`axm help rules\` -->
 
 Review code.`);
@@ -66,31 +70,70 @@ Review code.`);
 
   it("prepends TOML banner", () => {
     const result = insertManagedFileBanner('prompt = "Review code."\n', {
-      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      ext: "@acme/rules/review",
+      source: {
+        kind: "acquired",
+        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      },
       helpTopic: "rules",
       format: "toml",
     });
 
     expect(result)
       .toBe(`# axm:file v=1 ext=@acme/rules/review src=agent_extensions/agentxm/@acme/rules/review/src/review.md
-# AXM managed file — do not edit directly, instead:
-# 1. Edit: agent_extensions/agentxm/@acme/rules/review/src/review.md
-# 2. Sync: \`axm sync\`
+# AXM managed projection — do not edit directly.
+# Source: agent_extensions/agentxm/@acme/rules/review/src/review.md (acquired, immutable)
+# Use \`axm fork\` to create an authored copy before customizing.
 # Learn more: \`axm help rules\`
 
 prompt = "Review code."
 `);
   });
 
+  it("names workspace configuration without presenting it as an authored package", () => {
+    const result = insertManagedFileBanner("# Workspace\n", {
+      ext: "@agentxm/instructions/alias",
+      source: { kind: "workspace-config", path: "AGENTS.md" },
+      helpTopic: "instructions",
+      format: "markdown",
+    });
+
+    expect(result).toContain("Configuration source: AGENTS.md");
+    expect(result).toContain("Change the configuration source, then run `axm sync`.");
+    expect(result).not.toContain("Use `axm fork`");
+  });
+
+  it("identifies bundled sources without offering an edit path", () => {
+    const result = insertManagedFileBanner("# Review\n", {
+      ext: "@agentxm/subagents/reviewer",
+      source: { kind: "bundled", path: "bundled/subagents/reviewer.md" },
+      helpTopic: "subagents",
+      format: "markdown",
+    });
+
+    expect(result).toContain("Source: bundled/subagents/reviewer.md (bundled with AXM)");
+    expect(result).toContain("Manage this source through AXM; do not modify it directly.");
+    expect(result).not.toContain("Change the source");
+    expect(result).not.toContain("Use `axm fork`");
+  });
+
   it("does not duplicate an existing banner", () => {
     const first = insertManagedFileBanner("Review code.", {
-      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      ext: "@acme/rules/review",
+      source: {
+        kind: "acquired",
+        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      },
       helpTopic: "rules",
       format: "markdown",
     });
 
     const second = insertManagedFileBanner(first, {
-      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      ext: "@acme/rules/review",
+      source: {
+        kind: "acquired",
+        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+      },
       helpTopic: "rules",
       format: "markdown",
     });
@@ -103,7 +146,11 @@ prompt = "Review code."
     expect(hasManagedFileBanner(prose)).toBe(false);
     expect(
       insertManagedFileBanner(prose, {
-        editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+        ext: "@acme/rules/review",
+        source: {
+          kind: "acquired",
+          path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+        },
         helpTopic: "rules",
         format: "markdown",
       }),
@@ -121,8 +168,9 @@ prompt = "Review code."
 
   it("strips an existing markdown banner", () => {
     const content = insertManagedFileBanner("# Workspace\n", {
-      editPath: "AGENTS.md",
-      helpTopic: "rules",
+      ext: "@agentxm/rules/managed-file",
+      source: { kind: "workspace-config", path: "AGENTS.md" },
+      helpTopic: "instructions",
       format: "markdown",
     });
 
@@ -131,7 +179,8 @@ prompt = "Review code."
 
   it.each(["\n", "\r\n"])("strips markdown and TOML banners under %j", (eol) => {
     const markdown = insertManagedFileBanner("---\nname: review\n---\n# Body\n", {
-      editPath: "source.md",
+      ext: "@acme/rules/review",
+      source: { kind: "workspace-authored", path: "source.md" },
       helpTopic: "rules",
       format: "markdown",
     }).replaceAll("\n", eol);
@@ -141,7 +190,8 @@ prompt = "Review code."
 
     const tomlBody = 'prompt = "Review"\n';
     const toml = insertManagedFileBanner(tomlBody, {
-      editPath: "source.md",
+      ext: "@agentxm/subagents/managed-file",
+      source: { kind: "bundled", path: "source.md" },
       helpTopic: "rules",
       format: "toml",
     }).replaceAll("\n", eol);

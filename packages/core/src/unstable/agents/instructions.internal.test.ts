@@ -579,11 +579,12 @@ describe("agent instructions", () => {
 
         expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
         expect(first).toContain("axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md");
-        expect(first).toContain("AXM managed file");
-        expect(first).toContain("Edit: AGENTS.md");
+        expect(first).toContain("AXM managed projection");
+        expect(first).toContain("Configuration source: AGENTS.md");
+        expect(first).toContain("Change the configuration source, then run `axm sync`.");
         expect(first).toContain("# Workspace\n");
         expect(second).toBe(first);
-        expect(second.match(/AXM managed file/g)?.length).toBe(1);
+        expect(second.match(/AXM managed projection/g)?.length).toBe(1);
         expect(secondResult.written).toEqual([]);
         expect(secondResult.snapshot.status.items.every((item) => item.health === "ok")).toBe(true);
         expect(

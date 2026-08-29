@@ -640,7 +640,7 @@ const withManagedCopyBanner = (args: {
   const format = managedFileFormatForPath(args.targetPath);
   if (format === undefined) return args.content;
   return insertManagedFileBanner(args.content, {
-    editPath: args.sourceFileName,
+    source: { kind: "workspace-config", path: args.sourceFileName },
     helpTopic: "instructions",
     format,
     ext: INSTRUCTION_ALIAS_EXT,

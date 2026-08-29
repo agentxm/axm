@@ -263,6 +263,20 @@ never here.
   - `cli/machine-mode-never-prompts#machine-mode-blocks-without-prompting` — a setup that needs interactive input reports approval required without raising any prompt
   - `cli/machine-mode-never-prompts#interactive-mode-prompts-for-the-same-request` — the same request prompts and honors the answer when machine output is off
 
+### Managed Projection Guidance Respects Authority
+
+#### Managed projections name editable sources only when the workspace owns them
+
+- Requirement: `cli/managed-projection-guidance-respects-authority`
+- Class: functional
+- Intents: `workspace-intent-fidelity`, `agent-interoperability`, `knowledge-access`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`specifications/cli/managed-projection-guidance-respects-authority.spec.ts`](../specifications/cli/managed-projection-guidance-respects-authority.spec.ts)
+- Cases:
+  - `cli/managed-projection-guidance-respects-authority#authored-source-named` — a workspace-authored package names its canonical content as the editable source
+  - `cli/managed-projection-guidance-respects-authority#acquired-source-not-editable` — an acquired package retains provenance without presenting accepted content as editable
+
 ### Mcps
 
 #### Inline MCP entries stay authoritative workspace configuration realized only by sync

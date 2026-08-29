@@ -334,9 +334,13 @@ describe("SubagentManager", () => {
           ],
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
-        expect(addSubagentCalls[0]?.editSourcePath).toBe(
-          "agent_extensions/local/sources/planner/src/planner.md",
-        );
+        expect(addSubagentCalls[0]?.managedFile).toEqual({
+          ext: "@acme/subagents/planner",
+          source: {
+            kind: "acquired",
+            path: "agent_extensions/local/sources/planner/src/planner.md",
+          },
+        });
         expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
@@ -450,7 +454,10 @@ describe("SubagentManager", () => {
           );
         }
         const content = nodeFs.readFileSync(skillPath, "utf8");
-        expect(content).toContain("AXM managed file");
+        expect(content).toContain("AXM managed projection");
+        expect(content).toContain("(acquired, immutable)");
+        expect(content).toContain("Use `axm fork`");
+        expect(content).not.toContain("Edit:");
         expect(content).toContain("advisory role-skill fallback");
         expect(captured).toHaveProperty("contentIdentity");
         expect(captured).not.toHaveProperty("renderedFiles");

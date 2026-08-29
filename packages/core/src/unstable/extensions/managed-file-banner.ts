@@ -13,11 +13,20 @@ import { parseFrontmatterSync } from "./frontmatter.js";
 
 export type ManagedFileFormat = "markdown" | "toml";
 
-export interface ManagedFileBannerOptions {
-  readonly editPath: string;
+export type ManagedFileSource =
+  | { readonly kind: "workspace-authored"; readonly path: string }
+  | { readonly kind: "workspace-config"; readonly path: string }
+  | { readonly kind: "acquired"; readonly path: string }
+  | { readonly kind: "bundled"; readonly path: string };
+
+export interface ManagedFileProvenance {
+  readonly ext: string;
+  readonly source: ManagedFileSource;
+}
+
+export interface ManagedFileBannerOptions extends ManagedFileProvenance {
   readonly helpTopic: string;
   readonly format: ManagedFileFormat;
-  readonly ext?: string | undefined;
 }
 
 export const managedFileFormatForPath = (filePath: string): ManagedFileFormat | undefined => {
@@ -31,47 +40,64 @@ const styleFor = (format: ManagedFileFormat): FileCommentStyle =>
     ? { kind: "block", open: "<!--", close: "-->" }
     : { kind: "line", prefix: "#" };
 
-const extFromEditPath = (options: ManagedFileBannerOptions): string => {
-  if (options.ext !== undefined) return options.ext;
-  const match = options.editPath
-    .replaceAll("\\", "/")
-    .match(
-      /(?:^|\/)agent_extensions\/[^/]+\/(@[^/]+)\/(skills|subagents|mcps|rules|hooks|knowledge|packs)\/([^/]+)/u,
-    );
-  const owner = match?.[1];
-  const type = match?.[2];
-  const name = match?.[3];
-  return owner !== undefined && type !== undefined && name !== undefined
-    ? `${owner}/${type}/${name}`
-    : `@agentxm/${options.helpTopic}/managed-file`;
-};
-
 const markerLine = (options: ManagedFileBannerOptions): string =>
   serializeMarker(
     {
       kind: MARKER_KIND_FILE,
       v: MARKER_VERSION,
-      ext: extFromEditPath(options),
-      src: options.editPath,
+      ext: options.ext,
+      src: options.source.path,
     },
     styleFor(options.format),
   );
 
+const guidanceLines = (options: ManagedFileBannerOptions): ReadonlyArray<string> => {
+  switch (options.source.kind) {
+    case "workspace-authored":
+      return [
+        "AXM managed projection — do not edit directly.",
+        `Source: ${options.source.path}`,
+        "Change the source, then run `axm sync`.",
+      ];
+    case "workspace-config":
+      return [
+        "AXM managed projection — do not edit directly.",
+        `Configuration source: ${options.source.path}`,
+        "Change the configuration source, then run `axm sync`.",
+      ];
+    case "acquired":
+      return [
+        "AXM managed projection — do not edit directly.",
+        `Source: ${options.source.path} (acquired, immutable)`,
+        "Use `axm fork` to create an authored copy before customizing.",
+      ];
+    case "bundled":
+      return [
+        "AXM managed projection — do not edit directly.",
+        `Source: ${options.source.path} (bundled with AXM)`,
+        "Manage this source through AXM; do not modify it directly.",
+      ];
+  }
+};
+
 const makeMarkdownBanner = (options: ManagedFileBannerOptions): string => {
   const marker = markerLine(options);
+  const guidance = guidanceLines(options)
+    .map((line) => `     ${line}`)
+    .join("\n");
   return `${marker.slice(0, -" -->".length)}
-     AXM managed file — do not edit directly, instead:
-     1. Edit: ${options.editPath}
-     2. Sync: \`axm sync\`
+${guidance}
      Learn more: \`axm help ${options.helpTopic}\` -->`;
 };
 
-const makeTomlBanner = (options: ManagedFileBannerOptions): string =>
-  `${markerLine(options)}
-# AXM managed file — do not edit directly, instead:
-# 1. Edit: ${options.editPath}
-# 2. Sync: \`axm sync\`
+const makeTomlBanner = (options: ManagedFileBannerOptions): string => {
+  const guidance = guidanceLines(options)
+    .map((line) => `# ${line}`)
+    .join("\n");
+  return `${markerLine(options)}
+${guidance}
 # Learn more: \`axm help ${options.helpTopic}\``;
+};
 
 const markdownBodyStart = (content: string): number => {
   const parsed = parseFrontmatterSync(content);

@@ -15,6 +15,7 @@ import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { Handle } from "../extensions/handle.js";
+import type { ManagedFileProvenance } from "../extensions/managed-file-banner.js";
 import type { RenderedFilePath } from "../extensions/rendered-files.js";
 import type { ArtifactChange } from "../plan/plan.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
@@ -89,7 +90,7 @@ export type ResolveSubagentsDirOutcome =
 export interface AddSubagentArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
-  readonly editSourcePath: string;
+  readonly managedFile: ManagedFileProvenance;
   readonly input: SubagentRenderInput;
   readonly force: boolean;
 }

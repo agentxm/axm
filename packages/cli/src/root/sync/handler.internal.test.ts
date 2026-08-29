@@ -2147,7 +2147,10 @@ describe("root sync handler", () => {
       yield* first.provide(handleSync({ preview: false }));
 
       const fallbackPath = path.join(tempDir, ".agents", "skills", "researcher", "SKILL.md");
-      expect(fs.readFileSync(fallbackPath, "utf8")).toContain("src=subagents/researcher.md");
+      const fallback = fs.readFileSync(fallbackPath, "utf8");
+      expect(fallback).toContain("ext=@acme/subagents/researcher");
+      expect(fallback).toContain("src=subagents/researcher/src/researcher.md");
+      expect(fallback).toContain("Change the source, then run `axm sync`.");
 
       const second = makeLayers({ machine: true });
       yield* second.provide(handleSync({ preview: true, failOnChange: true }));

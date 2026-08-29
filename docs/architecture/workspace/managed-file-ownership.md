@@ -79,8 +79,13 @@ claiming a published extension.
 
 Hook command entries use `x-axm` with `v: 1`, `managed: true`, a
 `unit: "hook:<name>"`, source, and reference. A path substring is never an
-ownership proof. Whole-file banners lead with `axm:file`; the numbered prose
-that follows is guidance and may change without affecting ownership.
+ownership proof. Whole-file banners lead with `axm:file`; the human-facing
+guidance that follows reflects source authority. Workspace-authored packages
+name the source to change before sync, workspace configuration names its
+configuration source, acquired packages retain immutable provenance and direct
+customization through `axm fork`, and bundled sources offer no edit path. The
+guidance may change without affecting ownership or requiring a new marker
+grammar version.
 
 `axm sync --preview --json` identifies each managed-region unit and exposes
 its `owner` provenance. `axm lint` reports unowned agent-directory artifacts,

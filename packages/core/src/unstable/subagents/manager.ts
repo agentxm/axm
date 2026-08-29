@@ -60,6 +60,7 @@ import {
   materializeExternalPackageWithTreeIntegrity,
   materializeRegistryPackageWithTreeIntegrity,
   RenderedFilePathSchema,
+  type ManagedFileProvenance,
   type SourceHash,
 } from "../extensions/index.js";
 import { MANIFEST_FILENAME, SubagentManifestSchema } from "./manifest-schema.js";
@@ -79,6 +80,7 @@ import {
   planSingletonProjection,
 } from "../projection/planning.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
+import { managedSubagentFile } from "./managed-file.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -155,11 +157,12 @@ export const SubagentManagerLive = Layer.effect(
       readonly name: string;
       readonly body: string;
       readonly description: string;
+      readonly managedFile: ManagedFileProvenance;
     }) =>
       insertManagedFileBanner(
         `---\nname: ${args.name}\ndescription: ${args.description}\n---\n\n# ${args.name} role\n\nAdopt this role for the current task. This is an advisory role-skill fallback because ${args.agentId} has no native subagent surface.\n\n${args.body.trim()}\n`,
         {
-          editPath: `subagents/${args.name}.md`,
+          ...args.managedFile,
           helpTopic: "subagents",
           format: "markdown",
         },
@@ -200,6 +203,7 @@ export const SubagentManagerLive = Layer.effect(
       readonly body: string;
       readonly description: string;
       readonly targetDir: string;
+      readonly managedFile: ManagedFileProvenance;
     }): Effect.Effect<SubagentSyncOutcome, ReturnType<typeof makeAppError>> =>
       Effect.gen(function* () {
         const polyfillHash = computeSourceHash(
@@ -443,13 +447,14 @@ export const SubagentManagerLive = Layer.effect(
 
         // --- Read content file ---
         const contentPath = subagentContentPath(path.join, subagentSrcPath, ref.subagent.name);
-        const editSourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
-        if (Option.isNone(editSourcePath)) {
+        const sourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+        if (Option.isNone(sourcePath)) {
           return yield* makeAppError({
             code: "internal",
             detail: `Subagent source path escapes workspace root: ${contentPath}`,
           });
         }
+        const managedFile = managedSubagentFile(ref, sourcePath.value);
         const { parsed } = yield* readSubagentContent(subagentSrcPath, ref.subagent.name);
 
         // --- Resolve configured agents ---
@@ -496,7 +501,7 @@ export const SubagentManagerLive = Layer.effect(
                     .addSubagent({
                       workspaceRoot: baseDir,
                       scope: ws.scope,
-                      editSourcePath: editSourcePath.value,
+                      managedFile,
                       input: {
                         agentId: agent.id,
                         name: ref.subagent.name,
@@ -535,6 +540,7 @@ export const SubagentManagerLive = Layer.effect(
                               body: parsed.body,
                               description,
                               targetDir: skillsOutcome.dir,
+                              managedFile,
                             }).pipe(
                               Effect.mapError((cause) =>
                                 makeAppError({
@@ -718,8 +724,9 @@ export const SubagentManagerLive = Layer.effect(
               }),
           });
       const contentPath = subagentContentPath(path.join, paths.subagentSrcPath, ref.subagent.name);
-      const editSourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
-      if (Option.isNone(editSourcePath)) return { present: false, current: false };
+      const sourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
+      if (Option.isNone(sourcePath)) return { present: false, current: false };
+      const managedFile = managedSubagentFile(ref, sourcePath.value);
       const { parsed } = yield* readSubagentContent(paths.subagentSrcPath, ref.subagent.name);
       const frontmatter: Readonly<Record<string, unknown>> = Option.getOrElse(
         parsed.frontmatter,
@@ -746,7 +753,7 @@ export const SubagentManagerLive = Layer.effect(
                 workspaceRoot: baseDir,
                 scope: ws.scope,
                 force: false,
-                editSourcePath: editSourcePath.value,
+                managedFile,
                 input: {
                   agentId: agent.id,
                   name: ref.subagent.name,
@@ -814,6 +821,7 @@ export const SubagentManagerLive = Layer.effect(
                   name: ref.subagent.name,
                   body: parsed.body,
                   description,
+                  managedFile,
                 });
                 return fs
                   .readFileString(path.join(path.normalize(skills.dir), sanitized, "SKILL.md"))

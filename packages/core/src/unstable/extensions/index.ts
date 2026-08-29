@@ -269,6 +269,8 @@ export {
   stripManagedFileBanner,
   type ManagedFileBannerOptions,
   type ManagedFileFormat,
+  type ManagedFileProvenance,
+  type ManagedFileSource,
 } from "./managed-file-banner.js";
 
 export {

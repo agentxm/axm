@@ -25,6 +25,7 @@ import { parseSubagentMd } from "../subagent-content.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { usableAcceptedCanonical } from "../../workspace/accepted-canonical-ref.js";
+import { managedSubagentFile } from "../managed-file.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does
@@ -99,13 +100,14 @@ export const enableSubagent: OperationHandler<
     // Read and parse the subagent content file
     const expectedFilename = subagentContentFilename(op.args.subagentName);
     const contentPath = subagentContentPath(path.join, subagentSrcPath, op.args.subagentName);
-    const editSourcePath = makeWorkspaceRelativePath(path, baseDir, contentPath);
-    if (Option.isNone(editSourcePath)) {
+    const sourcePath = makeWorkspaceRelativePath(path, baseDir, contentPath);
+    if (Option.isNone(sourcePath)) {
       return yield* makeAppError({
         code: "internal",
         detail: `Subagent source path escapes workspace root: ${contentPath}`,
       });
     }
+    const managedFile = managedSubagentFile(canonical.value.ref, sourcePath.value);
     const rawContent = yield* fs.readFileString(contentPath).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -149,7 +151,7 @@ export const enableSubagent: OperationHandler<
                 .addSubagent({
                   workspaceRoot: baseDir,
                   scope: ws.scope,
-                  editSourcePath: editSourcePath.value,
+                  managedFile,
                   input: {
                     agentId: agent.id,
                     name: op.args.subagentName,

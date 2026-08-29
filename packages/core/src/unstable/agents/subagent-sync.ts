@@ -40,7 +40,7 @@ export const renderManagedSubagentOutputs = (args: AddSubagentArgs) => {
           format === undefined
             ? output.content
             : insertManagedFileBanner(output.content, {
-                editPath: args.editSourcePath,
+                ...args.managedFile,
                 helpTopic: "subagents",
                 format,
               }),

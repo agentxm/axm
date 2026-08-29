@@ -40,7 +40,13 @@ const makeAddArgs = (
 ): AddSubagentArgs => ({
   workspaceRoot,
   scope: "project",
-  editSourcePath: `agent_extensions/@acme/subagents/${name}/src/${name}.md`,
+  managedFile: {
+    ext: `@acme/subagents/${name}`,
+    source: {
+      kind: "acquired",
+      path: `agent_extensions/@acme/subagents/${name}/src/${name}.md`,
+    },
+  },
   input: { ...makeRenderInput(name), agentId },
   force: false,
 });
@@ -209,10 +215,10 @@ describe("addSubagent", () => {
                 expect(filePath).toContain(expectedSubpath);
                 const content = yield* fs.readFileString(filePath);
                 expect(content.length).toBeGreaterThan(0);
-                expect(content).toContain("AXM managed file");
-                expect(content).toContain(
-                  "1. Edit: agent_extensions/@acme/subagents/test-subagent/src/test-subagent.md",
-                );
+                expect(content).toContain("AXM managed projection");
+                expect(content).toContain("(acquired, immutable)");
+                expect(content).toContain("Use `axm fork`");
+                expect(content).not.toContain("Edit:");
                 expect(content).toContain("Learn more: `axm help subagents`");
               }
             }
@@ -247,11 +253,11 @@ describe("addSubagent", () => {
               const content = yield* fs.readFileString(filePath);
               expect(content.length).toBeGreaterThan(0);
               if (filePath.endsWith(".md")) {
-                expect(content).toContain("AXM managed file");
+                expect(content).toContain("AXM managed projection");
                 expect(content).toContain("Learn more: `axm help subagents`");
               }
               if (filePath.endsWith(".json")) {
-                expect(content).not.toContain("AXM managed file");
+                expect(content).not.toContain("AXM managed projection");
               }
             }
           }

@@ -32,7 +32,9 @@ AXM owns extension packages and lifecycle: canonical and workspace state,
 projection into configured agents, composition, installation, distribution,
 activation, versioning, and removal. Creating or editing an extension can also
 require a semantic authoring workflow; use AXM to resolve the canonical package,
-then edit that source rather than a generated agent projection.
+then edit it only when the workspace owns that authored source. Registry, Git,
+and local-source packages are immutable accepted state; use `axm fork` to create
+an authored copy before customizing one. Never edit a generated agent projection.
 
 For MCP, AXM owns connection configuration and packaging: commands, URLs,
 arguments, environment-variable references, headers, installation, and

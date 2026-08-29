@@ -1,3 +1,13 @@
+## 0.28.2 (2026-08-29)
+
+### 🩹 Fixes
+
+- Remove low-value CLI action service layers and redundant wrappers.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.1 (2026-08-26)
 
 ### 🩹 Fixes

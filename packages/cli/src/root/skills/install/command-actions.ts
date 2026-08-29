@@ -525,7 +525,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
 
         const discover = sources
           .find(req.source, {
-            names: req.requestedSkills,
+            names: req.source.type === "registry" ? req.requestedSkills : [],
             type: "skill" as const,
             owner: req.requestedOwner,
             versionRange: req.versionRange,

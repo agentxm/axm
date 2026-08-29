@@ -303,7 +303,56 @@ describe("classifyTargetedUpdate", () => {
     });
 
     expect(context.public.blocker).toBe("incomplete-graph");
+    expect(context.public.relevantProblems).toEqual([
+      "pack-manifest-unavailable: @acme/packs/toolkit: installed pack manifest is unavailable",
+    ]);
     expect(JSON.stringify(context.public)).not.toContain("/secret/workspace");
+  });
+
+  it("reports an unrelated constraint conflict that makes the desired graph incomplete", () => {
+    const context = classifyTargetedUpdate({
+      target,
+      graph: graph(
+        [
+          node([
+            {
+              type: "settings",
+              source: target.fqn,
+              enabled: true,
+              constraint: "^1.0.0",
+            },
+          ]),
+        ],
+        [
+          {
+            type: "constraint-conflict",
+            extensionType: "skill",
+            name: "commit",
+            constraints: ["^1.0.0", "^2.0.0"],
+            contributors: [
+              {
+                source: "pack",
+                dependingPack: "@acme/packs/legacy",
+                range: "^1.0.0",
+                location: "agent_extensions/acme/packs/legacy/pack.json",
+              },
+              {
+                source: "pack",
+                dependingPack: "@acme/packs/current",
+                range: "^2.0.0",
+                location: "agent_extensions/acme/packs/current/pack.json",
+              },
+            ],
+          },
+        ],
+      ),
+      configuredPacks: [],
+    });
+
+    expect(context.public.blocker).toBe("incomplete-graph");
+    expect(context.public.relevantProblems).toEqual([
+      "constraint-conflict: skill commit: incompatible constraints @acme/packs/legacy range=^1.0.0 location=agent_extensions/acme/packs/legacy/pack.json, @acme/packs/current range=^2.0.0 location=agent_extensions/acme/packs/current/pack.json; decision=blocked; reason=no-satisfying-version",
+    ]);
   });
 
   it("blocks an empty direct-and-pack constraint intersection", () => {

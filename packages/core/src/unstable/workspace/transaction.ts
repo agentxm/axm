@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { AppError, makeAppError } from "../app-error/index.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import {
   acquireWorkspaceTransitionLock,
@@ -108,10 +108,24 @@ export class WorkspaceRestorationIncomplete extends Data.TaggedError(
 }> {}
 
 /** Render the typed restoration failure for boundaries without a resolution. */
+const firstCauseLine = (cause: Cause.Cause<unknown>): string => {
+  const failure = Option.getOrUndefined(Cause.findErrorOption(cause));
+  if (failure instanceof AppError) return failure.detail;
+  return Cause.pretty(cause).split(/\r?\n/, 1)[0]?.trim() || "The transition did not complete";
+};
+
+const sentence = (text: string): string => (/[.!?]$/.test(text) ? text : `${text}.`);
+
+/** Render the deciding transition cause before restoration consequences. */
+const transitionFailureText = (error: WorkspaceRestorationIncomplete): string =>
+  error.terminationCause === "interruption"
+    ? "Transition was interrupted."
+    : `Transition failed: ${sentence(firstCauseLine(error.transitionCause))}`;
+
 export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncomplete): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Workspace restoration did not complete; the affected paths keep the state the failure left${
+    detail: `${transitionFailureText(error)} Workspace restoration did not complete; the affected paths keep the state the failure left${
       error.snapshotDir === undefined
         ? "."
         : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`

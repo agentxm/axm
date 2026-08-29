@@ -10,7 +10,11 @@ import type {
   DesiredExtensionOrigin,
   DesiredStateGraph,
 } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+  desiredStateProblemText,
+} from "@agentxm/client-core/unstable/workspace";
 
 export type TargetedUpdateBlocker =
   | "not-desired"
@@ -147,14 +151,18 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
       candidate.name === args.target.name &&
       normalizedIdentity(candidate.identity) === args.target.fqn,
   );
-  const globalProblems = args.graph.problems.filter((problem) => problem.type.startsWith("pack-"));
   const targetProblems = args.graph.problems.filter(
     (problem) =>
       (problem.type === "projection-collision" || problem.type === "constraint-conflict") &&
       problem.extensionType === args.target.type &&
       problem.name === args.target.name,
   );
-  const relevantProblems = [...globalProblems, ...targetProblems];
+  const relevantProblems = args.graph.problems.filter(
+    (problem) =>
+      problem.type.startsWith("pack-") ||
+      problem.type === "constraint-conflict" ||
+      targetProblems.includes(problem),
+  );
   const directOrigin = node?.origins.find((origin) => origin.type === "settings");
   const packOrigins = (node?.origins ?? [])
     .filter(
@@ -242,7 +250,9 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     memberClosure: node === undefined ? [] : [args.target],
     effects:
       authority === "blocked" ? blockedEffects : plannedEffects(authority, args.explicitRange),
-    relevantProblems: relevantProblems.map((problem) => problem.type).sort(),
+    relevantProblems: relevantProblems
+      .map((problem) => `${problem.type}: ${desiredStateProblemText(problem)}`)
+      .sort((left, right) => left.localeCompare(right)),
     ...(blocker === undefined ? {} : { blocker }),
   };
 

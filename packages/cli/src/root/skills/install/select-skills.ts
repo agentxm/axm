@@ -70,7 +70,7 @@ export const determineSkillsToInstall = (
       if (matched.length === 0) {
         return yield* makeAppError({
           code: "not_found",
-          detail: `No skills matched: ${args.requestedSkills.join(", ")}`,
+          detail: `No skills matched: ${args.requestedSkills.join(", ")}. Source contains: ${[...allNames].sort((left, right) => left.localeCompare(right)).join(", ")}`,
           recover: "Check the skill names or patterns and try again",
         });
       }

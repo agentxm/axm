@@ -519,6 +519,80 @@ describe("root update handler", () => {
     }),
   );
 
+  it.effect("reports an unrelated desired-state conflict before targeted Registry resolution", () =>
+    Effect.gen(function* () {
+      const calls: Array<UpdateCall> = [];
+      let registryCalls = 0;
+      const { provide, handleUpdate, rendererState } = makeLayers(calls, {
+        machine: true,
+        sources: {
+          ...selectedSourceHostProviders,
+          resolveNamedRegistry: (source, options) => {
+            registryCalls += 1;
+            return selectedSourceHostProviders.resolveNamedRegistry(source, options);
+          },
+        },
+      });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        owner: "@acme",
+        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        skills: { reviewer: "@acme/skills/reviewer@^1.0.0" },
+        packs: { legacy: "workspace", current: "workspace" },
+      });
+      for (const [name, range] of [
+        ["legacy", "^1.0.0"],
+        ["current", "^2.0.0"],
+      ] as const) {
+        const packDir = path.join(tempDir, "packs", name);
+        fs.mkdirSync(packDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(packDir, "pack.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "pack",
+            name,
+            version: "1.0.0",
+            dependencies: { "@acme/skills/commit": range },
+          }),
+        );
+      }
+      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+
+      yield* provide(
+        handleUpdate({
+          source: Option.some("@acme/skills/reviewer"),
+          yes: true,
+          force: false,
+          preview: false,
+        }),
+      );
+
+      expect(registryCalls).toBe(0);
+      expect(calls).toEqual([]);
+      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      expect(rendererState.results[0]?.data).toMatchObject({
+        result: {
+          outcome: "blocked",
+          blocking: {
+            phase: "planning",
+            detail: expect.stringMatching(
+              /skill commit: incompatible constraints .*@acme\/packs\/current range=\^2\.0\.0.*@acme\/packs\/legacy range=\^1\.0\.0/u,
+            ),
+          },
+          counts: { committed: 0, failed: 0 },
+          targetedUpdate: {
+            target: { fqn: "@acme/skills/reviewer" },
+            blocker: "incomplete-graph",
+            relevantProblems: [expect.stringContaining("constraint-conflict: skill commit")],
+          },
+        },
+      });
+    }),
+  );
+
   it.effect("previews a pack-only member update without creating direct intent", () =>
     Effect.gen(function* () {
       const calls: Array<UpdateCall> = [];

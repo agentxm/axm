@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -14,6 +15,7 @@ import * as Semaphore from "effect/Semaphore";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   protectWorkspacePath,
+  restorationIncompleteToAppError,
   runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
@@ -274,6 +276,9 @@ describe("runWorkspaceTransaction", () => {
             snapshotDir = error.snapshotDir;
             expect(error.terminationCause).toBe("failure");
             expect(error.retained).toEqual([nodePath.join("axm.json")]);
+            expect(restorationIncompleteToAppError(error).detail).toMatch(
+              /^Transition failed: injected transition failure\. Workspace restoration did not complete;/,
+            );
             expect(nodeFs.statSync(parent).isFile()).toBe(true);
             // The snapshot-before-write invariant put the pre-change bytes in
             // OS-temporary storage before the mutation, outside the
@@ -297,6 +302,23 @@ describe("runWorkspaceTransaction", () => {
         ),
       ),
     );
+  });
+
+  it("summarizes an untyped transition defect without exposing its stack", () => {
+    const error = restorationIncompleteToAppError(
+      new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.die(new Error("injected transition defect")),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      }),
+    );
+
+    expect(error.detail).toBe(
+      "Transition failed: Error: injected transition defect. Workspace restoration did not complete; the affected paths keep the state the failure left.",
+    );
+    expect(error.detail).not.toContain("transaction.test.ts");
   });
 
   it.live("stops a compromised mutation without restoring over the successor", () => {

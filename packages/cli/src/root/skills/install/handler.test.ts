@@ -537,6 +537,32 @@ describe("skills install handler — error propagation", () => {
     );
   });
 
+  it.effect("reports discovered skill names when no local selector matches", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"));
+    const sourceDir = path.join(tempDir, "portable-skills");
+    const skillDir = path.join(sourceDir, ".agents", "skills", "review-pr");
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(skillDir, "SKILL.md"),
+      "---\nname: review-pr\ndescription: Review a pull request\n---\n\n# Review PR\n",
+    );
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(defaultArgs(sourceDir, { skills: ["missing"] }), {
+          yes: false,
+          force: false,
+          preview: false,
+        }).pipe(Effect.flip);
+
+        const appError = getAppError(error);
+        expect(appError.code).toBe("not_found");
+        expect(appError.detail).toBe("No skills matched: missing. Source contains: review-pr");
+      }),
+    );
+  });
+
   it.effect("rejects --skill without a source", () => {
     const { provide } = makeLayers();
 

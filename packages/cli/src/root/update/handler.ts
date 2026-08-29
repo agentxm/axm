@@ -348,6 +348,11 @@ interface TargetedUpdateResolution {
 }
 
 const blockerDetail = (context: TargetedUpdatePublicContext): string => {
+  const withRelevantProblems = (detail: string): string =>
+    context.relevantProblems.length === 0
+      ? detail
+      : `${detail}. ${context.relevantProblems.join("; ")}`;
+
   switch (context.blocker) {
     case "not-desired":
       return `${context.target.fqn} is not desired by this workspace`;
@@ -356,9 +361,13 @@ const blockerDetail = (context: TargetedUpdatePublicContext): string => {
     case "pack-owned-constraint":
       return `${context.target.fqn} is pack-owned; a targeted version range would create direct intent`;
     case "incomplete-graph":
-      return `Pack membership is incomplete, so ownership of ${context.target.fqn} cannot be proven`;
+      return withRelevantProblems(
+        `Pack membership is incomplete, so ownership of ${context.target.fqn} cannot be proven`,
+      );
     case "constraint-conflict":
-      return `The desired constraints for ${context.target.fqn} have no compatible intersection`;
+      return withRelevantProblems(
+        `The desired constraints for ${context.target.fqn} have no compatible intersection`,
+      );
     case "source-authority":
       return `${context.target.fqn} is workspace-authored and cannot be replaced from the Registry`;
     case "stale-plan":

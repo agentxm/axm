@@ -97,7 +97,7 @@ describe("determineSkillsToInstall", () => {
           );
 
           expect(error._tag).toBe("AppError");
-          expect(error.detail).toContain("No skills matched");
+          expect(error.detail).toBe("No skills matched: foo, bar. Source contains: commit");
         }),
       ),
     );

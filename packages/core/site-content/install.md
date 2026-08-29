@@ -186,6 +186,10 @@ outcome as permission to write project scope. Tell the user that applying the
 candidate will create root `axm.json`, `axm-lock.yaml`, `agent_extensions/`,
 and ignored `.axm/` runtime state; install default extensions
 (including `@agentxm/skills/axm`), and register the listed agent artifacts.
+In a Git-managed project, setup may also add AXM runtime and package-transaction
+entries to `.gitignore`. It never edits `.gitattributes` or formatter
+configuration; the consuming repository must exclude acquired
+`agent_extensions/` content from mutating tools.
 Wait for approval of that exact agent set and scope.
 
 After approval, repeat every `result.agents[*].id` as an explicit `--agent`

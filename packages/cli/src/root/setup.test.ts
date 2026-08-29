@@ -62,6 +62,7 @@ const makeSetupTestContext = (opts?: {
   };
   readonly selectAgents?: ReadonlyArray<string>;
   readonly confirmSetup?: boolean | "interrupt";
+  readonly syncInstructions?: boolean;
   readonly scope?: "project" | "user";
   readonly installer?: "stub" | "live" | "fail";
   readonly renderer?: "text" | "machine";
@@ -73,6 +74,7 @@ const makeSetupTestContext = (opts?: {
     readonly preview: boolean;
   }> = [];
   const selectAgentsOverride = opts?.selectAgents;
+  const syncInstructionsOverride = opts?.syncInstructions;
   const workspaceInitInteraction = WorkspaceInitializationInteractionTest({
     ...(selectAgentsOverride === undefined
       ? {}
@@ -84,6 +86,11 @@ const makeSetupTestContext = (opts?: {
             opts.confirmSetup === "interrupt"
               ? Effect.fail(new PromptCancelled({ message: "Operation cancelled." }))
               : Effect.succeed(opts.confirmSetup ?? true),
+        }),
+    ...(syncInstructionsOverride === undefined
+      ? {}
+      : {
+          confirmInstructionSync: () => Effect.succeed(syncInstructionsOverride),
         }),
   });
   const baseLayer = Layer.mergeAll(
@@ -563,8 +570,45 @@ describe("setup.handler", () => {
           expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
             "/CLAUDE.md",
           );
-          expect(fs.readFileSync(path.join(tempDir, ".gitattributes"), "utf-8")).toContain(
-            "/agent_extensions/** -text -whitespace",
+          expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain("/.axm/");
+          expect(fs.existsSync(path.join(tempDir, ".gitattributes"))).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("preserves existing git attributes during setup", () => {
+      const { handleSetup, provide } = makeSetupTestContext();
+
+      return provide(
+        Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, ".git"));
+          const attributesPath = path.join(tempDir, ".gitattributes");
+          const attributes = "*.ts text eol=lf\n/agent_extensions/** -text\n";
+          fs.writeFileSync(attributesPath, attributes);
+
+          yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
+
+          expect(fs.readFileSync(attributesPath, "utf-8")).toBe(attributes);
+        }),
+      );
+    });
+
+    it.effect("preserves gitignore newline style when adding transient entries", () => {
+      const { handleSetup, provide } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+        syncInstructions: false,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, ".git"));
+          const gitignorePath = path.join(tempDir, ".gitignore");
+          fs.writeFileSync(gitignorePath, "existing\r\n");
+
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(fs.readFileSync(gitignorePath, "utf-8")).toBe(
+            "existing\r\n/.axm/\r\n*.axm-staging/\r\n*.axm-backup/\r\n",
           );
         }),
       );
@@ -1030,12 +1074,16 @@ describe("setup.handler", () => {
       );
     });
 
-    it.effect("includes the managed gitignore target in preview only for git workspaces", () => {
-      const { handleSetup, provide, rendererState } = makeSetupTestContext({
-        flags: { json: true, nonInteractive: true },
-        renderer: "machine",
-      });
+    it.effect("includes the managed gitignore target for a nested Git workspace preview", () => {
       fs.mkdirSync(path.join(tempDir, ".git"));
+      const workspaceDir = path.join(tempDir, "workspace");
+      fs.mkdirSync(workspaceDir);
+      process.chdir(workspaceDir);
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { json: true, nonInteractive: false },
+        renderer: "machine",
+        syncInstructions: false,
+      });
 
       return provide(
         Effect.gen(function* () {
@@ -1050,7 +1098,7 @@ describe("setup.handler", () => {
             result: {
               steps: expect.arrayContaining([
                 expect.objectContaining({
-                  label: "Instruction files",
+                  label: "Workspace configuration",
                   artifact: expect.objectContaining({
                     targets: expect.arrayContaining([
                       expect.objectContaining({ path: ".gitignore", change: "created" }),
@@ -1060,10 +1108,35 @@ describe("setup.handler", () => {
               ]),
             },
           });
-          expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+          expect(fs.existsSync(path.join(workspaceDir, ".gitignore"))).toBe(false);
         }),
       );
     });
+
+    it.effect(
+      "writes transient ignores in a nested Git workspace when instructions are disabled",
+      () => {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        const workspaceDir = path.join(tempDir, "workspace");
+        fs.mkdirSync(workspaceDir);
+        process.chdir(workspaceDir);
+        const { handleSetup, provide } = makeSetupTestContext({
+          flags: { nonInteractive: false },
+          syncInstructions: false,
+        });
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+            expect(fs.readFileSync(path.join(workspaceDir, ".gitignore"), "utf-8")).toBe(
+              "/.axm/\n*.axm-staging/\n*.axm-backup/\n",
+            );
+            expect(fs.existsSync(path.join(workspaceDir, "AGENTS.md"))).toBe(false);
+          }),
+        );
+      },
+    );
 
     it.effect("leaves project setup untouched when interactive confirmation is declined", () => {
       const { handleSetup, provide, installCalls, promptState, rendererState } =
@@ -1424,6 +1497,32 @@ describe("setup.handler", () => {
   });
 
   describe("error handling", () => {
+    it.effect("fails safely when an existing gitignore cannot be read", () => {
+      const { handleSetup, provide } = makeSetupTestContext({
+        flags: { nonInteractive: false },
+        syncInstructions: false,
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          fs.mkdirSync(path.join(tempDir, ".git"));
+          fs.mkdirSync(path.join(tempDir, ".gitignore"));
+
+          const error = yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+          }).pipe(Effect.flip);
+
+          expect(error._tag).toBe("AppError");
+          if (error._tag === "AppError") {
+            expect(error.detail).toContain("Failed to read AXM workspace ignore file");
+          }
+          expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);
+        }),
+      );
+    });
+
     it.effect("rolls back first-time setup when bundled skill installation fails", () => {
       const { handleSetup, provide } = makeSetupTestContext({
         installer: "fail",

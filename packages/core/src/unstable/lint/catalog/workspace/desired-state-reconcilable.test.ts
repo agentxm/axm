@@ -105,6 +105,35 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
     });
   });
 
+  it.effect("describes a materialized package-tree integrity mismatch", () => {
+    const desired = {
+      type: "skill",
+      name: "installed-skill",
+      identity: "@test/skills/installed-skill",
+      source: "@test/skills/installed-skill@1.0.0",
+      enabled: true,
+      constraints: ["1.0.0"],
+      origins: [],
+    } satisfies DesiredExtensionNode;
+    const observation = {
+      type: "skill",
+      name: "installed-skill",
+      status: "materialization-mismatch",
+      path: "/workspace/agent_extensions/agentxm/@test/skills/installed-skill",
+    } satisfies CanonicalObservation;
+
+    return Effect.gen(function* () {
+      const findings = yield* runCheckWithObservation(desired, observation);
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0]).toMatchObject({
+        severity: "error",
+        message:
+          "skill '@test/skills/installed-skill' differs from its accepted materialized package-tree integrity.",
+      });
+    });
+  });
+
   it.effect("names every depending Pack and range for a constraint mismatch", () => {
     const desired = {
       type: "skill",

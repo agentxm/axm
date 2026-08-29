@@ -49,6 +49,7 @@ import {
   evaluateAxmSkillCompatibility,
 } from "@agentxm/client-core/unstable/skills";
 import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
+import { isGitManaged } from "@agentxm/client-core/unstable/git";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -915,11 +916,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
         agentCount: allAgents.length,
         membershipRequested: (args.agents?.length ?? 0) > 0,
       });
-  const includeGitignore =
-    location.scope === "project" &&
-    (yield* fs
-      .exists(path.join(executionDirectory.path, ".git"))
-      .pipe(Effect.catch(() => Effect.succeed(false))));
+  const gitManaged = location.scope === "project" && (yield* isGitManaged(location.baseDir));
   const changeForPath = (filePath: string) =>
     Effect.gen(function* () {
       if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
@@ -936,7 +933,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
       : relative;
   };
   const workspaceTargets: ReadonlyArray<SetupArtifactTarget> = yield* Effect.forEach(
-    [authoritativeSettingsPath, location.lockPath],
+    [
+      authoritativeSettingsPath,
+      location.lockPath,
+      ...(gitManaged ? [path.join(location.baseDir, ".gitignore")] : []),
+    ],
     (filePath) =>
       changeForPath(filePath).pipe(
         Effect.map((change) => ({ path: displayTargetPath(filePath), change })),
@@ -957,9 +958,6 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
               ? [path.join(location.baseDir, resolution.relativeTarget)]
               : [];
           }),
-          ...(instructions.gitignoreAliases === true && includeGitignore
-            ? [path.join(location.baseDir, ".gitignore")]
-            : []),
         ]
       : [];
   const instructionTargets: ReadonlyArray<SetupArtifactTarget> = yield* Effect.forEach(

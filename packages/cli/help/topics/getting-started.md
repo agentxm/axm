@@ -45,6 +45,12 @@ when different `--agent` flags are supplied. Read
 `axm help basic-usage` to learn what those files do and which ones must be
 checked in.
 
+Setup may add AXM runtime and package-transaction entries to `.gitignore` in a
+Git-managed project. It does not edit `.gitattributes` or formatter
+configuration. Exclude acquired `agent_extensions/` content from mutating
+formatters, lint fixes, and save-time rewrites; `axm help workspace-state`
+explains strict package integrity and how to diagnose checkout-only drift.
+
 For automation, preview the exact candidate first:
 
 ```bash

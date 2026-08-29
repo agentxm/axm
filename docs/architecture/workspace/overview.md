@@ -53,7 +53,9 @@ The workspace model does not own:
 - type-specific canonical state and realization, which belong to
   [Extensions](../extensions/overview.md);
 - diagnostic and reconciliation behavior, which belong to
-  [Lint](../commands/lint.md) and [Sync](../commands/sync.md); or
+  [Lint](../commands/lint.md) and [Sync](../commands/sync.md);
+- Git attributes, checkout conversion, editor behavior, and formatter policy,
+  which belong to the consuming repository; or
 - agent-specific serialization mechanics, which belong to adapters and their
   tests.
 
@@ -203,6 +205,12 @@ without an external source have no fabricated resolution row.
 The accepted lock makes later package-tree drift an authority violation for the
 affected content. Drift blocks reads, projection, and mutation preflight until
 explicit `reinstall`, `update`, or `fork` establishes valid authority again.
+Package-tree identity remains exact across paths and bytes; it does not
+normalize line endings or formatter output. AXM detects drift but does not
+create or modify `.gitattributes`, editor configuration, or formatter policy to
+prevent it. Those controls remain consumer-owned because they apply across the
+repository and cannot provide a complete integrity boundary for acquired
+content.
 
 ## Output reconciliation
 

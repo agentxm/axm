@@ -31,6 +31,7 @@ import {
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
+import { isGitManaged } from "../git/detect.js";
 import { LOCKFILE_NAME, LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
 import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
@@ -207,39 +208,45 @@ const fileExists = (filePath: string) =>
     return yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
   });
 
-const ensureStaticWorkspacePolicy = (workspaceRoot: string) =>
+const WORKSPACE_TRANSIENT_GITIGNORE_LINES = ["/.axm/", "*.axm-staging/", "*.axm-backup/"] as const;
+
+const newlineFor = (content: string): "\r\n" | "\r" | "\n" =>
+  content.includes("\r\n") ? "\r\n" : content.includes("\r") ? "\r" : "\n";
+
+const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    if (!(yield* fileExists(path.join(workspaceRoot, ".git")))) return;
-    const policies = [
-      {
-        file: ".gitignore",
-        lines: ["/.axm/", "*.axm-staging/", "*.axm-backup/"],
-      },
-      {
-        file: ".gitattributes",
-        lines: ["/agent_extensions/** -text -whitespace"],
-      },
-    ] as const;
-    for (const policy of policies) {
-      const filePath = path.join(workspaceRoot, policy.file);
-      const current = yield* fs.readFileString(filePath).pipe(Effect.orElseSucceed(() => ""));
-      const existing = new Set(current.split(/\r?\n/u));
-      const missing = policy.lines.filter((line) => !existing.has(line));
-      if (missing.length === 0) continue;
-      const prefix = current.length === 0 || current.endsWith("\n") ? current : `${current}\n`;
-      yield* protectWorkspacePath(filePath);
-      yield* fs.writeFileString(filePath, `${prefix}${missing.join("\n")}\n`).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write AXM workspace policy: ${filePath}`,
-            cause,
-          }),
-        ),
-      );
-    }
+    if (!(yield* isGitManaged(workspaceRoot))) return;
+    const filePath = path.join(workspaceRoot, ".gitignore");
+    const exists = yield* fileExists(filePath);
+    const current = exists
+      ? yield* fs.readFileString(filePath).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: `Failed to read AXM workspace ignore file: ${filePath}`,
+              cause,
+            }),
+          ),
+        )
+      : "";
+    const newline = newlineFor(current);
+    const existing = new Set(current.split(/\r\n|\r|\n/u));
+    const missing = WORKSPACE_TRANSIENT_GITIGNORE_LINES.filter((line) => !existing.has(line));
+    if (missing.length === 0) return;
+    const hasTrailingNewline = current.endsWith("\n") || current.endsWith("\r");
+    const prefix = current.length === 0 || hasTrailingNewline ? current : `${current}${newline}`;
+    yield* protectWorkspacePath(filePath);
+    yield* fs.writeFileString(filePath, `${prefix}${missing.join(newline)}${newline}`).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: `Failed to write AXM workspace ignore file: ${filePath}`,
+          cause,
+        }),
+      ),
+    );
   });
 
 const lineCount = (content: string): number => {
@@ -350,7 +357,6 @@ const instructionPlanRows = (args: {
   readonly sourceFileName: string;
   readonly sourceWillBeCreated: boolean;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
-  readonly includeGitignore: boolean;
 }): ReadonlyArray<SetupPlanRow> => {
   const rows: Array<SetupPlanRow> = [
     {
@@ -381,13 +387,6 @@ const instructionPlanRows = (args: {
       } satisfies SetupPlanRow;
     }),
   ];
-  if (args.includeGitignore) {
-    rows.push({
-      target: ".gitignore",
-      action: "update",
-      detail: "axm:instructions markers",
-    });
-  }
   return rows;
 };
 
@@ -586,7 +585,7 @@ const applyProjectSetup = (args: {
         skills: {},
       });
     }
-    yield* ensureStaticWorkspacePolicy(args.workspaceRoot);
+    yield* ensureWorkspaceTransientIgnores(args.workspaceRoot);
     if (!args.syncInstructions) return;
     yield* writeSourceFileIfMissing({
       workspaceRoot: args.workspaceRoot,
@@ -689,14 +688,13 @@ const configureProjectWorkspace = (args: {
       ? richestExistingInstructionFile(instructionSetup.choices)
       : Option.none<SetupInstructionSourceChoice>();
     const sourceWillBeCreated = Option.isSome(sourceContent);
-    const includeGitignore = yield* fileExists(path.join(workspaceRoot, ".git"));
+    const gitManaged = yield* isGitManaged(workspaceRoot);
     const planRows = instructionSetup.enabled
       ? instructionPlanRows({
           selectedAgents,
           sourceFileName: instructionSetup.fileName,
           sourceWillBeCreated,
           sourceSeed,
-          includeGitignore,
         })
       : [
           {
@@ -712,6 +710,15 @@ const configureProjectWorkspace = (args: {
           action: "create",
           detail: `agents: ${agentIds.join(", ")}`,
         },
+        ...(gitManaged
+          ? [
+              {
+                target: ".gitignore",
+                action: "update",
+                detail: "AXM runtime and package transaction artifacts",
+              } satisfies SetupPlanRow,
+            ]
+          : []),
         ...planRows,
       ]);
       if (args.options.preview !== true) {

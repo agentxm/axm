@@ -8,10 +8,12 @@ content stay out. The command is read-only, deterministic, and does not need
 Registry access.
 
 `--strict`, `--json`, and `--details` work with `--view git-index`. `--scope user`
-does not. Run formatters first so their intended output is staged before
-AXM reads the index. Generated instruction aliases such as `CLAUDE.md` and
-`GEMINI.md` are intentionally gitignored, so staged lint leaves their currency
-check to the full-workspace pre-push or CI command.
+does not. Exclude `agent_extensions/**` from filename-based formatters and other
+mutating hooks. Run formatters first for repository-authored files so their
+intended output is staged before AXM reads the index. Generated instruction
+aliases such as `CLAUDE.md` and `GEMINI.md` are intentionally gitignored, so
+staged lint leaves their currency check to the full-workspace pre-push or CI
+command.
 
 ## Choose the gate
 
@@ -53,8 +55,9 @@ pre-commit:
             run: axm lint --view git-index --strict
 ```
 
-Adapt the formatter command and glob to the repository. `stage_fixed: true`
-stages formatter output before the next piped job.
+Adapt the formatter command and glob to the repository, and exclude
+`agent_extensions/**` from the formatter. `stage_fixed: true` stages formatter
+output before the next piped job.
 
 ## pre-commit
 
@@ -120,7 +123,8 @@ git config core.hooksPath .githooks
 Do not register `axm lint --view git-index` as a filename-based `lint-staged` task and
 do not append `{staged_files}` or a list from `git diff`. AXM reads the complete
 index itself because workspace rules depend on unchanged configuration and
-related extension files. Run it once after all filename-based formatters.
+related extension files. Exclude `agent_extensions/**` from those formatters,
+then run AXM once after they finish.
 
 The hook never stages, restores, or rewrites files. If it reports a finding,
 fix the worktree through the normal AXM or editor workflow, stage the intended

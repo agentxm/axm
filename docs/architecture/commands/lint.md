@@ -86,6 +86,14 @@ A lint view selects the local snapshot to inspect, such as the worktree or Git
 index. Views use the same rules and invariant meanings; selecting a view cannot
 turn valid state into a different predicate or add recovery guidance.
 
+The Git-index view reads raw staged and tracked blobs rather than a checkout, so
+Git filters and line-ending conversion do not alter the inspected bytes. A
+package-tree mismatch in the workspace view with a valid Git-index view is
+evidence that the live checkout differs while the bytes intended for commit
+remain valid. A mismatch in both views establishes that the intended commit
+also differs. Newly acquired untracked files must first be staged before the
+index can represent the intended package tree.
+
 ## Rule behavior
 
 Rules describe stable conditions rather than particular recovery commands. A

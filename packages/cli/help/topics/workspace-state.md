@@ -88,6 +88,15 @@ reinstalled, updated, or explicitly forked into authored source. Publish
 independently rebuilds only workspace-authored packages; installed external
 trees are never publication inputs.
 
+AXM does not create or modify `.gitattributes`, formatter configuration, or
+editor policy. The consuming repository owns those choices; AXM keeps package
+identity strict and reports any resulting byte drift. Exclude
+`agent_extensions/` from mutating formatters, lint fixes, and save-time rewrites.
+If a repository needs protection from ordinary Git line-ending conversion, it
+may add `/agent_extensions/** -text` to its own `.gitattributes`, but that rule
+does not prevent other tools from changing acquired files and is not an
+integrity guarantee.
+
 Sync may resolve a desired external extension once when no accepted row exists.
 After acceptance, reinstall and sync use that exact identity; only update may
 advance it. If the source can no longer reproduce the locked identity, AXM
@@ -156,12 +165,28 @@ and rebuilt; it is never workspace authority.
   hand-edit it.
 - Commit `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`;
   ignore `.axm/` runtime state.
+- Keep acquired `agent_extensions/` content byte-for-byte unchanged and exclude
+  it from mutating repository tools.
 - Use `axm lint` for read-only workspace facts.
 - Use `axm sync --preview --json` to inspect reconciliation, then `axm sync` to
   apply it.
 - Use `axm sync --preview --fail-on-change --json` as a read-only CI
   convergence assertion.
 - Use explicit lifecycle commands when desired intent must change.
+
+When acquired content drifts, compare the current checkout with the bytes Git
+would commit:
+
+```bash
+axm lint
+axm lint --view git-index
+```
+
+If workspace lint fails while Git-index lint passes, the staged package bytes
+are intact and the checkout was changed by Git, an editor, a formatter, or an
+unstaged edit. If both fail, the package bytes staged for commit also differ
+from the accepted tree. Stage newly installed package files before using the
+Git-index comparison to diagnose them.
 
 ## Extension coverage
 

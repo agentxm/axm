@@ -74,6 +74,8 @@ npm install -g axm.sh
 Initialize AXM in your project. AXM detects your installed agents and creates
 root `axm.json`; acquired packages and accepted external resolutions are kept
 in `agent_extensions/` and `axm-lock.yaml`, while `.axm/` is runtime scratch.
+AXM leaves Git attributes and formatter policy to the repository; exclude
+`agent_extensions/` from tools that rewrite files.
 
 ```bash
 axm setup

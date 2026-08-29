@@ -98,7 +98,10 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
               kind: "advisory",
               ruleId: RULE_ID,
               severity: "error",
-              message: `${label} has canonical state ${observation.status}.`,
+              message:
+                observation.status === "materialization-mismatch"
+                  ? `${label} differs from its accepted materialized package-tree integrity.`
+                  : `${label} has canonical state ${observation.status}.`,
               location: { file: observation.path ?? "axm.json" },
             },
           ];

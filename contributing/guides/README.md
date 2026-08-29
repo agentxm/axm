@@ -12,8 +12,8 @@ commands or executable sources.
 
 ## Delivery
 
-- [Development environment](development-environment.md) — native and container
-  development environments
+- [Development environment](development-environment.md) — native development
+  and containerized CI verification
 - [Automated pull-request review](automated-pull-request-review.md) — review
   operation and maintainer controls
 - [Releasing](releasing.md) — release procedure

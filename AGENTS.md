@@ -55,7 +55,6 @@ export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 | `pnpm run ci`                        | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
 | `pnpm run ci:affected`               | Run CI pipeline for affected packages only                            |
 | `pnpm run container:ci`              | Run full CI in the shared Linux image                                 |
-| `pnpm run container:dev`             | Open the shared Linux development image                               |
 | `pnpm generate`                      | Generate registry and telemetry clients                               |
 
 `./scripts/axm-local` preserves your current working directory; pass `-C <dir>`

@@ -218,8 +218,8 @@ if (workspaceConfig.includes("onlyBuiltDependencies:")) {
 
 const storeConfigOccurrences =
   containerLauncher.match(/--env pnpm_config_store_dir=/gu)?.length ?? 0;
-if (storeConfigOccurrences !== 2 || containerLauncher.includes("--env npm_config_store_dir=")) {
-  errors.push("container launchers must pass both pnpm stores through pnpm_config_store_dir");
+if (storeConfigOccurrences !== 1 || containerLauncher.includes("--env npm_config_store_dir=")) {
+  errors.push("the CI container launcher must pass its pnpm store through pnpm_config_store_dir");
 }
 
 for (const text of [

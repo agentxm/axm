@@ -9,8 +9,6 @@ CI_IMAGE_CONTAINERFILE="$CI_IMAGE_CONTEXT/Containerfile"
 LOCAL_CI_IMAGE=${AXM_LOCAL_CI_IMAGE:-local/axm-ci:dev}
 CI_IMAGE_PIN=$(tr -d '[:space:]' <"$CI_IMAGE_CONTEXT/CI_IMAGE")
 CI_IMAGE=${AXM_CI_IMAGE:-$CI_IMAGE_PIN}
-DEV_IMAGE=${AXM_DEV_IMAGE:-ghcr.io/agentxm/agentxm-local-dev:0.1.0}
-HOME_VOLUME=${AXM_DEV_HOME_VOLUME:-axm-dev-home}
 NX_PARALLEL=${AXM_CONTAINER_NX_PARALLEL:-2}
 VITEST_MAX_WORKERS=${AXM_CONTAINER_VITEST_MAX_WORKERS:-2}
 
@@ -18,7 +16,6 @@ volume_key() {
   printf '%s' "$1" | cksum | awk '{print $1}'
 }
 
-DEPS_VOLUME=${AXM_DEV_DEPS_VOLUME:-axm-dev-deps-$(volume_key "$ROOT")}
 # Scoping the CI caches by image and lockfile keeps a stale cache from bleeding
 # across a bump, but it also means every bump mints a new pair of volumes and
 # abandons the previous pair. On an ephemeral runner that costs nothing; on a
@@ -38,7 +35,6 @@ Usage: scripts/container-environment.sh <command> [arguments]
   build-ci-image    Build the repository-owned CI image locally
   smoke-ci-image    Build and verify the repository-owned CI image
   ci [command...]   Run a command in the pinned Linux CI image
-  shell             Open an interactive development shell
   smoke             Verify the pinned CI image and mounted checkout
 
 Environment:
@@ -46,9 +42,6 @@ Environment:
   AXM_LOCAL_CI_IMAGE    Override the local producer image tag
   AXM_CI_PNPM_CACHE_VOLUME  Override the scoped CI pnpm cache source (volume or absolute path)
   AXM_CI_NX_CACHE_VOLUME  Override the scoped CI Nx cache source (volume or absolute path)
-  AXM_DEV_IMAGE         Override the development image
-  AXM_DEV_HOME_VOLUME   Override the persistent development home volume
-  AXM_DEV_DEPS_VOLUME   Override the persistent node_modules volume
   AXM_CONTAINER_NX_PARALLEL  Nx task concurrency in containers (default: 2)
   AXM_CONTAINER_VITEST_MAX_WORKERS  Vitest concurrency in containers (default: 2)
 EOF
@@ -133,46 +126,6 @@ run_ci() {
     bash -lc "mkdir -p \"\$HOME\" && mise trust '$ROOT/mise.toml' && mise exec -- $command"
 }
 
-run_shell() {
-  local uid gid
-  uid=$(id -u)
-  gid=$(id -g)
-  docker volume create "$HOME_VOLUME" >/dev/null
-  docker volume create "$DEPS_VOLUME" >/dev/null
-  mkdir -p "$ROOT/node_modules"
-  local -a args=(
-    --rm
-    --user root
-    --interactive
-    --tty
-    --ulimit nofile=65536:65536
-    --volume "$HOME_VOLUME:/home/agentxm"
-    --volume "$ROOT:$ROOT"
-    --volume "$DEPS_VOLUME:$ROOT/node_modules"
-    --volume "$GIT_COMMON_DIR:$GIT_COMMON_DIR"
-    --workdir "$ROOT"
-    --env AXM_HOST_UID="$uid"
-    --env AXM_HOST_GID="$gid"
-    --env AXM_DEPS_DIRS="$ROOT/node_modules"
-    --env HOME=/home/agentxm
-    --env MISE_STATE_DIR=/home/agentxm/.local/state/mise
-    --env MISE_CACHE_DIR=/home/agentxm/.cache/mise
-    --env NX_CACHE_DIRECTORY=/home/agentxm/.cache/nx/cache
-    --env NX_WORKSPACE_DATA_DIRECTORY=/home/agentxm/.cache/nx/workspace-data
-    --env NX_PARALLEL="$NX_PARALLEL"
-    --env VITEST_MAX_WORKERS="$VITEST_MAX_WORKERS"
-    --env pnpm_config_store_dir=/home/agentxm/.local/share/pnpm/store
-    --pull missing
-  )
-
-  if [[ -S /var/run/docker.sock ]]; then
-    args+=(--volume /var/run/docker.sock:/var/run/docker.sock)
-  fi
-
-  docker run "${args[@]}" "$DEV_IMAGE" bash -lc \
-    "mise trust '$ROOT/mise.toml' && exec bash"
-}
-
 smoke() {
   # Expansion is intentionally deferred to the shell inside the container.
   # shellcheck disable=SC2016
@@ -196,9 +149,6 @@ case "${1:-}" in
   ci)
     shift
     run_ci "$@"
-    ;;
-  shell)
-    run_shell
     ;;
   smoke)
     smoke

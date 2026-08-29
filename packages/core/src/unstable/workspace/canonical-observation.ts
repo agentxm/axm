@@ -7,7 +7,6 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import {
   computeMaterializedTreeIntegrity,
-  parseExtensionFqnParts,
   toExtensionTypePlural,
   type ExtensionType,
 } from "../extensions/index.js";
@@ -114,22 +113,12 @@ export const canonicalPathForAcceptedExtension = (
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
   if (desired.identity.startsWith("bundled:")) {
-    return layout.scope === "project"
-      ? path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name)
-      : path.join(layout.canonicalRoot, "agentxm", "@agentxm", "skills", desired.name);
+    return path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name);
   }
   if (desired.identity.startsWith("workspace:")) {
     if (layout.scope === "project")
       return path.join(layout.authoredRoot(desired.type), desired.name);
-    const parsed = parseExtensionFqnParts(desired.identity.slice("workspace:".length));
-    return parsed === undefined
-      ? undefined
-      : path.join(
-          layout.canonicalRoot,
-          parsed.owner,
-          toExtensionTypePlural(desired.type),
-          desired.name,
-        );
+    return undefined;
   }
   if (accepted === undefined) return undefined;
   const source = extensionPathSourceFromLockEntry(accepted);

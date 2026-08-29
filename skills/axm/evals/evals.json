@@ -574,7 +574,7 @@
     {
       "id": 54,
       "stage": "execution",
-      "prompt": "Identify every repository under `/home/example/Code` that has AXM extensions installed. This is a read-only inventory. Treat these as supplied discovery results: `repo-a` and `repo-b` are repositories under that collection; `repo-a` has an `.axm/axm-lock.yaml`, while `repo-b` does not.",
+      "prompt": "Identify every repository under `/home/example/Code` that has AXM extensions installed. This is a read-only inventory. Treat these as supplied discovery results: `repo-a` and `repo-b` are repositories under that collection; `repo-a` has an `axm-lock.yaml`, while `repo-b` does not.",
       "expected_output": "Acceptance of the explicitly selected repository collection, with `repo-a` reported as an AXM workspace, `repo-b` excluded, and no lifecycle mutation.",
       "assertions": [
         "The response reports `repo-a` as an AXM workspace and `repo-b` as not having AXM extensions, matching the supplied discovery results.",

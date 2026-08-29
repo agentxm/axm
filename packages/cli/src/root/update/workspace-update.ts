@@ -315,7 +315,7 @@ const resolveUpdateIntent = <TIntent, R>(args: {
         return yield* makeAppError({
           code: "not_found",
           detail: `Configured extension "${resolution.target}" could not be found in its source`,
-          suggestions: [{ description: "Verify the configured source or update settings.json." }],
+          suggestions: [{ description: "Verify the configured source or update axm.json." }],
         });
       }
       if (resolution.kind === "version_unsatisfied") {

@@ -111,14 +111,14 @@ describe("axm setup", () => {
       }
     });
 
-    it("creates settings.json with detected agents", async () => {
+    it("creates axm.json with detected agents", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
 
-        // Verify settings.json structure
+        // Verify axm.json structure
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 

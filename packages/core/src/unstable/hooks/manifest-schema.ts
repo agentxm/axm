@@ -129,7 +129,7 @@ export type HookCapabilities = Schema.Schema.Type<typeof HookCapabilitiesSchema>
  * Schema for hook manifest files (hook.json).
  *
  * Hooks distribute an executable body plus agent event bindings. Install
- * materializes the body under .axm/extensions and registers native agent hook
+ * materializes the body under agent_extensions and registers native agent hook
  * settings that invoke the materialized entrypoint.
  *
  * @experimental This API is unstable and may change without notice.

@@ -8,7 +8,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
 import type { Handle } from "../extensions/handle.js";
 import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
@@ -24,34 +23,6 @@ export interface PackDirPath {
   readonly canonicalPath: AbsolutePath;
 }
 
-/**
- * Pure function to compute pack directory path.
- *
- * @param join - Path join function (e.g., `path.join`)
- * @param base - Workspace root (parent of `.axm`)
- * @param owner - Pack owner (e.g., "@acme")
- * @param name - Pack name for filesystem use
- */
-export const computePackPaths = (
-  join: (...paths: string[]) => string,
-  base: string,
-  sourceName: string,
-  owner: Handle,
-  name: string,
-): PackDirPath => {
-  const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, sourceName, owner, "packs", name);
-  return { canonicalPath: decodeAbsolutePathSync(canonicalPath) };
-};
-
-/** Resolve a conventionally placed workspace-authored Pack. */
-export const computeAuthoredPackPaths = (
-  join: (...paths: string[]) => string,
-  base: string,
-  name: string,
-): PackDirPath => ({
-  canonicalPath: decodeAbsolutePathSync(join(base, "packs", name)),
-});
-
 export const computePackPathsForLayout = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,
@@ -62,7 +33,5 @@ export const computePackPathsForLayout = (
   canonicalPath:
     layout.scope === "project" && sourceName === "workspace"
       ? decodeAbsolutePathSync(join(layout.authoredRoot("pack"), name))
-      : layout.scope === "project"
-        ? decodeAbsolutePathSync(join(layout.acquiredRoot, sourceName, owner, "packs", name))
-        : decodeAbsolutePathSync(join(layout.canonicalRoot, sourceName, owner, "packs", name)),
+      : decodeAbsolutePathSync(join(layout.acquiredRoot, sourceName, owner, "packs", name)),
 });

@@ -202,7 +202,9 @@ describe("agents add.handler", () => {
     const projectSettings = path.join(root, "axm.json");
     const settings: { readonly agents?: unknown } = JSON.parse(
       fs.readFileSync(
-        fs.existsSync(projectSettings) ? projectSettings : path.join(root, ".axm", "settings.json"),
+        fs.existsSync(projectSettings)
+          ? projectSettings
+          : path.join(root, ".axm", "workspace", "axm.json"),
         "utf8",
       ),
     );

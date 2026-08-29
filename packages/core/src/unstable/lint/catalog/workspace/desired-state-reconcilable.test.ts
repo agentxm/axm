@@ -130,7 +130,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
             source: "pack",
             dependingPack: "@test/packs/alpha",
             range: "^2.0.0",
-            location: "/workspace/.axm/extensions/@test/packs/alpha/pack.json",
+            location: "/workspace/agent_extensions/@test/packs/alpha/pack.json",
           },
         ],
       },

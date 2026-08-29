@@ -32,7 +32,7 @@ describe("DefaultCodingAgentRepository", () => {
       const addOutcome = yield* agent.addMcpServer({
         workspaceRoot: "/workspace",
         serverName: "chrome-devtools-mcp",
-        canonicalPath: "/workspace/.axm/mcps/chrome-devtools-mcp",
+        canonicalPath: "/workspace/agent_extensions/agentxm/@mcp/mcps/chrome-devtools-mcp",
         owner: handle("@mcp"),
         resolvedVersion: "1.0.0",
       });

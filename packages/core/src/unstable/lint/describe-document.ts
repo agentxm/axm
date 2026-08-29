@@ -20,7 +20,7 @@
 import { extensionTypeSentenceLabels, extensionTypes } from "../extensions/common.js";
 import { LOCKFILE_NAME } from "../lockfile/lockfile.js";
 import { MANIFEST_FILENAME_BY_TYPE } from "../publish/manifest-policy.js";
-import { SETTINGS_FILENAME } from "../settings/settings.js";
+import { SETTINGS_FILENAME } from "../workspace/constants.js";
 
 /** Label used when a filename matches no known document. */
 export const UNKNOWN_DOCUMENT_LABEL = "Document";
@@ -49,7 +49,7 @@ const basename = (file: string): string => {
  *
  * Keyed by basename, so both bare accessor-relative filenames (`hook.json`,
  * as the per-extension rules pass) and workspace-relative paths
- * (`.axm/settings.json`, as `issues-to-findings` passes) resolve.
+ * (`axm.json`, as `issues-to-findings` passes) resolve.
  *
  * @experimental This API is unstable and may change without notice.
  */

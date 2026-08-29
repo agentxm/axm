@@ -90,7 +90,7 @@ describe("workspace/axm-skill-compatible", () => {
         workspace,
         axmDirExists: Effect.succeed(true),
         axmSkillCompatibility: Effect.fail(
-          new SettingsIoError({ path: "/workspace/.axm/settings.json", cause: "denied" }),
+          new SettingsIoError({ path: "/workspace/axm.json", cause: "denied" }),
         ),
         displayRoot: "",
       });

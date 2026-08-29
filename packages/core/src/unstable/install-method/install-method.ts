@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { envOption } from "../utils/index.js";
-import { resolveUserScopeDirPure } from "../workspace/paths.js";
+import { resolveUserAxmHomePure } from "../workspace/paths.js";
 
 export type DetectionSource =
   | "executable-path"
@@ -290,14 +290,14 @@ export const detectFromInputs = (inputs: InstallMethodInputs) =>
         Effect.map((realPath) => ({ path: execPath, realPath })),
       ),
     );
-    const userScopeDir = resolveUserScopeDirPure(path.join, inputs.homeDir);
-    const scriptBinPath = path.join(userScopeDir, "bin");
+    const userAxmHome = resolveUserAxmHomePure(path.join, inputs.homeDir);
+    const scriptBinPath = path.join(userAxmHome, "bin");
     const realScriptBinPath = yield* fs
       .realPath(scriptBinPath)
       .pipe(Effect.catch(() => Effect.succeed(scriptBinPath)));
     const direct = directMethod(inputs, executablePaths, scriptBinPath, realScriptBinPath);
     const manager = methodFromManagerEvidence(inputs);
-    const metaPath = path.join(userScopeDir, "install-meta.json");
+    const metaPath = path.join(userAxmHome, "install-meta.json");
     const meta = yield* readInstallMeta(fs, metaPath);
     const metaMethod =
       meta.status === "found"

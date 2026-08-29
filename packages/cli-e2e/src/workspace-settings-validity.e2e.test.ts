@@ -59,7 +59,7 @@ describe("project workspace settings validity prerequisite", () => {
     const userHome = createTempDir("axm-settings-gate-home-");
     const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
     const projectSettingsPath = path.join(workspace.path, "axm.json");
-    const userSettingsPath = path.join(userHome.path, ".axm", "settings.json");
+    const userSettingsPath = path.join(userHome.path, ".axm", "workspace", "axm.json");
 
     try {
       const projectSetup = await runCli(
@@ -226,8 +226,8 @@ describe("project workspace settings validity prerequisite", () => {
     const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
     try {
       fs.writeFileSync(path.join(workspace.path, "axm.json"), "{ not-json");
-      fs.mkdirSync(path.join(userHome.path, ".axm"), { recursive: true });
-      fs.writeFileSync(path.join(userHome.path, ".axm", "settings.json"), "{ not-json");
+      fs.mkdirSync(path.join(userHome.path, ".axm", "workspace"), { recursive: true });
+      fs.writeFileSync(path.join(userHome.path, ".axm", "workspace", "axm.json"), "{ not-json");
 
       const version = await runCli(["--version"], { cwd: workspace.path, env });
       expect(version.exitCode, version.stdout + version.stderr).toBe(0);

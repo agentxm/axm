@@ -122,13 +122,14 @@ journal, command-intent marker, receipt, or recovery flag:
 
 | State                                     | Placement and lifecycle                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Durable workspace authority               | Canonical files and packages below `.axm/`                                                  |
+| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                   |
+| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                               |
 | Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock` |
 | Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                   |
 | Atomic single-file publication            | Exact `<target>.tmp.<unique>` siblings, swept only by that target's writer                  |
 | Atomic canonical-directory publication    | Exact `<canonical>.axm-staging` and `<canonical>.axm-backup` siblings                       |
 | Performance-only cache                    | The platform cache directory, including Registry archives and update-check state            |
-| Restricted user state                     | The user AXM home, including pending login, file credentials, and install metadata          |
+| Restricted application state              | `~/.axm/`, including pending login, file credentials, install metadata, and `bin/axm`       |
 
 Package creation, import, fork, install, and replacement all populate and
 validate the complete sibling staging tree before a same-parent rename makes it

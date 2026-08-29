@@ -1223,7 +1223,7 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
 /**
  * Canonical key order for settings properties.
  *
- * Used by `writeSettings` for new files and to place new top-level keys in
+ * Used by `writeSettingsAtPath` for new files and to place new top-level keys in
  * existing files whose recognized keys already follow this order.
  *
  * @experimental This API is unstable and may change without notice.

@@ -1,4 +1,4 @@
-/** Cached scoped state-source loaders for `settings.json` and `axm-lock.yaml`. */
+/** Cached scoped state-source loaders for `axm.json` and `axm-lock.yaml`. */
 
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
@@ -25,7 +25,7 @@ import type { Scope } from "./types.js";
 // Public types
 // ---------------------------------------------------------------------------
 
-/** Decoded `settings.json` payload exposed by the settings cell. */
+/** Decoded `axm.json` payload exposed by the settings cell. */
 export type DecodedSettings = Settings;
 
 /** Decoded `axm-lock.yaml` payload exposed by the lockfile cell. */

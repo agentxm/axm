@@ -138,7 +138,7 @@ describe("deriveOperationOutcome", () => {
       units: [unit("a", "failed", { disposition: "retained" })],
       failure: makeAppError({ code: "internal", detail: "restoration failed" }),
       recovery: {
-        retained: [".axm/extensions/@test/skills/a"],
+        retained: ["agent_extensions/@test/skills/a"],
         snapshotDir: "/tmp/axm-rollback-abc123",
         actions: [{ description: "Re-run the update; planning restarts from current state." }],
       },

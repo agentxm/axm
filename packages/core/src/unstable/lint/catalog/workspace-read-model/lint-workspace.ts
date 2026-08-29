@@ -7,14 +7,14 @@
  * `LintWorkspaceView` exposes `installedSkills: InstalledSkillInfo[]` and
  * `installedPacks: InstalledPackInfo[]` with per-provenance `displayRoot`s:
  *
- *   Registry-installed native skill: `.axm/extensions/<source>/<@owner>/skills/<name>/src/`
- *   Portable acquired skill:         `.axm/extensions/<source>/<source-full-name>/`
- *   Registry pack:                   `.axm/extensions/<source>/<@owner>/packs/<name>/`
+ *   Registry-installed native skill: `agent_extensions/<source>/<@owner>/skills/<name>/src/`
+ *   Portable acquired skill:         `agent_extensions/<source>/<source-full-name>/`
+ *   Registry pack:                   `agent_extensions/<source>/<@owner>/packs/<name>/`
  *                                    (NO `src/` — matches the on-disk layout.)
  *
  * The companion `WorkspaceRuleContext` is scoped to project or user.
- * User-scope root resolution for v1 is `$AXM_USER_HOME/.axm/` when set,
- * otherwise `$HOME/.axm/`; a follow-up owns the broader XDG story.
+ * User-scope resolution uses `.axm/workspace/` under `$AXM_USER_HOME` when set,
+ * otherwise under `$HOME`; a follow-up owns the broader XDG story.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -38,7 +38,7 @@ import {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "../../../workspace/read-model/service.js";
-import { AXM_DIR_NAME } from "../../../workspace/paths.js";
+import { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "../../../workspace/paths.js";
 import type {
   LockfileReadError,
   SettingsReadError,
@@ -208,7 +208,12 @@ export const buildLintWorkspace = (
     const readModel = yield* makeWorkspaceReadModel(args.scope);
     const axmDir =
       args.scope === "user"
-        ? args.platform.path.join(args.userHome, AXM_DIR_NAME)
+        ? args.platform.path.join(
+            args.userHome,
+            AXM_DIR_NAME,
+            USER_WORKSPACE_DIRECTORY,
+            AXM_DIR_NAME,
+          )
         : args.platform.path.join(args.workspaceRoot, AXM_DIR_NAME);
     const projection = yield* buildLintWorkspaceView({
       platform: args.platform,
@@ -1074,7 +1079,7 @@ export const acquiredSkillDisplayRoot = (
  * Compute the `displayRoot` for a registry-installed pack.
  *
  * **No `src/` segment** — matches the on-disk layout at
- * `axm/packages/core/src/unstable/packs/paths.ts#computePackPaths`.
+ * `axm/packages/core/src/unstable/packs/paths.ts#computePackPathsForLayout`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1107,7 +1112,7 @@ export interface BuildInstalledSkillInfoNativeArgs {
 }
 
 /**
- * Build an `InstalledSkillInfo` rooted at `.axm/extensions/<owner>/skills/<name>/src/`.
+ * Build an `InstalledSkillInfo` rooted at `agent_extensions/<owner>/skills/<name>/src/`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1186,7 +1191,7 @@ export interface BuildInstalledPackInfoArgs {
 }
 
 /**
- * Build an `InstalledPackInfo` rooted at `.axm/extensions/<owner>/packs/<name>/`.
+ * Build an `InstalledPackInfo` rooted at `agent_extensions/<owner>/packs/<name>/`.
  *
  * **No `src/` segment** — matches the on-disk pack layout.
  *

@@ -2,7 +2,7 @@
  * Rule subject module: declared/resolved/actual payloads, scanner composition,
  * and projections via the shared helper.
  *
- * Rules have no `settings.json` entry shape and no `axm-lock.yaml` entry
+ * Rules have no `axm.json` entry shape and no `axm-lock.yaml` entry
  * shape in v1. Actual occurrences come from the canonical-extensions
  * scanner (`type === "rule"`); the agent-dir scanner emits no rule
  * occurrences in the v1 `AgentRegistry`, but the subject module accepts an

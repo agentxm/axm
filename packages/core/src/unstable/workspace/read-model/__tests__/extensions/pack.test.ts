@@ -130,7 +130,7 @@ describe("makePackExtensionsApi", () => {
             origin: "canonical-axm",
             name: "team-pack",
             owner: "@team",
-            contentLocation: "/ws/.axm/extensions/@team/packs/team-pack",
+            contentLocation: "/ws/agent_extensions/@team/packs/team-pack",
           }),
         ],
       });

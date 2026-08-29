@@ -38,19 +38,20 @@ import {
 
 /** Create an initialized workspace with settings + lockfile. */
 const initWorkspace = (
-  axmDir: string,
+  runtimeDir: string,
   opts?: {
     sources?: ReadonlyArray<unknown>;
     owner?: string;
   },
 ) => {
-  fs.mkdirSync(axmDir, { recursive: true });
+  const workspaceRoot = path.dirname(runtimeDir);
+  fs.mkdirSync(runtimeDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.sources) settings["sources"] = opts.sources;
   if (opts?.owner) settings["owner"] = opts.owner;
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+  fs.writeFileSync(path.join(workspaceRoot, "axm.json"), JSON.stringify(settings));
   fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
+    path.join(workspaceRoot, "axm-lock.yaml"),
     YAML.stringify({ lockfileVersion: 6, skills: {}, subagents: {} }),
   );
 };

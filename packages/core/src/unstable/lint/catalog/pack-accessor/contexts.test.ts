@@ -27,12 +27,12 @@ describe("buildPackRuleContexts", () => {
     const items: ReadonlyArray<InstalledPackInfo> = [
       {
         packJson: { owner: "@acme", type: "pack", name: "a", version: "0.1.0" },
-        displayRoot: ".axm/extensions/@acme/packs/a",
+        displayRoot: "agent_extensions/@acme/packs/a",
         files: absentAccessor,
       },
       {
         packJson: undefined,
-        displayRoot: ".axm/extensions/@acme/packs/b",
+        displayRoot: "agent_extensions/@acme/packs/b",
         files: absentAccessor,
       },
     ];
@@ -47,11 +47,11 @@ describe("buildPackRuleContexts", () => {
       name: "a",
       version: "0.1.0",
     });
-    expect(contexts[0]?.displayRoot).toBe(".axm/extensions/@acme/packs/a");
+    expect(contexts[0]?.displayRoot).toBe("agent_extensions/@acme/packs/a");
     expect(contexts[0]?.files).toBe(absentAccessor);
 
     expect(contexts[1]?.subject.packJson).toBeUndefined();
-    expect(contexts[1]?.displayRoot).toBe(".axm/extensions/@acme/packs/b");
+    expect(contexts[1]?.displayRoot).toBe("agent_extensions/@acme/packs/b");
   });
 
   it("returns an empty array when the index has no installed packs", () => {

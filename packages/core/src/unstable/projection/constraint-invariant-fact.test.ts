@@ -22,7 +22,7 @@ const observation = {
   type: "skill",
   name: "review",
   status: "constraint-mismatch",
-  path: "/workspace/.axm/extensions/@acme/skills/review",
+  path: "/workspace/agent_extensions/@acme/skills/review",
   acceptedVersion: "1.9.0",
   observedVersion: "1.9.0",
   authority: {
@@ -34,13 +34,13 @@ const observation = {
         source: "pack",
         dependingPack: "@acme/packs/alpha",
         range: ">=2.0.0 <3.0.0",
-        location: "/workspace/.axm/extensions/@acme/packs/alpha/pack.json",
+        location: "/workspace/agent_extensions/@acme/packs/alpha/pack.json",
       },
       {
         source: "pack",
         dependingPack: "@acme/packs/beta",
         range: "^2.1.0",
-        location: "/workspace/.axm/extensions/@acme/packs/beta/pack.json",
+        location: "/workspace/agent_extensions/@acme/packs/beta/pack.json",
       },
     ],
   },
@@ -78,7 +78,7 @@ describe("extension constraint invariant facts", () => {
         {
           packFqn: "@acme/packs/quality",
           packAuthority: "registry",
-          manifestPath: ".axm/extensions/@acme/packs/quality/pack.json",
+          manifestPath: "agent_extensions/@acme/packs/quality/pack.json",
           memberFqn: "@acme/skills/review",
           constraint: "^0.0.3",
           memberVersion: "0.0.4",
@@ -88,7 +88,7 @@ describe("extension constraint invariant facts", () => {
         {
           packFqn: "@acme/packs/reviewers",
           packAuthority: "workspace",
-          manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+          manifestPath: "agent_extensions/@acme/packs/reviewers/pack.json",
           memberFqn: "@acme/skills/review",
           constraint: "^0.0.4",
           memberVersion: "0.0.4",
@@ -124,7 +124,7 @@ describe("extension constraint invariant facts", () => {
       {
         packFqn: "@acme/packs/reviewers",
         packAuthority: "workspace" as const,
-        manifestPath: ".axm/extensions/@acme/packs/reviewers/pack.json",
+        manifestPath: "agent_extensions/@acme/packs/reviewers/pack.json",
         memberFqn: "@acme/skills/review",
         constraint: "^0.0.4",
         memberVersion: "0.0.4",

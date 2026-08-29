@@ -91,7 +91,7 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
       addTreeFile(axmExtensions, relativePath.slice(acquiredPrefix.length));
       return;
     }
-    const axmPrefix = ".axm/extensions/";
+    const axmPrefix = "agent_extensions/";
     if (relativePath.startsWith(axmPrefix)) {
       addTreeFile(axmExtensions, relativePath.slice(axmPrefix.length));
       return;

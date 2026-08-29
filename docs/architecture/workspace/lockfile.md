@@ -12,7 +12,7 @@ depends-on:
 
 Project-root `axm-lock.yaml` is AXM's generated, committed authority for
 accepted external resolutions and their provenance. User scope keeps the same
-authority in `.axm/axm-lock.yaml`. It is a reproducible-resolution snapshot
+authority in `~/.axm/workspace/axm-lock.yaml`. It is a reproducible-resolution snapshot
 used by planning, materialization, update, reinstall, and cleanup.
 
 Settings and workspace-authored manifests remain the only authority for desired

@@ -2,12 +2,12 @@
 
 Desired project AXM workspace state lives in `axm.json`. Accepted external
 resolution and observed state are separate; see `axm help workspace-state`.
-User scope retains `.axm/settings.json` under the user's AXM directory.
+User scope uses the same filename at `~/.axm/workspace/axm.json`.
 
 ## Validity prerequisite
 
 Every command that opens a project workspace requires each present project
-`axm.json` and user `.axm/settings.json` file to be readable, valid JSON, and
+`axm.json` and user `~/.axm/workspace/axm.json` file to be readable, valid JSON, and
 valid against the settings schema before the command begins. A missing file
 still means that scope has not expressed a choice.
 
@@ -23,7 +23,7 @@ key is unrecognized and strict linting reports it. Use `AXM_TELEMETRY` or
 
 ## `axm.json`
 
-[`settings.json`](https://axm.sh/schemas/settings.schema.json)
+[`axm.json`](https://axm.sh/schemas/settings.schema.json)
 
 Run `axm help settings-schema` to print the raw JSON Schema.
 
@@ -72,6 +72,9 @@ Prefer the plain source string. Use the object form when you need metadata such
 as `enabled: false`. A project-authored package uses the exact intrinsic source
 `workspace`; authorship combines the project `owner`, the map key, the
 extension type, and the manifest at that type's authored root.
+User scope does not accept user-authored `workspace` sources or
+authoring-directory settings. The bundled AXM skill is a reserved internal
+static package.
 
 ```jsonc
 {

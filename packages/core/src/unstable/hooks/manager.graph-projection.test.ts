@@ -272,7 +272,7 @@ describe("HookManager graph-derived unit projection", () => {
           {
             type: "pack-manifest-unavailable",
             pack: `${OWNER}/packs/pack-a`,
-            path: ".axm/extensions/@acme/packs/pack-a/pack.json",
+            path: "agent_extensions/@acme/packs/pack-a/pack.json",
           },
         ],
       },

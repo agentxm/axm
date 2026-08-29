@@ -36,7 +36,7 @@ const extFromEditPath = (options: ManagedFileBannerOptions): string => {
   const match = options.editPath
     .replaceAll("\\", "/")
     .match(
-      /(?:^|\/)\.axm\/extensions\/(@[^/]+)\/(skills|subagents|mcps|rules|hooks|knowledge|packs)\/([^/]+)/u,
+      /(?:^|\/)agent_extensions\/[^/]+\/(@[^/]+)\/(skills|subagents|mcps|rules|hooks|knowledge|packs)\/([^/]+)/u,
     );
   const owner = match?.[1];
   const type = match?.[2];

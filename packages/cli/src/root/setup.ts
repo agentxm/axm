@@ -25,7 +25,7 @@ import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error"
 import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
-  getUserScopeDir,
+  resolveUserWorkspaceRoot,
   runWorkspaceTransaction,
   scanAllSubagentFiles,
   setupScopeSupport,
@@ -231,10 +231,7 @@ const mapBundledSkillWriteError = (filePath: string) => (cause: unknown) =>
 const bundledSkillCanonicalPath = (
   ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
   path: Path.Path,
-): string =>
-  ws.layout.scope === "project"
-    ? path.join(ws.layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm")
-    : path.join(ws.layout.canonicalRoot, "agentxm", "@agentxm", "skills", "axm");
+): string => path.join(ws.layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm");
 
 const materializeBundledAxmSkill = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
@@ -574,7 +571,7 @@ const setupArtifactChange = (args: {
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project"
     ? "agent_extensions/agentxm/@agentxm/skills/axm"
-    : ".axm/extensions/agentxm/@agentxm/skills/axm";
+    : ".axm/workspace/agent_extensions/agentxm/@agentxm/skills/axm";
 
 const setupSkillFootprint = (scope: WorkspaceScope, targetPaths: ReadonlyArray<string>): string => {
   const sourcePath = bundledSkillDisplayPath(scope);
@@ -772,13 +769,14 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     }
     return result;
   });
+  const userWorkspaceRoot = yield* resolveUserWorkspaceRoot();
   const workspaceDir =
     args.scope === "user"
-      ? yield* getUserScopeDir()
+      ? path.join(userWorkspaceRoot, AXM_DIR_NAME)
       : path.join(executionDirectory.path, AXM_DIR_NAME);
   const authoritativeSettingsPath =
     args.scope === "user"
-      ? path.join(workspaceDir, "settings.json")
+      ? path.join(userWorkspaceRoot, "axm.json")
       : path.join(executionDirectory.path, "axm.json");
   const settingsExists = yield* fs.exists(authoritativeSettingsPath).pipe(
     Effect.mapError((error) =>
@@ -803,7 +801,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
     !unattendedIntentComplete
   ) {
     const settingsPath =
-      args.scope === "user" ? joinDisplayPath(path, workspaceDir, "settings.json") : "axm.json";
+      args.scope === "user" ? joinDisplayPath(path, userWorkspaceRoot, "axm.json") : "axm.json";
     const suggestions = [
       {
         description: "Preview the setup candidate",
@@ -878,7 +876,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   const agentNames = allAgents.map((agent) => agent.name).join(", ");
   const telemetryEnabled = telemetryMode !== "off";
   const settingsPath =
-    location.scope === "user" ? joinDisplayPath(path, location.path, "settings.json") : "axm.json";
+    location.scope === "user" ? formatDisplayPath(path, location.settingsPath) : "axm.json";
   const bundledSkillPath = bundledSkillDisplayPath(location.scope);
   const instructionsValue = settings.instructionFiles;
   const instructions =
@@ -938,10 +936,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
       : relative;
   };
   const workspaceTargets: ReadonlyArray<SetupArtifactTarget> = yield* Effect.forEach(
-    [
-      authoritativeSettingsPath,
-      path.join(location.scope === "project" ? location.baseDir : location.path, "axm-lock.yaml"),
-    ],
+    [authoritativeSettingsPath, location.lockPath],
     (filePath) =>
       changeForPath(filePath).pipe(
         Effect.map((change) => ({ path: displayTargetPath(filePath), change })),
@@ -1123,7 +1118,10 @@ export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, 
       command: "axm setup --preview --scope project --json --non-interactive",
       description: "Preview the exact unattended setup candidate without writing",
     },
-    { command: "axm setup --scope user", description: "Initialize in ~/.axm/ for user scope" },
+    {
+      command: "axm setup --scope user",
+      description: "Initialize the user workspace in ~/.axm/workspace/",
+    },
     {
       command: "axm setup --agent claude-code --agent cursor",
       description: "Initialize with specific agents",

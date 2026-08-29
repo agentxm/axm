@@ -37,7 +37,7 @@ The workspace model does not own:
 
 - shared AgentXM product definitions, which come from the AgentXM Knowledge
   bundle;
-- the fields and editing rules of `settings.json`, which belong to
+- the fields and editing rules of `axm.json`, which belong to
   [Workspace settings](settings.md);
 - configured-agent semantics, which belong to [Coding agents](agents.md);
 - canonical instruction files and aliases, which belong to [Instruction
@@ -65,8 +65,9 @@ intent; it acts on choices the user expresses through commands or direct edits.
 Workspace configuration records those durable choices: directly requested
 extensions, version constraints, agents, activation, inline definitions,
 workspace capabilities, and workspace-authored manifests. The [workspace
-settings design](settings.md) owns the project-root `axm.json` boundary and the
-user-scope `.axm/settings.json` boundary. AXM combines that configuration with
+settings design](settings.md) owns `axm.json` in both workspace scopes. Project
+scope keeps it at the project root; user scope keeps it at
+`~/.axm/workspace/axm.json`. AXM combines that configuration with
 authored Pack manifests and accepted locked Pack metadata to derive the
 complete desired state, including Pack members and the outputs required for
 configured agents.
@@ -124,7 +125,18 @@ packages live in the type-specific roots declared by `axm.json`, defaulting to
 packages from the built-in `agentxm` source live under
 `agent_extensions/agentxm/@owner/<type>/<name>/`. The ignored `.axm/` directory is
 runtime state, not project configuration or canonical package inventory.
-User scope retains its self-contained `.axm/` layout.
+User scope mirrors the project workspace contract under `~/.axm/workspace/`:
+`axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
+It has no authored type roots; user-authored `workspace` sources and authoring
+commands are project-only. The bundled AXM skill uses an internal static
+package, not a user-authored root. Agent-native user projections remain under
+each agent's native user root.
+
+The containing `~/.axm/` directory is AXM application state, not itself a
+workspace. It owns the self-managed `bin/axm` executable, `install-meta.json`,
+and short-lived restricted state such as pending login. Performance caches,
+including update-check state, use the platform cache directory. AXM has no
+`trust.json` state file.
 
 Changing an extension among workspace-authored, external, and bundled authority
 is an explicit operation. A lock row or recommended Pack does not silently

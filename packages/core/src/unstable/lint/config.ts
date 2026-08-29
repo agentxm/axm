@@ -139,7 +139,7 @@ export type LintRulesMap = Schema.Schema.Type<typeof LintRulesMapSchema>;
 // -----------------------------------------------------------------------------
 
 /**
- * `lint` section of `.axm/settings.json`.
+ * `lint` section of `axm.json`.
  *
  * Today only `rules` is defined; future fields (per-rule options, reporter
  * selection) extend this struct. The schema rejects excess top-level keys so

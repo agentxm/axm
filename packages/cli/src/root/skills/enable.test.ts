@@ -44,7 +44,6 @@ const initWorkspace = (
     packs: configuredPacks,
     lockfileSkills,
     lockfilePacks: opts?.lockfilePacks,
-    writeTrustFromLockfile: true,
   });
 };
 
@@ -307,14 +306,7 @@ describe("enable.handler", () => {
         },
       );
       // Create canonical skill directory
-      const canonicalDir = path.join(
-        tempDir,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "my-skill",
-      );
+      const canonicalDir = path.join(tempDir, "agent_extensions", "external", "skills", "my-skill");
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 

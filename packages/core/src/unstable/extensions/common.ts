@@ -1030,7 +1030,7 @@ export const AgentIdSchema = Schema.Literals([...AGENT_IDS]).annotate({
 });
 
 /**
- * Agent identifiers users may persist in `.axm/settings.json`.
+ * Agent identifiers users may persist in `axm.json`.
  *
  * Synthetic materialization targets such as `universal` are known agents, but
  * they are injected by repository code rather than configured by users.

@@ -122,6 +122,12 @@ export const resolveWorkspaceExtensionRef = (args: {
     if (args.source !== "workspace") {
       return yield* workspaceSourceError(args.source, 'expected the compact selector "workspace"');
     }
+    if (args.layout.scope === "user" && args.staticPackage === undefined) {
+      return yield* workspaceSourceError(
+        args.source,
+        "user workspaces do not support workspace-authored packages",
+      );
+    }
     const owner = args.staticPackage?.owner ?? args.layout.owner;
     if (owner === undefined) {
       return yield* workspaceSourceError(
@@ -139,10 +145,10 @@ export const resolveWorkspaceExtensionRef = (args: {
     const canonicalRoot =
       args.layout.scope === "project"
         ? args.layout.authoredRoot(args.expectedType)
-        : path.join(args.layout.canonicalRoot, owner, pluralType(args.expectedType));
+        : path.join(args.layout.acquiredRoot, owner, pluralType(args.expectedType));
     const packageDir = args.staticPackage?.root ?? path.join(canonicalRoot, source.name);
     const containmentRoot =
-      args.layout.scope === "project" ? args.layout.projectRoot : args.layout.userAxmDir;
+      args.layout.scope === "project" ? args.layout.projectRoot : args.layout.workspaceRoot;
     yield* validatePathSafety(path, containmentRoot, packageDir);
     const packageExists = yield* fs
       .exists(packageDir)

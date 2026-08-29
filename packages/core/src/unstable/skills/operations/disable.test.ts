@@ -122,7 +122,7 @@ describe("disableSkill", () => {
     fs.mkdirSync(axmDir, { recursive: true });
 
     // Create canonical skill dir
-    const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", skillName);
+    const canonicalPath = path.join(base, "agent_extensions", "external", "skills", skillName);
     if (createCanonical) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
@@ -276,8 +276,8 @@ describe("disableSkill", () => {
         // Create registry canonical dir
         const registryPath = path.join(
           base,
-          ".axm",
-          "extensions",
+          "agent_extensions",
+          "local",
           "@community",
           "skills",
           "my-skill",
@@ -532,14 +532,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Create the canonical source (should be preserved after disable)
-        const canonicalPath = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalPath = path.join(base, "agent_extensions", "external", "skills", "my-skill");
         fs.mkdirSync(canonicalPath, { recursive: true });
         fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), "# my-skill");
 

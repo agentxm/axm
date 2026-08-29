@@ -11,12 +11,22 @@
 
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
-export type { WorkspaceLayout } from "./layout.js";
+export {
+  resolveProjectWorkspaceStatePaths,
+  resolveUserWorkspaceLayout,
+  type WorkspaceLayout,
+} from "./layout.js";
 export {
   AXM_DIR_NAME,
-  getUserScopeDir,
-  resolveUserScopeDir,
-  resolveUserScopeDirPure,
+  USER_WORKSPACE_DIRECTORY,
+  getProjectRuntimeDir,
+  locateWorkspace,
+  resolveUserAxmHome,
+  resolveUserAxmHomePure,
+  resolveUserHome,
+  resolveUserWorkspaceRoot,
+  resolveUserWorkspaceRootPure,
+  type WorkspaceLocation,
 } from "./paths.js";
 
 // Read-model record rows + lifecycle views
@@ -231,7 +241,7 @@ export {
 export {
   bootstrapWorkspace,
   initializeProjectWorkspace,
-  ensureGlobalWorkspaceInitialized,
+  ensureUserWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,
 } from "./initialization.js";
 export type { SetupAgentCandidate } from "./initialization.js";

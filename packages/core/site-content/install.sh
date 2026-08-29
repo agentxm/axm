@@ -4,7 +4,7 @@
 set -eu
 
 USER_HOME="${AXM_USER_HOME:-$HOME}"
-DATA_DIR="${AXM_INSTALL_DATA_DIR:-$USER_HOME/.axm}"
+DATA_DIR="$USER_HOME/.axm"
 INSTALL_DIR="${AXM_INSTALL_DIR:-$DATA_DIR/bin}"
 case "$INSTALL_DIR" in
   /*) ;;

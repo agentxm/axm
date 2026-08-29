@@ -238,7 +238,7 @@ const resolveSubagentRegistrySourceByName = (
         suggestions: [
           {
             description:
-              "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+              "Configure a registry source in axm.json, or install with an explicit source like github:owner/repo",
           },
         ],
       });

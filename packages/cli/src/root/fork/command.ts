@@ -136,6 +136,9 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   );
   yield* requireAuthoredOwner(target.owner);
   const ws = yield* WorkspaceMutations;
+  if (ws.layout.scope !== "project") {
+    return yield* makeAppError({ code: "usage", detail: "Fork requires project scope" });
+  }
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const providers = yield* SourceHostProviders;
@@ -147,14 +150,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
       ? [
           {
             ...(yield* inspectExtensionPackage(
-              ws.layout.scope === "project"
-                ? path.join(ws.layout.authoredRoot(source.extensionType), source.name)
-                : path.join(
-                    ws.layout.canonicalRoot,
-                    source.owner,
-                    extensionTypeToPlural[source.extensionType],
-                    source.name,
-                  ),
+              path.join(ws.layout.authoredRoot(source.extensionType), source.name),
             )),
             origin: providers.origin(source),
           },
@@ -168,12 +164,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
       : yield* findExtensionPackagesFromSource(source, filter);
   const selected = yield* selectPackage(packages);
 
-  const targetDir = path.join(
-    ws.layout.scope === "project"
-      ? ws.layout.authoredRoot(target.type)
-      : path.join(ws.layout.canonicalRoot, target.owner, extensionTypeToPlural[target.type]),
-    target.name,
-  );
+  const targetDir = path.join(ws.layout.authoredRoot(target.type), target.name);
   yield* preflightCreateOnly({
     subject: "Fork target",
     name: target.name,

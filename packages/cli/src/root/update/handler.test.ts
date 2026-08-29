@@ -643,7 +643,6 @@ describe("root update handler", () => {
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
         },
-        writeTrustFromLockfile: true,
       });
 
       yield* provide(
@@ -748,7 +747,6 @@ describe("root update handler", () => {
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
         },
-        writeTrustFromLockfile: true,
       });
 
       yield* provide(

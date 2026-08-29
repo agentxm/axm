@@ -507,16 +507,14 @@ export const KnowledgeManagerLive = Layer.effect(
       locked: KnowledgeLockEntry | undefined,
     ) => {
       if (node.identity.startsWith("workspace:")) {
-        return Effect.succeed(
-          ws.layout.scope === "project"
-            ? path.join(ws.layout.authoredRoot("knowledge"), node.name)
-            : path.join(
-                ws.layout.canonicalRoot,
-                ws.layout.owner ?? "",
-                KNOWLEDGE_EXTENSION_DIR,
-                node.name,
-              ),
-        );
+        return ws.layout.scope === "project"
+          ? Effect.succeed(path.join(ws.layout.authoredRoot("knowledge"), node.name))
+          : Effect.fail(
+              makeAppError({
+                code: "validation",
+                detail: "User workspaces do not support workspace-authored Knowledge bundles",
+              }),
+            );
       }
       return locked === undefined
         ? Effect.fail(

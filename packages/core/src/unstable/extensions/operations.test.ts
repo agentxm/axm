@@ -54,7 +54,7 @@ const authoredSkillRef = (): WorkspaceSkillRef => {
     name,
     version: exactVersion("1.0.0"),
     scope: "project",
-    location: "file:///workspace/.axm/extensions/@acme/skills/review",
+    location: "file:///workspace/agent_extensions/@acme/skills/review",
     sourceHash: computeSourceHash("review"),
     skill: { name, description: Option.none(), metadata: Option.none() },
   };
@@ -225,7 +225,7 @@ describe("buildInstallOperation", () => {
         ref,
         versionRange: Option.none(),
         buildArtifact: () =>
-          Effect.succeed({ path: ".axm/extensions/review", scope: "project", change: "created" }),
+          Effect.succeed({ path: "agent_extensions/review", scope: "project", change: "created" }),
       });
 
       expect(operation).toMatchObject({
@@ -321,7 +321,7 @@ describe("buildNewExtensionStep", () => {
       name,
       version: exactVersion("1.0.0"),
       scope: "project",
-      location: "file:///workspace/.axm/extensions/@acme/skills/review",
+      location: "file:///workspace/agent_extensions/@acme/skills/review",
       sourceHash: computeSourceHash("review"),
       skill: { name, description: Option.none(), metadata: Option.none() },
     };

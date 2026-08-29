@@ -2,9 +2,9 @@
  * Knowledge subject module tests: declared/resolved/actual payload shapes and
  * the projections composed by the shared helper.
  *
- * The bundle package directory under `.axm/extensions` is the only source of
+ * The bundle package directory under `agent_extensions` is the only source of
  * actual occurrences. The derived `.axm/knowledge/index.md` catalog and the
- * instructions-file discovery region live outside `.axm/extensions`, so the
+ * instructions-file discovery region live outside `agent_extensions`, so the
  * canonical scanner never emits them — asserted here by feeding an index-md
  * occurrence path through the scanner fixture and expecting no knowledge row.
  */
@@ -96,7 +96,7 @@ const canonicalBundle = (name: string): CanonicalExtensionOccurrence =>
     origin: "canonical-axm",
     name,
     owner: "@acme",
-    contentLocation: `/ws/.axm/extensions/@acme/knowledge/${name}/src`,
+    contentLocation: `/ws/agent_extensions/@acme/knowledge/${name}/src`,
   });
 
 describe("makeKnowledgeExtensionsApi", () => {
@@ -140,14 +140,14 @@ describe("makeKnowledgeExtensionsApi", () => {
       const actual = yield* api.actual;
       expect(actual).toHaveLength(1);
       expect(actual[0]?.origin._tag).toBe("canonical-axm-knowledge");
-      expect(actual[0]?.contentRoot).toBe("/ws/.axm/extensions/@acme/knowledge/payments/src");
-      expect(actual[0]?.packageRoot).toBe("/ws/.axm/extensions/@acme/knowledge/payments");
+      expect(actual[0]?.contentRoot).toBe("/ws/agent_extensions/@acme/knowledge/payments/src");
+      expect(actual[0]?.packageRoot).toBe("/ws/agent_extensions/@acme/knowledge/payments");
     }),
   );
 
   it.effect("the derived .axm/knowledge index is not a knowledge occurrence", () =>
     Effect.gen(function* () {
-      // The scanner only walks `.axm/extensions`, so a `.axm/knowledge` path can
+      // The scanner only walks `agent_extensions`, so a `.axm/knowledge` path can
       // never reach the family. Feeding a non-knowledge occurrence from that
       // tree keeps the invariant asserted at the family boundary too.
       const { api } = yield* harness({

@@ -16,7 +16,7 @@ import {
   acquiredExtensionDisplayPathFromLockEntry,
   buildInstallOperation,
   parseSourceQualifiedRegistrySourcePatternParts,
-  REGISTRY_EXTENSIONS_DIR,
+  ACQUIRED_EXTENSIONS_DIR,
   type Handle,
 } from "@agentxm/client-core/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
@@ -65,7 +65,7 @@ const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
 
 const acquiredRoot = (scope: JobStepArtifact["scope"]): string =>
-  scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions";
+  scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions";
 
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"

@@ -107,7 +107,7 @@ const initWorkspace = (
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
     };
   }
-  writeWorkspaceFiles(projectRoot, {
+  writeWorkspaceFiles(path.join(projectRoot, ".axm"), {
     owner: "@acme",
     skills: opts?.settingsSkills,
     packs: opts?.settingsPacks,

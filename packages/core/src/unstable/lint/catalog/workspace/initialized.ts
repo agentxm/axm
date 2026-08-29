@@ -7,7 +7,7 @@
  *
  * Applies to every workspace read model (both scopes). Owns the presence arm;
  * `workspace/settings-schema-valid` owns the contents arm and early-returns
- * when `settings.json` is missing, so a fresh workspace surfaces exactly one
+ * when `axm.json` is missing, so a fresh workspace surfaces exactly one
  * finding from this rule.
  *
  * Advisory-only — scaffolding a workspace is a multi-step `axm setup` command;

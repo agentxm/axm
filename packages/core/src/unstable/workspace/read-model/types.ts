@@ -23,8 +23,8 @@ import type { LockfileReadError, SettingsReadError } from "./errors.js";
 // -----------------------------------------------------------------------------
 
 /**
- * WorkspaceMutations scope discriminator. Project state is read from `./.axm`; user
- * state is read from `~/.axm` (or `$AXM_USER_HOME`).
+ * Workspace scope discriminator. Project state is read from the project root;
+ * user state is read from `.axm/workspace/` under the resolved user home.
  */
 export type Scope = "project" | "user";
 

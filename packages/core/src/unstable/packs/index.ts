@@ -32,12 +32,7 @@ export {
 export { PackManager, PackManagerLive } from "./manager.js";
 
 // Paths
-export {
-  computeAuthoredPackPaths,
-  computePackPaths,
-  computePackPathsForLayout,
-  type PackDirPath,
-} from "./paths.js";
+export { computePackPathsForLayout, type PackDirPath } from "./paths.js";
 
 // Expansion helpers
 export {

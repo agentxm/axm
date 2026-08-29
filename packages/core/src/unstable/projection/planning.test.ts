@@ -15,7 +15,7 @@ const incompleteGraph: DesiredStateGraph = {
     {
       type: "pack-manifest-unavailable",
       pack: "@acme/packs/missing",
-      path: ".axm/extensions/@acme/packs/missing/pack.json",
+      path: "agent_extensions/@acme/packs/missing/pack.json",
     },
   ],
 };

@@ -78,7 +78,7 @@ describe("makeSkillExtensionsApi", () => {
             origin: "canonical-axm",
             name: "alpha",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/skills/alpha",
+            contentLocation: "/ws/agent_extensions/@owner/skills/alpha",
           }),
         ],
         agentDirOccurrences: [
@@ -109,7 +109,7 @@ describe("makeSkillExtensionsApi", () => {
             origin: "canonical-axm",
             name: "wrong",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/hooks/wrong",
+            contentLocation: "/ws/agent_extensions/@owner/hooks/wrong",
           }),
         ],
       });

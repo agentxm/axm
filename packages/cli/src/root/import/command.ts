@@ -84,16 +84,14 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   yield* requireAuthoredOwner(target.owner);
   const group = extensionTypeToPlural[args.type];
   const ws = yield* WorkspaceMutations;
+  if (ws.layout.scope !== "project") {
+    return yield* makeAppError({ code: "usage", detail: "Import requires project scope" });
+  }
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const source = yield* resolveSource(args.source);
   const acquired = yield* acquireExternalSource(source);
-  const targetDir = path.join(
-    ws.layout.scope === "project"
-      ? ws.layout.authoredRoot(target.type)
-      : path.join(ws.layout.canonicalRoot, target.owner, extensionTypeToPlural[target.type]),
-    target.name,
-  );
+  const targetDir = path.join(ws.layout.authoredRoot(target.type), target.name);
   yield* preflightCreateOnly({
     subject: "Import target",
     name: target.name,

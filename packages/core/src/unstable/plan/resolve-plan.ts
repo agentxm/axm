@@ -292,9 +292,11 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
-  const candidate = yield* makeExecutionCandidate(candidatePlan, ws.path, ws.baseDir).pipe(
-    Effect.provide(fsLayer),
-  );
+  const candidate = yield* makeExecutionCandidate(candidatePlan, {
+    settingsPath: ws.layout.settingsPath,
+    lockPath: ws.layout.lockPath,
+    baseDir: ws.baseDir,
+  }).pipe(Effect.provide(fsLayer));
 
   const atomicity = declaredAtomicity(candidatePlan);
   const resolutionBase = {

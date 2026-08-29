@@ -87,11 +87,10 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
 
       const canonicalSkillDir = path.join(
         temp.path,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "quality",
+        "agent_extensions",
+        "github",
+        "qualitymd",
+        "quality.md",
       );
       expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
 

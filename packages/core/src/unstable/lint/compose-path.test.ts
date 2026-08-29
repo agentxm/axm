@@ -7,8 +7,8 @@
  * | Caller                      | `displayRoot`                                  |
  * | --------------------------- | ---------------------------------------------- |
  * | Registry publish            | `""`                                           |
- * | `axm lint` — registry skill | `".axm/extensions/<@owner>/skills/<name>/src"` |
- * | `axm lint` — external skill | `".axm/extensions/github/acme/extensions/skills/<name>"`     |
+ * | `axm lint` — registry skill | `"agent_extensions/<@owner>/skills/<name>/src"` |
+ * | `axm lint` — external skill | `"agent_extensions/github/acme/extensions/skills/<name>"`     |
  * | `axm lint` — workspace rule | `""`                                           |
  */
 
@@ -45,38 +45,38 @@ describe("composePath", () => {
   });
 
   describe("axm lint — registry-installed skill displayRoot", () => {
-    const root = ".axm/extensions/@acme/skills/axm/src";
+    const root = "agent_extensions/@acme/skills/axm/src";
 
     it("joins displayRoot with location file", () => {
-      expect(composePath(root, loc())).toBe("./.axm/extensions/@acme/skills/axm/src/SKILL.md");
+      expect(composePath(root, loc())).toBe("./agent_extensions/@acme/skills/axm/src/SKILL.md");
     });
 
     it("appends line", () => {
       expect(composePath(root, loc({ line: 1 }))).toBe(
-        "./.axm/extensions/@acme/skills/axm/src/SKILL.md:1",
+        "./agent_extensions/@acme/skills/axm/src/SKILL.md:1",
       );
     });
   });
 
   describe("axm lint — external (non-native) skill displayRoot", () => {
-    const root = ".axm/extensions/github/acme/extensions/skills/foo";
+    const root = "agent_extensions/github/acme/extensions/skills/foo";
 
     it("joins displayRoot with location file", () => {
       expect(composePath(root, loc())).toBe(
-        "./.axm/extensions/github/acme/extensions/skills/foo/SKILL.md",
+        "./agent_extensions/github/acme/extensions/skills/foo/SKILL.md",
       );
     });
 
     it("appends line", () => {
       expect(composePath(root, loc({ line: 1 }))).toBe(
-        "./.axm/extensions/github/acme/extensions/skills/foo/SKILL.md:1",
+        "./agent_extensions/github/acme/extensions/skills/foo/SKILL.md:1",
       );
     });
   });
 
   describe("axm lint — workspace-scope displayRoot (empty string)", () => {
     it("renders settings file relative to workspace root", () => {
-      expect(composePath("", loc({ file: ".axm/settings.json" }))).toBe("./.axm/settings.json");
+      expect(composePath("", loc({ file: "axm.json" }))).toBe("./axm.json");
     });
   });
 
@@ -86,10 +86,10 @@ describe("composePath", () => {
         composePath(
           "",
           loc({
-            file: "/Users/craig/Code/extensions/.axm/extensions/@acme/skills/review",
+            file: "/Users/craig/Code/extensions/agent_extensions/@acme/skills/review",
           }),
         ),
-      ).toBe("/Users/craig/Code/extensions/.axm/extensions/@acme/skills/review");
+      ).toBe("/Users/craig/Code/extensions/agent_extensions/@acme/skills/review");
     });
 
     it("appends coordinates without corrupting an absolute finding path", () => {
@@ -105,8 +105,8 @@ describe("composePath", () => {
     });
 
     it("strips trailing slash from displayRoot", () => {
-      expect(composePath(".axm/extensions/@acme/skills/axm/src/", loc())).toBe(
-        "./.axm/extensions/@acme/skills/axm/src/SKILL.md",
+      expect(composePath("agent_extensions/@acme/skills/axm/src/", loc())).toBe(
+        "./agent_extensions/@acme/skills/axm/src/SKILL.md",
       );
     });
 
@@ -119,8 +119,8 @@ describe("composePath", () => {
     });
 
     it("handles empty location file with a displayRoot", () => {
-      expect(composePath(".axm/extensions/@acme/skills/axm/src", loc({ file: "" }))).toBe(
-        "./.axm/extensions/@acme/skills/axm/src",
+      expect(composePath("agent_extensions/@acme/skills/axm/src", loc({ file: "" }))).toBe(
+        "./agent_extensions/@acme/skills/axm/src",
       );
     });
   });

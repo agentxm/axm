@@ -16,7 +16,7 @@ import {
 } from "./index.js";
 
 const AXM_MANAGED_MARKER =
-  "<!-- axm:file v=1 ext=@acme/subagents/test src=.axm/extensions/@acme/subagents/test -->";
+  "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
   it.effect("removes only AXM-managed skill and subagent artifacts for removed agents", () =>
@@ -224,7 +224,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
 });
 
 describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () => {
-  const managedHookCommand = ".axm/extensions/@acme/hooks/guard/src/guard.sh";
+  const managedHookCommand = "agent_extensions/@acme/hooks/guard/src/guard.sh";
 
   const makeClaudeCodeLayer = (tempDir: string) => {
     const claudeCode = makeProjectOnlyCodingAgent({

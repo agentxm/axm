@@ -1,4 +1,3 @@
-import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -38,15 +37,16 @@ describe("WorkspaceLayout", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("preserves the existing user-scope state layout", () =>
+  it.effect("resolves the user workspace beneath the AXM application home", () =>
     Effect.gen(function* () {
-      const layout = yield* resolveUserWorkspaceLayout(
-        decodeAbsolutePathSync(path.join(os.homedir(), ".axm")),
-      );
+      const layout = yield* resolveUserWorkspaceLayout(decodeAbsolutePathSync("/tmp/user"));
 
-      expect(layout.settingsPath).toBe(path.join(os.homedir(), ".axm", "settings.json"));
-      expect(layout.lockPath).toBe(path.join(os.homedir(), ".axm", "axm-lock.yaml"));
-      expect(layout.runtimeDir).toBe(path.join(os.homedir(), ".axm"));
+      expect(layout.axmHome).toBe("/tmp/user/.axm");
+      expect(layout.workspaceRoot).toBe("/tmp/user/.axm/workspace");
+      expect(layout.settingsPath).toBe("/tmp/user/.axm/workspace/axm.json");
+      expect(layout.lockPath).toBe("/tmp/user/.axm/workspace/axm-lock.yaml");
+      expect(layout.runtimeDir).toBe("/tmp/user/.axm/workspace/.axm");
+      expect(layout.acquiredRoot).toBe("/tmp/user/.axm/workspace/agent_extensions");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

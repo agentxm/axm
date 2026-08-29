@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".axm/extensions/@acme/hooks/guard/src/guard.sh"
+            "command": "agent_extensions/agentxm/@acme/hooks/guard/src/guard.sh"
           }
         ]
       }

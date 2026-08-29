@@ -1,7 +1,7 @@
 /**
  * Canonical-extensions scanner: covers canonical AXM
- * (`.axm/extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
- * (`.axm/extensions/<source>/<source-full-name>/`) materializations across
+ * (`agent_extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
+ * (`agent_extensions/<source>/<source-full-name>/`) materializations across
  * all extension types.
  *
  * Each occurrence carries the scanner-tier origin (`canonical-axm` |
@@ -59,7 +59,7 @@ const sortByContent = (
   [...occurrences].sort((a, b) => a.contentLocation.localeCompare(b.contentLocation));
 
 layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner", (it) => {
-  it.effect("emits no occurrences when .axm/extensions is absent", () =>
+  it.effect("emits no occurrences when agent_extensions is absent", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,

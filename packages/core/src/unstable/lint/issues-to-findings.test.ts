@@ -169,15 +169,10 @@ describe("issuesToFindings", () => {
       { lockfileVersion: "one" },
     );
 
-    const [finding] = issuesToFindings(
-      "workspace/lockfile-valid",
-      "error",
-      ".axm/axm-lock.yaml",
-      issue,
-    );
+    const [finding] = issuesToFindings("workspace/lockfile-valid", "error", "axm-lock.yaml", issue);
 
     expect(finding?.message).toContain("Regenerate the workspace lockfile from workspace settings");
-    expect(finding?.message).not.toContain("Edit `.axm/axm-lock.yaml`");
+    expect(finding?.message).not.toContain("Edit `axm-lock.yaml`");
   });
 
   it("formats forbidden findings with concrete remediation", () => {

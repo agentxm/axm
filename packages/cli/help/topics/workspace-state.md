@@ -44,9 +44,11 @@ configured agent directory has neither a structured file marker nor a managed
 symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
 delete it automatically.
 
-User scope uses `.axm/settings.json`, `.axm/axm-lock.yaml`, and the same
-source-qualified acquired package scheme under `.axm/extensions/`; the
-authority relationships are otherwise the same.
+User scope uses `~/.axm/workspace/axm.json`,
+`~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired
+package scheme under `~/.axm/workspace/agent_extensions/`; the authority
+relationships are otherwise the same. Its runtime state is the inner
+`~/.axm/workspace/.axm/` directory. User scope has no authored type roots.
 
 ## Accepted external resolution
 
@@ -69,7 +71,7 @@ and sync block until an explicit lifecycle operation accepts the transition.
 
 Acquired canonical packages use
 `agent_extensions/<source-name>/<source-full-name>/` in project scope and
-`.axm/extensions/<source-name>/<source-full-name>/` in user scope. Registry
+`~/.axm/workspace/agent_extensions/<source-name>/<source-full-name>/` in user scope. Registry
 full names are `<@owner>/<plural-type>/<name>`; hosted Git full names preserve
 the repository owner or namespace, repository, and selected subpath. Azure
 Repos additionally preserves organization and project, generic Git preserves

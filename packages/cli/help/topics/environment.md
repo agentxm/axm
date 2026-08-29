@@ -11,10 +11,11 @@ reserved for AXM development and tests; they may change without notice and
 should not be used in external automation.
 
 `AXM_USER_HOME` provides a hermetic user-home override. When non-empty, AXM
-places user-scope `.axm`, platform caches, restricted file credentials, pending
-device login state, and install metadata beneath that directory and does not
-fall back to the platform home for those resources. Project `.axm` remains in
-the project.
+places the user workspace at `.axm/workspace/` beneath that directory and puts
+restricted file credentials, pending device login state, install metadata, and
+the self-managed binary in the surrounding `.axm/` application home. It does
+not fall back to the platform home for those resources. Project `.axm` remains
+in the project; performance-only state uses the platform cache directory.
 
 ## Registry and authentication precedence
 
@@ -88,7 +89,7 @@ stderr.
 | `AXM_REGISTRY_URL`             | stable automation | URL; `https://registry.agentxm.ai`                               | Default Registry service and authentication origin when `AXM_REGISTRY_LOCATION` is unset.                                                                                          |
 | `AXM_TOKEN_FILE`               | stable automation | Readable file path; unset                                        | Preferred non-interactive credential. Its trimmed contents take precedence over flags and stored credentials, but follow `AXM_TOKEN`. Applies only to the default Registry origin. |
 | `AXM_TOKEN`                    | stable automation | Non-empty token; unset                                           | Highest-precedence ambient credential for the default Registry origin. More exposed than `AXM_TOKEN_FILE`; never log it.                                                           |
-| `AXM_USER_HOME`                | stable automation | Home-directory path; platform home when unset or empty           | Hermetically relocates user-scope `.axm`, platform caches, restricted file credentials, pending login state, and install metadata. It does not relocate project `.axm`.            |
+| `AXM_USER_HOME`                | stable automation | Home-directory path; platform home when unset or empty           | Relocates the user workspace and AXM application home. Platform caches and project `.axm` keep their platform/project locations.                                                   |
 | `AXM_NO_UPDATE_CHECK`          | stable automation | `1` disables; enabled otherwise                                  | Unconditionally disables the informational startup update check in every output and interaction mode.                                                                              |
 | `AXM_TELEMETRY`                | stable automation | `0`, `false`, `errors`, `1`, or `true`; all telemetry by default | Controls telemetry for the current process. `DO_NOT_TRACK=1` wins. Unrecognized values use the default.                                                                            |
 | `AXM_VERBOSE`                  | stable automation | `1` or `true` enables; disabled otherwise                        | Enables verbose diagnostics unless quiet mode is selected. Debug mode takes precedence.                                                                                            |

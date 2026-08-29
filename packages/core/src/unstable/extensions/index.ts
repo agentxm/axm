@@ -154,11 +154,10 @@ export {
 } from "./fqn-pattern.js";
 
 // Constants
-export { REGISTRY_EXTENSIONS_DIR } from "./constants.js";
+export { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
 export {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
-  computeExtensionPaths,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   type ExtensionPathLockEntry,

@@ -3,7 +3,7 @@
  *
  * The workspace catalog ships foundation, instruction, skills-install, and
  * packs-install rules. Rule ids and severities are public API (surfaced in
- * `.axm/settings.json` `lint.rules` and in the registry response bodies) —
+ * `axm.json` `lint.rules` and in the registry response bodies) —
  * this test pins both.
  */
 

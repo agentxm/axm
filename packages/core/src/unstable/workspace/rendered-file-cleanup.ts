@@ -9,7 +9,7 @@ import {
 } from "../agents/index.js";
 import { AGENTS as CAPABILITY_AGENTS } from "../agent-capabilities/index.js";
 import { PER_AGENT_EXTENSION_TYPES, type PerAgentType } from "../extensions/common.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../extensions/index.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/index.js";
 import { hasManagedFileBanner } from "../extensions/managed-file-banner.js";
 import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "./scope.js";
@@ -94,7 +94,7 @@ const cleanupSkillArtifactsInDir = (args: {
     const preservedPaths: Array<string> = [];
     const entries = yield* safeReadDirectory(args.fs, args.skillsDir);
     const configuredRoots = args.ownershipRoots ?? [
-      args.path.join(args.baseDir, REGISTRY_EXTENSIONS_DIR),
+      args.path.join(args.baseDir, ACQUIRED_EXTENSIONS_DIR),
     ];
     const ownershipRoots = yield* Effect.forEach(configuredRoots, (root) =>
       args.fs.realPath(root).pipe(Effect.orElseSucceed(() => root)),
@@ -156,7 +156,7 @@ export const cleanupStaleManagedSkillDirectories = (args: {
     const ownershipRoots =
       ws.layout.scope === "project"
         ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-        : [ws.layout.canonicalRoot];
+        : [ws.layout.acquiredRoot];
 
     for (const agent of agents) {
       if (!configuredAgentIds.has(agent.id)) continue;
@@ -388,7 +388,7 @@ export const cleanupManagedArtifactsForRemovedAgents = (args: {
         skillOwnershipRoots:
           ws.layout.scope === "project"
             ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-            : [ws.layout.canonicalRoot],
+            : [ws.layout.acquiredRoot],
         dryRun: args.dryRun === true,
       };
       for (const type of PER_AGENT_EXTENSION_TYPES) {
@@ -431,7 +431,7 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
           ownershipRoots:
             ws.layout.scope === "project"
               ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-              : [ws.layout.canonicalRoot],
+              : [ws.layout.acquiredRoot],
         });
         issues.push(
           ...result.preservedPaths.map((artifactPath) => ({

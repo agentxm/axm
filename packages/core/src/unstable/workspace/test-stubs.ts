@@ -298,6 +298,7 @@ export const makeBaseWorkspaceMock = (
     baseDir,
     layout: {
       scope: "project",
+      workspaceRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
       projectRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
       settingsPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm.json")),
       lockPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm-lock.yaml")),
@@ -435,7 +436,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfilePacks?: Record<string, unknown> | undefined;
 }
 
-export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
+export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(opts.owner && { owner: opts.owner }),
@@ -456,9 +457,10 @@ export const writeWorkspaceFiles = (axmDir: string, opts: WriteWorkspaceFilesOpt
     ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
   };
 
-  fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  const workspaceRoot = path.dirname(runtimeDir);
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.writeFileSync(path.join(workspaceRoot, "axm.json"), JSON.stringify(settings));
+  fs.writeFileSync(path.join(workspaceRoot, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
 export const makeLocalSkillLockEntry = (opts?: {

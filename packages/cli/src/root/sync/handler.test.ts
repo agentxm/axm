@@ -1820,7 +1820,6 @@ describe("root sync handler", () => {
             treeIntegrity,
           },
         },
-        writeTrustFromLockfile: true,
       });
 
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);

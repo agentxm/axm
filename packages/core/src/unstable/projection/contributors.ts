@@ -95,7 +95,6 @@ export const activeNodesOfType = (
  * sources, and never touches the network.
  */
 export const contributorForNode = (args: {
-  readonly baseDir: string;
   readonly layout: WorkspaceLayout;
   readonly path: Path.Path;
   readonly node: DesiredExtensionNode;
@@ -106,6 +105,12 @@ export const contributorForNode = (args: {
   Effect.gen(function* () {
     const { extensionDir, layout, locked, node, path } = args;
     if (node.identity.startsWith("workspace:")) {
+      if (layout.scope === "user") {
+        return yield* makeAppError({
+          code: "validation",
+          detail: `User workspaces do not support workspace-authored ${node.type} packages`,
+        });
+      }
       const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
       if (identity === undefined || identity.type !== node.type) {
         return yield* makeAppError({
@@ -115,10 +120,7 @@ export const contributorForNode = (args: {
       }
       return {
         node,
-        packageRoot:
-          layout.scope === "project"
-            ? path.join(layout.authoredRoot(node.type), identity.name)
-            : path.join(layout.canonicalRoot, identity.owner, extensionDir, identity.name),
+        packageRoot: path.join(layout.authoredRoot(node.type), identity.name),
         identityOwner: Option.some(identity.owner),
       };
     }
@@ -164,7 +166,6 @@ export const contributorForNode = (args: {
  * contributed by a Pack, each resolved to its canonical package root.
  */
 export const activeContributors = (args: {
-  readonly baseDir: string;
   readonly layout: WorkspaceLayout;
   readonly path: Path.Path;
   readonly type: ExtensionType;
@@ -180,7 +181,6 @@ export const activeContributors = (args: {
     Effect.flatMap((graph) =>
       Effect.forEach(activeNodesOfType(graph, args.type), (node) =>
         contributorForNode({
-          baseDir: args.baseDir,
           layout: args.layout,
           path: args.path,
           node,

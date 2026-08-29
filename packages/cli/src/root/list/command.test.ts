@@ -130,7 +130,6 @@ describe("root list", () => {
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
       },
-      writeTrustFromLockfile: true,
     });
     if (registryIndex !== undefined) {
       const indexDir = path.join(registryDir, "extensions", "@acme", "skills", "review");

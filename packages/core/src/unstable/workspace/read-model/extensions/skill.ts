@@ -73,7 +73,7 @@ export interface DeclaredSkill {
   readonly entry: SkillEntry;
 }
 
-/** Decoded skills declared in `settings.json`. */
+/** Decoded skills declared in `axm.json`. */
 export type DeclaredSkills = ReadonlyArray<DeclaredSkill>;
 
 /** One resolved skill entry from the lockfile, wrapping the raw lock entry. */

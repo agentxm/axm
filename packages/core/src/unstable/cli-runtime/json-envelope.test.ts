@@ -232,7 +232,7 @@ describe("JsonEnvelopeSchema", () => {
         code: "internal",
         detail: "Failed to read workspace settings",
         cause: new SettingsDecodeError({
-          path: "/workspace/.axm/settings.json",
+          path: "/workspace/axm.json",
           issues: ["mcpServers.bad: expected source, command, or url"],
           raw: { mcpServers: { bad: { foo: "bar" } } },
         }),

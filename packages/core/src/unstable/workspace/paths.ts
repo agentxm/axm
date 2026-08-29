@@ -1,98 +1,70 @@
-/**
- * Path utilities for axm directory resolution.
- *
- * Provides functions to determine the location of axm configuration directories
- * for both user and project configuration scopes.
- *
- * @experimental This API is unstable and may change without notice.
- * @packageDocumentation
- */
+/** AXM application-home and workspace path resolution. */
 
 import * as os from "node:os";
 import * as Config from "effect/Config";
-import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
 import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
+import {
+  AXM_DIR_NAME,
+  LOCK_FILENAME,
+  SETTINGS_FILENAME,
+  USER_WORKSPACE_DIRECTORY,
+} from "./constants.js";
 import type { WorkspaceScope } from "./scope.js";
+
+export { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 
 export interface WorkspaceLocation {
   readonly scope: WorkspaceScope;
   readonly path: AbsolutePath;
   readonly baseDir: AbsolutePath;
+  readonly workspaceRoot: AbsolutePath;
+  readonly settingsPath: AbsolutePath;
+  readonly lockPath: AbsolutePath;
+  readonly acquiredRoot: AbsolutePath;
 }
 
-// -----------------------------------------------------------------------------
-// Public API
-// -----------------------------------------------------------------------------
-
-export const AXM_DIR_NAME = ".axm";
-
-/**
- * Returns the user-scope axm directory path.
- *
- * The user-scope directory stores user-level configuration and installed skills.
- * When `AXM_USER_HOME` is set, it is treated as the home-directory override
- * and the returned path becomes `$AXM_USER_HOME/.axm`; otherwise the path
- * falls back to `$HOME/.axm`.
- *
- * @returns Effect yielding absolute path to the user-scope axm directory
- *
- * @experimental This API is unstable and may change without notice.
- *
- * @example
- * ```typescript
- * import { getUserScopeDir } from "./workspace/paths";
- *
- * const userScopeDir = yield* getUserScopeDir();
- * // => "/Users/username/.axm" (macOS/Linux)
- * // => "C:\\Users\\username\\.axm" (Windows)
- * ```
- */
 const axmUserHomeConfig = Config.option(Config.string("AXM_USER_HOME"));
 
-export const resolveUserScopeDirPure = (
+export const resolveUserHomePure = (configuredHome: string | undefined): string =>
+  configuredHome ?? os.homedir();
+
+export const resolveUserAxmHomePure = (
   pathJoin: (...segments: ReadonlyArray<string>) => string,
   homeDir: string,
 ): string => pathJoin(homeDir, AXM_DIR_NAME);
 
-export const resolveUserScopeDir = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+export const resolveUserWorkspaceRootPure = (
+  pathJoin: (...segments: ReadonlyArray<string>) => string,
+  homeDir: string,
+): string => pathJoin(resolveUserAxmHomePure(pathJoin, homeDir), USER_WORKSPACE_DIRECTORY);
+
+export const resolveUserHome = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    // Config treats an empty env value as missing (effect beta.95), so
-    // AXM_USER_HOME="" already resolves to Option.none here.
-    // Config.option(string) has neither a missing-value nor decoding failure;
-    // a failure can only be a broken ConfigProvider invariant.
     // eslint-disable-next-line no-restricted-syntax -- Optional string decoding is total, so failure means the Config provider violated its contract.
-    const axmUserHome = yield* Effect.orDie(axmUserHomeConfig);
-    const home = Option.match(axmUserHome, {
-      onNone: () => os.homedir(),
-      onSome: (value) => value,
-    });
-    return makeAbsolutePath(path, resolveUserScopeDirPure(path.join, home));
+    const configuredHome = yield* Effect.orDie(axmUserHomeConfig);
+    return makeAbsolutePath(path, resolveUserHomePure(Option.getOrUndefined(configuredHome)));
   });
 
-export const getUserScopeDir = resolveUserScopeDir;
+export const resolveUserAxmHome = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const home = yield* resolveUserHome();
+    return makeAbsolutePath(path, resolveUserAxmHomePure(path.join, home));
+  });
 
-/**
- * Returns the project-level axm directory path (./.axm).
- *
- * The project directory stores project-specific configuration and skills.
- *
- * @param projectRoot - Canonical project root supplied by the caller
- * @returns Effect yielding the absolute path to the project axm directory
- *
- * @experimental This API is unstable and may change without notice.
- *
- * @example
- * ```typescript
- * import { getProjectDir } from "./workspace/paths";
- *
- * const projectDir = yield* getProjectDir(projectRoot);
- * // => "/path/to/project/.axm"
- * ```
- */
-export const getProjectDir = (
+export const resolveUserWorkspaceRoot = (): Effect.Effect<AbsolutePath, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const home = yield* resolveUserHome();
+    return makeAbsolutePath(path, resolveUserWorkspaceRootPure(path.join, home));
+  });
+
+export const getProjectRuntimeDir = (
   projectRoot: AbsolutePath,
 ): Effect.Effect<AbsolutePath, never, Path.Path> =>
   Effect.gen(function* () {
@@ -100,48 +72,25 @@ export const getProjectDir = (
     return makeAbsolutePath(path, path.join(projectRoot, AXM_DIR_NAME));
   });
 
-/**
- * Returns the axm directory path based on configuration scope.
- *
- * - When `scope` is `"user"`, returns the user-scope directory (~/.axm)
- * - When `scope` is `"project"`, returns the project directory (./.axm)
- *
- * @param scope - WorkspaceMutations scope (`"project"` or `"user"`)
- * @returns Effect yielding absolute path to the appropriate axm directory
- *
- * @experimental This API is unstable and may change without notice.
- *
- * @example
- * ```typescript
- * import { getAxmDir } from "./workspace/paths";
- *
- * // Project-level directory
- * const projectDir = yield* getAxmDir("project", projectRoot);
- * // => "/path/to/project/.axm"
- *
- * // User-scope directory
- * const userScopeDir = yield* getAxmDir("user");
- * // => "/Users/username/.axm"
- * ```
- */
-export const getAxmDir = (
-  ...args: readonly [scope: "user"] | readonly [scope: "project", projectRoot: AbsolutePath]
-): Effect.Effect<AbsolutePath, never, Path.Path> =>
-  args[0] === "user" ? getUserScopeDir() : getProjectDir(args[1]);
-
 export const locateWorkspace = (
   scope: WorkspaceScope,
   projectRoot: AbsolutePath,
 ): Effect.Effect<WorkspaceLocation, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspacePath = yield* scope === "user"
-      ? getAxmDir("user")
-      : getAxmDir("project", projectRoot);
-
+    const baseDir = scope === "user" ? yield* resolveUserHome() : projectRoot;
+    const workspaceRoot =
+      scope === "user"
+        ? makeAbsolutePath(path, resolveUserWorkspaceRootPure(path.join, baseDir))
+        : projectRoot;
+    const runtimeDir = makeAbsolutePath(path, path.join(workspaceRoot, AXM_DIR_NAME));
     return {
       scope,
-      path: workspacePath,
-      baseDir: makeAbsolutePath(path, path.dirname(workspacePath)),
-    } satisfies WorkspaceLocation;
+      path: runtimeDir,
+      baseDir,
+      workspaceRoot,
+      settingsPath: makeAbsolutePath(path, path.join(workspaceRoot, SETTINGS_FILENAME)),
+      lockPath: makeAbsolutePath(path, path.join(workspaceRoot, LOCK_FILENAME)),
+      acquiredRoot: makeAbsolutePath(path, path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR)),
+    };
   });

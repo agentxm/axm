@@ -179,7 +179,7 @@ layer(Path.layer, { excludeTestServices: true })(
           expect(occurrences).toEqual([]);
           const warnings = yield* Ref.get(ref);
           // agent-settings only emits stat warnings; "exists: true" then no IO
-          // occurs against settings.json itself unless a real read is required.
+          // occurs against axm.json itself unless a real read is required.
           // Tolerate zero or more — the scanner's contract is "no error", not
           // "always emits a warning".
           expect(warnings.every((w) => w.source === "scanner")).toBe(true);

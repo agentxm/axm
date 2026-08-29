@@ -9,7 +9,7 @@ describe("lint rule contract", () => {
       ruleId: "workspace/example-valid",
       severity: "error",
       message: "Observed state does not satisfy the invariant.",
-      location: { file: ".axm/settings.json" },
+      location: { file: "axm.json" },
     };
     expect(finding.kind).toBe("advisory");
     expect("suggestions" in finding).toBe(false);

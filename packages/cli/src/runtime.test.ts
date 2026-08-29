@@ -193,12 +193,13 @@ describe("withWorkspace settings gate", () => {
 
   const invalidSources = [
     { owner: "project", path: () => path.join(projectDir, "axm.json") },
-    { owner: "user", path: () => path.join(userHome, ".axm", "settings.json") },
+    { owner: "user", path: () => path.join(userHome, ".axm", "workspace", "axm.json") },
   ] as const;
 
   for (const source of invalidSources) {
     it.effect(`does not evaluate the command when ${source.owner} settings are invalid`, () =>
       Effect.gen(function* () {
+        fs.mkdirSync(path.dirname(source.path()), { recursive: true });
         fs.writeFileSync(source.path(), "{ not-json");
         let commandEvaluated = false;
         const testContext = makeWorkspaceHandlerTestContext();

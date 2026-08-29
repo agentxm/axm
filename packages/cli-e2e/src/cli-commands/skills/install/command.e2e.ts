@@ -308,7 +308,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("settings.json preserves agents after installation", async () => {
+    it("axm.json preserves agents after installation", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {

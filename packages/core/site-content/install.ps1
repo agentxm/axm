@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 
 $githubRepo = if ($env:AXM_INSTALL_GITHUB_REPO) { $env:AXM_INSTALL_GITHUB_REPO } else { 'agentxm/axm' }
 $userHome = if ($env:AXM_USER_HOME) { $env:AXM_USER_HOME } else { $env:USERPROFILE }
-$dataDir = if ($env:AXM_INSTALL_DATA_DIR) { $env:AXM_INSTALL_DATA_DIR } else { Join-Path $userHome '.axm' }
+$dataDir = Join-Path $userHome '.axm'
 $installDir = if ($env:AXM_INSTALL_DIR) { $env:AXM_INSTALL_DIR } else { Join-Path $dataDir 'bin' }
 $installDir = [IO.Path]::GetFullPath($installDir)
 $target = Join-Path $installDir 'axm.exe'

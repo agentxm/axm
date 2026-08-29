@@ -598,13 +598,22 @@ export const runWorkspaceTransaction = <A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspaceDir = path.resolve(args.workspaceDir);
-    const workspaceExisted = yield* fs
-      .exists(workspaceDir)
-      .pipe(
-        Effect.mapError((error) =>
-          transactionError(`Failed to inspect workspace state directory ${workspaceDir}`, error),
-        ),
-      );
+    const missingWorkspaceAncestors: Array<string> = [];
+    let ancestor = workspaceDir;
+    while (true) {
+      const exists = yield* fs
+        .exists(ancestor)
+        .pipe(
+          Effect.mapError((error) =>
+            transactionError(`Failed to inspect workspace state directory ${ancestor}`, error),
+          ),
+        );
+      if (exists) break;
+      missingWorkspaceAncestors.push(ancestor);
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor) break;
+      ancestor = parent;
+    }
 
     return yield* args.semaphore.withPermits(1)(
       Effect.gen(function* () {
@@ -624,16 +633,19 @@ export const runWorkspaceTransaction = <A, E, R>(
           ),
           Effect.ignore,
         );
-        const removeNewEmptyWorkspace = workspaceExisted
-          ? Effect.void
-          : fs.readDirectory(workspaceDir).pipe(
+        const removeNewEmptyWorkspace = Effect.forEach(
+          missingWorkspaceAncestors,
+          (directory) =>
+            fs.readDirectory(directory).pipe(
               Effect.flatMap((entries) =>
                 entries.length === 0
-                  ? fs.remove(workspaceDir, { recursive: true, force: false })
+                  ? fs.remove(directory, { recursive: true, force: false })
                   : Effect.void,
               ),
               Effect.ignore,
-            );
+            ),
+          { concurrency: 1, discard: true },
+        );
         return yield* Effect.scoped(
           Effect.gen(function* () {
             // The invocation-level transition hold already provides

@@ -153,7 +153,10 @@ export const enableSkill: OperationHandler<
       scope: ws.scope,
       change: "created",
       workspaceTargets: [
-        { path: ws.scope === "project" ? "axm.json" : ".axm/settings.json", change: "updated" },
+        {
+          path: ws.scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
+          change: "updated",
+        },
       ],
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),

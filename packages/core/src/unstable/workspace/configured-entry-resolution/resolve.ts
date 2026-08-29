@@ -83,7 +83,7 @@ const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) 
       return yield* makeAppError({
         code: "not_found",
         detail: `Configured extension "${resolution.target}" could not be found in its source`,
-        suggestions: [{ description: "Verify the configured source or update settings.json." }],
+        suggestions: [{ description: "Verify the configured source or update axm.json." }],
       });
     }
     if (resolution.kind === "version_unsatisfied") {
@@ -334,7 +334,7 @@ export const resolveConfiguredSkill = (
         detail: `Configured skill "${name}" could not be found in its source`,
         suggestions: [
           {
-            description: `Verify the configured source still contains the skill or update settings.json.`,
+            description: `Verify the configured source still contains the skill or update axm.json.`,
           },
         ],
       });
@@ -438,7 +438,7 @@ export const resolveConfiguredSubagent = (
         detail: `Configured subagent "${name}" could not be found in its source`,
         suggestions: [
           {
-            description: `Verify the configured source still contains the subagent or update settings.json.`,
+            description: `Verify the configured source still contains the subagent or update axm.json.`,
           },
         ],
       });
@@ -540,8 +540,7 @@ export const resolveConfiguredRule = (
         detail: `Configured rule "${name}" could not be found in its source`,
         suggestions: [
           {
-            description:
-              "Verify the configured source still contains the rule or update settings.json.",
+            description: "Verify the configured source still contains the rule or update axm.json.",
           },
         ],
       });
@@ -643,8 +642,7 @@ export const resolveConfiguredHook = (
         detail: `Configured hook "${name}" could not be found in its source`,
         suggestions: [
           {
-            description:
-              "Verify the configured source still contains the hook or update settings.json.",
+            description: "Verify the configured source still contains the hook or update axm.json.",
           },
         ],
       });
@@ -839,7 +837,7 @@ export const resolveConfiguredMcpServer = (
         detail: `Configured MCP server "${name}" could not be found in its source`,
         suggestions: [
           {
-            description: `Verify the configured source still contains the MCP server or update settings.json.`,
+            description: `Verify the configured source still contains the MCP server or update axm.json.`,
           },
         ],
       });
@@ -971,8 +969,7 @@ export const resolveConfiguredPack = (
         detail: `Configured pack "${name}" could not be found in its source`,
         suggestions: [
           {
-            description:
-              "Verify the configured source still contains the pack or update settings.json.",
+            description: "Verify the configured source still contains the pack or update axm.json.",
           },
         ],
       });

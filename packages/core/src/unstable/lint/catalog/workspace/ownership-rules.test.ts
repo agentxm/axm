@@ -51,11 +51,11 @@ describe("workspace ownership rules", () => {
     Effect.gen(function* () {
       const root = path.join(fixtures, "hook-ownership-ambiguous");
       const config = path.join(root, ".claude", "settings.json");
-      expect(fs.readFileSync(config, "utf8")).toContain(".axm/extensions/");
+      expect(fs.readFileSync(config, "utf8")).toContain("agent_extensions/");
       const context = yield* contextFor(root, {
         kind: "hook-ownership-ambiguous",
         path: config,
-        detail: "Hook command targets .axm/extensions/ without x-axm ownership metadata.",
+        detail: "Hook command targets agent_extensions/ without x-axm ownership metadata.",
       });
       const findings = yield* hookOwnershipAmbiguousRule.check(context);
       expect(findings).toEqual([
@@ -63,7 +63,7 @@ describe("workspace ownership rules", () => {
           kind: "advisory",
           ruleId: "workspace/hook-ownership-ambiguous",
           severity: "warning",
-          message: "Hook command targets .axm/extensions/ without x-axm ownership metadata.",
+          message: "Hook command targets agent_extensions/ without x-axm ownership metadata.",
           location: { file: ".claude/settings.json" },
         },
       ]);

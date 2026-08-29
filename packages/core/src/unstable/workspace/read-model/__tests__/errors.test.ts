@@ -32,11 +32,11 @@ describe("workspace read-model per-source error families", () => {
     it("instantiates with path and cause and exposes the SettingsIoError tag", () => {
       const cause = new Error("ENOENT");
       const err = new SettingsIoError({
-        path: "/ws/.axm/settings.json",
+        path: "/ws/axm.json",
         cause,
       });
       expect(err._tag).toBe("SettingsIoError");
-      expect(err.path).toBe("/ws/.axm/settings.json");
+      expect(err.path).toBe("/ws/axm.json");
       expect(err.cause).toBe(cause);
     });
   });
@@ -45,12 +45,12 @@ describe("workspace read-model per-source error families", () => {
     it("instantiates with path, raw text, and cause and exposes the SettingsParseError tag", () => {
       const cause = new SyntaxError("Unexpected token }");
       const err = new SettingsParseError({
-        path: "/ws/.axm/settings.json",
+        path: "/ws/axm.json",
         raw: "{ this is not json",
         cause,
       });
       expect(err._tag).toBe("SettingsParseError");
-      expect(err.path).toBe("/ws/.axm/settings.json");
+      expect(err.path).toBe("/ws/axm.json");
       expect(err.raw).toBe("{ this is not json");
       expect(err.cause).toBe(cause);
     });
@@ -61,12 +61,12 @@ describe("workspace read-model per-source error families", () => {
       const issues = ["expected `{ skills: ... }`, got string"] as const;
       const raw = { unexpected: "shape" };
       const err = new SettingsDecodeError({
-        path: "/ws/.axm/settings.json",
+        path: "/ws/axm.json",
         issues,
         raw,
       });
       expect(err._tag).toBe("SettingsDecodeError");
-      expect(err.path).toBe("/ws/.axm/settings.json");
+      expect(err.path).toBe("/ws/axm.json");
       expect(err.issues).toEqual(issues);
       expect(err.raw).toBe(raw);
     });

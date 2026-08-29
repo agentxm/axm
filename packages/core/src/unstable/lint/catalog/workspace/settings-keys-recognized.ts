@@ -1,5 +1,5 @@
 /**
- * `workspace/settings-keys-recognized` — `.axm/settings.json` uses only
+ * `workspace/settings-keys-recognized` — `axm.json` uses only
  * supported top-level keys.
  *
  * `SettingsSchema` tolerates and preserves unknown top-level keys so a write

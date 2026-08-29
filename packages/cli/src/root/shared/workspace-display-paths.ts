@@ -5,13 +5,13 @@ import type * as Path from "effect/Path";
 
 /** Stable workspace-relative paths for user-facing plans and results. */
 export const workspaceSettingsPath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm.json" : ".axm/settings.json";
+  scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
 
 export const workspaceLockfilePath = (scope: WorkspaceScope): string =>
-  scope === "project" ? "axm-lock.yaml" : ".axm/axm-lock.yaml";
+  scope === "project" ? "axm-lock.yaml" : ".axm/workspace/axm-lock.yaml";
 
 export const workspaceCanonicalRoot = (scope: WorkspaceScope): string =>
-  scope === "project" ? "agent_extensions" : ".axm/extensions";
+  scope === "project" ? "agent_extensions" : ".axm/workspace/agent_extensions";
 
 export const workspaceCanonicalPath = (scope: WorkspaceScope, relativePath: string): string =>
   `${workspaceCanonicalRoot(scope)}/${relativePath.replace(/^\/+/, "")}`;
@@ -66,4 +66,4 @@ export const workspaceAuthoredRoot = (
 ): string =>
   ws.layout.scope === "project"
     ? ws.layout.authoredRoot(type)
-    : path.join(ws.layout.canonicalRoot, owner, extensionDirectory[type]);
+    : path.join(ws.layout.acquiredRoot, owner, extensionDirectory[type]);

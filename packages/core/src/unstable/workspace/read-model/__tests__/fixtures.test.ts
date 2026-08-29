@@ -71,7 +71,7 @@ const USER_HOME = "/test/home";
 
 const PROJECT_SETTINGS_PATH = "/test/workspace/axm.json";
 const PROJECT_LOCKFILE_PATH = "/test/workspace/axm-lock.yaml";
-const USER_SETTINGS_PATH = "/test/home/.axm/settings.json";
+const USER_SETTINGS_PATH = "/test/home/.axm/workspace/axm.json";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -254,7 +254,7 @@ describe("buildFixture: scanner-visible trees", () => {
     }),
   );
 
-  it.effect("axm-extensions tree materializes under .axm/extensions/", () =>
+  it.effect("axm-extensions tree materializes under agent_extensions/", () =>
     Effect.gen(function* () {
       const spec: FixtureSpec = {
         workspaceRoot: WORKSPACE_ROOT,

@@ -290,7 +290,9 @@ describe("WorkspaceMutationsService", () => {
   /** Helper to write project settings JSON at the workspace root. */
   const writeSettingsTo = (dir: string, settings: Record<string, unknown>) => {
     const settingsPath =
-      dir === homeDir ? path.join(dir, ".axm", "settings.json") : path.join(dir, "axm.json");
+      dir === homeDir
+        ? path.join(dir, ".axm", "workspace", "axm.json")
+        : path.join(dir, "axm.json");
     fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   };
@@ -307,7 +309,7 @@ describe("WorkspaceMutationsService", () => {
       },
       {
         owner: "user",
-        path: () => path.join(homeDir, ".axm", "settings.json"),
+        path: () => path.join(homeDir, ".axm", "workspace", "axm.json"),
       },
     ] as const;
     const failures = [

@@ -1188,7 +1188,7 @@ describe("setup.handler", () => {
           Effect.gen(function* () {
             yield* handleSetup({ scope: "user" });
 
-            const userSettingsPath = path.join(homeDir, ".axm", "settings.json");
+            const userSettingsPath = path.join(homeDir, ".axm", "workspace", "axm.json");
             const projectSettingsPath = path.join(tempDir, "axm.json");
             expect(fs.existsSync(userSettingsPath)).toBe(true);
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
@@ -1212,7 +1212,7 @@ describe("setup.handler", () => {
         return provide(
           Effect.gen(function* () {
             yield* handleSetup({ scope: "user", agents: ["claude-code"] });
-            const settingsPath = path.join(homeDir, ".axm", "settings.json");
+            const settingsPath = path.join(homeDir, ".axm", "workspace", "axm.json");
             const before = fs.readFileSync(settingsPath);
 
             yield* handleSetup({ scope: "user", agents: ["cursor"], yes: true });

@@ -10,8 +10,8 @@ depends-on:
 # Workspace settings
 
 Project-root `axm.json` is the human-editable source of truth for the explicit,
-durable choices in a project workspace. User scope keeps the same role in
-`.axm/settings.json`. Each records configuration, not the complete dependency
+durable choices in a project workspace. User scope keeps the same filename and
+role in `~/.axm/workspace/axm.json`. Each records configuration, not the complete dependency
 graph or what happens to be installed.
 
 Settings names desired extensions and capabilities. When a settings entry
@@ -60,7 +60,10 @@ Project and user scopes have separate settings files. Extension roots,
 activation, configured agents, inline definitions, and workspace capabilities
 remain local to the selected scope. A command changes only that scope.
 
-Project settings also establish the physical authoring contract. Each optional
+Project settings also establish the physical authoring contract. User settings
+do not: user scope installs acquired and bundled packages but has no authored
+type roots and does not accept user-authored `workspace` sources. The bundled
+AXM skill is a reserved internal static package. Each optional project
 type configuration may set a normalized, workspace-relative `dir`; absent
 overrides default to `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`,
 `mcps/`, and `packs/`. These roots must stay within the project and must not
@@ -117,7 +120,7 @@ targets never become portable manifest metadata. The
 defaults.
 
 [Telemetry](../system-wide/telemetry.md) is not workspace desired state.
-Project or user-scope `settings.json` does not enable or disable it, and Registry
+Project or user-scope `axm.json` does not enable or disable it, and Registry
 request logging remains a separate service concern.
 
 A settings entry expresses a durable choice. It does not prove that the choice
@@ -139,7 +142,7 @@ automatic migration or cleanup, alias, or downgrade mode.
 Project `axm.json` should be committed with the workspace. Because it is
 shared, it contains no credentials or resolved secret values. Configuration
 that needs a secret stores a reference to an external value instead. User
-settings remain machine-local under the user's `.axm/` directory.
+settings remain machine-local under `~/.axm/workspace/`.
 
 ## Missing and invalid settings
 

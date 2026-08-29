@@ -51,13 +51,13 @@ describe("scanner occurrence identity", () => {
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/.axm/extensions/@owner/skills/some-skill",
+        contentLocation: "/ws/agent_extensions/@owner/skills/some-skill",
       });
       const id = occurrenceIdentity(occ);
       expect(id.scope).toBe("project");
       expect(id.subjectKey).toBe("skill");
       expect(id.origin).toBe("canonical-axm");
-      expect(id.contentLocation).toBe("/ws/.axm/extensions/@owner/skills/some-skill");
+      expect(id.contentLocation).toBe("/ws/agent_extensions/@owner/skills/some-skill");
     });
 
     it("agent-dir identity includes agentId in subjectKey and origin", () => {
@@ -112,7 +112,7 @@ describe("scanner occurrence identity", () => {
         origin: "canonical-axm",
         name: "x",
         owner: "@o",
-        contentLocation: "/ws/.axm/extensions/@o/skills/x",
+        contentLocation: "/ws/agent_extensions/@o/skills/x",
       });
       const b: CanonicalExtensionOccurrence = { ...a };
       expect(occurrenceIdentityKey(occurrenceIdentity(a))).toBe(
@@ -149,7 +149,7 @@ describe("scanner occurrence identity", () => {
         origin: "canonical-axm",
         name: "x",
         owner: "@o",
-        contentLocation: "/ws/.axm/extensions/@o/skills/x",
+        contentLocation: "/ws/agent_extensions/@o/skills/x",
       });
       const collapsed = dedupeByIdentity<CanonicalExtensionOccurrence>([occ, { ...occ }]);
       expect(collapsed).toHaveLength(1);

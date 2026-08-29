@@ -45,7 +45,7 @@ describe("atomic pack graph transition", () => {
       Effect.gen(function* () {
         const ws = yield* WorkspaceMutations;
         const targets = ["pack", "skill", "command"].map((name) =>
-          path.join(tempDir, ".axm", "extensions", name, "content.txt"),
+          path.join(tempDir, "agent_extensions", name, "content.txt"),
         );
 
         for (const failAt of targets.keys()) {
@@ -116,8 +116,8 @@ describe("atomic pack graph transition", () => {
     return provide(
       Effect.gen(function* () {
         const workspace = yield* WorkspaceMutations;
-        const failedTarget = path.join(tempDir, ".axm", "extensions", "failed", "content.txt");
-        const healthyTarget = path.join(tempDir, ".axm", "extensions", "healthy", "content.txt");
+        const failedTarget = path.join(tempDir, "agent_extensions", "failed", "content.txt");
+        const healthyTarget = path.join(tempDir, "agent_extensions", "healthy", "content.txt");
         for (const target of [failedTarget, healthyTarget]) {
           fs.mkdirSync(path.dirname(target), { recursive: true });
           fs.writeFileSync(target, "before\n");
@@ -289,7 +289,7 @@ describe("atomic pack graph transition", () => {
             scope: "project",
             change: "updated",
             fileCount: 1,
-            targets: [{ path: ".axm/extensions/@test/packs/covered", change: "created" }],
+            targets: [{ path: "agent_extensions/@test/packs/covered", change: "created" }],
           },
           children: [
             {
@@ -335,7 +335,7 @@ describe("atomic pack graph transition", () => {
                   result: "success",
                   message: "installed knowledge c",
                   artifact: {
-                    path: ".axm/extensions/@test/knowledge/c",
+                    path: "agent_extensions/@test/knowledge/c",
                     scope: "project",
                     change: "created",
                     agents: ["ignored-agent"],
@@ -358,7 +358,7 @@ describe("atomic pack graph transition", () => {
             scope: "project",
             agents: ["codex", "claude-code", "cursor"],
             fileCount: 1,
-            targets: [{ path: ".axm/extensions/@test/packs/covered", change: "created" }],
+            targets: [{ path: "agent_extensions/@test/packs/covered", change: "created" }],
           },
         });
       }),
@@ -386,7 +386,7 @@ describe("atomic pack graph transition", () => {
                   result: "success",
                   message: "installed skill",
                   artifact: {
-                    path: ".axm/extensions/@test/skills/empty",
+                    path: "agent_extensions/@test/skills/empty",
                     scope: "project",
                     change: "created",
                     agents: [],

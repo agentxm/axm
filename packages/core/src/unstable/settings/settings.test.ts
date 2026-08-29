@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { expectRecord, handle } from "../test-helpers.js";
 import { ReleaseAgeExcludePatternSchema } from "../extensions/fqn-pattern.js";
-import { createDefaultSettings, renderExistingSettings, writeSettings } from "./settings.js";
+import { createDefaultSettings, renderExistingSettings, writeSettingsAtPath } from "./settings.js";
 import { SettingsSchema, type Settings } from "./schema.js";
 
 describe("settings", () => {
@@ -34,18 +34,18 @@ describe("settings", () => {
     });
   });
 
-  describe("writeSettings", () => {
+  describe("writeSettingsAtPath", () => {
     it.effect("removes stale owned temps without touching unknown siblings", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           const stale = `${settingsPath}.tmp.crashed`;
-          const unknown = path.join(axmDir, "settings.json.tmp-not-owned");
+          const unknown = path.join(axmDir, "axm.json.tmp-not-owned");
           fs.writeFileSync(stale, "partial");
           fs.writeFileSync(unknown, "keep");
 
-          yield* writeSettings(axmDir, createDefaultSettings());
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), createDefaultSettings());
 
           expect(fs.existsSync(stale)).toBe(false);
           expect(fs.readFileSync(unknown, "utf8")).toBe("keep");
@@ -300,13 +300,13 @@ describe("settings", () => {
           withContext(
             Effect.gen(function* () {
               fs.mkdirSync(axmDir, { recursive: true });
-              const settingsPath = path.join(axmDir, "settings.json");
+              const settingsPath = path.join(axmDir, "axm.json");
               fs.writeFileSync(settingsPath, fixture.prior);
               const settings = yield* Schema.decodeUnknownEffect(SettingsSchema)(fixture.next, {
                 onExcessProperty: "error",
               });
 
-              yield* writeSettings(axmDir, settings);
+              yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
               expect(fs.readFileSync(settingsPath, "utf-8")).toBe(fixture.expected);
             }),
@@ -319,7 +319,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(
             settingsPath,
             `{
@@ -347,7 +347,7 @@ describe("settings", () => {
             },
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`{
   "agents": [
@@ -370,7 +370,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(
             settingsPath,
             `{
@@ -389,7 +389,7 @@ describe("settings", () => {
             agents: ["claude-code"],
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`{
   "futureFirst": {
@@ -409,7 +409,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(
             settingsPath,
             `{
@@ -423,7 +423,7 @@ describe("settings", () => {
             skills: {},
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(
             Object.keys(expectRecord(JSON.parse(fs.readFileSync(settingsPath, "utf-8")))),
@@ -436,7 +436,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(
             settingsPath,
             `{
@@ -450,7 +450,7 @@ describe("settings", () => {
             agents: ["claude-code"],
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(
             Object.keys(expectRecord(JSON.parse(fs.readFileSync(settingsPath, "utf-8")))),
@@ -463,7 +463,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(
             settingsPath,
             `{
@@ -476,12 +476,12 @@ describe("settings", () => {
             owner: "@acme",
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
           const firstContent = fs.readFileSync(settingsPath, "utf-8");
           const decoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(
             JSON.parse(firstContent),
           );
-          yield* writeSettings(axmDir, decoded);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), decoded);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(firstContent);
           expect(firstContent.indexOf('"skills"')).toBeLessThan(firstContent.indexOf('"owner"'));
@@ -493,7 +493,7 @@ describe("settings", () => {
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           const lintBlock = `    "lint": {
         "rules": {}
     },`;
@@ -514,7 +514,7 @@ ${lintBlock}
             },
           });
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           const content = fs.readFileSync(settingsPath, "utf-8");
           expect(content).toContain(lintBlock);
@@ -527,7 +527,7 @@ ${lintBlock}
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           const prior = `{
   "skills": {},
   "owner": "@acme"
@@ -535,7 +535,7 @@ ${lintBlock}
           fs.writeFileSync(settingsPath, prior);
           const settings = yield* Schema.decodeUnknownEffect(SettingsSchema)(JSON.parse(prior));
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`${prior}\n`);
         }),
@@ -546,13 +546,13 @@ ${lintBlock}
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(settingsPath, "{ malformed");
           const settings: Settings = {
             agents: ["claude-code"],
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`{
   "agents": [
@@ -567,14 +567,14 @@ ${lintBlock}
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(settingsPath, "{}\n");
           fs.chmodSync(settingsPath, 0o000);
           const settings: Settings = {
             agents: ["claude-code"],
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(`{
   "agents": [
@@ -589,13 +589,13 @@ ${lintBlock}
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           fs.writeFileSync(settingsPath, "[]\n");
           const settings: Settings = {
             agents: ["claude-code"],
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(JSON.parse(fs.readFileSync(settingsPath, "utf-8"))).toEqual({
             agents: ["claude-code"],
@@ -629,7 +629,7 @@ ${lintBlock}
         Effect.gen(function* () {
           const settings = createDefaultSettings();
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           expect(fs.existsSync(axmDir)).toBe(true);
         }),
@@ -643,14 +643,14 @@ ${lintBlock}
             skills: { commit: { source: "^1.0.0", enabled: true } },
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
           // The atomic write goes through a temp file then rename; no temp is
           // left behind, and the real settings file holds the written content.
           const leftovers = fs.readdirSync(axmDir).filter((name) => name.includes(".tmp"));
           expect(leftovers).toEqual([]);
           const parsed = expectRecord(
-            JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8")),
+            JSON.parse(fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8")),
           );
           expect(parsed).toHaveProperty("skills");
         }),
@@ -668,9 +668,9 @@ ${lintBlock}
             { onExcessProperty: "error" },
           );
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const settingsPath = path.join(axmDir, "settings.json");
+          const settingsPath = path.join(axmDir, "axm.json");
           const firstContent = fs.readFileSync(settingsPath, "utf-8");
           const parsed = expectRecord(JSON.parse(firstContent));
           expect(parsed["telemetry"]).toBe(false);
@@ -683,7 +683,7 @@ ${lintBlock}
           const reDecoded = yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
             onExcessProperty: "error",
           });
-          yield* writeSettings(axmDir, reDecoded);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), reDecoded);
           expect(fs.readFileSync(settingsPath, "utf-8")).toBe(firstContent);
         }),
       ),
@@ -694,9 +694,9 @@ ${lintBlock}
         Effect.gen(function* () {
           const settings = createDefaultSettings();
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const content = fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8");
           const expected = JSON.stringify(settings, null, 2) + "\n";
           expect(content).toBe(expected);
         }),
@@ -713,9 +713,9 @@ ${lintBlock}
             owner: handle("@acme"),
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const content = fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8");
           const keys = Object.keys(expectRecord(JSON.parse(content)));
           expect(keys).toEqual(["owner", "agents", "skills"]);
         }),
@@ -732,9 +732,9 @@ ${lintBlock}
             minimumReleaseAge: "24h",
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const content = fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8");
           const parsed = expectRecord(JSON.parse(content));
           expect(Object.keys(parsed)).toEqual([
             "minimumReleaseAge",
@@ -756,9 +756,9 @@ ${lintBlock}
             knowledgeConfig: { instructions: false },
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const content = fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8");
           const decoded = Schema.decodeUnknownSync(SettingsSchema)(JSON.parse(content));
           expect(decoded).toEqual(settings);
         }),
@@ -772,9 +772,9 @@ ${lintBlock}
             knowledgeConfig: {},
           };
 
-          yield* writeSettings(axmDir, settings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), settings);
 
-          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const content = fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8");
           expect(JSON.parse(content)).toEqual({});
         }),
       ),
@@ -787,15 +787,15 @@ ${lintBlock}
           const oldSettings: Settings = {
             agents: ["cursor"],
           };
-          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
+          fs.writeFileSync(path.join(axmDir, "axm.json"), JSON.stringify(oldSettings));
 
           const newSettings: Settings = {
             agents: ["codex"],
           };
-          yield* writeSettings(axmDir, newSettings);
+          yield* writeSettingsAtPath(path.join(axmDir, "axm.json"), newSettings);
 
           const result = expectRecord(
-            JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8")),
+            JSON.parse(fs.readFileSync(path.join(axmDir, "axm.json"), "utf-8")),
           );
           expect(result["agents"]).toEqual(["codex"]);
         }),

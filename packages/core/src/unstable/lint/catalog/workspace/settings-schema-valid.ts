@@ -1,10 +1,10 @@
 /**
- * `workspace/settings-schema-valid` — `.axm/settings.json` conforms to
+ * `workspace/settings-schema-valid` — `axm.json` conforms to
  * `SettingsSchema`.
  *
  * Cascade per the lint design:
  *
- * 1. `.axm/settings.json` is present (`workspace/initialized` owns the
+ * 1. `axm.json` is present (`workspace/initialized` owns the
  *    absence arm; this rule early-returns when the file is missing).
  * 2. The file parses as JSON (the accessor surfaces parse failures via
  *    `SettingsReadError`; we emit one finding per read failure).

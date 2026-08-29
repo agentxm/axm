@@ -666,7 +666,7 @@ export const installMcpServer: (
             const expectedPath = path.join(
               ws.layout.scope === "project"
                 ? ws.layout.authoredRoot("mcp-server")
-                : path.join(ws.layout.canonicalRoot, ref.owner, "mcps"),
+                : path.join(ws.layout.acquiredRoot, ref.owner, "mcps"),
               ref.name,
             );
             if (

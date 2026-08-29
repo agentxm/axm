@@ -2,7 +2,7 @@
  * Settings feature module.
  *
  * Provides settings schema definitions and I/O functions for managing
- * project-root `axm.json` or user-scope `.axm/settings.json` configuration.
+ * project-root or user-workspace `axm.json` configuration.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -70,12 +70,7 @@ export {
 } from "./schema.js";
 
 // Settings I/O
-export {
-  createDefaultSettings,
-  SETTINGS_FILENAME,
-  writeSettings,
-  writeSettingsAtPath,
-} from "./settings.js";
+export { createDefaultSettings, writeSettingsAtPath } from "./settings.js";
 
 // Format-preserving JSON
 export type { JsonModification } from "./format-preserving-json.js";

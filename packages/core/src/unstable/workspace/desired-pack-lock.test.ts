@@ -14,6 +14,8 @@ import { decodeExtensionNameSync } from "../extensions/common.js";
 import { decodeVersionSync } from "../version-constraints/version-constraints.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
+import { resolveProjectWorkspaceLayout } from "./layout.js";
+import { decodeAbsolutePathSync } from "../utils/path-types.js";
 
 const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");
@@ -96,8 +98,9 @@ describe("validateDesiredPackLock", () => {
   it.effect("fails closed when an external configured Pack lacks an accepted resolution", () =>
     Effect.gen(function* () {
       const { baseDir } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
       const validated = yield* validateDesiredPackLock({
-        baseDir,
+        layout,
         graph: externalPackGraph,
         lockfile: { lockfileVersion: 6, skills: {} },
       });
@@ -112,6 +115,7 @@ describe("validateDesiredPackLock", () => {
   it.effect("accepts decoded-equivalent Pack manifest formatting", () =>
     Effect.gen(function* () {
       const { baseDir, canonical } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
       fs.writeFileSync(
         path.join(canonical, "pack.json"),
         JSON.stringify(
@@ -122,7 +126,7 @@ describe("validateDesiredPackLock", () => {
       );
 
       const validated = yield* validateDesiredPackLock({
-        baseDir,
+        layout,
         graph: externalPackGraph,
         lockfile: lockfile(),
       });
@@ -135,9 +139,10 @@ describe("validateDesiredPackLock", () => {
     () =>
       Effect.gen(function* () {
         const { baseDir, canonical } = setupCanonicalPack();
+        const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
         fs.writeFileSync(path.join(canonical, "README.md"), "locally edited\n");
         const withOtherDrift = yield* validateDesiredPackLock({
-          baseDir,
+          layout,
           graph: externalPackGraph,
           lockfile: lockfile(),
         });
@@ -148,7 +153,7 @@ describe("validateDesiredPackLock", () => {
           JSON.stringify({ ...manifest, dependencies: { "@evil/skills/injected": "*" } }),
         );
         const changed = yield* validateDesiredPackLock({
-          baseDir,
+          layout,
           graph: externalPackGraph,
           lockfile: lockfile(),
         });
@@ -162,6 +167,7 @@ describe("validateDesiredPackLock", () => {
   it.effect("does not require a lock row for a workspace-authored Pack", () =>
     Effect.gen(function* () {
       const { baseDir } = setupCanonicalPack();
+      const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
       const graph: DesiredStateGraph = {
         ...externalPackGraph,
         nodes: externalPackGraph.nodes.map((node) => ({
@@ -171,7 +177,7 @@ describe("validateDesiredPackLock", () => {
         })),
       };
       const validated = yield* validateDesiredPackLock({
-        baseDir,
+        layout,
         graph,
         lockfile: { lockfileVersion: 6, skills: {} },
       });

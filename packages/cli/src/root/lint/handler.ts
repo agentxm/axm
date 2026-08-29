@@ -5,7 +5,7 @@
  *
  * 1. Resolve workspace root + scope (project: cwd (or `<path>`), user:
  *    `$AXM_USER_HOME` or `$HOME`, ignoring `<path>`).
- * 2. Load project-root `axm.json` or user-scope `.axm/settings.json` (if
+ * 2. Load project-root `axm.json` or user-workspace `.axm/workspace/axm.json` (if
  *    present) to recover the configured `lint.rules` overrides.
  * 3. Build a `LintWorkspace` (rule context + flat projection) from the
  *    workspace read model, then assemble workspace / skill / pack rule
@@ -57,8 +57,9 @@ import {
 import type { LintConfig } from "@agentxm/client-core/unstable/lint";
 import {
   AXM_DIR_NAME,
+  USER_WORKSPACE_DIRECTORY,
   WorkspaceMutations,
-  getUserScopeDir,
+  resolveUserHome,
   acceptedCanonicalObservation,
   inspectWorkspaceOwnership,
   type WorkspaceScope,
@@ -138,8 +139,8 @@ export const remapLintSummaryPaths = (
  * - `--scope=project` (default): use the optional `<path>` argument if
  *   provided, otherwise the caller-supplied `cwd` (defaulting to
  *   the invocation execution directory when loaded via {@link resolveLintRootEffect}).
- * - `--scope=user`: use the parent of the resolved user-scope `.axm`
- *   directory. Ignores `<path>`.
+ * - `--scope=user`: use the resolved user home; the read model locates its
+ *   `.axm/workspace/` workspace. Ignores `<path>`.
  *
  * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
  * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up
@@ -151,11 +152,10 @@ export const resolveLintRoot = (args: {
   readonly pathArg: Option.Option<string>;
   readonly scope: WorkspaceScope;
   readonly cwd: string;
-  readonly userScopeDir: string;
-  readonly pathDirname: (path: string) => string;
+  readonly userHome: string;
 }): string => {
   if (args.scope === "user") {
-    return args.pathDirname(args.userScopeDir);
+    return args.userHome;
   }
   return Option.match(args.pathArg, {
     onNone: () => args.cwd,
@@ -172,15 +172,13 @@ const resolveLintRootEffect = (args: {
   readonly scope: WorkspaceScope;
 }) =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     const executionDirectory = yield* ExecutionDirectory;
-    const userScopeDir = yield* getUserScopeDir();
+    const userHome = yield* resolveUserHome();
     return resolveLintRoot({
       pathArg: args.pathArg,
       scope: args.scope,
       cwd: executionDirectory.path,
-      userScopeDir,
-      pathDirname: path.dirname,
+      userHome,
     });
   });
 
@@ -214,7 +212,7 @@ const loadSettingsDocument = (
     const path = yield* Path.Path;
     const settingsPath =
       scope === "user"
-        ? path.join(workspaceRoot, AXM_DIR_NAME, "settings.json")
+        ? path.join(workspaceRoot, AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY, "axm.json")
         : path.join(workspaceRoot, "axm.json");
     const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {

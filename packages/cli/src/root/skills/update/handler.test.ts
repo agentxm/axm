@@ -19,7 +19,7 @@ import * as Option from "effect/Option";
 import semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { REGISTRY_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
+import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
 import {
   PACK_MANIFEST_FILENAME,
   computePackManifestContentIdentity,
@@ -212,7 +212,7 @@ const writeInstalledPackManifest = ({
   readonly name: string;
   readonly dependencies: Record<string, string>;
 }) => {
-  const dir = path.join(workspaceRoot, REGISTRY_EXTENSIONS_DIR, "local-reg", owner, "packs", name);
+  const dir = path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR, "local-reg", owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, PACK_MANIFEST_FILENAME),

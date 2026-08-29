@@ -2,17 +2,31 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { handle } from "../test-helpers.js";
+import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import type { ProjectWorkspaceLayout } from "../workspace/layout.js";
 import {
-  computeExtensionPaths,
+  computeExtensionPathsForLayout,
   extensionContentFilename,
   extensionContentPath,
 } from "./extension-paths.js";
 
 describe("extension path helpers", () => {
+  const workspaceRoot = decodeAbsolutePathSync("/workspace");
+  const layout: ProjectWorkspaceLayout = {
+    scope: "project",
+    workspaceRoot,
+    projectRoot: workspaceRoot,
+    settingsPath: decodeAbsolutePathSync("/workspace/axm.json"),
+    lockPath: decodeAbsolutePathSync("/workspace/axm-lock.yaml"),
+    runtimeDir: decodeAbsolutePathSync("/workspace/.axm"),
+    acquiredRoot: decodeAbsolutePathSync("/workspace/agent_extensions"),
+    authoredRoot: (type) => decodeAbsolutePathSync(`/workspace/${type}s`),
+  };
+
   it("computes registry extension canonical and source paths", () => {
-    const paths = computeExtensionPaths(
+    const paths = computeExtensionPathsForLayout(
       nodePath.join,
-      "/workspace",
+      layout,
       {
         refType: "registry",
         owner: handle("@acme"),
@@ -28,15 +42,15 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/.axm/extensions/agentxm/@acme/rules/review-pr",
-      extensionSrcPath: "/workspace/.axm/extensions/agentxm/@acme/rules/review-pr/src",
+      canonicalPath: "/workspace/agent_extensions/agentxm/@acme/rules/review-pr",
+      extensionSrcPath: "/workspace/agent_extensions/agentxm/@acme/rules/review-pr/src",
     });
   });
 
   it("computes external extension canonical and source paths", () => {
-    const paths = computeExtensionPaths(
+    const paths = computeExtensionPathsForLayout(
       nodePath.join,
-      "/workspace",
+      layout,
       {
         refType: "local",
         source: { type: "local", path: "/workspace/vendor/reviewer" },
@@ -47,15 +61,15 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/.axm/extensions/local/vendor/reviewer",
-      extensionSrcPath: "/workspace/.axm/extensions/local/vendor/reviewer/src",
+      canonicalPath: "/workspace/agent_extensions/local/vendor/reviewer",
+      extensionSrcPath: "/workspace/agent_extensions/local/vendor/reviewer/src",
     });
   });
 
   it("encodes parent segments in an outside-workspace local source coordinate", () => {
-    const paths = computeExtensionPaths(
+    const paths = computeExtensionPathsForLayout(
       nodePath.join,
-      "/workspace",
+      layout,
       {
         refType: "local",
         source: { type: "local", path: "/outside/review" },
@@ -66,15 +80,15 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/.axm/extensions/local/%2E%2E/outside/review",
-      extensionSrcPath: "/workspace/.axm/extensions/local/%2E%2E/outside/review/src",
+      canonicalPath: "/workspace/agent_extensions/local/%2E%2E/outside/review",
+      extensionSrcPath: "/workspace/agent_extensions/local/%2E%2E/outside/review/src",
     });
   });
 
   it("computes a portable GitHub Agent Skill path from its exact selected source", () => {
-    const paths = computeExtensionPaths(
+    const paths = computeExtensionPathsForLayout(
       nodePath.join,
-      "/workspace",
+      layout,
       {
         refType: "git-hosted",
         source: {
@@ -95,9 +109,9 @@ describe("extension path helpers", () => {
 
     expect(paths).toEqual({
       canonicalPath:
-        "/workspace/.axm/extensions/github/remix-run/react-router/.agents/skills/react-router",
+        "/workspace/agent_extensions/github/remix-run/react-router/.agents/skills/react-router",
       extensionSrcPath:
-        "/workspace/.axm/extensions/github/remix-run/react-router/.agents/skills/react-router",
+        "/workspace/agent_extensions/github/remix-run/react-router/.agents/skills/react-router",
     });
   });
 

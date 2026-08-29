@@ -31,29 +31,18 @@ import {
 import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
 import { CliRenderer } from "../cli-renderer/index.js";
-import {
-  LOCKFILE_NAME,
-  LOCKFILE_VERSION,
-  writeLockfile,
-  writeLockfileAtPath,
-} from "../lockfile/index.js";
-import {
-  createDefaultSettings,
-  SETTINGS_FILENAME,
-  type Settings,
-  writeSettings,
-  writeSettingsAtPath,
-} from "../settings/index.js";
+import { LOCKFILE_NAME, LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
+import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
 import { makeAbsolutePath } from "../utils/path-types.js";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
 import type { WorkspaceScope } from "./scope.js";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
-import { type WorkspaceLocation, getAxmDir, locateWorkspace } from "./paths.js";
+import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "./paths.js";
 import { setupScopeSupport, type SetupScopeSupportCategory } from "./setup-scope-support.js";
 import { protectWorkspacePath } from "./transaction.js";
-import { LOCK_FILENAME, PROJECT_SETTINGS_FILENAME } from "./layout.js";
+import { LOCK_FILENAME, SETTINGS_FILENAME } from "./layout.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",
@@ -586,7 +575,7 @@ const applyProjectSetup = (args: {
   Effect.gen(function* () {
     if (args.dryRun) return;
     const path = yield* Path.Path;
-    const settingsPath = path.join(args.workspaceRoot, PROJECT_SETTINGS_FILENAME);
+    const settingsPath = path.join(args.workspaceRoot, SETTINGS_FILENAME);
     const lockfilePath = path.join(args.workspaceRoot, LOCK_FILENAME);
     yield* writeSettingsAtPath(settingsPath, args.settings);
     const lockfileExists = yield* fileExists(lockfilePath);
@@ -719,7 +708,7 @@ const configureProjectWorkspace = (args: {
     if (!nonInteractive || args.options.preview === true) {
       yield* renderSetupPlan([
         {
-          target: PROJECT_SETTINGS_FILENAME,
+          target: SETTINGS_FILENAME,
           action: "create",
           detail: `agents: ${agentIds.join(", ")}`,
         },
@@ -766,7 +755,7 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceM
     existingSettings: createDefaultSettings(),
   });
 
-const initializeUserWorkspace = (globalDir: string, options: WorkspaceMutationsOptions) =>
+const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceMutationsOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const selection = yield* selectSetupAgents({
@@ -816,9 +805,11 @@ const initializeUserWorkspace = (globalDir: string, options: WorkspaceMutationsO
       };
     }
     if (options.preview !== true) {
-      yield* protectWorkspacePath(path.join(globalDir, LOCKFILE_NAME));
-      yield* writeSettings(globalDir, settings);
-      yield* writeLockfile(globalDir, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
+      const settingsPath = path.join(workspaceRoot, SETTINGS_FILENAME);
+      const lockPath = path.join(workspaceRoot, LOCKFILE_NAME);
+      yield* protectWorkspacePath(lockPath);
+      yield* writeSettingsAtPath(settingsPath, settings);
+      yield* writeLockfileAtPath(lockPath, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
     }
     return { settings, agentCandidates: selection.candidates, confirmed: true };
   });
@@ -846,20 +837,20 @@ const workspaceInitializationState = (
 });
 
 /**
- * Ensure user-scope workspace directory has settings.json and axm-lock.yaml.
+ * Ensure the user workspace has axm.json and axm-lock.yaml.
  *
  * Creates missing files with empty defaults.
  *
- * @param globalDir - Path to user-scope .axm directory
+ * @param workspaceRoot - Path to the user workspace root
  */
-export const ensureGlobalWorkspaceInitialized = (
-  globalDir: string,
+export const ensureUserWorkspaceInitialized = (
+  workspaceRoot: string,
   options: WorkspaceMutationsOptions,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const settingsPath = path.join(globalDir, SETTINGS_FILENAME);
+    const settingsPath = path.join(workspaceRoot, SETTINGS_FILENAME);
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError((error) =>
@@ -871,7 +862,7 @@ export const ensureGlobalWorkspaceInitialized = (
       ),
     );
     if (!settingsExists) {
-      const initialization = yield* initializeUserWorkspace(globalDir, options);
+      const initialization = yield* initializeUserWorkspace(workspaceRoot, options);
       if (!initialization.confirmed) {
         return workspaceInitializationState(
           initialization.settings,
@@ -889,12 +880,10 @@ export const ensureGlobalWorkspaceInitialized = (
       );
     }
 
-    const localDir = yield* getAxmDir("project", options.projectRoot);
-    const settings = yield* readSettingsFromReadModel(
-      "user",
-      path.dirname(localDir),
-      path.dirname(globalDir),
-    ).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
+    const userHome = yield* resolveUserHome();
+    const settings = yield* readSettingsFromReadModel("user", options.projectRoot, userHome).pipe(
+      Effect.map(Option.getOrElse(() => createDefaultSettings())),
+    );
     return workspaceInitializationState(settings, false, false);
   });
 
@@ -913,11 +902,11 @@ export const ensureProjectWorkspaceInitialized = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const globalDir = yield* getAxmDir("user");
+    const userHome = yield* resolveUserHome();
     const localSettingsResult = yield* readSettingsFromReadModel(
       "project",
       path.dirname(localDir),
-      path.dirname(globalDir),
+      userHome,
     ).pipe(
       Effect.map(
         Option.match({
@@ -956,7 +945,7 @@ export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
     const workspaceDir = location.path;
 
     if (options.scope === "user") {
-      const result = yield* ensureGlobalWorkspaceInitialized(workspaceDir, options);
+      const result = yield* ensureUserWorkspaceInitialized(location.workspaceRoot, options);
       return { ...result, location };
     }
 

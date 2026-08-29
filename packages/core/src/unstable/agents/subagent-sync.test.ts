@@ -39,7 +39,7 @@ const makeAddArgs = (
 ): AddSubagentArgs => ({
   workspaceRoot,
   scope: "project",
-  editSourcePath: `.axm/extensions/@acme/subagents/${name}/src/${name}.md`,
+  editSourcePath: `agent_extensions/@acme/subagents/${name}/src/${name}.md`,
   input: { ...makeRenderInput(name), agentId },
   force: false,
 });
@@ -204,7 +204,7 @@ describe("addSubagent", () => {
                 expect(content.length).toBeGreaterThan(0);
                 expect(content).toContain("AXM managed file");
                 expect(content).toContain(
-                  "1. Edit: .axm/extensions/@acme/subagents/test-subagent/src/test-subagent.md",
+                  "1. Edit: agent_extensions/@acme/subagents/test-subagent/src/test-subagent.md",
                 );
                 expect(content).toContain("Learn more: `axm help subagents`");
               }

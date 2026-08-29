@@ -11,6 +11,7 @@ import {
 import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../utils/create-symlink.js";
+import { SETTINGS_FILENAME } from "../workspace/constants.js";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
@@ -243,7 +244,7 @@ const readDirSafe = (dir: string) =>
 /**
  * A nested directory carrying its own `.git` entry is a separate working tree —
  * a registered worktree (`.git` file), a submodule, or a nested clone — and one
- * carrying its own `.axm` directory is a separate AXM workspace. Their
+ * carrying its own `axm.json` is a separate AXM workspace. Their
  * instruction files belong to that tree, so propagation and cleanup stop at
  * the boundary rather than attributing the foreign tree's state to this
  * workspace or removing aliases it legitimately owns.
@@ -257,7 +258,7 @@ const isSeparateTree = (dir: string) =>
     const path = yield* Path.Path;
     const has = (entry: string) =>
       fs.exists(path.join(dir, entry)).pipe(Effect.catch(() => Effect.succeed(false)));
-    return (yield* has(".git")) || (yield* has(AXM_DIR_NAME));
+    return (yield* has(".git")) || (yield* has(SETTINGS_FILENAME));
   });
 
 /**
@@ -447,6 +448,21 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = path.join(workspaceRoot, AXM_DIR_NAME, "tmp");
+    const missingAncestors = (
+      directory: string,
+      missing: ReadonlyArray<string> = [],
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      fs.exists(directory).pipe(
+        Effect.catch(() => Effect.succeed(false)),
+        Effect.flatMap((exists) => {
+          if (exists) return Effect.succeed(missing);
+          const parent = path.dirname(directory);
+          return parent === directory
+            ? Effect.succeed(missing)
+            : missingAncestors(parent, [...missing, directory]);
+        }),
+      );
+    const createdDirectories = yield* missingAncestors(tmpDir);
     yield* fs.makeDirectory(tmpDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
     symlinkProbeSequence += 1;
     const probeDir = path.join(
@@ -465,13 +481,18 @@ export const probeSymlinkSupport = (workspaceRoot: string) =>
       Effect.ensuring(fs.remove(probeDir, { recursive: true, force: true }).pipe(Effect.ignore)),
       Effect.catch(() => Effect.succeed(false)),
     );
-    // Remove the tmp dir only if the probe left it empty, so we don't strip out
-    // unrelated content that another flow may have placed there.
-    yield* fs.readDirectory(tmpDir).pipe(
-      Effect.flatMap((entries) =>
-        entries.length === 0 ? fs.remove(tmpDir, { recursive: true }) : Effect.void,
-      ),
-      Effect.catch(() => Effect.void),
+    // Remove only empty directories the probe created, including newly created
+    // user-workspace ancestors. Concurrently added content is preserved.
+    yield* Effect.forEach(
+      createdDirectories,
+      (directory) =>
+        fs.readDirectory(directory).pipe(
+          Effect.flatMap((entries) =>
+            entries.length === 0 ? fs.remove(directory, { recursive: true }) : Effect.void,
+          ),
+          Effect.catch(() => Effect.void),
+        ),
+      { concurrency: 1, discard: true },
     );
     return result;
   });

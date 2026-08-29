@@ -65,8 +65,6 @@ export const acquireTransitionStub: WorkspaceTransitionAcquirer = () =>
 export const managerLifecycleStubs = {
   runTransaction: runWorkspaceTransactionStub,
   materializeDeactivate: () => Effect.void,
-  upsertTrustEntry: () => Effect.void,
-  removeTrustEntry: () => Effect.void,
 };
 
 const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
@@ -211,6 +209,7 @@ export const makeBaseWorkspaceMock = (
     baseDir,
     layout: {
       scope: "project",
+      workspaceRoot: decodeAbsolutePathSync(baseDir),
       projectRoot: decodeAbsolutePathSync(baseDir),
       settingsPath: decodeAbsolutePathSync(path.join(baseDir, "axm.json")),
       lockPath: decodeAbsolutePathSync(path.join(baseDir, "axm-lock.yaml")),
@@ -498,7 +497,6 @@ export interface WriteWorkspaceFilesOptions {
   readonly lockfilePacks?: Record<string, unknown> | undefined;
   readonly subagents?: Record<string, unknown> | undefined;
   readonly lockfileSubagents?: Record<string, unknown> | undefined;
-  readonly writeTrustFromLockfile?: boolean | undefined;
 }
 
 export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
@@ -585,15 +583,10 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
     }),
   };
 
-  const settingsPath =
-    scope === "user" ? path.join(runtimeDir, "settings.json") : path.join(projectRoot, "axm.json");
-  const lockPath =
-    scope === "user"
-      ? path.join(runtimeDir, "axm-lock.yaml")
-      : path.join(projectRoot, "axm-lock.yaml");
-  fs.mkdirSync(scope === "user" ? runtimeDir : path.join(projectRoot, ".axm"), {
-    recursive: true,
-  });
+  const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
+  const settingsPath = path.join(workspaceRoot, "axm.json");
+  const lockPath = path.join(workspaceRoot, "axm-lock.yaml");
+  fs.mkdirSync(path.join(workspaceRoot, ".axm"), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings));
   fs.writeFileSync(lockPath, YAML.stringify(lockfile));
 };

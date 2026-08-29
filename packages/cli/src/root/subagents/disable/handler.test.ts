@@ -40,7 +40,6 @@ const initWorkspace = (
     packs: opts.packs,
     lockfileSubagents: opts.lockfileSubagents,
     lockfilePacks: opts.lockfilePacks,
-    writeTrustFromLockfile: true,
   });
 };
 

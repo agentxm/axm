@@ -29,7 +29,7 @@ inventory in this document.
 Telemetry does not:
 
 - express workspace desired state or belong in project or user-scope
-  `settings.json`;
+  `axm.json`;
 - let a committed workspace enable collection for its contributors;
 - participate in command planning, lifecycle, reconciliation, diagnostics, or
   recovery;

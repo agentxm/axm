@@ -10,7 +10,7 @@
  *
  * 1. With a corrupt `axm-lock.yaml`, `state.settings` succeeds with the
  *    decoded settings.
- * 2. With a corrupt `.axm/settings.json`, `state.lockfile` succeeds with the
+ * 2. With a corrupt `axm.json`, `state.lockfile` succeeds with the
  *    decoded lockfile.
  * 3. With either source corrupted, the other source's decoded value is
  *    bit-identical (by content) to a baseline read taken with both sources

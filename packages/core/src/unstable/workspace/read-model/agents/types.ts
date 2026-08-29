@@ -50,7 +50,7 @@ export type AgentSubjectType = "skill" | "subagent";
 /**
  * Settings-derived declaration of an agent for a given scope. Produced by the
  * per-agent `declared(scope, settings)` projector when the scope's
- * `settings.json` lists the agent in its `agents` array.
+ * `axm.json` lists the agent in its `agents` array.
  */
 export interface DeclaredAgent {
   readonly scope: Scope;
@@ -134,7 +134,7 @@ export interface AgentScannerObservations {
 // ---------------------------------------------------------------------------
 
 /**
- * Subset of decoded `settings.json` the agent `declared` projectors need.
+ * Subset of decoded `axm.json` the agent `declared` projectors need.
  * Phase 8 modules accept this narrowed shape so they can be unit-tested
  * without depending on the full Settings schema.
  */

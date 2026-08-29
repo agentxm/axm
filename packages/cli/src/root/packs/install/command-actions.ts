@@ -22,7 +22,7 @@ import * as Result from "effect/Result";
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
 import {
-  REGISTRY_EXTENSIONS_DIR,
+  ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
   evaluateSourceAuthority,
   parseExtensionFqnParts,
@@ -347,7 +347,7 @@ const registrySourceArtifact = (args: {
     args.ref.refType === "workspace"
       ? args.ref.location
       : acquiredExtensionDisplayPath(
-          args.scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+          args.scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
           args.ref,
           registryPluralSegment(args.ref.type),
           args.ref.name,
@@ -383,7 +383,7 @@ const registrySourcePath = (ref: ExtensionRef, scope: JobStepArtifact["scope"]):
   ref.refType === "workspace"
     ? ref.location
     : acquiredExtensionDisplayPath(
-        scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+        scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
         ref,
         registryPluralSegment(ref.type),
         ref.name,

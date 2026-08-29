@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { extensionTypes } from "../extensions/common.js";
 import { LOCKFILE_NAME } from "../lockfile/lockfile.js";
 import { MANIFEST_FILENAME_BY_TYPE } from "../publish/manifest-policy.js";
-import { SETTINGS_FILENAME } from "../settings/settings.js";
+import { SETTINGS_FILENAME } from "../workspace/constants.js";
 import { describeSchemaDocument, UNKNOWN_DOCUMENT_LABEL } from "./describe-document.js";
 
 describe("describeSchemaDocument", () => {
@@ -20,7 +20,7 @@ describe("describeSchemaDocument", () => {
   });
 
   it("keys by basename so workspace-relative paths resolve", () => {
-    expect(describeSchemaDocument(`.axm/${SETTINGS_FILENAME}`)).toBe("Workspace settings");
+    expect(describeSchemaDocument(`workspace/${SETTINGS_FILENAME}`)).toBe("Workspace settings");
     expect(describeSchemaDocument(`.axm\\${LOCKFILE_NAME}`)).toBe("Lockfile");
   });
 

@@ -69,7 +69,7 @@ describe("makeMcpServerExtensionsApi", () => {
             origin: "canonical-axm",
             name: "tools",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/mcps/tools",
+            contentLocation: "/ws/agent_extensions/@owner/mcps/tools",
           }),
         ],
         mcpConfigOccurrences: [

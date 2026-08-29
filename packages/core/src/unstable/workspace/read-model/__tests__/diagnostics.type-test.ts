@@ -38,7 +38,7 @@ const _withOptionalCode: Warning = {
 const _withAll: Warning = {
   source: "settings",
   message: "all fields",
-  path: "/ws/.axm/settings.json",
+  path: "/ws/axm.json",
   code: "deprecated-key",
 };
 

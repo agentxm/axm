@@ -11,7 +11,7 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "../packs/index.js";
-import { computePackPaths, computePackPathsForLayout } from "../packs/paths.js";
+import { computePackPathsForLayout } from "../packs/paths.js";
 import {
   isInlineDesiredExtension,
   type DesiredStateGraph,
@@ -21,10 +21,9 @@ import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
 
 interface ValidateDesiredPackLockArgs {
-  readonly baseDir: string;
   readonly graph: DesiredStateGraph;
   readonly lockfile: Lockfile;
-  readonly layout?: WorkspaceLayout;
+  readonly layout: WorkspaceLayout;
 }
 
 const normalizedPackIdentity = (identity: string): string =>
@@ -84,7 +83,6 @@ const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
  * Workspace-authored Pack manifests are desired authority and need no lock row.
  */
 export const validateDesiredPackLock = ({
-  baseDir,
   graph,
   lockfile,
   layout,
@@ -132,16 +130,13 @@ export const validateDesiredPackLock = ({
       }
 
       const manifestPath = path.join(
-        layout === undefined
-          ? computePackPaths(path.join, baseDir, entry.sourceName, identity.owner, identity.name)
-              .canonicalPath
-          : computePackPathsForLayout(
-              path.join,
-              layout,
-              entry.sourceName,
-              identity.owner,
-              identity.name,
-            ).canonicalPath,
+        computePackPathsForLayout(
+          path.join,
+          layout,
+          entry.sourceName,
+          identity.owner,
+          identity.name,
+        ).canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
       const readResult = yield* Effect.result(fs.readFileString(manifestPath));

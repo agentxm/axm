@@ -9,7 +9,7 @@ export const packManifestPath = (
 ): string =>
   scope === "project"
     ? `packs/${name}/${PACK_MANIFEST_FILENAME}`
-    : `.axm/extensions/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
+    : `.axm/workspace/agent_extensions/${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`;
 
 export const packManifestTarget = (
   scope: JobStepArtifact["scope"],

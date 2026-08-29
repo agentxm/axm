@@ -9,10 +9,12 @@ import YAML from "yaml";
 import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/client-core/unstable/knowledge";
-import { LockfileSchema, LOCKFILE_NAME } from "@agentxm/client-core/unstable/lockfile";
-import { SettingsSchema, SETTINGS_FILENAME } from "@agentxm/client-core/unstable/settings";
+import { LockfileSchema } from "@agentxm/client-core/unstable/lockfile";
+import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
 import {
-  resolveUserScopeDir,
+  resolveProjectWorkspaceStatePaths,
+  resolveUserHome,
+  resolveUserWorkspaceLayout,
   type WorkspaceScope,
   WorkspaceMutations,
 } from "@agentxm/client-core/unstable/workspace";
@@ -40,16 +42,12 @@ const crossScopeCollisions = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const checkedScope: WorkspaceScope = workspace.scope === "project" ? "user" : "project";
-  const otherAxmDir =
+  const otherPaths =
     checkedScope === "user"
-      ? yield* resolveUserScopeDir()
-      : path.join(executionDirectory.path, ".axm");
-  const settingsResult = yield* Effect.result(
-    fs.readFileString(path.join(otherAxmDir, SETTINGS_FILENAME)),
-  );
-  const lockfileResult = yield* Effect.result(
-    fs.readFileString(path.join(otherAxmDir, LOCKFILE_NAME)),
-  );
+      ? yield* resolveUserWorkspaceLayout(yield* resolveUserHome())
+      : resolveProjectWorkspaceStatePaths(path, executionDirectory.path);
+  const settingsResult = yield* Effect.result(fs.readFileString(otherPaths.settingsPath));
+  const lockfileResult = yield* Effect.result(fs.readFileString(otherPaths.lockPath));
   if (Result.isFailure(settingsResult) || Result.isFailure(lockfileResult)) {
     return { checkedScope, state: "not-determined" as const, bundleNames: [] };
   }

@@ -24,7 +24,7 @@
  *
  * Rule ids are **registered with the lint config allowlist at module-load
  * time**, so importing this catalog extends the set of accepted
- * `.axm/settings.json` `lint.rules` keys. Consumers that never import the
+ * `axm.json` `lint.rules` keys. Consumers that never import the
  * catalog (the registry Worker bundle for `pack`-only routes, e.g.) don't pay
  * the registration cost.
  *
@@ -64,5 +64,5 @@ export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
 
 // Register ids into the `LintConfig.rules` allowlist. Module-load side effect:
 // a consumer that imports this catalog (or the `catalog/index` barrel) enables
-// `.axm/settings.json` `lint.rules` to reference any of the above rule ids.
+// `axm.json` `lint.rules` to reference any of the above rule ids.
 registerLintRuleIds(skillRules.map((r) => r.id));

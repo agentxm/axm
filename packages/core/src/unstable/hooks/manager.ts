@@ -623,7 +623,6 @@ export const HookManagerLive = Layer.effect(
     }) =>
       provide(
         activeContributors({
-          baseDir,
           layout: ws.layout,
           path,
           type: "hook",

@@ -77,13 +77,13 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         const path = yield* Path.Path;
         const env = makeEnv(fs, path, tempDir);
 
-        writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/skills/review/skill.json"), {
+        writeJson(nodePath.join(tempDir, "agent_extensions/@acme/skills/review/skill.json"), {
           owner: "@acme",
           type: "skill",
           name: "review",
           version: "1.0.0",
         });
-        writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
+        writeJson(nodePath.join(tempDir, "agent_extensions/@acme/mcps/browser/mcp.json"), {
           owner: "@acme",
           type: "mcp-server",
           name: "browser",
@@ -94,12 +94,15 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             version: "1.0.0",
           },
         });
-        writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/subagents/planner/subagent.json"), {
-          owner: "@acme",
-          type: "subagent",
-          name: "planner",
-          version: "1.0.0",
-        });
+        writeJson(
+          nodePath.join(tempDir, "agent_extensions/@acme/subagents/planner/subagent.json"),
+          {
+            owner: "@acme",
+            type: "subagent",
+            name: "planner",
+            version: "1.0.0",
+          },
+        );
 
         const [skills, mcpServers, subagents] = yield* Effect.all([
           configuredSkillsToDiskRefs(env, {
@@ -272,7 +275,7 @@ layer(NodeServices.layer, { excludeTestServices: true })(
         const path = yield* Path.Path;
         const env = makeEnv(fs, path, tempDir);
 
-        writeJson(nodePath.join(tempDir, ".axm/extensions/@acme/mcps/browser/mcp.json"), {
+        writeJson(nodePath.join(tempDir, "agent_extensions/@acme/mcps/browser/mcp.json"), {
           owner: "@acme",
           type: "mcp-server",
           name: "browser",

@@ -233,7 +233,7 @@ const lockEntryLocation = (
   const root =
     deps.scope === "project"
       ? `${deps.baseDir}/agent_extensions`
-      : `${deps.baseDir}/.axm/extensions`;
+      : `${deps.baseDir}/.axm/workspace/agent_extensions`;
   const selected = entry.path === undefined ? "" : `/${entry.path}`;
   switch (entry.type) {
     case "github":

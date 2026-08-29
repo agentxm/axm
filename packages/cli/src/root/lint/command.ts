@@ -24,7 +24,7 @@ const lintConfig = {
   ),
   scope: scopeFlag.pipe(
     Flag.withDescription(
-      "Scope of the lint run: project (default) or user (lints $AXM_USER_HOME/.axm or $HOME/.axm).",
+      "Scope of the lint run: project (default) or user (lints the .axm/workspace workspace under the selected home).",
     ),
   ),
   strict: Flag.boolean("strict").pipe(
@@ -118,7 +118,7 @@ export const lintCommand = Command.make(
     { command: "axm lint", description: "Lint the current project workspace" },
     {
       command: "axm lint --scope user",
-      description: "Lint the user-scope workspace under $HOME/.axm",
+      description: "Lint the user workspace under $HOME/.axm/workspace",
     },
     {
       command: "axm lint --strict",

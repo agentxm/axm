@@ -29,7 +29,7 @@ name: reviewer
 Review code.`;
 
     const result = insertManagedFileBanner(content, {
-      editPath: ".axm/extensions/@acme/subagents/reviewer/src/reviewer.md",
+      editPath: "agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
       helpTopic: "subagents",
       format: "markdown",
     });
@@ -37,9 +37,9 @@ Review code.`;
     expect(result).toBe(`---
 name: reviewer
 ---
-<!-- axm:file v=1 ext=@acme/subagents/reviewer src=.axm/extensions/@acme/subagents/reviewer/src/reviewer.md
+<!-- axm:file v=1 ext=@acme/subagents/reviewer src=agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md
      AXM managed file — do not edit directly, instead:
-     1. Edit: .axm/extensions/@acme/subagents/reviewer/src/reviewer.md
+     1. Edit: agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md
      2. Sync: \`axm sync\`
      Learn more: \`axm help subagents\` -->
 
@@ -49,15 +49,15 @@ Review code.`);
 
   it("inserts markdown banner at the top without frontmatter", () => {
     const result = insertManagedFileBanner("Review code.", {
-      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
       helpTopic: "rules",
       format: "markdown",
     });
 
     expect(result)
-      .toBe(`<!-- axm:file v=1 ext=@acme/rules/review src=.axm/extensions/@acme/rules/review/src/review.md
+      .toBe(`<!-- axm:file v=1 ext=@acme/rules/review src=agent_extensions/agentxm/@acme/rules/review/src/review.md
      AXM managed file — do not edit directly, instead:
-     1. Edit: .axm/extensions/@acme/rules/review/src/review.md
+     1. Edit: agent_extensions/agentxm/@acme/rules/review/src/review.md
      2. Sync: \`axm sync\`
      Learn more: \`axm help rules\` -->
 
@@ -66,15 +66,15 @@ Review code.`);
 
   it("prepends TOML banner", () => {
     const result = insertManagedFileBanner('prompt = "Review code."\n', {
-      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
       helpTopic: "rules",
       format: "toml",
     });
 
     expect(result)
-      .toBe(`# axm:file v=1 ext=@acme/rules/review src=.axm/extensions/@acme/rules/review/src/review.md
+      .toBe(`# axm:file v=1 ext=@acme/rules/review src=agent_extensions/agentxm/@acme/rules/review/src/review.md
 # AXM managed file — do not edit directly, instead:
-# 1. Edit: .axm/extensions/@acme/rules/review/src/review.md
+# 1. Edit: agent_extensions/agentxm/@acme/rules/review/src/review.md
 # 2. Sync: \`axm sync\`
 # Learn more: \`axm help rules\`
 
@@ -84,13 +84,13 @@ prompt = "Review code."
 
   it("does not duplicate an existing banner", () => {
     const first = insertManagedFileBanner("Review code.", {
-      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
       helpTopic: "rules",
       format: "markdown",
     });
 
     const second = insertManagedFileBanner(first, {
-      editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+      editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
       helpTopic: "rules",
       format: "markdown",
     });
@@ -103,7 +103,7 @@ prompt = "Review code."
     expect(hasManagedFileBanner(prose)).toBe(false);
     expect(
       insertManagedFileBanner(prose, {
-        editPath: ".axm/extensions/@acme/rules/review/src/review.md",
+        editPath: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
         helpTopic: "rules",
         format: "markdown",
       }),

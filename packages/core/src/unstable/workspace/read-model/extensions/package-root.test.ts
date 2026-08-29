@@ -4,7 +4,7 @@ import { canonicalAxmPackageRoot } from "./package-root.js";
 
 describe("canonicalAxmPackageRoot", () => {
   it("resolves the current package/src canonical layout", () => {
-    const contentLocation = "/ws/.axm/extensions/@agentxm/skills/axm/src";
+    const contentLocation = "/ws/agent_extensions/@agentxm/skills/axm/src";
 
     expect(
       canonicalAxmPackageRoot({
@@ -12,11 +12,11 @@ describe("canonicalAxmPackageRoot", () => {
         pathSegments: contentLocation.split("/"),
         contentLocation,
       }),
-    ).toBe("/ws/.axm/extensions/@agentxm/skills/axm");
+    ).toBe("/ws/agent_extensions/@agentxm/skills/axm");
   });
 
   it("keeps canonical pack package roots unchanged", () => {
-    const contentLocation = "/ws/.axm/extensions/@agentxm/packs/default";
+    const contentLocation = "/ws/agent_extensions/@agentxm/packs/default";
 
     expect(
       canonicalAxmPackageRoot({
@@ -24,11 +24,11 @@ describe("canonicalAxmPackageRoot", () => {
         pathSegments: contentLocation.split("/"),
         contentLocation,
       }),
-    ).toBe("/ws/.axm/extensions/@agentxm/packs/default");
+    ).toBe("/ws/agent_extensions/@agentxm/packs/default");
   });
 
   it("keeps external package roots scoped to the extension name", () => {
-    const contentLocation = "/ws/.axm/extensions/github/acme/extensions/skills/local-tool";
+    const contentLocation = "/ws/agent_extensions/github/acme/extensions/skills/local-tool";
 
     expect(
       canonicalAxmPackageRoot({

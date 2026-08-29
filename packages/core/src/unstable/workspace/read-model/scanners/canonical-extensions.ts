@@ -1,7 +1,7 @@
 /**
  * Canonical-extensions scanner: enumerates authored project type roots and
  * source-qualified acquired packages beneath `agent_extensions/` or the
- * corresponding user-scope `.axm/extensions/` root.
+ * corresponding user-scope `agent_extensions/` root.
  *
  * Per Decision 5 of the workspace read-model design, scanner output is
  * occurrence-shaped. Each emitted occurrence carries the scanner-tier origin
@@ -45,7 +45,6 @@ import { MANIFEST_FILENAME_BY_TYPE } from "../../../publish/manifest-policy.js";
 import { parseSkillMd } from "../../../skills/skill-content.js";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "../../../extensions/discovery-walk.js";
 import { makeAbsolutePath } from "../../../utils/path-types.js";
-import { AXM_DIR_NAME } from "../../paths.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { WorkspaceLayout } from "../../layout.js";
 import {
@@ -334,11 +333,8 @@ const scanAuthoredType = (
 
 const scanCanonicalExtensions = Effect.fn("workspace.read-model.scanner.canonical-extensions")(
   function* (deps: CanonicalExtensionsScannerDeps) {
-    const { path, workspaceRoot, layout } = deps;
-    const extensionsRoot =
-      layout.scope === "project"
-        ? layout.acquiredRoot
-        : path.join(workspaceRoot, AXM_DIR_NAME, "extensions");
+    const { layout } = deps;
+    const extensionsRoot = layout.acquiredRoot;
 
     const acquired = yield* scanAcquiredDirectory(deps, extensionsRoot);
     if (layout.scope !== "project") return acquired;

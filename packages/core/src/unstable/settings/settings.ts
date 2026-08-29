@@ -23,17 +23,6 @@ import {
 import { applyJsonPatchToText } from "./format-preserving-json.js";
 
 // -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-/**
- * Filename for the settings file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SETTINGS_FILENAME = "settings.json";
-
-// -----------------------------------------------------------------------------
 // Default Settings
 // -----------------------------------------------------------------------------
 
@@ -288,11 +277,4 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
         }),
     });
     yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
-  });
-
-/** Write legacy user-scope settings beneath the supplied AXM directory. */
-export const writeSettings = (axmDir: string, settings: Settings) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    yield* writeSettingsAtPath(path.join(axmDir, SETTINGS_FILENAME), settings);
   });

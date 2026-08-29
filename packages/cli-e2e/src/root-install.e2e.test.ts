@@ -124,7 +124,7 @@ const initWorkspace = async (workspacePath: string, registryPath: string) => {
     cwd: workspacePath,
   });
   // Assert here rather than letting the next line fail: a setup that died
-  // leaves no settings.json, and the resulting ENOENT surfaces several frames
+  // leaves no axm.json, and the resulting ENOENT surfaces several frames
   // away with setup's stderr already discarded — which reads like workspace
   // state corruption rather than the CLI failing to start.
   expect(setup.exitCode, setup.stderr).toBe(0);

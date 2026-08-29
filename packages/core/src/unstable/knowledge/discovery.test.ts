@@ -12,7 +12,7 @@ const makeBundle = (
   name: string,
   description?: string,
 ): KnowledgeDiscoveryBundle => {
-  const sourceDir = nodePath.join(root, ".axm", "extensions", owner, "knowledge", name, "src");
+  const sourceDir = nodePath.join(root, "agent_extensions", owner, "knowledge", name, "src");
   mkdirSync(sourceDir, { recursive: true });
   writeFileSync(nodePath.join(sourceDir, "index.md"), `# ${name}\n`);
   return { owner, name, sourceDir, ...(description === undefined ? {} : { description }) };
@@ -61,14 +61,14 @@ describe("reconcileKnowledgeDiscovery", () => {
             "<!-- axm:point v=1 ext=@acme/knowledge/platform kind=knowledge -->\n" +
             "<!-- axm:point v=1 ext=@acme/knowledge/runbook kind=knowledge -->\n\n" +
             "| Bundle | Description |\n| --- | --- |\n" +
-            "| [platform](.axm/extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +
-            "| [runbook](.axm/extensions/@acme/knowledge/runbook/src/index.md) | Operations |",
+            "| [platform](agent_extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +
+            "| [runbook](agent_extensions/@acme/knowledge/runbook/src/index.md) | Operations |",
         );
         expect(instructions).toContain(
           "### @zeta\n\n" +
             "<!-- axm:point v=1 ext=@zeta/knowledge/platform kind=knowledge -->\n\n" +
             "| Bundle | Description |\n| --- | --- |\n" +
-            "| [platform](.axm/extensions/@zeta/knowledge/platform/src/index.md) | — |",
+            "| [platform](agent_extensions/@zeta/knowledge/platform/src/index.md) | — |",
         );
         expect(instructions.indexOf("### @acme")).toBeLessThan(instructions.indexOf("### @zeta"));
         expect(existsSync(nodePath.join(root, ".agents", "knowledge"))).toBe(false);

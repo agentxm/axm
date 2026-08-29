@@ -38,8 +38,21 @@ interface UninstallCase {
 const registryFqn = (surface: UninstallSurface, name: string, version?: string) =>
   version === undefined ? `${OWNER}/${surface}/${name}` : `${OWNER}/${surface}/${name}@${version}`;
 
-const extensionDirForSurface = (workspacePath: string, surface: UninstallSurface, name: string) =>
-  path.join(workspacePath, "agent_extensions", "agentxm", OWNER, surface, name);
+const extensionDirForSurface = (
+  workspacePath: string,
+  surface: UninstallSurface,
+  name: string,
+  scope: "project" | "user" = "project",
+) =>
+  path.join(
+    workspacePath,
+    ...(scope === "user" ? [".axm", "workspace"] : []),
+    "agent_extensions",
+    "agentxm",
+    OWNER,
+    surface,
+    name,
+  );
 
 const renderedSkillDir = (workspacePath: string, name: string) =>
   path.join(workspacePath, ".claude", "skills", name);
@@ -52,7 +65,7 @@ const configureWorkspaceRegistry = (
   const settingsPath =
     scope === "project"
       ? path.join(workspacePath, "axm.json")
-      : path.join(workspacePath, ".axm", "settings.json");
+      : path.join(workspacePath, ".axm", "workspace", "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
   settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
@@ -226,7 +239,7 @@ const readSettings = (workspacePath: string, scope: "project" | "user" = "projec
       fs.readFileSync(
         scope === "project"
           ? path.join(workspacePath, "axm.json")
-          : path.join(workspacePath, ".axm", "settings.json"),
+          : path.join(workspacePath, ".axm", "workspace", "axm.json"),
         "utf-8",
       ),
     ),
@@ -238,7 +251,7 @@ const readLockfile = (workspacePath: string, scope: "project" | "user" = "projec
       fs.readFileSync(
         scope === "project"
           ? path.join(workspacePath, "axm-lock.yaml")
-          : path.join(workspacePath, ".axm", "axm-lock.yaml"),
+          : path.join(workspacePath, ".axm", "workspace", "axm-lock.yaml"),
         "utf-8",
       ),
     ),
@@ -335,9 +348,12 @@ const expectSameCanonicalState = (
   typedWorkspacePath: string,
   surface: UninstallSurface,
   name: string,
+  scope: "project" | "user" = "project",
 ) => {
-  const rootExists = fs.existsSync(extensionDirForSurface(rootWorkspacePath, surface, name));
-  const typedExists = fs.existsSync(extensionDirForSurface(typedWorkspacePath, surface, name));
+  const rootExists = fs.existsSync(extensionDirForSurface(rootWorkspacePath, surface, name, scope));
+  const typedExists = fs.existsSync(
+    extensionDirForSurface(typedWorkspacePath, surface, name, scope),
+  );
 
   expect(rootExists).toBe(typedExists);
 
@@ -532,7 +548,7 @@ describe("axm uninstall", () => {
       // the operation lifecycle that records the footprint.
       expect(normalizeJsonValue(rootDocument)).toEqual(normalizeJsonValue(typedDocument));
       expectWorkspaceStateEquivalent(rootWorkspace.path, typedWorkspace.path, "user");
-      expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, "skills", name);
+      expectSameCanonicalState(rootWorkspace.path, typedWorkspace.path, "skills", name, "user");
     } finally {
       registryDir.cleanup();
       rootWorkspace.cleanup();

@@ -52,7 +52,7 @@ type ResolveResult =
  *
  * `absoluteRoot` SHOULD be the absolute path to the skill root directory
  * (either `.../src/` for native, or the selected package directory for a
- * portable Agent Skill). The caller typically sources it from `computeSkillPaths` in
+ * portable Agent Skill). The caller typically sources it from `computeSkillPathsForLayout` in
  * `../../../skills/paths.ts`.
  *
  * @experimental This API is unstable and may change without notice.

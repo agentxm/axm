@@ -376,11 +376,11 @@ export interface SetKnowledgeArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export interface WorkspaceMutationsService {
-  /** Whether this is a user-scope workspace (~/.axm) or project workspace (.axm) */
+  /** Whether this is the user workspace or a project workspace. */
   readonly scope: WorkspaceScope;
-  /** Path to the .axm directory */
+  /** Path to the scope's runtime `.axm` directory. */
   readonly path: string;
-  /** Project root directory (parent of .axm) */
+  /** User home or project root that anchors scope resolution. */
   readonly baseDir: string;
   /** Explicit scope-aware paths for authoritative, runtime, and package state. */
   readonly layout: WorkspaceLayout;
@@ -649,7 +649,7 @@ export class WorkspaceMutations extends ServiceMap.Service<
  * @experimental This API is unstable and may change without notice.
  */
 export interface WorkspaceMutationsOptions {
-  /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
+  /** Whether to use the user workspace or a project workspace. */
   readonly scope: WorkspaceScope;
   /** Canonical project root supplied by the transport boundary. */
   readonly projectRoot: AbsolutePath;

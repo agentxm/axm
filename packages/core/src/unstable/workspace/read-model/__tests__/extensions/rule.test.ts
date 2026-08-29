@@ -57,7 +57,7 @@ describe("makeRuleExtensionsApi", () => {
             origin: "canonical-axm",
             name: "lint",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/rules/lint",
+            contentLocation: "/ws/agent_extensions/@owner/rules/lint",
           }),
         ],
       });
@@ -77,7 +77,7 @@ describe("makeRuleExtensionsApi", () => {
             origin: "canonical-axm",
             name: "wrong",
             owner: "@owner",
-            contentLocation: "/ws/.axm/extensions/@owner/skills/wrong",
+            contentLocation: "/ws/agent_extensions/@owner/skills/wrong",
           }),
         ],
       });

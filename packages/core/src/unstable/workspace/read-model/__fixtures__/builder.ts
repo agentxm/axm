@@ -56,7 +56,7 @@ export type FileSpec =
   | {
       readonly _tag: "valid";
       /**
-       * Object content for files with a known structure (settings.json,
+       * Object content for files with a known structure (axm.json,
        * lockfile, .mcp.json). The builder serializes through `JSON.stringify`
        * for JSON files and `YAML.stringify` for YAML files. Pass a string
        * literal to bypass serialization.
@@ -84,7 +84,8 @@ export type TreeFiles = Readonly<Record<string, string | FileSpec>>;
 
 /**
  * Per-scope file specs. `settings` and `lockfile` are scoped settings/lockfile
- * files. `axmExtensions` synthesizes contents under `.axm/extensions/`.
+ * files. `axmExtensions` synthesizes contents under the scope's
+ * `agent_extensions/` directory.
  * `agentDirs` synthesizes per-agent rendered directories. `mcpJson` writes
  * `.mcp.json` at the workspace/user root. `agentSettings` writes per-agent
  * native settings files (e.g. `.claude/settings.json`).
@@ -100,7 +101,8 @@ export interface ScopeFiles {
 
 /**
  * Top-level fixture spec. `workspaceRoot` is the project root; `userHome` is
- * the user-scope home directory (settings live at `${userHome}/.axm/`).
+ * the user-scope home directory (workspace state lives at
+ * `${userHome}/.axm/workspace/`).
  */
 export interface FixtureSpec {
   readonly workspaceRoot: string;
@@ -129,10 +131,9 @@ export const resolveFixtureProjectLayout = (deps: FixtureTestDeps, settings: Set
   );
 
 export const resolveFixtureUserLayout = (deps: FixtureTestDeps, settings: Settings = {}) =>
-  resolveUserWorkspaceLayout(
-    makeAbsolutePath(deps.path, deps.path.join(deps.userHome, ".axm")),
-    settings,
-  ).pipe(Effect.provideService(Path.Path, deps.path));
+  resolveUserWorkspaceLayout(makeAbsolutePath(deps.path, deps.userHome), settings).pipe(
+    Effect.provideService(Path.Path, deps.path),
+  );
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -416,13 +417,14 @@ const writeScope = (
   Effect.gen(function* () {
     if (scope === undefined) return;
 
-    const axmDir = join(scopeRoot, ".axm");
+    const stateRoot =
+      options.scope === "project" ? scopeRoot : join(scopeRoot, ".axm", "workspace");
     const settingsPath =
-      options.scope === "project" ? join(scopeRoot, "axm.json") : join(axmDir, "settings.json");
+      options.scope === "project" ? join(scopeRoot, "axm.json") : join(stateRoot, "axm.json");
     const lockfilePath = options.includeLockfile
       ? options.scope === "project"
         ? join(scopeRoot, "axm-lock.yaml")
-        : join(axmDir, "axm-lock.yaml")
+        : join(stateRoot, "axm-lock.yaml")
       : null;
     const mcpJsonPath = join(scopeRoot, ".mcp.json");
 
@@ -437,7 +439,7 @@ const writeScope = (
         files,
         options.scope === "project"
           ? join(scopeRoot, "agent_extensions")
-          : join(scopeRoot, ".axm", "extensions"),
+          : join(scopeRoot, ".axm", "workspace", "agent_extensions"),
         scope.axmExtensions,
         "axmExtensions",
       );

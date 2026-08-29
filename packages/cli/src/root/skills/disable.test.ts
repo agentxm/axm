@@ -40,7 +40,6 @@ const initWorkspace = (
     packs: configuredPacks,
     lockfileSkills,
     lockfilePacks: opts?.lockfilePacks,
-    writeTrustFromLockfile: true,
   });
 };
 
@@ -168,14 +167,7 @@ describe("disable.handler", () => {
         { "my-skill": makeLockEntry() },
       );
       // Create canonical skill directory (preserved after disable)
-      const canonicalDir = path.join(
-        tempDir,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "my-skill",
-      );
+      const canonicalDir = path.join(tempDir, "agent_extensions", "external", "skills", "my-skill");
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 
@@ -344,14 +336,7 @@ describe("disable.handler", () => {
         { "my-skill": makeLockEntry() },
       );
       // Create canonical skill directory (preserved after disable)
-      const canonicalDir = path.join(
-        tempDir,
-        ".axm",
-        "extensions",
-        "external",
-        "skills",
-        "my-skill",
-      );
+      const canonicalDir = path.join(tempDir, "agent_extensions", "external", "skills", "my-skill");
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 

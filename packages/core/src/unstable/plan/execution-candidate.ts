@@ -5,8 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { LOCKFILE_NAME } from "../lockfile/index.js";
-import { SETTINGS_FILENAME } from "../settings/index.js";
 import type { Plan } from "./plan.js";
 
 export interface ExecutionCandidate<Requirements = never, Output = never> {
@@ -28,18 +26,16 @@ const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<strin
 
 const resolveMaterialPaths = (
   plan: Plan<unknown, unknown>,
-  workspaceDir: string,
+  settingsPath: string,
+  lockPath: string,
   baseDir: string,
   path: Path.Path,
 ): ReadonlyArray<string> =>
   Array.from(
     new Set(
-      [
-        path.join(workspaceDir, SETTINGS_FILENAME),
-        path.join(workspaceDir, LOCKFILE_NAME),
-        ...(plan.materialPaths ?? []),
-        ...collectArtifactPaths(plan),
-      ].map((candidate) => path.resolve(baseDir, candidate)),
+      [settingsPath, lockPath, ...(plan.materialPaths ?? []), ...collectArtifactPaths(plan)].map(
+        (candidate) => path.resolve(baseDir, candidate),
+      ),
     ),
   ).sort();
 
@@ -130,8 +126,11 @@ const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.
 
 export const makeExecutionCandidate = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
-  workspaceDir: string,
-  baseDir: string,
+  paths: {
+    readonly settingsPath: string;
+    readonly lockPath: string;
+    readonly baseDir: string;
+  },
 ): Effect.Effect<
   ExecutionCandidate<Requirements, Output>,
   AppError,
@@ -140,15 +139,21 @@ export const makeExecutionCandidate = <Requirements, Output>(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const materialPaths = resolveMaterialPaths(plan, workspaceDir, baseDir, path);
-    const materialFingerprint = yield* fingerprintMaterials(materialPaths, baseDir, fs, path);
+    const materialPaths = resolveMaterialPaths(
+      plan,
+      paths.settingsPath,
+      paths.lockPath,
+      paths.baseDir,
+      path,
+    );
+    const materialFingerprint = yield* fingerprintMaterials(materialPaths, paths.baseDir, fs, path);
     const id = crypto
       .createHash("sha256")
-      .update(planIdentity(plan, baseDir, path))
+      .update(planIdentity(plan, paths.baseDir, path))
       .update("\0")
       .update(materialFingerprint)
       .digest("hex");
-    return { id, plan, materialPaths, materialFingerprint, baseDir };
+    return { id, plan, materialPaths, materialFingerprint, baseDir: paths.baseDir };
   });
 
 export const isExecutionCandidateFresh = (

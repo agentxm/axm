@@ -15,7 +15,6 @@ import {
 } from "@agentxm/client-core/unstable/cli-runtime";
 import {
   buildInstallOperation,
-  extensionTypeToPlural,
   type ExtensionType,
   fqnInvalidErrorToAppError,
   formatFqn,
@@ -207,15 +206,10 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const authoredDir =
-    ws.layout.scope === "project"
-      ? path.join(ws.layout.authoredRoot(parsed.type), parsed.name)
-      : path.join(
-          ws.layout.canonicalRoot,
-          parsed.owner,
-          extensionTypeToPlural[parsed.type],
-          parsed.name,
-        );
+  if (ws.layout.scope !== "project") {
+    return yield* makeAppError({ code: "usage", detail: "Demote requires project scope" });
+  }
+  const authoredDir = path.join(ws.layout.authoredRoot(parsed.type), parsed.name);
   const run = operation.run.pipe(
     Effect.tap(() => restoreDisabledState(parsed.type, parsed.name, entryEnabled(current))),
     Effect.provideService(WorkspaceMutations, ws),

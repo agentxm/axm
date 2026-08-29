@@ -6,11 +6,11 @@
  * the lint design "Pack accessor root":
  *
  * - **Registry-installed:**
- *   `<workspaceRoot>/.axm/extensions/<@owner>/packs/<sanitized-name>/`
+ *   `<workspaceRoot>/agent_extensions/<@owner>/packs/<sanitized-name>/`
  *
  * Packs are registry-only at v1 — there is no non-native variant. The caller
  * (`buildPackRuleContexts` or the CLI entry point) picks the root from
- * `computePackPaths` in `../../../packs/paths.ts`.
+ * `computePackPathsForLayout` in `../../../packs/paths.ts`.
  *
  * The `pack.json` sits directly under `canonicalPath`; there is no
  * `src/` subdirectory like skills have — see
@@ -55,7 +55,7 @@ type ResolveResult =
  * Build a platform-backed `PackFileAccessor` rooted at `absoluteRoot`.
  *
  * `absoluteRoot` SHOULD be the absolute path to the pack root directory
- * (`canonicalPath` from `computePackPaths` in
+ * (`canonicalPath` from `computePackPathsForLayout` in
  * `../../../packs/paths.ts`).
  *
  * @experimental This API is unstable and may change without notice.

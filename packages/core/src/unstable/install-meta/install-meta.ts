@@ -20,7 +20,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { writeFileAtomic } from "../utils/index.js";
 import { DateTimeUtcSchema } from "../date-time.js";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
-import { resolveUserScopeDir } from "../workspace/paths.js";
+import { resolveUserAxmHome } from "../workspace/paths.js";
 
 // -----------------------------------------------------------------------------
 // Schema
@@ -85,7 +85,7 @@ export class InstallMeta extends ServiceMap.Service<InstallMeta, InstallMetaServ
 // Data directory resolution
 // -----------------------------------------------------------------------------
 
-const resolveDataDir = resolveUserScopeDir;
+const resolveDataDir = resolveUserAxmHome;
 
 // -----------------------------------------------------------------------------
 // Constants

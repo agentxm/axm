@@ -92,7 +92,7 @@ const canonicalHook = (name: string): CanonicalExtensionOccurrence =>
     origin: "canonical-axm",
     name,
     owner: "@acme",
-    contentLocation: `/ws/.axm/extensions/@acme/hooks/${name}/src`,
+    contentLocation: `/ws/agent_extensions/@acme/hooks/${name}/src`,
   });
 
 describe("makeHookExtensionsApi", () => {
@@ -136,8 +136,8 @@ describe("makeHookExtensionsApi", () => {
       const actual = yield* api.actual;
       expect(actual).toHaveLength(1);
       expect(actual[0]?.origin._tag).toBe("canonical-axm-hook");
-      expect(actual[0]?.contentRoot).toBe("/ws/.axm/extensions/@acme/hooks/block-secrets/src");
-      expect(actual[0]?.packageRoot).toBe("/ws/.axm/extensions/@acme/hooks/block-secrets");
+      expect(actual[0]?.contentRoot).toBe("/ws/agent_extensions/@acme/hooks/block-secrets/src");
+      expect(actual[0]?.packageRoot).toBe("/ws/agent_extensions/@acme/hooks/block-secrets");
     }),
   );
 
@@ -151,7 +151,7 @@ describe("makeHookExtensionsApi", () => {
             origin: "canonical-axm",
             name: "wrong",
             owner: "@acme",
-            contentLocation: "/ws/.axm/extensions/@acme/skills/wrong/src",
+            contentLocation: "/ws/agent_extensions/@acme/skills/wrong/src",
           }),
         ],
       });

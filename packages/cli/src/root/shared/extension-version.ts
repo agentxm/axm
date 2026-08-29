@@ -147,11 +147,15 @@ export const resolveManifestVersionInfo = (
         detail: `Expected ${extensionTypeToPlural[expectedType]} handle, got ${fqnInput}`,
       });
     }
+    if (ws.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Versioning workspace-authored extensions requires project scope.",
+      });
+    }
 
     const manifestPath = path.join(
-      ws.layout.scope === "project"
-        ? ws.layout.authoredRoot(fqn.type)
-        : path.join(ws.layout.canonicalRoot, fqn.owner, extensionTypeToPlural[fqn.type]),
+      ws.layout.authoredRoot(fqn.type),
       fqn.name,
       manifestFilename(fqn.type),
     );

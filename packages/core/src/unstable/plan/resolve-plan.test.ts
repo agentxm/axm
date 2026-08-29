@@ -31,7 +31,7 @@ import {
 import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
-import { makeExecutionCandidate } from "./execution-candidate.js";
+import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
 import { deriveOperationOutcome, operationExitCode } from "./operation-resolution.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
@@ -406,18 +406,47 @@ describe("previewOrApplyPlan", () => {
         description: Option.none(),
         jobs: [{ concurrency: 1, steps: [] }],
       };
-      const withoutEvidence = yield* makeExecutionCandidate(
-        base,
-        "/tmp/axm-candidate/.axm",
-        "/tmp",
-      );
+      const withoutEvidence = yield* makeExecutionCandidate(base, {
+        settingsPath: "/tmp/axm-candidate/axm.json",
+        lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+        baseDir: "/tmp",
+      });
       const withEvidence = yield* makeExecutionCandidate(
         { ...base, releaseAge },
-        "/tmp/axm-candidate/.axm",
-        "/tmp",
+        {
+          settingsPath: "/tmp/axm-candidate/axm.json",
+          lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+          baseDir: "/tmp",
+        },
       );
 
       expect(withEvidence.id).not.toBe(withoutEvidence.id);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("fingerprints the layout's exact settings and lock paths", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-layout-material-" });
+      const settingsPath = `${directory}/axm.json`;
+      const lockPath = `${directory}/axm-lock.yaml`;
+      yield* fs.writeFileString(settingsPath, "{}");
+      yield* fs.writeFileString(lockPath, "lockfileVersion: 6\nskills: {}\n");
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Layout material",
+        description: Option.none(),
+        jobs: [{ concurrency: 1, steps: [] }],
+      };
+      const candidate = yield* makeExecutionCandidate(plan, {
+        settingsPath,
+        lockPath,
+        baseDir: directory,
+      });
+
+      expect(candidate.materialPaths).toEqual([lockPath, settingsPath].sort());
+      yield* fs.writeFileString(settingsPath, '{"agents":[]}');
+      expect(yield* isExecutionCandidateFresh(candidate)).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

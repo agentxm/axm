@@ -10,7 +10,6 @@ import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-r
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
-  extensionTypeToPlural,
   parseExtensionFqnParts,
 } from "@agentxm/client-core/unstable/extensions";
 import {
@@ -71,10 +70,14 @@ const repositoryIntent = (parts: NonNullable<ReturnType<typeof parseExtensionFqn
     const workspace = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    if (workspace.layout.scope !== "project") {
+      return yield* makeAppError({
+        code: "validation",
+        detail: "Repository visibility intent requires project scope.",
+      });
+    }
     const manifestPath = path.join(
-      workspace.layout.scope === "project"
-        ? workspace.layout.authoredRoot(parts.type)
-        : path.join(workspace.layout.canonicalRoot, parts.owner, extensionTypeToPlural[parts.type]),
+      workspace.layout.authoredRoot(parts.type),
       parts.name,
       manifestFilenameForType(parts.type),
     );

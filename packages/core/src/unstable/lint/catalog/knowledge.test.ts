@@ -69,7 +69,7 @@ describe("Knowledge diagnostic lint rules", () => {
           exists: () => Effect.succeed(false),
           readBytes: () => Effect.die("not used"),
         },
-        displayRoot: ".axm/extensions/@acme/knowledge/platform",
+        displayRoot: "agent_extensions/@acme/knowledge/platform",
       });
 
       expect(findings).toEqual([

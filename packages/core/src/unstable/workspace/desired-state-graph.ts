@@ -17,12 +17,8 @@ import { computePackPathsForLayout } from "../packs/paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "../sources/index.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
-import {
-  ACQUIRED_DIRECTORY,
-  configuredAuthoredDirectory,
-  PROJECT_SETTINGS_FILENAME,
-  type WorkspaceLayout,
-} from "./layout.js";
+import { configuredAuthoredDirectory, SETTINGS_FILENAME, type WorkspaceLayout } from "./layout.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
 
 export type DesiredExtensionOrigin =
   | {
@@ -278,7 +274,7 @@ export const collectDesiredConstraintContributors = (
           {
             source: "settings",
             range: origin.constraint,
-            location: PROJECT_SETTINGS_FILENAME,
+            location: SETTINGS_FILENAME,
           },
         ];
       }
@@ -444,7 +440,12 @@ export const buildDesiredStateGraph = ({
               baseDir,
               workspacePack
                 ? configuredAuthoredDirectory(settings, "pack")
-                : path.join(ACQUIRED_DIRECTORY, configuredRegistrySource, identity.owner, "packs"),
+                : path.join(
+                    ACQUIRED_EXTENSIONS_DIR,
+                    configuredRegistrySource,
+                    identity.owner,
+                    "packs",
+                  ),
               identity.name,
             )
           : computePackPathsForLayout(

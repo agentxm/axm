@@ -187,7 +187,7 @@ describe("installed-state scope consistency", () => {
         { cwd: consumer.path, env },
       );
       expect(userSetup.exitCode, `${userSetup.stderr}\n${userSetup.stdout}`).toBe(0);
-      const userSettingsPath = path.join(userHome.path, ".axm", "settings.json");
+      const userSettingsPath = path.join(userHome.path, ".axm", "workspace", "axm.json");
       configureRegistry(userSettingsPath, registry.path);
 
       const missingAgent = await runCli(
@@ -211,7 +211,16 @@ describe("installed-state scope consistency", () => {
       expect(fs.readFileSync(userSettingsPath, "utf-8")).toBe(userSettingsBeforeRefusal);
       expect(
         fs.existsSync(
-          path.join(userHome.path, ".axm", "extensions", "agentxm", OWNER, "subagents", SUBAGENT),
+          path.join(
+            userHome.path,
+            ".axm",
+            "workspace",
+            "agent_extensions",
+            "agentxm",
+            OWNER,
+            "subagents",
+            SUBAGENT,
+          ),
         ),
       ).toBe(false);
 
@@ -226,7 +235,8 @@ describe("installed-state scope consistency", () => {
           path.join(
             userHome.path,
             ".axm",
-            "extensions",
+            "workspace",
+            "agent_extensions",
             "agentxm",
             OWNER,
             "skills",
@@ -242,7 +252,8 @@ describe("installed-state scope consistency", () => {
           path.join(
             userHome.path,
             ".axm",
-            "extensions",
+            "workspace",
+            "agent_extensions",
             "agentxm",
             OWNER,
             "knowledge",
@@ -285,7 +296,8 @@ describe("installed-state scope consistency", () => {
           path.join(
             userHome.path,
             ".axm",
-            "extensions",
+            "workspace",
+            "agent_extensions",
             "agentxm",
             OWNER,
             "knowledge",

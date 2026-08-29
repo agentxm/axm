@@ -276,14 +276,14 @@ describe("displayPlan", () => {
                     readiness: "ready",
                     label: "code-review",
                     artifact: {
-                      path: ".axm/axm-lock.yaml",
+                      path: "axm-lock.yaml",
                       scope: "project",
                       change: "removed",
                       targets: [
-                        { path: ".axm/axm-lock.yaml", change: "updated" },
+                        { path: "axm-lock.yaml", change: "updated" },
                         { path: ".agents/skills/code-review", change: "removed" },
                         {
-                          path: ".axm/extensions/github/acme/extensions/skills/code-review",
+                          path: "agent_extensions/github/acme/extensions/skills/code-review",
                           change: "removed",
                         },
                       ],
@@ -298,9 +298,9 @@ describe("displayPlan", () => {
 
         expect(logsByTag(state).message).toEqual(
           expect.arrayContaining([
-            "    updated: .axm/axm-lock.yaml",
+            "    updated: axm-lock.yaml",
             "    removed: .agents/skills/code-review",
-            "    removed: .axm/extensions/github/acme/extensions/skills/code-review",
+            "    removed: agent_extensions/github/acme/extensions/skills/code-review",
           ]),
         );
       }),

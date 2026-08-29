@@ -38,14 +38,14 @@ describe("buildSkillRuleContexts", () => {
       {
         isNative: true,
         skillJson: { owner: "@acme", type: "skill", name: "a", version: "0.1.0" },
-        displayRoot: ".axm/extensions/@acme/skills/a/src",
+        displayRoot: "agent_extensions/@acme/skills/a/src",
         files: absentAccessor,
         packageFiles: otherAccessor,
       },
       {
         isNative: false,
         skillJson: undefined,
-        displayRoot: ".axm/extensions/github/acme/extensions/skills/b",
+        displayRoot: "agent_extensions/github/acme/extensions/skills/b",
         files: absentAccessor,
         packageFiles: absentAccessor,
       },
@@ -62,13 +62,13 @@ describe("buildSkillRuleContexts", () => {
       name: "a",
       version: "0.1.0",
     });
-    expect(contexts[0]?.displayRoot).toBe(".axm/extensions/@acme/skills/a/src");
+    expect(contexts[0]?.displayRoot).toBe("agent_extensions/@acme/skills/a/src");
     expect(contexts[0]?.files).toBe(absentAccessor);
     expect(contexts[0]?.packageFiles).toBe(otherAccessor);
 
     expect(contexts[1]?.subject.isNative).toBe(false);
     expect(contexts[1]?.subject.skillJson).toBeUndefined();
-    expect(contexts[1]?.displayRoot).toBe(".axm/extensions/github/acme/extensions/skills/b");
+    expect(contexts[1]?.displayRoot).toBe("agent_extensions/github/acme/extensions/skills/b");
     expect(contexts[1]?.files).toBe(absentAccessor);
     expect(contexts[1]?.packageFiles).toBe(absentAccessor);
   });

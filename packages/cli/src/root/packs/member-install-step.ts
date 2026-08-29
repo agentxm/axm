@@ -7,7 +7,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
 import {
-  REGISTRY_EXTENSIONS_DIR,
+  ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
   buildInstallOperation,
   extensionRefLifecycleWarnings,
@@ -70,7 +70,7 @@ const registrySourceArtifact = (args: {
     args.ref.refType === "workspace"
       ? args.ref.location
       : acquiredExtensionDisplayPath(
-          args.scope === "project" ? REGISTRY_EXTENSIONS_DIR : ".axm/extensions",
+          args.scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
           args.ref,
           registryPluralSegment(args.ref.type),
           args.ref.name,

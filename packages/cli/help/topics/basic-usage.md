@@ -71,8 +71,10 @@ extensions. Project-authored packages live directly under type roots such as
 `skills/<name>`, `rules/<name>`, and `packs/<name>`; each root can be changed by
 its corresponding `*Config.dir` setting. `.axm/` is ignored project runtime
 state. Agent-specific paths and render state are observed or derived; they are
-not authority. User scope retains `.axm/settings.json`, `.axm/axm-lock.yaml`,
-and the same source-qualified scheme under `.axm/extensions/`.
+not authority. User scope mirrors the same installed-state contract beneath
+`~/.axm/workspace/`: `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and an
+inner `.axm/` runtime directory. Agent-native user projections remain in each
+agent's native user root.
 
 ### Authoring and editing extensions
 
@@ -117,6 +119,12 @@ Authoring commands are project-workspace only: `new`, `fork`, `skills import`,
 accept `--scope`. Create authored packages in the project workspace, then
 install published versions into user scope when user-level availability is
 needed.
+
+The surrounding `~/.axm/` directory is application state, not the user
+workspace. A script install places the executable in `~/.axm/bin/axm` and its
+ownership record in `~/.axm/install-meta.json`. Pending login may also appear
+there temporarily. Update-check state uses the platform cache directory, and
+AXM does not create `trust.json`.
 
 ### Enabling and disabling extensions
 

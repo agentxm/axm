@@ -37,7 +37,7 @@ import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
 // ---------------------------------------------------------------------------
 
 const WORKSPACE_ROOT = "/ws";
-const SETTINGS_PATH = `${WORKSPACE_ROOT}/.axm/settings.json`;
+const SETTINGS_PATH = `${WORKSPACE_ROOT}/axm.json`;
 // Production places the lockfile at the workspace root (no `.axm/`),
 // matching `makeWorkspaceReadModel`'s wiring in `service.ts`.
 const LOCKFILE_PATH = `${WORKSPACE_ROOT}/${LOCKFILE_NAME}`;

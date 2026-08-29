@@ -11,7 +11,7 @@ describe("pack dependency reachability", () => {
         {
           packFqn: "@acme/packs/workflow",
           packAuthority: "workspace",
-          manifestPath: ".axm/extensions/@acme/packs/workflow/pack.json",
+          manifestPath: "agent_extensions/@acme/packs/workflow/pack.json",
           dependencies: {
             "@acme/skills/missing": "^1.0.0",
             "@acme/skills/excluded": "^0.0.4",

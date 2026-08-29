@@ -14,7 +14,7 @@ import type * as Record from "effect/Record";
 
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
 
-/** A row declared in `settings.json`, carrying a concrete source string. */
+/** A row declared in `axm.json`, carrying a concrete source string. */
 export type ConfiguredRecordRow = Extract<ReadModelRecordRow, { lifecycle: "configured" }>;
 
 /** A row installed indirectly — a pack member or a lockfile-only entry. */

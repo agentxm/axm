@@ -19,14 +19,11 @@ import { type Handle } from "../../extensions/handle.js";
 import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "../../packs/index.js";
 import type { Settings, SourceHostConfig } from "../../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
-import { AXM_DIR_NAME } from "../paths.js";
 import {
-  LOCK_FILENAME,
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,
   type WorkspaceLayout,
-  USER_SETTINGS_FILENAME,
 } from "../layout.js";
 import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
@@ -266,10 +263,9 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         )
-      : resolveUserWorkspaceLayout(
-          makeAbsolutePath(path, path.join(workspaceRoot, AXM_DIR_NAME)),
-          layoutSettings,
-        ).pipe(Effect.provideService(Path.Path, path));
+      : resolveUserWorkspaceLayout(makeAbsolutePath(path, workspaceRoot), layoutSettings).pipe(
+          Effect.provideService(Path.Path, path),
+        );
   const layoutResult = yield* Effect.result(resolveLayout());
   if (Result.isFailure(layoutResult)) {
     yield* diagnostics.append({
@@ -688,15 +684,11 @@ export const makeWorkspaceReadModel = (
     // Workspace path layout per scope.
     const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
     const projectPaths = resolveProjectWorkspaceStatePaths(pathSvc, config.projectRoot);
-    const userAxmDir = pathSvc.join(workspaceRoot, AXM_DIR_NAME);
-    const settingsPath =
-      scope === "project"
-        ? projectPaths.settingsPath
-        : makeAbsolutePath(pathSvc, pathSvc.join(userAxmDir, USER_SETTINGS_FILENAME));
-    const lockfilePath =
-      scope === "project"
-        ? projectPaths.lockPath
-        : makeAbsolutePath(pathSvc, pathSvc.join(userAxmDir, LOCK_FILENAME));
+    const userLayout = yield* resolveUserWorkspaceLayout(
+      makeAbsolutePath(pathSvc, userHomeResolved),
+    ).pipe(Effect.provideService(Path.Path, pathSvc));
+    const settingsPath = scope === "project" ? projectPaths.settingsPath : userLayout.settingsPath;
+    const lockfilePath = scope === "project" ? projectPaths.lockPath : userLayout.lockPath;
 
     // Pre-seed agent-root collision warnings into the project scope only;
     // the user scope receives a clean buffer.

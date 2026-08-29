@@ -1,6 +1,6 @@
 /**
  * Lockfile module for managing project-root `axm-lock.yaml` or the user-scope
- * `.axm/axm-lock.yaml` (YAML format).
+ * `axm-lock.yaml` (YAML format).
  *
  * Provides functions to read, write, and update accepted external resolutions.
  *

@@ -75,13 +75,11 @@ import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js"
 import { makeAbsolutePath } from "../utils/path-types.js";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 
-import { getAxmDir } from "./paths.js";
+import { getProjectRuntimeDir, resolveUserHome } from "./paths.js";
 import {
-  LOCK_FILENAME,
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,
-  USER_SETTINGS_FILENAME,
 } from "./layout.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -269,9 +267,11 @@ const requireInitializedWorkspace = (
 
 export const loadWorkspace = (options: WorkspaceLayerOptions) =>
   Effect.gen(function* () {
-    const globalDir = yield* getAxmDir("user");
-    const localRuntimeDir = yield* getAxmDir("project", options.projectRoot);
-    const workspaceDir = options.scope === "user" ? globalDir : localRuntimeDir;
+    const userHome = yield* resolveUserHome();
+    const initialUserLayout = yield* resolveUserWorkspaceLayout(userHome);
+    const userRuntimeDir = initialUserLayout.runtimeDir;
+    const localRuntimeDir = yield* getProjectRuntimeDir(options.projectRoot);
+    const workspaceDir = options.scope === "user" ? userRuntimeDir : localRuntimeDir;
 
     // Capture FileSystem and Path for use in closures
     const fs = yield* FileSystem.FileSystem;
@@ -281,15 +281,12 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     // transaction calls the same service's mutation methods while it owns the
     // outer admission permit.
     const transactionSemaphore = yield* Semaphore.make(1);
-    const projectStatePaths = resolveProjectWorkspaceStatePaths(path, options.projectRoot);
+    const initialProjectState = resolveProjectWorkspaceStatePaths(path, options.projectRoot);
     const settingsPath =
-      options.scope === "user"
-        ? path.join(globalDir, USER_SETTINGS_FILENAME)
-        : projectStatePaths.settingsPath;
+      options.scope === "user" ? initialUserLayout.settingsPath : initialProjectState.settingsPath;
     const lockPath =
-      options.scope === "user" ? path.join(globalDir, LOCK_FILENAME) : projectStatePaths.lockPath;
-
-    const baseDir = options.scope === "user" ? path.dirname(globalDir) : options.projectRoot;
+      options.scope === "user" ? initialUserLayout.lockPath : initialProjectState.lockPath;
+    const baseDir = options.scope === "user" ? userHome : options.projectRoot;
 
     const fsLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -299,7 +296,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       fsLayer,
       Layer.succeed(WorkspaceReadModelConfig, {
         projectRoot: options.projectRoot,
-        userHome: makeAbsolutePath(path, path.dirname(globalDir)),
+        userHome,
         allowedRoot: makeAbsolutePath(path, "/"),
       }),
       AgentRootResolverLive.pipe(Layer.provide(fsLayer)),
@@ -309,9 +306,9 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
       dir: string,
       sharedScope: "project" | "user" = options.scope,
     ): "project" | "user" =>
-      dir === globalDir && dir === localRuntimeDir
+      dir === userRuntimeDir && dir === localRuntimeDir
         ? sharedScope
-        : dir === globalDir
+        : dir === userRuntimeDir
           ? "user"
           : "project";
 
@@ -337,14 +334,14 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const projectSettings = yield* readSettingsCell(localRuntimeDir, "project").pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
-    const userSettings = yield* readSettingsCell(globalDir, "user").pipe(
+    const userSettings = yield* readSettingsCell(userRuntimeDir, "user").pipe(
       Effect.map(Option.getOrElse(() => createDefaultSettings())),
     );
     const projectLayout = yield* resolveProjectWorkspaceLayout(
       options.projectRoot,
       projectSettings,
     );
-    const userLayout = yield* resolveUserWorkspaceLayout(globalDir, userSettings);
+    const userLayout = yield* resolveUserWorkspaceLayout(userHome, userSettings);
     const layout = options.scope === "project" ? projectLayout : userLayout;
 
     // Built-in sources: parameterized via options, falling back to git forges only
@@ -464,7 +461,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           Effect.provideService(Path.Path, path),
         );
         const lockfile = yield* readLockfileSafe(workspaceDir);
-        return yield* validateDesiredPackLock({ baseDir, graph, lockfile, layout }).pipe(
+        return yield* validateDesiredPackLock({ graph, lockfile, layout }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
         );
@@ -523,7 +520,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         if (cachedSources !== null) return cachedSources;
 
         const projectSettings = yield* readSettingsSafe(localRuntimeDir, "project");
-        const globalSettings = yield* readSettingsSafe(globalDir, "user");
+        const globalSettings = yield* readSettingsSafe(userRuntimeDir, "user");
 
         const projectSources: ReadonlyArray<SourceHostConfig> = projectSettings.sources ?? [];
         const globalSources: ReadonlyArray<SourceHostConfig> = globalSettings.sources ?? [];
@@ -580,7 +577,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         Effect.gen(function* () {
           const projectSettings = yield* readSettingsSafe(localRuntimeDir, "project");
           if (projectSettings.owner) return Option.some(projectSettings.owner);
-          const globalSettings = yield* readSettingsSafe(globalDir, "user");
+          const globalSettings = yield* readSettingsSafe(userRuntimeDir, "user");
           if (globalSettings.owner) return Option.some(globalSettings.owner);
           return Option.none<Handle>();
         }),
@@ -597,7 +594,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         }
 
         if (options.scope === "project") {
-          const globalSettings = yield* readSettingsSafe(globalDir, "user");
+          const globalSettings = yield* readSettingsSafe(userRuntimeDir, "user");
           if (globalSettings.minimumReleaseAge !== undefined) {
             return globalSettings.minimumReleaseAge;
           }
@@ -616,7 +613,7 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
           }
 
           if (options.scope === "project") {
-            const globalSettings = yield* readSettingsSafe(globalDir, "user");
+            const globalSettings = yield* readSettingsSafe(userRuntimeDir, "user");
             if (globalSettings.minimumReleaseAgeExclude !== undefined) {
               return globalSettings.minimumReleaseAgeExclude.map(
                 (pattern): ScopedReleaseAgeExcludePattern => ({ pattern, scope: "user" }),

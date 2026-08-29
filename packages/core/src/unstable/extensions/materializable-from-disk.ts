@@ -84,10 +84,13 @@ export const configuredSkillsToDiskRefs = (
       if (entry.origin === "bundled") {
         const owner = decodeHandleSync("@agentxm");
         const packageName = decodeExtensionNameSync(settingsName);
-        const packageRoot =
-          env.layout.scope === "project"
-            ? env.path.join(env.layout.acquiredRoot, "agentxm", owner, "skills", settingsName)
-            : env.path.join(env.layout.canonicalRoot, "agentxm", owner, "skills", settingsName);
+        const packageRoot = env.path.join(
+          env.layout.acquiredRoot,
+          "agentxm",
+          owner,
+          "skills",
+          settingsName,
+        );
         return resolveWorkspaceExtensionRef({
           settingsName,
           source: "workspace",

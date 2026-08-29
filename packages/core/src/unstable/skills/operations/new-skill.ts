@@ -66,7 +66,7 @@ const INITIAL_SKILL_VERSION = decodeVersionSync("0.0.1");
 /**
  * New-skill operation handler.
  *
- * 1. Compute paths via computeSkillPaths
+ * 1. Compute paths from the resolved workspace layout
  * 2. Check if skill already exists in settings
  * 3. Create skill directory (src/)
  * 4. Write skill.json manifest

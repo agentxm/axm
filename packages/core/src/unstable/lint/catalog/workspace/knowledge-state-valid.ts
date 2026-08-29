@@ -30,7 +30,9 @@ export const knowledgeStateValidRule: AdvisoryRule<WorkspaceRuleContext> = {
             !actual.contentRoot
               .replaceAll("\\", "/")
               .includes(
-                context.subject.scope === "project" ? "/agent_extensions/" : "/.axm/extensions/",
+                context.subject.scope === "project"
+                  ? "/agent_extensions/"
+                  : "/.axm/workspace/agent_extensions/",
               )
               ? []
               : [

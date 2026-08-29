@@ -65,7 +65,7 @@ const workspacePackRef = (dependencies: Readonly<Record<string, string>>): Works
     name,
     version: exactVersion("1.0.0"),
     scope: "project",
-    location: "file:///workspace/.axm/extensions/@acme/packs/toolkit",
+    location: "file:///workspace/agent_extensions/@acme/packs/toolkit",
     sourceHash: computeSourceHash("workspace-toolkit"),
   };
 };
@@ -85,7 +85,7 @@ const workspaceSkill = (version: string): ExtensionRef => {
     name,
     version: exactVersion(version),
     scope: "project",
-    location: "file:///workspace/.axm/extensions/@acme/skills/review",
+    location: "file:///workspace/agent_extensions/@acme/skills/review",
     sourceHash: computeSourceHash("workspace-review"),
     skill: { name, description: Option.none(), metadata: Option.none() },
   };

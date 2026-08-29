@@ -267,26 +267,6 @@ const extensionPathsAt = (
   ),
 });
 
-export const computeExtensionPaths = (
-  join: (...paths: string[]) => string,
-  base: string,
-  source: ExtensionPathSource,
-  type: ExtensionTypePlural,
-  sanitizedName: string,
-): ExtensionDirPaths => {
-  const canonicalPath =
-    source.refType === "workspace"
-      ? join(base, type, sanitizedName)
-      : join(
-          base,
-          ".axm",
-          "extensions",
-          ...acquiredSourceSegments(source),
-          ...(source.refType === "registry" ? [type, sanitizedName] : []),
-        );
-  return extensionPathsAt(join, canonicalPath, source, type);
-};
-
 export const computeExtensionPathsForLayout = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,
@@ -315,13 +295,12 @@ export const computeExtensionPathsForLayout = (
             ),
             sanitizedName,
           )
-        : join(layout.canonicalRoot, source.owner, type, sanitizedName);
+        : join(layout.acquiredRoot, source.owner, type, sanitizedName);
     return extensionPathsAt(join, canonicalPath, source, type);
   }
 
-  const root = layout.scope === "project" ? layout.acquiredRoot : layout.canonicalRoot;
   const canonicalPath = join(
-    root,
+    layout.acquiredRoot,
     ...acquiredSourceSegments(source),
     ...(source.refType === "registry" ? [type, sanitizedName] : []),
   );

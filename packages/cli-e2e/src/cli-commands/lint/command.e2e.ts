@@ -294,8 +294,8 @@ describe("axm lint (e2e, Phase 7)", () => {
       const userHome = createTempDir("axm-phase7-user-home-");
       const emptyHome = createTempDir("axm-phase7-empty-home-");
       try {
-        fs.mkdirSync(path.join(userHome.path, ".axm"), { recursive: true });
-        writeJson(path.join(userHome.path, ".axm", "settings.json"), {
+        fs.mkdirSync(path.join(userHome.path, ".axm", "workspace"), { recursive: true });
+        writeJson(path.join(userHome.path, ".axm", "workspace", "axm.json"), {
           agents: ["claude-code"],
           skills: { demo: "@acme/skills/demo" },
         });
@@ -314,7 +314,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         // `agents-detected-declared` fires only on project scope.
         expect(ruleIds).not.toContain("workspace/agents-detected-declared");
         // `lockfile-valid` fires because we declared a skill with no
-        // lockfile present under $AXM_USER_HOME/.axm.
+        // lockfile present under $AXM_USER_HOME/.axm/workspace.
         expect(ruleIds).toContain("workspace/lockfile-valid");
       } finally {
         userHome.cleanup();

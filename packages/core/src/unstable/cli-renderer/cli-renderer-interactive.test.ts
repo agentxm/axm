@@ -246,7 +246,7 @@ describe("InteractiveRenderer", () => {
             const renderer = yield* CliRenderer;
             yield* renderer.success("Created", {
               suggestions: [
-                { description: "Edit `.axm/extensions/example.md`" },
+                { description: "Edit `agent_extensions/example.md`" },
                 {
                   description: "Apply changes to your workspace",
                   cmd: "axm sync",
@@ -259,7 +259,7 @@ describe("InteractiveRenderer", () => {
         const output = stripAnsi(stderrWrites.join(""));
         expect(output).toContain("✔  Created\n");
         expect(output).toContain("Next:\n");
-        expect(output).toContain("  Edit `.axm/extensions/example.md`\n");
+        expect(output).toContain("  Edit `agent_extensions/example.md`\n");
         expect(output).toContain("  Apply changes to your workspace · axm sync\n");
       }),
     );

@@ -11,7 +11,7 @@ setup) `axm setup` has completed.
 4. Preview setup, summarize its exact agent and file candidate, and get the
    user's approval.
 5. Apply the approved candidate with explicit scope and agent flags.
-6. Read `.axm/extensions/@agentxm/skills/axm/src/SKILL.md`, then load
+6. Read `agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md`, then load
    `axm help getting-started` and `axm help basic-usage`.
 
 ## Invariants
@@ -183,7 +183,8 @@ from the project and which came only from the workstation. Each scope outcome
 is `supported`, `project-only`, `unsupported`, or `refused` and includes a
 stable `reasonCode`. Never reinterpret a user-scope `project-only` or `refused`
 outcome as permission to write project scope. Tell the user that applying the
-candidate will create `.axm/` configuration, install default extensions
+candidate will create root `axm.json`, `axm-lock.yaml`, `agent_extensions/`,
+and ignored `.axm/` runtime state; install default extensions
 (including `@agentxm/skills/axm`), and register the listed agent artifacts.
 Wait for approval of that exact agent set and scope.
 
@@ -192,7 +193,7 @@ flag and apply without prompts. For example:
 
 ```bash
 axm setup --yes --scope project --agent claude-code --non-interactive
-cat .axm/extensions/@agentxm/skills/axm/src/SKILL.md
+cat agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md
 axm help getting-started
 axm help basic-usage
 ```
@@ -204,14 +205,14 @@ Do not infer approval from a preview. An unattended first setup without
 After setup, read the installed AXM skill and both help topics before doing
 any other AXM work in this session:
 
-- **`.axm/extensions/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
+- **`agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
   safe AXM CLI use, permissions, output modes, and day-to-day operations.
 
 - **`getting-started`** — first-time workspace setup; explains what `axm
 setup` just produced.
-- **`basic-usage`** — the key workspace files (`.axm/settings.json`,
-  `axm-lock.yaml`, `.axm/extensions/`), the commit policy (`.axm/` and
-  `axm-lock.yaml` must be checked in, not gitignored), and how to act safely
+- **`basic-usage`** — the key workspace files (`axm.json`, `axm-lock.yaml`,
+  `agent_extensions/`), the commit policy (those paths are committed while
+  `.axm/` is ignored), and how to act safely
   in an existing workspace.
 
 ---

@@ -37,7 +37,7 @@ const findingFor = (serverName: string, field: string, settingsPath: string): Ad
   severity: "warning",
   message:
     `MCP server '${serverName}' stores a secret-looking literal in ${field}. ` +
-    "Use a `${VAR}` reference so settings.json does not contain the secret.",
+    "Use a `${VAR}` reference so axm.json does not contain the secret.",
   location: { file: settingsPath },
 });
 

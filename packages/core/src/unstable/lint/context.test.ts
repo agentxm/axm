@@ -82,10 +82,10 @@ describe("Rule-context types", () => {
       subject: { isNative: true, skillJson: undefined },
       files: makeSkillAccessor(),
       packageFiles: makeSkillAccessor(),
-      displayRoot: ".axm/extensions/@acme/skills/axm/src",
+      displayRoot: "agent_extensions/@acme/skills/axm/src",
     };
 
-    expect(ctx.displayRoot).toBe(".axm/extensions/@acme/skills/axm/src");
+    expect(ctx.displayRoot).toBe("agent_extensions/@acme/skills/axm/src");
     expect(Object.keys(ctx).sort()).toEqual(["displayRoot", "files", "packageFiles", "subject"]);
   });
 

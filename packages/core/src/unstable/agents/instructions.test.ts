@@ -1029,8 +1029,8 @@ describe("agent instructions", () => {
           fs.symlinkSync(outside, path.join(tempDir, "linked"));
           // A nested package that is its own AXM workspace.
           const nested = path.join(tempDir, "packages", "child");
-          fs.mkdirSync(path.join(nested, ".axm"), { recursive: true });
-          fs.writeFileSync(path.join(nested, ".axm", "settings.json"), "{}\n");
+          fs.mkdirSync(nested, { recursive: true });
+          fs.writeFileSync(path.join(nested, "axm.json"), "{}\n");
           fs.writeFileSync(path.join(nested, "AGENTS.md"), "# Child\n");
           fs.symlinkSync("AGENTS.md", path.join(nested, "GEMINI.md"));
 
@@ -1178,7 +1178,7 @@ describe("agent instructions", () => {
         // propagation is not residue, even at an alias name.
         fs.writeFileSync(
           path.join(tempDir, "IFLOW.md"),
-          "<!-- axm:file v=1 ext=@acme/skills/demo src=.axm/extensions/@acme/skills/demo/src/SKILL.md -->\n\n# Demo\n",
+          "<!-- axm:file v=1 ext=@acme/skills/demo src=agent_extensions/@acme/skills/demo/src/SKILL.md -->\n\n# Demo\n",
         );
 
         const { status } = yield* observe({

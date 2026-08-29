@@ -5,15 +5,19 @@ import * as Path from "effect/Path";
 import { AGENTS } from "../agents/registry.js";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
 import type { Handle } from "../extensions/handle.js";
 import type { Settings } from "../settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
+import {
+  AXM_DIR_NAME,
+  LOCK_FILENAME,
+  SETTINGS_FILENAME,
+  USER_WORKSPACE_DIRECTORY,
+} from "./constants.js";
 
-export const PROJECT_SETTINGS_FILENAME = "axm.json";
-export const USER_SETTINGS_FILENAME = "settings.json";
-export const LOCK_FILENAME = "axm-lock.yaml";
-export const RUNTIME_DIRECTORY = ".axm";
-export const ACQUIRED_DIRECTORY = "agent_extensions";
+export { LOCK_FILENAME, SETTINGS_FILENAME } from "./constants.js";
+export const RUNTIME_DIRECTORY = AXM_DIR_NAME;
 
 const DEFAULT_AUTHORED_DIRECTORIES = {
   skill: "skills",
@@ -37,6 +41,7 @@ const EXTENSION_TYPES: ReadonlyArray<ExtensionType> = [
 
 export interface ProjectWorkspaceLayout {
   readonly scope: "project";
+  readonly workspaceRoot: AbsolutePath;
   readonly projectRoot: AbsolutePath;
   readonly settingsPath: AbsolutePath;
   readonly lockPath: AbsolutePath;
@@ -48,21 +53,23 @@ export interface ProjectWorkspaceLayout {
 
 export interface UserWorkspaceLayout {
   readonly scope: "user";
-  readonly userAxmDir: AbsolutePath;
+  readonly userHome: AbsolutePath;
+  readonly axmHome: AbsolutePath;
+  readonly workspaceRoot: AbsolutePath;
   readonly settingsPath: AbsolutePath;
   readonly lockPath: AbsolutePath;
   readonly runtimeDir: AbsolutePath;
-  readonly canonicalRoot: AbsolutePath;
+  readonly acquiredRoot: AbsolutePath;
   readonly owner?: Handle;
 }
 
 export type WorkspaceLayout = ProjectWorkspaceLayout | UserWorkspaceLayout;
 
 export const resolveProjectWorkspaceStatePaths = (path: Path.Path, projectRoot: AbsolutePath) => ({
-  settingsPath: makeAbsolutePath(path, path.join(projectRoot, PROJECT_SETTINGS_FILENAME)),
+  settingsPath: makeAbsolutePath(path, path.join(projectRoot, SETTINGS_FILENAME)),
   lockPath: makeAbsolutePath(path, path.join(projectRoot, LOCK_FILENAME)),
   runtimeDir: makeAbsolutePath(path, path.join(projectRoot, RUNTIME_DIRECTORY)),
-  acquiredRoot: makeAbsolutePath(path, path.join(projectRoot, ACQUIRED_DIRECTORY)),
+  acquiredRoot: makeAbsolutePath(path, path.join(projectRoot, ACQUIRED_EXTENSIONS_DIR)),
 });
 
 export const configuredAuthoredDirectory = (settings: Settings, type: ExtensionType): string => {
@@ -243,6 +250,7 @@ export const resolveProjectWorkspaceLayout = (
 
     return {
       scope: "project",
+      workspaceRoot: projectRoot,
       projectRoot,
       settingsPath: statePaths.settingsPath,
       lockPath: statePaths.lockPath,
@@ -254,18 +262,22 @@ export const resolveProjectWorkspaceLayout = (
   });
 
 export const resolveUserWorkspaceLayout = (
-  userAxmDir: AbsolutePath,
+  userHome: AbsolutePath,
   settings: Settings = {},
 ): Effect.Effect<UserWorkspaceLayout, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const axmHome = makeAbsolutePath(path, path.join(userHome, AXM_DIR_NAME));
+    const workspaceRoot = makeAbsolutePath(path, path.join(axmHome, USER_WORKSPACE_DIRECTORY));
     return {
       scope: "user",
-      userAxmDir,
-      settingsPath: makeAbsolutePath(path, path.join(userAxmDir, USER_SETTINGS_FILENAME)),
-      lockPath: makeAbsolutePath(path, path.join(userAxmDir, LOCK_FILENAME)),
-      runtimeDir: userAxmDir,
-      canonicalRoot: makeAbsolutePath(path, path.join(userAxmDir, "extensions")),
+      userHome,
+      axmHome,
+      workspaceRoot,
+      settingsPath: makeAbsolutePath(path, path.join(workspaceRoot, SETTINGS_FILENAME)),
+      lockPath: makeAbsolutePath(path, path.join(workspaceRoot, LOCK_FILENAME)),
+      runtimeDir: makeAbsolutePath(path, path.join(workspaceRoot, RUNTIME_DIRECTORY)),
+      acquiredRoot: makeAbsolutePath(path, path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR)),
       ...(settings.owner === undefined ? {} : { owner: settings.owner }),
     };
   });

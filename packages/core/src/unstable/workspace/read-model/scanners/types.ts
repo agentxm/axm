@@ -35,7 +35,7 @@ export type CanonicalExtensionOriginKind = "canonical-axm" | "external-axm";
 
 /**
  * One canonical package materialization observed in an authored root,
- * `agent_extensions/`, or the user-scope `.axm/extensions/` root.
+ * `agent_extensions/`, or the user-scope `agent_extensions/` root.
  *
  * Fields:
  *

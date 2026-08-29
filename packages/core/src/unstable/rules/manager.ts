@@ -444,7 +444,6 @@ export const RuleManagerLive = Layer.effect(
     }) =>
       provide(
         activeContributors({
-          baseDir,
           layout: ws.layout,
           path,
           type: "rule",

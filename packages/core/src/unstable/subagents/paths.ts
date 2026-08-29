@@ -8,7 +8,6 @@
  */
 
 import {
-  computeExtensionPaths,
   computeExtensionPathsForLayout,
   extensionContentFilename,
   extensionContentPath,
@@ -60,29 +59,6 @@ export const subagentContentPath = (
   root: string,
   name: string,
 ): AbsolutePath => extensionContentPath(join, root, name);
-
-/**
- * Pure function to compute subagent directory paths.
- *
- * @param join - Path join function (e.g., `path.join`)
- * @param base - Workspace root (parent of `.axm`)
- * @param source - Source type discriminant
- * @param sanitizedName - Sanitized subagent name for filesystem use
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const computeSubagentPaths = (
-  join: (...paths: string[]) => string,
-  base: string,
-  source: SubagentPathSource,
-  sanitizedName: string,
-): SubagentDirPaths => {
-  const paths = computeExtensionPaths(join, base, source, "subagents", sanitizedName);
-  return {
-    canonicalPath: paths.canonicalPath,
-    subagentSrcPath: paths.extensionSrcPath,
-  };
-};
 
 export const computeSubagentPathsForLayout = (
   join: (...paths: string[]) => string,

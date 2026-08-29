@@ -18,7 +18,7 @@
  * | Surface                            | `displayRoot`                             |
  * | ---------------------------------- | ----------------------------------------- |
  * | Publish                            | `""`                                      |
- * | Registry-installed pack            | `.axm/extensions/<@owner>/packs/<name>`   |
+ * | Registry-installed pack            | `agent_extensions/<@owner>/packs/<name>`   |
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

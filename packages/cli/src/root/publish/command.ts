@@ -805,7 +805,6 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const plural = extensionTypeToPlural[entry.type];
   const authored = isWorkspaceSourceLocator(entry.source);
   const accepted = authored
     ? Option.none()
@@ -817,9 +816,7 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const extensionRoots = authored
     ? ws.layout.scope === "project"
       ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]
-      : ws.layout.owner === undefined
-        ? []
-        : [path.join(ws.layout.canonicalRoot, ws.layout.owner, plural, entry.name)]
+      : []
     : Option.match(accepted, {
         onNone: () => [],
         onSome: ({ observation }) => (observation.path === undefined ? [] : [observation.path]),
@@ -962,7 +959,7 @@ const selectEntries = Effect.fn("Publish.selectEntries")(function* (
         pack.extensionDir ??
         (ws.layout.scope === "project"
           ? path.join(ws.layout.authoredRoot("pack"), pack.name)
-          : path.join(ws.layout.canonicalRoot, pack.owner, "packs", pack.name));
+          : path.join(ws.layout.acquiredRoot, pack.owner, "packs", pack.name));
       const manifestPath = path.join(packDir, manifestFilename.pack);
       const raw = yield* fs.readFileString(manifestPath).pipe(
         Effect.mapError((cause) =>
@@ -1222,7 +1219,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     (ws.layout.scope === "project" && selected.authored
       ? path.join(ws.layout.authoredRoot(selected.type), selected.name)
       : path.join(
-          ws.layout.scope === "project" ? ws.layout.acquiredRoot : ws.layout.canonicalRoot,
+          ws.layout.acquiredRoot,
           selected.owner,
           extensionTypeToPlural[selected.type],
           selected.name,

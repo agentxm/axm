@@ -54,10 +54,10 @@ describe("shorthand", () => {
     it.effect("keeps raw @owner AXM layout segments in the subpath", () =>
       Effect.gen(function* () {
         const result = yield* parseShorthand(
-          "github:agentxm/community//.axm/extensions/@community/mcps/linear",
+          "github:agentxm/community//agent_extensions/@community/mcps/linear",
         );
 
-        expect(Option.getOrNull(result.subPath)).toBe(".axm/extensions/@community/mcps/linear");
+        expect(Option.getOrNull(result.subPath)).toBe("agent_extensions/@community/mcps/linear");
         expect(Option.isNone(result.ref)).toBe(true);
       }),
     );

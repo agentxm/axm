@@ -44,8 +44,8 @@ describe("runWorkspaceTransaction", () => {
     transactionSemaphore = Semaphore.makeUnsafe(1);
     tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "workspace-transaction-test-"));
     workspaceDir = nodePath.join(tempDir, ".axm");
-    settingsPath = nodePath.join(workspaceDir, "settings.json");
-    canonicalPath = nodePath.join(workspaceDir, "extensions", "demo");
+    settingsPath = nodePath.join(tempDir, "axm.json");
+    canonicalPath = nodePath.join(tempDir, "agent_extensions", "demo");
     nodeFs.mkdirSync(canonicalPath, { recursive: true });
     nodeFs.writeFileSync(settingsPath, '{"future":{"value":1}}\n');
     nodeFs.writeFileSync(nodePath.join(canonicalPath, "content.txt"), "before\n");
@@ -92,7 +92,7 @@ describe("runWorkspaceTransaction", () => {
   );
 
   it.effect("restores every authoritative state family after an injected write failure", () => {
-    const lockfilePath = nodePath.join(workspaceDir, "axm-lock.yaml");
+    const lockfilePath = nodePath.join(tempDir, "axm-lock.yaml");
     const canonicalFile = nodePath.join(canonicalPath, "content.txt");
     const projectionPath = nodePath.join(tempDir, ".claude", "skills", "demo", "SKILL.md");
     nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });
@@ -156,7 +156,7 @@ describe("runWorkspaceTransaction", () => {
 
   it.effect("removes a newly created empty workspace after a failed first transition", () => {
     const absentWorkspaceDir = nodePath.join(tempDir, "new-workspace", ".axm");
-    const createdPath = nodePath.join(absentWorkspaceDir, "settings.json");
+    const createdPath = nodePath.join(absentWorkspaceDir, "axm.json");
     return withContext(
       runWorkspaceTransaction({
         workspaceDir: absentWorkspaceDir,
@@ -273,7 +273,7 @@ describe("runWorkspaceTransaction", () => {
             if (error._tag !== "WorkspaceRestorationIncomplete") return;
             snapshotDir = error.snapshotDir;
             expect(error.terminationCause).toBe("failure");
-            expect(error.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+            expect(error.retained).toEqual([nodePath.join("axm.json")]);
             expect(nodeFs.statSync(parent).isFile()).toBe(true);
             // The snapshot-before-write invariant put the pre-change bytes in
             // OS-temporary storage before the mutation, outside the
@@ -348,7 +348,7 @@ describe("runWorkspaceTransaction", () => {
           // No split-brain writes: the mutation stopped where it was, and
           // restoration was not attempted over the successor's workspace.
           expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
-          expect(failure.retained).toEqual([nodePath.join(".axm", "settings.json")]);
+          expect(failure.retained).toEqual([nodePath.join("axm.json")]);
           // The pre-change snapshot is preserved for manual recovery.
           expect(snapshotDir).toBeDefined();
           if (snapshotDir !== undefined) {
@@ -418,7 +418,7 @@ describe("runWorkspaceTransaction", () => {
           expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"changed":true}\n');
           // No staging residue survives beside the target.
           const siblings = nodeFs.readdirSync(nodePath.dirname(settingsPath));
-          expect(siblings.filter((name) => name.startsWith("settings.json.tmp."))).toEqual([]);
+          expect(siblings.filter((name) => name.startsWith("axm.json.tmp."))).toEqual([]);
         }),
       ),
       Effect.ensuring(

@@ -8,7 +8,6 @@
  */
 
 import {
-  computeExtensionPaths,
   computeExtensionPathsForLayout,
   type ExtensionPathSource,
 } from "../extensions/extension-paths.js";
@@ -36,27 +35,6 @@ export interface SkillDirPaths {
   readonly canonicalPath: AbsolutePath;
   readonly skillSrcPath: AbsolutePath;
 }
-
-/**
- * Pure function to compute skill directory paths.
- *
- * @param join - Path join function (e.g., `path.join`)
- * @param base - Workspace root (parent of `.axm`)
- * @param source - Source type discriminant
- * @param sanitizedName - Sanitized skill name for filesystem use
- */
-export const computeSkillPaths = (
-  join: (...paths: string[]) => string,
-  base: string,
-  source: SkillPathSource,
-  sanitizedName: string,
-): SkillDirPaths => {
-  const paths = computeExtensionPaths(join, base, source, "skills", sanitizedName);
-  return {
-    canonicalPath: paths.canonicalPath,
-    skillSrcPath: paths.extensionSrcPath,
-  };
-};
 
 export const computeSkillPathsForLayout = (
   join: (...paths: string[]) => string,

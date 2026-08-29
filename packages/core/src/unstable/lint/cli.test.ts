@@ -15,13 +15,13 @@ describe("lint fact rendering", () => {
             group: "workspace",
             ruleDescription: "Example state is valid.",
             displayRoot: ".",
-            path: ".axm/settings.json",
+            path: "axm.json",
             finding: {
               kind: "advisory",
               ruleId: "workspace/example-valid",
               severity: "error",
               message: "Observed state differs.",
-              location: { file: ".axm/settings.json" },
+              location: { file: "axm.json" },
             },
           },
         ],
@@ -32,8 +32,8 @@ describe("lint fact rendering", () => {
       input: { view: "workspace" },
     });
     expect(document.findings[0]).toMatchObject({
-      subject: ".axm/settings.json",
-      authority: ".axm/settings.json",
+      subject: "axm.json",
+      authority: "axm.json",
       observed: "Observed state differs.",
       expected: "Example state is valid.",
     });
@@ -82,13 +82,13 @@ describe("lint fact rendering", () => {
             group: "workspace",
             ruleDescription: "Workspace settings keys are recognized.",
             displayRoot: ".",
-            path: "./.axm/settings.json",
+            path: "./axm.json",
             finding: {
               kind: "advisory",
               ruleId: "workspace/settings-keys-recognized",
               severity: "error",
               message: "Workspace settings has unrecognized top-level key 'rulesConfig'.",
-              location: { file: ".axm/settings.json" },
+              location: { file: "axm.json" },
             },
           },
         ],

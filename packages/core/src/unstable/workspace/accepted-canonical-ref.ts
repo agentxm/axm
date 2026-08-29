@@ -279,7 +279,7 @@ const refForDesired = (
                   desired.name,
                 )
               : path.join(
-                  workspace.layout.canonicalRoot,
+                  workspace.layout.acquiredRoot,
                   "agentxm",
                   "@agentxm",
                   "skills",

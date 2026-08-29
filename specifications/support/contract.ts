@@ -52,9 +52,11 @@ export type ExecutionSelection =
 export interface SpecificationMetadata {
   /**
    * Stable requirement identity: lowercase kebab path segments joined by `/`,
-   * for example `cli/install/realizes-direct-intent`. The identity survives
-   * file moves and renames; retiring or replacing it is a requirements
-   * decision.
+   * for example `cli/install/realizes-direct-intent`. Declared here, not
+   * derived from the filesystem; repository policy keeps it equal to the
+   * file's path under `specifications/`, so moving or renaming a file is an
+   * identity change — a requirements decision, like retiring or replacing
+   * the identity.
    */
   readonly requirement: string;
   /** Product-language requirement title, readable without the source. */

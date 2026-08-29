@@ -1,36 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  classifyCiChanges,
-  parseAffectedProjectsOutput,
-  selectNxAffectedPaths,
-} from "./classify-ci-changes.js";
+import { classifyCiChanges, selectCodeVerificationPaths } from "./classify-ci-changes.js";
 
 describe("classifyCiChanges", () => {
   it("always requires formatting", () => {
-    expect(classifyCiChanges([], []).formatRequired).toBe(true);
+    expect(classifyCiChanges([]).formatRequired).toBe(true);
   });
 
   it("classifies documentation without code work", () => {
-    expect(classifyCiChanges(["contributing/guides/setup.md", "README.md"], ["axm"])).toMatchObject(
-      {
-        affectedProjects: [],
-        code: false,
-        documentation: true,
-        image: false,
-        workflow: false,
-      },
-    );
+    expect(classifyCiChanges(["contributing/guides/setup.md", "README.md"])).toMatchObject({
+      code: false,
+      documentation: true,
+      image: false,
+      workflow: false,
+    });
   });
 
   it("classifies CI image inputs independently", () => {
     expect(
-      classifyCiChanges(
-        ["containers/ci/Containerfile", ".github/workflows/ci-image-publish.yml"],
-        ["axm"],
-      ),
+      classifyCiChanges(["containers/ci/Containerfile", ".github/workflows/ci-image-publish.yml"]),
     ).toMatchObject({
-      affectedProjects: [],
       code: false,
       image: true,
       workflow: true,
@@ -38,46 +27,34 @@ describe("classifyCiChanges", () => {
   });
 
   it("classifies workflow-only changes without compiling code", () => {
-    expect(classifyCiChanges([".github/workflows/ci.yml"], ["axm"])).toMatchObject({
-      affectedProjects: [],
+    expect(classifyCiChanges([".github/workflows/ci.yml"])).toMatchObject({
       code: false,
       image: false,
       workflow: true,
     });
   });
 
-  it("uses the Nx affected project set as the code signal", () => {
-    expect(classifyCiChanges(["packages/cli/src/main.ts"], ["cli", "core"])).toMatchObject({
-      affectedProjects: ["cli", "core"],
+  it("uses changed code paths as the verification signal", () => {
+    expect(classifyCiChanges(["packages/cli/src/main.ts"])).toMatchObject({
       code: true,
     });
   });
 
   it("runs code verification for release and infrastructure inputs", () => {
-    expect(classifyCiChanges(["scripts/release-publish.ts", "infra/example.ts"], [])).toMatchObject(
-      {
-        code: true,
-        releaseInfrastructure: true,
-      },
-    );
+    expect(classifyCiChanges(["scripts/release-publish.ts", "infra/example.ts"])).toMatchObject({
+      code: true,
+      releaseInfrastructure: true,
+    });
   });
 
-  it("selects only code candidates for Nx affected analysis", () => {
+  it("selects only paths that require code verification", () => {
     expect(
-      selectNxAffectedPaths([
+      selectCodeVerificationPaths([
         "README.md",
         ".github/workflows/ci.yml",
         "containers/ci/Containerfile",
         "packages/cli/src/main.ts",
       ]),
     ).toEqual(["packages/cli/src/main.ts"]);
-  });
-
-  it("parses Nx JSON project output", () => {
-    expect(parseAffectedProjectsOutput('["cli","core"]\n')).toEqual(["cli", "core"]);
-  });
-
-  it("retains compatibility with newline project output", () => {
-    expect(parseAffectedProjectsOutput("cli\ncore\n")).toEqual(["cli", "core"]);
   });
 });

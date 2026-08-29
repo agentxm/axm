@@ -9,8 +9,8 @@
 #
 # This is a published workflow name under the command execution strategy
 # (@craigsmitham/knowledge/software-engineering, principle 4), not a wrapper
-# that compensates for a target. Invoke it through `pnpm run ci:report` or
-# `pnpm run verify:affected:report`, never by path.
+# that compensates for a target. Invoke it through the published `*:report`
+# package scripts, never by path.
 #
 # It deliberately does not delete allure-results first. Test targets declare
 # their results as Nx outputs, so a cache hit restores them; deleting results

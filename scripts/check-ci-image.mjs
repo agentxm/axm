@@ -12,6 +12,7 @@ const nxManifest = JSON.parse(read("nx.json"));
 const packageManifest = JSON.parse(read("package.json"));
 const workspaceConfig = read("pnpm-workspace.yaml");
 const projectManifest = JSON.parse(read("project.json"));
+const cliE2eProjectManifest = JSON.parse(read("packages/cli-e2e/project.json"));
 const workflow = read(".github/workflows/ci-image.yml");
 const publishWorkflow = read(".github/workflows/ci-image-publish.yml");
 const workflowSources = readdirSync(".github/workflows")
@@ -148,12 +149,17 @@ if (
     "mise.toml npm:pnpm version must match packageManager",
   );
 
-  const releaseSetupCount =
+  const releaseCorepackSetupCount =
     releaseWorkflow.split(`corepack prepare pnpm@${packageManagerPnpmVersion} --activate`).length -
     1;
-  if (releaseSetupCount !== 2) {
-    errors.push("both release jobs must activate the packageManager pnpm version");
+  if (releaseCorepackSetupCount !== 1) {
+    errors.push("the Windows release verification job must activate packageManager pnpm");
   }
+  requireText(
+    releaseWorkflow,
+    "uses: ./.github/actions/setup-workspace",
+    "the primary release job must use the canonical workspace toolchain setup",
+  );
 }
 
 if (imagePnpmVersion === undefined) {
@@ -265,7 +271,7 @@ if (containerLauncher.includes("NX_REJECT_UNKNOWN_LOCAL_CACHE")) {
 }
 
 for (const text of [
-  "affected_projects: ${{ steps.classify.outputs.affected_projects }}",
+  'install: "false"',
   "id: pnpm-cache",
   "id: nx-cache",
   "axm-ci-cache/pnpm-store",
@@ -277,6 +283,10 @@ for (const text of [
   "NX_HEAD: ${{ github.event.pull_request.head.sha }}",
   "pnpm run verify:clean",
   "pnpm run verify:affected",
+  "pnpm run ci:workspace:report",
+  "NX_SKIP_NX_CACHE=true pnpm run test:e2e:report",
+  "verify-e2e-main-trusted",
+  'AXM_CONTAINER_VITEST_MAX_WORKERS: "4"',
   "if: always()",
   '>> "$GITHUB_STEP_SUMMARY"',
   "Exact hit",
@@ -284,6 +294,10 @@ for (const text of [
   "Miss",
 ]) {
   requireText(ciWorkflow, text, `CI workflow is missing ${text}`);
+}
+
+if (ciWorkflow.includes("affected_projects")) {
+  errors.push("the path classifier must not install Nx only to render an affected-project summary");
 }
 
 if (
@@ -309,28 +323,54 @@ if (
   errors.push("cached test targets must restore their JUnit reports");
 }
 
-if (
-  !projectManifest.targets?.["scripts-test"]?.outputs?.includes(
-    "{workspaceRoot}/test-results/scripts",
-  )
-) {
-  errors.push("the cached scripts test target must restore its JUnit report");
+if (!projectManifest.targets?.test?.outputs?.includes("{workspaceRoot}/test-results/scripts")) {
+  errors.push("the cached root test target must restore its JUnit report");
 }
 
+for (const target of ["test-report", "allure-report"]) {
+  const command = projectManifest.targets?.[target]?.options?.command ?? "";
+  requireText(command, "allure generate", `${target} must generate the Allure report`);
+  if (command.includes("--clean")) {
+    errors.push(
+      `${target} must use the Allure 3 generate contract without the removed --clean flag`,
+    );
+  }
+}
+
+const workspaceCi = packageManifest.scripts?.["ci:workspace"] ?? "";
+requireText(workspaceCi, "pnpm run format:check", "workspace CI must retain formatting");
 requireText(
   packageManifest.scripts?.ci ?? "",
-  "pnpm run format:check",
-  "full CI must retain formatting",
+  "pnpm run ci:workspace",
+  "full CI must compose the workspace phase",
 );
+requireText(
+  packageManifest.scripts?.ci ?? "",
+  "pnpm run test:e2e",
+  "full CI must compose the E2E phase",
+);
+
+const workspaceVerification = packageManifest.scripts?.["verify:workspace"] ?? "";
+for (const text of [
+  "nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check",
+  "nx run-many -t build --batch",
+  "nx run-many -t test --batch",
+  "--maxWorkers=2",
+]) {
+  requireText(
+    workspaceVerification,
+    text,
+    `verify:workspace must retain the bounded workspace phase for ${text}`,
+  );
+}
 
 const affectedVerification = packageManifest.scripts?.["verify:affected"] ?? "";
 for (const text of [
   "nx affected -t lint typecheck",
-  "scripts-lint scripts-typecheck",
   "verify-source-hygiene parity-ledger-check",
   "nx affected -t build --batch",
   "nx affected -t test --batch",
-  "nx affected -t scripts-test",
+  "--maxWorkers=2",
   "nx affected -t e2e",
 ]) {
   requireText(
@@ -345,11 +385,27 @@ if (
   affectedVerification.indexOf("nx affected -t build --batch") >=
     affectedVerification.indexOf("nx affected -t test --batch") ||
   affectedVerification.indexOf("nx affected -t test --batch") >=
-    affectedVerification.indexOf("nx affected -t scripts-test")
+    affectedVerification.indexOf("nx affected -t e2e")
 ) {
-  errors.push(
-    "verify:affected must complete typechecking, builds, package tests, and tooling tests in order",
-  );
+  errors.push("verify:affected must complete typechecking, builds, tests, and E2E in order");
+}
+
+if (nxManifest.parallel !== 2) {
+  errors.push("the local Nx default must bound workspace task concurrency at two");
+}
+
+const cliE2eTargets = cliE2eProjectManifest.targets ?? {};
+const aggregateDependencies = cliE2eTargets.e2e?.dependsOn ?? [];
+for (const target of ["e2e-main", "binary-smoke", "install-suite"]) {
+  if (!aggregateDependencies.includes(target)) {
+    errors.push(`the aggregate E2E target must depend on cli-e2e:${target}`);
+  }
+  if (cliE2eTargets[target]?.parallelism !== false) {
+    errors.push(`cli-e2e:${target} must run exclusively on its machine`);
+  }
+}
+if (cliE2eTargets.e2e?.executor !== "nx:noop") {
+  errors.push("the aggregate E2E target must delegate to its component target graph");
 }
 for (const text of ["generate:check", "sync:check", "format:check"]) {
   if (affectedVerification.includes(text)) {

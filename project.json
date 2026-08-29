@@ -48,7 +48,7 @@
       ],
       "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
-        "command": "pnpm exec allure generate --clean \"test-results/**/allure-results\"",
+        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
         "cwd": "."
       }
     },
@@ -57,7 +57,7 @@
       "cache": false,
       "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
-        "command": "pnpm exec allure generate --clean \"test-results/**/allure-results\"",
+        "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
         "cwd": "."
       }
     },

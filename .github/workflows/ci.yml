@@ -44,7 +44,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      affected_projects: ${{ steps.classify.outputs.affected_projects }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       image: ${{ steps.classify.outputs.image }}
@@ -57,8 +56,10 @@ jobs:
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
 
-      - name: Classify changed paths and affected projects
+      - name: Classify changed paths
         id: classify
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
@@ -272,7 +273,6 @@ jobs:
       - name: Publish verification summary
         if: always()
         env:
-          AFFECTED_PROJECTS: ${{ needs.classify.outputs.affected_projects }}
           NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
           NX_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/nx
           PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
@@ -293,7 +293,6 @@ jobs:
               printf '0 B'
             fi
           }
-          affected_projects=${AFFECTED_PROJECTS:-None reported}
           verify_outcome=${VERIFY_OUTCOME:-not run}
           {
             echo "## Hosted PR verification"
@@ -301,7 +300,6 @@ jobs:
             echo "| Signal | Result |"
             echo "| --- | --- |"
             echo "| Outcome | $verify_outcome |"
-            echo "| Affected projects | $affected_projects |"
             echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
             echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
             echo "| Concurrency | Nx 3; Vitest 2 |"
@@ -334,7 +332,7 @@ jobs:
           include_passed: true
 
   verify-main-trusted:
-    name: Verify full workspace (trusted-ci)
+    name: Verify workspace (trusted-ci)
     needs: classify
     if: >-
       github.event_name == 'push' ||
@@ -350,16 +348,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Verify main in pinned CI image
+      - name: Verify workspace in pinned CI image
+        id: verify
+        env:
+          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
         run: >-
           scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && pnpm run ci:report'
+          'pnpm install --frozen-lockfile && pnpm run ci:workspace:report'
+
+      - name: Publish workspace verification summary
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          {
+            echo "## Trusted workspace verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
+            echo "| Scope | Clean checkout, formatting, lint, typecheck, build, and unit tests |"
+            echo "| Concurrency | Nx 2; Vitest 2 |"
+            echo "| Cache | Persistent image-and-lockfile-scoped pnpm and Nx volumes |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-trusted
+          name: test-results-main-trusted-workspace
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -368,7 +386,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-main-trusted
+          name: allure-report-main-trusted-workspace
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -378,7 +396,75 @@ jobs:
         uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
         with:
           report_paths: "test-results/**/junit.xml"
-          check_name: Test Results
+          check_name: Workspace Test Results
+          include_passed: true
+
+  verify-e2e-main-trusted:
+    name: Verify CLI E2E (trusted-ci)
+    needs: verify-main-trusted
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
+    runs-on:
+      group: trusted-ci
+      labels: self-hosted
+    timeout-minutes: 45
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Verify fresh CLI E2E targets in pinned CI image
+        id: verify
+        env:
+          AXM_CONTAINER_NX_PARALLEL: "2"
+          AXM_CONTAINER_VITEST_MAX_WORKERS: "4"
+        run: >-
+          scripts/container-environment.sh ci bash -lc
+          'pnpm install --frozen-lockfile && NX_SKIP_NX_CACHE=true pnpm run test:e2e:report'
+
+      - name: Publish E2E verification summary
+        if: always()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          {
+            echo "## Trusted CLI E2E verification"
+            echo
+            echo "| Signal | Result |"
+            echo "| --- | --- |"
+            echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
+            echo "| Freshness | Nx task cache bypassed for required E2E evidence |"
+            echo "| Concurrency | Exclusive E2E targets; Vitest 4 within the main suite |"
+            echo "| Cache | Persistent pnpm store; workspace build cache intentionally bypassed |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JUnit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-main-trusted-e2e
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: allure-report-main-trusted-e2e
+          path: test-results/allure-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publish JUnit report
+        if: always()
+        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
+        with:
+          report_paths: "test-results/**/junit.xml"
+          check_name: CLI E2E Test Results
           include_passed: true
 
   verify-main-hosted:
@@ -551,6 +637,7 @@ jobs:
       - image
       - verify-pr
       - verify-main-trusted
+      - verify-e2e-main-trusted
       - verify-main-hosted
       - windows-workspace
       - binary-smoke

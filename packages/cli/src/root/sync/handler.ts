@@ -1573,6 +1573,9 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
       : "workspace";
   const planName = scoped ? `Sync ${scopeLabel}` : PLAN_NAME;
   const planDescription = scoped ? `Scoped materialization for ${scopeLabel}` : PLAN_DESCRIPTION;
+  const upToDateMessage = scoped
+    ? `${scopeLabel} materialization is up to date`
+    : "Workspace materialization is up to date";
   const preflight = yield* renderer.withSpinner(
     `Resolving ${scopeLabel} sync`,
     () =>
@@ -1685,9 +1688,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     yield* emitNoOpOutcome("sync", {
       planName,
       planDescription,
-      message: scoped
-        ? `${scopeLabel} materialization is up to date`
-        : "Workspace materialization is up to date",
+      message: upToDateMessage,
     });
     return;
   }
@@ -1716,11 +1717,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     diverged
       ? { message: "Workspace reconciliation is required; no changes were applied" }
       : outcome === "no-op" && resolution.units.length === 0
-        ? {
-            message: scoped
-              ? `${scopeLabel} materialization is up to date`
-              : "Workspace materialization is up to date",
-          }
+        ? { message: upToDateMessage }
         : {},
   );
 });

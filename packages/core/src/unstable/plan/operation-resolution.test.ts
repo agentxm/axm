@@ -164,6 +164,12 @@ describe("deriveOperationOutcome", () => {
     expect(operationExitCode(value)).toBe(0);
   });
 
+  it("no-op: an empty preview derives no-op at exit 0", () => {
+    const value = resolution({ mode: "preview", units: [] });
+    expect(deriveOperationOutcome(value)).toBe("no-op");
+    expect(operationExitCode(value)).toBe(0);
+  });
+
   it("a flag-requested divergence on a preview exits 1 with ok:false", () => {
     const value = resolution({ mode: "preview", divergence: true, units: [unit("a", "ready")] });
     expect(deriveOperationOutcome(value)).toBe("previewed");

@@ -804,6 +804,44 @@ describe("buildUninstallOperation", () => {
     }),
   );
 
+  it.effect("removes a source-free configured extension without canonical artifacts", () =>
+    Effect.gen(function* () {
+      let configured = true;
+      const materializeUninstall = vi.fn(() => Effect.void);
+      const manager = {
+        type: "skill",
+        runTransaction,
+        isInstalled: () => Effect.succeed(false),
+        materializeInstall: () => Effect.void,
+        getConfiguredSource: () => Effect.succeed(Option.none()),
+        isConfigured: () => Effect.succeed(configured),
+        listMaterializable: () => Effect.succeed([]),
+        materializeUninstall,
+        materializeDeactivate: () => Effect.void,
+        upsertSettingsEntry: () => Effect.void,
+        removeSettingsEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+        upsertLockfileEntry: () => Effect.void,
+        removeLockfileEntry: () => Effect.void,
+      } satisfies ExtensionManager<SkillExtensionRef>;
+      const operation = buildUninstallOperation<SkillExtensionRef>(
+        manager,
+        { isRequiredByInstalledPack: () => Effect.succeed(false) },
+        { target: { type: "skill", name: "review" } },
+      );
+      if (operation.readiness === "error") throw new Error(operation.errorMessage);
+
+      yield* operation.run;
+
+      expect(materializeUninstall).toHaveBeenCalledWith({
+        target: { type: "skill", name: "review" },
+      });
+      expect(configured).toBe(false);
+    }),
+  );
+
   it.effect(
     "does not turn an orphan accepted resolution into installed state during uninstall",
     () =>

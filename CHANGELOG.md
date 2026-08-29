@@ -1,3 +1,15 @@
+## 0.28.2 (2026-08-29)
+
+### 🩹 Fixes
+
+- Remove low-value CLI action service layers and redundant wrappers.
+- Uninstall source-free inline MCP servers from user workspaces and agent projections.
+- Report empty preview plans as no-ops, including successful sync convergence assertions.
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.28.1 (2026-08-26)
 
 ### 🩹 Fixes

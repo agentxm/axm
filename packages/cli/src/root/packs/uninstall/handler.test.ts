@@ -774,7 +774,7 @@ describe("packs uninstall handler", () => {
       );
     });
 
-    it.effect("preserves the structured empty preview result in machine mode", () => {
+    it.effect("reports a structured empty preview as a no-op in machine mode", () => {
       const { provide, logs, rendererState } = makeLayers({ machine: true });
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -786,7 +786,7 @@ describe("packs uninstall handler", () => {
           });
 
           expect(logs.success).toEqual([]);
-          expectPreviewedPlanResult(rendererState.results[0]?.data, {
+          expectNoOpPlanResult(rendererState.results[0]?.data, {
             planName: "Uninstall packs",
             totalSteps: 0,
           });

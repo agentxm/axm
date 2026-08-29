@@ -249,6 +249,10 @@ export const McpServerManagerLive = Layer.effect(
         const configured = yield* ws.getConfiguredMcpServerEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
+      isConfigured: Effect.fn("McpServerManager.isConfigured")(function* ({ target }) {
+        const configured = yield* ws.getConfiguredMcpServerEntries();
+        return configured[target.name] !== undefined;
+      }),
       listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
         const configured = yield* ws.records
           .rows("mcp-server")

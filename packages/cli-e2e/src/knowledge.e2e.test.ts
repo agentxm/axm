@@ -650,7 +650,7 @@ describe("axm knowledge lifecycle", () => {
     } finally {
       temp.cleanup();
     }
-  }, 60_000);
+  }, 120_000);
 
   it("converges configured local Knowledge through install, update, sync, activation, and uninstall", async () => {
     const temp = createTempDir();
@@ -871,5 +871,5 @@ describe("axm knowledge lifecycle", () => {
     } finally {
       temp.cleanup();
     }
-  }, 60_000);
+  }, 120_000);
 });

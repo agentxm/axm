@@ -692,14 +692,11 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ preview: true, failOnChange: true }));
 
-      const payload = expectRecord(rendererState.results[0]?.data);
-      const result = expectRecord(property(payload, "result"));
-      expect(result).toMatchObject({
-        contract: "plan-result-v3",
-        outcome: "previewed",
-        mode: "preview",
-        counts: { total: 0 },
+      const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
       });
+      expect(result).toMatchObject({ mode: "preview" });
       expect("divergence" in result).toBe(false);
       expect(rendererState.results[0]?.ok).toBe(true);
     }),
@@ -1089,7 +1086,7 @@ describe("root sync handler", () => {
         expect(machine.rendererState.results[0]?.data).toMatchObject({
           result: {
             mode: "preview",
-            outcome: "previewed",
+            outcome: "no-op",
             planName: "Sync workspace",
             counts: { total: 0 },
           },
@@ -1239,7 +1236,7 @@ describe("root sync handler", () => {
         expect(machine.rendererState.results[0]?.data).toMatchObject({
           result: {
             mode: "preview",
-            outcome: "previewed",
+            outcome: "no-op",
             planName: "Sync workspace",
             counts: { total: 0 },
           },
@@ -2155,14 +2152,11 @@ describe("root sync handler", () => {
       const second = makeLayers({ machine: true });
       yield* second.provide(handleSync({ preview: true, failOnChange: true }));
 
-      expect(second.rendererState.results[0]?.data).toMatchObject({
-        result: {
-          mode: "preview",
-          outcome: "previewed",
-          planName: "Sync workspace",
-          counts: { total: 0 },
-        },
+      const result = expectNoOpPlanResult(second.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
       });
+      expect(result).toMatchObject({ mode: "preview" });
       expect(second.rendererState.results[0]?.ok).toBe(true);
     }),
   );
@@ -2198,10 +2192,11 @@ describe("root sync handler", () => {
 
       const converged = makeLayers({ machine: true });
       yield* converged.provide(handleSync({ preview: true }));
-      const result = expectRecord(
-        property(expectRecord(converged.rendererState.results[0]?.data), "result"),
-      );
-      expect(result).toMatchObject({ mode: "preview", outcome: "previewed", counts: { total: 0 } });
+      const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+      expect(result).toMatchObject({ mode: "preview" });
     }),
   );
 

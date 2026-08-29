@@ -215,6 +215,15 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
   readonly allowConfiguredSourceTransition?: boolean;
 }
 
+const isConfigured = <TRef extends ExtensionRef>(
+  manager: ExtensionManager<TRef>,
+  target: ExtensionTarget,
+): Effect.Effect<boolean, AppError, never> => {
+  if (manager.isConfigured !== undefined) return manager.isConfigured({ target });
+  if (manager.getConfiguredSource === undefined) return Effect.succeed(false);
+  return manager.getConfiguredSource({ target }).pipe(Effect.map(Option.isSome));
+};
+
 /**
  * Execute the canonical install sequence.
  *
@@ -295,9 +304,12 @@ const runInstallOperation = <TRef extends ExtensionRef>(
                 });
               }
             }
-            if (args.skipSettings !== true && manager.getConfiguredSource !== undefined) {
-              const configured = yield* manager.getConfiguredSource({ target });
-              if (Option.isNone(configured)) {
+            if (
+              args.skipSettings !== true &&
+              (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined)
+            ) {
+              const configured = yield* isConfigured(manager, target);
+              if (!configured) {
                 return yield* makeAppError({
                   code: "internal",
                   detail: `Installed ${target.type} "${target.name}" has no desired-state declaration`,
@@ -581,13 +593,14 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       manager.getConfiguredSource === undefined
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
+    const configured = yield* isConfigured(manager, args.target);
     const transition = Effect.gen(function* () {
       const applyProjections = () =>
         args.skipProjections !== true ? applyManagerProjectionPlans(manager) : Effect.void;
 
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
-        if (Option.isSome(configuredSource)) {
+        if (configured) {
           // Configured extensions may still own native agent projections even
           // when they have no canonical managed package on disk.
           yield* manager.materializeUninstall({ target: args.target });
@@ -646,9 +659,9 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
         transition,
         validate: (outcome) =>
           Effect.gen(function* () {
-            if (manager.getConfiguredSource !== undefined) {
-              const configured = yield* manager.getConfiguredSource({ target: args.target });
-              if (Option.isSome(configured)) {
+            if (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined) {
+              const remainsConfigured = yield* isConfigured(manager, args.target);
+              if (remainsConfigured) {
                 return yield* makeAppError({
                   code: "internal",
                   detail: `Uninstalled ${args.target.type} "${args.target.name}" remains declared`,

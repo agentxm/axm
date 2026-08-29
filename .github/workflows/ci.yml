@@ -153,6 +153,9 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
+      - name: Build CLI dependencies
+        run: pnpm exec nx run cli:build --outputStyle=static
+
       - name: Validate committed Gen Stack corpus
         run: pnpm run gen-stack:check -- --revision HEAD
 

@@ -1565,7 +1565,7 @@ describe("axm packs uninstall", () => {
     }
   });
 
-  it("makes empty previews explicit without changing JSON plan semantics", async () => {
+  it("reports empty previews as explicit no-ops", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -1584,7 +1584,7 @@ describe("axm packs uninstall", () => {
       expect(JSON.parse(machine.stdout)).toMatchObject({
         ok: true,
         result: {
-          outcome: "previewed",
+          outcome: "no-op",
           planName: "Uninstall packs",
           counts: expect.objectContaining({ total: 0 }),
           units: [],

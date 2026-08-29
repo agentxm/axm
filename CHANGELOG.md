@@ -4,6 +4,7 @@
 
 - Remove low-value CLI action service layers and redundant wrappers.
 - Uninstall source-free inline MCP servers from user workspaces and agent projections.
+- Report empty preview plans as no-ops, including successful sync convergence assertions.
 
 ### ❤️ Thank You
 

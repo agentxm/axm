@@ -334,7 +334,8 @@ export const countUnitStates = (units: ReadonlyArray<ResolvedUnit<unknown>>): Un
  * - an external termination request resolves `interrupted`;
  * - a typed blocking condition that prevented execution resolves `blocked`;
  * - a declined confirmation resolves `cancelled`;
- * - preview mode resolves `previewed`;
+ * - preview mode with planned units resolves `previewed`;
+ * - an empty preview resolves `no-op`;
  * - otherwise the multiset decides: restored work is `failed` (with its
  *   rollback report), surviving commits plus failures are `partial`, commits
  *   alone are `applied`, and zero state-changing effects are `no-op`.
@@ -345,7 +346,7 @@ export const deriveOperationOutcome = (
   if (resolution.interruption !== undefined) return "interrupted";
   if (resolution.blocking !== undefined) return "blocked";
   if (resolution.declined === true) return "cancelled";
-  if (resolution.mode === "preview") return "previewed";
+  if (resolution.mode === "preview" && resolution.units.length > 0) return "previewed";
   const counts = countUnitStates(resolution.units);
   if (counts.rolledBack > 0) return "failed";
   const attemptedFailures = counts.failed + counts.blocked;

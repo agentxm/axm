@@ -63,7 +63,6 @@
     "install-suite": {
       "parallelism": false,
       "dependsOn": ["utils:build", "cli:compile-host"],
-      "outputs": ["{workspaceRoot}/test-results/cli-e2e-install"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.install.config.ts",

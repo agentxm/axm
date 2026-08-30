@@ -70,21 +70,24 @@ from GitHub Actions.
 ## Shared verbs
 
 `build`, `test`, `lint`, `lint:fix`, `typecheck`, `format`, `format:check`,
-`ci`, and the `:affected` variants carry the same meaning here as in the
-sibling platform repository, as does the source-verification family of
-`verify:*` below. AXM adds local names such as `test:spec`, `test:tooling`, and
-`verify:artifact`; it does not reuse a shared verb with a different meaning.
+`ci`, `verify:clean`, and the `:affected` variants are shared vocabulary:
+wherever the command execution strategy is bound, these names carry the same
+meaning — what the name promises, not the list of phases a given binding
+composes to keep the promise. AXM adds local names such as `test:spec`,
+`test:tooling`, and `verify:artifact`; it does not reuse a shared verb with a
+different meaning.
 
-`test` reports every failing project rather than stopping at the first one, in
-both repositories. The gates — `ci`, `ci:workspace`, and the
-source-verification `verify:*` names — stop at the first failure instead,
-because their answer is a verdict rather than a survey. `test:e2e` keeps
-`--nxBail` on that reasoning: it is the closing phase of the `ci` gate and of
-`verify:full`, so it inherits the gate's semantics rather than `test`'s.
+`test` reports every failing project rather than stopping at the first one. The
+gates — `ci`, `ci:workspace`, and the source-verification `verify:*` names —
+stop at the first failure instead, because their answer is a verdict rather than
+a survey. `test:e2e` keeps `--nxBail` on that reasoning: it is the closing phase
+of the `ci` gate and of `verify:full`, so it inherits the gate's semantics
+rather than `test`'s.
 
-One deliberate divergence inside AXM: `format` and `format:check` run Prettier
-over the whole repository. That is AXM's canonical meaning, documented in
-[CONTRIBUTING.md](../../CONTRIBUTING.md); the Nx changed-file form is
+One deliberate divergence, in selection rather than in meaning: `format` and
+`format:check` run Prettier over the whole repository rather than over an
+Nx-selected set. That whole-repository form is AXM's canonical one, documented
+in [CONTRIBUTING.md](../../CONTRIBUTING.md); the Nx changed-file form is
 `format:affected` / `format:check:affected`.
 
 ### The `verify:*` namespace
@@ -101,9 +104,10 @@ The suffix names the subject, and AXM uses the prefix for two families.
 | `verify:affected`  | The same phases over Nx's affected set, plus the end-to-end suite                                             |
 | `verify:full`      | `verify:workspace` plus the end-to-end suite                                                                  |
 
-These four names are shared with the sibling platform repository. The subject
-and the verdict are the same in both; the phases each repository composes into
-them are local, because the two hold different kinds of project.
+`verify:clean` is shared vocabulary: it carries the same meaning wherever the
+strategy is bound. The other three are AXM's own compositions — the phases each
+name runs are local, and a name that looks the same elsewhere is not a promise
+about what it runs there.
 
 **Subject verification** — the subject is one identified artifact or endpoint,
 named by an argument, and the name is local to AXM:
@@ -115,27 +119,23 @@ named by an argument, and the name is local to AXM:
 | `verify:deployment` | One install endpoint  |
 
 A new `verify:<suffix>` declares which family it joins before it is added. A
-source-verification suffix is shared vocabulary: it carries the same name and
-meaning in both repositories, or it takes a different prefix. A
-subject-verification suffix names its subject and takes that subject's identity
-as an argument — including a deployed environment, should a name for one be
-added here.
+source-verification suffix takes the checkout as its subject and no argument;
+where the suffix is shared vocabulary, it carries the shared meaning rather than
+a local one. A subject-verification suffix names its subject and takes that
+subject's identity as an argument — including a deployed environment, should a
+name for one be added here.
 
 `*:report` is a variant suffix rather than a family: `verify:affected:report`
 runs `verify:affected` and generates the Allure report whether or not it
 passed.
 
-### Divergence from the sibling platform repository
+### What a green `ci` is evidence for
 
-Recorded because both repositories publish `ci` as a shared verb:
-
-- **`ci` coverage.** `pnpm run ci` here ends with the end-to-end suite. The
-  same verb in the sibling platform repository stops at unit tests: its
-  end-to-end suite requires infrastructure its container CI job does not
-  provide. The verb means the same thing in both — the repository's full local
-  gate — but a green `ci` in each does not amount to equivalent end-to-end
-  evidence, and a change that spans both repositories still needs that suite
-  run where it lives.
+`ci` is a shared verb, and the meaning it shares is "this repository's full local
+gate" — not a fixed list of phases. Which phases compose the gate is local, and
+here it ends with the end-to-end suite. So a green `ci` here is evidence about
+AXM only: a change that spans more than this repository needs each side's own
+gate run where it lives.
 
 ## Invocation
 
@@ -170,13 +170,11 @@ the only record.
 - **`lint-staged` invokes `eslint` and `prettier` directly** (principle 8). Its
   selection is the Git index, which the graph cannot express, and the
   pre-commit hook must stay proportional to the staged change rather than to
-  the project. Its configuration in `package.json` must stay in parity with the
-  sibling platform repository's: when the two drift, a commit the hook
-  formatted in one repository is one `format:check` rejects in the other.
-  Change both together, including the file-extension globs. The two glob sets
-  are currently identical, which is what dropped `jsonc` from the Prettier glob
-  here: extensions enter and leave the pair together, and whole-repo
-  `format:check` still covers every extension the hook does not select.
+  the project. Its file-extension globs are the hook's whole contract: the hook
+  and `format:check` run Prettier under the same repository configuration, so
+  what the hook writes is what `format:check` accepts, and the globs decide only
+  how much the hook does up front. Whole-repo `format:check` still covers every
+  extension the hook does not select, which is why the glob set can stay narrow.
 - **`build` and `build:affected` add `--batch`** (principles 4 and 5: a script
   is a published workflow name or a pure alias, and an alias that adds a flag
   is neither). Nx accepts batch mode only as the `--batch` flag or the

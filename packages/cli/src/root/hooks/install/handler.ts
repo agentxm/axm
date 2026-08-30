@@ -3,8 +3,8 @@ import {
   deriveOperationOutcome,
   operationPresentation,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";

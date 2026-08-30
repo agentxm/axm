@@ -4,32 +4,31 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   buildNewExtensionStep,
   computeSourceHash,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  decodeExtensionNameSync,
-  formatFqn,
   preflightCreateOnly,
-} from "@agentxm/client-core/unstable/extensions";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/extensions";
+import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import type { Plan } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
 import {
   RULE_BODY_FILENAME,
   RULE_MANIFEST_FILENAME,
   RULE_MANIFEST_SCHEMA_URL,
-  RuleManager,
   type RuleManifest,
-} from "@agentxm/client-core/unstable/rules";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

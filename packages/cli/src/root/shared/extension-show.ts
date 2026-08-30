@@ -6,33 +6,33 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   CliRenderer,
   type DetailView,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
-} from "@agentxm/client-core/unstable/extension-types";
+} from "@agentxm/extension-model/unstable/extension-types";
 import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { inspectMcpServerAcrossAgents } from "@agentxm/client-core/unstable/mcps";
+} from "@agentxm/extension-model/unstable/extensions";
+import { inspectMcpServerAcrossAgents } from "@agentxm/extension-management/unstable/mcps";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,
-} from "@agentxm/client-core/unstable/publish";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
+} from "@agentxm/registry-protocol/unstable/publish";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   getLockedEntries,
   lockEntryVersion,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

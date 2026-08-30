@@ -14,14 +14,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { InstallMcpServerCommandWorkflowActions, parseEnvFlag } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {

@@ -3,8 +3,8 @@ import {
   CodingAgentRepository,
   CodingAgentRepositoryLive,
   resolveInstructionTarget,
-} from "@agentxm/client-core/unstable/agents";
-import type { AgentId } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/agents";
+import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   isNonInteractive,
   jsonFlag,
@@ -12,16 +12,16 @@ import {
   previewFlag,
   yesFlag,
   Verbosity,
-} from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   effectCliExit,
-  type SuggestedAction,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
-import { envOption } from "@agentxm/client-core/unstable/utils";
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
+import { envOption } from "@agentxm/extension-management/unstable/utils";
+import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
@@ -35,21 +35,24 @@ import {
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
+import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
-  ExtensionTypeSchema,
   replaceCanonicalDirectory,
   sanitizeName,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/extensions";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   ensureSkillAgentArtifact,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/client-core/unstable/skills";
-import { ArtifactChangeSchema, type ArtifactChange } from "@agentxm/client-core/unstable/plan";
-import { isGitManaged } from "@agentxm/client-core/unstable/git";
+} from "@agentxm/extension-management/unstable/skills";
+import {
+  ArtifactChangeSchema,
+  type ArtifactChange,
+} from "@agentxm/extension-management/unstable/plan";
+import { isGitManaged } from "@agentxm/extension-management/unstable/git";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -61,7 +64,7 @@ import * as Path from "effect/Path";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { LearnMore, formatLearnMore } from "../formatter.js";
-import { BRANDING } from "@agentxm/client-core/unstable/branding";
+import { BRANDING } from "@agentxm/extension-management/unstable/branding";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { loadVersion } from "../version.js";
 import { withRuntime, withWorkspace } from "../runtime.js";

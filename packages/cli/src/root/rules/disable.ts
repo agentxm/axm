@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -12,10 +12,10 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/plan";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

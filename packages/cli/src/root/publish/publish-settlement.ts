@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 
 export type PublishSettlement = "response" | "readback" | "replay" | "unresolved";
 

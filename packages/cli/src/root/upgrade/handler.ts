@@ -12,20 +12,20 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 
-import { AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { InstallMeta } from "@agentxm/client-core/unstable/install-meta";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { InstallMeta } from "@agentxm/extension-management/unstable/install-meta";
 import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   formatAxmSkillCompatibilityTarget,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/skills";
 import {
   InstallMethod,
   Npm,
@@ -35,12 +35,12 @@ import {
   type DetectionSource,
   type InstallMethodName,
   type InstallMethodType,
-} from "@agentxm/client-core/unstable/install-method";
+} from "@agentxm/extension-management/unstable/install-method";
 import {
   DEFAULT_GITHUB_REPO,
   resolveLatestVersion,
   type VersionRelation,
-} from "@agentxm/client-core/unstable/version-resolution";
+} from "@agentxm/extension-management/unstable/version-resolution";
 import { loadVersion } from "../../version.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
@@ -1508,7 +1508,7 @@ const handleScript = (
         }
 
         const targetDirectory = path.dirname(targetPath);
-        // Deliberately not `writeFileAtomic` (@agentxm/client-core utils): the
+        // Deliberately not `writeFileAtomic` (@agentxm/extension-management utils): the
         // upgrade transaction keeps the temp binary as a standalone artifact
         // between write and rename so it can be chmod'ed, executed to verify
         // the exact version, and swapped in only after a restorable backup

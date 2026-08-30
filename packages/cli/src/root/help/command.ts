@@ -3,20 +3,20 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { Argument, CliError, Command } from "effect/unstable/cli";
 
-import { type AppError, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { quietFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { type AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { quietFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   CliRenderer,
   InteractiveRenderer,
   MachineRenderer,
   resolveCliOutputPolicy,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   resolveCliFormat,
-  type SuggestedAction,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   HELP_TOPICS,
   HELP_TOPIC_KINDS,

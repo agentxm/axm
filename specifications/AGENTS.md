@@ -20,7 +20,9 @@ directory path under `cli/` must name a registered command path
 (`system/architecture/specification-folders-mirror-command-tree` enforces
 this).
 
-Library requirements go under `client-core/<concept>/`; repository, release,
+Library requirements go under a top-level product concept area
+(`extension-identity/`, `package-identity/`, `settings-contract/`,
+`source-resolution/`, `version-constraints/`); repository, release,
 and platform requirements under `system/<class>/`.
 
 ## Requirement roles

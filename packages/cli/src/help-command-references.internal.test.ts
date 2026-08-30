@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { extensionTypePluralSegments } from "@agentxm/client-core/unstable/extensions";
+import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 
 import { AXM_SKILL_MD } from "./__generated__/bundled-axm-skill.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";

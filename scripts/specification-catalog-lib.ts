@@ -565,7 +565,15 @@ export const collectCatalog = (options: CollectCatalogOptions): SpecificationCat
     });
   }
 
-  for (const area of ["cli", "client-core", "system"]) {
+  for (const area of [
+    "cli",
+    "extension-identity",
+    "package-identity",
+    "settings-contract",
+    "source-resolution",
+    "version-constraints",
+    "system",
+  ]) {
     for (const filePath of listFilesRecursively(path.join(specificationsRoot, area), ".spec.ts")) {
       const relativePath = path.relative(repoRoot, filePath);
       const parsed = parseSpecificationFile(fs.readFileSync(filePath, "utf8"), relativePath);
@@ -663,8 +671,20 @@ const groupLabel = (segment: string): string => {
   if (segment === "cli") {
     return "CLI";
   }
-  if (segment === "client-core") {
-    return "Client core";
+  if (segment === "extension-identity") {
+    return "Extension identity";
+  }
+  if (segment === "package-identity") {
+    return "Package identity";
+  }
+  if (segment === "settings-contract") {
+    return "Settings contract";
+  }
+  if (segment === "source-resolution") {
+    return "Source resolution";
+  }
+  if (segment === "version-constraints") {
+    return "Version constraints";
   }
   if (segment === "system") {
     return "System";

@@ -58,7 +58,8 @@
       "dependsOn": [
         "generate:type-enumerations",
         "generate:help-topics",
-        "generate:bundled-axm-skill"
+        "generate:bundled-axm-skill",
+        "generate:schemas"
       ],
       "executor": "nx:run-commands",
       "options": {
@@ -70,10 +71,10 @@
       "inputs": [
         "{projectRoot}/scripts/generate-type-enumerations.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
-        "{workspaceRoot}/packages/core/src/unstable/extensions/common.ts",
-        "{workspaceRoot}/packages/core/src/unstable/extension-types/catalog.ts",
-        "{workspaceRoot}/packages/core/src/unstable/extension-types/schema.ts",
-        "{workspaceRoot}/packages/core/src/unstable/extension-types/standards.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/extensions/common.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/catalog.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/schema.ts",
+        "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/standards.ts",
         "{workspaceRoot}/.prettierrc.json",
         "{workspaceRoot}/README.md",
         "{projectRoot}/README.md",
@@ -90,19 +91,30 @@
       "options": {
         "command": ["bun", "scripts/generate-type-enumerations.ts"],
         "cwd": "packages/cli"
-      }
+      },
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ]
     },
     "generate:help-topics": {
       "cache": true,
       "dependsOn": [
         "generate:type-enumerations",
-        { "projects": ["core"], "target": "generate:schemas" }
+        {
+          "projects": ["cli"],
+          "target": "generate:schemas"
+        },
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
       ],
       "inputs": [
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
-        "{workspaceRoot}/packages/core/site-content/__generated__/schemas/*.schema.json",
+        "{workspaceRoot}/packages/cli/site-content/__generated__/schemas/*.schema.json",
         "{workspaceRoot}/.prettierrc.json"
       ],
       "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
@@ -114,12 +126,20 @@
     },
     "generate:bundled-axm-skill": {
       "cache": true,
-      "dependsOn": [{ "projects": ["core"], "target": "build" }],
+      "dependsOn": [
+        {
+          "projects": ["extension-management"],
+          "target": "build"
+        },
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
-        "{workspaceRoot}/packages/core/src/unstable/skills/axm-skill-compatibility.ts",
-        "{workspaceRoot}/packages/core/src/unstable/skills/skill-content.ts",
+        "{workspaceRoot}/packages/extension-management/src/unstable/skills/axm-skill-compatibility.ts",
+        "{workspaceRoot}/packages/registry-protocol/src/unstable/content/skill-content.ts",
         "{workspaceRoot}/skills/axm/skill.json",
         "{workspaceRoot}/skills/axm/src/**/*"
       ],
@@ -166,6 +186,22 @@
       "cache": false,
       "dependsOn": ["build", "^nx-release-publish"],
       "executor": "@nx/js:release-publish"
+    },
+    "generate:schemas": {
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/generate-schemas.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-schemas.ts"],
+        "cwd": "packages/cli"
+      },
+      "dependsOn": ["extension-management:build", "^build"]
     }
   }
 }

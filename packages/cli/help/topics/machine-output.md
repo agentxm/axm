@@ -170,7 +170,7 @@ contract.
 - In JavaScript and TypeScript clients, decode with
   `MachineOutputDocumentSchema` and branch with
   `detectMachineOutputDocumentKind` from
-  `@agentxm/client-core/unstable/cli-runtime`.
+  `@agentxm/extension-management/unstable/cli-runtime`.
 - Branch on `ok` or the process exit code for ordinary results and errors; they
   agree.
 - Read every ordinary command payload from `result`.

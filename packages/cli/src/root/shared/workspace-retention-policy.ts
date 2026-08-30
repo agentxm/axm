@@ -1,5 +1,5 @@
-import type { UninstallRetentionPolicy } from "@agentxm/client-core/unstable/extensions";
-import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
+import type { UninstallRetentionPolicy } from "@agentxm/extension-management/unstable/extensions";
+import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
 
 export const makeWorkspaceRetentionPolicy = (
   ws: WorkspaceMutationsService,

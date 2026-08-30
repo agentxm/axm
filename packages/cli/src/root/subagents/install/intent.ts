@@ -5,8 +5,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/subagents";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more subagents.

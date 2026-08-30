@@ -10,10 +10,17 @@
 
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type { SubagentLockEntry, SubagentsLockMap } from "@agentxm/client-core/unstable/lockfile";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/subagents";
+import type {
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/extension-management/unstable/plan";
+import type {
+  SubagentLockEntry,
+  SubagentsLockMap,
+} from "@agentxm/extension-management/unstable/lockfile";
 
 // -----------------------------------------------------------------------------
 // Types

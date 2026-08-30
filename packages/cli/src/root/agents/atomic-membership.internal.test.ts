@@ -3,21 +3,21 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   applyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   layer as coreWorkspaceLayer,
   protectWorkspacePath,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";

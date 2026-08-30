@@ -60,13 +60,16 @@
       "types": "./dist/src/specification-harness.d.ts",
       "experimental": "./dist/src/specification-harness.js",
       "default": "./dist/src/specification-harness.js"
-    }
+    },
+    "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
+    "./unstable/site-content/*": "./site-content/*"
   },
   "files": [
     "dist/src/",
     "!dist/src/test-helpers.*",
     "!dist/src/test-stubs.*",
-    "!**/*.map"
+    "!**/*.map",
+    "site-content/"
   ],
   "publishConfig": {
     "access": "public"
@@ -78,8 +81,9 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
-    "@agentxm/client-core": "workspace:^",
-    "@agentxm/client-utils": "workspace:^",
+    "@agentxm/extension-management": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "gray-matter": "catalog:",

@@ -12,45 +12,53 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { PackManager, type PackRef } from "@agentxm/client-core/unstable/packs";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import {
+  SkillManager,
+  type SkillExtensionRef,
+} from "@agentxm/extension-management/unstable/skills";
+import { PackManager, type PackRef } from "@agentxm/extension-management/unstable/packs";
+import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
 import {
   KnowledgeManager,
   type KnowledgeExtensionRef,
-} from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/knowledge";
+import {
+  McpServerManager,
+  type McpServerExtensionRef,
+} from "@agentxm/extension-management/unstable/mcps";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
 import {
   SubagentManager,
   type SubagentExtensionRef,
-} from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/subagents";
 import {
   buildUninstallOperation,
   decodeDesiredExtensionIdentity,
-  parseExtensionFqnParts,
   toLabel,
   type DesiredPackageAuthority,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  parseExtensionFqnParts,
   type ExtensionFqnParts,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-model/unstable/extensions";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   DesiredStateGraph,
   ExtensionTarget,
   PackExtensionTarget,
-} from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { workspaceCanonicalNodePath } from "../../shared/workspace-display-paths.js";
-import { expandGlob } from "@agentxm/client-core/unstable/utils";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import { expandGlob } from "@agentxm/extension-management/unstable/utils";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";

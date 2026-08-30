@@ -10,9 +10,6 @@
   "include": ["src/**/*.ts", "vitest.config.ts"],
   "references": [
     {
-      "path": "../utils/tsconfig.lib.json"
-    },
-    {
       "path": "../../tsconfig.json"
     }
   ]

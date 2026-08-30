@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type {
   InstructionsConfig,
   InstructionsConfigValue,
-} from "@agentxm/client-core/unstable/settings";
+} from "@agentxm/extension-management/unstable/settings";
 import {
   instructionProjectionEffects,
   instructionProjectionRemovalEffects,
@@ -15,28 +15,28 @@ import {
   resolveInstructionsConfig,
   type InstructionProjectionEffect,
   type InstructionStatusItem,
-} from "@agentxm/client-core/unstable/agents";
-import { previewFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/agents";
+import { previewFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import type {
   JobStepResult,
   JobStepArtifact,
   OperationPresentation,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/plan";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   applyPlannedProjections,
   observeProjectionPlans,
-} from "@agentxm/client-core/unstable/projection";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/projection";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";

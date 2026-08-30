@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { makeUserArchiveCache } from "@agentxm/client-core/unstable/registry";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { makeUserArchiveCache } from "@agentxm/extension-management/unstable/registry";
 import { withRuntime } from "../../runtime.js";
 
 const CacheStatusSchema = Schema.Struct({

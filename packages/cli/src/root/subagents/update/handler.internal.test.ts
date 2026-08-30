@@ -15,13 +15,13 @@ import { afterEach, beforeEach } from "vitest";
 import {
   SourceHostProviders,
   SourceHostProvidersLive,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import {
   SubagentManagerLive,
   type RegistrySubagentRef,
-} from "@agentxm/client-core/unstable/subagents";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/subagents";
+import type { RegistrySource } from "@agentxm/extension-management/unstable/sources";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,

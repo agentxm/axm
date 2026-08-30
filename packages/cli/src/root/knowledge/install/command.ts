@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { operationPresentation, type Plan } from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { operationPresentation, type Plan } from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";

@@ -5,37 +5,46 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   buildAuthoredExtensionStep,
   computePackageContentHash,
   copyExtensionDirectory,
   createCanonicalDirectory,
-  extensionTypeToPlural,
-  formatFqn,
-  fqnInvalidErrorToAppError,
   importNativeExtensionPackage,
-  parseFqn,
   preflightCreateOnly,
   recoverCanonicalDirectory,
-} from "@agentxm/client-core/unstable/extensions";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  extensionTypeToPlural,
+  formatFqn,
+  parseFqn,
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type {
+  JobStepArtifact,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   acquireExternalSource,
   resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -2,7 +2,7 @@
  * Fetch the telemetry OpenAPI spec snapshot.
  *
  * Usage:
- *   pnpm exec nx run core:sync:telemetry-spec
+ *   pnpm exec nx run extension-management:sync:telemetry-spec
  */
 
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — Bun codegen script, not Effect code
@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 const WORKSPACE_ROOT = path.join(import.meta.dirname, "..");
-const CORE_ROOT = path.join(WORKSPACE_ROOT, "packages/core");
+const CORE_ROOT = path.join(WORKSPACE_ROOT, "packages/extension-management");
 const SPEC_DIR = path.join(CORE_ROOT, "specs");
 const SPEC_PATH = path.join(SPEC_DIR, "telemetry-openapi.json");
 const readEnvWithDefault = (name: string, fallback: string): string => {

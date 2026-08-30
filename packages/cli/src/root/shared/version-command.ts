@@ -4,26 +4,26 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { previewFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
   parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   makeOperationResolution,
   operationPresentation,
   type JobStepArtifact,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

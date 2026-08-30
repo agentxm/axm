@@ -20,22 +20,26 @@ import {
   type DeviceLoginPendingResult,
   type ResumeDeviceLoginOptions,
   type RunLoopbackLoginOptions,
-} from "@agentxm/client-core/unstable/auth";
-import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { isNonInteractive, jsonFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/auth";
+import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import {
+  isNonInteractive,
+  jsonFlag,
+  yesFlag,
+} from "@agentxm/extension-management/unstable/cli-flags";
 import {
   setCommandSemanticProperties,
-  type SuggestedAction,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   errAuthRequired,
   makeAppError,
   type AppError,
-} from "@agentxm/client-core/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
-import { envOption } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { envOption } from "@agentxm/extension-management/unstable/utils";
 import { withRuntime } from "../../runtime.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({

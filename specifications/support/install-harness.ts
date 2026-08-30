@@ -15,19 +15,22 @@ import * as path from "node:path";
 
 import * as Layer from "effect/Layer";
 
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeIndexLive, KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import {
+  KnowledgeIndexLive,
+  KnowledgeManagerLive,
+} from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import {
   SkillManagerLive,
   makeAxmSkillCompatibilityPolicyLayer,
-} from "@agentxm/client-core/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/skills";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import * as Effect from "effect/Effect";
 
 import {

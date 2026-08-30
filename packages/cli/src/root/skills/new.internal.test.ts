@@ -14,10 +14,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import type { ExtensionName } from "@agentxm/client-core/unstable/extensions";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,

@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const emitScaffoldSuccess = (args: {
   readonly message: string;

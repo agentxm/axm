@@ -5,30 +5,33 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { buildAuthoredExtensionStep } from "@agentxm/extension-management/unstable/extensions";
 import {
-  buildAuthoredExtensionStep,
   extensionTypeToPlural,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
-import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { PackManager } from "@agentxm/extension-management/unstable/packs";
+import type { JobStepArtifact, Plan } from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   protectCreatedAncestors,
   WorkspaceMutations,
   resolveWorkspaceExtensionRef,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

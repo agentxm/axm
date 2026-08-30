@@ -6,17 +6,17 @@ import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
 import { describe, expect, it } from "@effect/vitest";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
 import {
-  archiveSha256Hex,
   type PublishExtensionArgs,
   type RegistryClient,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
-} from "@agentxm/client-core/unstable/extensions";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { settlePublish } from "./publish-settlement.js";
 

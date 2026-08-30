@@ -6,18 +6,18 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 import YAML from "yaml";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/client-core/unstable/knowledge";
-import { LockfileSchema } from "@agentxm/client-core/unstable/lockfile";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/extension-management/unstable/knowledge";
+import { LockfileSchema } from "@agentxm/extension-management/unstable/lockfile";
+import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
 import {
   resolveProjectWorkspaceStatePaths,
   resolveUserHome,
   resolveUserWorkspaceLayout,
   type WorkspaceScope,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { ExecutionDirectory } from "../../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";

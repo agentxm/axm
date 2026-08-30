@@ -2,8 +2,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import { handleAgentsCapabilities } from "./capabilities.js";
 
 interface CapabilityRow {

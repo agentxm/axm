@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
+import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
 
 import { defineSpecification } from "../../support/contract.js";
 
@@ -66,7 +66,7 @@ describe("Telemetry consent", () => {
         fs.readFileSync(
           path.join(
             repoRoot,
-            "packages/core/site-content/__generated__/schemas/settings.schema.json",
+            "packages/cli/site-content/__generated__/schemas/settings.schema.json",
           ),
           "utf8",
         ),

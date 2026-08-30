@@ -3,18 +3,18 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { enableMcpServer } from "@agentxm/client-core/unstable/mcps";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { enableMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import {
   operationPresentation,
   previewOrApplyPlan,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

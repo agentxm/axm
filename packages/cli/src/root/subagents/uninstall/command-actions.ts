@@ -10,26 +10,26 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { expandGlob } from "@agentxm/client-core/unstable/utils";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { expandGlob } from "@agentxm/extension-management/unstable/utils";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   buildUninstallOperation,
-  parseExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
-import type { SubagentLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { SubagentExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/extensions";
+import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
+import type { SubagentLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { SubagentExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import type { UninstallSubagentCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {

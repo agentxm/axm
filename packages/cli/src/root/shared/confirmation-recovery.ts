@@ -7,7 +7,7 @@ import {
   nonInteractiveFlag,
   quietFlag,
   verboseFlag,
-} from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/cli-flags";
 import {
   applyPlanExecution,
   credentialFreeLocatorRecoveryValue,
@@ -19,14 +19,14 @@ import {
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
   type PlanExecution,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import type { PlanPolicyId } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import type { PlanPolicyId } from "@agentxm/extension-management/unstable/plan";
 import {
   isExtensionTypePlural,
   parseExtensionSpecParts,
   toExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,

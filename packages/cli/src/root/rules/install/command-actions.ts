@@ -5,28 +5,28 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
-  buildInstallOperation,
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import type {
   JobStepArtifact,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/plan";
+import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
 import {
   resolveSource,
   SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import type { Source } from "@agentxm/client-core/unstable/sources";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import type { Source } from "@agentxm/extension-management/unstable/sources";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
 

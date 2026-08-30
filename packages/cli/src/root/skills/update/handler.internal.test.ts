@@ -19,14 +19,12 @@ import * as Option from "effect/Option";
 import semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/client-core/unstable/extensions";
-import {
-  PACK_MANIFEST_FILENAME,
-  computePackManifestContentIdentity,
-} from "@agentxm/client-core/unstable/packs";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/client-core/unstable/skills";
+import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/extension-management/unstable/extensions";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/packs";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-management/unstable/skills";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";

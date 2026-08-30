@@ -6,7 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { McpServerExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type { McpServerExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
 
 /**
  * Intent for uninstalling an MCP server extension.

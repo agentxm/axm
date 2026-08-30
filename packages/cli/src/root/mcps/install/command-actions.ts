@@ -17,23 +17,26 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { ExtensionName, Handle } from "@agentxm/client-core/unstable/extensions";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
+import type { RegistrySource } from "@agentxm/extension-management/unstable/sources";
 import {
   resolveSource,
   SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import {
+  installMcpServer,
+  type McpServerExtensionRef,
+} from "@agentxm/extension-management/unstable/mcps";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { Plan } from "@agentxm/extension-management/unstable/plan";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";

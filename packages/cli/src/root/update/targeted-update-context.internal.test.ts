@@ -4,7 +4,7 @@ import type {
   ConfiguredRecordRow,
   DesiredExtensionNode,
   DesiredStateGraph,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { classifyTargetedUpdate } from "./targeted-update-context.js";
 

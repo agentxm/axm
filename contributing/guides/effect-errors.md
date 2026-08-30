@@ -33,7 +33,7 @@ original `cause`, and choose one closed category: `issues`, `usage`,
 `not_found`, `auth`, `forbidden`, `conflict`, `rate_limit`, `network`,
 `validation`, `internal`, `unavailable`, or `quota`. Numeric exit status is a
 pure mapping owned by
-[`ExitCode`](../../packages/core/src/unstable/app-error/app-error.ts).
+[`ExitCode`](../../packages/extension-management/src/unstable/app-error/app-error.ts).
 
 - `usage` means the invocation shape is wrong; `validation` means a parsed
   value violates domain rules.
@@ -51,7 +51,7 @@ pure mapping owned by
 
 Translate generated Registry client failures with
 `registryClientErrorToAppError` or `registryErrorToAppError` from
-`packages/core/src/unstable/registry/translate.ts`. Do not add operation-local
+`packages/extension-management/src/unstable/registry/translate.ts`. Do not add operation-local
 HTTP status switches. Keep RFC 9457 response bodies opaque in
 `metadata.response`; decode a focused schema next to a use case that needs a
 specific field. Configure transport, transient retry, and client provision at

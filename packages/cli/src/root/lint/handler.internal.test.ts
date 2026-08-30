@@ -20,28 +20,28 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import {
   TestMachineRenderer,
   TestRenderer,
   logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import {
   AxmSkillCompatibilityPolicy,
   SkillManagerLive,
-} from "@agentxm/client-core/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/skills";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";

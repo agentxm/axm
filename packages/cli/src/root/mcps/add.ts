@@ -5,26 +5,30 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import {
   syncInlineMcpServerToAgents,
-  CONFIGURABLE_AGENT_IDS,
   type McpServerSyncTarget,
-} from "@agentxm/client-core/unstable/agents";
-import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/agents";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import {
+  acceptWarningsFlag,
+  previewFlag,
+  yesFlag,
+} from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   operationPresentation,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
+} from "@agentxm/extension-management/unstable/plan";
+import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

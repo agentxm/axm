@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { Handle } from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { workspaceSettingsPath } from "./workspace-display-paths.js";
 
 /** Require authored package identity to agree with the selected workspace. */

@@ -2,14 +2,20 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { EnableSubagentOperation } from "@agentxm/client-core/unstable/subagents";
-import { enableSubagent } from "@agentxm/client-core/unstable/subagents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  WorkspaceMutations,
+  installedRowsByName,
+} from "@agentxm/extension-management/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import type { EnableSubagentOperation } from "@agentxm/extension-management/unstable/subagents";
+import { enableSubagent } from "@agentxm/extension-management/unstable/subagents";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";

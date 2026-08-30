@@ -1,26 +1,26 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   buildInstallOperation,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-management/unstable/extensions";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import {
   operationPresentation,
   previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

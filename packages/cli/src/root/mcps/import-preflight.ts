@@ -1,7 +1,7 @@
 import * as DateTime from "effect/DateTime";
 
-import { isAxmManagedMcpEntry } from "@agentxm/client-core/unstable/mcps";
-import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
+import { isAxmManagedMcpEntry } from "@agentxm/extension-management/unstable/mcps";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 export type InlineMcpDefinition =
   | {
       readonly type: "stdio";

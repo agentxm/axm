@@ -3,22 +3,22 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   deriveOperationOutcome,
   operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

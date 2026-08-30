@@ -12,10 +12,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { type UninstallSubagentHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {

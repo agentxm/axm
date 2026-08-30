@@ -9,15 +9,15 @@ import { afterEach, beforeEach } from "vitest";
 import {
   AgentExecutableResolver,
   CodingAgentRepositoryLive,
-} from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { PackManager } from "@agentxm/extension-management/unstable/packs";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,

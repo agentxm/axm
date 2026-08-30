@@ -6,18 +6,18 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   previewOrApplyPlan,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
-import { logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
+import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   surfaceRestorationIncomplete,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
 import { renderOperationOutcome } from "../../operation-render.js";

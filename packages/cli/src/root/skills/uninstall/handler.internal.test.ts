@@ -12,11 +12,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { computePackManifestContentIdentity } from "@agentxm/client-core/unstable/packs";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/packs";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { type UninstallHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {

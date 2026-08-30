@@ -1,4 +1,4 @@
-import { runCliMain } from "../../../core/dist/src/unstable/cli-runtime/index.js";
+import { runCliMain } from "../../../extension-management/dist/src/unstable/cli-runtime/index.js";
 
 await runCliMain(
   () => {

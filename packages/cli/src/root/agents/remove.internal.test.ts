@@ -6,15 +6,21 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { codingAgentForId, CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { CodingAgentRepositoryService } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
-import { ResolvePlanInteractionTest } from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+import {
+  codingAgentForId,
+  CodingAgentRepository,
+} from "@agentxm/extension-management/unstable/agents";
+import type { CodingAgentRepositoryService } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,

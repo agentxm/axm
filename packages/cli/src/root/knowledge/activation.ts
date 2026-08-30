@@ -2,17 +2,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";

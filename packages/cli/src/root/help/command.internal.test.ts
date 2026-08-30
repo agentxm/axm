@@ -6,8 +6,8 @@ import {
   formatMarkdown,
   TestMachineRenderer,
   TestRenderer,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { extensionTypePluralSegments } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 import { HELP_TOPICS, HELP_TOPIC_KINDS } from "../../__generated__/help-topics.js";
 import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./command.js";
 

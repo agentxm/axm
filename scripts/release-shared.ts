@@ -1,19 +1,24 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import * as Option from "effect/Option";
-import { readEnvWithDefault } from "@agentxm/client-utils/unstable/env";
 
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-  parseSkillMd,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/skills";
+import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
 
 import { capture, run, tryCapture } from "./release-command.js";
 
+const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: string): string => {
+  const value = env[name];
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+};
+
 export const RELEASE_PACKAGE_JSON_PATHS = [
-  "packages/utils/package.json",
-  "packages/core/package.json",
+  "packages/extension-model/package.json",
+  "packages/registry-protocol/package.json",
+  "packages/extension-management/package.json",
   "packages/cli/package.json",
 ] as const;
 

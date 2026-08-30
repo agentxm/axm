@@ -13,22 +13,22 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
-import { AppError } from "@agentxm/client-core/unstable/app-error";
-import { KnowledgeIndexLive } from "@agentxm/client-core/unstable/knowledge";
-import { CredentialStoreTest, RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
+import { CredentialStoreTest, RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   TestMachineRenderer,
   TestRenderer,
   logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
   WorkspaceInitializationInteractionTest,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import { ExecutionDirectory } from "./execution-directory.js";
 
 const testHttpClient = HttpClient.make((request) =>

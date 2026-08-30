@@ -1,9 +1,9 @@
-import type { CliRenderer, TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
+import type { CliRenderer, TableView } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import type {
   ExtensionInventory,
   ExtensionInventoryRow,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 export const inventoryState = (row: ExtensionInventoryRow): string => row.classification.lifecycle;
 

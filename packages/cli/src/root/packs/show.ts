@@ -4,21 +4,24 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type DetailView } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer, type DetailView } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   formatFqn,
   parseExtensionFqnParts,
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-model/unstable/extensions";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import {
   acceptedCanonicalObservation,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/workspace";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 

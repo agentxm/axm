@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
-import type { LintView } from "@agentxm/client-core/unstable/lint";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
+import type { LintView } from "@agentxm/extension-management/unstable/lint";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";

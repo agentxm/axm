@@ -9,8 +9,8 @@
  */
 
 import * as Effect from "effect/Effect";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   countUnitStates,
   deriveOperationOutcome,
@@ -18,8 +18,8 @@ import {
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/client-core/unstable/plan";
-import { defaultOperationPresentation } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/plan";
+import { defaultOperationPresentation } from "@agentxm/extension-management/unstable/workspace";
 
 const capitalize = (value: string): string =>
   value.length === 0 ? value : `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`;

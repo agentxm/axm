@@ -7,8 +7,8 @@ import {
   type AgentId,
   type ConfigFileLocation,
   type PermissionsExtensionCapability,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 const decodeAgentIdOption = Schema.decodeUnknownOption(AgentIdSchema);
 

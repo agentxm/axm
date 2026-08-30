@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, Plan } from "@agentxm/client-core/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { JobStepResult, Plan } from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";

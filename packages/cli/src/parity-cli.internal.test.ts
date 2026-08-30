@@ -5,23 +5,28 @@
  * prose help topic and a renderer list entity keyed by the type id — and
  * compares observed failures against the exemption ledger with exact equality,
  * mirroring the core-tier suite in
- * `@agentxm/client-core` extension-types/parity.
+ * `@agentxm/extension-management` extension-types/parity.
  */
 
 import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 
-import { getEntityView } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SubjectType } from "@agentxm/client-core/unstable/cli-runtime";
+import { getEntityView } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { SubjectType } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   CATALOG_EXTENSION_TYPES,
+  type CatalogExtensionType,
+} from "@agentxm/extension-model/unstable/extension-types";
+import {
   EXTENSION_LIFECYCLE_CONTRACT,
   exemptedObligations,
   obligationsVerifiedBy,
-  type CatalogExtensionType,
   type ObligationId,
-} from "@agentxm/client-core/unstable/extension-types";
-import { extensionTypes, toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/extension-types";
+import {
+  extensionTypes,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 import * as EffectRecord from "effect/Record";
 import { describe, expect, it } from "@effect/vitest";
 

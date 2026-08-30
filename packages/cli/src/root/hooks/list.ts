@@ -5,14 +5,14 @@ import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/workspace";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {

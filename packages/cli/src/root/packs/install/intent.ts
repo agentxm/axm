@@ -7,9 +7,12 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackDependencyRefResolver, PackRef } from "@agentxm/client-core/unstable/packs";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import type { ReleaseAgeEvaluation } from "@agentxm/client-core/unstable/registry";
+import type {
+  PackDependencyRefResolver,
+  PackRef,
+} from "@agentxm/extension-management/unstable/packs";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/registry";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;

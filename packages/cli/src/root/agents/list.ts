@@ -4,19 +4,19 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   AGENTS,
-  CONFIGURABLE_AGENT_IDS,
   detectAgentsForScope,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/agents";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CliRenderer,
   count,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

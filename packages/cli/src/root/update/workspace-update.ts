@@ -6,18 +6,18 @@ import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   configuredRowsByName,
@@ -30,21 +30,21 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   resolveConfiguredRegistryEntry,
-} from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import {
   enabledConfiguredEntries,
-  extensionTypePluralSentenceLabels,
   installableExtensionTypes,
   type InstallableExtensionType,
   type ExtensionRef,
   toInstallableExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import type { JobStepResult } from "@agentxm/client-core/unstable/plan";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/extensions";
+import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import type { JobStepResult } from "@agentxm/extension-management/unstable/plan";
+import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";

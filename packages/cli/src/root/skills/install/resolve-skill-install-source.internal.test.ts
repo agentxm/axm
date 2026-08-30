@@ -11,13 +11,16 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import { afterEach } from "vitest";
-import { normalizeHandle, type Handle } from "@agentxm/client-core/unstable/extensions";
-import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
-import { parseInputPattern, type InputParseResult } from "@agentxm/client-core/unstable/sources";
+import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions";
+import type { SourceHostConfig } from "@agentxm/extension-management/unstable/settings";
+import {
+  parseInputPattern,
+  type InputParseResult,
+} from "@agentxm/extension-management/unstable/sources";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 

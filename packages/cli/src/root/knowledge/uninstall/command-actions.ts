@@ -4,28 +4,28 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstructionsConfig } from "@agentxm/client-core/unstable/agents";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { resolveInstructionsConfig } from "@agentxm/extension-management/unstable/agents";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   buildUninstallOperation,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/extensions";
 import {
   KnowledgeManager,
   KnowledgeManagerLive,
   type KnowledgeExtensionRef,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { makeWorkspaceRelativePath } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/knowledge";
+import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-management/unstable/utils";
 import {
   WorkspaceMutations,
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
   type WorkspaceLayout,
-} from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
 

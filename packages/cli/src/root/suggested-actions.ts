@@ -1,4 +1,4 @@
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const SET_UP_AXM_WORKSPACE = {
   description: "Set up AXM in this workspace",

@@ -3,27 +3,27 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
+import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
   type ExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   resolveIdentifier,
   type IdentifierResourceType,
   type ResolvedIdentifier,
-} from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {
-  createRegistryClient,
   DeprecationViewSchema,
   type DeprecationView,
   type ExtensionIndex,
-} from "@agentxm/client-core/unstable/registry";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/registry-protocol/unstable/registry";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { installCommandFor } from "../shared/per-type-install.js";
 

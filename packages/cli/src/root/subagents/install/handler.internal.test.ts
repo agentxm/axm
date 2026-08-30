@@ -15,10 +15,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 import {
   handleInstall,

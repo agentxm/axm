@@ -19,21 +19,21 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Terminal from "effect/Terminal";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { nonInteractiveFlag, Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { Handle } from "@agentxm/client-core/unstable/extensions";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
-import type { Source, InputParseResult } from "@agentxm/client-core/unstable/sources";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
+import type { Source, InputParseResult } from "@agentxm/extension-management/unstable/sources";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import {
   createRegistryClient,
   isVersionEntryMature,
   parseMinimumReleaseAge,
-} from "@agentxm/client-core/unstable/registry";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { SkillPathSource } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/registry";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { SkillPathSource } from "@agentxm/extension-management/unstable/workspace";
 import {
   computeSkillSourceHash,
   gitHostedSkillArtifactSource,
@@ -41,26 +41,29 @@ import {
   type InstallableSkillTarget,
   SkillManager,
   type SkillExtensionRef,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/skills";
 import {
   buildInstallOperation,
-  matchesReleaseAgeExcludePattern,
   sanitizeName,
-} from "@agentxm/client-core/unstable/extensions";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/extensions";
+import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   operationPresentation,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   formatPackageDisplay,
   PackageUrlPartsSchema,
   type PackageUrlParts,
-} from "@agentxm/client-core/unstable/packaging";
+} from "@agentxm/extension-model/unstable/packaging";
 import type { InstallSkillCommandIntent } from "./intent.js";
 import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
 import {

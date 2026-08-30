@@ -1,0 +1,135 @@
+/**
+ * Source provider abstraction for unified extension discovery and fetching.
+ *
+ * Defines the `SourceHostProvider` interface that all source types implement,
+ * along with supporting types for search criteria, discovery results, and errors.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import type * as Duration from "effect/Duration";
+import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
+
+import type { AppError } from "../app-error/index.js";
+import type { ExtensionType, Handle } from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionRef } from "../extensions/refs.js";
+import type { Source } from "./types.js";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeExemption,
+} from "../registry/release-age-policy.js";
+
+// -----------------------------------------------------------------------------
+// Search Criteria
+// -----------------------------------------------------------------------------
+
+/**
+ * Search criteria passed to `find` -- independent of source identity.
+ *
+ * - `names`: extension names to match (empty = all)
+ * - `type`: findable extension type filter or `"*"` for all
+ * - `versionRange`: optional version constraint for registry-backed lookups
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface FindOptions {
+  readonly names: ReadonlyArray<string>;
+  readonly type: ExtensionType | "*";
+  /** Registry owner filter (e.g. "@acme"). */
+  readonly owner: Option.Option<Handle>;
+  readonly versionRange: Option.Option<string>;
+  /**
+   * Optional minimum age a registry release must have before it is selectable.
+   * Omitted for explicit attended installs.
+   */
+  readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
+}
+
+export interface NamedRegistryFindOptions {
+  readonly name: string;
+  readonly type: ExtensionType;
+  readonly owner: Handle;
+  readonly versionRange: Option.Option<string>;
+  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  /** Accepted immutable Registry identity that unattended resolution must not move behind. */
+  readonly accepted?: {
+    readonly version: string;
+    readonly publisherBindingId: string;
+  };
+}
+
+export type NamedRegistryResolution =
+  | {
+      readonly kind: "selected";
+      readonly target: string;
+      readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
+      readonly newerHeld?: ReleaseAgeEvidence;
+    }
+  | {
+      readonly kind: "exempted";
+      readonly target: string;
+      readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
+      readonly bypassed: ReleaseAgeEvidence;
+      readonly exemption: ReleaseAgeExemption;
+    }
+  | { readonly kind: "not_found"; readonly target: string }
+  | {
+      readonly kind: "version_unsatisfied";
+      readonly target: string;
+      readonly requestedRange: string;
+    }
+  | {
+      readonly kind: "policy_held";
+      readonly target: string;
+      readonly requestedRange?: string;
+      readonly candidate: ReleaseAgeEvidence;
+    };
+
+// -----------------------------------------------------------------------------
+// Fetch Result
+// -----------------------------------------------------------------------------
+
+/**
+ * Materialized extension files ready for installation.
+ *
+ * Returned by `fetch` after files have been prepared.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ExtensionFiles {
+  /** Absolute path to directory containing extension files. */
+  readonly directory: string;
+}
+
+// -----------------------------------------------------------------------------
+// Provider Interface
+// -----------------------------------------------------------------------------
+
+/**
+ * Source host provider that unifies how all source types are accessed.
+ *
+ * Each source type is implemented as a provider with `match`, `find` and `fetch`
+ * capabilities. The `R` parameter captures Effect requirements for the
+ * provider's operations.
+ *
+ * @typeParam S - The specific `Source` variant this provider handles.
+ * @typeParam R - Effect requirements for provider operations.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SourceHostProvider<S extends Source = Source, R = never> {
+  /** Source type discriminator matching `S["type"]`. */
+  readonly type: S["type"];
+  /** Check if a URL belongs to this provider. */
+  readonly match: (url: URL) => Effect.Effect<boolean, AppError, R>;
+  /** Discover extensions at the given source matching the search criteria. */
+  readonly find: (
+    source: S,
+    options: FindOptions,
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, R>;
+  /** Fetch and materialize extension files for a discovered ref. */
+  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, R>;
+}

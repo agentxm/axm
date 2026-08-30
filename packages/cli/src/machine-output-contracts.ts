@@ -65,7 +65,7 @@ const planFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
-    "packages/core/src/unstable/plan/resolve-plan.internal.test.ts",
+    "packages/extension-management/src/unstable/plan/resolve-plan.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],
@@ -149,7 +149,7 @@ const defineResultFamily = (input: {
   rationale: input.rationale,
   centralizedCoverage: [
     "packages/cli/src/machine-output-contracts.internal.test.ts",
-    "packages/core/src/unstable/cli-renderer/cli-renderer-machine.internal.test.ts",
+    "packages/extension-management/src/unstable/cli-renderer/cli-renderer-machine.internal.test.ts",
   ],
   commandCoverage: input.commandCoverage,
   documentation: ["docs/architecture/commands/output.md"],
@@ -182,8 +182,8 @@ const loginFamily = defineResultFamily({
   humanOutputKind: "mutation",
   commandCoverage: [
     "packages/cli/src/root/auth/login.internal.test.ts",
-    "packages/core/src/unstable/auth/device-login.internal.test.ts",
-    "packages/core/src/unstable/auth/loopback-login.internal.test.ts",
+    "packages/extension-management/src/unstable/auth/device-login.internal.test.ts",
+    "packages/extension-management/src/unstable/auth/loopback-login.internal.test.ts",
   ],
 });
 
@@ -404,7 +404,9 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   optionalTopLevelKeys: ["candidate", "candidates", "reason"],
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
-  commandCoverage: ["packages/core/src/unstable/knowledge/knowledge-graph.internal.test.ts"],
+  commandCoverage: [
+    "packages/extension-management/src/unstable/knowledge/knowledge-graph.internal.test.ts",
+  ],
 });
 
 const knowledgeConceptRelatedFamily = defineResultFamily({
@@ -426,7 +428,9 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: ["packages/core/src/unstable/knowledge/knowledge-graph.internal.test.ts"],
+  commandCoverage: [
+    "packages/extension-management/src/unstable/knowledge/knowledge-graph.internal.test.ts",
+  ],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({

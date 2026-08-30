@@ -3,36 +3,41 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
   computeSourceHash,
-  decodeExtensionNameSync,
   preflightCreateOnly,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  decodeExtensionNameSync,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import type {
   HookEvent,
   HookRuntime,
+} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import type {
   NewHookOperation,
   WorkspaceHookRef,
-} from "@agentxm/client-core/unstable/hooks";
-import { HOOK_MANIFEST_FILENAME, HookManager, newHook } from "@agentxm/client-core/unstable/hooks";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/hooks";
+import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManager, newHook } from "@agentxm/extension-management/unstable/hooks";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-management/unstable/workspace";
+import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
@@ -45,7 +50,7 @@ import {
   normalizeScaffoldOwner,
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
@@ -105,7 +110,7 @@ export interface HooksNewHandlerArgs {
 const toJobStepResult = (result: {
   readonly result: string;
   readonly message: string;
-  readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
+  readonly error?: import("@agentxm/extension-management/unstable/app-error").AppError;
 }): JobStepResult =>
   result.result === "error" && result.error != null
     ? { result: "error", message: result.message, error: result.error }

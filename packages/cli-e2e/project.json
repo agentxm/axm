@@ -50,7 +50,7 @@
       }
     },
     "binary-smoke-artifact": {
-      "dependsOn": ["utils:build"],
+      "dependsOn": ["cli:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
@@ -62,7 +62,7 @@
     },
     "install-suite": {
       "parallelism": false,
-      "dependsOn": ["utils:build", "cli:compile-host"],
+      "dependsOn": ["cli:compile-host"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.install.config.ts",

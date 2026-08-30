@@ -4,19 +4,18 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   ExtensionFqnSchema,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
   toExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   deprecateExtension,
-  DeprecationTransitionSchema,
   getExtensionDeprecation,
   undeprecateExtension,
   unyankExtensionVersion,
@@ -24,13 +23,16 @@ import {
   yankExtensionVersion,
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
+  type YankCategory,
+} from "@agentxm/extension-management/unstable/registry";
+import {
+  DeprecationTransitionSchema,
   type DeprecationReplacementIntent,
   type DeprecationTransition,
-  type YankCategory,
-} from "@agentxm/client-core/unstable/registry";
-import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/registry-protocol/unstable/registry";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { makeOperationResolution } from "@agentxm/client-core/unstable/plan";
+import { makeOperationResolution } from "@agentxm/extension-management/unstable/plan";
 
 import { withRuntime } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

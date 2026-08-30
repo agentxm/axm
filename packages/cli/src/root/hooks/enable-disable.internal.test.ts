@@ -7,9 +7,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,

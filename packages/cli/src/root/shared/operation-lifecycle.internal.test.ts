@@ -6,13 +6,16 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { deriveOperationOutcome, operationExitCode } from "@agentxm/client-core/unstable/plan";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import {
+  deriveOperationOutcome,
+  operationExitCode,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   isWorkspaceTransitionHeldByThisInvocation,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import * as Option from "effect/Option";
 
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";

@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 
-import { CATALOG_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS, handleExtensionShow } from "./extension-show.js";

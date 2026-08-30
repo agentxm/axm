@@ -1,31 +1,33 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { SourceTypeSchema } from "@agentxm/client-core/unstable/sources";
+import { SourceTypeSchema } from "@agentxm/extension-management/unstable/sources";
 
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   SuggestedActionSchema,
   type SuggestedAction,
+} from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
   type CommandOutcomeSummary,
   type SubjectType,
   getCommandSemanticProperties,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { OperationPreconditionSchema } from "@agentxm/client-core/unstable/plan";
-import { AppErrorCodeSchema } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { OperationPreconditionSchema } from "@agentxm/extension-management/unstable/plan";
+import { AppErrorCodeSchema } from "@agentxm/extension-management/unstable/app-error";
 import {
   PublishVisibilitySchema,
   type PublishVisibility,
-} from "@agentxm/client-core/unstable/publish";
+} from "@agentxm/registry-protocol/unstable/publish";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
   formatFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { VersionSchema } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
 const PublishActionSchema = Schema.Literals(["publish", "skip", "error"] as const).annotate({
   identifier: "PublishAction",

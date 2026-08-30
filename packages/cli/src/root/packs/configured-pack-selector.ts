@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   parseRegistrySourcePatternParts,
   parseSourceQualifiedRegistrySourcePatternParts,
-} from "@agentxm/client-core/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import type { ConfiguredRecordRow } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import type { ConfiguredRecordRow } from "@agentxm/extension-management/unstable/workspace";
 
 export interface ConfiguredPackSelection {
   readonly configuredName: string;

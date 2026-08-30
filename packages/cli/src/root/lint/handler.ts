@@ -15,7 +15,7 @@
  *    the lint exit category into a process exit code.
  *
  * The lint runner primitives live in
- * `@agentxm/client-core/unstable/lint` so the handler stays a thin surface.
+ * `@agentxm/extension-management/unstable/lint` so the handler stays a thin surface.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -26,22 +26,19 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { ExitCode, makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
-import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceInvariantFacts } from "@agentxm/client-core/unstable/projection";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/client-core/unstable/skills";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
+import { effectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
+import { WorkspaceInvariantFacts } from "@agentxm/extension-management/unstable/projection";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-management/unstable/skills";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
-} from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/agents";
 import {
   buildLintWorkspace,
-  buildPackRuleContexts,
-  buildSkillRuleContexts,
-  composePath,
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
@@ -53,8 +50,11 @@ import {
   type LintJsonDocument,
   type LintInput,
   type LintSummary,
-} from "@agentxm/client-core/unstable/lint";
-import type { LintConfig } from "@agentxm/client-core/unstable/lint";
+} from "@agentxm/extension-management/unstable/lint";
+import { buildPackRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
+import { buildSkillRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
+import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
+import type { LintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
 import {
   AXM_DIR_NAME,
   USER_WORKSPACE_DIRECTORY,
@@ -63,9 +63,9 @@ import {
   acceptedCanonicalObservation,
   inspectWorkspaceOwnership,
   type WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
-import type { Settings } from "@agentxm/client-core/unstable/settings";
+} from "@agentxm/extension-management/unstable/workspace";
+import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
+import type { Settings } from "@agentxm/extension-management/unstable/settings";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
 

@@ -3,25 +3,25 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import {
-  ExtensionTypeSchema,
   installableExtensionTypes,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/extensions";
+import { DeprecationViewSchema } from "@agentxm/registry-protocol/unstable/registry";
 import {
   assessExtensionListItems,
   collectExtensionListItems,
   type ExtensionListFilter,
   type ExtensionListItem,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

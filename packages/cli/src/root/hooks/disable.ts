@@ -1,11 +1,11 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/extension-management/unstable/extensions";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -13,9 +13,9 @@ import {
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

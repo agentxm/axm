@@ -15,48 +15,51 @@ import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { afterEach, beforeEach, vi } from "vitest";
-import { TestRenderer, logsByTag } from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { TestRenderer, logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
-} from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
-} from "@agentxm/client-core/unstable/workspace";
-import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/workspace";
+import {
+  deriveOperationOutcome,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   computePackManifestContentIdentity,
   type PackRef,
-} from "@agentxm/client-core/unstable/packs";
-import type { ExtensionFiles } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/packs";
+import type { ExtensionFiles } from "@agentxm/extension-management/unstable/sources";
 import {
   SourceHostProvidersLive,
   SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import type { SourceHostProvidersService } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import type { SourceHostProvidersService } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleInstallPack } from "./handler.js";
 import {
   type InstallPackHandlerArgs,
   InstallPackCommandWorkflowActions,
 } from "./command-actions.js";
 import type { PackInstallHandlerArgs } from "./handler.js";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import * as Schema from "effect/Schema";
-import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
+import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
 import {
   computePackageContentHashSync,
   dependencyConstraintMap,

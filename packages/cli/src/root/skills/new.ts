@@ -3,41 +3,43 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
   computeSourceHash,
+  preflightCreateOnly,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
   decodeExtensionNameSync,
   normalizeHandle,
-  preflightCreateOnly,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import type {
   InstallableSkillTarget,
   NewSkillOperation,
   WorkspaceSkillRef,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/skills";
 import {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
-  MANIFEST_FILENAME,
   newSkill,
   SkillManager,
   uninstallSkill,
-} from "@agentxm/client-core/unstable/skills";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/skills";
+import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -51,7 +53,7 @@ import {
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;

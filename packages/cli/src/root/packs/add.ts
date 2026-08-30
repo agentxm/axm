@@ -5,39 +5,45 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   formatFqn,
   parseExtensionFqnParts,
   decodeExtensionNameSync,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   isCatalogExtensionType,
   type CatalogExtensionType,
-} from "@agentxm/client-core/unstable/extension-types";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import type { AddToPackOperation } from "@agentxm/client-core/unstable/packs";
-import { addToPack } from "@agentxm/client-core/unstable/packs";
-import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-model/unstable/extension-types";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import type { AddToPackOperation } from "@agentxm/extension-management/unstable/packs";
+import { addToPack } from "@agentxm/extension-management/unstable/packs";
+import { expandGlobs, isGlobPattern } from "@agentxm/extension-management/unstable/utils";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
-} from "@agentxm/client-core/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/workspace";
+import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";

@@ -7,7 +7,7 @@ import {
   CredentialStore,
   RegistryUrl,
   resolveRequestToken,
-} from "@agentxm/client-core/unstable/auth";
+} from "@agentxm/extension-management/unstable/auth";
 
 export interface RegistryLoginSuggestion {
   readonly description: string;

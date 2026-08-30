@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
@@ -14,23 +14,31 @@ import {
   extensionRefRegistryLifecycle,
   toLabelWithCompanions,
   type ExtensionRef,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
   type ExtensionType,
   type ExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+} from "@agentxm/extension-model/unstable/extensions";
+import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
 import {
   KnowledgeManager,
   type KnowledgeExtensionRef,
-} from "@agentxm/client-core/unstable/knowledge";
-import { installMcpServer, type McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import type { JobStepArtifact, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import { SkillManager, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/knowledge";
+import {
+  installMcpServer,
+  type McpServerExtensionRef,
+} from "@agentxm/extension-management/unstable/mcps";
+import type { JobStepArtifact, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
+import {
+  SkillManager,
+  type SkillExtensionRef,
+} from "@agentxm/extension-management/unstable/skills";
 import {
   SubagentManager,
   type SubagentExtensionRef,
-} from "@agentxm/client-core/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/subagents";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 export type PackMemberRef =
   | SkillExtensionRef

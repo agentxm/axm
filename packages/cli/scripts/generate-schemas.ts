@@ -3,7 +3,7 @@
  *
  * This script generates JSON Schema files for all manifest types,
  * settings, and lockfile schemas. The published public schema surface
- * lives under `packages/core/site-content/schemas`, so generation
+ * lives under `packages/cli/site-content/schemas`, so generation
  * writes there directly instead of scattering files across package
  * internals and re-exporting them one by one.
  */
@@ -16,16 +16,16 @@ import * as path from "node:path";
 import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
 import { format as formatWithPrettier, resolveConfig as resolvePrettierConfig } from "prettier";
-import { SkillManifestSchema } from "../../core/src/unstable/skills/index.js";
-import { McpServerManifestSchema } from "../../core/src/unstable/mcps/index.js";
-import { SubagentManifestSchema } from "../../core/src/unstable/subagents/index.js";
-import { PackManifestSchema } from "../../core/src/unstable/packs/index.js";
-import { RuleManifestSchema } from "../../core/src/unstable/rules/index.js";
-import { HookManifestSchema } from "../../core/src/unstable/hooks/index.js";
-import { KnowledgeManifestSchema } from "../../core/src/unstable/knowledge/index.js";
-import { LockfileSchema } from "../../core/src/unstable/lockfile/index.js";
-import { AxmPackageMetaSchema } from "../../core/src/unstable/packaging/index.js";
-import { SettingsSchema } from "../../core/src/unstable/settings/index.js";
+import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
+import { LockfileSchema } from "../../extension-management/src/unstable/lockfile/index.js";
+import { AxmPackageMetaSchema } from "../../extension-management/src/unstable/packaging/index.js";
+import { SettingsSchema } from "../../extension-management/src/unstable/settings/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const CORE_ROOT = path.join(import.meta.dirname, "../../core");

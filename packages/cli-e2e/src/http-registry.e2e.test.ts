@@ -30,7 +30,7 @@ export const executionBinding = {
   requirements: [
     "cli/update/advances-resolution-within-intent",
     "cli/publish/preview-is-pure-and-gate-is-fixed",
-    "client-core/source-resolution/locator-grammar-is-stable",
+    "source-resolution/locator-grammar-is-stable",
   ],
   boundary: "process",
   rationale:

@@ -5,7 +5,10 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 
-import { TelemetryClient, TelemetryClientLive } from "@agentxm/client-core/unstable/telemetry";
+import {
+  TelemetryClient,
+  TelemetryClientLive,
+} from "@agentxm/extension-management/unstable/telemetry";
 
 import { defineSpecification } from "../../support/contract.js";
 

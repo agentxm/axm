@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
 import {
   makeConfirmationRecovery,

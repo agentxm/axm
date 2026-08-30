@@ -1,1 +1,1 @@
-packages/core/site-content/install.sh
+packages/cli/site-content/install.sh

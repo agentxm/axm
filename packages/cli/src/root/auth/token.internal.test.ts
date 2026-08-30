@@ -14,11 +14,14 @@ import {
   AuthLoginInteractionTest,
   CredentialStoreTest,
   RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/auth";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-helpers.js";
 import {
   handleCreateToken,

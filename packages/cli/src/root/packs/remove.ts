@@ -5,26 +5,32 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { RemoveFromPackOperation } from "@agentxm/client-core/unstable/packs";
-import { removeFromPack } from "@agentxm/client-core/unstable/packs";
-import { PACK_MANIFEST_FILENAME, PackManifestSchema } from "@agentxm/client-core/unstable/packs";
-import { expandGlobs, isGlobPattern } from "@agentxm/client-core/unstable/utils";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import type { RemoveFromPackOperation } from "@agentxm/extension-management/unstable/packs";
+import { removeFromPack } from "@agentxm/extension-management/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { expandGlobs, isGlobPattern } from "@agentxm/extension-management/unstable/utils";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/plan";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   publicRecoveryValue,
   recoveryPositional,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";

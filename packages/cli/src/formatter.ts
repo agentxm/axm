@@ -9,14 +9,14 @@ import * as ServiceMap from "effect/Context";
 import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
 import { CliOutput } from "effect/unstable/cli";
 
-import { BRANDING } from "@agentxm/client-core/unstable/branding";
-import { stripTerminalFormatting } from "@agentxm/client-core/unstable/cli-renderer";
+import { BRANDING } from "@agentxm/extension-management/unstable/branding";
+import { stripTerminalFormatting } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
   isSubcommandDoc,
   toJsonHelpDoc,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 
 type ArgDoc = NonNullable<HelpDoc["args"]>[number];
 

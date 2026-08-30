@@ -7,25 +7,28 @@ import {
   AuthClientTest,
   DeviceLoginInteractionTest,
   type CreatePublishAuthorizationRequestParams,
-} from "@agentxm/client-core/unstable/auth";
+} from "@agentxm/extension-management/unstable/auth";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
   isEffectCliExit,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   extensionTypes,
   extensionTypeToPlural,
   formatFqn,
-} from "@agentxm/client-core/unstable/extensions";
-import { applyPlan, type JobStepResult } from "@agentxm/client-core/unstable/plan";
-import { normalizePublishInput, validateArchive } from "@agentxm/client-core/unstable/publish";
+} from "@agentxm/extension-model/unstable/extensions";
+import { applyPlan, type JobStepResult } from "@agentxm/extension-management/unstable/plan";
+import {
+  normalizePublishInput,
+  validateArchive,
+} from "@agentxm/registry-protocol/unstable/publish";
 import {
   archiveSha256Hex,
   publicationDescriptorDigest,
   publicationSetDigest,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
@@ -39,7 +42,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 
 import {
   at,

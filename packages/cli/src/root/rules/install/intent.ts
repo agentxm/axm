@@ -1,6 +1,6 @@
 import type * as Option from "effect/Option";
-import type { RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 export interface InstallRuleCommandIntent {
   /** The enclosing semantic closure owns the trailing aggregate projection. */

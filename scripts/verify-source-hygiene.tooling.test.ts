@@ -61,20 +61,20 @@ describe("findControlBytes", () => {
 describe("findSourceHygieneViolations", () => {
   it("scans only TypeScript sources under packages/*/src", () => {
     const repoRoot = createRepoFixture({
-      "packages/core/src/clean.ts": "export const ok = 1;\n",
-      "packages/core/src/nested/dirty.ts": Buffer.concat([
+      "packages/extension-management/src/clean.ts": "export const ok = 1;\n",
+      "packages/extension-management/src/nested/dirty.ts": Buffer.concat([
         Buffer.from("const key = `a", "utf8"),
         Buffer.from([0x00]),
         Buffer.from("b`;\n", "utf8"),
       ]),
-      "packages/core/test/ignored.ts": Buffer.from([0x00]),
-      "packages/core/src/ignored.md": Buffer.from([0x00]),
+      "packages/extension-management/test/ignored.ts": Buffer.from([0x00]),
+      "packages/extension-management/src/ignored.md": Buffer.from([0x00]),
     });
 
     const violations = findSourceHygieneViolations(repoRoot);
     expect(violations).toEqual([
       {
-        filePath: path.join("packages", "core", "src", "nested", "dirty.ts"),
+        filePath: path.join("packages", "extension-management", "src", "nested", "dirty.ts"),
         line: 1,
         byte: 0,
       },
@@ -97,7 +97,7 @@ describe("findMachineOutputBoundaryViolations", () => {
         "renderer.resultStream(stream, schema);",
         "",
       ].join("\n"),
-      "packages/core/src/unstable/cli-renderer/renderer-helpers.ts":
+      "packages/extension-management/src/unstable/cli-renderer/renderer-helpers.ts":
         "process.stdout.write('approved');\n",
     });
 
@@ -123,7 +123,8 @@ describe("findPromptBoundaryViolations", () => {
   it("rejects direct production prompts outside the guarded helper", () => {
     const repoRoot = createRepoFixture({
       "packages/cli/src/root/unsafe.ts": "const answer = Prompt.run(prompt);\n",
-      "packages/core/src/unstable/cli/prompt/helpers.ts": "const answer = Prompt.run(prompt);\n",
+      "packages/extension-management/src/unstable/cli/prompt/helpers.ts":
+        "const answer = Prompt.run(prompt);\n",
       "packages/cli/src/root/allowed.test.ts": "const answer = Prompt.run(prompt);\n",
     });
 
@@ -160,7 +161,7 @@ describe("findAxmEnvironmentContractViolations", () => {
   it("accepts stable and internal classifications and rejects stale rows", () => {
     const repoRoot = createRepoFixture({
       "packages/cli/src/runtime.ts": 'const stable = "AXM_STABLE";\n',
-      "packages/core/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
+      "packages/extension-management/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
       "packages/cli/help/topics/environment.md": [
         "| Variable | Classification | Details |",
         "| --- | --- | --- |",
@@ -193,10 +194,11 @@ describe("findAxmEnvironmentContractViolations", () => {
 describe("countUnboundedConcurrencySites", () => {
   it("counts production literals while excluding tests and generated clients", () => {
     const repoRoot = createRepoFixture({
-      "packages/core/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/extension-management/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
       "packages/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/core/src/one.test.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/core/src/__generated__/client.ts":
+      "packages/extension-management/src/one.test.ts":
+        'const options = { concurrency: "unbounded" };\n',
+      "packages/extension-management/src/__generated__/client.ts":
         'const options = { concurrency: "unbounded" };\n',
     });
 

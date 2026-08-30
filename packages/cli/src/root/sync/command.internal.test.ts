@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { rootCommand } from "../../app.js";
 import { makeAxmFormatter } from "../../formatter.js";
 import { baseLayer } from "../../runtime.js";
-import { CATALOG_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 
 const ANSI_ESCAPE = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ANSI_ESCAPE}\\[[0-?]*[ -/]*[@-~]`, "g");

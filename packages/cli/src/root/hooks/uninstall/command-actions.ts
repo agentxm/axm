@@ -1,23 +1,23 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { HookManager, type HookExtensionRef } from "@agentxm/client-core/unstable/hooks";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   buildUninstallOperation,
-} from "@agentxm/client-core/unstable/extensions";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-management/unstable/extensions";
+import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { HookExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/plan";
+import type { HookExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {

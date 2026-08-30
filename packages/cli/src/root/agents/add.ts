@@ -1,11 +1,15 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { detectAgentsForScope } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { acceptWarningsFlag, previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { detectAgentsForScope } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import {
+  acceptWarningsFlag,
+  previewFlag,
+  yesFlag,
+} from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   deriveOperationOutcome,
   previewOrApplyPlan,
@@ -13,11 +17,11 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

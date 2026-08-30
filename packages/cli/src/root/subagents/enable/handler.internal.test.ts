@@ -20,7 +20,7 @@ import {
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/agents";
 import { handleEnableSubagent, type EnableSubagentHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------

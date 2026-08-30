@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { activationConfig, setKnowledgeEnabled } from "./activation.js";

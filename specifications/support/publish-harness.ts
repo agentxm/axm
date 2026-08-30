@@ -16,7 +16,10 @@ import { pathToFileURL } from "node:url";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthClientTest,
+  DeviceLoginInteractionTest,
+} from "@agentxm/extension-management/unstable/auth";
 import type { handleRootPublish } from "axm.sh/unstable/specification-harness";
 
 import type { makeSpecWorkspace } from "./install-harness.js";

@@ -1,12 +1,16 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Option from "effect/Option";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstallMcpServer } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/client-core/unstable/agents";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 
 const installConfig = {
   source: Argument.string("source").pipe(

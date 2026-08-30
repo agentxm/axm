@@ -1,11 +1,11 @@
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   HOSTED_AGENTS_BY_ID,
   HOSTED_AGENT_IDS,
   type HostedAgentId,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 
 const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
 const hostedAgentIds = new Set<string>(HOSTED_AGENT_IDS);

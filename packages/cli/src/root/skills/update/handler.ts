@@ -1,42 +1,42 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/skills";
 import {
   isWorkspaceSourceLocator,
   type RegistrySource,
-} from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/sources";
 import {
   resolveSource,
   SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
 import * as Array from "effect/Array";
 import type * as Duration from "effect/Duration";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 
 import {
   WorkspaceMutations,
   configuredRowsByName,
   makeConfiguredReleaseAgeEvaluation,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeExtensionNameSync,
   parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   createRegistryClient,
   isVersionEntryEligibleAt,
@@ -46,18 +46,18 @@ import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/client-core/unstable/registry";
-import type { InstallSkillOperation } from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/registry";
+import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@agentxm/client-core/unstable/skills";
+import { installSkill } from "@agentxm/extension-management/unstable/skills";
 import {
   operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import type { SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-management/unstable/plan";
+import type { SkillsLockMap } from "@agentxm/extension-management/unstable/lockfile";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -711,8 +711,8 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@agentxm/client-core/unstable/app-error").AppError;
-  }): import("@agentxm/client-core/unstable/plan").JobStepResult =>
+    readonly error?: import("@agentxm/extension-management/unstable/app-error").AppError;
+  }): import("@agentxm/extension-management/unstable/plan").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };

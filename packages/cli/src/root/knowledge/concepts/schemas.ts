@@ -2,11 +2,13 @@ import * as Schema from "effect/Schema";
 
 import {
   ConceptRefSchema,
-  KnowledgeDiscoveryCapabilitiesSchema,
-  KnowledgeQuerySchema,
   KnowledgeRevisionSchema,
   ResolvedConceptRefSchema,
-} from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-model/unstable/knowledge";
+import {
+  KnowledgeDiscoveryCapabilitiesSchema,
+  KnowledgeQuerySchema,
+} from "@agentxm/extension-management/unstable/knowledge";
 
 import { FrontmatterDocumentSchema } from "../schemas.js";
 

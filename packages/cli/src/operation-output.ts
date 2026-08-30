@@ -12,10 +12,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
-import { Verbosity } from "@agentxm/client-core/unstable/cli-flags";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
+import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   SuggestedActionSchema,
+  type SuggestedAction,
+} from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
   setCommandSemanticProperties,
   getCommandSemanticProperties,
   setOperationExitCode,
@@ -23,8 +26,7 @@ import {
   type CommandOutcomeSummary,
   type SourceKind,
   type SubjectType,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
@@ -47,15 +49,15 @@ import {
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   AppErrorCodeSchema,
   redactSensitiveText,
   serializeErrorCauseChain,
-} from "@agentxm/client-core/unstable/app-error";
-import { formatMinimumReleaseAgeSeconds } from "@agentxm/client-core/unstable/registry";
-import { DeprecationViewSchema } from "@agentxm/client-core/unstable/registry";
-import { CatalogExtensionTypeSchema } from "@agentxm/client-core/unstable/extension-types";
+} from "@agentxm/extension-management/unstable/app-error";
+import { formatMinimumReleaseAgeSeconds } from "@agentxm/extension-management/unstable/registry";
+import { DeprecationViewSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { renderOperationOutcome, resolutionAgentCoverage } from "./operation-render.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";

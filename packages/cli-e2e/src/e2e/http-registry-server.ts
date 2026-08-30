@@ -9,7 +9,7 @@
  * enough of the contract for a publish-then-install round trip.
  *
  * Response bodies are hand-written rather than imported: `packages/cli-e2e` may
- * not depend on `@agentxm/client-core`, and an e2e suite that shared the
+ * not depend on the product library packages, and an e2e suite that shared the
  * producer's types could not catch a drift between them. Assertions therefore
  * lean on observable CLI behavior — exit codes and materialized files — instead
  * of the response fields.

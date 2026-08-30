@@ -7,17 +7,17 @@ import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { ConfiguredAgentOutcomeSchema } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { ConfiguredAgentOutcomeSchema } from "@agentxm/extension-management/unstable/plan";
 import {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryResolution,
-} from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-management/unstable/knowledge";
 import {
   configuredAgentLifecycleOutcomes,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";

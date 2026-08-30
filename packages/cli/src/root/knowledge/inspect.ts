@@ -4,24 +4,29 @@ import * as Result from "effect/Result";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/extensions";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeBundleFqnSchema,
+} from "@agentxm/extension-model/unstable/knowledge";
+import {
   KnowledgeIndex,
   captureKnowledgeIndexBundles,
   inspectKnowledgePackage,
   readKnowledgePackageManifest,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import { WorkspaceMutations, type WorkspaceLayout } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/knowledge";
+import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import {
+  WorkspaceMutations,
+  type WorkspaceLayout,
+} from "@agentxm/extension-management/unstable/workspace";
 
-export { inspectKnowledgePackage } from "@agentxm/client-core/unstable/knowledge";
+export { inspectKnowledgePackage } from "@agentxm/extension-management/unstable/knowledge";
 
 export const bundleRoot = (
   layout: WorkspaceLayout,

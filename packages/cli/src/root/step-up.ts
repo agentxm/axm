@@ -8,10 +8,10 @@ import {
   RegistryUrl,
   readStepUpRequest,
   resolveRequiredToken,
-} from "@agentxm/client-core/unstable/auth";
-import { errAuthRequired, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { isNonInteractive, jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/auth";
+import { errAuthRequired, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { isNonInteractive, jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 
 export interface StepUpOperationMessages {
   readonly initial: string;

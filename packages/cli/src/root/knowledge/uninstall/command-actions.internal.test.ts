@@ -10,9 +10,12 @@ import * as Option from "effect/Option";
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  deriveOperationOutcome,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";

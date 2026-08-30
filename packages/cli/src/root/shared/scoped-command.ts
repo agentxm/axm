@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
-import { WorkspaceMutations, type WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  WorkspaceMutations,
+  type WorkspaceScope,
+} from "@agentxm/extension-management/unstable/workspace";
 
 export const commandForScope = (command: string, scope: WorkspaceScope): string =>
   scope === "user" && !/(?:^|\s)--scope(?:\s|=|$)/.test(command)

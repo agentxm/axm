@@ -29,18 +29,18 @@ import {
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
-} from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
-} from "@agentxm/client-core/unstable/version-constraints";
-import { decodeExtensionNameSync } from "@agentxm/client-core/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 
 import { handleUpdateWithActions, type RootUpdateFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";

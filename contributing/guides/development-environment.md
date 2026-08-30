@@ -74,7 +74,7 @@ Required CI runs the bounded `Windows workspace lifecycle` job on
 uses the repository toolchain setup and these Nx targets:
 
 ```powershell
-pnpm nx run core:test-windows --outputStyle=static
+pnpm nx run extension-management:test-windows --outputStyle=static
 pnpm nx run cli-e2e:e2e-windows --outputStyle=static
 ```
 

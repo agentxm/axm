@@ -1,7 +1,7 @@
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 

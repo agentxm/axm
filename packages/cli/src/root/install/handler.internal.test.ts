@@ -23,10 +23,10 @@ import {
   planResultUnits,
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 
 import { handleInstallWithActions, type RootInstallFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";

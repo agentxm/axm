@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { AGENT_IDS } from "@agentxm/client-core/unstable/agent-capabilities";
-import { SuggestedActionSchema } from "@agentxm/client-core/unstable/cli-runtime";
+import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 
 const decodeSuggestion = Schema.decodeUnknownSync(SuggestedActionSchema);

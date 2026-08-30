@@ -1,15 +1,18 @@
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { SuggestedAction } from "@agentxm/client-core/unstable/cli-runtime";
-import { enabledConfiguredEntries } from "@agentxm/client-core/unstable/extensions";
-import type { IdentifierResourceType } from "@agentxm/client-core/unstable/source-resolution";
-import type { ContainerType, ExtensionType } from "@agentxm/client-core/unstable/extensions";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
+import type { IdentifierResourceType } from "@agentxm/extension-management/unstable/source-resolution";
+import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
 import {
   SourceHostProviders,
   resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
-import { WorkspaceMutations, configuredRowsByName } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { expandGlobs } from "@agentxm/extension-management/unstable/utils";
+import {
+  WorkspaceMutations,
+  configuredRowsByName,
+} from "@agentxm/extension-management/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag } from "effect/unstable/cli";

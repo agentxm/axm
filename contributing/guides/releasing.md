@@ -26,7 +26,8 @@ The binding obligation is the executable specification
   GitHub Releases manually.
 - `pnpm release:prepare` is the only supported local entry point for cutting a
   release commit and opening its pull request.
-- `packages/utils`, `packages/core`, and `packages/cli` are a fixed release
+- `packages/extension-model`, `packages/registry-protocol`,
+  `packages/extension-management`, and `packages/cli` are a fixed release
   group. Their versions must match.
 - Pending version plans in `.nx/version-plans/*.md` and those three package
   manifests are the release version source of truth.
@@ -150,8 +151,9 @@ script:
 
 ## Local Preview Publish
 
-`pnpm release:publish:local` publishes the three release-group npm packages
-(`@agentxm/client-utils`, `@agentxm/client-core`, `axm.sh`) directly from the
+`pnpm release:publish:local` publishes the release-group npm packages
+(`@agentxm/extension-model`, `@agentxm/registry-protocol`,
+`@agentxm/extension-management`, `axm.sh`) directly from the
 working tree under a non-default dist-tag (default: `preview`). It is for fast
 iteration only. It is not a substitute for the canonical CI release: it skips
 cross-platform binaries, npm provenance, Homebrew, installer verification, and
@@ -163,9 +165,8 @@ pnpm release:publish:local
 ```
 
 The script derives a unique preview version from the working tree
-(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds `utils`, `core`, and
-`cli`, stamps the version into the three manifests, packs each with `pnpm
-pack`, then `npm publish`es each tarball under the chosen dist-tag. Manifests
+(`{patch+1}-preview.{unix}.{short-sha}[.dirty]`), builds the release-group
+packages, stamps the version into the three manifests, packs each with `pnpm pack`, then `npm publish`es each tarball under the chosen dist-tag. Manifests
 are restored in a `finally` block.
 
 Install the published preview globally:

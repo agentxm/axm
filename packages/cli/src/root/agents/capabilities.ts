@@ -8,15 +8,15 @@ import {
   getSupportedExtensionTypesForAgent,
   listCapabilities,
   type Agent,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   CliRenderer,
   count,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 import { agentLifecycle, isCatalogAgentId, lifecycleCell } from "./lifecycle.js";
 import { validateAgentIds } from "./shared.js";

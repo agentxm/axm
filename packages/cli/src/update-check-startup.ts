@@ -15,13 +15,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { UpdateCheck, isCacheStale } from "@agentxm/client-core/unstable/update-check";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { UpdateCheck, isCacheStale } from "@agentxm/extension-management/unstable/update-check";
 import {
   resolveLatestVersion,
   DEFAULT_GITHUB_REPO,
-} from "@agentxm/client-core/unstable/version-resolution";
-import { isAgent } from "@agentxm/client-utils/unstable/interaction";
+} from "@agentxm/extension-management/unstable/version-resolution";
+import { isAgent } from "./interaction.js";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv

@@ -2,18 +2,21 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
-  normalizeHandle,
   SourceHashSchema,
   TreeIntegritySchema,
-} from "@agentxm/client-core/unstable/extensions";
-import type { SkillLockEntry, SkillsLockMap } from "@agentxm/client-core/unstable/lockfile";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/extensions";
+import type {
+  SkillLockEntry,
+  SkillsLockMap,
+} from "@agentxm/extension-management/unstable/lockfile";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
 import type {
   InstallSkillOperation,
   SkillExtensionRef,
-} from "@agentxm/client-core/unstable/skills";
-import type { Version } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-management/unstable/skills";
+import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";
 

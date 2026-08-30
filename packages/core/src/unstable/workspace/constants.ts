@@ -1,6 +1,0 @@
-/** Canonical AXM application-home and workspace names. */
-
-export const AXM_DIR_NAME = ".axm";
-export const USER_WORKSPACE_DIRECTORY = "workspace";
-export const SETTINGS_FILENAME = "axm.json";
-export const LOCK_FILENAME = "axm-lock.yaml";

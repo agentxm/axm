@@ -9,11 +9,9 @@
  * `standards.ts` fails here until the topic follows.
  */
 
-import {
-  CATALOG_EXTENSION_TYPES,
-  getStandardForExtensionType,
-} from "@agentxm/client-core/unstable/extension-types";
-import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
+import { getStandardForExtensionType } from "@agentxm/extension-management/unstable/extension-types";
+import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import { describe, expect, it } from "vitest";
 
 import { HELP_TOPICS, HELP_TOPIC_NAMES } from "./__generated__/help-topics.js";

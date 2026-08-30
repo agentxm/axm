@@ -59,7 +59,7 @@
     }
   },
   "release": {
-    "projects": ["utils", "core", "cli"],
+    "projects": ["extension-model", "registry-protocol", "extension-management", "cli"],
     "projectsRelationship": "fixed",
     "versionPlans": true,
     "releaseTag": {

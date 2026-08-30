@@ -6,10 +6,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { SettingsSchema } from "@agentxm/client-core/unstable/settings";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { handleDemote } from "./command.js";

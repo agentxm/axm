@@ -1,10 +1,10 @@
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   ExtensionName,
   ExtensionType,
   Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import type { Version } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 
 export const alreadyPublishedVersionConflict = (args: {
   readonly fqn: string;

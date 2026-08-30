@@ -20,7 +20,7 @@ field profile, and the points where it departs from the skill.
 - Does **not** apply to `contributing/guides/`, `README.md`, `CONTRIBUTING.md`,
   `CHANGELOG.md`, or acquired Knowledge bundles under `agent_extensions/**`. Each follows
   the contract of its actual consumer.
-- Published site content lives in `packages/core/site-content/docs/` and belongs
+- Published site content lives in `packages/cli/site-content/docs/` and belongs
   to the website, not this bundle. Do not symlink it in: the validator resolves
   symlinks, so a target outside `docs/` makes the bundle unvalidatable.
 - Keep private AgentXM context out of this bundle. It ships in the public

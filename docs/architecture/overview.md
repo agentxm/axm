@@ -68,17 +68,32 @@ agent administration tool.
 
 ## System structure
 
-- `@agentxm/client-core` owns reusable extension contracts, workspace state,
-  planning, source and registry integration, and agent-independent operations.
+- `@agentxm/extension-model` is the shared extension model both the AXM client
+  and the AgentXM platform must interpret identically: extension identities,
+  handles, FQNs, extension types, manifests, version constraints, package
+  identities, and agent capability data. It stays platform-neutral and
+  dependency-light.
+- `@agentxm/registry-protocol` owns the Registry wire contracts and the
+  contract-level publication validation both the client and the Registry run
+  identically: request and response schemas, publication and deprecation views,
+  suggested-action error vocabulary, content parsing, and publish lint rules.
+  It depends only on the extension model.
+- `@agentxm/extension-management` owns AXM's extension-management domain and
+  its integrations: workspace state, planning, reconciliation, source and
+  registry integration, and agent-independent operations. It depends on the
+  extension model and the Registry protocol.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
-  of the executable runtime. It delegates reusable behavior to core.
-- `@agentxm/client-utils` contains small public utilities without taking domain
-  ownership from core.
+  of the executable runtime. It delegates reusable behavior to the libraries
+  and publishes the generated site content.
 - End-to-end projects verify the published CLI boundary and do not become
   production dependencies.
 
-Production dependency direction points from the CLI toward core and utilities.
-Core never depends on CLI interaction or output rendering.
+Production dependency direction points strictly inward: CLI toward extension
+management, extension management toward the Registry protocol and the extension
+model, the Registry protocol toward the extension model. No library depends on
+CLI interaction or output rendering, and the executable specification
+`system/architecture/packages-follow-permitted-dependency-graph` owns the
+permitted graph.
 
 AXM is the public side of the AgentXM system. It may depend on published
 service contracts and published OSS-safe code packages. The executable

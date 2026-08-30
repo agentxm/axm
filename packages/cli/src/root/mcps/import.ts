@@ -9,48 +9,49 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
-} from "@agentxm/client-core/unstable/agent-capabilities";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CliRenderer, count } from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   AXM_MCP_METADATA_KEY,
+  McpServerManager,
+  installMcpServer,
+  buildAxmMcpMetadataFromSettingsSource,
+  isAxmManagedMcpEntry,
+} from "@agentxm/extension-management/unstable/mcps";
+import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-  McpServerManager,
-  installMcpServer,
   type McpServerManifest,
-  buildAxmMcpMetadataFromSettingsSource,
-  isAxmManagedMcpEntry,
-} from "@agentxm/client-core/unstable/mcps";
+} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   buildAuthoredExtensionStep,
   createCanonicalDirectory,
-  formatFqn,
-  fqnInvalidErrorToAppError,
-  parseFqn,
   preflightCreateOnly,
   recoverCanonicalDirectory,
-} from "@agentxm/client-core/unstable/extensions";
-import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
+} from "@agentxm/extension-management/unstable/extensions";
+import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
 import type {
   JobStepArtifact,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   operationPresentation,
   type OperationResolution,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
@@ -59,7 +60,7 @@ import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   type McpImportAdoption,
   type McpImportCandidate,

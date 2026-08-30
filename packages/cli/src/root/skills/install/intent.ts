@@ -5,8 +5,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
+import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/skills";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**
  * Describes the resolved intent to install one or more skills.

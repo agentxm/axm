@@ -1,7 +1,10 @@
 import * as ServiceMap from "effect/Context";
 import type * as Path from "effect/Path";
 
-import { decodeAbsolutePathSync, type AbsolutePath } from "@agentxm/client-core/unstable/utils";
+import {
+  decodeAbsolutePathSync,
+  type AbsolutePath,
+} from "@agentxm/extension-management/unstable/utils";
 
 export interface ExecutionDirectoryService {
   readonly path: AbsolutePath;

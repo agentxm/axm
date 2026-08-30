@@ -3,19 +3,19 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   KnowledgeIndex,
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
   KNOWLEDGE_METADATA_FILTER_FIELDS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
   makeKnowledgeQuery,
-  parseKnowledgeSearchQuery,
   type KnowledgeQueryClause,
-} from "@agentxm/client-core/unstable/knowledge";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/knowledge";
+import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
+import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";

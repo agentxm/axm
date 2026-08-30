@@ -2,10 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
-import { errAuthRequired } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  AuthClient,
+  RegistryUrl,
+  resolveRequiredToken,
+} from "@agentxm/extension-management/unstable/auth";
+import { errAuthRequired } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 
 export const WhoamiDataSchema = Schema.Struct({

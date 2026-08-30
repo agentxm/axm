@@ -18,28 +18,28 @@ import {
   TestMachineRenderer,
   TestRenderer,
   logsByTag,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionTest,
-} from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import {
   computePackManifestContentIdentity,
   PackManagerLive,
-} from "@agentxm/client-core/unstable/packs";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/packs";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,

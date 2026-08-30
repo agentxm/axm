@@ -6,10 +6,13 @@ import * as Schema from "effect/Schema";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
-} from "@agentxm/client-core/unstable/extensions";
-import { PackageTypeSchema } from "@agentxm/client-core/unstable/packaging";
-import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/client-core/unstable/discover";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/extensions";
+import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
+import type {
+  DiscoverPackageResult,
+  DiscoverResult,
+} from "@agentxm/extension-management/unstable/discover";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";
 import { formatPackageName, handleDiscoverWith, toDiscoverOutput } from "./handler.js";

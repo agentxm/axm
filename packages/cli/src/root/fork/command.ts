@@ -6,17 +6,17 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { installMcpServer, McpServerManager } from "@agentxm/client-core/unstable/mcps";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { installMcpServer, McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { PackManager } from "@agentxm/extension-management/unstable/packs";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
@@ -24,25 +24,34 @@ import {
   recoveryPositional,
   recoverySwitch,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   buildAuthoredExtensionStep,
   computePackageContentHash,
   copyExtensionDirectory,
   createCanonicalDirectory,
+  forkExtensionPackage,
+  preflightCreateOnly,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
   extensionTypeFromPlural,
   extensionTypeToPlural,
   formatFqn,
-  forkExtensionPackage,
-  fqnInvalidErrorToAppError,
   parseFqn,
   parseSourceQualifiedRegistrySourcePatternParts,
-  preflightCreateOnly,
-  recoverCanonicalDirectory,
   type ExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
-import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type {
+  JobStepArtifact,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   SourceHostProviders,
   findExtensionPackagesFromSource,
@@ -50,8 +59,8 @@ import {
   resolveSource,
   type ExtensionPackageFilter,
   type ResolvedExtensionPackage,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

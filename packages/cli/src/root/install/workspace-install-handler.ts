@@ -6,8 +6,11 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

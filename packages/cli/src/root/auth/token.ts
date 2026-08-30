@@ -5,20 +5,25 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, resolveRequiredToken } from "@agentxm/client-core/unstable/auth";
+import {
+  AuthClient,
+  RegistryUrl,
+  resolveRequiredToken,
+} from "@agentxm/extension-management/unstable/auth";
 import {
   errAuthRequired,
   makeAppError,
   type AppError,
-} from "@agentxm/client-core/unstable/app-error";
-import { jsonFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { DateTimeUtcSchema } from "@agentxm/client-core/unstable/date-time";
+} from "@agentxm/extension-management/unstable/app-error";
+import { jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   CliRenderer,
   type DetailView,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
-import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { withRuntime } from "../../runtime.js";
 import { runWithStepUp } from "../step-up.js";
 

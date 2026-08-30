@@ -14,9 +14,9 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/unstable/process";
 import { createHash } from "node:crypto";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import { findGitRoot } from "@agentxm/client-core/unstable/git";
-import { readEnvironment } from "@agentxm/client-core/unstable/utils";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { findGitRoot } from "@agentxm/extension-management/unstable/git";
+import { readEnvironment } from "@agentxm/extension-management/unstable/utils";
 
 export interface StagedWorkspace {
   readonly gitRoot: string;

@@ -1,6 +1,6 @@
 import { Flag } from "effect/unstable/cli";
 
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 
 import { scopeFlag } from "../../cli-flags.js";
 

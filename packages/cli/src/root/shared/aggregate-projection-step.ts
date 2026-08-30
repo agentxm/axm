@@ -1,15 +1,15 @@
 import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionType } from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
 import {
   applyProjectionPlans,
   type ProjectionPlan,
-} from "@agentxm/client-core/unstable/projection";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/projection";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 
 /**
  * One trailing projection write per semantic closure. Member steps commit

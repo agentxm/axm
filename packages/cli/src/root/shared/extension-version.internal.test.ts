@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { extensionTypes } from "@agentxm/client-core/unstable/extensions";
+import { extensionTypes } from "@agentxm/extension-model/unstable/extensions";
 import { VERSIONABLE_TYPES, isVersionableType, versionableTypes } from "./extension-version.js";
 
 describe("versionable type policy", () => {

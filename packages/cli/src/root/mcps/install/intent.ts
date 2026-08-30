@@ -7,8 +7,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { McpServerExtensionRef } from "@agentxm/client-core/unstable/mcps";
-import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
+import type { McpServerExtensionRef } from "@agentxm/extension-management/unstable/mcps";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 
 /**
  * Intent for installing an MCP server extension.

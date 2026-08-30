@@ -327,9 +327,11 @@ specifications/
     uninstall/
     sync/
     lint/
-  client-core/
-    source-resolution/
-    workspace-state/
+  extension-identity/
+  package-identity/
+  settings-contract/
+  source-resolution/
+  version-constraints/
   system/
     installability/
     compatibility/
@@ -349,7 +351,9 @@ verification/
 benchmarks/
 
 packages/
-  core/src/**/*.internal.test.ts
+  extension-model/src/**/*.internal.test.ts
+  registry-protocol/src/**/*.internal.test.ts
+  extension-management/src/**/*.internal.test.ts
   cli/src/**/*.internal.test.ts
 
 scripts/**/*.tooling.test.ts

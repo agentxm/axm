@@ -4,32 +4,34 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   createCanonicalDirectory,
-  decodeExtensionNameSync,
-  formatFqn,
   preflightCreateOnly,
   recoverCanonicalDirectory,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  decodeExtensionNameSync,
+  formatFqn,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/client-core/unstable/agent-capabilities";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-model/unstable/extensions";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   resolveWorkspaceExtensionRef,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -38,15 +40,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
-  installMcpServer,
   type McpServerManifest,
-} from "@agentxm/client-core/unstable/mcps";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";

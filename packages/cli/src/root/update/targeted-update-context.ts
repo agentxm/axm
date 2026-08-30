@@ -2,19 +2,19 @@ import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import { intersectVersionConstraints } from "@agentxm/client-core/unstable/version-constraints";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
   DesiredStateGraph,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   desiredStateProblemText,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 export type TargetedUpdateBlocker =
   | "not-desired"
@@ -32,7 +32,7 @@ export type TargetedUpdateEffect = "unchanged" | "may-update";
 export interface TargetedUpdatePublicContext {
   readonly target: {
     readonly type: Exclude<
-      import("@agentxm/client-core/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-management/unstable/extensions").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;
@@ -57,7 +57,7 @@ export interface TargetedUpdatePublicContext {
   readonly effectiveConstraint?: string;
   readonly memberClosure: ReadonlyArray<{
     readonly type: Exclude<
-      import("@agentxm/client-core/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-management/unstable/extensions").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;

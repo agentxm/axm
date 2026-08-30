@@ -1,13 +1,13 @@
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   type ExtensionName,
   type ExtensionType,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
-import type { RegistrySource } from "@agentxm/client-core/unstable/sources";
-import { resolveIdentifier } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import type { RegistrySource } from "@agentxm/extension-management/unstable/sources";
+import { resolveIdentifier } from "@agentxm/extension-management/unstable/source-resolution";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { ADD_REGISTRY_SOURCE } from "../suggested-actions.js";

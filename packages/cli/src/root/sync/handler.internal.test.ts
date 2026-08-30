@@ -5,30 +5,33 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
-import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { isEffectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import {
   computePackManifestContentIdentity,
   PackManagerLive,
   type PackRef,
-} from "@agentxm/client-core/unstable/packs";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
-import { SkillManagerLive, type SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/packs";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import {
+  SkillManagerLive,
+  type SkillExtensionRef,
+} from "@agentxm/extension-management/unstable/skills";
 import {
   SourceHostProviders,
   SourceHostProvidersLive,
   type SourceHostProvidersService,
-} from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,

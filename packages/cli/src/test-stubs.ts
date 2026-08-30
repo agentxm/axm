@@ -16,37 +16,39 @@ import type {
   ExtensionInventory,
   PackagingKind,
   ReadModelRecordRow,
-} from "@agentxm/client-core/unstable/workspace";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/workspace";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   ExtensionDependencyConstraintMapSchema,
-  SourceHashSchema,
-  TreeIntegritySchema,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
   type Handle,
-  type InstallableExtensionType,
   normalizeHandle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import {
+  SourceHashSchema,
+  TreeIntegritySchema,
+  type InstallableExtensionType,
+} from "@agentxm/extension-management/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type HookLockEntry,
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
-} from "@agentxm/client-core/unstable/lockfile";
-import { computeSourceHash } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/lockfile";
+import { computeSourceHash } from "@agentxm/extension-management/unstable/extensions";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,
   type Version,
   type VersionRange,
-} from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/version-constraints";
 import {
   decodeAbsolutePathSync,
   decodeRelativePathSync,
-} from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/utils";
 
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;

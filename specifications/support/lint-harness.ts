@@ -9,7 +9,7 @@
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/client-core/unstable/skills";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-management/unstable/skills";
 import {
   handleSkillsInstall,
   loadVersion,

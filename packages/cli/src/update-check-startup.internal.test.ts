@@ -17,8 +17,8 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { UpdateCheck, UpdateCheckTest } from "@agentxm/client-core/unstable/update-check";
+import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { UpdateCheck, UpdateCheckTest } from "@agentxm/extension-management/unstable/update-check";
 
 import {
   type NotificationPrinter,

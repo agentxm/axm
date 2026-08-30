@@ -4,18 +4,18 @@ import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   inspectMcpServerAcrossAgents,
   type AgentMcpServerInspection,
-} from "@agentxm/client-core/unstable/mcps";
-import type { McpServerEntry } from "@agentxm/client-core/unstable/settings";
-import type { ConfiguredAgentOutcome } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/mcps";
+import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
+import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/client-core/unstable/workspace";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/workspace";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {

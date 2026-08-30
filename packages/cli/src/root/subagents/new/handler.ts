@@ -2,30 +2,34 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
   computeSourceHash,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
+  preflightCreateOnly,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
-  preflightCreateOnly,
   type ExtensionName,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
+  type SubagentManifest,
+} from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import {
   subagentContentPath,
   SubagentManager,
-  type SubagentManifest,
   type WorkspaceSubagentRef,
-} from "@agentxm/client-core/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { JobStepArtifact, Plan } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation } from "@agentxm/client-core/unstable/plan";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-management/unstable/subagents";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { JobStepArtifact, Plan } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { joinDisplayPath } from "../../shared/display-path.js";

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { decodeDesiredExtensionIdentity } from "@agentxm/client-core/unstable/extensions";
+import { decodeDesiredExtensionIdentity } from "@agentxm/extension-management/unstable/extensions";
 import type {
   DesiredExtensionNode,
   DesiredStateGraph,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import {
   validateResolvedPackUninstallTargets,

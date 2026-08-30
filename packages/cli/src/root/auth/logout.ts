@@ -2,9 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
 
-import { AuthClient, RegistryUrl, CredentialStore } from "@agentxm/client-core/unstable/auth";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { type SuggestedAction, withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  AuthClient,
+  RegistryUrl,
+  CredentialStore,
+} from "@agentxm/extension-management/unstable/auth";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
 import { withRuntime } from "../../runtime.js";
 

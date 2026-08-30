@@ -105,7 +105,11 @@ const readSpecificationMetadata = (
 
 const SUBJECT_DISPLAY: Readonly<Record<string, string>> = {
   cli: "CLI",
-  "client-core": "Client Core",
+  "extension-identity": "Extension Identity",
+  "package-identity": "Package Identity",
+  "settings-contract": "Settings Contract",
+  "source-resolution": "Source Resolution",
+  "version-constraints": "Version Constraints",
   system: "System",
 };
 

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { deriveOperationOutcome } from "@agentxm/client-core/unstable/plan";
-import { runUninstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { deriveOperationOutcome } from "@agentxm/extension-management/unstable/plan";
+import { runUninstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

@@ -4,26 +4,26 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer, type TableView } from "@agentxm/client-core/unstable/cli-renderer";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   ExtensionFqnSchema,
   ExtensionVisibilitySchema,
   parseExtensionFqnParts,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
   resolveVisibilityIntent,
   type VisibilityIntent,
-} from "@agentxm/client-core/unstable/publish";
+} from "@agentxm/registry-protocol/unstable/publish";
 import {
   createRegistryClient,
   type ExtensionVisibility,
-} from "@agentxm/client-core/unstable/registry";
-import { manifestFilenameForType } from "@agentxm/client-core/unstable/publish";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/registry";
+import { manifestFilenameForType } from "@agentxm/registry-protocol/unstable/publish";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { runWithStepUp } from "../step-up.js";
 

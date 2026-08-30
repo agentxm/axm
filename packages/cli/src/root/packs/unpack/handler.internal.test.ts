@@ -14,18 +14,21 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { SkillManagerLive, type RegistrySkillRef } from "@agentxm/client-core/unstable/skills";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  SkillManagerLive,
+  type RegistrySkillRef,
+} from "@agentxm/extension-management/unstable/skills";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import {
   computePackManifestContentIdentity,
   PackManagerLive,
-} from "@agentxm/client-core/unstable/packs";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/packs";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -37,7 +40,7 @@ import {
   property,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import {
   computeMaterializedTreeIntegritySync,
   exactVersion,

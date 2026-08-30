@@ -1,10 +1,13 @@
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import type { InputParseResult, InputPattern } from "@agentxm/client-core/unstable/sources";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import type {
+  InputParseResult,
+  InputPattern,
+} from "@agentxm/extension-management/unstable/sources";
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
   routeUrlInput,
-} from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {

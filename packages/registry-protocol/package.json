@@ -1,0 +1,210 @@
+{
+  "name": "@agentxm/registry-protocol",
+  "version": "0.28.2",
+  "description": "AgentXM Registry wire contracts and shared publication validation rules. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/registry-protocol"
+  },
+  "exports": {
+    "./unstable/content": {
+      "types": "./dist/src/unstable/content/index.d.ts",
+      "default": "./dist/src/unstable/content/index.js"
+    },
+    "./unstable/content/agent-skills-standard": {
+      "types": "./dist/src/unstable/content/agent-skills-standard.d.ts",
+      "default": "./dist/src/unstable/content/agent-skills-standard.js"
+    },
+    "./unstable/content/frontmatter": {
+      "types": "./dist/src/unstable/content/frontmatter.d.ts",
+      "default": "./dist/src/unstable/content/frontmatter.js"
+    },
+    "./unstable/content/skill-content": {
+      "types": "./dist/src/unstable/content/skill-content.d.ts",
+      "default": "./dist/src/unstable/content/skill-content.js"
+    },
+    "./unstable/content/skill-types": {
+      "types": "./dist/src/unstable/content/skill-types.d.ts",
+      "default": "./dist/src/unstable/content/skill-types.js"
+    },
+    "./unstable/content/subagent-content": {
+      "types": "./dist/src/unstable/content/subagent-content.d.ts",
+      "default": "./dist/src/unstable/content/subagent-content.js"
+    },
+    "./unstable/knowledge": {
+      "types": "./dist/src/unstable/knowledge/index.d.ts",
+      "default": "./dist/src/unstable/knowledge/index.js"
+    },
+    "./unstable/knowledge/knowledge-search": {
+      "types": "./dist/src/unstable/knowledge/knowledge-search.d.ts",
+      "default": "./dist/src/unstable/knowledge/knowledge-search.js"
+    },
+    "./unstable/knowledge/okf": {
+      "types": "./dist/src/unstable/knowledge/okf.d.ts",
+      "default": "./dist/src/unstable/knowledge/okf.js"
+    },
+    "./unstable/lint/catalog/hook": {
+      "types": "./dist/src/unstable/lint/catalog/hook.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/hook.js"
+    },
+    "./unstable/lint/catalog/knowledge": {
+      "types": "./dist/src/unstable/lint/catalog/knowledge.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/knowledge.js"
+    },
+    "./unstable/lint/catalog/knowledge/diagnostics": {
+      "types": "./dist/src/unstable/lint/catalog/knowledge/diagnostics.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/knowledge/diagnostics.js"
+    },
+    "./unstable/lint/catalog/mcp-server": {
+      "types": "./dist/src/unstable/lint/catalog/mcp-server.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/mcp-server.js"
+    },
+    "./unstable/lint/catalog/pack": {
+      "types": "./dist/src/unstable/lint/catalog/pack.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/pack.js"
+    },
+    "./unstable/lint/catalog/pack-accessor/contexts": {
+      "types": "./dist/src/unstable/lint/catalog/pack-accessor/contexts.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/pack-accessor/contexts.js"
+    },
+    "./unstable/lint/catalog/pack-accessor/vft": {
+      "types": "./dist/src/unstable/lint/catalog/pack-accessor/vft.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/pack-accessor/vft.js"
+    },
+    "./unstable/lint/catalog/rule": {
+      "types": "./dist/src/unstable/lint/catalog/rule.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/rule.js"
+    },
+    "./unstable/lint/catalog/shared/manifest-json": {
+      "types": "./dist/src/unstable/lint/catalog/shared/manifest-json.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/shared/manifest-json.js"
+    },
+    "./unstable/lint/catalog/skill": {
+      "types": "./dist/src/unstable/lint/catalog/skill.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/skill.js"
+    },
+    "./unstable/lint/catalog/skill-accessor/contexts": {
+      "types": "./dist/src/unstable/lint/catalog/skill-accessor/contexts.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/skill-accessor/contexts.js"
+    },
+    "./unstable/lint/catalog/skill-accessor/vft": {
+      "types": "./dist/src/unstable/lint/catalog/skill-accessor/vft.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/skill-accessor/vft.js"
+    },
+    "./unstable/lint/catalog/subagent": {
+      "types": "./dist/src/unstable/lint/catalog/subagent.d.ts",
+      "default": "./dist/src/unstable/lint/catalog/subagent.js"
+    },
+    "./unstable/lint/compose-path": {
+      "types": "./dist/src/unstable/lint/compose-path.d.ts",
+      "default": "./dist/src/unstable/lint/compose-path.js"
+    },
+    "./unstable/lint/config": {
+      "types": "./dist/src/unstable/lint/config.d.ts",
+      "default": "./dist/src/unstable/lint/config.js"
+    },
+    "./unstable/lint/context": {
+      "types": "./dist/src/unstable/lint/context.d.ts",
+      "default": "./dist/src/unstable/lint/context.js"
+    },
+    "./unstable/lint/evaluate": {
+      "types": "./dist/src/unstable/lint/evaluate.d.ts",
+      "default": "./dist/src/unstable/lint/evaluate.js"
+    },
+    "./unstable/lint/issues-to-findings": {
+      "types": "./dist/src/unstable/lint/issues-to-findings.d.ts",
+      "default": "./dist/src/unstable/lint/issues-to-findings.js"
+    },
+    "./unstable/lint/publish": {
+      "types": "./dist/src/unstable/lint/publish.d.ts",
+      "default": "./dist/src/unstable/lint/publish.js"
+    },
+    "./unstable/lint/rule": {
+      "types": "./dist/src/unstable/lint/rule.d.ts",
+      "default": "./dist/src/unstable/lint/rule.js"
+    },
+    "./unstable/publish": {
+      "types": "./dist/src/unstable/publish/index.d.ts",
+      "default": "./dist/src/unstable/publish/index.js"
+    },
+    "./unstable/publish/archive-guardrails": {
+      "types": "./dist/src/unstable/publish/archive-guardrails.d.ts",
+      "default": "./dist/src/unstable/publish/archive-guardrails.js"
+    },
+    "./unstable/publish/filtered-package-validation": {
+      "types": "./dist/src/unstable/publish/filtered-package-validation.d.ts",
+      "default": "./dist/src/unstable/publish/filtered-package-validation.js"
+    },
+    "./unstable/publish/ingest-limits": {
+      "types": "./dist/src/unstable/publish/ingest-limits.d.ts",
+      "default": "./dist/src/unstable/publish/ingest-limits.js"
+    },
+    "./unstable/publish/input-normalization": {
+      "types": "./dist/src/unstable/publish/input-normalization.d.ts",
+      "default": "./dist/src/unstable/publish/input-normalization.js"
+    },
+    "./unstable/publish/manifest-policy": {
+      "types": "./dist/src/unstable/publish/manifest-policy.d.ts",
+      "default": "./dist/src/unstable/publish/manifest-policy.js"
+    },
+    "./unstable/publish/visibility": {
+      "types": "./dist/src/unstable/publish/visibility.d.ts",
+      "default": "./dist/src/unstable/publish/visibility.js"
+    },
+    "./unstable/registry": {
+      "types": "./dist/src/unstable/registry/index.d.ts",
+      "default": "./dist/src/unstable/registry/index.js"
+    },
+    "./unstable/registry/discover-schema": {
+      "types": "./dist/src/unstable/registry/discover-schema.d.ts",
+      "default": "./dist/src/unstable/registry/discover-schema.js"
+    },
+    "./unstable/registry/publication-set": {
+      "types": "./dist/src/unstable/registry/publication-set.d.ts",
+      "default": "./dist/src/unstable/registry/publication-set.js"
+    },
+    "./unstable/registry/schema": {
+      "types": "./dist/src/unstable/registry/schema.d.ts",
+      "default": "./dist/src/unstable/registry/schema.js"
+    },
+    "./unstable/suggested-action": {
+      "types": "./dist/src/unstable/suggested-action.d.ts",
+      "default": "./dist/src/unstable/suggested-action.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "effect": "catalog:",
+    "semver": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

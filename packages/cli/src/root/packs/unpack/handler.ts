@@ -2,12 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/client-core/unstable/extensions";
-import { PackManager } from "@agentxm/client-core/unstable/packs";
+} from "@agentxm/extension-management/unstable/extensions";
+import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -15,13 +15,13 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   usableAcceptedCanonical,
   type DesiredExtensionNode,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

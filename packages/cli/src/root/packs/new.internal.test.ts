@@ -13,9 +13,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { Handle } from "@agentxm/client-core/unstable/extensions";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,

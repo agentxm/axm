@@ -12,24 +12,27 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { count } from "@agentxm/client-core/unstable/cli-renderer";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { expandGlob } from "@agentxm/client-core/unstable/utils";
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
+import { count } from "@agentxm/extension-management/unstable/cli-renderer";
+import {
+  WorkspaceMutations,
+  installedRowsByName,
+} from "@agentxm/extension-management/unstable/workspace";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import { expandGlob } from "@agentxm/extension-management/unstable/utils";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
   SkillManager,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/client-core/unstable/skills";
+} from "@agentxm/extension-management/unstable/skills";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   buildUninstallOperation,
   sanitizeName,
-} from "@agentxm/client-core/unstable/extensions";
-import type { SkillLockEntry } from "@agentxm/client-core/unstable/lockfile";
-import type { SkillExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/extensions";
+import type { SkillLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { SkillExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import {
   workspaceAuthoredPath,
   workspaceCanonicalPath,
@@ -37,13 +40,13 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 

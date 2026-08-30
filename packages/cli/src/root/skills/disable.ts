@@ -3,15 +3,25 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/client-core/unstable/source-resolution";
-import { WorkspaceMutations, installedRowsByName } from "@agentxm/client-core/unstable/workspace";
-import type { DisableSkillOperation } from "@agentxm/client-core/unstable/skills";
-import { disableSkill } from "@agentxm/client-core/unstable/skills";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import { operationPresentation, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  WorkspaceMutations,
+  installedRowsByName,
+} from "@agentxm/extension-management/unstable/workspace";
+import type { DisableSkillOperation } from "@agentxm/extension-management/unstable/skills";
+import { disableSkill } from "@agentxm/extension-management/unstable/skills";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import type {
+  JobStepResult,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/extension-management/unstable/plan";
+import {
+  operationPresentation,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitOperationResolution } from "../../operation-output.js";

@@ -8,37 +8,37 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type PlanExecution,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import type { OperationResolution, Plan } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import type { OperationResolution, Plan } from "@agentxm/extension-management/unstable/plan";
 import {
   makeOperationResolution,
   operationPresentation,
   previewOrApplyPlan,
-} from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
   type ReleaseAgeHoldbackRecord,
   type ReleaseAgeOperationEvidence,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 import {
   SourceHostProviders,
   resolveSource,
-} from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/source-resolution";
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
   makeConfiguredReleaseAgeEvaluation,
   usableAcceptedCanonical,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,
-} from "@agentxm/client-core/unstable/version-constraints";
-import { toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

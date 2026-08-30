@@ -23,8 +23,9 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 const WORKSPACE_MANIFESTS = [
   "package.json",
   "packages/cli/package.json",
-  "packages/core/package.json",
-  "packages/utils/package.json",
+  "packages/extension-management/package.json",
+  "packages/extension-model/package.json",
+  "packages/registry-protocol/package.json",
   "packages/cli-e2e/package.json",
   "packages/e2e-utils/package.json",
   "specifications/package.json",
@@ -71,13 +72,17 @@ describe("Public and private boundary", () => {
   it.effect("registry and telemetry integration is generated from published contracts", () =>
     Effect.sync(() => {
       expect(
-        fs.existsSync(path.join(repoRoot, "packages/core/src/unstable/registry/__generated__")) ||
-          fs.existsSync(path.join(repoRoot, "packages/core/src/unstable/registry")),
+        fs.existsSync(
+          path.join(repoRoot, "packages/extension-management/src/unstable/registry/__generated__"),
+        ) ||
+          fs.existsSync(path.join(repoRoot, "packages/extension-management/src/unstable/registry")),
       ).toBe(true);
       // The generated clients and their source specs are tracked inside this
       // repository, so the public system builds without private context.
       expect(
-        fs.existsSync(path.join(repoRoot, "packages/core/src/unstable/telemetry/__generated__")),
+        fs.existsSync(
+          path.join(repoRoot, "packages/extension-management/src/unstable/telemetry/__generated__"),
+        ),
       ).toBe(true);
     }),
   );

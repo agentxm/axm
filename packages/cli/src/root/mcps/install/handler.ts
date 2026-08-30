@@ -4,13 +4,13 @@ import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   deriveOperationOutcome,
   operationPresentation,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
@@ -21,8 +21,8 @@ import {
   InstallMcpServerCommandWorkflowActions,
   type InstallMcpServerHandlerArgs,
 } from "./command-actions.js";
-import type { ConfigurableAgentId } from "@agentxm/client-core/unstable/agent-capabilities";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 
 export interface InstallMcpServerFlags {
   readonly yes: boolean;

@@ -8,7 +8,15 @@ export default defineConfig({
   root: projectRoot,
   test: {
     ...makeTestReporting({ layer: "specification", suite: "specifications" }),
-    include: ["cli/**/*.spec.ts", "client-core/**/*.spec.ts", "system/**/*.spec.ts"],
+    include: [
+      "cli/**/*.spec.ts",
+      "extension-identity/**/*.spec.ts",
+      "package-identity/**/*.spec.ts",
+      "settings-contract/**/*.spec.ts",
+      "source-resolution/**/*.spec.ts",
+      "version-constraints/**/*.spec.ts",
+      "system/**/*.spec.ts",
+    ],
     exclude: [...configDefaults.exclude],
     setupFiles: ["./support/reporting.setup.ts"],
   },

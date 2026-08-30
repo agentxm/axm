@@ -1,0 +1,171 @@
+{
+  "name": "@agentxm/extension-model",
+  "version": "0.28.2",
+  "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/extension-model"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./unstable/agent-capabilities": {
+      "types": "./dist/src/unstable/agent-capabilities/index.d.ts",
+      "default": "./dist/src/unstable/agent-capabilities/index.js"
+    },
+    "./unstable/agent-capabilities/catalog": {
+      "types": "./dist/src/unstable/agent-capabilities/catalog.d.ts",
+      "default": "./dist/src/unstable/agent-capabilities/catalog.js"
+    },
+    "./unstable/agent-capabilities/derive": {
+      "types": "./dist/src/unstable/agent-capabilities/derive.d.ts",
+      "default": "./dist/src/unstable/agent-capabilities/derive.js"
+    },
+    "./unstable/agents/types": {
+      "types": "./dist/src/unstable/agents/types.d.ts",
+      "default": "./dist/src/unstable/agents/types.js"
+    },
+    "./unstable/date-time": {
+      "types": "./dist/src/unstable/date-time.d.ts",
+      "default": "./dist/src/unstable/date-time.js"
+    },
+    "./unstable/extension-types": {
+      "types": "./dist/src/unstable/extension-types/index.d.ts",
+      "default": "./dist/src/unstable/extension-types/index.js"
+    },
+    "./unstable/extension-types/schema": {
+      "types": "./dist/src/unstable/extension-types/schema.d.ts",
+      "default": "./dist/src/unstable/extension-types/schema.js"
+    },
+    "./unstable/extension-types/standards": {
+      "types": "./dist/src/unstable/extension-types/standards.d.ts",
+      "default": "./dist/src/unstable/extension-types/standards.js"
+    },
+    "./unstable/extensions": {
+      "types": "./dist/src/unstable/extensions/index.d.ts",
+      "default": "./dist/src/unstable/extensions/index.js"
+    },
+    "./unstable/extensions/common": {
+      "types": "./dist/src/unstable/extensions/common.d.ts",
+      "default": "./dist/src/unstable/extensions/common.js"
+    },
+    "./unstable/extensions/fqn": {
+      "types": "./dist/src/unstable/extensions/fqn.d.ts",
+      "default": "./dist/src/unstable/extensions/fqn.js"
+    },
+    "./unstable/extensions/fqn-pattern": {
+      "types": "./dist/src/unstable/extensions/fqn-pattern.d.ts",
+      "default": "./dist/src/unstable/extensions/fqn-pattern.js"
+    },
+    "./unstable/extensions/handle": {
+      "types": "./dist/src/unstable/extensions/handle.d.ts",
+      "default": "./dist/src/unstable/extensions/handle.js"
+    },
+    "./unstable/extensions/license": {
+      "types": "./dist/src/unstable/extensions/license.d.ts",
+      "default": "./dist/src/unstable/extensions/license.js"
+    },
+    "./unstable/extensions/manifest-metadata": {
+      "types": "./dist/src/unstable/extensions/manifest-metadata.d.ts",
+      "default": "./dist/src/unstable/extensions/manifest-metadata.js"
+    },
+    "./unstable/extensions/registry-source": {
+      "types": "./dist/src/unstable/extensions/registry-source.d.ts",
+      "default": "./dist/src/unstable/extensions/registry-source.js"
+    },
+    "./unstable/hooks/manifest-schema": {
+      "types": "./dist/src/unstable/hooks/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/hooks/manifest-schema.js"
+    },
+    "./unstable/knowledge": {
+      "types": "./dist/src/unstable/knowledge/index.d.ts",
+      "default": "./dist/src/unstable/knowledge/index.js"
+    },
+    "./unstable/knowledge/concept-ref": {
+      "types": "./dist/src/unstable/knowledge/concept-ref.d.ts",
+      "default": "./dist/src/unstable/knowledge/concept-ref.js"
+    },
+    "./unstable/knowledge/manifest-schema": {
+      "types": "./dist/src/unstable/knowledge/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/knowledge/manifest-schema.js"
+    },
+    "./unstable/mcps/manifest-schema": {
+      "types": "./dist/src/unstable/mcps/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/mcps/manifest-schema.js"
+    },
+    "./unstable/package-urls": {
+      "types": "./dist/src/unstable/package-urls/index.d.ts",
+      "default": "./dist/src/unstable/package-urls/index.js"
+    },
+    "./unstable/packaging": {
+      "types": "./dist/src/unstable/packaging/index.d.ts",
+      "default": "./dist/src/unstable/packaging/index.js"
+    },
+    "./unstable/packaging/package-type": {
+      "types": "./dist/src/unstable/packaging/package-type.d.ts",
+      "default": "./dist/src/unstable/packaging/package-type.js"
+    },
+    "./unstable/packaging/package-url": {
+      "types": "./dist/src/unstable/packaging/package-url.d.ts",
+      "default": "./dist/src/unstable/packaging/package-url.js"
+    },
+    "./unstable/packs/manifest-schema": {
+      "types": "./dist/src/unstable/packs/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/packs/manifest-schema.js"
+    },
+    "./unstable/rules/manifest-schema": {
+      "types": "./dist/src/unstable/rules/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/rules/manifest-schema.js"
+    },
+    "./unstable/skills/manifest-schema": {
+      "types": "./dist/src/unstable/skills/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/skills/manifest-schema.js"
+    },
+    "./unstable/subagents/manifest-schema": {
+      "types": "./dist/src/unstable/subagents/manifest-schema.d.ts",
+      "default": "./dist/src/unstable/subagents/manifest-schema.js"
+    },
+    "./unstable/version-constraints": {
+      "types": "./dist/src/unstable/version-constraints/version-constraints.d.ts",
+      "default": "./dist/src/unstable/version-constraints/version-constraints.js"
+    },
+    "./unstable/workspace-files": {
+      "types": "./dist/src/unstable/workspace-files.d.ts",
+      "default": "./dist/src/unstable/workspace-files.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "packageurl-js": "catalog:",
+    "semver": "catalog:",
+    "spdx-expression-parse": "4.0.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/semver": "catalog:",
+    "@types/spdx-expression-parse": "4.0.0",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

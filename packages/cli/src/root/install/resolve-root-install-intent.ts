@@ -2,17 +2,19 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   installableExtensionTypePluralSegments,
   InstallableExtensionTypePluralSchema,
   isInstallableExtensionTypePlural,
-  parseSourceQualifiedRegistrySourcePatternParts,
-  RegistrySourceRefSchema,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/client-core/unstable/extensions";
-import { parseInputPattern } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
+  RegistrySourceRefSchema,
+} from "@agentxm/extension-model/unstable/extensions";
+import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
 
 import { perTypeInstallPluralSegments } from "../shared/per-type-install.js";
 

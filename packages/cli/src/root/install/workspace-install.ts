@@ -7,21 +7,21 @@ import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { ConfiguredAgentOperation } from "@agentxm/client-core/unstable/cli-runtime";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { ConfiguredAgentOperation } from "@agentxm/extension-management/unstable/cli-runtime";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeEvaluation,
   type ReleaseAgeHoldbackRecord,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   acceptedResolutionRef,
   acceptedLockedResolutionRef,
@@ -35,24 +35,28 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+} from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import {
   enabledConfiguredEntries,
-  extensionTypePluralSentenceLabels,
   installableExtensionTypes,
-  parseRegistrySourceRef,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
-} from "@agentxm/client-core/unstable/extensions";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  extensionTypePluralSentenceLabels,
+  parseRegistrySourceRef,
+} from "@agentxm/extension-model/unstable/extensions";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   computePackManifestContentIdentity,
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
   type PackDependencyRefResolver,
   type PackRef,
-} from "@agentxm/client-core/unstable/packs";
+} from "@agentxm/extension-management/unstable/packs";
+import {
+  PACK_MANIFEST_FILENAME,
+  PackManifestSchema,
+} from "@agentxm/extension-model/unstable/packs/manifest-schema";
 
 import type { InstallHookCommandIntent } from "../hooks/install/intent.js";
 import type { InstallKnowledgeCommandIntent } from "../knowledge/install/intent.js";

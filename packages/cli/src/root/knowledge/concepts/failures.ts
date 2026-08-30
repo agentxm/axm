@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 
-import { ExitCode } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { effectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
+import { ExitCode } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { effectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
 
 import {
   KnowledgeConceptCorpusChangingFailureSchema,

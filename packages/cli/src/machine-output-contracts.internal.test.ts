@@ -4,13 +4,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
-import { JsonHelpDocSchema, JsonVersionDocSchema } from "@agentxm/client-core/unstable/cli-runtime";
-import { LoginDocumentSchema } from "@agentxm/client-core/unstable/auth";
+import {
+  JsonHelpDocSchema,
+  JsonVersionDocSchema,
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { LoginDocumentSchema } from "@agentxm/extension-management/unstable/auth";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
-} from "@agentxm/client-core/unstable/publish";
-import { ExtensionInventorySchema } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/registry-protocol/unstable/publish";
+import { ExtensionInventorySchema } from "@agentxm/extension-management/unstable/workspace";
 
 import {
   captureHelpDoc,

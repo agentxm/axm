@@ -19,11 +19,14 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach } from "vitest";
-import { deriveOperationOutcome, previewOrApplyPlan } from "@agentxm/client-core/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/client-core/unstable/cli-runtime";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { SkillManagerLive } from "@agentxm/client-core/unstable/skills";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import {
+  deriveOperationOutcome,
+  previewOrApplyPlan,
+} from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
 import {

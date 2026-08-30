@@ -15,8 +15,8 @@ const collectProductionFiles = (directory: string): ReadonlyArray<string> =>
   });
 
 describe("accepted-resolution authority boundary", () => {
-  const productionFiles = ["packages/core/src", "packages/cli/src"].flatMap((directory) =>
-    collectProductionFiles(path.join(repoRoot, directory)),
+  const productionFiles = ["packages/extension-management/src", "packages/cli/src"].flatMap(
+    (directory) => collectProductionFiles(path.join(repoRoot, directory)),
   );
 
   it("has no trust repository production dependency", () => {
@@ -32,10 +32,13 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
     const transactionSource = fs.readFileSync(
-      path.join(repoRoot, "packages/core/src/unstable/workspace/transaction.ts"),
+      path.join(repoRoot, "packages/extension-management/src/unstable/workspace/transaction.ts"),
       "utf8",
     );
-    const corePackage = fs.readFileSync(path.join(repoRoot, "packages/core/package.json"), "utf8");
+    const corePackage = fs.readFileSync(
+      path.join(repoRoot, "packages/extension-management/package.json"),
+      "utf8",
+    );
 
     expect(transactionSource).not.toContain("fs-native-extensions");
     expect(corePackage).not.toContain("fs-native-extensions");
@@ -43,7 +46,7 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps history, projection, authored, and pack-membership fields out of lock schema", () => {
     const source = fs.readFileSync(
-      path.join(repoRoot, "packages/core/src/unstable/lockfile/schema.ts"),
+      path.join(repoRoot, "packages/extension-management/src/unstable/lockfile/schema.ts"),
       "utf8",
     );
     for (const forbidden of [

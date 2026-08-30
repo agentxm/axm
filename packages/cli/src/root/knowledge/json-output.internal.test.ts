@@ -9,8 +9,8 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import { isEffectCliExit } from "@agentxm/client-core/unstable/cli-runtime";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
+import { isEffectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 
 import {
   managerLifecycleStubs,

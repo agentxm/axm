@@ -6,15 +6,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
-  AgentExecutableResolver,
-  CONFIGURABLE_AGENT_IDS,
-} from "@agentxm/client-core/unstable/agents";
-import type { WorkspaceMutationsOptions } from "@agentxm/client-core/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/client-core/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
+import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle.js";

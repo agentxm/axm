@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   makeOperationResolution,
   type JobStepArtifact,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 
 import {
   PlanResolutionResultSchema,

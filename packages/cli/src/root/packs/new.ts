@@ -6,22 +6,27 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   buildNewExtensionStep,
   computeSourceHash,
+  preflightCreateOnly,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
   decodeExtensionNameSync,
   formatFqn,
   normalizeHandle,
-  preflightCreateOnly,
   type ExtensionName,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/client-core/unstable/packs";
-import type { NewPackOperation, WorkspacePackRef } from "@agentxm/client-core/unstable/packs";
-import { newPack, PackManager } from "@agentxm/client-core/unstable/packs";
-import { computePackPathsForLayout } from "@agentxm/client-core/unstable/packs";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import { operationPresentation, type Plan } from "@agentxm/client-core/unstable/plan";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import type {
+  NewPackOperation,
+  WorkspacePackRef,
+} from "@agentxm/extension-management/unstable/packs";
+import { newPack, PackManager } from "@agentxm/extension-management/unstable/packs";
+import { computePackPathsForLayout } from "@agentxm/extension-management/unstable/packs";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { operationPresentation, type Plan } from "@agentxm/extension-management/unstable/plan";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -29,7 +34,7 @@ import { joinDisplayPath } from "../shared/display-path.js";
 import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
-import { decodeVersionSync } from "@agentxm/client-core/unstable/version-constraints";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 
 export interface PacksNewHandlerArgs {

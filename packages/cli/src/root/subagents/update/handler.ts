@@ -1,43 +1,43 @@
-import type { SubagentExtensionRef } from "@agentxm/client-core/unstable/subagents";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
+import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 
 import {
   WorkspaceMutations,
   configuredRowsByName,
   makeConfiguredReleaseAgeEvaluation,
   type WorkspaceMutationsService,
-} from "@agentxm/client-core/unstable/workspace";
-import { decodeExtensionNameSync, type Handle } from "@agentxm/client-core/unstable/extensions";
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/client-core/unstable/extensions";
-import { resolveSource } from "@agentxm/client-core/unstable/source-resolution";
-import { isWorkspaceSourceLocator } from "@agentxm/client-core/unstable/sources";
-import { buildInstallOperation } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/workspace";
+import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
+import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeEvidence,
   type ReleaseAgeRecord,
-} from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/registry";
 import {
   operationPresentation,
   previewOrApplyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";

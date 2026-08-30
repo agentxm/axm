@@ -102,15 +102,43 @@ export const findSourceHygieneViolations = (
 };
 
 const MACHINE_STDOUT_WRITERS = new Set([
-  path.join("packages", "core", "src", "unstable", "cli-renderer", "renderer-helpers.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "handle-error.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "run-cli-main.ts"),
-  path.join("packages", "core", "src", "unstable", "cli-runtime", "runtime-envelope.ts"),
+  path.join(
+    "packages",
+    "extension-management",
+    "src",
+    "unstable",
+    "cli-renderer",
+    "renderer-helpers.ts",
+  ),
+  path.join(
+    "packages",
+    "extension-management",
+    "src",
+    "unstable",
+    "cli-runtime",
+    "handle-error.ts",
+  ),
+  path.join(
+    "packages",
+    "extension-management",
+    "src",
+    "unstable",
+    "cli-runtime",
+    "run-cli-main.ts",
+  ),
+  path.join(
+    "packages",
+    "extension-management",
+    "src",
+    "unstable",
+    "cli-runtime",
+    "runtime-envelope.ts",
+  ),
 ]);
 
 const PROMPT_RUN_BOUNDARY = path.join(
   "packages",
-  "core",
+  "extension-management",
   "src",
   "unstable",
   "cli",
@@ -133,7 +161,9 @@ export const findMachineOutputBoundaryViolations = (
 ): ReadonlyArray<MachineOutputBoundaryViolation> => {
   const roots = [
     path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src", "unstable"),
+    path.join(repoRoot, "packages", "extension-management", "src", "unstable"),
+    path.join(repoRoot, "packages", "extension-model", "src", "unstable"),
+    path.join(repoRoot, "packages", "registry-protocol", "src", "unstable"),
   ];
   const sourceFiles: string[] = [];
   for (const root of roots) {
@@ -184,7 +214,9 @@ export const findPromptBoundaryViolations = (
   const sourceFiles: string[] = [];
   for (const root of [
     path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src"),
+    path.join(repoRoot, "packages", "extension-management", "src"),
+    path.join(repoRoot, "packages", "extension-model", "src"),
+    path.join(repoRoot, "packages", "registry-protocol", "src"),
   ]) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
@@ -249,7 +281,9 @@ export const findAxmEnvironmentContractViolations = (
   const sourceFiles: string[] = [];
   for (const root of [
     path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "core", "src"),
+    path.join(repoRoot, "packages", "extension-management", "src"),
+    path.join(repoRoot, "packages", "extension-model", "src"),
+    path.join(repoRoot, "packages", "registry-protocol", "src"),
   ]) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }

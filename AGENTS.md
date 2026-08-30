@@ -171,8 +171,9 @@ errors, and tests with the feature that owns them.
 - **Shared within feature** → in a dedicated file in that feature folder (e.g., `schema.ts`)
 - **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
-**`@agentxm/client-core` unstable namespace** — All core code lives under
-`src/unstable/` and is exported via `@agentxm/client-core/unstable/*`. Never place core
+**Library `unstable` namespace** — All library code in `@agentxm/extension-model`,
+`@agentxm/registry-protocol`, and `@agentxm/extension-management` lives under
+`src/unstable/` and is exported via `<package>/unstable/*`. Never place library
 code directly under `src/`.
 
 ## TypeScript

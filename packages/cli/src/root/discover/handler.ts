@@ -3,19 +3,19 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
 import {
   CliRenderer,
   registerEntity,
   type TableView,
-} from "@agentxm/client-core/unstable/cli-renderer";
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   discover,
   type DiscoverPackageResult,
   type DiscoverResult,
-} from "@agentxm/client-core/unstable/discover";
-import { PackageUrlSchema } from "@agentxm/client-core/unstable/packaging";
-import { createRegistryClient } from "@agentxm/client-core/unstable/registry";
+} from "@agentxm/extension-management/unstable/discover";
+import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging";
+import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {
   ExecutionDirectory,
   resolveExecutionPath,

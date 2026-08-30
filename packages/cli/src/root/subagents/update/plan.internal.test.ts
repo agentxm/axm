@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { SubagentsLockMap } from "@agentxm/client-core/unstable/lockfile";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/client-core/unstable/plan";
-import type { RegistrySubagentRef } from "@agentxm/client-core/unstable/subagents";
-import { TreeIntegritySchema } from "@agentxm/client-core/unstable/extensions";
+import type { SubagentsLockMap } from "@agentxm/extension-management/unstable/lockfile";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { RegistrySubagentRef } from "@agentxm/extension-management/unstable/subagents";
+import { TreeIntegritySchema } from "@agentxm/extension-management/unstable/extensions";
 import * as Schema from "effect/Schema";
 import { buildUpdatePlan, type UpdateOperation } from "./plan.js";
 import { exactVersion, extensionName, handle } from "../../../test-stubs.js";

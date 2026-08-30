@@ -22,7 +22,15 @@ export const specification = defineSpecification({
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 const specificationsRoot = path.join(repoRoot, "specifications");
-const SPECIFICATION_AREAS = ["cli", "client-core", "system"] as const;
+const SPECIFICATION_AREAS = [
+  "cli",
+  "extension-identity",
+  "package-identity",
+  "settings-contract",
+  "source-resolution",
+  "version-constraints",
+  "system",
+] as const;
 const SKIPPED_ENTRIES = new Set(["node_modules", "out-tsc", "dist"]);
 
 const registeredCommandPaths = (

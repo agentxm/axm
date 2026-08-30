@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { AppError } from "@agentxm/client-core/unstable/app-error";
-import { buildUninstallOperation } from "@agentxm/client-core/unstable/extensions";
-import type { Plan } from "@agentxm/client-core/unstable/plan";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/client-core/unstable/rules";
-import type { RuleExtensionTarget } from "@agentxm/client-core/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import type { Plan } from "@agentxm/extension-management/unstable/plan";
+import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
+import type { RuleExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { UninstallRuleCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 

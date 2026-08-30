@@ -20,8 +20,18 @@ export const specification = defineSpecification({
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 
 const E2E_PROJECT_ROOTS = ["packages/cli-e2e", "packages/e2e-utils"] as const;
-const FORBIDDEN_PACKAGE_NAMES = ["@agentxm/client-core", "axm.sh"] as const;
-const FORBIDDEN_PROJECT_ROOTS = ["packages/core", "packages/cli"] as const;
+const FORBIDDEN_PACKAGE_NAMES = [
+  "@agentxm/extension-model",
+  "@agentxm/registry-protocol",
+  "@agentxm/extension-management",
+  "axm.sh",
+] as const;
+const FORBIDDEN_PROJECT_ROOTS = [
+  "packages/extension-model",
+  "packages/registry-protocol",
+  "packages/extension-management",
+  "packages/cli",
+] as const;
 const DEPENDENCY_FIELDS = [
   "dependencies",
   "devDependencies",

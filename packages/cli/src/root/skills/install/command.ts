@@ -1,8 +1,12 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { previewFlag, reinstallFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  previewFlag,
+  reinstallFlag,
+  yesFlag,
+} from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../../cli-flags.js";
 import { handleInstall, validateInstallArgsBeforeWorkspace } from "./handler.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";

@@ -458,108 +458,98 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: example
 - Source: [`specifications/cli/machine-mode-never-prompts.spec.ts`](../specifications/cli/machine-mode-never-prompts.spec.ts)
 
-### Client core
+### Extension identity
 
-#### Extension Identity
+#### Canonical Names Round Trip
 
 ##### A canonical extension name always parses back to the identity that produced it
 
-- Requirement: `client-core/extension-identity/canonical-names-round-trip`
+- Requirement: `extension-identity/canonical-names-round-trip`
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, example
-- Source: [`specifications/client-core/extension-identity/canonical-names-round-trip.spec.ts`](../specifications/client-core/extension-identity/canonical-names-round-trip.spec.ts)
+- Source: [`specifications/extension-identity/canonical-names-round-trip.spec.ts`](../specifications/extension-identity/canonical-names-round-trip.spec.ts)
+
+#### Malformed Names Are Rejected
 
 ##### A malformed extension name is rejected with a typed failure naming the input
 
-- Requirement: `client-core/extension-identity/malformed-names-are-rejected`
+- Requirement: `extension-identity/malformed-names-are-rejected`
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
-- Source: [`specifications/client-core/extension-identity/malformed-names-are-rejected.spec.ts`](../specifications/client-core/extension-identity/malformed-names-are-rejected.spec.ts)
+- Source: [`specifications/extension-identity/malformed-names-are-rejected.spec.ts`](../specifications/extension-identity/malformed-names-are-rejected.spec.ts)
 
-#### Package Identity
+### Package identity
+
+#### Companion Packages Are Identities Not Pins
 
 ##### A companion package names an ecosystem package identity, never a pinned version
 
-- Requirement: `client-core/package-identity/companion-packages-are-identities-not-pins`
+- Requirement: `package-identity/companion-packages-are-identities-not-pins`
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`specifications/client-core/package-identity/companion-packages-are-identities-not-pins.spec.ts`](../specifications/client-core/package-identity/companion-packages-are-identities-not-pins.spec.ts)
+- Source: [`specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts`](../specifications/package-identity/companion-packages-are-identities-not-pins.spec.ts)
+
+#### Compatibility Ranges Match The Package Ecosystem
 
 ##### A companion compatibility range is a concrete ecosystem range matching its package identity
 
-- Requirement: `client-core/package-identity/compatibility-ranges-match-the-package-ecosystem`
+- Requirement: `package-identity/compatibility-ranges-match-the-package-ecosystem`
 - Class: functional
 - Role: interface
 - Product goals: `authoring-and-creation`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`specifications/client-core/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../specifications/client-core/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts)
+- Source: [`specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts`](../specifications/package-identity/compatibility-ranges-match-the-package-ecosystem.spec.ts)
 
-#### Settings Contract
+### Settings contract
+
+#### Published Schemas Agree With Accepted Input
 
 ##### The published settings and lockfile schemas describe what the product accepts
 
-- Requirement: `client-core/settings-contract/published-schemas-agree-with-accepted-input`
+- Requirement: `settings-contract/published-schemas-agree-with-accepted-input`
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
-- Source: [`specifications/client-core/settings-contract/published-schemas-agree-with-accepted-input.spec.ts`](../specifications/client-core/settings-contract/published-schemas-agree-with-accepted-input.spec.ts)
+- Source: [`specifications/settings-contract/published-schemas-agree-with-accepted-input.spec.ts`](../specifications/settings-contract/published-schemas-agree-with-accepted-input.spec.ts)
+
+#### Saving Settings Preserves Authored Formatting
 
 ##### Saving settings preserves authored formatting, ordering, and unrecognized content
 
-- Requirement: `client-core/settings-contract/saving-settings-preserves-authored-formatting`
+- Requirement: `settings-contract/saving-settings-preserves-authored-formatting`
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: golden-output, example
-- Source: [`specifications/client-core/settings-contract/saving-settings-preserves-authored-formatting.spec.ts`](../specifications/client-core/settings-contract/saving-settings-preserves-authored-formatting.spec.ts)
+- Source: [`specifications/settings-contract/saving-settings-preserves-authored-formatting.spec.ts`](../specifications/settings-contract/saving-settings-preserves-authored-formatting.spec.ts)
 
-#### Source Resolution
+### Source resolution
+
+#### Locator Grammar Is Stable
 
 ##### Source locators resolve through a stable grammar and configured hosts
 
-- Requirement: `client-core/source-resolution/locator-grammar-is-stable`
+- Requirement: `source-resolution/locator-grammar-is-stable`
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
 - Additional evidence: process via [`packages/cli-e2e/src/http-registry.e2e.test.ts`](../packages/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
-- Source: [`specifications/client-core/source-resolution/locator-grammar-is-stable.spec.ts`](../specifications/client-core/source-resolution/locator-grammar-is-stable.spec.ts)
-
-#### Version Constraints
-
-##### Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable
-
-- Requirement: `client-core/version-constraints/constraint-intersection-preserves-every-limit`
-- Class: functional
-- Role: interface
-- Product goals: `extension-adoption`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
-- Methods: property, example
-- Source: [`specifications/client-core/version-constraints/constraint-intersection-preserves-every-limit.spec.ts`](../specifications/client-core/version-constraints/constraint-intersection-preserves-every-limit.spec.ts)
-
-##### A version constraint accepts exactly the versions its semver range allows
-
-- Requirement: `client-core/version-constraints/range-satisfaction-follows-semver`
-- Class: functional
-- Role: interface
-- Product goals: `extension-adoption`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
-- Methods: property, decision-table, example
-- Source: [`specifications/client-core/version-constraints/range-satisfaction-follows-semver.spec.ts`](../specifications/client-core/version-constraints/range-satisfaction-follows-semver.spec.ts)
+- Source: [`specifications/source-resolution/locator-grammar-is-stable.spec.ts`](../specifications/source-resolution/locator-grammar-is-stable.spec.ts)
 
 ### System
 
@@ -574,6 +564,32 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Boundary: memory; selection: per-change
 - Methods: golden-output
 - Source: [`specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts`](../specifications/system/security/telemetry-payloads-respect-data-boundary.spec.ts)
+
+### Version constraints
+
+#### Constraint Intersection Preserves Every Limit
+
+##### Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable
+
+- Requirement: `version-constraints/constraint-intersection-preserves-every-limit`
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: property, example
+- Source: [`specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts`](../specifications/version-constraints/constraint-intersection-preserves-every-limit.spec.ts)
+
+#### Range Satisfaction Follows Semver
+
+##### A version constraint accepts exactly the versions its semver range allows
+
+- Requirement: `version-constraints/range-satisfaction-follows-semver`
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: property, decision-table, example
+- Source: [`specifications/version-constraints/range-satisfaction-follows-semver.spec.ts`](../specifications/version-constraints/range-satisfaction-follows-semver.spec.ts)
 
 ## Supporting system behavior
 
@@ -590,6 +606,16 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Boundary: repository; selection: per-change
 - Methods: contract
 - Source: [`specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts`](../specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts)
+
+##### Workspace packages depend on each other only along the permitted dependency graph
+
+- Requirement: `system/architecture/packages-follow-permitted-dependency-graph`
+- Class: architecture
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Methods: contract
+- Source: [`specifications/system/architecture/packages-follow-permitted-dependency-graph.spec.ts`](../specifications/system/architecture/packages-follow-permitted-dependency-graph.spec.ts)
 
 ##### The public system depends on private platform responsibilities only through published contracts
 

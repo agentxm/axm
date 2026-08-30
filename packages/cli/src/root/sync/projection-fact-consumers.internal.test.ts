@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import { findingsForProjectionFacts } from "@agentxm/client-core/unstable/lint";
+import { findingsForProjectionFacts } from "@agentxm/extension-management/unstable/lint";
 import {
   makeProjectionInvariantFact,
   type ProjectionUnitObservation,
-} from "@agentxm/client-core/unstable/projection";
+} from "@agentxm/extension-management/unstable/projection";
 import { projectionDivergenceLabel, projectionFactsNeedReconciliation } from "./handler.js";
 
 const base: ProjectionUnitObservation = {

@@ -8,12 +8,12 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type { SkillExtensionRef } from "@agentxm/client-core/unstable/skills";
-import { requireInteractive } from "@agentxm/client-core/unstable/cli/prompt";
-import { isNonInteractive } from "@agentxm/client-core/unstable/cli-flags";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
-import { expandGlobs } from "@agentxm/client-core/unstable/utils";
+import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/skills";
+import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
+import { isNonInteractive } from "@agentxm/extension-management/unstable/cli-flags";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { expandGlobs } from "@agentxm/extension-management/unstable/utils";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

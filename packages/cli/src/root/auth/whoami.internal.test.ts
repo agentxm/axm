@@ -11,10 +11,13 @@ import {
   AuthClientTest,
   RegistryUrl,
   CredentialStoreTest,
-} from "@agentxm/client-core/unstable/auth";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/auth";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleWhoami } from "./whoami.js";
 

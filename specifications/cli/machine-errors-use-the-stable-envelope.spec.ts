@@ -6,7 +6,10 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { JsonErrorEnvelopeSchema, classifyError } from "@agentxm/client-core/unstable/cli-runtime";
+import {
+  JsonErrorEnvelopeSchema,
+  classifyError,
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import { handleInstall } from "axm.sh/unstable/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";

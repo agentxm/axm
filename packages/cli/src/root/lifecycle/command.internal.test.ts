@@ -11,10 +11,13 @@ import {
   AuthLoginInteractionTest,
   CredentialStoreTest,
   RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/auth";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 
 import { expectAppliedPlanResult, expectRecord, property } from "../../test-helpers.js";
 import { handleDeprecate, handleUndeprecate, handleUnyank, handleYank } from "./command.js";

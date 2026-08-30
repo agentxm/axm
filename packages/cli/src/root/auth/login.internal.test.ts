@@ -18,11 +18,14 @@ import {
   CredentialStore,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
-} from "@agentxm/client-core/unstable/auth";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-management/unstable/auth";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogin } from "./login.js";
 

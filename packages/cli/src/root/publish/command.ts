@@ -22,7 +22,7 @@ import {
   redactSensitiveText,
   type AppError,
   type AppErrorCode,
-} from "@agentxm/client-core/unstable/app-error";
+} from "@agentxm/extension-management/unstable/app-error";
 import {
   AuthClient,
   DeviceLoginInteraction,
@@ -30,9 +30,9 @@ import {
   resolveRequestToken,
   runPublishAuthorization,
   type PublishCapabilityResponse,
-} from "@agentxm/client-core/unstable/auth";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/auth";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   credentialFreeLocatorRecoveryValue,
   effectCliExit,
@@ -44,7 +44,7 @@ import {
   renderConfirmationRecoveryCommand,
   requestedInterruptionSignal,
   withArgvTracking,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,
@@ -55,21 +55,21 @@ import {
   extensionTypes,
   extensionTypeToPlural,
   decodeExtensionNameSync,
-  fqnInvalidErrorToAppError,
   formatFqn,
   parseFqn,
   parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionName,
   type ExtensionType,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
+} from "@agentxm/extension-model/unstable/extensions";
+import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   Job,
   JobStepResult,
   OperationPrecondition,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   OperationJournal,
   getOperationJournal,
@@ -77,41 +77,40 @@ import {
   previewOrApplyPlan,
   unitIdOf,
   type OperationJournalState,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,
   type ExtensionConstraintInvariantFact,
-} from "@agentxm/client-core/unstable/projection";
+} from "@agentxm/extension-management/unstable/projection";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
-import { CompanionPackageSchema } from "@agentxm/client-core/unstable/package-urls";
+import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeManifestSchema,
-  inspectKnowledgeBundle,
-} from "@agentxm/client-core/unstable/knowledge";
+} from "@agentxm/extension-model/unstable/knowledge";
+import { inspectKnowledgeBundle } from "@agentxm/registry-protocol/unstable/knowledge";
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
   resolveVisibilityIntent,
   type PublishVisibility,
   type VisibilityIntent,
-  publishArchiveOptions,
   normalizePublishInput,
-  runPublishLintGate,
   validateArchive,
-} from "@agentxm/client-core/unstable/publish";
-import { buildLintWorkspace } from "@agentxm/client-core/unstable/lint";
-import type { PackDependencyReachability } from "@agentxm/client-core/unstable/packs";
+} from "@agentxm/registry-protocol/unstable/publish";
+import {
+  publishArchiveOptions,
+  runPublishLintGate,
+} from "@agentxm/extension-management/unstable/publish";
+import { buildLintWorkspace } from "@agentxm/extension-management/unstable/lint";
+import type { PackDependencyReachability } from "@agentxm/extension-management/unstable/packs";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
-  createRegistryClient,
   publicationDescriptorDigest,
   publicationSetDigest,
-  type ExtensionVisibility,
   type PackDependencyDescriptor,
-  type PublishExtensionArgs,
   type PreviewPublicationSetRequest,
   type PreviewPublicationSetResponse,
   PreviewPublicationSetResponseSchema,
@@ -119,28 +118,36 @@ import {
   type PublicationDescriptor,
   type PublicationVisibilityInput,
   type PublicationPackResult,
-  type RegistryClient,
   type VersionEntry,
-} from "@agentxm/client-core/unstable/registry";
-import { isWorkspaceSourceLocator, type SourceType } from "@agentxm/client-core/unstable/sources";
+} from "@agentxm/registry-protocol/unstable/registry";
+import {
+  createRegistryClient,
+  type ExtensionVisibility,
+  type PublishExtensionArgs,
+  type RegistryClient,
+} from "@agentxm/extension-management/unstable/registry";
+import {
+  isWorkspaceSourceLocator,
+  type SourceType,
+} from "@agentxm/extension-management/unstable/sources";
 import {
   computeIntegrity,
   expandGlobs,
   isGlobPattern,
   planZipArchive,
   type ArchivePlan,
-} from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/utils";
 import {
   VersionSchema,
   decodeVersionRangeSync,
   type Version,
-} from "@agentxm/client-core/unstable/version-constraints";
+} from "@agentxm/extension-model/unstable/version-constraints";
 import {
   WorkspaceMutations,
   acceptedCanonicalObservation,
   configuredRowsByName,
   type WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import {
   emitPublishResult,

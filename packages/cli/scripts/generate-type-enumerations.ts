@@ -19,9 +19,9 @@ import {
   EXTENSION_TYPE_TABLE,
   extensionTypes,
   type ExtensionType,
-} from "../../core/src/unstable/extensions/common.js";
-import { EXTENSION_TYPES_BY_ID } from "../../core/src/unstable/extension-types/catalog.js";
-import { CATALOG_EXTENSION_TYPES } from "../../core/src/unstable/extension-types/schema.js";
+} from "@agentxm/extension-model/unstable/extensions/common";
+import { EXTENSION_TYPES_BY_ID } from "../../extension-management/src/unstable/extension-types/catalog.js";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types/schema";
 import {
   buildRegionBlocks,
   rewriteManagedRegions,

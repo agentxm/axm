@@ -42,10 +42,13 @@ wrapper.
 ## Project ownership
 
 `specifications/` is one workspace package (`@agentxm/specifications`, Nx
-project `specifications`) holding the semantic trees `cli/`, `client-core/`,
-and `system/`, shared harness code under `support/`, and the product-goal registry.
-It depends on `@agentxm/client-core` and `axm.sh` published surfaces and has
-no build target. The catalog generator and selection runner live in
+project `specifications`) holding the semantic trees `cli/`,
+`extension-identity/`, `package-identity/`, `settings-contract/`,
+`source-resolution/`, `version-constraints/`, and `system/`, shared harness
+code under `support/`, and the product-goal registry. It depends on the
+`@agentxm/extension-model`, `@agentxm/registry-protocol`,
+`@agentxm/extension-management`, and `axm.sh` published surfaces and has no
+build target. The catalog generator and selection runner live in
 `scripts/` with the other repository automation.
 
 ## Result adapters

@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,

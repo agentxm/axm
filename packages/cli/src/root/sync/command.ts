@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { CATALOG_EXTENSION_TYPES } from "@agentxm/client-core/unstable/extension-types";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleSync } from "./handler.js";

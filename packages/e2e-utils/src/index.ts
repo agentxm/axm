@@ -16,7 +16,7 @@ export {
   isHumanInteractive,
   isInteractive,
   type InteractionEnvOptions,
-} from "@agentxm/client-utils/unstable/interaction";
+} from "./interaction.js";
 export { createBinaryRunner, createCliRunner, runCommand } from "./runner.js";
 export { createTempDir } from "./temp-dir.js";
 export type { CliResult, RunCliOptions, TempDirContext } from "./types.js";

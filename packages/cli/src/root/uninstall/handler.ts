@@ -2,13 +2,16 @@ import * as Effect from "effect/Effect";
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
-  type SuggestedAction,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { deriveOperationOutcome, operationPresentation } from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,
-} from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/workflows";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

@@ -1,4 +1,4 @@
-import type { RuleExtensionTarget } from "@agentxm/client-core/unstable/workspace";
+import type { RuleExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
 
 export interface UninstallRuleCommandIntent {
   readonly targets: ReadonlyArray<RuleExtensionTarget>;

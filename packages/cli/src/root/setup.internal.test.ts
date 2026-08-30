@@ -2,8 +2,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@agentxm/client-core/unstable/settings";
-import { LockfileSchema } from "@agentxm/client-core/unstable/lockfile";
+import type { Settings } from "@agentxm/extension-management/unstable/settings";
+import { LockfileSchema } from "@agentxm/extension-management/unstable/lockfile";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -12,16 +12,19 @@ import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
-import { RegistryUrl } from "@agentxm/client-core/unstable/auth";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { BRANDING } from "@agentxm/client-core/unstable/branding";
-import { AgentExecutableResolver } from "@agentxm/client-core/unstable/agents";
-import { TestMachineRenderer, TestRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { TestFlagsLayer } from "@agentxm/client-core/unstable/cli-flags";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/client-core/unstable/workspace";
-import { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
-import { decodeAbsolutePathSync } from "@agentxm/client-core/unstable/utils";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { BRANDING } from "@agentxm/extension-management/unstable/branding";
+import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+} from "@agentxm/extension-management/unstable/cli-renderer";
+import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace";
+import { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { expectDefined, expectRecord, property } from "../test-helpers.js";
 import {

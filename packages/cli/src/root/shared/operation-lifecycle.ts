@@ -23,7 +23,7 @@ import {
   effectCliExit,
   recordCommandCompletion,
   requestedInterruptionSignal,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   OperationJournal,
   OperationLifecycle,
@@ -39,13 +39,13 @@ import {
   type OperationResolution,
   type ResolvedUnit,
   type OperationJournalState,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   FootprintRecorder,
   WorkspaceMutations,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 

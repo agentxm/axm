@@ -19,7 +19,7 @@
     "lint-bundled-skill": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": ["cli:build"],
       "options": {
         "command": "bun scripts/lint-bundled-skill.ts",
         "cwd": "."
@@ -28,7 +28,11 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "options": {
         "command": "tsc -p scripts/tsconfig.json --noEmit",
@@ -38,7 +42,11 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": true,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
@@ -49,7 +57,7 @@
     "bench": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": ["cli:build"],
       "options": {
         "command": "bun scripts/bench.ts",
         "cwd": "."
@@ -89,7 +97,11 @@
     "release-prepare": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/release-prepare.ts",
         "cwd": "."
@@ -98,7 +110,11 @@
     "release-publish": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/release-publish.ts",
         "cwd": "."
@@ -107,7 +123,11 @@
     "release-publish-local": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/release-publish-local.ts",
         "cwd": "."
@@ -116,7 +136,11 @@
     "validate-release-tag": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/validate-release-tag.ts",
         "cwd": "."
@@ -125,7 +149,11 @@
     "resolve-release-meta": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/resolve-release-meta.ts",
         "cwd": "."
@@ -134,7 +162,11 @@
     "download-ci-binaries": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["utils:build", "core:build"],
+      "dependsOn": [
+        "extension-model:build",
+        "registry-protocol:build",
+        "extension-management:build"
+      ],
       "options": {
         "command": "bun scripts/download-ci-binaries.ts",
         "cwd": "."

@@ -2,12 +2,12 @@ import * as Effect from "effect/Effect";
 import type {
   ConfirmationRecovery,
   ConfiguredAgentOperation,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   previewOrApplyPlan,
   type Plan,
   type PlanPolicyId,
-} from "@agentxm/client-core/unstable/plan";
+} from "@agentxm/extension-management/unstable/plan";
 import { makePlanExecution } from "./confirmation-recovery.js";
 
 export interface LocalPlanFlags {

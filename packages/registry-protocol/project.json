@@ -1,0 +1,43 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "registry-protocol",
+  "projectType": "library",
+  "root": "packages/registry-protocol",
+  "sourceRoot": "packages/registry-protocol/src",
+  "tags": ["type:lib", "scope:registry-protocol"],
+  "targets": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "executor": "@nx/js:tsc",
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "main": "packages/registry-protocol/src/unstable/registry/index.ts",
+        "outputPath": "packages/registry-protocol/dist",
+        "tsConfig": "packages/registry-protocol/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "pnpm exec vitest run",
+        "cwd": "packages/registry-protocol"
+      }
+    },
+    "nx-release-publish": {
+      "cache": false,
+      "dependsOn": ["build", "^nx-release-publish"],
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

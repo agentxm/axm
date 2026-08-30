@@ -1,9 +1,9 @@
-import { planDesiredStateGraph } from "@agentxm/client-core/unstable/projection";
+import { planDesiredStateGraph } from "@agentxm/extension-management/unstable/projection";
 import type {
   DesiredStateGraph,
   DesiredStateProblem,
-} from "@agentxm/client-core/unstable/workspace";
-import type { WorkspaceScope } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
 import {
   workspaceCanonicalRoot,
   workspaceLockfilePath,

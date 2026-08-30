@@ -8,9 +8,15 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
-import type { RegistrySkillRef, LocalSkillRef } from "@agentxm/client-core/unstable/skills";
-import { PackageTypeSchema, type PackageUrlParts } from "@agentxm/client-core/unstable/packaging";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import type {
+  RegistrySkillRef,
+  LocalSkillRef,
+} from "@agentxm/extension-management/unstable/skills";
+import {
+  PackageTypeSchema,
+  type PackageUrlParts,
+} from "@agentxm/extension-model/unstable/packaging";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { getCompanionPackages, buildCompanionPackagesSection } from "./command-actions.js";
 

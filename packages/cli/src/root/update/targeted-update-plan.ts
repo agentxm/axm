@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   operationPresentation,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { buildAtomicPackGraphStep, type AtomicPackGraphChild } from "../packs/graph-transition.js";
 import {

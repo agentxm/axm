@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
@@ -14,8 +14,8 @@ import {
   syncInstructions,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
-} from "@agentxm/client-core/unstable/agents";
-import type { WorkspaceMutationsService } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/agents";
+import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
 
 const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
 

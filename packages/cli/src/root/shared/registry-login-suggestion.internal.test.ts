@@ -5,13 +5,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, expect } from "vitest";
 
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { normalizeHandle } from "@agentxm/client-core/unstable/extensions";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   CredentialStore,
   type CredentialStoreService,
   RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
+} from "@agentxm/extension-management/unstable/auth";
 
 import { makeRegistryLoginSuggestionResolver } from "./registry-login-suggestion.js";
 

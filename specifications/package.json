@@ -12,8 +12,9 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/client-core": "workspace:^",
-    "@agentxm/client-utils": "workspace:^",
+    "@agentxm/extension-management": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
     "axm.sh": "workspace:^"
   },
   "devDependencies": {

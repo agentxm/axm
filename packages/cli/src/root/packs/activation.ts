@@ -8,15 +8,18 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { CodingAgentRepository } from "@agentxm/client-core/unstable/agents";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import { previewFlag, yesFlag } from "@agentxm/client-core/unstable/cli-flags";
-import { withArgvTracking } from "@agentxm/client-core/unstable/cli-runtime";
-import { RenderedFilePathSchema, sanitizeName } from "@agentxm/client-core/unstable/extensions";
-import { HookManager } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManager } from "@agentxm/client-core/unstable/mcps";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  RenderedFilePathSchema,
+  sanitizeName,
+} from "@agentxm/extension-management/unstable/extensions";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -24,22 +27,22 @@ import {
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-} from "@agentxm/client-core/unstable/plan";
-import { RuleManager } from "@agentxm/client-core/unstable/rules";
+} from "@agentxm/extension-management/unstable/plan";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   applyProjectionPlans,
   type ProjectionPlan,
-} from "@agentxm/client-core/unstable/projection";
-import { SkillManager } from "@agentxm/client-core/unstable/skills";
-import { SourceHostProviders } from "@agentxm/client-core/unstable/source-resolution";
-import { SubagentManager } from "@agentxm/client-core/unstable/subagents";
+} from "@agentxm/extension-management/unstable/projection";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   findManagedSubagentFiles,
   isDesiredExtensionActive,
   WorkspaceMutations,
   type DesiredExtensionNode,
-} from "@agentxm/client-core/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
+import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

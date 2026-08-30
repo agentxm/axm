@@ -18,8 +18,8 @@ import {
   AppError,
   makeAppError,
   redactSensitiveValue,
-} from "@agentxm/client-core/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/client-core/unstable/prompt-cancelled";
+} from "@agentxm/extension-management/unstable/app-error";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfig,
@@ -29,7 +29,7 @@ import {
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
-} from "@agentxm/client-core/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   Verbosity,
   type VerbosityLevel,
@@ -40,20 +40,23 @@ import {
   quietFlag,
   directoryFlag,
   verbosityToLogLevel,
-} from "@agentxm/client-core/unstable/cli-flags";
+} from "@agentxm/extension-management/unstable/cli-flags";
 import {
   makeAxmSkillCompatibilityPolicyLayer,
   SkillManagerLive,
-} from "@agentxm/client-core/unstable/skills";
-import { PackManagerLive } from "@agentxm/client-core/unstable/packs";
-import { HookManagerLive } from "@agentxm/client-core/unstable/hooks";
-import { KnowledgeIndexLive, KnowledgeManagerLive } from "@agentxm/client-core/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/client-core/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/client-core/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/client-core/unstable/projection";
-import { SubagentManagerLive } from "@agentxm/client-core/unstable/subagents";
-import { SourceHostProvidersLive } from "@agentxm/client-core/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/client-core/unstable/agents";
+} from "@agentxm/extension-management/unstable/skills";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import {
+  KnowledgeIndexLive,
+  KnowledgeManagerLive,
+} from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -62,20 +65,23 @@ import {
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
   RegistryUrl,
-} from "@agentxm/client-core/unstable/auth";
-import { resolveTelemetryMode } from "@agentxm/client-core/unstable/telemetry";
+} from "@agentxm/extension-management/unstable/auth";
+import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
 import type {
   WorkspaceMutationsOptions,
   WorkspaceScope,
-} from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
   ResolvePlanInteractionLive,
   WorkspaceInitializationInteractionLive,
-} from "@agentxm/client-core/unstable/workspace";
-import { CliRenderer } from "@agentxm/client-core/unstable/cli-renderer";
-import type { SourceHostConfig } from "@agentxm/client-core/unstable/settings";
-import { decodeAbsolutePathSync, type AbsolutePath } from "@agentxm/client-core/unstable/utils";
+} from "@agentxm/extension-management/unstable/workspace";
+import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import type { SourceHostConfig } from "@agentxm/extension-management/unstable/settings";
+import {
+  decodeAbsolutePathSync,
+  type AbsolutePath,
+} from "@agentxm/extension-management/unstable/utils";
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";

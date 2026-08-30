@@ -1,4 +1,7 @@
-import { extensionTypes, toExtensionTypePlural } from "@agentxm/client-core/unstable/extensions";
+import {
+  extensionTypes,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions";
 
 const extensionGroups = extensionTypes.map(toExtensionTypePlural);
 

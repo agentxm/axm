@@ -2,7 +2,7 @@
  * Publish a local preview of the axm npm packages.
  *
  * Builds, version-stamps, packs, and `npm publish`es the three release-group
- * packages (`@agentxm/client-utils`, `@agentxm/client-core`, `axm.sh`) under a
+ * packages (`@agentxm/extension-model`, `@agentxm/registry-protocol`, `@agentxm/extension-management`, `axm.sh`) under a
  * non-default dist-tag (default: `preview`). The version is derived from the
  * working tree so each invocation is unique and stable (`@latest`) consumers
  * are unaffected.
@@ -40,8 +40,21 @@ type ReleasePackage = {
 };
 
 const RELEASE_PACKAGES: readonly ReleasePackage[] = [
-  { name: "@agentxm/client-utils", tarballPrefix: "agentxm-client-utils-", project: "utils" },
-  { name: "@agentxm/client-core", tarballPrefix: "agentxm-client-core-", project: "core" },
+  {
+    name: "@agentxm/extension-model",
+    tarballPrefix: "agentxm-extension-model-",
+    project: "extension-model",
+  },
+  {
+    name: "@agentxm/registry-protocol",
+    tarballPrefix: "agentxm-registry-protocol-",
+    project: "registry-protocol",
+  },
+  {
+    name: "@agentxm/extension-management",
+    tarballPrefix: "agentxm-extension-management-",
+    project: "extension-management",
+  },
   { name: "axm.sh", tarballPrefix: "axm.sh-", project: "cli" },
 ] as const;
 
@@ -154,7 +167,13 @@ const buildReleasePackages = () => {
     return;
   }
   console.log("==> Building utils, core, cli");
-  runNx("run-many", "-t", "build", "--projects", "utils,core,cli");
+  runNx(
+    "run-many",
+    "-t",
+    "build",
+    "--projects",
+    "extension-model,registry-protocol,extension-management,cli",
+  );
 };
 
 const packReleasePackages = (packDestAbsolute: string) => {

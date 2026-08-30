@@ -1,13 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "@agentxm/client-core/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/client-core/unstable/cli-runtime";
-import { deriveOperationOutcome } from "@agentxm/client-core/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/client-core/unstable/workflows";
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import { deriveOperationOutcome } from "@agentxm/extension-management/unstable/plan";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

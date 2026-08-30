@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const sourceRoots = ["packages/cli/src", "packages/core/src/unstable"] as const;
+const sourceRoots = ["packages/cli/src", "packages/extension-management/src/unstable"] as const;
 
 const bannedOutputSubstrings = [
   "\\u2717",

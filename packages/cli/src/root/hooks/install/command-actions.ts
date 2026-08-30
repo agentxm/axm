@@ -5,21 +5,20 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { makeAppError, type AppError } from "@agentxm/client-core/unstable/app-error";
-import {
-  HOOK_EXTENSION_DIR,
-  HookManager,
-  type HookExtensionRef,
-} from "@agentxm/client-core/unstable/hooks";
+import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
 import {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   buildInstallOperation,
-  parseSourceQualifiedRegistrySourcePatternParts,
   ACQUIRED_EXTENSIONS_DIR,
+} from "@agentxm/extension-management/unstable/extensions";
+import {
+  parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
-} from "@agentxm/client-core/unstable/extensions";
-import type { HookLockEntry } from "@agentxm/client-core/unstable/lockfile";
+} from "@agentxm/extension-model/unstable/extensions";
+import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
   ConfiguredAgentOutcome,
   JobStepArtifact,
@@ -27,16 +26,16 @@ import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/client-core/unstable/plan";
-import { applyPlannedProjections } from "@agentxm/client-core/unstable/projection";
+} from "@agentxm/extension-management/unstable/plan";
+import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
 import {
   resolveSource,
   SourceHostProviders,
-} from "@agentxm/client-core/unstable/source-resolution";
-import type { Source } from "@agentxm/client-core/unstable/sources";
-import type { VersionRange } from "@agentxm/client-core/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/client-core/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/client-core/unstable/workspace";
+} from "@agentxm/extension-management/unstable/source-resolution";
+import type { Source } from "@agentxm/extension-management/unstable/sources";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
 

@@ -78,7 +78,11 @@ export default [
             {
               sourceTag: "type:e2e",
               onlyDependOnLibsWithTags: ["type:lib"],
-              notDependOnLibsWithTags: ["scope:core"],
+              notDependOnLibsWithTags: [
+                "scope:core",
+                "scope:extension-model",
+                "scope:registry-protocol",
+              ],
             },
             {
               sourceTag: "type:specification",
@@ -87,7 +91,30 @@ export default [
             {
               sourceTag: "scope:test",
               onlyDependOnLibsWithTags: ["type:lib"],
-              notDependOnLibsWithTags: ["scope:core"],
+              notDependOnLibsWithTags: [
+                "scope:core",
+                "scope:extension-model",
+                "scope:registry-protocol",
+              ],
+            },
+            // The permitted package dependency graph: the shared model depends
+            // on nothing, the Registry protocol only on the model, extension
+            // management on both.
+            {
+              sourceTag: "scope:extension-model",
+              onlyDependOnLibsWithTags: ["scope:extension-model"],
+            },
+            {
+              sourceTag: "scope:registry-protocol",
+              onlyDependOnLibsWithTags: ["scope:registry-protocol", "scope:extension-model"],
+            },
+            {
+              sourceTag: "scope:core",
+              onlyDependOnLibsWithTags: [
+                "scope:core",
+                "scope:extension-model",
+                "scope:registry-protocol",
+              ],
             },
           ],
         },
@@ -138,14 +165,19 @@ export default [
     // Timestamp backstop: production code reads the clock through
     // DateTime.now / Clock and holds DateTime.Utc; ambient Date construction
     // belongs only at sanctioned edges (listed in ignores) and tests.
-    files: ["packages/core/src/**/*.ts", "packages/cli/src/**/*.ts"],
+    files: [
+      "packages/extension-management/src/**/*.ts",
+      "packages/extension-model/src/**/*.ts",
+      "packages/registry-protocol/src/**/*.ts",
+      "packages/cli/src/**/*.ts",
+    ],
     ignores: [
       "**/*.test.ts",
       "**/*.spec.ts",
       "packages/cli/src/test-helpers.ts",
       "packages/cli/src/test-stubs.ts",
       // deterministic archive mtime constant, not a clock read
-      "packages/core/src/unstable/utils/build-zip-archive.ts",
+      "packages/extension-management/src/unstable/utils/build-zip-archive.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -283,9 +315,9 @@ export default [
     // These variable-cardinality I/O surfaces were remediated in the 2026-08
     // concurrency census. Keep literal unbounded traversal from returning.
     files: [
-      "packages/core/src/unstable/registry/remote-client.ts",
-      "packages/core/src/unstable/source-resolution/providers/convention-discovery.ts",
-      "packages/core/src/unstable/workspace/version-currency/collectors.ts",
+      "packages/extension-management/src/unstable/registry/remote-client.ts",
+      "packages/extension-management/src/unstable/source-resolution/providers/convention-discovery.ts",
+      "packages/extension-management/src/unstable/workspace/version-currency/collectors.ts",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,

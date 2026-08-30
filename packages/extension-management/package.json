@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-management",
-  "version": "0.28.2",
-  "description": "AXM extension-management domain and integrations for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "version": "0.28.3",
+  "description": "AXM extension-management domain and integrations for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",

@@ -10,6 +10,6 @@ Navigation for maintained documentation in the AXM repository.
   system boundaries, invariants, and rationale
 - [Command execution policy](guides/command-execution-policy.md) — the local
   binding of the command execution strategy: task graph, script surface,
-  prerequisites, shared verbs, and gap tracking
+  prerequisites, shared verbs, named exceptions, and gap handling
 - [Smoke testing](guides/smoke-testing-guide.md) — repository-specific manual
   verification across the CLI and registry boundary

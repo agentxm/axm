@@ -107,6 +107,12 @@ Both entrypoints preserve the caller's working directory. `-C` / `--directory`
 then selects the workspace before runtime initialization, and relative command
 arguments resolve from that directory.
 
+These path forms are the one supported exception to invoking `axm:local` by its
+published name, recorded in the
+[Command execution policy](../../docs/guides/command-execution-policy.md#named-exceptions):
+outside the checkout there is no `pnpm` that resolves the name against AXM's
+`package.json`. Inside the checkout, use `pnpm run axm:local -C <workspace>`.
+
 Do not rely on `pnpm --dir /path/to/axm exec|run` to preserve the target: pnpm
 changes into the AXM checkout before starting the command. If that invocation
 form is necessary, pass `-C /path/to/workspace` explicitly.
@@ -120,16 +126,33 @@ does not restore repository files.
 
 ## CI Container Use
 
-Docker-only CI reproduction does not require a host Node installation:
+`pnpm run container:ci` and `pnpm run container:smoke` are the published
+workflow names for container CI, and are how the container environment is
+invoked:
+
+```bash
+pnpm run container:ci
+pnpm run container:smoke
+```
+
+Override `AXM_CI_IMAGE` only to test an intentional image upgrade.
+
+Both names run `scripts/container-environment.sh`, which is their
+implementation rather than a second entry point. Invoke that path directly only
+where no host toolchain is installed and there is therefore no `pnpm` to
+resolve the published name — Docker-only reproduction, and the CI container
+jobs, which install no toolchain by design:
 
 ```bash
 scripts/container-environment.sh ci
 scripts/container-environment.sh smoke
 ```
 
-Once the native toolchain is active, the equivalent aliases are
-`pnpm run container:ci` and `pnpm run container:smoke`. Override
-`AXM_CI_IMAGE` only to test an intentional image upgrade.
+That path invocation is a recorded exception in the
+[Command execution policy](../../docs/guides/command-execution-policy.md); do
+not add flags or environment to the `container:*` scripts without updating the
+CI call sites in the same change, since those two forms could otherwise
+diverge.
 
 The repository-owned CI image is public and must remain anonymously pullable.
 Public and fork PR code runs on ephemeral GitHub-hosted runners, never a
@@ -138,7 +161,7 @@ persistent self-hosted runner.
 ### Container Checklist
 
 - [ ] **Docker available** -- The host or VM Docker engine is running
-- [ ] **Smoke green** -- `scripts/container-environment.sh smoke` passes
+- [ ] **Smoke green** -- `pnpm run container:smoke` passes
 - [ ] **Normal commands used** -- CI runs through repository `pnpm` scripts
 - [ ] **Dependencies isolated** -- Container package payloads use the Docker
       dependency volume rather than native `node_modules`

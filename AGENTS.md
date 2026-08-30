@@ -16,7 +16,12 @@ Nx targets are the units of work; `pnpm` scripts name workflows. Most build/test
 
 The layering of Nx targets, `pnpm` scripts, and wrapper scripts follows the
 [Command execution strategy](agent_extensions/agentxm/@craigsmitham/knowledge/software-engineering/src/command-execution.md)
-from the installed `@craigsmitham/knowledge/software-engineering` bundle.
+from the installed `@craigsmitham/knowledge/software-engineering` bundle, bound
+locally by the
+[Command execution policy](docs/guides/command-execution-policy.md) — read it
+before adding a script, a target, or a wrapper. The table below is human
+convenience; the canonical forms are targets for units of work and published
+workflow names for workflows.
 
 Do not bypass repo `pnpm` scripts or `pnpm nx` targets when an equivalent exists. This is a hard rule. Do not use direct tool invocations like `pnpm exec vitest`, `vitest`, `tsc`, `eslint`, `prettier`, or bare `nx` for repo verification when a repo-backed script or target exists. They can bypass repo conventions, dependency ordering, caching, and build steps and can pick up stale `dist` output.
 
@@ -36,44 +41,47 @@ export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
 ```
 
-| Command                              | Purpose                                                               |
-| ------------------------------------ | --------------------------------------------------------------------- |
-| `pnpm axm`                           | Run the main CLI from source                                          |
-| `./scripts/axm-local -C <workspace>` | Run the in-flight CLI against a selected workspace and local registry |
-| `pnpm exec nx run cli:watch`         | Rebuild `cli` on changes                                              |
-| `pnpm build`                         | Build all packages                                                    |
-| `pnpm build:affected`                | Build only packages changed since `main`                              |
-| `pnpm test`                          | Run the fast required suite (specifications, internal, tooling)       |
-| `pnpm test:affected`                 | Run tests only for packages changed since `main`                      |
-| `pnpm test:spec`                     | Run executable specifications; `--requirement <id>` or `--class <c>`  |
-| `pnpm test:internal`                 | Run internal verification suites only                                 |
-| `pnpm exec nx run axm:test`          | Run repository tooling verification                                   |
-| `pnpm test:e2e`                      | Run E2E targets only                                                  |
-| `pnpm test:compatibility`            | Run compatibility-class specifications                                |
-| `pnpm test:performance`              | Run performance-class specifications                                  |
-| `pnpm test:all`                      | Fast suite plus broadly executable slower boundaries                  |
-| `pnpm verify:artifact`               | Verify one identified binary artifact                                 |
-| `pnpm verify:release`                | Compose evidence for one exact release candidate                      |
-| `pnpm verify:deployment`             | Verify an identified install endpoint                                 |
-| `pnpm bench`                         | Run diagnostic benchmarks (never a behavioral pass)                   |
-| `pnpm typecheck`                     | Type check all projects, including repo `scripts/`                    |
-| `pnpm typecheck:affected`            | Type check only packages changed since `main`                         |
-| `pnpm format`                        | Format the whole repo with Prettier                                   |
-| `pnpm format:check`                  | Check whole-repo formatting with Prettier                             |
-| `pnpm format:affected`               | Format only Nx-selected changed files                                 |
-| `pnpm format:check:affected`         | Check only Nx-selected changed files                                  |
-| `pnpm lint`                          | Lint all projects, including repo `scripts/`                          |
-| `pnpm lint:affected`                 | Lint only packages changed since `main`                               |
-| `pnpm lint:fix`                      | Lint and auto-fix                                                     |
-| `pnpm run ci`                        | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
-| `pnpm run verify:affected`           | Verify only projects changed from Nx's selected base                  |
-| `pnpm run container:ci`              | Run full CI in the shared Linux image                                 |
-| `pnpm generate`                      | Run every `generate` target (schemas, clients, generated sources)     |
+| Command                                   | Purpose                                                               |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm axm`                                | Run the main CLI from source                                          |
+| `pnpm axm:local -C <workspace>`           | Run the in-flight CLI against a selected workspace and local registry |
+| `pnpm exec nx run cli:watch`              | Rebuild `cli` on changes                                              |
+| `pnpm build`                              | Build all packages                                                    |
+| `pnpm build:affected`                     | Build only packages changed since `main`                              |
+| `pnpm test`                               | Run the fast required suite (specifications, internal, tooling)       |
+| `pnpm test:affected`                      | Run tests only for packages changed since `main`                      |
+| `pnpm test:spec`                          | Run executable specifications; `--requirement <id>` or `--class <c>`  |
+| `pnpm test:internal`                      | Run internal verification suites only                                 |
+| `pnpm exec nx run axm:test`               | Run repository tooling verification                                   |
+| `pnpm exec nx run axm:lint-bundled-skill` | Lint the bundled AXM skill (reproduces the CI `extension-lint` job)   |
+| `pnpm test:e2e`                           | Run E2E targets only                                                  |
+| `pnpm test:compatibility`                 | Run compatibility-class specifications                                |
+| `pnpm test:performance`                   | Run performance-class specifications                                  |
+| `pnpm test:all`                           | Fast suite plus broadly executable slower boundaries                  |
+| `pnpm verify:artifact`                    | Verify one identified binary artifact                                 |
+| `pnpm verify:release`                     | Compose evidence for one exact release candidate                      |
+| `pnpm verify:deployment`                  | Verify an identified install endpoint                                 |
+| `pnpm bench`                              | Run diagnostic benchmarks (never a behavioral pass)                   |
+| `pnpm typecheck`                          | Type check all projects, including repo `scripts/`                    |
+| `pnpm typecheck:affected`                 | Type check only packages changed since `main`                         |
+| `pnpm format`                             | Format the whole repo with Prettier                                   |
+| `pnpm format:check`                       | Check whole-repo formatting with Prettier                             |
+| `pnpm format:affected`                    | Format only Nx-selected changed files                                 |
+| `pnpm format:check:affected`              | Check only Nx-selected changed files                                  |
+| `pnpm lint`                               | Lint all projects, including repo `scripts/`                          |
+| `pnpm lint:affected`                      | Lint only packages changed since `main`                               |
+| `pnpm lint:fix`                           | Lint and auto-fix                                                     |
+| `pnpm run ci`                             | Run full CI pipeline (lint, typecheck, build, test, e2e)              |
+| `pnpm run verify:affected`                | Verify only projects changed from Nx's selected base                  |
+| `pnpm run container:ci`                   | Run full CI in the shared Linux image                                 |
+| `pnpm generate`                           | Run every `generate` target (schemas, clients, generated sources)     |
 
-`./scripts/axm-local` preserves your current working directory; pass `-C <dir>`
-to select another workspace. It only sets
-`AXM_REGISTRY_LOCATION=http://localhost:4300` and `AXM_TELEMETRY=0` when unset.
-For HTTP(S), it also sets `AXM_REGISTRY_URL` for auth/API flows.
+`axm:local` sets `AXM_REGISTRY_LOCATION=http://localhost:4300` and
+`AXM_TELEMETRY=0` only when unset; for HTTP(S) it also sets `AXM_REGISTRY_URL`
+for auth/API flows. `pnpm` runs it from the repository root, so always select
+the workspace with `-C <dir>`. To run this checkout's CLI from outside the
+checkout, use the absolute-path forms in
+[Development Environment](contributing/guides/development-environment.md#run-the-source-cli-against-another-workspace).
 
 For testing install, lint, and other default-source behavior, set
 `AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
@@ -181,8 +189,10 @@ owns the binding constraint. The notes below are its operational projection.
   which covers `scripts/`.
 - `require("typescript")` is Microsoft's TypeScript 6 compatibility package; it
   keeps typescript-eslint and the in-process Nx executors working.
-- `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process under
-  `--batch`, and `dist/**/*.d.ts` is the published contract.
+- `build` stays on TypeScript 6: `@nx/js:tsc` compiles in-process, and
+  `dist/**/*.d.ts` is the published contract. `--batch` belongs to the `build`
+  and `build:affected` scripts, not to the target — see the
+  [Command execution policy](docs/guides/command-execution-policy.md#named-exceptions).
 - Need the TypeScript 6 CLI for a one-off check? It is installed as `tsc6`.
 
 Editors use the patched TypeScript 7 language server

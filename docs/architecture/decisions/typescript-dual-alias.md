@@ -18,9 +18,9 @@ consumer:
 - TypeScript 7.0 ships no stable compiler API, so programmatic consumers —
   typescript-eslint and the in-process Nx executors — cannot run on the native
   TypeScript 7 package.
-- The build produces the published contract: `@nx/js:tsc` compiles in-process
-  under `--batch`, and `dist/**/*.d.ts` is the published artifact contract, so
-  the build must stay on an engine the in-process executor can run on.
+- The build produces the published contract: `@nx/js:tsc` compiles in-process,
+  and `dist/**/*.d.ts` is the published artifact contract, so the build must
+  stay on an engine the in-process executor can run on.
 - Editors need a working language server; Microsoft's TypeScript 6
   compatibility package ships no `tsserver.js`, so "Use Workspace Version"
   cannot point at `node_modules/typescript`.

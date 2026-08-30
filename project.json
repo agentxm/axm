@@ -16,6 +16,15 @@
         ]
       }
     },
+    "lint-bundled-skill": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build", "core:build"],
+      "options": {
+        "command": "bun scripts/lint-bundled-skill.ts",
+        "cwd": "."
+      }
+    },
     "typecheck": {
       "executor": "nx:run-commands",
       "cache": true,
@@ -37,6 +46,15 @@
         "cwd": "."
       }
     },
+    "bench": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["utils:build", "core:build"],
+      "options": {
+        "command": "bun scripts/bench.ts",
+        "cwd": "."
+      }
+    },
     "test-report": {
       "executor": "nx:run-commands",
       "cache": false,
@@ -46,7 +64,6 @@
           "target": "test"
         }
       ],
-      "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
         "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
         "cwd": "."
@@ -55,7 +72,6 @@
     "allure-report": {
       "executor": "nx:run-commands",
       "cache": false,
-      "outputs": ["{workspaceRoot}/test-results/allure-report"],
       "options": {
         "command": "pnpm exec allure generate \"test-results/**/allure-results\"",
         "cwd": "."

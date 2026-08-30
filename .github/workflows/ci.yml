@@ -122,23 +122,7 @@ jobs:
         run: pnpm exec nx run cli:build --outputStyle=static
 
       - name: Lint bundled AXM skill
-        run: |
-          { pnpm --silent axm:local lint --json --quiet --non-interactive 2>/dev/null || true; } |
-            jq -e '
-              [
-                .result.findings[]
-                | select(.severity == "error")
-                | select(
-                    ((.path // "") + " " + (.displayRoot // ""))
-                    | contains("agent_extensions/agentxm/@agentxm/skills/axm")
-                  )
-              ] as $errors
-              | if ($errors | length) == 0 then
-                  "Bundled AXM skill passed lint"
-                else
-                  $errors, error("Bundled AXM skill has lint errors")
-                end
-            '
+        run: pnpm exec nx run axm:lint-bundled-skill --outputStyle=static
 
   documentation:
     name: Documentation integrity
@@ -534,7 +518,7 @@ jobs:
 
       - name: Generate Windows Allure report
         if: always()
-        run: pnpm test:report:generate
+        run: pnpm exec nx run axm:allure-report --outputStyle=static
 
       - name: Upload Windows diagnostics
         if: always()
@@ -591,20 +575,20 @@ jobs:
         uses: ./.github/actions/setup-workspace
 
       - name: Compile host binary
-        run: pnpm exec nx run cli:compile --outputStyle=static -- --host-only
+        run: pnpm exec nx run cli:compile-host --outputStyle=static
 
       - name: Mark binary executable
         if: runner.os != 'Windows'
-        run: chmod +x packages/cli/dist/bin/${{ matrix.binary_name }}
+        run: chmod +x packages/cli/dist/host-bin/${{ matrix.binary_name }}
 
       - name: Run binary smoke test
         env:
-          AXM_BINARY_PATH: ${{ github.workspace }}/packages/cli/dist/bin/${{ matrix.binary_name }}
+          AXM_BINARY_PATH: ${{ github.workspace }}/packages/cli/dist/host-bin/${{ matrix.binary_name }}
         run: pnpm exec nx run cli-e2e:binary-smoke-artifact --outputStyle=static
 
       - name: Generate Allure report
         if: always()
-        run: pnpm test:report:generate
+        run: pnpm exec nx run axm:allure-report --outputStyle=static
 
       - name: Upload Allure report
         if: always()
@@ -619,7 +603,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: axm-binary-${{ matrix.binary_name }}-${{ github.sha }}
-          path: packages/cli/dist/bin/${{ matrix.binary_name }}
+          path: packages/cli/dist/host-bin/${{ matrix.binary_name }}
           if-no-files-found: error
           compression-level: 0
           retention-days: 90

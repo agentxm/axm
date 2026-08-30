@@ -15,15 +15,14 @@
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",
     "test:report": "pnpm exec nx run axm:test-report",
-    "test:report:generate": "pnpm exec nx run axm:allure-report",
     "test:report:open": "pnpm exec nx run axm:allure-report-open",
     "sync": "nx sync",
     "sync:check": "nx sync:check",
     "watch": "nx run cli:watch",
     "build": "nx run-many -t build --batch",
     "build:affected": "nx affected -t build --batch",
-    "test": "nx run-many -t test --nxBail --maxWorkers=2",
-    "test:affected": "nx affected -t test --nxBail --maxWorkers=2",
+    "test": "nx run-many -t test --maxWorkers=2",
+    "test:affected": "nx affected -t test --maxWorkers=2",
     "test:e2e": "nx run-many -t e2e --nxBail",
     "typecheck": "nx run-many -t typecheck",
     "typecheck:affected": "nx affected -t typecheck",
@@ -37,8 +36,8 @@
     "ci": "pnpm run ci:workspace && pnpm run test:e2e",
     "ci:workspace": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:workspace",
     "verify:clean": "pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
-    "verify:affected": "pnpm exec nx affected -t lint typecheck verify-source-hygiene parity-ledger-check --batch --nxBail && pnpm exec nx affected -t build --batch --nxBail && pnpm exec nx affected -t test --batch --nxBail --maxWorkers=2 && pnpm exec nx affected -t e2e --batch --nxBail --parallel=1",
-    "verify:workspace": "pnpm exec nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check --batch --nxBail && pnpm exec nx run-many -t build --batch --nxBail && pnpm exec nx run-many -t test --batch --nxBail --maxWorkers=2",
+    "verify:affected": "pnpm exec nx affected -t lint typecheck verify-source-hygiene parity-ledger-check lint-bundled-skill --batch --nxBail && pnpm exec nx affected -t build --batch --nxBail && pnpm exec nx affected -t test --batch --nxBail --maxWorkers=2 && pnpm exec nx affected -t e2e --batch --nxBail --parallel=1",
+    "verify:workspace": "pnpm exec nx run-many -t lint typecheck verify-source-hygiene parity-ledger-check lint-bundled-skill --batch --nxBail && pnpm exec nx run-many -t build --batch --nxBail && pnpm exec nx run-many -t test --batch --nxBail --maxWorkers=2",
     "verify:full": "pnpm run verify:workspace && pnpm run test:e2e",
     "container:ci": "bash scripts/container-environment.sh ci",
     "container:smoke": "bash scripts/container-environment.sh smoke",
@@ -64,7 +63,7 @@
     "verify:artifact": "bun scripts/verify-artifact.ts",
     "verify:release": "bun scripts/verify-release.ts",
     "verify:deployment": "bun scripts/verify-deployment.ts",
-    "bench": "bun scripts/bench.ts",
+    "bench": "pnpm exec nx run axm:bench",
     "test:all": "pnpm test && pnpm test:e2e",
     "ci:report": "scripts/with-allure-report.sh pnpm run ci",
     "ci:workspace:report": "scripts/with-allure-report.sh pnpm run ci:workspace",
@@ -75,11 +74,11 @@
     "includedScripts": []
   },
   "lint-staged": {
-    "{!(.axm|agent_extensions)/**/,}*.{js,ts,mjs,cjs}": [
+    "{!(.axm|agent_extensions)/**/,}*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "{!(.axm|agent_extensions)/**/,}*.{md,json,jsonc,yml,yaml}": "prettier --write"
+    "{!(.axm|agent_extensions)/**/,}*.{json,md,mdx,yml,yaml,css,scss,html}": "prettier --write"
   },
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {

@@ -124,6 +124,8 @@
     "test-windows": {
       "executor": "nx:run-commands",
       "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
       "outputs": ["{workspaceRoot}/test-results/core-windows"],
       "options": {
         "command": "pnpm exec vitest run --config vitest.windows.config.ts",

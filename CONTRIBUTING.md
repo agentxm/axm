@@ -34,6 +34,11 @@ full-repo Prettier commands. Use `pnpm format:affected` or
 `pnpm format:check:affected` only as Nx convenience commands for changed-file
 ranges.
 
+Before adding a script, an Nx target, or a wrapper script, read the
+[Command execution policy](docs/guides/command-execution-policy.md). It decides
+which of the three a new piece of work belongs in, and records every deliberate
+exception.
+
 | Command                      | Purpose                                   |
 | ---------------------------- | ----------------------------------------- |
 | `pnpm build`                 | Build all packages                        |

@@ -36,15 +36,23 @@ jobs:
   contract:
     name: Verify image contract
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
+      # The contract checker reads repository files only, so the toolchain is
+      # set up without installing workspace dependencies — just enough to reach
+      # the published `check:ci-image` name rather than its underlying script.
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
+
       - name: Verify source-free image contract
-        run: node scripts/check-ci-image.mjs
+        run: pnpm run check:ci-image
 
       - name: Require VERSION bump for image input changes
         if: inputs.base_sha != '' && inputs.head_sha != ''

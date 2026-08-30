@@ -17,7 +17,7 @@
         "{workspaceRoot}/skills/axm/src/**/*",
         "^production"
       ],
-      "outputs": ["{projectRoot}/dist"],
+      "outputs": ["{projectRoot}/dist/src", "{projectRoot}/dist/tsconfig.tsbuildinfo"],
       "options": {
         "main": "packages/cli/src/main.ts",
         "outputPath": "packages/cli/dist",
@@ -146,7 +146,7 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/dist/bin"],
+      "outputs": ["{projectRoot}/dist/host-bin"],
       "options": {
         "command": ["bun", "scripts/compile.ts", "--host-only"],
         "cwd": "packages/cli"

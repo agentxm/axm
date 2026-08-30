@@ -43,16 +43,21 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
-        "cwd": "packages/cli-e2e"
+        "cwd": "packages/cli-e2e",
+        "env": {
+          "AXM_BINARY_SOURCE": "compiled"
+        }
       }
     },
     "binary-smoke-artifact": {
       "dependsOn": ["utils:build"],
-      "outputs": ["{workspaceRoot}/test-results/cli-e2e-binary"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",
-        "cwd": "packages/cli-e2e"
+        "cwd": "packages/cli-e2e",
+        "env": {
+          "AXM_BINARY_SOURCE": "artifact"
+        }
       }
     },
     "install-suite": {
@@ -66,13 +71,9 @@
       }
     },
     "install-verification": {
-      "dependsOn": ["utils:build"],
-      "outputs": ["{workspaceRoot}/test-results/cli-e2e-install"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/run-install-verification.ts"],
-        "cwd": "packages/cli-e2e"
-      }
+      "cache": false,
+      "dependsOn": ["install-suite"],
+      "executor": "nx:noop"
     }
   }
 }

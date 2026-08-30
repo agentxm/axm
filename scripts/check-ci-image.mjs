@@ -168,6 +168,35 @@ if (
   );
 }
 
+// The installer-verification matrix cannot use the setup-workspace composite —
+// publish.yml records why — so it is the one job that duplicates mise.toml's
+// toolchain versions instead of reading them. Hold the duplication to the
+// authority so an installer is never verified on an undeclared toolchain.
+if (miseNodeVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `node-version: ${miseNodeVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Node version exactly",
+  );
+}
+if (miseBunVersion !== undefined) {
+  requireText(
+    releaseWorkflow,
+    `bun-version: ${miseBunVersion}`,
+    "the Corepack installer-verification job must duplicate the mise.toml Bun version exactly",
+  );
+}
+
+// One published name per unit of work: workflows reach this checker through
+// `pnpm run check:ci-image`, never through its script path.
+for (const [workflowPath, source] of workflowSources) {
+  if (source.includes("node scripts/check-ci-image.mjs")) {
+    errors.push(
+      `${workflowPath} must invoke the published check:ci-image name, not the checker's script path`,
+    );
+  }
+}
+
 if (imagePnpmVersion === undefined) {
   errors.push("Containerfile must pin an exact PNPM_VERSION");
 } else {
@@ -385,6 +414,20 @@ for (const text of [
     `verify:affected must use the native Nx affected path for ${text}`,
   );
 }
+// The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
+// developer through the source-verification names, not only the CI job, so a
+// local `pnpm run ci` covers what CI's `extension-lint` job covers.
+for (const [name, source] of [
+  ["verify:workspace", workspaceVerification],
+  ["verify:affected", affectedVerification],
+]) {
+  requireText(
+    source,
+    "lint-bundled-skill",
+    `${name} must run the bundled AXM skill lint alongside the other lint phases`,
+  );
+}
+
 if (
   affectedVerification.indexOf("nx affected -t lint typecheck") >=
     affectedVerification.indexOf("nx affected -t build --batch") ||

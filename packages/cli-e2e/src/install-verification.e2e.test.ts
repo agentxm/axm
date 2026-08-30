@@ -6,9 +6,9 @@ import * as path from "node:path";
 import { createBinaryRunner, createTempDir, runCommand } from "@agentxm/client-e2e-utils";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-  binaryDir,
+  hostBinaryDir,
   repoRoot,
-  resolveBinaryPath,
+  resolveHostBinaryPath,
   resolveInstallMode,
 } from "./distribution-targets.js";
 
@@ -25,7 +25,7 @@ export const executionBinding = {
 
 const installMode = resolveInstallMode();
 const expectedVersion = process.env["AXM_EXPECTED_VERSION"];
-const fixtureBinaryPath = resolveBinaryPath();
+const fixtureBinaryPath = resolveHostBinaryPath();
 const fixtureVersionResult = await createBinaryRunner(fixtureBinaryPath)(["--version"]);
 
 if (fixtureVersionResult.exitCode !== 0) {
@@ -55,9 +55,9 @@ interface ServerContext {
 }
 
 const createBinaryServer = async (): Promise<ServerContext> => {
-  if (!fs.existsSync(binaryDir)) {
+  if (!fs.existsSync(hostBinaryDir)) {
     throw new Error(
-      `Compiled binaries not found at ${binaryDir}. Run 'pnpm nx run cli:compile' or set AXM_INSTALL_BASE_URL.`,
+      `Compiled host binary not found at ${hostBinaryDir}. Run 'pnpm exec nx run cli:compile-host'.`,
     );
   }
 
@@ -100,7 +100,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
       const lines = [...artifactNames]
         .sort()
         .map((name) => {
-          const artifactPath = path.join(binaryDir, name);
+          const artifactPath = path.join(hostBinaryDir, name);
           if (!fs.existsSync(artifactPath)) return undefined;
           const hash = crypto
             .createHash("sha256")
@@ -112,7 +112,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
       response.statusCode = 200;
       response.end(
         requestUrl.includes("/bad/")
-          ? `${"0".repeat(64)}  ${path.basename(resolveBinaryPath())}\n`
+          ? `${"0".repeat(64)}  ${path.basename(resolveHostBinaryPath())}\n`
           : `${lines.join("\n")}\n`,
       );
       return;
@@ -124,7 +124,7 @@ const createBinaryServer = async (): Promise<ServerContext> => {
       return;
     }
 
-    const artifactPath = path.join(binaryDir, artifactName);
+    const artifactPath = path.join(hostBinaryDir, artifactName);
 
     if (!fs.existsSync(artifactPath)) {
       response.statusCode = 404;
@@ -535,7 +535,7 @@ describe("install script verification", () => {
 
   it(`preserves a working axm on ${installMode} checksum failure`, async () => {
     const temp = createTempDir();
-    const sourceBinary = resolveBinaryPath();
+    const sourceBinary = resolveHostBinaryPath();
     const installedBinary = path.join(
       temp.path,
       ".axm",

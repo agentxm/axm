@@ -1,3 +1,14 @@
+## 0.28.3 (2026-08-30)
+
+### 🚀 Features
+
+- Decompose the public package architecture: replace `@agentxm/client-core` with the shared extension model (`@agentxm/extension-model`), the Registry wire contracts (`@agentxm/registry-protocol`), and the extension-management domain (`@agentxm/extension-management`); move generated site content to `axm.sh`; absorb `@agentxm/client-utils`. All published surfaces remain unstable `./unstable/*` subpaths.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Craig Smitham
+
 ## 0.28.2 (2026-08-29)
 
 ### 🩹 Fixes

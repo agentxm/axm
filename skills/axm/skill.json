@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "axm",
-  "version": "0.28.2",
+  "version": "0.28.3",
   "description": "Broad, bounded extension management for canonical packages, workspace state, agent projections, composition, installation, distribution, and lifecycle",
   "keywords": [
     "agent-extensions",

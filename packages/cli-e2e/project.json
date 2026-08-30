@@ -50,7 +50,6 @@
       }
     },
     "binary-smoke-artifact": {
-      "dependsOn": ["cli:build"],
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run --config vitest.binary.config.ts",

@@ -103,6 +103,8 @@ flowchart TB
   MODEL["@agentxm/extension-model"]
 
   CLI --> FEATURES
+  CLI -- "types for presentation" --> PROTOCOL
+  CLI -- "types for presentation" --> MODEL
   CLI -. "composes */live" .-> KERNELS
   CLI -. "composes */live" .-> INTEGRATIONS
   FEATURES --> KERNELS
@@ -116,18 +118,26 @@ flowchart TB
   PROTOCOL --> MODEL
 ```
 
-The dotted application edges are composition-only. Command handlers invoke
-feature APIs; they do not bypass a feature and implement its use case directly
-against a kernel or integration.
+The dotted application edges are composition-only, and the application's
+contract edges carry the types needed to render typed feature results; neither
+authorizes invoking lower-level services outside the composition root. Command
+handlers invoke feature APIs; they do not bypass a feature and implement its
+use case directly against a kernel or integration.
 
 ### Contracts
 
 The existing shared contracts remain the innermost packages.
 
-| Package                      | Responsibility                                                                                                  | Permitted product dependencies |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `@agentxm/extension-model`   | Platform-neutral extension identity, types, manifests, constraints, package identity, and agent capability data | None                           |
-| `@agentxm/registry-protocol` | Registry wire contracts, protocol error vocabulary, content parsing, and contract-level publication validation  | `@agentxm/extension-model`     |
+| Package                      | Responsibility                                                                                                  | Expected inward dependencies |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@agentxm/extension-model`   | Platform-neutral extension identity, types, manifests, constraints, package identity, and agent capability data | None                         |
+| `@agentxm/registry-protocol` | Registry wire contracts, protocol error vocabulary, content parsing, and contract-level publication validation  | `@agentxm/extension-model`   |
+
+Dependency columns in this document describe expected direction, not
+permission to declare every listed dependency by default. Each manifest
+includes only what its implementation imports. Nx derives the actual adjacency
+from source imports and manifests; the architecture does not maintain a second
+exact allowlist of every present and absent edge.
 
 The extension model keeps its explicit dependency budget. A contract package
 does not acquire filesystem, terminal, workspace, or transport behavior.
@@ -158,7 +168,10 @@ flowchart LR
 
 `workspace-operations` is generic only within the AXM workspace model. It owns
 the mechanics for safely applying a plan, but not the feature policy that
-decides which plan should exist. `extension-workspace` owns the extension-type
+decides which plan should exist. Every feature that changes workspace state —
+sync, lifecycle, authoring, configuration — builds its own plan and applies it
+through `workspace-operations`; no feature executes another feature's plans.
+`extension-workspace` owns the extension-type
 knowledge required to derive canonical and projected state; it does not own a
 complete lifecycle or sync workflow.
 
@@ -185,24 +198,18 @@ policy, orchestration, typed failures, typed result, and focused tests needed by
 the CLI and other sanctioned entry points. It depends on contracts, kernels,
 and integrations through their public service APIs.
 
-| Package                            | Use cases it owns                                                                                                   | Primary lower-level collaborators                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `@agentxm/workspace-sync`          | Desired-state reconciliation, semantic closure planning and execution, projection realization, and closure outcomes | Workspace state and operations, extension workspace, sources, agent integration |
-| `@agentxm/workspace-lint`          | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                      | Workspace state and operations, extension workspace, agent integration          |
-| `@agentxm/extension-lifecycle`     | Install, update, uninstall, enable, and disable across root and type-specific command forms                         | Workspace state and operations, extension workspace, sources, agent integration |
-| `@agentxm/extension-authoring`     | New, fork, import, adopt, demote, version, and authored pack membership                                             | Workspace state and operations, extension workspace, contracts                  |
-| `@agentxm/extension-publish`       | Publish selection, validation, authentication requirements, upload, settlement, and recovery                        | Workspace state, extension workspace, registry client, registry protocol        |
-| `@agentxm/extension-discovery`     | Project detectors, local declarations, Registry recommendations, and discovery results                              | Workspace state, extension sources, registry client, extension model            |
-| `@agentxm/workspace-configuration` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers   | Workspace state and operations, extension workspace, agent integration          |
-| `@agentxm/workspace-inspection`    | List, view, inventory, and version-currency queries                                                                 | Workspace state, extension workspace, sources, registry client                  |
-| `@agentxm/registry-auth`           | Login, logout, token, identity inspection, device and loopback flows, and credential lifecycle                      | Registry client and registry protocol                                           |
-| `@agentxm/knowledge-query`         | Knowledge concept resolution, retrieval, search, related concepts, and status                                       | Workspace state and extension workspace                                         |
-
-The collaborator column describes the expected direction, not permission to
-declare every listed dependency by default. Each manifest includes only what
-its implementation imports. Nx derives the actual adjacency from source imports
-and manifests; the architecture does not maintain a second exact allowlist of
-every present and absent edge.
+| Package                            | Use cases it owns                                                                                                 | Expected inward dependencies                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `@agentxm/workspace-sync`          | Desired-state reconciliation planning, projection realization, and reconciliation outcomes                        | Workspace state and operations, extension workspace, sources, agent integration |
+| `@agentxm/workspace-lint`          | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                    | Workspace state and operations, extension workspace, agent integration          |
+| `@agentxm/extension-lifecycle`     | Install, update, uninstall, enable, and disable across root and type-specific command forms                       | Workspace state and operations, extension workspace, sources, agent integration |
+| `@agentxm/extension-authoring`     | New, fork, import, adopt, demote, version, and authored pack membership                                           | Workspace state and operations, extension workspace, contracts                  |
+| `@agentxm/extension-publish`       | Publish selection, validation, authentication requirements, upload, settlement, and recovery                      | Workspace state, extension workspace, registry client, registry protocol        |
+| `@agentxm/extension-discovery`     | Project detectors, local declarations, Registry recommendations, and discovery results                            | Workspace state, extension sources, registry client, extension model            |
+| `@agentxm/workspace-configuration` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers | Workspace state and operations, extension workspace, agent integration          |
+| `@agentxm/workspace-inspection`    | List, view, inventory, and version-currency queries                                                               | Workspace state, extension workspace, sources, registry client                  |
+| `@agentxm/registry-auth`           | Login, logout, token, identity inspection, device and loopback flows, and credential lifecycle                    | Registry client and registry protocol                                           |
+| `@agentxm/knowledge-query`         | Knowledge concept resolution, retrieval, search, related concepts, and status                                     | Workspace state and extension workspace                                         |
 
 Smaller capabilities such as cache housekeeping or self-upgrade remain in the
 CLI or a focused integration until they develop enough policy and reuse to earn
@@ -233,11 +240,28 @@ second production application needs the same boundary.
 Feature packages own use-case decisions. Lower packages never import CLI
 commands, flags, prompts, renderers, `AppError`, or process-lifetime behavior.
 
+The application may consume types from contracts and kernels to render typed
+feature results; it may not invoke kernel or integration services outside the
+composition root. Features do not re-export lower-level types their results
+reference merely to keep presentation imports legal.
+
+A command handler may invoke multiple feature APIs in sequence — for example,
+a lifecycle mutation followed by reconciliation. Fixed sequencing of feature
+use cases is application wiring, not reusable policy. When the sequence
+acquires decisions of its own — conditionals on intermediate results beyond
+error handling, partial-failure policy, or retry semantics — that policy
+belongs in a feature package.
+
 Every production package declares intentional `exports`. Its root exports the
 public service contract, schemas, domain types, and pure behavior that inward
 consumers may use. Environment-backed implementations live behind an explicit
-`./live` export. Only application composition imports `*/live`; feature logic
-retains service requirements in its Effect environment.
+`./live` export. In production source, only application composition imports
+`*/live`; feature logic retains service requirements in its Effect
+environment. Test code has a bounded exception: a package's own tests may
+import its own `./live` export, and integration tests may compose a lower
+package's live Layer. Executable specifications keep exercising the CLI
+through its published harness entry points rather than composing package
+Layers themselves.
 
 Deep imports into another package's `src`, `unstable`, generated files, or
 internal folders are forbidden. A needed cross-package symbol either belongs
@@ -246,14 +270,15 @@ package. A broad barrel is not added merely to make an import legal.
 
 ## Dependency rules
 
-Every production project receives tags along independent dimensions:
+Every project receives tags along independent dimensions; `layer`, `scope`,
+and `release` apply only to production packages:
 
-| Dimension | Values and meaning                                                                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`    | `type:app` or `type:lib`; retains the existing project-kind constraint                                                                                |
-| `layer`   | `layer:app`, `layer:feature`, `layer:kernel`, `layer:integration`, or `layer:contract`                                                                |
-| `feature` | A package-specific tag such as `feature:workspace-sync`; supports focused selection and future policy without defining dependency direction by itself |
-| `release` | `release:cli` for every publishable package that ships in the fixed CLI release group                                                                 |
+| Dimension | Values and meaning                                                                                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`    | `type:app`, `type:lib`, `type:e2e`, or `type:tooling`; retains the existing project-kind constraints                                                |
+| `layer`   | `layer:app`, `layer:feature`, `layer:kernel`, `layer:integration`, or `layer:contract`                                                              |
+| `scope`   | A package-specific tag such as `scope:workspace-sync`; supports focused selection and future policy without defining dependency direction by itself |
+| `release` | `release:cli` for every publishable package that ships in the fixed CLI release group                                                               |
 
 The layer rules are:
 
@@ -270,6 +295,13 @@ depend on a peer only where that dependency remains inward and is justified by
 the packages' responsibilities. Stable asymmetric restrictions use focused Nx
 tag constraints rather than a separately maintained whole-workspace adjacency
 list. Cycles are never permitted.
+
+E2e and test-support projects carry no `layer:*` tag; inventing pseudo-layers
+for them would recreate the exact-adjacency habit this architecture removes.
+The existing `type:*` constraints continue to govern them: e2e projects
+observe published artifacts and entry points, consistent with the
+`system/architecture/e2e-observes-only-shipped-artifacts` specification, and
+may use test-support libraries; tooling projects depend only on libraries.
 
 ## Enforcement
 
@@ -295,8 +327,10 @@ enabled without ignored project pairs. Its configuration also enables:
 General layer constraints own dependency direction. Add a package-specific
 constraint only for a stable asymmetric boundary that the layer matrix cannot
 express, such as `registry-protocol` depending on `extension-model` or
-`extension-sources` depending on `registry-client`. Do not give every package a
-unique tag merely to recreate an exact whole-workspace adjacency list.
+`extension-sources` depending on `registry-client`. Every package carries a
+`scope:*` identity tag for selection and future policy; the prohibition is on
+referencing per-package tags in `depConstraints` to rebuild an adjacency list,
+not on the tags existing.
 
 The flat ESLint configuration applies the boundary rule to `.ts`, `.tsx`,
 `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and `.cjs`. Registering the inferred
@@ -328,7 +362,8 @@ Nx project constraints cannot distinguish the CLI runtime composition root from
 command handlers in the same project or distinguish a package root from its
 `./live` entry point. Focused ESLint `no-restricted-imports` overrides therefore:
 
-- forbid `@agentxm/*/live` outside the CLI composition root;
+- forbid `@agentxm/*/live` in production source outside the CLI composition
+  root, leaving the test and specification-harness exceptions above intact;
 - prevent command handlers from bypassing feature APIs to call kernels or
   integrations directly; and
 - forbid imports through another package's `src`, `unstable`, internal generated
@@ -534,7 +569,7 @@ defaults for:
 - `project.json` configuration; and
 - buildable and publishable setup where the package ships with the CLI.
 
-Supply the package's `layer:*`, `feature:*`, and `release:cli` tags when it is
+Supply the package's `layer:*`, `scope:*`, and `release:cli` tags when it is
 created. Do not build a custom generator until repeated AXM-specific edits
 remain after the official generator and workspace defaults are in place.
 

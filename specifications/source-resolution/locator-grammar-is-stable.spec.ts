@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 
 import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";
 import { parseInputPattern, type Source } from "@agentxm/extension-management/unstable/sources";
-import { getAppError } from "axm.sh/unstable/specification-harness";
+import { getAppError } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 import { makeSpecWorkspace } from "../support/install-harness.js";

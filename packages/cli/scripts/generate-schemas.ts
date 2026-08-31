@@ -28,8 +28,7 @@ import { AxmPackageMetaSchema } from "../../extension-management/src/unstable/pa
 import { SettingsSchema } from "../../extension-management/src/unstable/settings/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");
-const CORE_ROOT = path.join(import.meta.dirname, "../../core");
-const SITE_CONTENT_SCHEMAS_DIR = path.join(CORE_ROOT, "site-content/__generated__/schemas");
+const SITE_CONTENT_SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
 
 interface SchemaConfig {
   name: string;

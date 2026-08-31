@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { handleInstall, handleUninstall } from "axm.sh/unstable/specification-harness";
+import { handleInstall, handleUninstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";

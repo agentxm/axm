@@ -4,11 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { ExitCodeDefinitions } from "@agentxm/extension-management/unstable/app-error";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  HelpTopicResultSchema,
-  handleHelpPath,
-  rootCommand,
-} from "axm.sh/unstable/specification-harness";
+import { HelpTopicResultSchema, handleHelpPath, rootCommand } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 

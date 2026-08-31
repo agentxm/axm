@@ -37,7 +37,7 @@ import {
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
   type TestPromptConfig,
-} from "axm.sh/unstable/specification-harness";
+} from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
   /** Render through the machine (JSON) renderer instead of the human one. */

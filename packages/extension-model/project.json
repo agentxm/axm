@@ -4,14 +4,10 @@
   "projectType": "library",
   "root": "packages/extension-model",
   "sourceRoot": "packages/extension-model/src",
-  "tags": ["type:lib", "scope:extension-model"],
+  "tags": ["type:lib", "layer:contract", "scope:extension-model", "release:cli"],
   "targets": {
     "build": {
-      "cache": true,
-      "dependsOn": ["^build"],
       "executor": "@nx/js:tsc",
-      "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/dist"],
       "options": {
         "main": "packages/extension-model/src/unstable/extensions/index.ts",
         "outputPath": "packages/extension-model/dist",
@@ -20,23 +16,7 @@
         "generatePackageJson": false
       }
     },
-    "lint": {
-      "executor": "@nx/eslint:lint",
-      "options": {
-        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "packages/extension-model"
-      }
-    },
     "nx-release-publish": {
-      "cache": false,
-      "dependsOn": ["build", "^nx-release-publish"],
       "executor": "@nx/js:release-publish"
     }
   }

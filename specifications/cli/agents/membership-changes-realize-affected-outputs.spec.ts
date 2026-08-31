@@ -11,7 +11,7 @@ import {
   handleAgentsAdd,
   handleAgentsRemove,
   handleInstall,
-} from "axm.sh/unstable/specification-harness";
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../support/install-harness.js";

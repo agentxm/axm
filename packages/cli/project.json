@@ -4,18 +4,16 @@
   "projectType": "application",
   "root": "packages/cli",
   "sourceRoot": "packages/cli/src",
-  "tags": ["type:app", "scope:cli"],
+  "tags": ["type:app", "layer:app", "scope:cli", "release:cli"],
   "targets": {
     "build": {
-      "cache": true,
-      "dependsOn": ["generate", "^build"],
+      "dependsOn": ["...", "generate"],
       "executor": "@nx/js:tsc",
       "inputs": [
-        "production",
+        "...",
         "{projectRoot}/help/topics/*.md",
         "{workspaceRoot}/skills/axm/skill.json",
-        "{workspaceRoot}/skills/axm/src/**/*",
-        "^production"
+        "{workspaceRoot}/skills/axm/src/**/*"
       ],
       "outputs": ["{projectRoot}/dist/src", "{projectRoot}/dist/tsconfig.tsbuildinfo"],
       "options": {
@@ -28,8 +26,8 @@
     },
     "watch": {
       "cache": false,
-      "dependsOn": ["^build"],
       "executor": "@nx/js:tsc",
+      "outputs": ["{projectRoot}/dist/src", "{projectRoot}/dist/tsconfig.tsbuildinfo"],
       "options": {
         "main": "packages/cli/src/main.ts",
         "outputPath": "packages/cli/dist",
@@ -40,31 +38,16 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "dependsOn": ["generate"],
-      "options": {
-        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "packages/cli"
-      }
+      "dependsOn": ["generate"]
     },
     "generate": {
+      "executor": "nx:noop",
       "dependsOn": [
         "generate:type-enumerations",
         "generate:help-topics",
         "generate:bundled-axm-skill",
         "generate:schemas"
-      ],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "echo cli generated output is up to date"
-      }
+      ]
     },
     "generate:type-enumerations": {
       "cache": true,
@@ -92,24 +75,11 @@
         "command": ["bun", "scripts/generate-type-enumerations.ts"],
         "cwd": "packages/cli"
       },
-      "dependsOn": [
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-management:build"
-      ]
+      "dependsOn": ["^build"]
     },
     "generate:help-topics": {
       "cache": true,
-      "dependsOn": [
-        "generate:type-enumerations",
-        {
-          "projects": ["cli"],
-          "target": "generate:schemas"
-        },
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-management:build"
-      ],
+      "dependsOn": ["generate:type-enumerations", "generate:schemas", "^build"],
       "inputs": [
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
@@ -126,15 +96,7 @@
     },
     "generate:bundled-axm-skill": {
       "cache": true,
-      "dependsOn": [
-        {
-          "projects": ["extension-management"],
-          "target": "build"
-        },
-        "extension-model:build",
-        "registry-protocol:build",
-        "extension-management:build"
-      ],
+      "dependsOn": ["^build"],
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
@@ -150,11 +112,27 @@
         "cwd": "packages/cli"
       }
     },
+    "generate:schemas": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/generate-schemas.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-schemas.ts"],
+        "cwd": "packages/cli"
+      }
+    },
     "compile": {
       "cache": true,
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
-      "inputs": ["production", "^production"],
+      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
       "outputs": ["{projectRoot}/dist/bin"],
       "options": {
         "command": ["bun", "scripts/compile.ts"],
@@ -165,7 +143,7 @@
       "cache": true,
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
-      "inputs": ["production", "^production"],
+      "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
       "outputs": ["{projectRoot}/dist/host-bin"],
       "options": {
         "command": ["bun", "scripts/compile.ts", "--host-only"],
@@ -183,25 +161,7 @@
       }
     },
     "nx-release-publish": {
-      "cache": false,
-      "dependsOn": ["build", "^nx-release-publish"],
       "executor": "@nx/js:release-publish"
-    },
-    "generate:schemas": {
-      "cache": true,
-      "inputs": [
-        "production",
-        "^production",
-        "{projectRoot}/scripts/generate-schemas.ts",
-        "{workspaceRoot}/.prettierrc.json"
-      ],
-      "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/generate-schemas.ts"],
-        "cwd": "packages/cli"
-      },
-      "dependsOn": ["extension-management:build", "^build"]
     }
   }
 }

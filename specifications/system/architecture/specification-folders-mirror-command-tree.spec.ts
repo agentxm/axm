@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import type { Command } from "effect/unstable/cli";
 
-import { rootCommand } from "axm.sh/unstable/specification-harness";
+import { rootCommand } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 

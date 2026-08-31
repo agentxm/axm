@@ -8,7 +8,7 @@ import {
   collectCommandPaths,
   formatCommandPath,
   rootCommand,
-} from "axm.sh/unstable/specification-harness";
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 

@@ -10,11 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-management/unstable/skills";
-import {
-  handleSkillsInstall,
-  loadVersion,
-  makeEffectProvide,
-} from "axm.sh/unstable/specification-harness";
+import { handleSkillsInstall, loadVersion, makeEffectProvide } from "axm.sh/specification-harness";
 
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 

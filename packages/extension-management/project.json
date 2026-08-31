@@ -4,18 +4,15 @@
   "projectType": "library",
   "root": "packages/extension-management",
   "sourceRoot": "packages/extension-management/src",
-  "tags": ["type:lib", "scope:core"],
+  "tags": ["type:lib", "layer:feature", "scope:core", "release:cli"],
   "targets": {
     "generate": {
+      "executor": "nx:noop",
       "dependsOn": [
         "generate:registry-client",
         "generate:telemetry-client",
         "generate:e2e-extension-matrix"
-      ],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "echo core generated output is up to date"
-      }
+      ]
     },
     "generate:e2e-extension-matrix": {
       "cache": true,
@@ -31,7 +28,7 @@
         "command": ["bun", "scripts/generate-e2e-extension-matrix.ts"],
         "cwd": "packages/extension-management"
       },
-      "dependsOn": ["extension-model:build", "registry-protocol:build"]
+      "dependsOn": ["^build"]
     },
     "generate:registry-client": {
       "cache": true,
@@ -78,11 +75,8 @@
       }
     },
     "build": {
-      "cache": true,
-      "dependsOn": ["generate", "^build"],
+      "dependsOn": ["...", "generate"],
       "executor": "@nx/js:tsc",
-      "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/dist"],
       "options": {
         "main": "packages/extension-management/src/unstable/app-error/index.ts",
         "outputPath": "packages/extension-management/dist",
@@ -92,19 +86,7 @@
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "dependsOn": ["generate"],
-      "options": {
-        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "packages/extension-management"
-      }
+      "dependsOn": ["generate"]
     },
     "test-windows": {
       "executor": "nx:run-commands",
@@ -118,8 +100,6 @@
       }
     },
     "nx-release-publish": {
-      "cache": false,
-      "dependsOn": ["build", "^nx-release-publish"],
       "executor": "@nx/js:release-publish"
     }
   }

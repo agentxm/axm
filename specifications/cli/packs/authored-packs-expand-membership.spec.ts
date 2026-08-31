@@ -10,7 +10,7 @@ import {
   handlePacksNew,
   handleSync,
   handleUninstall,
-} from "axm.sh/unstable/specification-harness";
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";

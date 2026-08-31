@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { collectHelpFiles } from "axm.sh/unstable/specification-harness";
+import { collectHelpFiles } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 

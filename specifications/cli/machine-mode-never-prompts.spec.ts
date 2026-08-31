@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { SetupDocumentSchema, handleSetup } from "axm.sh/unstable/specification-harness";
+import { SetupDocumentSchema, handleSetup } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 import { makeSetupSpecContext } from "../support/setup-harness.js";

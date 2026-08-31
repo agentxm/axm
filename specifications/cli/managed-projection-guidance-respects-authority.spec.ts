@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 
-import { handleInstall, handleSync } from "axm.sh/unstable/specification-harness";
+import { handleInstall, handleSync } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 import { writeLocalSubagentPackage } from "../support/extension-fixtures.js";

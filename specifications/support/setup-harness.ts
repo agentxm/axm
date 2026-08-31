@@ -26,7 +26,7 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace";
-import { ExecutionDirectory, makeEffectProvide } from "axm.sh/unstable/specification-harness";
+import { ExecutionDirectory, makeEffectProvide } from "axm.sh/specification-harness";
 
 export interface SetupSpecContextOptions {
   /** Render through the machine (JSON) renderer instead of the human one. */

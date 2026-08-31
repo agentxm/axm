@@ -8,11 +8,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import {
-  LintResultDocumentSchema,
-  handleInstall,
-  handleLint,
-} from "axm.sh/unstable/specification-harness";
+import { LintResultDocumentSchema, handleInstall, handleLint } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { writeLocalSkillPackage } from "../../support/install-harness.js";

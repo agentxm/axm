@@ -1,9 +1,9 @@
 /**
  * Publish a local preview of the axm npm packages.
  *
- * Builds, version-stamps, packs, and `npm publish`es the three release-group
- * packages (`@agentxm/extension-model`, `@agentxm/registry-protocol`, `@agentxm/extension-management`, `axm.sh`) under a
- * non-default dist-tag (default: `preview`). The version is derived from the
+ * Builds, version-stamps, packs, and `npm publish`es the release-group
+ * packages (the `release:cli` tag group) under a non-default dist-tag
+ * (default: `preview`). The version is derived from the
  * working tree so each invocation is unique and stable (`@latest`) consumers
  * are unaffected.
  *
@@ -167,13 +167,7 @@ const buildReleasePackages = () => {
     return;
   }
   console.log("==> Building utils, core, cli");
-  runNx(
-    "run-many",
-    "-t",
-    "build",
-    "--projects",
-    "extension-model,registry-protocol,extension-management,cli",
-  );
+  runNx("run-many", "-t", "build", "--projects", "tag:release:cli");
 };
 
 const packReleasePackages = (packDestAbsolute: string) => {

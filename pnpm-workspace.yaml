@@ -33,6 +33,7 @@ catalog:
   fflate: ^0.8.3
   gray-matter: ^4.0.3
   husky: ^9.1.7
+  jsonc-eslint-parser: ^2.4.2
   jsonc-parser: ^3.3.1
   smol-toml: ^1.7.1
   lint-staged: ^17.3.0

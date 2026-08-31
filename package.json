@@ -103,6 +103,7 @@
     "allure-vitest": "catalog:",
     "effect": "catalog:",
     "eslint": "catalog:",
+    "jsonc-eslint-parser": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
     "nx": "catalog:",

@@ -20,20 +20,6 @@
         "command": "bun scripts/specification-catalog.ts",
         "cwd": "."
       }
-    },
-    "lint": {
-      "executor": "@nx/eslint:lint",
-      "options": {
-        "lintFilePatterns": ["{projectRoot}/**/*.{ts,tsx,js,mjs,cjs}"]
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "specifications"
-      }
     }
   }
 }

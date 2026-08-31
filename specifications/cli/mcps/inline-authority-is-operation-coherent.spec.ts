@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { getAppError, handleMcpsAdd, handleSync } from "axm.sh/unstable/specification-harness";
+import { getAppError, handleMcpsAdd, handleSync } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../../support/contract.js";
 import { makeSpecWorkspace } from "../../support/install-harness.js";

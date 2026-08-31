@@ -11,12 +11,7 @@
       "parallelism": false,
       "dependsOn": ["cli:build"],
       "inputs": ["default", "^production"],
-      "outputs": ["{workspaceRoot}/test-results/cli-e2e"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pnpm exec vitest run",
-        "cwd": "packages/cli-e2e"
-      }
+      "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
     },
     "e2e-windows": {
       "cache": true,

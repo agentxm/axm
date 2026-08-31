@@ -118,9 +118,6 @@ jobs:
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
-      - name: Build CLI dependencies
-        run: pnpm exec nx run cli:build --outputStyle=static
-
       - name: Lint bundled AXM skill
         run: pnpm exec nx run axm:lint-bundled-skill --outputStyle=static
 

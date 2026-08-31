@@ -78,7 +78,7 @@ jobs:
         run: gh release upload "${{ steps.release_meta.outputs.tag }}" release-assets/* --clobber
 
       - name: Build npm packages
-        run: pnpm exec nx run-many -t build --projects extension-model,registry-protocol,extension-management,cli --outputStyle=static
+        run: pnpm exec nx run-many -t build --projects tag:release:cli --outputStyle=static
 
       - name: Pack npm packages
         run: |

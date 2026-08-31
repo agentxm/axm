@@ -20,7 +20,7 @@ import {
   AuthClientTest,
   DeviceLoginInteractionTest,
 } from "@agentxm/extension-management/unstable/auth";
-import type { handleRootPublish } from "axm.sh/unstable/specification-harness";
+import type { handleRootPublish } from "axm.sh/specification-harness";
 
 import type { makeSpecWorkspace } from "./install-harness.js";
 

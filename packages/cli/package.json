@@ -1,7 +1,7 @@
 {
   "name": "axm.sh",
   "version": "0.28.3",
-  "description": "Extension manager for AI coding agents — install skills, subagents, MCP servers, rules, hooks, knowledge, and packs across Claude Code, Codex, Cursor, Copilot, and more.",
+  "description": "Extension manager for AI coding agents \u2014 install skills, subagents, MCP servers, rules, hooks, knowledge, and packs across Claude Code, Codex, Cursor, Copilot, and more.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -56,7 +56,7 @@
       "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
     },
-    "./unstable/specification-harness": {
+    "./specification-harness": {
       "types": "./dist/src/specification-harness.d.ts",
       "experimental": "./dist/src/specification-harness.js",
       "default": "./dist/src/specification-harness.js"
@@ -66,8 +66,6 @@
   },
   "files": [
     "dist/src/",
-    "!dist/src/test-helpers.*",
-    "!dist/src/test-stubs.*",
     "!**/*.map",
     "site-content/"
   ],
@@ -86,9 +84,7 @@
     "@agentxm/registry-protocol": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
-    "gray-matter": "catalog:",
     "semver": "catalog:",
-    "simple-git": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {

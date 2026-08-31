@@ -10,7 +10,7 @@ import {
   JsonErrorEnvelopeSchema,
   classifyError,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { handleInstall } from "axm.sh/unstable/specification-harness";
+import { handleInstall } from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 import { makeSpecWorkspace } from "../support/install-harness.js";

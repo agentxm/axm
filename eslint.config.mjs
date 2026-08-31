@@ -1,5 +1,6 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
+import jsoncParser from "jsonc-eslint-parser";
 
 const axmPolicyPlugin = {
   rules: {
@@ -49,18 +50,32 @@ export default [
     ],
   },
   {
-    files: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+    files: [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.mts",
+      "**/*.cts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+    ],
     rules: {
       "@nx/enforce-module-boundaries": [
         "error",
         {
           enforceBuildableLibDependency: true,
+          banTransitiveDependencies: true,
           allow: [
             "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
             "^.*/vitest\\.reporting\\.js$",
             // Specifications exercise the CLI application boundary in-process
             // through its published harness entry points.
-            "^axm\\.sh/(app|runtime|unstable/specification-harness)$",
+            "^axm\\.sh/(app|runtime|specification-harness)$",
+            // Subprocess e2e fixtures observe the built library artifact by
+            // path. They move to the CLI package's shipped surface when the
+            // runtime envelope moves into the application package.
+            "^\\.\\./\\.\\./\\.\\./extension-management/dist/",
           ],
           depConstraints: [
             {
@@ -97,26 +112,79 @@ export default [
                 "scope:registry-protocol",
               ],
             },
-            // The permitted package dependency graph: the shared model depends
-            // on nothing, the Registry protocol only on the model, extension
-            // management on both.
+            // Layer direction: dependencies point inward and never back
+            // toward the application. Feature packages are peers.
+            {
+              sourceTag: "layer:app",
+              onlyDependOnLibsWithTags: [
+                "layer:feature",
+                "layer:kernel",
+                "layer:integration",
+                "layer:contract",
+              ],
+            },
+            {
+              sourceTag: "layer:feature",
+              onlyDependOnLibsWithTags: ["layer:kernel", "layer:integration", "layer:contract"],
+            },
+            {
+              sourceTag: "layer:kernel",
+              onlyDependOnLibsWithTags: ["layer:kernel", "layer:contract"],
+            },
+            {
+              sourceTag: "layer:integration",
+              onlyDependOnLibsWithTags: ["layer:integration", "layer:contract"],
+            },
+            {
+              sourceTag: "layer:contract",
+              onlyDependOnLibsWithTags: ["layer:contract"],
+            },
+            // Stable asymmetric contract boundary the layer matrix cannot
+            // express: the shared model depends on nothing, the Registry
+            // protocol only on the model.
             {
               sourceTag: "scope:extension-model",
               onlyDependOnLibsWithTags: ["scope:extension-model"],
+              allowedExternalImports: [
+                "effect",
+                "effect/**",
+                "packageurl-js",
+                "semver",
+                "spdx-expression-parse",
+                // Test-runner imports inside the package's own test files.
+                "vitest",
+                "vitest/**",
+                "@effect/vitest",
+              ],
             },
             {
               sourceTag: "scope:registry-protocol",
               onlyDependOnLibsWithTags: ["scope:registry-protocol", "scope:extension-model"],
             },
-            {
-              sourceTag: "scope:core",
-              onlyDependOnLibsWithTags: [
-                "scope:core",
-                "scope:extension-model",
-                "scope:registry-protocol",
-              ],
-            },
           ],
+        },
+      ],
+    },
+  },
+  {
+    // Manifest fidelity: build inputs and each buildable package's
+    // package.json must agree. Missing, obsolete, and mismatched entries
+    // fail lint instead of surfacing at publish time.
+    files: ["**/package.json"],
+    languageOptions: {
+      parser: jsoncParser,
+    },
+    rules: {
+      "@nx/dependency-checks": [
+        "error",
+        {
+          buildTargets: ["build"],
+          checkMissingDependencies: true,
+          checkObsoleteDependencies: true,
+          checkVersionMismatches: true,
+          // Loaded through a computed dynamic-import specifier the static
+          // graph cannot see (credential-store keychain tier).
+          ignoredDependencies: ["@napi-rs/keyring"],
         },
       ],
     },
@@ -305,6 +373,49 @@ export default [
               name: "effect/unstable/http/FetchHttpClient",
               message:
                 "Provide the Fetch HTTP client once in packages/cli/src/runtime.ts so transport policy is applied uniformly.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@agentxm/*/live"],
+              message:
+                "Concrete environment-backed Layers compose only in the application composition root (packages/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
+            },
+            {
+              group: ["@agentxm/*/testing"],
+              message:
+                "Deterministic in-memory ports serve tests and specifications; production source composes real services.",
+            },
+            {
+              group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],
+              message:
+                "Deep imports bypass the provider's declared public API; export the symbol intentionally or move the responsibility to the right package.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The specification corpus observes the boundary it verifies: the CLI
+    // only through its published entry points, lower packages only through
+    // contracts and package-owned ./testing ports.
+    files: ["specifications/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^axm\\.sh(/(?!app$|runtime$|specification-harness$).*)?$",
+              message:
+                "Specifications exercise the CLI only through its published entry points: axm.sh/app, axm.sh/runtime, axm.sh/specification-harness.",
+            },
+            {
+              regex:
+                "^@agentxm/(workspace-(state|operations|sync|lint|configuration|inspection)|extension-(workspace|sources|lifecycle|authoring|publish|discovery)|agent-integration|registry-(client|auth)|knowledge-query)(/(?!testing$).*)?$",
+              message:
+                "Specifications never import a kernel, integration, or feature root; compose the published CLI harness, the contract packages, or a package-owned ./testing port.",
             },
           ],
         },

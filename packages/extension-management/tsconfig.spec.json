@@ -9,6 +9,7 @@
   },
   "include": [
     "src/**/*.internal.test.ts",
+    "src/**/__tests__/**/*.ts",
     "src/**/*.windows.test.ts",
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",

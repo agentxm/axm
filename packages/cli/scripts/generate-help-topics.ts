@@ -12,7 +12,7 @@ import { stripRegionMarkers } from "./type-enumerations.js";
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const TOPICS_DIR = path.join(CLI_ROOT, "help/topics");
 const OUTPUT_PATH = path.join(CLI_ROOT, "src/__generated__/help-topics.ts");
-const SCHEMAS_DIR = path.join(CLI_ROOT, "../core/site-content/__generated__/schemas");
+const SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
 
 type HelpTopicKind = "markdown" | "json-schema";
 

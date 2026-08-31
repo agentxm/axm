@@ -7,14 +7,34 @@
     {
       "plugin": "@nx/js/typescript",
       "options": {
-        "build": {
-          "targetName": "build",
-          "configName": "tsconfig.lib.json"
-        },
         "typecheck": {
           "targetName": "typecheck",
           "configName": "tsconfig.json"
-        }
+        },
+        "build": false
+      }
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "include": ["packages/**/vitest.config.ts", "specifications/vitest.config.ts"],
+      "exclude": ["packages/cli-e2e/**"],
+      "options": {
+        "testTargetName": "test",
+        "testMode": "run"
+      }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "include": ["packages/cli-e2e/vitest.config.ts"],
+      "options": {
+        "testTargetName": "e2e-main",
+        "testMode": "run"
       }
     }
   ],
@@ -29,6 +49,8 @@
     "production": [
       "default",
       "!{projectRoot}/dist/**",
+      "!{projectRoot}/scripts/**",
+      "!{projectRoot}/**/__tests__/**",
       "!{projectRoot}/**/*.test.ts",
       "!{projectRoot}/**/*.e2e.test.ts",
       "!{projectRoot}/**/*.spec.ts",
@@ -38,28 +60,31 @@
     ]
   },
   "targetDefaults": {
+    "@nx/js:tsc": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"]
+    },
     "@nx/eslint:lint": {
       "cache": true,
       "options": {
         "maxWarnings": 192
       },
-      "inputs": [
-        "default",
-        "^default",
-        "^production",
-        "{workspaceRoot}/eslint.config.mjs",
-        "{workspaceRoot}/tools/eslint-rules/**/*"
-      ]
+      "inputs": ["default", "^default", "^production", "{workspaceRoot}/eslint.config.mjs"]
     },
     "test": {
       "cache": true,
       "dependsOn": ["^build"],
-      "inputs": ["default", "^production"],
       "outputs": ["{workspaceRoot}/test-results/{projectName}"]
+    },
+    "nx-release-publish": {
+      "cache": false,
+      "dependsOn": ["build", "^nx-release-publish"]
     }
   },
   "release": {
-    "projects": ["extension-model", "registry-protocol", "extension-management", "cli"],
+    "projects": ["tag:release:cli"],
     "projectsRelationship": "fixed",
     "versionPlans": true,
     "releaseTag": {

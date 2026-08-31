@@ -22,8 +22,19 @@ export interface CatalogSpecification {
   readonly boundary: string;
   readonly selection: string;
   readonly methods: readonly string[];
+  /**
+   * Static gates declared beside the specification whose results are bound
+   * to its requirement identity as evidence. Bound evidence supports the
+   * owning specification; it never replaces it.
+   */
+  readonly boundEvidence: readonly CatalogBoundEvidenceGate[];
   /** Repository-relative source path. */
   readonly source: string;
+}
+
+export interface CatalogBoundEvidenceGate {
+  readonly gate: string;
+  readonly verifies: string;
 }
 
 export interface CatalogExecutionBinding {
@@ -397,6 +408,43 @@ export const parseSpecificationFile = (
   if (titleFinding !== undefined) {
     issues.push({ severity: "error", source: relativePath, message: titleFinding });
   }
+  const evidenceExtraction = extractDefinedLiteral(sourceText, relativePath, "boundEvidence", [
+    "defineBoundEvidence",
+  ]);
+  issues.push(...evidenceExtraction.issues);
+  if (evidenceExtraction.issues.length > 0) {
+    return { issues };
+  }
+  const boundEvidence: CatalogBoundEvidenceGate[] = [];
+  if (evidenceExtraction.value !== undefined) {
+    if (!Array.isArray(evidenceExtraction.value) || evidenceExtraction.value.length === 0) {
+      issues.push({
+        severity: "error",
+        source: relativePath,
+        message: "`boundEvidence` must be a non-empty array of gate declarations",
+      });
+      return { issues };
+    }
+    for (const entry of evidenceExtraction.value) {
+      const gate = isRecordValue(entry) ? entry["gate"] : undefined;
+      const verifies = isRecordValue(entry) ? entry["verifies"] : undefined;
+      if (
+        !isStringValue(gate) ||
+        gate.length === 0 ||
+        !isStringValue(verifies) ||
+        verifies.length === 0
+      ) {
+        issues.push({
+          severity: "error",
+          source: relativePath,
+          message:
+            "each `boundEvidence` entry must declare non-empty `gate` and `verifies` strings",
+        });
+        return { issues };
+      }
+      boundEvidence.push({ gate, verifies });
+    }
+  }
   return {
     specification: {
       requirement,
@@ -407,6 +455,7 @@ export const parseSpecificationFile = (
       boundary,
       selection,
       methods,
+      boundEvidence,
       source: relativePath,
     },
     issues,
@@ -760,6 +809,9 @@ export const renderCatalogMarkdown = (catalog: SpecificationCatalog): string => 
           lines.push(`- Boundary: ${entry.boundary}; selection: ${entry.selection}`);
           if (entry.methods.length > 0) {
             lines.push(`- Methods: ${entry.methods.join(", ")}`);
+          }
+          for (const gateEvidence of entry.boundEvidence) {
+            lines.push(`- Bound evidence: \`${gateEvidence.gate}\` — ${gateEvidence.verifies}`);
           }
           const bindings = bindingsByRequirement.get(entry.requirement) ?? [];
           for (const binding of bindings) {

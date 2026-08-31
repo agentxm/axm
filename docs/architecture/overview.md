@@ -92,9 +92,12 @@ agent administration tool.
 Production dependency direction points strictly inward: application toward
 features and runtime composition, features toward kernels, integrations, and
 contracts, and contracts toward the extension model. No library depends on CLI
-interaction or output rendering, and the executable specification
-`system/architecture/packages-follow-permitted-dependency-graph` owns the
-permitted graph at each migration stage.
+interaction or output rendering. The executable specifications
+`system/architecture/package-dependencies-point-inward` and
+`system/architecture/live-composition-stays-in-application` own the inward,
+acyclic dependency obligation and the application-only composition of concrete
+implementations; the exact dependencies present at any migration stage are
+implementation state derived by Nx, not a normative graph.
 
 AXM is the public side of the AgentXM system. It may depend on published
 service contracts and published OSS-safe code packages. The executable

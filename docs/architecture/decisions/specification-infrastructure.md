@@ -68,6 +68,13 @@ build target. The catalog generator and selection runner live in
 - End-to-end files bind their evidence to requirement identities with
   `defineExecutionBinding`, including the boundary-specific rationale the
   strategy requires; the catalog lists that evidence beside each requirement.
+- A specification whose decisive verification is a static gate declares
+  literal-only `boundEvidence` beside its `specification` constant with
+  `defineBoundEvidence`; the catalog reads the declaration statically and
+  lists each gate beside the requirement. Bound evidence supports the owning
+  specification and never replaces it, and the same declaration is the general
+  channel for later package-level evidence rather than a one-off for the
+  architecture gates.
 
 ## Fast-suite performance budget
 

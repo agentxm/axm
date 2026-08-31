@@ -44,6 +44,15 @@ Keep them in each command's folder with the shared names (`preview-is-pure`,
 `*-is-idempotent`, `preserves-*`) and tag the matching product goal.
 Cross-cutting views come from goal metadata, never duplicate directories.
 
+## Bound evidence
+
+A specification whose decisive verification is a static gate (for example the
+Nx module-boundary or manifest-fidelity lint) declares literal-only
+`boundEvidence` beside its `specification` constant with `defineBoundEvidence`
+from `support/contract.ts`. Bound evidence supports the owning specification
+and never replaces it: the specification file remains the requirement's sole
+authority, and the catalog reads the declaration statically.
+
 ## Moves and identity
 
 The `requirement` identity must equal the file's path under `specifications/`

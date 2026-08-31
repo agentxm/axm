@@ -174,3 +174,27 @@ export interface ExecutionBinding {
 
 /** Declares a boundary-specific execution binding. Identity function. */
 export const defineExecutionBinding = <const B extends ExecutionBinding>(binding: B): B => binding;
+
+/**
+ * One static verification gate whose result is bound to the owning
+ * specification's requirement identity. Bound evidence supports the owning
+ * specification; it never replaces it and never states a new requirement.
+ * The catalog reads the declaration statically beside the specification
+ * metadata under the same literal-only discipline.
+ */
+export interface BoundEvidenceGate {
+  /** The static gate, named by the verification surface that runs it. */
+  readonly gate: string;
+  /** What the gate verifies for this requirement, in product language. */
+  readonly verifies: string;
+}
+
+/**
+ * Declares the static gates bound to a specification as evidence. Exported
+ * as `boundEvidence` beside the `specification` constant. Identity function.
+ */
+export const defineBoundEvidence = <
+  const E extends readonly [BoundEvidenceGate, ...BoundEvidenceGate[]],
+>(
+  evidence: E,
+): E => evidence;

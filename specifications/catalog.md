@@ -607,15 +607,28 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: contract
 - Source: [`specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts`](../specifications/system/architecture/e2e-observes-only-shipped-artifacts.spec.ts)
 
-##### Workspace packages depend on each other only along the permitted dependency graph
+##### Environment-backed service composition happens only in the application composition root
 
-- Requirement: `system/architecture/packages-follow-permitted-dependency-graph`
+- Requirement: `system/architecture/live-composition-stays-in-application`
 - Class: architecture
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Methods: contract
-- Source: [`specifications/system/architecture/packages-follow-permitted-dependency-graph.spec.ts`](../specifications/system/architecture/packages-follow-permitted-dependency-graph.spec.ts)
+- Bound evidence: `lint: no-restricted-imports (@agentxm/*/live, @agentxm/*/testing)` — Rejects concrete environment-backed Layer imports and in-memory port imports from production source outside the application composition root, while tests and specifications keep their sanctioned exceptions.
+- Source: [`specifications/system/architecture/live-composition-stays-in-application.spec.ts`](../specifications/system/architecture/live-composition-stays-in-application.spec.ts)
+
+##### Production package dependencies point inward, stay acyclic, and keep features isolated
+
+- Requirement: `system/architecture/package-dependencies-point-inward`
+- Class: architecture
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Methods: contract
+- Bound evidence: `lint: @nx/enforce-module-boundaries` — Rejects outward or feature-to-feature workspace imports, undeclared transitive dependencies, external imports outside a constrained package's budget, and dependency cycles across every production project.
+- Bound evidence: `lint: @nx/dependency-checks` — Keeps each buildable package manifest aligned with its actual imports so the graph Nx derives is truthful.
+- Source: [`specifications/system/architecture/package-dependencies-point-inward.spec.ts`](../specifications/system/architecture/package-dependencies-point-inward.spec.ts)
 
 ##### The public system depends on private platform responsibilities only through published contracts
 

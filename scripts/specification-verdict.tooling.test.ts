@@ -18,6 +18,7 @@ const specification = (overrides: Partial<CatalogSpecification>): CatalogSpecifi
   boundary: "memory",
   selection: "per-change",
   methods: [],
+  boundEvidence: [],
   source: "specifications/cli/install/realizes-direct-intent.spec.ts",
   ...overrides,
 });

@@ -97,6 +97,48 @@ describe("parseSpecificationFile", () => {
     expect(lintSpecificationTitle("Install provides the workspace layer")).toContain("layer");
     expect(lintSpecificationTitle("Install realizes directly desired extensions")).toBeUndefined();
   });
+
+  it("extracts bound evidence declared beside the specification", () => {
+    const parsed = parseSpecificationFile(
+      `${validSpecificationSource}
+export const boundEvidence = defineBoundEvidence([
+  { gate: "lint: example-gate", verifies: "Rejects the violation on every change." },
+]);`,
+      "specifications/cli/install/realizes-direct-intent.spec.ts",
+    );
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.specification?.boundEvidence).toEqual([
+      { gate: "lint: example-gate", verifies: "Rejects the violation on every change." },
+    ]);
+  });
+
+  it("defaults bound evidence to empty when the export is absent", () => {
+    const parsed = parseSpecificationFile(
+      validSpecificationSource,
+      "specifications/cli/install/realizes-direct-intent.spec.ts",
+    );
+    expect(parsed.specification?.boundEvidence).toEqual([]);
+  });
+
+  it("rejects bound evidence without a gate or verification statement", () => {
+    const parsed = parseSpecificationFile(
+      `${validSpecificationSource}
+export const boundEvidence = defineBoundEvidence([{ gate: "", verifies: "" }]);`,
+      "specifications/cli/install/realizes-direct-intent.spec.ts",
+    );
+    expect(parsed.specification).toBeUndefined();
+    expect(parsed.issues.some((issue) => issue.message.includes("boundEvidence"))).toBe(true);
+  });
+
+  it("rejects computed bound evidence", () => {
+    const parsed = parseSpecificationFile(
+      `${validSpecificationSource}
+export const boundEvidence = defineBoundEvidence([{ gate: gateName, verifies: "x" }]);`,
+      "specifications/cli/install/realizes-direct-intent.spec.ts",
+    );
+    expect(parsed.specification).toBeUndefined();
+    expect(parsed.issues.some((issue) => issue.message.includes("literal-only"))).toBe(true);
+  });
 });
 
 describe("parseProductGoalRegistry", () => {
@@ -236,5 +278,27 @@ describe("collectCatalog", () => {
     expect(markdown).toContain("#### Install");
     expect(markdown).toContain("`cli/install/a`");
     expect(markdown).toContain("## Product goals");
+  });
+
+  it("renders bound evidence beside its owning requirement", () => {
+    const target = path.join(repoRoot, "specifications", "cli", "install", "a.spec.ts");
+    fs.writeFileSync(
+      target,
+      `export const specification = defineSpecification({
+        requirement: "cli/install/a",
+        title: "Install realizes directly desired extensions",
+        class: "functional",
+        role: "experience",
+        goals: ["extension-adoption"],
+      });
+export const boundEvidence = defineBoundEvidence([
+  { gate: "lint: example-gate", verifies: "Rejects the violation on every change." },
+]);`,
+    );
+    const catalog = collectCatalog({ repoRoot, executionBindingRoots: [] });
+    const markdown = renderCatalogMarkdown(catalog);
+    expect(markdown).toContain(
+      "- Bound evidence: `lint: example-gate` — Rejects the violation on every change.",
+    );
   });
 });

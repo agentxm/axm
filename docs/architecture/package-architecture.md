@@ -7,6 +7,7 @@ depends-on:
   - ./principles.md
   - ./commands/overview.md
   - ./workspace/overview.md
+  - ./system-wide/testing-strategy.md
   - ./decisions/typescript-dual-alias.md
 ---
 
@@ -54,8 +55,10 @@ The refactor is successful when it produces all of these outcomes:
   process behavior, and Effect Layer composition; it does not own reusable
   business policy.
 - **Enforceable architecture.** Nx tags and lint rules reject invalid layer
-  dependencies, package manifests and exports reject undeclared or deep access,
-  and an executable architecture specification owns the exact permitted graph.
+  dependencies, dependency checks keep manifests aligned with actual imports,
+  package exports reject deep access, and focused import rules preserve the
+  application composition boundary. Static results bind to stable architecture
+  requirements without reproducing Nx's graph in custom test code.
 - **Low-cost package growth.** New packages inherit conventional build, lint,
   test, typecheck, cache, and release behavior with little per-project
   configuration.
@@ -140,7 +143,7 @@ as internal modules under a new umbrella.
 | `@agentxm/workspace-operations` | Plans, semantic mutation closures, outcomes, transactions, journals, rollback, and safe application mechanics |
 | `@agentxm/extension-workspace`  | Extension-type workspace semantics, canonical content, contributor calculation, and projection contributions  |
 
-The exact lower-level graph is deliberately small:
+The intended lower-level graph is deliberately small:
 
 ```mermaid
 flowchart LR
@@ -197,8 +200,9 @@ and integrations through their public service APIs.
 
 The collaborator column describes the expected direction, not permission to
 declare every listed dependency by default. Each manifest includes only what
-its implementation imports. The exact adjacency list is updated in the
-executable package-graph specification as each slice is introduced.
+its implementation imports. Nx derives the actual adjacency from source imports
+and manifests; the architecture does not maintain a second exact allowlist of
+every present and absent edge.
 
 Smaller capabilities such as cache housekeeping or self-upgrade remain in the
 CLI or a focused integration until they develop enough policy and reuse to earn
@@ -262,36 +266,124 @@ The layer rules are:
 | Contract     | Contracts                                                          |
 
 A feature may not depend on another feature. A kernel and an integration may
-depend on a peer only where the exact graph admits that edge. Cycles are never
-permitted.
+depend on a peer only where that dependency remains inward and is justified by
+the packages' responsibilities. Stable asymmetric restrictions use focused Nx
+tag constraints rather than a separately maintained whole-workspace adjacency
+list. Cycles are never permitted.
 
 ## Enforcement
 
-No single tool sees every architectural boundary, so enforcement is layered:
+The architecture separates stable obligations from the tools that verify them.
+The durable obligations are inward dependency direction, feature isolation,
+acyclicity, public package APIs, and application-only composition of concrete
+implementations. The exact set of dependencies present at one migration stage
+is implementation state derived by Nx, not another normative graph to maintain.
 
-1. **Nx project tags and `@nx/enforce-module-boundaries`.** Multi-dimensional
-   `layer:*` and `type:*` constraints reject forbidden imports between projects.
-   The rule covers TypeScript and JavaScript module extensions, including
-   `.mts`, `.cts`, `.mjs`, and `.cjs`, so e2e and configuration code cannot
-   escape the graph.
-2. **Executable exact-graph specification.** The
-   `system/architecture/packages-follow-permitted-dependency-graph`
-   specification owns the permitted product-package adjacency list and the
-   extension-model dependency budget. It changes with each migration stage.
-3. **`@nx/dependency-checks`.** Buildable and publishable package linting
-   rejects mismatches between imports and declared package dependencies.
-4. **Package `exports`.** Manifests expose only supported entry points and block
-   deep imports at package resolution boundaries.
-5. **TypeScript project references and Nx sync.** The project-reference graph
-   remains aligned with package dependencies, and `nx sync:check` detects drift.
-6. **Focused internal import rules.** Where a package still has a meaningful
-   internal direction, ESLint `no-restricted-imports` enforces it. Nx models
-   projects, not arbitrary folders; an important independent folder boundary
-   should normally become a package instead.
+### Project topology
 
-Enterprise Conformance can revisit graph-wide, language-agnostic enforcement if
-the repository adds production languages that ESLint cannot inspect. It is not
-needed for the present TypeScript-only package graph.
+Nx owns the production project graph. `@nx/enforce-module-boundaries` applies
+the `type:*` and `layer:*` matrices and keeps its circular-dependency checks
+enabled without ignored project pairs. Its configuration also enables:
+
+- `enforceBuildableLibDependency` so a buildable package cannot acquire a
+  non-buildable production dependency;
+- `banTransitiveDependencies` so production code cannot silently import an
+  undeclared transitive package; and
+- `allowedExternalImports` or `bannedExternalImports` for exceptional external
+  dependency budgets, including the platform-neutral extension model.
+
+General layer constraints own dependency direction. Add a package-specific
+constraint only for a stable asymmetric boundary that the layer matrix cannot
+express, such as `registry-protocol` depending on `extension-model` or
+`extension-sources` depending on `registry-client`. Do not give every package a
+unique tag merely to recreate an exact whole-workspace adjacency list.
+
+The flat ESLint configuration applies the boundary rule to `.ts`, `.tsx`,
+`.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and `.cjs`. Registering the inferred
+`@nx/eslint/plugin` supplies a lint task to every project under the root config;
+both the inferred task coverage and the rule's file patterns are required.
+
+### Manifest fidelity
+
+`@nx/dependency-checks` owns agreement between a buildable or publishable
+package's build inputs and its `package.json`. Package manifests are included in
+lint through `jsonc-eslint-parser`, with missing, obsolete, and version-mismatch
+checks enabled. Together with module boundaries, this rejects:
+
+- an imported workspace edge that violates its layer policy;
+- a production import missing from the owning package manifest;
+- an obsolete declared workspace or external dependency; and
+- an imported external package outside a constrained package's budget.
+
+This coverage replaces custom code that reads selected manifests and compares
+them with a hard-coded dependency allowlist.
+
+### Public APIs and composition
+
+Every production package declares intentional `exports`, and TypeScript uses a
+resolution mode that honors them. Nx synchronizes TypeScript project references,
+and `nx sync:check` detects reference drift.
+
+Nx project constraints cannot distinguish the CLI runtime composition root from
+command handlers in the same project or distinguish a package root from its
+`./live` entry point. Focused ESLint `no-restricted-imports` overrides therefore:
+
+- forbid `@agentxm/*/live` outside the CLI composition root;
+- prevent command handlers from bypassing feature APIs to call kernels or
+  integrations directly; and
+- forbid imports through another package's `src`, `unstable`, internal generated
+  files, or other undeclared subpaths.
+
+Where a meaningful internal direction remains inside one package, use the same
+focused ESLint mechanism. A substantial independent boundary should normally
+become a package so Nx can model it directly.
+
+### Requirement and verification ownership
+
+The existing
+`system/architecture/packages-follow-permitted-dependency-graph` specification
+hand-reads selected manifests, duplicates current ESLint scope constraints, and
+changes whenever a package is extracted. It does not represent the complete Nx
+project graph and should not remain the long-term architecture requirement or
+verifier.
+
+The target requirements lifecycle is:
+
+1. accept a stable successor requirement for acyclic, inward production package
+   dependencies and feature isolation;
+2. retire the exact-adjacency requirement with its identity and history
+   preserved under the specification lifecycle;
+3. bind Nx and ESLint architecture-gate results to the successor requirement as
+   static verification evidence; and
+4. specify application-only `./live` composition separately if that boundary
+   warrants an independently decidable requirement.
+
+Until that requirements change is accepted and landed, the existing executable
+specification remains the sole local authority for its current obligation. The
+architecture document does not silently supersede it. The
+[testing strategy](system-wide/testing-strategy.md#static-verification) defines
+how a static gate satisfies an authoritative requirement without becoming a
+competing requirements source. Do not introduce a shared custom policy module
+merely so ESLint and a specification can consume the same exact adjacency
+table; Nx configuration remains the implementation policy and the specification
+remains the requirements authority.
+
+### No additional complementary tools
+
+Do not add another dependency-analysis or architecture-testing library at this
+stage. The planned package boundaries give Nx sufficient granularity, and the
+remaining composition exceptions fit ordinary ESLint configuration. In
+particular:
+
+- do not add dependency-cruiser while package topology and a small number of
+  file-level restrictions cover the required boundaries;
+- do not add Knip as an architecture gate; unused-file and unused-export
+  analysis is a separate hygiene concern and is not currently required; and
+- do not adopt Nx Enterprise Conformance for the TypeScript-only graph.
+
+Reconsider complementary tooling only after evidence shows a boundary Nx and
+focused ESLint rules cannot express—for example, numerous durable folder-level
+constraints or production dependencies from languages ESLint cannot inspect.
 
 ## Nx workspace direction
 
@@ -304,8 +396,12 @@ At the start of this refactor, only `@nx/js/typescript` is registered for task
 inference even though the ESLint and Vitest Nx plugins are installed. Most
 lint and test targets are repeated explicitly, some e2e and test-support
 projects have no lint target, build and release metadata repeats project lists,
-and the root lint inputs include a nonexistent `tools/eslint-rules` directory.
-These are migration conditions, not conventions to reproduce in new packages.
+the module-boundary override omits `.mts`, `.cts`, `.mjs`, and `.cjs`, and the
+root lint inputs include a nonexistent `tools/eslint-rules` directory. The
+current exact-graph specification also scans only selected runtime manifests,
+while Nx already derives additional source edges such as
+`cli-e2e` to `extension-management`. These are migration conditions, not
+conventions to reproduce in new packages.
 
 ### Keep the current strengths
 
@@ -323,7 +419,10 @@ ordinary target surface:
 
 - `@nx/eslint/plugin` infers `lint` for every project covered by the root flat
   ESLint configuration. This closes current coverage gaps for projects such as
-  `cli-e2e` and `e2e-utils` and removes repeated lint target definitions.
+  `cli-e2e` and `e2e-utils` and removes repeated lint target definitions. The
+  root module-boundary override expands to all TypeScript and JavaScript module
+  extensions at the same time; task inference alone does not change which
+  files a rule matches.
 - `@nx/vitest` infers ordinary package and specification `test` targets in run
   mode. A second scoped plugin instance maps the default CLI e2e config to
   `e2e-main`. Windows, compiled-binary, artifact, and installation suites remain
@@ -466,19 +565,23 @@ The refactor proceeds from inward boundaries to outward features:
 
 1. Establish tags, full lint coverage, dependency checks, package export rules,
    and the idiomatic Nx defaults before multiplying the package count.
-2. Extract `workspace-state`, `workspace-operations`, and
+2. After the replacement requirement is accepted, bind the Nx and ESLint static
+   gates to it and retire
+   `system/architecture/packages-follow-permitted-dependency-graph`. Do not
+   retain the old manifest scanner as a second verifier.
+3. Extract `workspace-state`, `workspace-operations`, and
    `extension-workspace`, preserving the authority and execution models
    described by the workspace architecture.
-3. Extract `registry-client`, `extension-sources`, and `agent-integration` so
+4. Extract `registry-client`, `extension-sources`, and `agent-integration` so
    feature packages depend on stable service boundaries rather than old
    internals.
-4. Move one complete vertical slice at a time. Sync and lint are good early
+5. Move one complete vertical slice at a time. Sync and lint are good early
    slices because they exercise the state, planning, findings, and composition
    boundaries without requiring features to depend on each other.
-5. Move the remaining lifecycle and command capabilities, updating the CLI,
+6. Move the remaining lifecycle and command capabilities, updating the CLI,
    manifests, project references, tests, generated inputs, documentation, and
-   exact dependency specification in the same change.
-6. Delete `@agentxm/extension-management` after its final consumer moves. Do
+   Nx boundary constraints in the same change.
+7. Delete `@agentxm/extension-management` after its final consumer moves. Do
    not retain a façade, alias, compatibility export, or deprecated import path.
 
 A migration step is complete only when the new package owns its public API and
@@ -488,6 +591,8 @@ the repository verification workflows pass.
 ## Nx references
 
 - [Enforce module boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
+- [Enforce module boundaries rule](https://nx.dev/docs/kb/enforce-module-boundaries)
+- [External import constraints](https://nx.dev/docs/guides/enforce-module-boundaries/ban-external-imports)
 - [Dependency checks](https://nx.dev/docs/kb/dependency-checks)
 - [Nx with ESLint](https://nx.dev/docs/technologies/eslint/introduction)
 - [Nx with Vitest](https://nx.dev/docs/technologies/test-tools/vitest/introduction)

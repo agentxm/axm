@@ -23,7 +23,7 @@ import {
   deriveOperationOutcome,
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";

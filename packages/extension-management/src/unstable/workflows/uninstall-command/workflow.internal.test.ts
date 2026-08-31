@@ -12,10 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import {
-  promptablePlanExecution,
-  type ConfirmationRecovery,
-} from "../../cli-runtime/confirmation-recovery.js";
+import { promptablePlanExecution, type ConfirmationRecovery } from "../../plan/plan-execution.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
 import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";

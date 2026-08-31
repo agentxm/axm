@@ -24,7 +24,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 
 import {
   WorkspaceMutations,

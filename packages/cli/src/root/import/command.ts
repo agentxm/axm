@@ -9,13 +9,13 @@ import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   buildAuthoredExtensionStep,
   computePackageContentHash,

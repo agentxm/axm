@@ -2,13 +2,15 @@ import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import {
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import {
   credentialFreeLocatorRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-  setCommandSemanticProperties,
-  summarizeCommandOutcome,
   type PlanExecution,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import type { OperationResolution, Plan } from "@agentxm/extension-management/unstable/plan";
 import {
   makeOperationResolution,

@@ -19,13 +19,13 @@ import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   resolveWorkspaceExtensionRef,

@@ -19,7 +19,7 @@ import {
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
   type PlanExecution,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import type { PlanPolicyId } from "@agentxm/extension-management/unstable/plan";
 import {
   isExtensionTypePlural,

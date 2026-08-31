@@ -16,7 +16,7 @@ import {
   promptablePlanExecution,
   preapprovedPlanExecution,
   type ConfirmationRecovery,
-} from "../../cli-runtime/confirmation-recovery.js";
+} from "../../plan/plan-execution.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
 import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";

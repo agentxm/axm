@@ -12,8 +12,8 @@ import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
   isEffectCliExit,
-  renderConfirmationRecoveryCommand,
 } from "@agentxm/extension-management/unstable/cli-runtime";
+import { renderConfirmationRecoveryCommand } from "@agentxm/extension-management/unstable/plan";
 import {
   extensionTypes,
   extensionTypeToPlural,

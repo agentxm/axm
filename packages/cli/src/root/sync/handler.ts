@@ -35,7 +35,7 @@ import {
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   buildMaterializeOperation,

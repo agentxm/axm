@@ -18,7 +18,7 @@ import {
   preapprovedPlanExecution,
   previewPlanExecution,
   type ConfirmationRecovery,
-} from "../cli-runtime/confirmation-recovery.js";
+} from "./plan-execution.js";
 import {
   acquireWorkspaceTransitionLock,
   isWorkspaceTransitionHeldByThisInvocation,

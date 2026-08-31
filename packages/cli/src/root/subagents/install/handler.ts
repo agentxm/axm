@@ -5,7 +5,7 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import { deriveOperationOutcome } from "@agentxm/extension-management/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
 

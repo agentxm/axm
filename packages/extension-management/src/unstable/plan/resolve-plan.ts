@@ -65,7 +65,7 @@ import type { OperationFootprintEntry } from "./operation-resolution.js";
 import { displayPlan } from "../workspace/display-plan.js";
 import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
-import type { ConfiguredAgentOperation } from "../cli-runtime/confirmation-recovery.js";
+import type { ConfiguredAgentOperation } from "./plan-execution.js";
 import { HookManager } from "../hooks/manager.js";
 import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
 import { configuredAgentLifecycleOutcomes } from "../workspace/configured-agent-outcomes.js";
@@ -73,7 +73,7 @@ import {
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   type PlanExecution,
-} from "../cli-runtime/confirmation-recovery.js";
+} from "./plan-execution.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import type { ConfiguredAgentOutcome } from "./plan.js";
 

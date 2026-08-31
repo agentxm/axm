@@ -12,7 +12,7 @@ import {
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   surfaceRestorationIncomplete,

@@ -32,7 +32,7 @@ import {
   deriveOperationOutcome,
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/cli-runtime";
+import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import {
   computePackManifestContentIdentity,
   type PackRef,

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import type {
   ConfirmationRecovery,
   ConfiguredAgentOperation,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   previewOrApplyPlan,
   type Plan,

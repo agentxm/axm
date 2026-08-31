@@ -9,7 +9,7 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   deriveOperationOutcome,
   operationPresentation,

@@ -7,12 +7,12 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   type ExtensionType,

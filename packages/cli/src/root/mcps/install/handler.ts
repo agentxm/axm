@@ -4,7 +4,7 @@ import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   deriveOperationOutcome,
   operationPresentation,

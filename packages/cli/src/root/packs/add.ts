@@ -37,11 +37,11 @@ import {
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
+import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   publicRecoveryValue,
   recoveryPositional,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import { emitOperationResolution } from "../../operation-output.js";

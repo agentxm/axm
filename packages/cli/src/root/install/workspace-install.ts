@@ -8,7 +8,7 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import type { ConfiguredAgentOperation } from "@agentxm/extension-management/unstable/cli-runtime";
+import type { ConfiguredAgentOperation } from "@agentxm/extension-management/unstable/plan";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import {

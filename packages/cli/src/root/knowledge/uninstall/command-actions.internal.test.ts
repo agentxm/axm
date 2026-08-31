@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import {
   preapprovedPlanExecution,
   previewPlanExecution,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   deriveOperationOutcome,
   previewOrApplyPlan,

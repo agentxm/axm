@@ -11,7 +11,7 @@ import {
   renderConfirmationRecoveryCommand,
   unclassifiedRecoveryValue,
   type ConfirmationRecovery,
-} from "./confirmation-recovery.js";
+} from "./plan-execution.js";
 
 const recovery = (arguments_: ConfirmationRecovery["arguments"]): ConfirmationRecovery => ({
   command: ["install"],

@@ -10,7 +10,7 @@ import { requireInteractive } from "../cli/prompt/index.js";
 import {
   confirmationRecoverySuggestions,
   type ConfirmationRecovery,
-} from "../cli-runtime/confirmation-recovery.js";
+} from "../plan/plan-execution.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 
 const confirmApplyChangesMessage = "Apply changes?";

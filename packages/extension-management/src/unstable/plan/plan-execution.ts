@@ -1,5 +1,5 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { PlanPolicyId } from "../plan/plan.js";
+import type { PlanPolicyId } from "./plan.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export interface ConfiguredAgentOperation {

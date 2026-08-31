@@ -12,7 +12,7 @@ import type { AppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/plan.js";
 import type { OperationResolution } from "../../plan/operation-resolution.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
-import type { PlanExecution } from "../../cli-runtime/confirmation-recovery.js";
+import type { PlanExecution } from "../../plan/plan-execution.js";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface

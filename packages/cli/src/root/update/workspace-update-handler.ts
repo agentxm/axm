@@ -2,13 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
-  publicRecoveryValue,
-  recoveryOption,
-  recoverySwitch,
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
 } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   operationPresentation,
   previewOrApplyPlan,

@@ -34,17 +34,19 @@ import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
-  credentialFreeLocatorRecoveryValue,
   effectCliExit,
-  publicRecoveryValue,
   recordCommandCompletion,
+  requestedInterruptionSignal,
+  withArgvTracking,
+} from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  credentialFreeLocatorRecoveryValue,
+  publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-  requestedInterruptionSignal,
-  withArgvTracking,
-} from "@agentxm/extension-management/unstable/cli-runtime";
+} from "@agentxm/extension-management/unstable/plan";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,

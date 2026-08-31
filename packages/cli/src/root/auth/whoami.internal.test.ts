@@ -7,11 +7,8 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import {
-  AuthClientTest,
-  RegistryUrl,
-  CredentialStoreTest,
-} from "@agentxm/extension-management/unstable/auth";
+import { AuthClientTest, CredentialStoreTest } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   TestMachineRenderer,

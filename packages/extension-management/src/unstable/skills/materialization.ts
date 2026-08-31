@@ -18,7 +18,8 @@ import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { SkillExtensionRef, WorkspaceSkillRef } from "./refs.js";
 import { computeSkillPathsForLayout, type SkillPathSource } from "./paths.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
-import { createSymlink, isPathSafe, stripFileProtocol } from "../utils/index.js";
+import { isPathSafe, stripFileProtocol } from "../utils/index.js";
+import { createSymlink } from "../workspace/create-symlink.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 

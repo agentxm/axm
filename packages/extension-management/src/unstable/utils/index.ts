@@ -13,7 +13,7 @@ export {
   type BuildZipArchiveOptions,
   type PlannedZipArchive,
 } from "./build-zip-archive.js";
-export { removeIfExists, stripFileProtocol } from "./fs-helpers.js";
+export { stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
 export { isPathSafe, safeChildPath } from "./path-safety.js";
 export {
@@ -29,7 +29,6 @@ export {
   type RelativePath,
 } from "./path-types.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
-export { createSymlink, type SymlinkResult } from "./create-symlink.js";
 export {
   envOption,
   envWithDefault,

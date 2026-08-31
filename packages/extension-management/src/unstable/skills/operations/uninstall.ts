@@ -20,7 +20,7 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { removeIfExists } from "../../utils/index.js";
+import { removeIfExists } from "../../workspace/remove-if-exists.js";
 import { sanitizeName } from "../../extensions/utils.js";
 import {
   acceptedCanonicalObservation,

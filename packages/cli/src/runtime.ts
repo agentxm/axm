@@ -64,8 +64,8 @@ import {
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
-  RegistryUrl,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
 import type {
   WorkspaceMutationsOptions,

@@ -14,11 +14,11 @@ import {
   type MeResponse,
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
-  RegistryUrl,
   CredentialStore,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import {
   TestMachineRenderer,
   TestRenderer,

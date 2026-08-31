@@ -18,7 +18,7 @@ import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
 import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   TestMachineRenderer,

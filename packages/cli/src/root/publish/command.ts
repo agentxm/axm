@@ -26,11 +26,11 @@ import {
 import {
   AuthClient,
   DeviceLoginInteraction,
-  RegistryUrl,
   resolveRequestToken,
   runPublishAuthorization,
   type PublishCapabilityResponse,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {

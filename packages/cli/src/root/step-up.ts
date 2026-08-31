@@ -5,10 +5,10 @@ import * as Result from "effect/Result";
 import {
   AuthClient,
   AuthLoginInteraction,
-  RegistryUrl,
   readStepUpRequest,
   resolveRequiredToken,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { errAuthRequired, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { isNonInteractive, jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";

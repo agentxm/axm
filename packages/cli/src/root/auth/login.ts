@@ -5,7 +5,6 @@ import { Command, Flag, Prompt } from "effect/unstable/cli";
 
 import {
   AuthClient,
-  RegistryUrl,
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
   initiateDeviceLogin,
@@ -21,6 +20,7 @@ import {
   type ResumeDeviceLoginOptions,
   type RunLoopbackLoginOptions,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {

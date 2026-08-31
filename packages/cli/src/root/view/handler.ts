@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";

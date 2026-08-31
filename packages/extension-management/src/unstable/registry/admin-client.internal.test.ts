@@ -5,7 +5,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import { RegistryUrl } from "../auth/index.js";
+import { RegistryUrl } from "./registry-url.js";
 import { getExtensionDeprecation } from "./admin-client.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

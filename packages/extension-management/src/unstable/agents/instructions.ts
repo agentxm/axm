@@ -10,7 +10,7 @@ import {
 } from "../extensions/index.js";
 import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "../settings/index.js";
-import { createSymlink } from "../utils/create-symlink.js";
+import { createSymlink } from "../workspace/create-symlink.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
 import type { WorkspaceScope } from "../workspace/scope.js";

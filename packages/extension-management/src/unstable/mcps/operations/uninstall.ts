@@ -20,7 +20,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { removeIfExists } from "../../utils/index.js";
+import { removeIfExists } from "../../workspace/remove-if-exists.js";
 import {
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,

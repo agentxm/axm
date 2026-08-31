@@ -5,11 +5,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  AuthClient,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/extension-management/unstable/auth";
+import { AuthClient, resolveRequiredToken } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import {
   errAuthRequired,
   makeAppError,

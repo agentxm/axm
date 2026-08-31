@@ -35,7 +35,7 @@ import {
   type Sha256Hex,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
-import { RegistryUrl } from "./registry-url.js";
+import { RegistryUrl } from "../registry/registry-url.js";
 import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
 import {
   isHttpClientError,

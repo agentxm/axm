@@ -2,11 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import {
-  AuthClient,
-  RegistryUrl,
-  resolveRequiredToken,
-} from "@agentxm/extension-management/unstable/auth";
+import { AuthClient, resolveRequiredToken } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { errAuthRequired } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

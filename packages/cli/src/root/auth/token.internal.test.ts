@@ -13,8 +13,8 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
-  RegistryUrl,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {

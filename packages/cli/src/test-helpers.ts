@@ -15,7 +15,8 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
-import { CredentialStoreTest, RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { CredentialStoreTest } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   TestMachineRenderer,

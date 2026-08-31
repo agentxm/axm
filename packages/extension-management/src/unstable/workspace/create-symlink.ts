@@ -3,9 +3,9 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { protectCreatedAncestors, protectWorkspacePath } from "../workspace/transaction.js";
-import { recordFootprint } from "../workspace/footprint-recorder.js";
-import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
+import { protectCreatedAncestors, protectWorkspacePath } from "./transaction.js";
+import { recordFootprint } from "./footprint-recorder.js";
+import { resolveParentSymlinks } from "../utils/resolve-parent-symlinks.js";
 
 /**
  * Result of a createSymlink operation.

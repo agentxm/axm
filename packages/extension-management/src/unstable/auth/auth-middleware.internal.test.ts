@@ -25,7 +25,7 @@ import {
   type CredentialStoreService,
 } from "./credential-store.js";
 import { makeAuthMiddlewareLive } from "./auth-middleware.js";
-import { RegistryUrl } from "./registry-url.js";
+import { RegistryUrl } from "../registry/registry-url.js";
 import { handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------

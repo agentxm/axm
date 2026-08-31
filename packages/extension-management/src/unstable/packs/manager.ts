@@ -29,7 +29,7 @@ import type {
 import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { computePackPathsForLayout } from "./paths.js";
-import { removeIfExists } from "../utils/index.js";
+import { removeIfExists } from "../workspace/remove-if-exists.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";

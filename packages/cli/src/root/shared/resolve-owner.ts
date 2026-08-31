@@ -1,11 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  CredentialStore,
-  getCurrentUserHandle,
-  RegistryUrl,
-} from "@agentxm/extension-management/unstable/auth";
+import { CredentialStore, getCurrentUserHandle } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions";
 import {
   WorkspaceMutations,

@@ -124,3 +124,4 @@ export type {
   ReleaseAgeRecordBase,
   ScopedReleaseAgeExcludePattern,
 } from "./release-age-policy.js";
+export { RegistryUrl } from "./registry-url.js";

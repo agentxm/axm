@@ -43,11 +43,11 @@ import type {
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import {
-  createSymlink,
   isPathSafe,
   makeWorkspaceRelativeSourcePath,
   stripFileProtocol,
 } from "../../utils/index.js";
+import { createSymlink } from "../../workspace/create-symlink.js";
 import { validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import {

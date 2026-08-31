@@ -10,8 +10,8 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   CredentialStore,
   type CredentialStoreService,
-  RegistryUrl,
 } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 
 import { makeRegistryLoginSuggestionResolver } from "./registry-login-suggestion.js";
 

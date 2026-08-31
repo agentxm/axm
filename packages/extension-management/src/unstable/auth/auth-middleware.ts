@@ -22,7 +22,7 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore } from "./credential-store.js";
-import { RegistryUrl } from "./registry-url.js";
+import { RegistryUrl } from "../registry/registry-url.js";
 import type { CredentialStoreTokenSource, TokenSource } from "./schema.js";
 import { refreshStoredToken, resolveRequestToken, resolveStoredToken } from "./token-resolution.js";
 

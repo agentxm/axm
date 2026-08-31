@@ -62,7 +62,6 @@ export {
 } from "./token-resolution.js";
 
 // Registry URL service
-export { RegistryUrl } from "./registry-url.js";
 
 // Auth middleware
 export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";

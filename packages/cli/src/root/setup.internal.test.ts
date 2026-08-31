@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/auth";
+import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { BRANDING } from "@agentxm/extension-management/unstable/branding";
 import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";

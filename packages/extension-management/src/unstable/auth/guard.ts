@@ -12,9 +12,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { errAuthRequired, type AppError, makeAppError } from "../app-error/index.js";
+import { RegistryUrl } from "../registry/registry-url.js";
 import {
   CredentialStore,
-  RegistryUrl,
   makePersistedCredentialsUnsupportedError,
   resolveRequestToken,
 } from "./index.js";

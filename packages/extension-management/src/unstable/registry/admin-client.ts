@@ -4,7 +4,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { type AppError, makeAppError } from "../app-error/index.js";
-import { RegistryUrl } from "../auth/index.js";
+import { RegistryUrl } from "./registry-url.js";
 import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 import {
   executeRegistryRequest,

@@ -13,25 +13,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
-import { CliRenderer } from "../cli-renderer/index.js";
-import { count } from "../cli-renderer/index.js";
+import { CliRenderer } from "./cli-renderer.js";
+import { count } from "./count.js";
 import { Verbosity } from "../cli-flags/index.js";
-import type {
-  OperationPresentation,
-  Plan,
-  PlanRiskCondition,
-  PlannedJobStep,
+import {
+  presentationOf,
+  type Plan,
+  type PlanRiskCondition,
+  type PlannedJobStep,
 } from "../plan/plan.js";
-
-/** Fallback vocabulary for planners that declare no presentation. */
-export const defaultOperationPresentation: OperationPresentation = {
-  verb: { imperative: "apply", past: "Applied", gerund: "Applying" },
-  subject: { singular: "change", plural: "changes" },
-};
-
-export const presentationOf = (plan: {
-  readonly presentation?: OperationPresentation;
-}): OperationPresentation => plan.presentation ?? defaultOperationPresentation;
 
 const renderPlannedStep = (
   step: PlannedJobStep<unknown, unknown>,

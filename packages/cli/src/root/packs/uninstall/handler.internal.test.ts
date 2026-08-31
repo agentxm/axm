@@ -15,16 +15,15 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
+  displayPlan,
   TestMachineRenderer,
   TestRenderer,
   logsByTag,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import {
-  layer as coreWorkspaceLayer,
-  ResolvePlanInteractionTest,
-} from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
@@ -208,15 +207,21 @@ describe("packs uninstall handler", () => {
   ) => {
     const { layer: rendererLayer, state: rendererState } =
       tuiConfig?.machine === true ? TestMachineRenderer.make() : TestRenderer.make();
+    const flagsLayer = TestFlagsLayer();
     const resolvePlanInteraction = ResolvePlanInteractionTest({
-      confirmApplyChanges: () => Effect.succeed(tuiConfig?.confirmValue ?? true),
+      confirmApplyChanges: () =>
+        Effect.succeed(
+          (tuiConfig?.confirmValue ?? true) ? ("approved" as const) : ("declined" as const),
+        ),
+      presentPlan: (plan, options) =>
+        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
-      TestFlagsLayer(),
+      flagsLayer,
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",

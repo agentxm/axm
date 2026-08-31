@@ -19,7 +19,7 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
-import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/workspace";
+import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import {
   expectAppliedPlanResult,

@@ -12,12 +12,7 @@ import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import {
-  TestRenderer,
-  type TestRendererState,
-  CliRenderer,
-  logsByTag,
-} from "../cli-renderer/index.js";
+import { TestRenderer, type TestRendererState, CliRenderer, logsByTag } from "./index.js";
 import { type Verbosity, TestFlagsLayer } from "../cli-flags/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { OperationPresentation, Plan } from "../plan/plan.js";

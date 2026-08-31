@@ -270,18 +270,6 @@ export {
   WorkspaceInitializationInteractionTest,
 } from "./initialization-interaction.js";
 
-// Plan resolution
-export type {
-  ResolvePlanInteractionService,
-  ResolvePlanInteractionTestState,
-} from "./resolve-plan-interaction.js";
-export {
-  ResolvePlanInteraction,
-  ResolvePlanInteractionLive,
-  ResolvePlanInteractionTest,
-} from "./resolve-plan-interaction.js";
-// Plan display
-export { defaultOperationPresentation, displayPlan, presentationOf } from "./display-plan.js";
 export {
   FootprintRecorder,
   makeFootprintRecorder,

@@ -7,6 +7,9 @@
  * signal is recorded; a second signal forces exit through the fallback path.
  */
 
+import * as Layer from "effect/Layer";
+import { InterruptionSignalSource } from "../plan/interruption-signal.js";
+
 let requestedSignal: "SIGINT" | "SIGTERM" | undefined;
 
 export const recordInterruptionSignal = (signal: "SIGINT" | "SIGTERM"): void => {
@@ -14,3 +17,8 @@ export const recordInterruptionSignal = (signal: "SIGINT" | "SIGTERM"): void => 
 };
 
 export const requestedInterruptionSignal = (): "SIGINT" | "SIGTERM" | undefined => requestedSignal;
+
+/** Exposes the recorded process signal to the kernel's interruption port. */
+export const InterruptionSignalSourceLive = Layer.succeed(InterruptionSignalSource, {
+  requestedSignal: requestedInterruptionSignal,
+});

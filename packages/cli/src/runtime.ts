@@ -25,7 +25,9 @@ import {
   type CliTelemetryConfig,
   type OutputFormat,
   getCommandSemanticProperties,
+  InterruptionSignalSourceLive,
   makeFoundationLayer,
+  ResolvePlanInteractionLive,
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
@@ -73,7 +75,6 @@ import type {
 } from "@agentxm/extension-management/unstable/workspace";
 import {
   layer as coreWorkspaceLayer,
-  ResolvePlanInteractionLive,
   WorkspaceInitializationInteractionLive,
 } from "@agentxm/extension-management/unstable/workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
@@ -401,9 +402,15 @@ export const withRuntime =
         envVerbose: config.envVerbose,
         envDebug: config.envDebug,
       });
-      const interactionLayer = Layer.mergeAll(
-        ResolvePlanInteractionLive,
-        WorkspaceInitializationInteractionLive,
+      // The foundation layer instance is shared with appLayer below, so the
+      // interaction Lives observe the same renderer and verbosity services.
+      const interactionLayer = Layer.provide(
+        Layer.mergeAll(
+          ResolvePlanInteractionLive,
+          WorkspaceInitializationInteractionLive,
+          InterruptionSignalSourceLive,
+        ),
+        foundationLayer,
       );
       const appLayer = Layer.provideMerge(
         makeRuntimeLoggerLayer(format),

@@ -33,6 +33,7 @@ export { InteractiveRenderer } from "./cli-renderer-interactive.js";
 export { MachineRenderer } from "./cli-renderer-machine.js";
 export { formatMarkdown } from "./markdown-formatter.js";
 export { count } from "./count.js";
+export { displayPlan } from "./display-plan.js";
 export {
   resolveCliOutputPolicy,
   stripTerminalFormatting,

@@ -2,9 +2,9 @@
  * Plan preview/apply function.
  *
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
- * and `applyPlan` with `displayPlan` and interactive prompts, and produces
+ * and `applyPlan` with the `ResolvePlanInteraction` port, and produces
  * one `OperationResolution` at every termination path. Channels project the
- * returned resolution; this boundary renders only transient planning output.
+ * returned resolution; presentation and prompting live behind the port.
  *
  * This is a free function, not a method on WorkspaceMutationsService.
  *
@@ -17,7 +17,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliRenderer } from "../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
 import {
@@ -44,11 +43,7 @@ import {
   recordJournalPhase,
   recordOperationJournal,
 } from "./operation-journal.js";
-import {
-  publishLifecycleEvent,
-  publishPhaseStarted,
-  subscribeToLifecycle,
-} from "./operation-events.js";
+import { publishLifecycleEvent, publishPhaseStarted } from "./operation-events.js";
 import type { OperationPhase } from "./operation-resolution.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
@@ -59,12 +54,10 @@ import {
   withWorkspaceClosure,
   WorkspaceRestorationIncomplete,
 } from "../workspace/transaction.js";
-import { requestedInterruptionSignal } from "../cli-runtime/interruption.js";
 import { readFootprint } from "../workspace/footprint-recorder.js";
 import type { OperationFootprintEntry } from "./operation-resolution.js";
-import { displayPlan } from "../workspace/display-plan.js";
-import { ResolvePlanInteraction } from "../workspace/resolve-plan-interaction.js";
-import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
+import { InterruptionSignalSource } from "./interruption-signal.js";
+import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
 import type { ConfiguredAgentOperation } from "./plan-execution.js";
 import { HookManager } from "../hooks/manager.js";
 import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
@@ -74,7 +67,6 @@ import {
   namedPolicyRecoverySuggestions,
   type PlanExecution,
 } from "./plan-execution.js";
-import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import type { ConfiguredAgentOutcome } from "./plan.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
@@ -171,8 +163,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   },
 ) {
   const ws = yield* WorkspaceMutations;
-  const renderer = yield* CliRenderer;
-  const verbosity = yield* Verbosity;
+  const interaction = yield* ResolvePlanInteraction;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const fsLayer = Layer.mergeAll(
@@ -187,10 +178,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   yield* publishPhaseStarted("planning");
 
   // Step 1: Lockfile reconciliation
-  const augmented = yield* renderer.withSpinner(
-    `Resolving ${plan.name}`,
-    () => augmentPlanWithReconciliation(plan, getLockfileState),
-    { successMessage: `Resolved ${plan.name}` },
+  const augmented = yield* interaction.withPlanningProgress(plan.name, () =>
+    augmentPlanWithReconciliation(plan, getLockfileState),
   );
 
   const operations = options.execution.configuredAgentOperations ?? [];
@@ -352,11 +341,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     yield* enterPhase("preview");
   }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
-  if (mode === "preview" || verbosity.level !== "quiet" || hasConfirmableRisk) {
-    yield* displayPlan(candidatePlan, { mode }).pipe(
-      Effect.provide(Layer.succeed(CliRenderer, renderer)),
-    );
-  }
+  yield* interaction.presentPlan(candidatePlan, { mode });
 
   // Step 4: Hard blockers dominate preview, overrides, and confirmation.
   if (readiness.hasErrors) {
@@ -440,7 +425,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     hasConfirmableRisk &&
     applyExecution.request.confirmableRiskApproval === "prompt-if-interactive"
   ) {
-    if (yield* isNonInteractiveOptional) {
+    if (!(yield* interaction.isConfirmationAvailable)) {
       const confirmable = riskConditions.find((condition) => condition.level === "confirmable");
       const escapes = confirmationRecoverySuggestions(applyExecution.approvalRecovery);
       return makeOperationResolution<Output>({
@@ -457,12 +442,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         suggestions: escapes,
       });
     }
-    const interaction = yield* ResolvePlanInteraction;
     yield* enterPhase("confirmation");
-    const confirmed = yield* interaction
-      .confirmApplyChanges(applyExecution.approvalRecovery)
-      .pipe(Effect.catchTag("PromptCancelled", (_error: PromptCancelled) => Effect.succeed(false)));
-    if (!confirmed) {
+    const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
+    if (confirmation !== "approved") {
       return notExecuted({ declined: true });
     }
   }
@@ -700,56 +682,18 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       const contention = yield* ws.acquireTransition({
         command: applyExecution.approvalRecovery.command.join(" "),
         candidateId: candidate.id,
-        onWaiting: (holder) =>
-          renderer.step(
-            `Waiting: resource-conflict — workspace transition held by ${Option.match(holder, {
-              onNone: () => "another operation",
-              onSome: (value) => `${value.command} (pid ${value.pid})`,
-            })}`,
-          ),
+        onWaiting: (holder) => interaction.noteTransitionWait(holder),
       });
       if (Option.isSome(contention)) {
         return { type: "contention", contention: contention.value } as const;
       }
-      return yield* renderer.withSpinner(
-        `Applying ${candidatePlan.name}`,
-        (handle) =>
-          Effect.scoped(
-            subscribeToLifecycle((event) => {
-              switch (event._tag) {
-                case "UnitStarted":
-                  return handle.update(
-                    `Applying ${candidatePlan.name} — ${event.label} (${event.index + 1}/${event.total})`,
-                    { unit: event.unitId, atMs: Number(event.atNanos / 1_000_000n) },
-                  );
-                case "UnitResolved":
-                  return handle.update(
-                    `Applying ${candidatePlan.name} — ${event.label}: ${event.state} (${event.index + 1}/${event.total})`,
-                    {
-                      unit: event.unitId,
-                      state: event.state,
-                      atMs: Number(event.atNanos / 1_000_000n),
-                    },
-                  );
-                case "PhaseStarted":
-                  return event.phase === "restoration"
-                    ? handle.update(`Rolling back ${candidatePlan.name}`)
-                    : Effect.void;
-                case "Waiting":
-                  return Effect.void;
-              }
-            }).pipe(
-              Effect.andThen(
-                guardedApply.pipe(
-                  Effect.match({
-                    onFailure: (error) => ({ type: "failure", error }) as const,
-                    onSuccess: (value) => ({ type: "success", value }) as const,
-                  }),
-                ),
-              ),
-            ),
-          ),
-        { successMessage: `Processed ${candidatePlan.name}` },
+      return yield* interaction.withApplyProgress(candidatePlan.name, () =>
+        guardedApply.pipe(
+          Effect.match({
+            onFailure: (error) => ({ type: "failure", error }) as const,
+            onSuccess: (value) => ({ type: "success", value }) as const,
+          }),
+        ),
       );
     }),
   );
@@ -817,6 +761,13 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     // that value alone — never from re-reading disk. Nothing persists in the
     // workspace: the next mutation plans from the current workspace state.
     const restoration = applyResult.error.restoration;
+    const interruptionSignal =
+      restoration?.terminationCause === "interruption"
+        ? Option.match(yield* Effect.serviceOption(InterruptionSignalSource), {
+            onNone: () => "SIGINT" as const,
+            onSome: (source) => source.requestedSignal() ?? "SIGINT",
+          })
+        : undefined;
     const rollbackFailed = restoration !== undefined;
     const restorationRecovery =
       restoration === undefined
@@ -886,14 +837,14 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       failure,
       footprint,
       ...(restorationRecovery === undefined ? {} : { recovery: restorationRecovery }),
-      ...(restoration?.terminationCause === "interruption"
-        ? {
+      ...(interruptionSignal === undefined
+        ? {}
+        : {
             interruption: {
-              signal: requestedInterruptionSignal() ?? "SIGINT",
+              signal: interruptionSignal,
               disposition: "retained",
             },
-          }
-        : {}),
+          }),
       suggestions: failure.suggestions ?? candidatePlan.failureSuggestions,
     });
   }

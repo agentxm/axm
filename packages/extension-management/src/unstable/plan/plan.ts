@@ -305,6 +305,16 @@ export const operationPresentation = (
         },
 });
 
+/** Fallback vocabulary for planners that declare no presentation. */
+export const defaultOperationPresentation: OperationPresentation = {
+  verb: { imperative: "apply", past: "Applied", gerund: "Applying" },
+  subject: { singular: "change", plural: "changes" },
+};
+
+export const presentationOf = (plan: {
+  readonly presentation?: OperationPresentation;
+}): OperationPresentation => plan.presentation ?? defaultOperationPresentation;
+
 export const OperationPreconditionSchema = Schema.Struct({
   id: Schema.String,
   label: Schema.String,

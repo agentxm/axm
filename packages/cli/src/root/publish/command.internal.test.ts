@@ -1332,7 +1332,7 @@ describe("root publish", () => {
   describe("human output", () => {
     it.effect("renders the published FQN and version after a successful apply", () => {
       writeReviewSkill();
-      const { provide, logs, rendererState } = makeContext(false);
+      const { provide, logs, rendererState, resolvePlanState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
@@ -1347,7 +1347,9 @@ describe("root publish", () => {
           expect(logs.success.join("\n")).toContain("visibility: public (establish, platform)");
           expect(rendererState.spinnerMessages).toContain("Resolving publish registry");
           expect(rendererState.spinnerMessages).toContain("Preparing publish candidates");
-          expect(rendererState.spinnerMessages).toContain("Applying Publish extensions");
+          // Apply-phase spinner wording lives in the CLI Live; the interaction
+          // test state records the progress envelope instead.
+          expect(resolvePlanState.applyProgress).toContain("Publish extensions");
         }),
       );
     });

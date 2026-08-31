@@ -18,7 +18,9 @@
 export {
   BlockingClassSchema,
   ConfiguredAgentOutcomeSchema,
+  defaultOperationPresentation,
   operationPresentation,
+  presentationOf,
   ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
@@ -115,6 +117,19 @@ export {
 
 // Workspace-interactive preview/apply backbone used by install/uninstall/pack.
 export { STALE_CANDIDATE_DETAIL, previewOrApplyPlan } from "./resolve-plan.js";
+// Interaction port for preview/apply presentation, progress, and confirmation.
+// The CLI runtime provides the Live implementation.
+export {
+  ResolvePlanInteraction,
+  ResolvePlanInteractionTest,
+  type ApplyConfirmation,
+  type ResolvePlanInteractionService,
+  type ResolvePlanInteractionTestState,
+} from "./resolve-plan-interaction.js";
+export {
+  InterruptionSignalSource,
+  type InterruptionSignalSourceService,
+} from "./interruption-signal.js";
 export {
   isExecutionCandidateFresh,
   makeExecutionCandidate,

@@ -13,13 +13,13 @@ import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-r
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   countUnitStates,
+  defaultOperationPresentation,
   deriveOperationOutcome,
   type JobStepArtifact,
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/extension-management/unstable/plan";
-import { defaultOperationPresentation } from "@agentxm/extension-management/unstable/workspace";
 
 const capitalize = (value: string): string =>
   value.length === 0 ? value : `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`;

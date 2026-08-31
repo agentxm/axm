@@ -19,15 +19,16 @@ import { CredentialStoreTest } from "@agentxm/extension-management/unstable/auth
 import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
+  displayPlan,
   TestMachineRenderer,
   TestRenderer,
   logsByTag,
 } from "@agentxm/extension-management/unstable/cli-renderer";
+import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import {
   layer as coreWorkspaceLayer,
-  ResolvePlanInteractionTest,
   WorkspaceInitializationInteractionTest,
 } from "@agentxm/extension-management/unstable/workspace";
 import { ExecutionDirectory } from "./execution-directory.js";
@@ -393,11 +394,19 @@ export const makeCliTestContext = (opts?: {
           new Error("Test prompt: no canned confirm response for resolve-plan."),
         );
       }
-      return response;
+      return response ? ("approved" as const) : ("declined" as const);
     });
 
+  const flagsLayer = TestFlagsLayer(opts?.flags);
   const resolvePlanTest = ResolvePlanInteractionTest({
+    // Mirrors TestFlagsLayer's non-interactive default: confirmation is
+    // available only when a test explicitly opts into interactivity.
+    isConfirmationAvailable: opts?.flags?.nonInteractive === false,
     confirmApplyChanges: nextConfirm,
+    // Render plan candidates like the CLI Live so output assertions keep
+    // observing the real display wording.
+    presentPlan: (plan, options) =>
+      displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
   });
   const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
     selectAgents: ({ allAgents, detectedIds }) =>
@@ -428,7 +437,7 @@ export const makeCliTestContext = (opts?: {
     rendererLayer,
     resolvePlanTest.layer,
     workspaceInitializationTest.layer,
-    TestFlagsLayer(opts?.flags),
+    flagsLayer,
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
     CredentialStoreTest(),

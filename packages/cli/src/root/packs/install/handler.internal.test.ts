@@ -17,20 +17,22 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { afterEach, beforeEach, vi } from "vitest";
-import { TestRenderer, logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
+import {
+  displayPlan,
+  TestRenderer,
+  logsByTag,
+} from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
 } from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
-import {
-  layer as coreWorkspaceLayer,
-  ResolvePlanInteractionTest,
-} from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
 import {
   deriveOperationOutcome,
   previewOrApplyPlan,
+  ResolvePlanInteractionTest,
 } from "@agentxm/extension-management/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import {
@@ -154,15 +156,22 @@ describe("packs install handler", () => {
     flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const flagsLayer = TestFlagsLayer(flagsOverrides);
     const resolvePlanInteraction = ResolvePlanInteractionTest({
-      confirmApplyChanges: () => Effect.succeed(tuiConfig?.confirmValue ?? true),
+      isConfirmationAvailable: flagsOverrides?.nonInteractive === false,
+      confirmApplyChanges: () =>
+        Effect.succeed(
+          (tuiConfig?.confirmValue ?? true) ? ("approved" as const) : ("declined" as const),
+        ),
+      presentPlan: (plan, options) =>
+        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
-      TestFlagsLayer(flagsOverrides),
+      flagsLayer,
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",
@@ -202,15 +211,19 @@ describe("packs install handler", () => {
     flagsOverrides?: { verbose?: boolean; debug?: boolean; nonInteractive?: boolean },
   ) => {
     const { layer: rendererLayer, state: rendererState } = TestRenderer.make();
+    const flagsLayer = TestFlagsLayer(flagsOverrides);
     const resolvePlanInteraction = ResolvePlanInteractionTest({
-      confirmApplyChanges: () => Effect.succeed(true),
+      isConfirmationAvailable: flagsOverrides?.nonInteractive === false,
+      confirmApplyChanges: () => Effect.succeed("approved" as const),
+      presentPlan: (plan, options) =>
+        displayPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
     });
     const BaseLayer = Layer.mergeAll(
       NodeServices.layer,
       FetchHttpClient.layer,
       rendererLayer,
       resolvePlanInteraction.layer,
-      TestFlagsLayer(flagsOverrides),
+      flagsLayer,
     );
     const wsOptions: WorkspaceMutationsOptions = {
       scope: "project",

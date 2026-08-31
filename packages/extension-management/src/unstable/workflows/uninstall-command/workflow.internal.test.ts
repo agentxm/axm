@@ -15,7 +15,8 @@ import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { promptablePlanExecution, type ConfirmationRecovery } from "../../plan/plan-execution.js";
 import { makeAppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/index.js";
-import { ResolvePlanInteractionTest, WorkspaceMutations } from "../../workspace/index.js";
+import { ResolvePlanInteractionTest } from "../../plan/resolve-plan-interaction.js";
+import { WorkspaceMutations } from "../../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
 import {
   type UninstallExtensionCommandWorkflowActions,

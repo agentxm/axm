@@ -9,9 +9,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError } from "../app-error/index.js";
-import { TestFlagsLayer } from "../cli-flags/index.js";
-import { TestRenderer } from "../cli-renderer/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   applyPlanExecution,
   promptablePlanExecution,
@@ -28,7 +26,7 @@ import {
   type WorkspaceMutationsService,
   type WorkspaceTransitionAcquirer,
 } from "../workspace/index.js";
-import { ResolvePlanInteractionTest } from "../workspace/resolve-plan-interaction.js";
+import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
@@ -54,24 +52,23 @@ const releaseAge = {
 };
 
 const makeTestContext = (
-  confirmApplyChanges?: () => Effect.Effect<boolean>,
-  flagsOverrides?: { readonly quiet?: boolean; readonly nonInteractive?: boolean },
+  confirmApplyChanges?: () => Effect.Effect<ApplyConfirmation, AppError>,
+  overrides?: { readonly confirmationAvailable?: boolean },
   workspace: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
 ) => {
-  const renderer = TestRenderer.make();
-  const interaction = ResolvePlanInteractionTest(
-    confirmApplyChanges === undefined ? undefined : { confirmApplyChanges },
-  );
+  const interaction = ResolvePlanInteractionTest({
+    ...(overrides?.confirmationAvailable === undefined
+      ? {}
+      : { isConfirmationAvailable: overrides.confirmationAvailable }),
+    ...(confirmApplyChanges === undefined ? {} : { confirmApplyChanges }),
+  });
 
   return {
     layer: Layer.mergeAll(
       NodeServices.layer,
-      renderer.layer,
-      TestFlagsLayer({ nonInteractive: flagsOverrides?.nonInteractive ?? true, ...flagsOverrides }),
       Layer.succeed(WorkspaceMutations, workspace),
       interaction.layer,
     ),
-    rendererState: renderer.state,
     interactionState: interaction.state,
   };
 };
@@ -144,17 +141,13 @@ describe("previewOrApplyPlan", () => {
         execution: preapprovedPlanExecution,
       });
 
-      expect(context.rendererState.spinnerMessages).toEqual([
-        "Resolving Install skill",
-        "Resolved Install skill",
-        "Applying Install skill",
-        "Processed Install skill",
-      ]);
+      expect(context.interactionState.planningProgress).toEqual(["Install skill"]);
+      expect(context.interactionState.applyProgress).toEqual(["Install skill"]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
 
-  it.effect("renders no planned block for an apply without confirmable risk", () => {
+  it.effect("presents the candidate to the interaction for an apply without risk", () => {
     const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
@@ -177,11 +170,11 @@ describe("previewOrApplyPlan", () => {
     return Effect.gen(function* () {
       yield* previewOrApplyPlan(plan, { execution: preapprovedPlanExecution });
 
-      expect(
-        context.rendererState.logs.some(
-          (entry) => entry.message.includes("Would") || entry.message.includes("Ready to"),
-        ),
-      ).toBe(false);
+      // The kernel presents unconditionally; the mode-aware wording gate
+      // (no planned block without confirmable risk) is the CLI Live's.
+      expect(context.interactionState.presentPlanCalls).toEqual([
+        { planName: "Publish skill", mode: "apply" },
+      ]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
@@ -278,12 +271,12 @@ describe("previewOrApplyPlan", () => {
       const context = makeTestContext(
         () =>
           Effect.sync(() => {
-            displayedBeforeConfirmation = context.rendererState.logs.some(
-              (entry) => entry._tag === "info" && entry.message.includes("Ready to apply"),
+            displayedBeforeConfirmation = context.interactionState.presentPlanCalls.some(
+              (call) => call.mode === "apply",
             );
-            return false;
+            return "declined" as const;
           }),
-        { nonInteractive: false },
+        { confirmationAvailable: true },
       );
       const plan: Plan = {
         _tag: "Plan",
@@ -558,8 +551,9 @@ describe("previewOrApplyPlan", () => {
       yield* fs.writeFileString(material, "before");
       let appliedCount = 0;
       const context = makeTestContext(
-        () => fs.writeFileString(material, "after").pipe(Effect.as(true), Effect.orDie),
-        { nonInteractive: false },
+        () =>
+          fs.writeFileString(material, "after").pipe(Effect.as("approved" as const), Effect.orDie),
+        { confirmationAvailable: true },
         makeBaseWorkspaceMock(`${directory}/.axm`),
       );
       const plan: Plan = {

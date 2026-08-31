@@ -15,6 +15,9 @@ Navigation for the accepted product and system architecture of AXM.
 
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and
   major system elements
+- [Package architecture](package-architecture.md) — The target package
+  responsibilities, dependency direction, enforcement, and Nx workspace
+  conventions for decomposing extension management.
 - [Glossary](glossary.md) — recurring AXM terms for extension authority,
   manifests, sources, authoritative lock state, workspaces, scopes, canonical
   extension content, ownership units, contributor sets, projections, and

@@ -78,22 +78,23 @@ agent administration tool.
   identically: request and response schemas, publication and deprecation views,
   suggested-action error vocabulary, content parsing, and publish lint rules.
   It depends only on the extension model.
-- `@agentxm/extension-management` owns AXM's extension-management domain and
-  its integrations: workspace state, planning, reconciliation, source and
-  registry integration, and agent-independent operations. It depends on the
-  extension model and the Registry protocol.
+- `@agentxm/extension-management` is the transitional implementation boundary
+  for workspace state, operations, integrations, and features. The accepted
+  [package architecture](package-architecture.md) decomposes it into separate
+  shared kernels, integrations, and vertical feature packages, then removes the
+  transitional package without a compatibility façade.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
   of the executable runtime. It delegates reusable behavior to the libraries
   and publishes the generated site content.
 - End-to-end projects verify the published CLI boundary and do not become
   production dependencies.
 
-Production dependency direction points strictly inward: CLI toward extension
-management, extension management toward the Registry protocol and the extension
-model, the Registry protocol toward the extension model. No library depends on
-CLI interaction or output rendering, and the executable specification
+Production dependency direction points strictly inward: application toward
+features and runtime composition, features toward kernels, integrations, and
+contracts, and contracts toward the extension model. No library depends on CLI
+interaction or output rendering, and the executable specification
 `system/architecture/packages-follow-permitted-dependency-graph` owns the
-permitted graph.
+permitted graph at each migration stage.
 
 AXM is the public side of the AgentXM system. It may depend on published
 service contracts and published OSS-safe code packages. The executable

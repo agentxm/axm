@@ -2,7 +2,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { isCI, isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
+import { isNonInteractive, nonInteractiveFlag } from "./non-interactive.js";
+import { isCI } from "../utils/environment.js";
 
 describe("isCI", () => {
   let origCI: string | undefined;

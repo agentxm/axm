@@ -7,7 +7,6 @@ import { Flag, GlobalFlag } from "effect/unstable/cli";
 // ---------------------------------------------------------------------------
 
 export {
-  isCI,
   isNonInteractive,
   isNonInteractiveOptional,
   nonInteractiveFlag,

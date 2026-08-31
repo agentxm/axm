@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { count } from "../cli-renderer/index.js";
 import { makePlatformPackFileAccessor } from "../lint/catalog/pack-accessor/platform.js";
 import { makePlatformSkillFileAccessor } from "../lint/catalog/skill-accessor/platform.js";
 import { platformCanonicalLintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
@@ -245,7 +244,7 @@ const renderPublishLintFailure = (
     ({ path, finding }) => `- ${path} [${finding.ruleId}]: ${finding.message}`,
   );
   return [
-    `Publish lint failed for ${noun} manifest with ${count(findings.length, "error")}.`,
+    `Publish lint failed for ${noun} manifest with ${findings.length} error${findings.length === 1 ? "" : "s"}.`,
     ...lines,
   ].join("\n");
 };

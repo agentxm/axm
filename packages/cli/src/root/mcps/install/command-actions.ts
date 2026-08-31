@@ -37,6 +37,7 @@ import {
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import type { Plan } from "@agentxm/extension-management/unstable/plan";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
@@ -379,6 +380,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
                     name: "install-mcp-server",
                     args: {
                       ref: intent.ref,
+                      nonInteractive: yield* isNonInteractiveOptional,
                       force: intent.force,
                       versionRange: intent.versionRange,
                       skipSettings: Option.none(),

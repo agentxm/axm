@@ -61,6 +61,7 @@ import { makeConfirmationRecovery } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   type McpImportAdoption,
   type McpImportCandidate,
@@ -496,6 +497,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
   readonly path: Path.Path;
 }) {
   const httpClient = yield* HttpClient.HttpClient;
+  const nonInteractive = yield* isNonInteractiveOptional;
   if (args.ws.scope !== "project") {
     return yield* makeAppError({
       code: "usage",
@@ -674,6 +676,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         name: "install-mcp-server",
         args: {
           ref,
+          nonInteractive,
           force: false,
           allowWorkspaceSourceTransition: true,
           versionRange: Option.none(),

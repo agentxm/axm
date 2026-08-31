@@ -39,6 +39,7 @@ import {
   type SubagentExtensionRef,
 } from "@agentxm/extension-management/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 export type PackMemberRef =
   | SkillExtensionRef
@@ -203,6 +204,7 @@ export const buildPackMemberInstallStep = (args: {
             name: "install-mcp-server",
             args: {
               ref,
+              nonInteractive: yield* isNonInteractiveOptional,
               force: false,
               versionRange: Option.none(),
               skipSettings: Option.some(true),

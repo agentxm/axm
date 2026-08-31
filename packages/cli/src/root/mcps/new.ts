@@ -49,6 +49,7 @@ import {
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
@@ -238,6 +239,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
               name: "install-mcp-server",
               args: {
                 ref: resolvedRef,
+                nonInteractive: yield* isNonInteractiveOptional,
                 force: false,
                 versionRange: Option.none(),
                 skipSettings: Option.none(),

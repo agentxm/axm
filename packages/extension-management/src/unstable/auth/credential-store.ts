@@ -22,7 +22,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 import { errAuthTokenRequired, type AppError, makeAppError } from "../app-error/index.js";
-import { isCI } from "../cli-flags/index.js";
+import { isCI } from "../utils/environment.js";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { envOption, isContainer, isRoot, isSSH, isWSL } from "../utils/index.js";
 import type { CredentialEntry, CredentialFile, StorageTier, StoredCredentials } from "./schema.js";

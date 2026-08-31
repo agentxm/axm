@@ -19,7 +19,6 @@ import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agen
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "../../utils/index.js";
-import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -82,6 +81,11 @@ export type InstallMcpServerOperationArgs = {
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
   readonly env?: Option.Option<Readonly<Record<string, string>>>;
+  /**
+   * Whether the invoking surface can prompt for missing required inputs.
+   * The transport boundary resolves flag, CI, and TTY state.
+   */
+  readonly nonInteractive: boolean;
   /** Restrict this server to a reviewed subset of configured agents. */
   readonly agents?: ReadonlyArray<ConfigurableAgentId>;
 };
@@ -728,7 +732,7 @@ export const installMcpServer: (
     const missingInputs = [...requiredInputNames]
       .filter((name) => mergedEnv[name] === undefined || mergedEnv[name] === "")
       .sort((left, right) => left.localeCompare(right));
-    if (missingInputs.length > 0 && (yield* isNonInteractiveOptional)) {
+    if (missingInputs.length > 0 && op.args.nonInteractive) {
       return yield* makeAppError({
         code: "usage",
         detail: `${ref.server.name} needs ${missingInputs.join(", ")}, and --non-interactive cannot prompt for them`,

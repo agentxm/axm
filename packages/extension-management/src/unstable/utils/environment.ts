@@ -3,8 +3,9 @@
  *
  * Pure functions for env var / process checks. Effect-based for filesystem checks.
  *
- * CLI-specific detection (isCI, isNonInteractive, nonInteractiveFlag) lives in
- * cli-flags/non-interactive.ts. This module covers general environment detection.
+ * CLI-specific interactivity resolution (isNonInteractive, nonInteractiveFlag)
+ * lives in cli-flags/non-interactive.ts. This module covers general
+ * environment detection.
  */
 
 import * as FileSystem from "effect/FileSystem";
@@ -58,3 +59,8 @@ export const isWSL = Effect.gen(function* () {
     .pipe(Effect.catch(() => Effect.succeed("")));
   return /microsoft/i.test(content);
 });
+
+/** Returns true if CI env var is set. */
+export const isCI: Effect.Effect<boolean> = Effect.map(envOption("CI"), (value) =>
+  Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
+);

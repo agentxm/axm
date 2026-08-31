@@ -38,6 +38,7 @@ export {
   isWSL,
   readEnv,
   readEnvironment,
+  isCI,
 } from "./environment.js";
 export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
 export { isLoopbackAddress } from "./network.js";

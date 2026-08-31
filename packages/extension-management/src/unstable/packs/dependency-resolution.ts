@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { count } from "../cli-renderer/index.js";
 import type { ExtensionRef, SourceAuthorityBlockedFact } from "../extensions/index.js";
 import type {
   Handle,
@@ -561,7 +560,7 @@ export const resolvePackDependencies = (
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        detail: `Pack declares ${count(dependencies.unsupported.length, "unsupported dependency type")}: ${dependencies.unsupported.join(", ")}`,
+        detail: `Pack declares ${dependencies.unsupported.length} unsupported dependency type${dependencies.unsupported.length === 1 ? "" : "s"}: ${dependencies.unsupported.join(", ")}`,
       });
     }
 
@@ -627,7 +626,7 @@ export const resolvePackDependenciesWithReleaseAge = (
     if (dependencies.unsupported.length > 0) {
       return yield* makeAppError({
         code: "usage",
-        detail: `Pack declares ${count(dependencies.unsupported.length, "unsupported dependency type")}: ${dependencies.unsupported.join(", ")}`,
+        detail: `Pack declares ${dependencies.unsupported.length} unsupported dependency type${dependencies.unsupported.length === 1 ? "" : "s"}: ${dependencies.unsupported.join(", ")}`,
       });
     }
     const entries = [

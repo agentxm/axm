@@ -61,6 +61,7 @@ import {
   type ResolvedExtensionPackage,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -140,6 +141,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   readonly yes: boolean;
   readonly preview: boolean;
 }) {
+  const nonInteractive = yield* isNonInteractiveOptional;
   const target = yield* Effect.fromResult(
     Result.mapError(parseFqn(args.target), fqnInvalidErrorToAppError),
   );
@@ -349,6 +351,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
             name: "install-mcp-server",
             args: {
               ref,
+              nonInteractive,
               force: false,
               allowWorkspaceSourceTransition: true,
               versionRange: Option.none(),

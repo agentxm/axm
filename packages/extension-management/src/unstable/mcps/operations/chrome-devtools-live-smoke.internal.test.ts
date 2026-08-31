@@ -93,6 +93,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       const installResult = yield* installMcpServer({
         name: "install-mcp-server",
         args: {
+          nonInteractive: true,
           ref: {
             type: "mcp-server",
             refType: "registry",

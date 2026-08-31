@@ -7,12 +7,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
-import { envOption } from "../utils/environment.js";
-
-/** Returns true if CI env var is set. */
-export const isCI: Effect.Effect<boolean> = Effect.map(envOption("CI"), (value) =>
-  Option.exists(value, (raw) => raw.length > 0 && raw !== "0" && raw.toLowerCase() !== "false"),
-);
+import { isCI } from "../utils/environment.js";
 
 /**
  * Raw --non-interactive global flag. Callers should use {@link isNonInteractive}

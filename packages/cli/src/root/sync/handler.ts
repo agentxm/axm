@@ -68,6 +68,7 @@ import {
   type KnowledgeExtensionRef,
 } from "@agentxm/extension-management/unstable/knowledge";
 import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
+import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   applyPlannedProjections,
   extensionConstraintFactText,
@@ -432,6 +433,7 @@ const buildMcpServerSyncOperation = ({
       name: "install-mcp-server",
       args: {
         ref,
+        nonInteractive: yield* isNonInteractiveOptional,
         force,
         allowWorkspaceSourceTransition: false,
         versionRange: Option.none(),

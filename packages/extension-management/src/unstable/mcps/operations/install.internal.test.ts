@@ -262,6 +262,7 @@ const makeOp = (
 ): InstallMcpServerOperation => ({
   name: "install-mcp-server",
   args: {
+    nonInteractive: true,
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
     versionRange: overrides.versionRange ?? Option.none(),

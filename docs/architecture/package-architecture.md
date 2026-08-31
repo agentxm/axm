@@ -9,6 +9,8 @@ depends-on:
   - ./workspace/overview.md
   - ./system-wide/testing-strategy.md
   - ./decisions/typescript-dual-alias.md
+  - ./decisions/executable-specifications-authority.md
+  - ./decisions/specification-infrastructure.md
 ---
 
 # Package architecture
@@ -263,6 +265,19 @@ package's live Layer. Executable specifications keep exercising the CLI
 through its published harness entry points rather than composing package
 Layers themselves.
 
+A package that ships `./live` may also ship `./testing`: deterministic
+in-memory Layer implementations of its own root services, with controlled
+clock, identifier, and filesystem defaults — and nothing else. Fixtures for
+other packages and assertion helpers stay with their consumers. Production
+source never imports `*/testing`; tests and specifications may. Specification
+support composes package-owned `./testing` ports rather than owning duplicate
+test doubles.
+
+The specification harness is part of the CLI's declared public surface —
+`axm.sh/specification-harness`, alongside `axm.sh/app` and `axm.sh/runtime` —
+not an `unstable` subpath. An entry point that drives the requirements corpus
+has earned a stable export.
+
 Deep imports into another package's `src`, `unstable`, generated files, or
 internal folders are forbidden. A needed cross-package symbol either belongs
 in the provider's public API or reveals that the responsibility is in the wrong
@@ -365,7 +380,11 @@ command handlers in the same project or distinguish a package root from its
 - forbid `@agentxm/*/live` in production source outside the CLI composition
   root, leaving the test and specification-harness exceptions above intact;
 - prevent command handlers from bypassing feature APIs to call kernels or
-  integrations directly; and
+  integrations directly;
+- restrict specification imports to the CLI's published entry points, the
+  contract packages, and `*/testing` exports — never a kernel, integration, or
+  feature root — so the specification corpus observes the boundary it
+  verifies; and
 - forbid imports through another package's `src`, `unstable`, internal generated
   files, or other undeclared subpaths.
 
@@ -384,14 +403,18 @@ verifier.
 
 The target requirements lifecycle is:
 
-1. accept a stable successor requirement for acyclic, inward production package
-   dependencies and feature isolation;
+1. accept, in one reviewed requirements change, two stable successor
+   requirements: acyclic, inward production package dependencies with feature
+   isolation — including that no feature executes another feature's plans —
+   and application-only `*/live` composition with the test and specification
+   exceptions above; they fail independently and have different verifiers, so
+   they are separate requirements rather than one;
 2. retire the exact-adjacency requirement with its identity and history
-   preserved under the specification lifecycle;
-3. bind Nx and ESLint architecture-gate results to the successor requirement as
-   static verification evidence; and
-4. specify application-only `./live` composition separately if that boundary
-   warrants an independently decidable requirement.
+   preserved under the specification lifecycle; and
+3. bind the Nx and ESLint architecture-gate results to the successor
+   requirements as static verification evidence, declared as literal-only
+   bound-evidence metadata beside the specification contract so the catalog
+   reads it statically.
 
 Until that requirements change is accepted and landed, the existing executable
 specification remains the sole local authority for its current obligation. The
@@ -402,6 +425,13 @@ competing requirements source. Do not introduce a shared custom policy module
 merely so ESLint and a specification can consume the same exact adjacency
 table; Nx configuration remains the implementation policy and the specification
 remains the requirements authority.
+
+Bound evidence supports an owning specification; it never replaces one. Each
+successor requirement keeps its specification file even when a static gate
+supplies the decisive verification, so the specification corpus remains the
+sole requirements authority. The same bound-evidence declaration is the general
+channel for later package-level evidence, not a one-off for the architecture
+gates.
 
 ### No additional complementary tools
 
@@ -598,10 +628,13 @@ they are not prerequisites for the package architecture.
 
 The refactor proceeds from inward boundaries to outward features:
 
-1. Establish tags, full lint coverage, dependency checks, package export rules,
-   and the idiomatic Nx defaults before multiplying the package count.
-2. After the replacement requirement is accepted, bind the Nx and ESLint static
-   gates to it and retire
+1. Establish tags, full lint coverage, dependency checks, package export
+   rules — including promoting the specification harness to the stable
+   `axm.sh/specification-harness` export and restricting specification imports
+   to sanctioned entry points — and the idiomatic Nx defaults before
+   multiplying the package count.
+2. After the replacement requirements are accepted, bind the Nx and ESLint
+   static gates to them and retire
    `system/architecture/packages-follow-permitted-dependency-graph`. Do not
    retain the old manifest scanner as a second verifier.
 3. Extract `workspace-state`, `workspace-operations`, and
@@ -620,8 +653,9 @@ The refactor proceeds from inward boundaries to outward features:
    not retain a façade, alias, compatibility export, or deprecated import path.
 
 A migration step is complete only when the new package owns its public API and
-tests, no old deep import remains, the Nx graph shows only permitted edges, and
-the repository verification workflows pass.
+tests, any deterministic in-memory ports it owns have moved from specification
+support into its `./testing` export, no old deep import remains, the Nx graph
+shows only permitted edges, and the repository verification workflows pass.
 
 ## Nx references
 

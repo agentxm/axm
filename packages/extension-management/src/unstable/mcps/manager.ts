@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "./refs.js";
+import type { McpServerExtensionRef, RegistryMcpServerRef } from "../workspace/refs/mcp-server.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type {
   ExtensionManager,
@@ -28,7 +28,7 @@ import {
   canReuseInstalledPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
+import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
@@ -44,7 +44,7 @@ import { applyProjectionPlans, planSingletonProjection } from "../projection/pla
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
+} from "../workspace/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag

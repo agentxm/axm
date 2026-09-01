@@ -16,7 +16,12 @@ import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-run
 import {
   RenderedFilePathSchema,
   sanitizeName,
-} from "@agentxm/extension-management/unstable/extensions";
+  findManagedSubagentFiles,
+  isDesiredExtensionActive,
+  WorkspaceMutations,
+  type DesiredExtensionNode,
+  surfaceRestorationIncomplete,
+} from "@agentxm/extension-management/unstable/workspace";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
@@ -36,13 +41,6 @@ import {
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
-import {
-  findManagedSubagentFiles,
-  isDesiredExtensionActive,
-  WorkspaceMutations,
-  type DesiredExtensionNode,
-} from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -1,4 +1,4 @@
-import { computeSourceHash, type SourceHash } from "../extensions/rendered-files.js";
+import { computeSourceHash, type SourceHash } from "./rendered-files.js";
 
 interface PackManifestIdentityInput {
   readonly owner: string;

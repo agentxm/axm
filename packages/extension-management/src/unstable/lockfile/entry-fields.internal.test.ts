@@ -3,8 +3,8 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
-import { SourceHashSchema } from "../extensions/rendered-files.js";
+import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
+import { SourceHashSchema } from "../workspace/rendered-files.js";
 import { gitSourceLockFields } from "./entry-fields.js";
 
 describe("gitSourceLockFields", () => {

@@ -10,14 +10,14 @@ import type {
   LocalRefDetails,
   RegistryRefDetails,
   WorkspaceRefDetails,
-} from "../extensions/ref-base.js";
-import type { ExtensionRefBase } from "../extensions/ref-base.js";
+} from "./ref-base.js";
+import type { ExtensionRefBase } from "./ref-base.js";
 import type {
   GitBasedSource,
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "../sources/types.js";
+} from "../../sources/types.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
 
 type RuleExtensionRefBase<TRefType, TSource> = ExtensionRefBase<

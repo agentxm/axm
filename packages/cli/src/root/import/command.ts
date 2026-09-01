@@ -18,13 +18,16 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import {
   buildAuthoredExtensionStep,
-  computePackageContentHash,
   copyExtensionDirectory,
   createCanonicalDirectory,
   importNativeExtensionPackage,
   preflightCreateOnly,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  computePackageContentHash,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   extensionTypeToPlural,
   formatFqn,
@@ -44,7 +47,6 @@ import {
   acquireExternalSource,
   resolveSource,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

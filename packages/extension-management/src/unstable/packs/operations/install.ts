@@ -18,14 +18,14 @@ import { recoverCanonicalDirectory, replaceCanonicalDirectory } from "../../exte
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-import type { PackRef } from "../refs.js";
+import type { PackRef } from "../../workspace/refs/pack.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { computePackPathsForLayout } from "../paths.js";
+import { computePackPathsForLayout } from "../../workspace/pack-paths.js";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
@@ -35,8 +35,8 @@ import {
   type ResolvedPackDependencyMap,
   validateExactPackDependencyVersions,
 } from "../resolved-dependency.js";
-import { computePackManifestContentIdentity } from "../manifest-content-identity.js";
-import { computeMaterializedTreeIntegrity } from "../../extensions/materialized-tree.js";
+import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
+import { computeMaterializedTreeIntegrity } from "../../workspace/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Types

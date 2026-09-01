@@ -77,7 +77,7 @@ import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type ExtensionPathLockEntry,
-} from "../../../extensions/extension-paths.js";
+} from "../../../workspace/extension-paths.js";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";

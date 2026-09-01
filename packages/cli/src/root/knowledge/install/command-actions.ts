@@ -17,10 +17,11 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import {
-  KnowledgeManager,
   type KnowledgeExtensionRef,
-} from "@agentxm/extension-management/unstable/knowledge";
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import type {
   JobStepResult,
   Plan,
@@ -34,7 +35,6 @@ import {
 import type { Source } from "@agentxm/extension-management/unstable/sources";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallKnowledgeCommandIntent } from "./intent.js";
 

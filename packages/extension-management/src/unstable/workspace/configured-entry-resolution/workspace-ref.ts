@@ -9,44 +9,44 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { computePackageContentHash } from "../../extensions/package-hash.js";
+import { computePackageContentHash } from "../package-hash.js";
 import { validatePathSafety } from "../../extensions/utils.js";
 import {
   HookManifestSchema,
   HOOK_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import type { WorkspaceHookRef } from "../../hooks/refs.js";
+import type { WorkspaceHookRef } from "../refs/hook.js";
 import {
   KnowledgeManifestSchema,
   KNOWLEDGE_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
-import type { WorkspaceKnowledgeRef } from "../../knowledge/refs.js";
+import type { WorkspaceKnowledgeRef } from "../refs/knowledge.js";
 import {
   McpServerManifestSchema,
   MCP_SERVER_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import type { WorkspaceMcpServerRef } from "../../mcps/refs.js";
+import type { WorkspaceMcpServerRef } from "../refs/mcp-server.js";
 import {
   PackManifestSchema,
   PACK_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { WorkspacePackRef } from "../../packs/refs.js";
+import type { WorkspacePackRef } from "../refs/pack.js";
 import {
   RuleManifestSchema,
   RULE_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import type { WorkspaceRuleRef } from "../../rules/refs.js";
+import type { WorkspaceRuleRef } from "../refs/rule.js";
 import {
   SkillManifestSchema,
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import type { WorkspaceSkillRef } from "../../skills/refs.js";
+import type { WorkspaceSkillRef } from "../refs/skill.js";
 import type { WorkspaceSource } from "../../sources/types.js";
 import {
   SubagentManifestSchema,
   MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import type { WorkspaceSubagentRef } from "../../subagents/refs.js";
+import type { WorkspaceSubagentRef } from "../refs/subagent.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "../scope.js";
 import type { WorkspaceLayout } from "../layout.js";

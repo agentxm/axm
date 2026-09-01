@@ -22,9 +22,10 @@ import * as Schema from "effect/Schema";
 import { AppErrorCodeSchema, type AppError } from "../app-error/index.js";
 import {
   EXTENSION_TYPE_TABLE,
-  ExtensionTypeSchema,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import type { ArtifactChange } from "../workspace/artifact-change.js";
+import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
 import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry";
 import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -102,41 +103,8 @@ export interface Operation<TName extends string, TArgs> {
 // Step result types
 // -----------------------------------------------------------------------------
 
-export const ArtifactChangeSchema = Schema.Literals([
-  "created",
-  "updated",
-  "unchanged",
-  "removed",
-] as const);
-
-export type ArtifactChange = typeof ArtifactChangeSchema.Type;
-
 export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
 export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
-
-export const ConfiguredAgentOutcomeSchema = Schema.Struct({
-  extensionType: ExtensionTypeSchema,
-  name: Schema.String,
-  agentId: Schema.String,
-  outcome: Schema.Literals([
-    "projected",
-    "current",
-    "not-applicable",
-    "unsupported",
-    "blocked",
-    "failed",
-  ] as const),
-  reasonCode: Schema.String,
-  reason: Schema.String,
-  mechanism: Schema.optional(Schema.String),
-  path: Schema.optional(Schema.String),
-}).annotate({
-  identifier: "ConfiguredAgentOutcome",
-  title: "Configured Agent Outcome",
-  description: "Effective lifecycle result for one configured agent and extension.",
-});
-
-export type ConfiguredAgentOutcome = typeof ConfiguredAgentOutcomeSchema.Type;
 
 export interface JobStepArtifact {
   readonly path: string;

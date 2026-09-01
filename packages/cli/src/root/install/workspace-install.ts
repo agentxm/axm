@@ -35,24 +35,20 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  enabledConfiguredEntries,
   installableExtensionTypes,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
-} from "@agentxm/extension-management/unstable/extensions";
+  computePackManifestContentIdentity,
+  type PackRef,
+} from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import {
   extensionTypePluralSentenceLabels,
   parseRegistrySourceRef,
 } from "@agentxm/extension-model/unstable/extensions";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import {
-  computePackManifestContentIdentity,
-  type PackDependencyRefResolver,
-  type PackRef,
-} from "@agentxm/extension-management/unstable/packs";
+import { type PackDependencyRefResolver } from "@agentxm/extension-management/unstable/packs";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,

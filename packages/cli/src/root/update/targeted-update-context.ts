@@ -32,7 +32,7 @@ export type TargetedUpdateEffect = "unchanged" | "may-update";
 export interface TargetedUpdatePublicContext {
   readonly target: {
     readonly type: Exclude<
-      import("@agentxm/extension-management/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-management/unstable/workspace").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;
@@ -57,7 +57,7 @@ export interface TargetedUpdatePublicContext {
   readonly effectiveConstraint?: string;
   readonly memberClosure: ReadonlyArray<{
     readonly type: Exclude<
-      import("@agentxm/extension-management/unstable/extensions").InstallableExtensionType,
+      import("@agentxm/extension-management/unstable/workspace").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;

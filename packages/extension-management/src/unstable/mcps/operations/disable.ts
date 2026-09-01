@@ -17,7 +17,8 @@ import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { inspectAgentMcpServer } from "../inspection.js";
-import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { isMcpServerApplicableToAgent } from "../../workspace/mcp-entry-semantics.js";
 
 export type DisableMcpServerOperation = Operation<
   "disable-mcp-server",

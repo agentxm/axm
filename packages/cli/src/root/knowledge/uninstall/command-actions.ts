@@ -6,25 +6,23 @@ import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { resolveInstructionsConfig } from "@agentxm/extension-management/unstable/agents";
+import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-  buildUninstallOperation,
-} from "@agentxm/extension-management/unstable/extensions";
-import {
-  KnowledgeManager,
-  KnowledgeManagerLive,
   type KnowledgeExtensionRef,
-} from "@agentxm/extension-management/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import {
   WorkspaceMutations,
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
   type WorkspaceLayout,
 } from "@agentxm/extension-management/unstable/workspace";
+import {
+  KnowledgeManager,
+  KnowledgeManagerLive,
+} from "@agentxm/extension-management/unstable/knowledge";
+import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";

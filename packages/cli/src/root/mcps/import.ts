@@ -16,12 +16,17 @@ import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
-  AXM_MCP_METADATA_KEY,
   McpServerManager,
   installMcpServer,
   buildAxmMcpMetadataFromSettingsSource,
-  isAxmManagedMcpEntry,
 } from "@agentxm/extension-management/unstable/mcps";
+import {
+  AXM_MCP_METADATA_KEY,
+  isAxmManagedMcpEntry,
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+  surfaceRestorationIncomplete,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
@@ -47,11 +52,6 @@ import {
   operationPresentation,
   type OperationResolution,
 } from "@agentxm/extension-management/unstable/plan";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";

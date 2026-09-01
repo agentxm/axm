@@ -55,8 +55,8 @@ import {
 import {
   installableExtensionTypes,
   isInstallableExtensionType,
-} from "../../../extensions/index.js";
-import type { ExtensionRef } from "../../../extensions/index.js";
+} from "../../../workspace/installable-types.js";
+import type { ExtensionRef } from "../../../workspace/refs/extension-ref.js";
 import type {
   ExtensionFiles,
   FindOptions,

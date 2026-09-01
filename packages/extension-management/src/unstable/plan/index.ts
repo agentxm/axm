@@ -17,11 +17,9 @@
 // Plan types
 export {
   BlockingClassSchema,
-  ConfiguredAgentOutcomeSchema,
   defaultOperationPresentation,
   operationPresentation,
   presentationOf,
-  ArtifactChangeSchema,
   ArtifactMechanismSchema,
   OperationPreconditionSchema,
   PlanPolicyIdSchema,
@@ -29,11 +27,9 @@ export {
   PlanRiskConditionSchema,
 } from "./plan.js";
 export type {
-  ArtifactChange,
   ArtifactMechanism,
   BlockingClass,
   CompletedJobStep,
-  ConfiguredAgentOutcome,
   ErrorJobStep,
   ExecutedJob,
   ExecutedPlan,

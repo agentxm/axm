@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { SourceHashSchema } from "../extensions/rendered-files.js";
-import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
+import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { LockfileSchema, SubagentLockEntrySchema } from "./schema.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");

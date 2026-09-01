@@ -20,7 +20,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
 import { removeSkillAgentArtifact } from "../materialization.js";

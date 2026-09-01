@@ -10,55 +10,11 @@ export {
   type ImportNativeExtensionPackageArgs,
 } from "./import-native-package.js";
 
-export {
-  installableExtensionTypes,
-  installableExtensionTypePluralSegments,
-  InstallableExtensionTypeSchema,
-  InstallableExtensionTypePluralSchema,
-  isInstallableExtensionType,
-  isInstallableExtensionTypePlural,
-  toInstallableExtensionType,
-  toInstallableExtensionTypePlural,
-  type InstallableExtensionType,
-  type InstallableExtensionTypePlural,
-} from "./installable-types.js";
-
 // FQN parsing
 export { fqnInvalidErrorToAppError } from "../app-error/conversions.js";
 
-// Constants
-export { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
-export {
-  acquiredExtensionDisplayPath,
-  acquiredExtensionDisplayPathFromLockEntry,
-  computeExtensionPathsForLayout,
-  extensionPathSourceFromLockEntry,
-  type ExtensionPathLockEntry,
-  type ExtensionPathSource,
-} from "./extension-paths.js";
-
-// Ref base types
-export type {
-  ExtensionRefBase,
-  SkillExtensionRefBase,
-  McpServerExtensionRefBase,
-  PackRefBase,
-  GitHostedRefDetails,
-  RegistryRefDetails,
-  LocalRefDetails,
-  WorkspaceRefDetails,
-} from "./ref-base.js";
-
-// Extension ref union type
-export type { ExtensionRef } from "./refs.js";
-
 // Shared utilities
-export {
-  sanitizeName,
-  normalizeExtensionName,
-  copyExtensionDirectory,
-  validatePathSafety,
-} from "./utils.js";
+export { copyExtensionDirectory, validatePathSafety } from "./utils.js";
 
 export {
   enabledConfiguredEntries,
@@ -98,24 +54,6 @@ export {
   configuredSkillsToDiskRefs,
   configuredSubagentsToDiskRefs,
 } from "./materializable-from-disk.js";
-
-// Rendered files tracking
-export {
-  RenderedFilePathSchema,
-  RenderedFilesMapSchema,
-  SourceHashSchema,
-  computeSourceHash,
-  type RenderedFilePath,
-  type RenderedFilesMap,
-  type SourceHash,
-} from "./rendered-files.js";
-
-export { computePackageContentHash } from "./package-hash.js";
-export {
-  computeMaterializedTreeIntegrity,
-  TreeIntegritySchema,
-  type TreeIntegrity,
-} from "./materialized-tree.js";
 
 export {
   insertManagedFileBanner,

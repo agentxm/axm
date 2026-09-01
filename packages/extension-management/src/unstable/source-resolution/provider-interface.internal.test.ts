@@ -9,7 +9,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import type { GitHostedSkillRef } from "../skills/index.js";
+import type { GitHostedSkillRef } from "../workspace/refs/skill.js";
 import type {
   GitHubSource,
   RegistrySource,

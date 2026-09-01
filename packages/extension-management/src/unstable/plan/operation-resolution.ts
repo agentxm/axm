@@ -21,7 +21,6 @@ import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/uns
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type {
   BlockingClass,
-  ConfiguredAgentOutcome,
   ExecutedPlan,
   Job,
   JobStepArtifact,
@@ -31,6 +30,7 @@ import type {
   PlannedJobStep,
   RegistryLifecycleEvidence,
 } from "./plan.js";
+import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
 
 // -----------------------------------------------------------------------------
 // Canonical vocabulary

@@ -6,11 +6,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computeSourceHash } from "../workspace/rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "./axm-skill-compatibility.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
-import type { WorkspaceSkillRef } from "./refs.js";
+import type { WorkspaceSkillRef } from "../workspace/refs/skill.js";
 
 const VERSION = "1.2.3";
 

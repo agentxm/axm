@@ -12,7 +12,7 @@ import {
   extensionContentFilename,
   extensionContentPath,
   type ExtensionPathSource,
-} from "../extensions/extension-paths.js";
+} from "../workspace/extension-paths.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 

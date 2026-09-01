@@ -9,6 +9,115 @@
 // `OperationHandler`) moved to `@agentxm/extension-management/unstable/plan`. Consumers
 // import them from there directly.
 
+// Extension ref vocabulary
+export type { ExtensionRef } from "./refs/extension-ref.js";
+export type {
+  GitHostedSkillRef,
+  RegistrySkillRef,
+  LocalSkillRef,
+  WorkspaceSkillRef,
+  SkillExtensionRef,
+} from "./refs/skill.js";
+export type {
+  GitHostedMcpServerRef,
+  RegistryMcpServerRef,
+  LocalMcpServerRef,
+  WorkspaceMcpServerRef,
+  McpServerExtensionRef,
+} from "./refs/mcp-server.js";
+export type {
+  GitHostedSubagentRef,
+  RegistrySubagentRef,
+  LocalSubagentRef,
+  WorkspaceSubagentRef,
+  SubagentExtensionRef,
+} from "./refs/subagent.js";
+export type {
+  GitHostedRuleRef,
+  RegistryRuleRef,
+  LocalRuleRef,
+  WorkspaceRuleRef,
+  RuleExtensionRef,
+} from "./refs/rule.js";
+export type {
+  GitHostedHookRef,
+  RegistryHookRef,
+  LocalHookRef,
+  WorkspaceHookRef,
+  HookExtensionRef,
+} from "./refs/hook.js";
+export type {
+  GitHostedKnowledgeRef,
+  RegistryKnowledgeRef,
+  LocalKnowledgeRef,
+  WorkspaceKnowledgeRef,
+  KnowledgeExtensionRef,
+} from "./refs/knowledge.js";
+export type { RegistryPackRef, WorkspacePackRef, PackRef } from "./refs/pack.js";
+
+// Installable-type vocabulary
+export {
+  installableExtensionTypes,
+  installableExtensionTypePluralSegments,
+  InstallableExtensionTypeSchema,
+  InstallableExtensionTypePluralSchema,
+  isInstallableExtensionType,
+  isInstallableExtensionTypePlural,
+  toInstallableExtensionType,
+  toInstallableExtensionTypePlural,
+  type InstallableExtensionType,
+  type InstallableExtensionTypePlural,
+} from "./installable-types.js";
+
+// Extension path and identity vocabulary
+export { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
+export {
+  acquiredExtensionDisplayPath,
+  acquiredExtensionDisplayPathFromLockEntry,
+  computeExtensionPathsForLayout,
+  extensionPathSourceFromLockEntry,
+  extensionContentFilename,
+  extensionContentPath,
+  type ExtensionPathLockEntry,
+  type ExtensionPathSource,
+  type ExtensionDirPaths,
+} from "./extension-paths.js";
+export {
+  RenderedFilePathSchema,
+  RenderedFilesMapSchema,
+  SourceHashSchema,
+  computeSourceHash,
+  type RenderedFilePath,
+  type RenderedFilesMap,
+  type SourceHash,
+} from "./rendered-files.js";
+export { computePackageContentHash } from "./package-hash.js";
+export {
+  computeMaterializedTreeIntegrity,
+  TreeIntegritySchema,
+  type TreeIntegrity,
+} from "./materialized-tree.js";
+export { sanitizeName, normalizeExtensionName } from "./extension-name.js";
+export { computePackPathsForLayout } from "./pack-paths.js";
+export { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
+
+// Plan-facing workspace vocabulary
+export { ArtifactChangeSchema, type ArtifactChange } from "./artifact-change.js";
+export {
+  ConfiguredAgentOutcomeSchema,
+  type ConfiguredAgentOutcome,
+} from "./configured-agent-outcome.js";
+
+// MCP entry settings semantics
+export {
+  AXM_MCP_METADATA_KEY,
+  AxmMcpMetadataSchema,
+  isAxmManagedMcpEntry,
+  isMcpServerApplicableToAgent,
+  readAxmMcpMetadata,
+  type AxmMcpMetadata,
+} from "./mcp-entry-semantics.js";
+
 // Scope utilities
 export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
 export {

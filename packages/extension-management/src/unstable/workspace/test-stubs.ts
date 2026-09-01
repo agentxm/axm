@@ -33,11 +33,9 @@ import {
   decodeHandleSync,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  SourceHashSchema,
-  TreeIntegritySchema,
-  type InstallableExtensionType,
-} from "../extensions/index.js";
+import { SourceHashSchema } from "./rendered-files.js";
+import { TreeIntegritySchema } from "./materialized-tree.js";
+import { type InstallableExtensionType } from "./installable-types.js";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   decodeAbsolutePathSync,

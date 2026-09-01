@@ -20,7 +20,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import { ensureSkillAgentArtifact } from "../materialization.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
 import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";

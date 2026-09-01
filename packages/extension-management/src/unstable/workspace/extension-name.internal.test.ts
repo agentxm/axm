@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import * as FastCheck from "effect/testing/FastCheck";
-import { sanitizeName } from "./utils.js";
+import { sanitizeName } from "./extension-name.js";
 
 const PROPERTY_OPTIONS = { fastCheck: { numRuns: 250, seed: 0x41584d } };
 

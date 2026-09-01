@@ -12,25 +12,26 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import {
-  SkillManager,
   type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/skills";
-import { PackManager, type PackRef } from "@agentxm/extension-management/unstable/packs";
-import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
-import {
-  KnowledgeManager,
+  type PackRef,
+  type HookExtensionRef,
   type KnowledgeExtensionRef,
-} from "@agentxm/extension-management/unstable/knowledge";
-import {
-  McpServerManager,
   type McpServerExtensionRef,
-} from "@agentxm/extension-management/unstable/mcps";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
-import {
-  SubagentManager,
+  type RuleExtensionRef,
   type SubagentExtensionRef,
-} from "@agentxm/extension-management/unstable/subagents";
+  type DesiredStateGraph,
+  type ExtensionTarget,
+  type PackExtensionTarget,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
+import { PackManager } from "@agentxm/extension-management/unstable/packs";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   buildUninstallOperation,
   decodeDesiredExtensionIdentity,
@@ -44,12 +45,6 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import type {
-  DesiredStateGraph,
-  ExtensionTarget,
-  PackExtensionTarget,
-} from "@agentxm/extension-management/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { workspaceCanonicalNodePath } from "../../shared/workspace-display-paths.js";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";

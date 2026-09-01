@@ -1,4 +1,4 @@
-import type { KnowledgeExtensionRef } from "@agentxm/extension-management/unstable/knowledge";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-management/unstable/workspace";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type * as Option from "effect/Option";
 

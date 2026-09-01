@@ -27,13 +27,16 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import {
   buildAuthoredExtensionStep,
-  computePackageContentHash,
   copyExtensionDirectory,
   createCanonicalDirectory,
   forkExtensionPackage,
   preflightCreateOnly,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  computePackageContentHash,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   extensionTypeFromPlural,
   extensionTypeToPlural,
@@ -60,7 +63,6 @@ import {
   type ExtensionPackageFilter,
   type ResolvedExtensionPackage,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 import { emitOperationResolution } from "../../operation-output.js";

@@ -1,5 +1,5 @@
 import type { ManagedFileProvenance } from "../extensions/managed-file-banner.js";
-import type { SubagentExtensionRef } from "./refs.js";
+import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 
 /** Provenance and authoring disposition for one managed Subagent projection. */
 export const managedSubagentFile = (

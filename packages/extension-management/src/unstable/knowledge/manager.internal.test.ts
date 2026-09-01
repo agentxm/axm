@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { computeSourceHash } from "../extensions/rendered-files.js";
+import { computeSourceHash } from "../workspace/rendered-files.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
@@ -30,7 +30,7 @@ import {
   handle,
 } from "../test-helpers.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
-import type { LocalKnowledgeRef, WorkspaceKnowledgeRef } from "./refs.js";
+import type { LocalKnowledgeRef, WorkspaceKnowledgeRef } from "../workspace/refs/knowledge.js";
 
 const writeKnowledgePackage = (
   root: string,

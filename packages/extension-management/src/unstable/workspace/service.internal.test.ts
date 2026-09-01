@@ -32,8 +32,9 @@ import {
   stringProperty,
   versionRange,
 } from "../test-helpers.js";
-import { computeSourceHash, TreeIntegritySchema } from "../extensions/index.js";
-import { computePackManifestContentIdentity } from "../packs/index.js";
+import { computeSourceHash } from "./rendered-files.js";
+import { TreeIntegritySchema } from "./materialized-tree.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { layer as workspaceLayer } from "./service.js";
 import {
@@ -43,7 +44,7 @@ import {
   type WorkspaceMutationsOptions,
 } from "./service-interface.js";
 import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
-import { installableExtensionTypes } from "../extensions/installable-types.js";
+import { installableExtensionTypes } from "./installable-types.js";
 import {
   configuredRowsByName,
   installedRowsByName,

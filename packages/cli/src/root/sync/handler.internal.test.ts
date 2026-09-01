@@ -15,17 +15,15 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import {
   computePackManifestContentIdentity,
-  PackManagerLive,
   type PackRef,
-} from "@agentxm/extension-management/unstable/packs";
+  type SkillExtensionRef,
+} from "@agentxm/extension-management/unstable/workspace";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
-import {
-  SkillManagerLive,
-  type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import {
   SourceHostProviders,
   SourceHostProvidersLive,

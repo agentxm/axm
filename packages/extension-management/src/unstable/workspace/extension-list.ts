@@ -9,11 +9,8 @@ import {
   parseExtensionFqnParts,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  installableExtensionTypes,
-  type ExtensionRef,
-  type InstallableExtensionType,
-} from "../extensions/index.js";
+import { installableExtensionTypes, type InstallableExtensionType } from "./installable-types.js";
+import { type ExtensionRef } from "./refs/extension-ref.js";
 import { createRegistryClient } from "../registry/index.js";
 import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";

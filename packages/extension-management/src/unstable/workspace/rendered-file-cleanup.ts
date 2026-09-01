@@ -12,7 +12,7 @@ import {
   PER_AGENT_EXTENSION_TYPES,
   type PerAgentType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/index.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
 import { hasManagedFileBanner } from "../extensions/managed-file-banner.js";
 import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "./scope.js";

@@ -27,13 +27,33 @@ import {
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
-  ACQUIRED_EXTENSIONS_DIR,
-  acquiredExtensionDisplayPath,
   evaluateSourceAuthority,
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
-  type ExtensionRef,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  ACQUIRED_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
+  type ExtensionRef,
+  acceptedLockedCanonicalPath,
+  WorkspaceMutations,
+  isDesiredExtensionActive,
+  type SkillExtensionRef,
+  type PackRef,
+  type HookExtensionRef,
+  type KnowledgeExtensionRef,
+  type RuleExtensionRef,
+  type McpServerExtensionRef,
+  type SubagentExtensionRef,
+  type HookExtensionTarget,
+  type KnowledgeExtensionTarget,
+  type McpServerExtensionTarget,
+  type RuleExtensionTarget,
+  type SkillExtensionTarget,
+  type SubagentExtensionTarget,
+  type DesiredStateGraph,
+  usableAcceptedCanonical,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
@@ -55,37 +75,19 @@ import {
   SourceHostProviders,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  acceptedLockedCanonicalPath,
-  WorkspaceMutations,
-  isDesiredExtensionActive,
-} from "@agentxm/extension-management/unstable/workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  SkillManager,
-  type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/skills";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import {
   PackManager,
   expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
-  type PackRef,
   type WorkspacePackDependencyResolver,
 } from "@agentxm/extension-management/unstable/packs";
-import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
-import {
-  KnowledgeManager,
-  type KnowledgeExtensionRef,
-} from "@agentxm/extension-management/unstable/knowledge";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
-import {
-  McpServerManager,
-  type McpServerExtensionRef,
-} from "@agentxm/extension-management/unstable/mcps";
-import {
-  SubagentManager,
-  type SubagentExtensionRef,
-} from "@agentxm/extension-management/unstable/subagents";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   buildUninstallOperation,
   buildInstallOperation,
@@ -105,16 +107,6 @@ import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import type {
-  HookExtensionTarget,
-  KnowledgeExtensionTarget,
-  McpServerExtensionTarget,
-  RuleExtensionTarget,
-  SkillExtensionTarget,
-  SubagentExtensionTarget,
-  DesiredStateGraph,
-} from "@agentxm/extension-management/unstable/workspace";
-import { usableAcceptedCanonical } from "@agentxm/extension-management/unstable/workspace";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";

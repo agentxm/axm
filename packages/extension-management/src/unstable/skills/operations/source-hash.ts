@@ -1,4 +1,4 @@
-import { computePackageContentHash } from "../../extensions/package-hash.js";
+import { computePackageContentHash } from "../../workspace/package-hash.js";
 
 // Source hashes are advisory change markers. Reusing the package-content
 // algorithm gives every relative path and byte sequence an unambiguous NUL-

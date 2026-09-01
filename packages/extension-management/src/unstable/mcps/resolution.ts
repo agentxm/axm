@@ -21,7 +21,8 @@ import type {
   McpRegistryRemoteTransport,
   McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { AXM_MCP_METADATA_KEY, buildAxmMcpMetadata } from "./metadata.js";
+import { buildAxmMcpMetadata } from "./metadata.js";
+import { AXM_MCP_METADATA_KEY } from "../workspace/mcp-entry-semantics.js";
 import { projectExpectedEntry, type InlineRemoteTransport } from "./projection.js";
 import type { McpServerEntry } from "../settings/index.js";
 

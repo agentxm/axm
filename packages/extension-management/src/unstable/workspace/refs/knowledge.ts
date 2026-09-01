@@ -5,13 +5,13 @@ import type {
   LocalRefDetails,
   RegistryRefDetails,
   WorkspaceRefDetails,
-} from "../extensions/ref-base.js";
+} from "./ref-base.js";
 import type {
   GitBasedSource,
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "../sources/types.js";
+} from "../../sources/types.js";
 
 type KnowledgeExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "knowledge",

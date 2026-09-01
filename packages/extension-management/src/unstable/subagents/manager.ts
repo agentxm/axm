@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../app-error/index.js";
-import type { SubagentExtensionRef, RegistrySubagentRef } from "./refs.js";
+import type { SubagentExtensionRef, RegistrySubagentRef } from "../workspace/refs/subagent.js";
 import type {
   ExtensionManager,
   ExtensionTarget,
@@ -30,7 +30,8 @@ import {
   renderManagedSubagentOutputs,
   type SubagentSyncOutcome,
 } from "../agents/index.js";
-import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
+import { copyExtensionDirectory } from "../extensions/utils.js";
+import { sanitizeName } from "../workspace/extension-name.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
@@ -42,7 +43,7 @@ import {
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
+} from "../workspace/materialized-tree.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import { subagentContentErrorToAppError } from "../app-error/conversions.js";
@@ -53,15 +54,17 @@ import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import {
   canReuseInstalledPackage,
-  computePackageContentHash,
-  computeSourceHash,
   insertManagedFileBanner,
   materializeExternalPackageWithTreeIntegrity,
   materializeRegistryPackageWithTreeIntegrity,
-  RenderedFilePathSchema,
   type ManagedFileProvenance,
-  type SourceHash,
 } from "../extensions/index.js";
+import { computePackageContentHash } from "../workspace/package-hash.js";
+import {
+  computeSourceHash,
+  RenderedFilePathSchema,
+  type SourceHash,
+} from "../workspace/rendered-files.js";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,

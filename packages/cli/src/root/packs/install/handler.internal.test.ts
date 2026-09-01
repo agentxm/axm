@@ -26,19 +26,17 @@ import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags
 import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
+  layer as coreWorkspaceLayer,
+  computePackManifestContentIdentity,
+  type PackRef,
 } from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
 import {
   deriveOperationOutcome,
   previewOrApplyPlan,
   ResolvePlanInteractionTest,
 } from "@agentxm/extension-management/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
-import {
-  computePackManifestContentIdentity,
-  type PackRef,
-} from "@agentxm/extension-management/unstable/packs";
 import type { ExtensionFiles } from "@agentxm/extension-management/unstable/sources";
 import {
   SourceHostProvidersLive,

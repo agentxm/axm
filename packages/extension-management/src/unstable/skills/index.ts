@@ -1,11 +1,3 @@
-// Skill extension ref types
-export type {
-  GitHostedSkillRef,
-  RegistrySkillRef,
-  LocalSkillRef,
-  WorkspaceSkillRef,
-  SkillExtensionRef,
-} from "./refs.js";
 export {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
@@ -48,9 +40,6 @@ export {
 // Manager
 export { SkillManager, SkillManagerLive } from "./manager.js";
 export { ensureSkillAgentArtifact } from "./materialization.js";
-
-// Paths
-export { computeSkillPathsForLayout, type SkillPathSource, type SkillDirPaths } from "./paths.js";
 
 // Utilities
 export { getSkillDisplayName } from "./utils.js";

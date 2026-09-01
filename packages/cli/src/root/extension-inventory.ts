@@ -1,6 +1,6 @@
 import type { CliRenderer, TableView } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import type {
+  ConfiguredAgentOutcome,
   ExtensionInventory,
   ExtensionInventoryRow,
 } from "@agentxm/extension-management/unstable/workspace";

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ExtensionRef, SourceAuthorityBlockedFact } from "../extensions/index.js";
+import type { SourceAuthorityBlockedFact } from "../extensions/index.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type {
   Handle,
   ExtensionName,
@@ -15,7 +16,7 @@ import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "../sources/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { PackRef } from "./refs.js";
+import type { PackRef } from "../workspace/refs/pack.js";
 import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions";
 import type * as Duration from "effect/Duration";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";

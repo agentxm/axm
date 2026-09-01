@@ -9,13 +9,13 @@
  * @packageDocumentation
  */
 
-import type { SkillExtensionRef } from "../skills/refs.js";
-import type { McpServerExtensionRef } from "../mcps/refs.js";
-import type { SubagentExtensionRef } from "../subagents/refs.js";
-import type { RuleExtensionRef } from "../rules/refs.js";
-import type { HookExtensionRef } from "../hooks/refs.js";
-import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
-import type { PackRef } from "../packs/refs.js";
+import type { SkillExtensionRef } from "./skill.js";
+import type { McpServerExtensionRef } from "./mcp-server.js";
+import type { SubagentExtensionRef } from "./subagent.js";
+import type { RuleExtensionRef } from "./rule.js";
+import type { HookExtensionRef } from "./hook.js";
+import type { KnowledgeExtensionRef } from "./knowledge.js";
+import type { PackRef } from "./pack.js";
 
 /** @experimental */
 export type ExtensionRef =

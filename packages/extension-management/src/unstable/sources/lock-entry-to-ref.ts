@@ -24,13 +24,13 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { PackRef } from "../packs/refs.js";
-import type { McpServerExtensionRef } from "../mcps/refs.js";
-import type { SkillExtensionRef } from "../skills/refs.js";
-import type { SubagentExtensionRef } from "../subagents/refs.js";
-import type { KnowledgeExtensionRef } from "../knowledge/refs.js";
-import type { RuleExtensionRef } from "../rules/refs.js";
-import type { HookExtensionRef } from "../hooks/refs.js";
+import type { PackRef } from "../workspace/refs/pack.js";
+import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
+import type { KnowledgeExtensionRef } from "../workspace/refs/knowledge.js";
+import type { RuleExtensionRef } from "../workspace/refs/rule.js";
+import type { HookExtensionRef } from "../workspace/refs/hook.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { GitBasedSource, RegistrySource } from "./types.js";
 

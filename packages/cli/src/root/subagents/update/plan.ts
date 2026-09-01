@@ -11,7 +11,7 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/subagents";
+import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/workspace";
 import type {
   JobStepResult,
   Plan,

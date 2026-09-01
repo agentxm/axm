@@ -31,15 +31,6 @@ export {
   type RooModeResult,
 } from "./rendering/index.js";
 
-// Refs
-export type {
-  GitHostedSubagentRef,
-  RegistrySubagentRef,
-  LocalSubagentRef,
-  WorkspaceSubagentRef,
-  SubagentExtensionRef,
-} from "./refs.js";
-
 // Registry ref builder
 
 // Lock entry builder

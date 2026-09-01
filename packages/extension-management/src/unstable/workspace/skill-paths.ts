@@ -7,12 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import {
-  computeExtensionPathsForLayout,
-  type ExtensionPathSource,
-} from "../extensions/extension-paths.js";
+import { computeExtensionPathsForLayout, type ExtensionPathSource } from "./extension-paths.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceLayout } from "../workspace/layout.js";
+import type { WorkspaceLayout } from "./layout.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.

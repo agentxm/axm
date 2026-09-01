@@ -16,6 +16,9 @@ import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   WorkspaceMutations,
   installedRowsByName,
+  acquiredExtensionDisplayPathFromLockEntry,
+  sanitizeName,
+  type SkillExtensionTarget,
 } from "@agentxm/extension-management/unstable/workspace";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
@@ -25,13 +28,8 @@ import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "@agentxm/extension-management/unstable/skills";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  buildUninstallOperation,
-  sanitizeName,
-} from "@agentxm/extension-management/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { SkillLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { SkillExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import {
   workspaceAuthoredPath,

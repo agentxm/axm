@@ -6,12 +6,12 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile } from "../lockfile/schema.js";
-import { computePackManifestContentIdentity } from "../packs/index.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { computePackPathsForLayout } from "../packs/paths.js";
+import { computePackPathsForLayout } from "./pack-paths.js";
 import {
   isInlineDesiredExtension,
   type DesiredStateGraph,

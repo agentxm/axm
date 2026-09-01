@@ -8,11 +8,11 @@
  */
 
 import * as Option from "effect/Option";
-import type { SourceHash } from "../extensions/rendered-files.js";
-import type { TreeIntegrity } from "../extensions/materialized-tree.js";
+import type { SourceHash } from "../workspace/rendered-files.js";
+import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
-import type { SubagentExtensionRef } from "./refs.js";
+import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

@@ -12,8 +12,8 @@
 
 import * as Schema from "effect/Schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "../extensions/index.js";
-import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
+import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";

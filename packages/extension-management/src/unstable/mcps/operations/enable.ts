@@ -27,7 +27,8 @@ import {
   planSingletonProjection,
 } from "../../projection/planning.js";
 import { inspectAgentMcpServer } from "../inspection.js";
-import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { isMcpServerApplicableToAgent } from "../../workspace/mcp-entry-semantics.js";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",

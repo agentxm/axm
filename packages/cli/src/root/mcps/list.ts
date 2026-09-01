@@ -10,8 +10,8 @@ import {
   type AgentMcpServerInspection,
 } from "@agentxm/extension-management/unstable/mcps";
 import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
-import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import {
+  type ConfiguredAgentOutcome,
   ExtensionInventorySchema,
   WorkspaceMutations,
 } from "@agentxm/extension-management/unstable/workspace";

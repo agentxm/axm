@@ -1,6 +1,9 @@
 import * as Schema from "effect/Schema";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions/common";
-import { ConfiguredAgentOutcomeSchema, type ConfiguredAgentOutcome } from "../../../plan/plan.js";
+import {
+  ConfiguredAgentOutcomeSchema,
+  type ConfiguredAgentOutcome,
+} from "../../configured-agent-outcome.js";
 import type { ExtensionKey } from "../types.js";
 
 export const ExtensionInventoryLifecycleSchema = Schema.Literals([

@@ -3,7 +3,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/extension-management/unstable/extensions";
+import {
+  acquiredExtensionDisplayPathFromLockEntry,
+  WorkspaceMutations,
+  surfaceRestorationIncomplete,
+} from "@agentxm/extension-management/unstable/workspace";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import {
@@ -14,8 +18,6 @@ import {
   type JobStepResult,
   type Plan,
 } from "@agentxm/extension-management/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

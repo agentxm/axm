@@ -8,7 +8,7 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/skills";
+import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/workspace";
 import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
 import { isNonInteractive } from "@agentxm/extension-management/unstable/cli-flags";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";

@@ -13,7 +13,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { resolveSource } from "./resolve-source.js";
 import { SourceHostProviders } from "./service.js";
 import type { SourceHostProvidersService } from "./service.js";
-import type { ExtensionRef } from "../extensions/index.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { FindOptions, GitHubSource } from "../sources/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";

@@ -20,7 +20,7 @@ import type * as Scope from "effect/Scope";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { parseRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations } from "../workspace/index.js";
-import type { ExtensionRef } from "../extensions/index.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type {
   ExtensionFiles,
   FindOptions,

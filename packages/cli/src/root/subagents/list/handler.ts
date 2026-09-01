@@ -7,8 +7,8 @@ import {
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
+  type ConfiguredAgentOutcome,
 } from "@agentxm/extension-management/unstable/workspace";
-import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import {
   inventoryActivation,
   inventoryAgentOutcomes,

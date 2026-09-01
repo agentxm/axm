@@ -9,13 +9,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import type {
-  WorkspaceMutationsService,
-  WorkspaceTransactionRunner,
-  WorkspaceTransitionAcquirer,
-  ExtensionInventory,
-  PackagingKind,
-  ReadModelRecordRow,
+import {
+  type WorkspaceMutationsService,
+  type WorkspaceTransactionRunner,
+  type WorkspaceTransitionAcquirer,
+  type ExtensionInventory,
+  type PackagingKind,
+  type ReadModelRecordRow,
+  SourceHashSchema,
+  TreeIntegritySchema,
+  type InstallableExtensionType,
+  computeSourceHash,
 } from "@agentxm/extension-management/unstable/workspace";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
@@ -27,18 +31,12 @@ import {
   normalizeHandle,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
-  SourceHashSchema,
-  TreeIntegritySchema,
-  type InstallableExtensionType,
-} from "@agentxm/extension-management/unstable/extensions";
-import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type HookLockEntry,
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
 } from "@agentxm/extension-management/unstable/lockfile";
-import { computeSourceHash } from "@agentxm/extension-management/unstable/extensions";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,

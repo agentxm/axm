@@ -1,5 +1,3 @@
-// Extension ref types
-export type { RegistryPackRef, WorkspacePackRef, PackRef } from "./refs.js";
 export {
   buildPackDependencyReachability,
   classifyPackDependencyReachability,
@@ -15,7 +13,6 @@ export {
 export { PackManager, PackManagerLive } from "./manager.js";
 
 // Paths
-export { computePackPathsForLayout, type PackDirPath } from "./paths.js";
 
 // Expansion helpers
 export {
@@ -37,7 +34,6 @@ export {
   type ResolvedPackDependency,
   type ResolvedPackDependencyMap,
 } from "./resolved-dependency.js";
-export { computePackManifestContentIdentity } from "./manifest-content-identity.js";
 
 // Operations
 export {

@@ -5,17 +5,17 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
-import type { McpServerExtensionRef } from "../mcps/refs.js";
-import type { PackRef } from "../packs/refs.js";
+import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
+import type { PackRef } from "../workspace/refs/pack.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { SkillExtensionRef } from "../skills/refs.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
 import {
   lockEntryToSourceParams,
   printSourceParams,
   skillLockEntryToRef,
 } from "../sources/index.js";
 import { isWorkspaceSourceLocator } from "../sources/workspace.js";
-import type { SubagentExtensionRef } from "../subagents/refs.js";
+import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
 import type { WorkspaceScope } from "../workspace/scope.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";

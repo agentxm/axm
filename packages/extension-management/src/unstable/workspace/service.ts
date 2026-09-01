@@ -34,10 +34,10 @@ import {
   type SubagentsLockMap,
 } from "../lockfile/index.js";
 import type { Lockfile } from "../lockfile/schema.js";
-import { computeSkillPathsForLayout } from "../skills/paths.js";
-import { computePackPathsForLayout } from "../packs/paths.js";
+import { computeSkillPathsForLayout } from "./skill-paths.js";
+import { computePackPathsForLayout } from "./pack-paths.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { sanitizeName } from "../extensions/utils.js";
+import { sanitizeName } from "./extension-name.js";
 import {
   ConfigurableAgentIdSchema,
   decodeExtensionNameSync,

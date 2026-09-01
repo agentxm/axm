@@ -6,7 +6,9 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema, TreeIntegritySchema, type ExtensionRef } from "../extensions/index.js";
+import { SourceHashSchema } from "./rendered-files.js";
+import { TreeIntegritySchema } from "./materialized-tree.js";
+import { type ExtensionRef } from "./refs/extension-ref.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,

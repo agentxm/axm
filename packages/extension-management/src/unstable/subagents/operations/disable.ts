@@ -22,8 +22,8 @@ import { subagentLifecycleArtifact } from "./artifact.js";
 import { findManagedSubagentFiles } from "../../workspace/rendered-file-cleanup.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { RenderedFilePathSchema } from "../../extensions/index.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { RenderedFilePathSchema } from "../../workspace/rendered-files.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);

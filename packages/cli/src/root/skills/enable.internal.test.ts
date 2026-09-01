@@ -16,7 +16,7 @@ import {
   extensionName,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import { computeSourceHash } from "@agentxm/extension-management/unstable/extensions";
+import { computeSourceHash } from "@agentxm/extension-management/unstable/workspace";
 import {
   expectNoOpPlanResult,
   getAppError,

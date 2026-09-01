@@ -7,20 +7,22 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import {
+  type HookExtensionRef,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
-  buildInstallOperation,
   ACQUIRED_EXTENSIONS_DIR,
-} from "@agentxm/extension-management/unstable/extensions";
+  type ConfiguredAgentOutcome,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
+import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
-  ConfiguredAgentOutcome,
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
@@ -35,7 +37,6 @@ import {
 import type { Source } from "@agentxm/extension-management/unstable/sources";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
 

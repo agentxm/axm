@@ -60,14 +60,14 @@ import { InterruptionSignalSource } from "./interruption-signal.js";
 import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
 import type { ConfiguredAgentOperation } from "./plan-execution.js";
 import { HookManager } from "../hooks/manager.js";
-import { isMcpServerApplicableToAgent } from "../mcps/targeting.js";
+import { isMcpServerApplicableToAgent } from "../workspace/mcp-entry-semantics.js";
 import { configuredAgentLifecycleOutcomes } from "../workspace/configured-agent-outcomes.js";
 import {
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   type PlanExecution,
 } from "./plan-execution.js";
-import type { ConfiguredAgentOutcome } from "./plan.js";
+import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>

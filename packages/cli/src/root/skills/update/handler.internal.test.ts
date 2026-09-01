@@ -19,9 +19,11 @@ import * as Option from "effect/Option";
 import semver from "semver";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/extension-management/unstable/extensions";
+import {
+  ACQUIRED_EXTENSIONS_DIR,
+  computePackManifestContentIdentity,
+} from "@agentxm/extension-management/unstable/workspace";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/packs";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-management/unstable/skills";

@@ -33,14 +33,17 @@ import {
   planSingletonProjection,
 } from "../../projection/planning.js";
 import { canReuseInstalledPackage, materializeRegistryPackage } from "../../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../../extensions/extension-paths.js";
+import { computeExtensionPathsForLayout } from "../../workspace/extension-paths.js";
 import { printSourceParams } from "../../sources/index.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
+import type {
+  McpServerExtensionRef,
+  RegistryMcpServerRef,
+} from "../../workspace/refs/mcp-server.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../../extensions/materialized-tree.js";
+} from "../../workspace/materialized-tree.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -52,7 +55,8 @@ import {
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpServerEntry } from "../../settings/index.js";
 import { inspectAgentMcpServer } from "../inspection.js";
-import { isMcpServerApplicableToAgent, sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { sharedMcpTargetPolicyConflict } from "../targeting.js";
+import { isMcpServerApplicableToAgent } from "../../workspace/mcp-entry-semantics.js";
 import {
   agentConfigTargets,
   mcpServerArtifact,

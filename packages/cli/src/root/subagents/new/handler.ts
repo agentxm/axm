@@ -5,11 +5,15 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
-  computeSourceHash,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  computeSourceHash,
+  type WorkspaceSubagentRef,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeExtensionNameSync,
   formatFqn,
@@ -24,9 +28,7 @@ import {
 import {
   subagentContentPath,
   SubagentManager,
-  type WorkspaceSubagentRef,
 } from "@agentxm/extension-management/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import type { JobStepArtifact, Plan } from "@agentxm/extension-management/unstable/plan";
 import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";

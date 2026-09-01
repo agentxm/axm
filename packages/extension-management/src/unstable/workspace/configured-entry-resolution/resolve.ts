@@ -10,10 +10,10 @@ import {
   parseRegistrySourceRef,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { HookExtensionRef } from "../../hooks/index.js";
-import type { KnowledgeExtensionRef } from "../../knowledge/index.js";
-import type { McpServerExtensionRef } from "../../mcps/index.js";
-import type { PackRef } from "../../packs/index.js";
+import type { HookExtensionRef } from "../refs/hook.js";
+import type { KnowledgeExtensionRef } from "../refs/knowledge.js";
+import type { McpServerExtensionRef } from "../refs/mcp-server.js";
+import type { PackRef } from "../refs/pack.js";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeEvaluation,
@@ -22,10 +22,10 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { RuleExtensionRef } from "../../rules/index.js";
+import type { RuleExtensionRef } from "../refs/rule.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
-import type { SkillExtensionRef } from "../../skills/index.js";
-import type { SubagentExtensionRef } from "../../subagents/index.js";
+import type { SkillExtensionRef } from "../refs/skill.js";
+import type { SubagentExtensionRef } from "../refs/subagent.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { isWorkspaceSourceLocator } from "../../sources/index.js";
 import { WorkspaceMutations } from "../service-interface.js";

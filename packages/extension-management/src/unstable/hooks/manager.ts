@@ -24,12 +24,12 @@ import {
   type HooksWriter,
   installable,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computePackageContentHash } from "../workspace/package-hash.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
-import { type SourceHash } from "../extensions/rendered-files.js";
+} from "../workspace/materialized-tree.js";
+import { type SourceHash } from "../workspace/rendered-files.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   enabledConfiguredEntries,
@@ -37,8 +37,8 @@ import {
   canReuseInstalledPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
-import type { ConfiguredAgentOutcome } from "../plan/plan.js";
+import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
+import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
@@ -91,7 +91,7 @@ import {
   type HookExtensionRef,
   type LocalHookRef,
   type RegistryHookRef,
-} from "./index.js";
+} from "../workspace/refs/hook.js";
 import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
 import { evaluateHookAgentOutcome } from "./outcomes.js";
 

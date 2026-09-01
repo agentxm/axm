@@ -11,19 +11,21 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type McpServerExtensionRef,
+  type McpServerExtensionTarget,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   McpServerManager,
   mcpServerArtifact,
   mcpSourceTarget,
-  type McpServerExtensionRef,
 } from "@agentxm/extension-management/unstable/mcps";
 import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
-import type { McpServerExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";

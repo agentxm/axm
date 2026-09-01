@@ -10,7 +10,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/packs";
+import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/workspace";
 
 import { makeSpecWorkspace } from "./install-harness.js";
 

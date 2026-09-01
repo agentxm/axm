@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
-import { computeMaterializedTreeIntegrity } from "../extensions/index.js";
+import { computeMaterializedTreeIntegrity } from "./materialized-tree.js";
 import {
   toExtensionTypePlural,
   type ExtensionType,
@@ -37,7 +37,7 @@ import type { WorkspaceLayout } from "./layout.js";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "../extensions/extension-paths.js";
+} from "./extension-paths.js";
 
 export type CanonicalObservationStatus =
   | "not-applicable"

@@ -4,13 +4,14 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { ExtensionRef } from "../extensions/index.js";
-import { computeSourceHash, evaluateSourceAuthority } from "../extensions/index.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import { evaluateSourceAuthority } from "../extensions/index.js";
+import { computeSourceHash } from "../workspace/rendered-files.js";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
-import type { RegistrySkillRef } from "../skills/index.js";
+import type { RegistrySkillRef } from "../workspace/refs/skill.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
-import type { RegistryPackRef, WorkspacePackRef } from "./refs.js";
+import type { RegistryPackRef, WorkspacePackRef } from "../workspace/refs/pack.js";
 import {
   resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,

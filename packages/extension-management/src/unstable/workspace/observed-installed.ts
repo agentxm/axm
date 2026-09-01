@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "../app-error/index.js";
-import type { InstallableExtensionType } from "../extensions/index.js";
+import type { InstallableExtensionType } from "./installable-types.js";
 import type { WorkspaceMutationsService } from "./service-interface.js";
 
 /**

@@ -20,15 +20,17 @@ import {
   sourceToLockEntry,
 } from "../../sources/index.js";
 import {
-  computePackageContentHash,
-  type RenderedFilePath,
-  type RenderedFilesMap,
-  RenderedFilePathSchema,
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  computeMaterializedTreeIntegrity,
 } from "../../extensions/index.js";
+import { computePackageContentHash } from "../../workspace/package-hash.js";
+import {
+  type RenderedFilePath,
+  type RenderedFilesMap,
+  RenderedFilePathSchema,
+} from "../../workspace/rendered-files.js";
+import { computeMaterializedTreeIntegrity } from "../../workspace/materialized-tree.js";
 import {
   UNIVERSAL_SKILLS_DIR,
   isUniversalSkillsDir,
@@ -41,7 +43,7 @@ import type {
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
-} from "../refs.js";
+} from "../../workspace/refs/skill.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { isPathSafe, stripFileProtocol } from "../../utils/index.js";
@@ -66,8 +68,8 @@ import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
-  sanitizeName,
 } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
 import { validateAxmSkillCandidate } from "../axm-skill-candidate.js";

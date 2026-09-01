@@ -9,15 +9,15 @@ import {
   type TableView,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { ConfiguredAgentOutcomeSchema } from "@agentxm/extension-management/unstable/plan";
+import {
+  ConfiguredAgentOutcomeSchema,
+  configuredAgentLifecycleOutcomes,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryResolution,
 } from "@agentxm/extension-management/unstable/knowledge";
-import {
-  configuredAgentLifecycleOutcomes,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";

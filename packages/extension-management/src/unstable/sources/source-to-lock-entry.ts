@@ -10,10 +10,10 @@
 
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
-import type { SourceHash } from "../extensions/rendered-files.js";
-import type { TreeIntegrity } from "../extensions/materialized-tree.js";
+import type { SourceHash } from "../workspace/rendered-files.js";
+import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import { gitSourceLockFields, portableGitSourceLockFields } from "../lockfile/entry-fields.js";
-import type { SkillExtensionRef } from "../skills/refs.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
 
 // -----------------------------------------------------------------------------
 // Types

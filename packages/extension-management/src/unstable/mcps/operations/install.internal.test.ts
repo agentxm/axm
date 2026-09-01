@@ -15,8 +15,11 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import { type ExtensionRef } from "../../extensions/index.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../refs.js";
+import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import type {
+  McpServerExtensionRef,
+  RegistryMcpServerRef,
+} from "../../workspace/refs/mcp-server.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {

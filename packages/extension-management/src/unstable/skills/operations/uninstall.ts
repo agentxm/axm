@@ -21,7 +21,7 @@ import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { removeIfExists } from "../../workspace/remove-if-exists.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import {
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,

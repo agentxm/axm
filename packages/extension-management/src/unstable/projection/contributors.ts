@@ -24,11 +24,11 @@ import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   type ExtensionPathLockEntry,
-} from "../extensions/extension-paths.js";
+} from "../workspace/extension-paths.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
+} from "../workspace/materialized-tree.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { desiredStateProblemsText } from "../workspace/desired-state-problem-text.js";

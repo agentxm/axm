@@ -9,14 +9,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { computeSourceHash } from "../extensions/index.js";
+import { computeSourceHash } from "../workspace/rendered-files.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { printSourceParams, sourceToLockEntry, type GitHubSource } from "../sources/index.js";
 import { extensionName } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { resolveProjectWorkspaceLayout } from "../workspace/layout.js";
-import type { GitHostedSkillRef } from "./refs.js";
+import type { GitHostedSkillRef } from "../workspace/refs/skill.js";
 import {
   materializeSkillCanonical,
   type ProvideFs,

@@ -17,13 +17,13 @@ import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
-import { isAxmManagedMcpEntry } from "./metadata.js";
+import { isAxmManagedMcpEntry } from "../workspace/mcp-entry-semantics.js";
 import type {
   McpActivationField,
   McpConfigTarget,
   McpServersKey,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { ArtifactChange } from "../plan/plan.js";
+import type { ArtifactChange } from "../workspace/artifact-change.js";
 import { reconcileKeyedBlock } from "../projection/adapters.js";
 
 export interface WriteAgentMcpConfigArgs {

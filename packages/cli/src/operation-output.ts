@@ -28,11 +28,9 @@ import {
   type SubjectType,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
-  ArtifactChangeSchema,
   ArtifactMechanismSchema,
   AtomicityClassSchema,
   BlockingClassSchema,
-  ConfiguredAgentOutcomeSchema,
   OperationOutcomeSchema,
   OperationPhaseSchema,
   OperationPreconditionSchema,
@@ -50,6 +48,10 @@ import {
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/extension-management/unstable/plan";
+import {
+  ArtifactChangeSchema,
+  ConfiguredAgentOutcomeSchema,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   AppErrorCodeSchema,
   redactSensitiveText,

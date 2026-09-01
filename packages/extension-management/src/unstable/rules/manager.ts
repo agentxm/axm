@@ -28,7 +28,7 @@ import {
   canReuseInstalledPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../extensions/extension-paths.js";
+import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
@@ -39,12 +39,12 @@ import {
 } from "../projection/planning.js";
 import { frontmatterParseFailureToAppError } from "../app-error/conversions.js";
 import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import { computePackageContentHash } from "../extensions/package-hash.js";
+import { computePackageContentHash } from "../workspace/package-hash.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
-import { type SourceHash } from "../extensions/rendered-files.js";
+} from "../workspace/materialized-tree.js";
+import { type SourceHash } from "../workspace/rendered-files.js";
 import type { RuleLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
@@ -90,7 +90,7 @@ import {
   type LocalRuleRef,
   type RegistryRuleRef,
   type RuleExtensionRef,
-} from "./index.js";
+} from "../workspace/refs/rule.js";
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;

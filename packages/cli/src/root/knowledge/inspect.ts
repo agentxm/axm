@@ -8,7 +8,9 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "@agentxm/extension-management/unstable/extensions";
+  WorkspaceMutations,
+  type WorkspaceLayout,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_SOURCE_DIR,
@@ -21,10 +23,6 @@ import {
   readKnowledgePackageManifest,
 } from "@agentxm/extension-management/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import {
-  WorkspaceMutations,
-  type WorkspaceLayout,
-} from "@agentxm/extension-management/unstable/workspace";
 
 export { inspectKnowledgePackage } from "@agentxm/extension-management/unstable/knowledge";
 

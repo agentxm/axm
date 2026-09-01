@@ -8,7 +8,7 @@ import {
   type McpConfig,
   type McpEnvExpansion,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isAxmManagedMcpEntry } from "../../../mcps/metadata.js";
+import { isAxmManagedMcpEntry } from "../../../workspace/mcp-entry-semantics.js";
 import {
   diffAgentEntry,
   inferInlineRemoteTransport,

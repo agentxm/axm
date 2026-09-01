@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { TreeIntegritySchema } from "../extensions/materialized-tree.js";
-import { SourceHashSchema } from "../extensions/rendered-files.js";
+import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
+import { SourceHashSchema } from "../workspace/rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   lockEntryToSourceParams,

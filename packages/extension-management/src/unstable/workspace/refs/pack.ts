@@ -7,12 +7,8 @@
  * @packageDocumentation
  */
 
-import type {
-  PackRefBase,
-  RegistryRefDetails,
-  WorkspaceRefDetails,
-} from "../extensions/ref-base.js";
-import type { RegistrySource, WorkspaceSource } from "../sources/types.js";
+import type { PackRefBase, RegistryRefDetails, WorkspaceRefDetails } from "./ref-base.js";
+import type { RegistrySource, WorkspaceSource } from "../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Pack Extension Refs

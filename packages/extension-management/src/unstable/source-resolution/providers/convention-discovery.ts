@@ -11,31 +11,33 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { type ExtensionRef } from "../../extensions/index.js";
+import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import { discoverManifestPackagesInDir } from "../../extensions/manifest-package-discovery.js";
 import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
-} from "../../extensions/discovery-walk.js";
+} from "../../workspace/discovery-walk.js";
 import { getCommitSha, getTreeSha } from "../../git/index.js";
-import { hookPackagesInDir, type HookExtensionRef } from "../../hooks/index.js";
+import { hookPackagesInDir } from "../../hooks/index.js";
+import { type HookExtensionRef } from "../../workspace/refs/hook.js";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
   KnowledgeManifestSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
-import { type KnowledgeExtensionRef } from "../../knowledge/index.js";
-import { rulePackagesInDir, type RuleExtensionRef } from "../../rules/index.js";
+import { type KnowledgeExtensionRef } from "../../workspace/refs/knowledge.js";
+import { rulePackagesInDir } from "../../rules/index.js";
+import { type RuleExtensionRef } from "../../workspace/refs/rule.js";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import type { SubagentExtensionRef } from "../../subagents/index.js";
+import type { SubagentExtensionRef } from "../../workspace/refs/subagent.js";
 import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
   SkillManifestSchema,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
-import { type SkillExtensionRef } from "../../skills/index.js";
+import { type SkillExtensionRef } from "../../workspace/refs/skill.js";
 import { fileUrlToPath } from "../../sources/index.js";
 import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/index.js";
 

@@ -10,13 +10,15 @@ import {
   materializeExternalPackageWithTreeIntegrity,
   materializeRegistryPackageWithTreeIntegrity,
   validatePathSafety,
+} from "../extensions/index.js";
+import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/index.js";
+} from "../workspace/materialized-tree.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
-import type { SkillExtensionRef, WorkspaceSkillRef } from "./refs.js";
-import { computeSkillPathsForLayout, type SkillPathSource } from "./paths.js";
+import type { SkillExtensionRef, WorkspaceSkillRef } from "../workspace/refs/skill.js";
+import { computeSkillPathsForLayout, type SkillPathSource } from "../workspace/skill-paths.js";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 import { isPathSafe, stripFileProtocol } from "../utils/index.js";
 import { createSymlink } from "../workspace/create-symlink.js";

@@ -6,16 +6,14 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   SourceHashSchema,
   TreeIntegritySchema,
-} from "@agentxm/extension-management/unstable/extensions";
+  type SkillExtensionRef,
+} from "@agentxm/extension-management/unstable/workspace";
 import type {
   SkillLockEntry,
   SkillsLockMap,
 } from "@agentxm/extension-management/unstable/lockfile";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import type {
-  InstallSkillOperation,
-  SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/skills";
+import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";

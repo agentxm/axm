@@ -1,4 +1,10 @@
-import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/subagents";
+import {
+  type SubagentExtensionRef,
+  WorkspaceMutations,
+  configuredRowsByName,
+  makeConfiguredReleaseAgeEvaluation,
+  type WorkspaceMutationsService,
+} from "@agentxm/extension-management/unstable/workspace";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import * as Array from "effect/Array";
@@ -14,12 +20,6 @@ import {
   recoverySwitch,
 } from "@agentxm/extension-management/unstable/plan";
 
-import {
-  WorkspaceMutations,
-  configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
-  type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
 import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";

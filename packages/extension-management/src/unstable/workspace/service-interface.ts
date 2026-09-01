@@ -18,10 +18,10 @@ import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { WorkspaceRestorationIncomplete } from "./transaction.js";
 import type { TransitionContention, TransitionLockHolder } from "./transition-lock.js";
-import type { InstallableExtensionType } from "../extensions/installable-types.js";
+import type { InstallableExtensionType } from "./installable-types.js";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { ExtensionRef } from "../extensions/refs.js";
+import type { ExtensionRef } from "./refs/extension-ref.js";
 import type {
   RegistryPackLockEntry,
   HookLockEntry,
@@ -69,7 +69,7 @@ import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types"
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { WorkspaceLayout } from "./layout.js";
-import type { ExtensionPathSource } from "../extensions/extension-paths.js";
+import type { ExtensionPathSource } from "./extension-paths.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)

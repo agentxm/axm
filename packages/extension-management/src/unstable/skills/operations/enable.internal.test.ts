@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeAppError } from "../../app-error/index.js";
-import { acquiredExtensionDisplayPathFromLockEntry } from "../../extensions/index.js";
+import { acquiredExtensionDisplayPathFromLockEntry } from "../../workspace/extension-paths.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import {
@@ -23,12 +23,13 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "../../workspace/test-stubs.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { computePackageContentHash, type SourceHash } from "../../extensions/index.js";
+import { computePackageContentHash } from "../../workspace/package-hash.js";
+import { type SourceHash } from "../../workspace/rendered-files.js";
 
 type SettingsSkillValue =
   | string

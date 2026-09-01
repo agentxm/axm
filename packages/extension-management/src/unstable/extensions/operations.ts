@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
-import type { ExtensionRef } from "./refs.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type {
   ExtensionManager,

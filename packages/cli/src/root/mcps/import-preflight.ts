@@ -1,6 +1,6 @@
 import * as DateTime from "effect/DateTime";
 
-import { isAxmManagedMcpEntry } from "@agentxm/extension-management/unstable/mcps";
+import { isAxmManagedMcpEntry } from "@agentxm/extension-management/unstable/workspace";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 export type InlineMcpDefinition =
   | {

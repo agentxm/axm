@@ -11,16 +11,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import {
+  WorkspaceMutations,
+  acquiredExtensionDisplayPathFromLockEntry,
+  type SubagentExtensionTarget,
+} from "@agentxm/extension-management/unstable/workspace";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
-import {
-  acquiredExtensionDisplayPathFromLockEntry,
-  buildUninstallOperation,
-} from "@agentxm/extension-management/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { SubagentExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {

@@ -6,9 +6,14 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
-  computeSourceHash,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  computeSourceHash,
+  type WorkspaceHookRef,
+  DEFAULT_WORKSPACE_SCOPE,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -17,18 +22,11 @@ import type {
   HookEvent,
   HookRuntime,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import type {
-  NewHookOperation,
-  WorkspaceHookRef,
-} from "@agentxm/extension-management/unstable/hooks";
+import type { NewHookOperation } from "@agentxm/extension-management/unstable/hooks";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { HookManager, newHook } from "@agentxm/extension-management/unstable/hooks";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
   JobStepArtifact,

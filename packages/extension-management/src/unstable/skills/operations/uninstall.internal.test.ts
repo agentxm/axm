@@ -10,7 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import {
   WorkspaceMutations,
   type SetSkillArgs,

@@ -3,7 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import type { ExtensionRef } from "../extensions/index.js";
+import type { ExtensionRef } from "./refs/extension-ref.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -23,7 +23,7 @@ import {
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "../extensions/extension-paths.js";
+} from "./extension-paths.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import { protectWorkspacePath } from "./transaction.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";

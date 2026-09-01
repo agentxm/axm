@@ -19,7 +19,7 @@ import {
   replaceCanonicalDirectoryWithInspection,
 } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { PackRef, RegistryPackRef } from "./refs.js";
+import type { PackRef, RegistryPackRef } from "../workspace/refs/pack.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
@@ -28,7 +28,7 @@ import type {
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import { computePackPathsForLayout } from "./paths.js";
+import { computePackPathsForLayout } from "../workspace/pack-paths.js";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -39,11 +39,11 @@ import {
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
 } from "../workspace/accepted-canonical-ref.js";
-import { computePackManifestContentIdentity } from "./manifest-content-identity.js";
+import { computePackManifestContentIdentity } from "../workspace/pack-manifest-content-identity.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
+} from "../workspace/materialized-tree.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag

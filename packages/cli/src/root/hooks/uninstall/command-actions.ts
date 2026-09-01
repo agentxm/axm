@@ -2,11 +2,14 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import {
+  type HookExtensionRef,
   acquiredExtensionDisplayPathFromLockEntry,
-  buildUninstallOperation,
-} from "@agentxm/extension-management/unstable/extensions";
+  type HookExtensionTarget,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
+import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type {
   JobStepArtifact,
@@ -15,8 +18,6 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
-import type { HookExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";

@@ -30,19 +30,17 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   resolveConfiguredRegistryEntry,
-} from "@agentxm/extension-management/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  enabledConfiguredEntries,
   installableExtensionTypes,
   type InstallableExtensionType,
   type ExtensionRef,
   toInstallableExtensionTypePlural,
-} from "@agentxm/extension-management/unstable/extensions";
+  type WorkspaceScope,
+} from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
 import type { JobStepResult } from "@agentxm/extension-management/unstable/plan";
-import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 

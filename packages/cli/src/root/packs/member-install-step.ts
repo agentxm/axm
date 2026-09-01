@@ -7,38 +7,34 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
-  ACQUIRED_EXTENSIONS_DIR,
-  acquiredExtensionDisplayPath,
   buildInstallOperation,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   toLabelWithCompanions,
-  type ExtensionRef,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  ACQUIRED_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
+  type ExtensionRef,
+  type HookExtensionRef,
+  type KnowledgeExtensionRef,
+  type McpServerExtensionRef,
+  type RuleExtensionRef,
+  type SkillExtensionRef,
+  type SubagentExtensionRef,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager, type HookExtensionRef } from "@agentxm/extension-management/unstable/hooks";
-import {
-  KnowledgeManager,
-  type KnowledgeExtensionRef,
-} from "@agentxm/extension-management/unstable/knowledge";
-import {
-  installMcpServer,
-  type McpServerExtensionRef,
-} from "@agentxm/extension-management/unstable/mcps";
+import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
-import {
-  SkillManager,
-  type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/skills";
-import {
-  SubagentManager,
-  type SubagentExtensionRef,
-} from "@agentxm/extension-management/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 export type PackMemberRef =

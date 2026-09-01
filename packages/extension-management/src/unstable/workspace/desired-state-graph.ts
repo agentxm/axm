@@ -16,14 +16,14 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { PackRef } from "../packs/refs.js";
-import { computePackPathsForLayout } from "../packs/paths.js";
+import type { PackRef } from "./refs/pack.js";
+import { computePackPathsForLayout } from "./pack-paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "../sources/index.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import { configuredAuthoredDirectory, type WorkspaceLayout } from "./layout.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 
 export type DesiredExtensionOrigin =

@@ -32,18 +32,15 @@ import {
   McpServerManifestSchema,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { buildAxmMcpMetadata } from "../mcps/metadata.js";
 import {
   AXM_MCP_METADATA_KEY,
-  buildAxmMcpMetadata,
   isAxmManagedMcpEntry,
-} from "../mcps/metadata.js";
+  isMcpServerApplicableToAgent,
+} from "../workspace/mcp-entry-semantics.js";
 import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
 import { inspectAgentMcpServer } from "../mcps/inspection.js";
-import {
-  isMcpServerApplicableToAgent,
-  planMcpTargetGroups,
-  sharedMcpTargetPolicyConflict,
-} from "../mcps/targeting.js";
+import { planMcpTargetGroups, sharedMcpTargetPolicyConflict } from "../mcps/targeting.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,

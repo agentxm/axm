@@ -10,7 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { DISCOVERY_MAX_DEPTH, DISCOVERY_SKIPPED_DIRECTORIES } from "./discovery-walk.js";
+import { DISCOVERY_MAX_DEPTH, DISCOVERY_SKIPPED_DIRECTORIES } from "../workspace/discovery-walk.js";
 
 interface ManifestWithName {
   readonly name: string;

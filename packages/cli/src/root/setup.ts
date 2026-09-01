@@ -34,23 +34,19 @@ import {
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
-import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import {
-  replaceCanonicalDirectory,
+  surfaceRestorationIncomplete,
   sanitizeName,
-} from "@agentxm/extension-management/unstable/extensions";
+  ArtifactChangeSchema,
+  type ArtifactChange,
+} from "@agentxm/extension-management/unstable/workspace";
+import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
+import { replaceCanonicalDirectory } from "@agentxm/extension-management/unstable/extensions";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   ensureSkillAgentArtifact,
   evaluateAxmSkillCompatibility,
 } from "@agentxm/extension-management/unstable/skills";
-import {
-  ArtifactChangeSchema,
-  type ArtifactChange,
-} from "@agentxm/extension-management/unstable/plan";
 import { isGitManaged } from "@agentxm/extension-management/unstable/git";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";

@@ -14,19 +14,17 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import {
-  SkillManagerLive,
+  type WorkspaceMutationsOptions,
   type RegistrySkillRef,
-} from "@agentxm/extension-management/unstable/skills";
+  computePackManifestContentIdentity,
+} from "@agentxm/extension-management/unstable/workspace";
+import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import {
-  computePackManifestContentIdentity,
-  PackManagerLive,
-} from "@agentxm/extension-management/unstable/packs";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import {

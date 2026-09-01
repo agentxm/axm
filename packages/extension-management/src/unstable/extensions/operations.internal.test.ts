@@ -18,7 +18,7 @@ import {
   toStepKey,
 } from "./operations.js";
 import { makeAppError } from "../app-error/index.js";
-import { computeSourceHash } from "./rendered-files.js";
+import { computeSourceHash } from "../workspace/rendered-files.js";
 import {
   exactVersion,
   extensionName,
@@ -30,7 +30,11 @@ import type {
   ExtensionManager,
   WorkspaceTransactionRunner,
 } from "../workspace/service-interface.js";
-import type { RegistrySkillRef, SkillExtensionRef, WorkspaceSkillRef } from "../skills/refs.js";
+import type {
+  RegistrySkillRef,
+  SkillExtensionRef,
+  WorkspaceSkillRef,
+} from "../workspace/refs/skill.js";
 
 const runTransaction: WorkspaceTransactionRunner = (args) =>
   Effect.gen(function* () {

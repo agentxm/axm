@@ -19,7 +19,7 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "../../extensions/index.js";
+import type { ExtensionRef } from "../refs/extension-ref.js";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionTypePlural,

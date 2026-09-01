@@ -12,18 +12,16 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import {
-  acquiredExtensionDisplayPath,
-  computeSourceHash,
-  type ExtensionRef,
-} from "../../extensions/index.js";
+import { acquiredExtensionDisplayPath } from "../../workspace/extension-paths.js";
+import { computeSourceHash } from "../../workspace/rendered-files.js";
+import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import type {
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
-} from "../refs.js";
+} from "../../workspace/refs/skill.js";
 import type { Source } from "../../sources/index.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
@@ -48,10 +46,10 @@ import {
 } from "../../agents/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { SkillPathSource } from "../paths.js";
+import type { SkillPathSource } from "../../workspace/skill-paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
-import { sanitizeName } from "../../extensions/utils.js";
+import { sanitizeName } from "../../workspace/extension-name.js";
 import type { InstallResult } from "./install-result.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "../axm-skill-compatibility.js";
 

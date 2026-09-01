@@ -9,10 +9,10 @@ import {
 import {
   ExtensionInventorySchema,
   WorkspaceMutations,
+  type ConfiguredAgentOutcome,
 } from "@agentxm/extension-management/unstable/workspace";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import type { ConfiguredAgentOutcome } from "@agentxm/extension-management/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {

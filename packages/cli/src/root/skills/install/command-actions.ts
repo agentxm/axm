@@ -32,20 +32,20 @@ import {
   parseMinimumReleaseAge,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
-import type { SkillPathSource } from "@agentxm/extension-management/unstable/workspace";
+import {
+  WorkspaceMutations,
+  type SkillPathSource,
+  type SkillExtensionRef,
+  sanitizeName,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   computeSkillSourceHash,
   gitHostedSkillArtifactSource,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
   SkillManager,
-  type SkillExtensionRef,
 } from "@agentxm/extension-management/unstable/skills";
-import {
-  buildInstallOperation,
-  sanitizeName,
-} from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";

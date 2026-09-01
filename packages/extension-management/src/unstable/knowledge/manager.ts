@@ -22,13 +22,13 @@ import {
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "../extensions/extension-paths.js";
-import { computePackageContentHash } from "../extensions/package-hash.js";
+} from "../workspace/extension-paths.js";
+import { computePackageContentHash } from "../workspace/package-hash.js";
 import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
-} from "../extensions/materialized-tree.js";
-import type { SourceHash } from "../extensions/rendered-files.js";
+} from "../workspace/materialized-tree.js";
+import type { SourceHash } from "../workspace/rendered-files.js";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -90,7 +90,7 @@ import type {
   KnowledgeExtensionRef,
   LocalKnowledgeRef,
   RegistryKnowledgeRef,
-} from "./refs.js";
+} from "../workspace/refs/knowledge.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;

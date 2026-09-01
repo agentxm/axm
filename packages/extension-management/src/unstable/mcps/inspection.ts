@@ -23,7 +23,10 @@ import type { McpServerEntry } from "../settings/index.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
-import { isAxmManagedMcpEntry } from "./metadata.js";
+import {
+  isAxmManagedMcpEntry,
+  isMcpServerApplicableToAgent,
+} from "../workspace/mcp-entry-semantics.js";
 import {
   diffAgentEntry,
   inferInlineRemoteTransport,
@@ -32,7 +35,6 @@ import {
 } from "./projection.js";
 import { resolveSharedMcpTarget, type SharedMcpTransport } from "./shared-target.js";
 import {
-  isMcpServerApplicableToAgent,
   groupConfiguredMcpTargets,
   MCP_NOT_APPLICABLE_REASON,
   planMcpTargetGroups,

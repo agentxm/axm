@@ -1,10 +1,3 @@
-export type {
-  GitHostedHookRef,
-  HookExtensionRef,
-  LocalHookRef,
-  RegistryHookRef,
-  WorkspaceHookRef,
-} from "./refs.js";
 export {
   hookPackagesInDir,
   type DiscoveredHookPackage,

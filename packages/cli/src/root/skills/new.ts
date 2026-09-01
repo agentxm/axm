@@ -6,9 +6,14 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   buildNewExtensionStep,
-  computeSourceHash,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
+import {
+  computeSourceHash,
+  type WorkspaceSkillRef,
+  WorkspaceMutations,
+  DEFAULT_WORKSPACE_SCOPE,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeExtensionNameSync,
   normalizeHandle,
@@ -17,7 +22,6 @@ import {
 import type {
   InstallableSkillTarget,
   NewSkillOperation,
-  WorkspaceSkillRef,
 } from "@agentxm/extension-management/unstable/skills";
 import {
   artifactAgentIdsFromTargets,
@@ -29,10 +33,8 @@ import {
 } from "@agentxm/extension-management/unstable/skills";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,

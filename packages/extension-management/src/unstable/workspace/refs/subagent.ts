@@ -11,13 +11,13 @@ import type {
   RegistryRefDetails,
   LocalRefDetails,
   WorkspaceRefDetails,
-} from "../extensions/ref-base.js";
+} from "./ref-base.js";
 import type {
   GitBasedSource,
   RegistrySource,
   LocalSource,
   WorkspaceSource,
-} from "../sources/types.js";
+} from "../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Subagent Extension Refs

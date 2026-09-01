@@ -12,9 +12,7 @@ import {
   type McpConfig,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { SharedMcpTargetMember } from "./shared-target.js";
-
-export const isMcpServerApplicableToAgent = (entry: McpServerEntry, agentId: string): boolean =>
-  entry.agents === undefined || entry.agents.some((candidate) => candidate === agentId);
+import { isMcpServerApplicableToAgent } from "../workspace/mcp-entry-semantics.js";
 
 export const MCP_NOT_APPLICABLE_REASON = "MCP server is not targeted to this agent";
 

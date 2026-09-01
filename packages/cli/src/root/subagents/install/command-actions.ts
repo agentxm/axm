@@ -25,11 +25,11 @@ import { parseInputPattern } from "@agentxm/extension-management/unstable/source
 import type { Source, InputParseResult } from "@agentxm/extension-management/unstable/sources";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import {
-  SubagentManager,
+  WorkspaceMutations,
   type SubagentExtensionRef,
-} from "@agentxm/extension-management/unstable/subagents";
+} from "@agentxm/extension-management/unstable/workspace";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import {

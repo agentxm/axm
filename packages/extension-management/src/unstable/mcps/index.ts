@@ -1,11 +1,3 @@
-export type {
-  GitHostedMcpServerRef,
-  RegistryMcpServerRef,
-  LocalMcpServerRef,
-  WorkspaceMcpServerRef,
-  McpServerExtensionRef,
-} from "./refs.js";
-
 export { McpServerManager, McpServerManagerLive } from "./manager.js";
 
 export type {
@@ -25,15 +17,7 @@ export { disableMcpServer } from "./operations/disable.js";
 export { mcpServerArtifact, mcpSettingsTarget, mcpSourceTarget } from "./operations/artifact.js";
 export { resolveMcpServer, type McpResolution } from "./resolution.js";
 export { writeAgentMcpConfig, removeAgentMcpConfig } from "./config-writer.js";
-export {
-  AXM_MCP_METADATA_KEY,
-  AxmMcpMetadataSchema,
-  buildAxmMcpMetadata,
-  buildAxmMcpMetadataFromSettingsSource,
-  isAxmManagedMcpEntry,
-  readAxmMcpMetadata,
-  type AxmMcpMetadata,
-} from "./metadata.js";
+export { buildAxmMcpMetadata, buildAxmMcpMetadataFromSettingsSource } from "./metadata.js";
 export {
   collectManagedAgentMcpServers,
   inspectAgentMcpServer,
@@ -65,7 +49,6 @@ export {
 } from "./shared-target.js";
 export {
   groupConfiguredMcpTargets,
-  isMcpServerApplicableToAgent,
   MCP_NOT_APPLICABLE_REASON,
   planMcpTargetGroups,
   sharedMcpTargetPolicyConflict,

@@ -15,9 +15,11 @@ import {
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { computePackManifestContentIdentity } from "@agentxm/extension-management/unstable/packs";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import {
+  computePackManifestContentIdentity,
+  type WorkspaceMutationsOptions,
+  layer as coreWorkspaceLayer,
+} from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";

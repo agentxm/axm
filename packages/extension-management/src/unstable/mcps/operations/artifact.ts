@@ -1,8 +1,6 @@
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  ACQUIRED_EXTENSIONS_DIR,
-  acquiredExtensionDisplayPathFromLockEntry,
-} from "../../extensions/index.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "../../workspace/constants.js";
+import { acquiredExtensionDisplayPathFromLockEntry } from "../../workspace/extension-paths.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
 import type { WorkspaceScope } from "../../workspace/scope.js";

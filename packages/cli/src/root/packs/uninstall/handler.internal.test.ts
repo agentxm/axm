@@ -21,18 +21,18 @@ import {
   logsByTag,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import {
+  type WorkspaceMutationsOptions,
+  layer as coreWorkspaceLayer,
+  computePackManifestContentIdentity,
+} from "@agentxm/extension-management/unstable/workspace";
 import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import {
-  computePackManifestContentIdentity,
-  PackManagerLive,
-} from "@agentxm/extension-management/unstable/packs";
+import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";

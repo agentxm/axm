@@ -73,13 +73,6 @@ export {
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
 export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";
-export type {
-  GitHostedKnowledgeRef,
-  KnowledgeExtensionRef,
-  LocalKnowledgeRef,
-  RegistryKnowledgeRef,
-  WorkspaceKnowledgeRef,
-} from "./refs.js";
 export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
 export {
   resolveKnowledgeDiscoveryConfig,

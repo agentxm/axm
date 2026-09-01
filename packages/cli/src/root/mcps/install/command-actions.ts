@@ -24,11 +24,11 @@ import {
   resolveSource,
   SourceHostProviders,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import {
-  installMcpServer,
+  WorkspaceMutations,
   type McpServerExtensionRef,
-} from "@agentxm/extension-management/unstable/mcps";
+} from "@agentxm/extension-management/unstable/workspace";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
 import {
   CONFIGURABLE_AGENTS_BY_ID,

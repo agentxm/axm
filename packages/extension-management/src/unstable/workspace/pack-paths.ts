@@ -13,7 +13,7 @@ import {
   decodeAbsolutePathSync,
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceLayout } from "../workspace/layout.js";
+import type { WorkspaceLayout } from "./layout.js";
 
 /**
  * Computed path for an installed pack directory.

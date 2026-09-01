@@ -22,11 +22,11 @@ import type {
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
-} from "../extensions/ref-base.js";
-import type { ExtensionRef } from "../extensions/refs.js";
-import type { SkillExtensionRef } from "../skills/refs.js";
-import type { McpServerExtensionRef } from "../mcps/refs.js";
-import type { PackRef } from "../packs/refs.js";
+} from "../workspace/refs/ref-base.js";
+import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
+import type { PackRef } from "../workspace/refs/pack.js";
 import { extensionName, exactVersion, handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------

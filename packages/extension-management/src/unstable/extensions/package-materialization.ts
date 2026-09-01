@@ -23,7 +23,10 @@ import type {
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 import { copyExtensionDirectory, validatePathSafety } from "./utils.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type TreeIntegrity,
+} from "../workspace/materialized-tree.js";
 
 export const canonicalMaterializationPaths = (canonicalPath: string) => ({
   stagingPath: `${canonicalPath}.axm-staging`,

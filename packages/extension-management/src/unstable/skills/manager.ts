@@ -20,7 +20,7 @@ import { makeAppError } from "../app-error/index.js";
 import { sourceToLockEntry } from "../sources/index.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
-import type { SkillExtensionRef } from "./refs.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
@@ -29,10 +29,10 @@ import type {
   SkillExtensionTarget,
 } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { sanitizeName } from "../extensions/utils.js";
-import type { SourceHash } from "../extensions/index.js";
-import { computePackageContentHash } from "../extensions/index.js";
-import type { TreeIntegrity } from "../extensions/materialized-tree.js";
+import { sanitizeName } from "../workspace/extension-name.js";
+import type { SourceHash } from "../workspace/rendered-files.js";
+import { computePackageContentHash } from "../workspace/package-hash.js";
+import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";

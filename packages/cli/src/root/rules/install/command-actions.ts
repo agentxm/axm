@@ -18,7 +18,11 @@ import type {
   PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
 import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
-import { RuleManager, type RuleExtensionRef } from "@agentxm/extension-management/unstable/rules";
+import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import {
+  type RuleExtensionRef,
+  WorkspaceMutations,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   resolveSource,
   SourceHostProviders,
@@ -26,7 +30,6 @@ import {
 import type { Source } from "@agentxm/extension-management/unstable/sources";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
 

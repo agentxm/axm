@@ -1,6 +1,11 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/skills";
+import {
+  type SkillExtensionRef,
+  WorkspaceMutations,
+  configuredRowsByName,
+  makeConfiguredReleaseAgeEvaluation,
+} from "@agentxm/extension-management/unstable/workspace";
 import {
   isWorkspaceSourceLocator,
   type RegistrySource,
@@ -26,11 +31,6 @@ import {
   recoverySwitch,
 } from "@agentxm/extension-management/unstable/plan";
 
-import {
-  WorkspaceMutations,
-  configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
-} from "@agentxm/extension-management/unstable/workspace";
 import {
   decodeExtensionNameSync,
   parseSourceQualifiedRegistrySourcePatternParts,

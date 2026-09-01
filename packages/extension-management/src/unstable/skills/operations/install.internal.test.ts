@@ -42,11 +42,11 @@ import {
   makeCodingAgentStub,
 } from "../../test-helpers.js";
 import {
-  AGENTS,
   CodingAgentRepository,
   type CodingAgentRepositoryService,
   type CodingAgent,
 } from "../../agents/index.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";

@@ -31,7 +31,7 @@ import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
   type ReleaseAgeOperationEvidence,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
   preapprovedPlanExecution,
   previewPlanExecution,

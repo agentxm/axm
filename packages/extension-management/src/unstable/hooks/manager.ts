@@ -53,10 +53,14 @@ import type { HookLockEntry } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
+import { stripFileProtocol } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
 import { reconcileManagedRegionFile } from "../projection/adapters.js";
-import { decodeRelativePathSync, makeWorkspaceRelativePath } from "../utils/path-types.js";
+import {
+  decodeRelativePathSync,
+  makeWorkspaceRelativePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   makeConfiguredReleaseAgeEvaluation,

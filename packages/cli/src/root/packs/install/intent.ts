@@ -12,7 +12,7 @@ import type {
   PackRef,
 } from "@agentxm/extension-management/unstable/packs";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/registry";
+import type { ReleaseAgeEvaluation } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 export interface InstallPackCommandIntent {
   readonly packToInstall: PackRef;

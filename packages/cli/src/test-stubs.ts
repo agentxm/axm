@@ -48,7 +48,7 @@ import {
 import {
   decodeAbsolutePathSync,
   decodeRelativePathSync,
-} from "@agentxm/extension-management/unstable/utils";
+} from "@agentxm/extension-model/unstable/path-types";
 
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;

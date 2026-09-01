@@ -19,8 +19,8 @@ import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
   ReleaseAgeHoldbackRecord,
-} from "../../registry/index.js";
-import { parseMinimumReleaseAge } from "../../registry/index.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { RuleExtensionRef } from "../../rules/index.js";
 import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";

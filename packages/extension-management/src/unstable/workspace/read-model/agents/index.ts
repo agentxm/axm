@@ -9,7 +9,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   AGENT_IDS,
   CONFIGURABLE_AGENT_IDS,

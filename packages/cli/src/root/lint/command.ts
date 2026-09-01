@@ -7,7 +7,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
 import type { LintView } from "@agentxm/extension-management/unstable/lint";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";

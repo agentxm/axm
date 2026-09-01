@@ -17,7 +17,7 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { ExitCode, exitCodeFor, type AppError, type AppErrorCode } from "../app-error/index.js";
-import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type {
   BlockingClass,

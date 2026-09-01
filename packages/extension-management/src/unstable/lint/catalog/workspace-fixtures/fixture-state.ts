@@ -1,5 +1,5 @@
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   FileSpec,
   FixtureSpec,

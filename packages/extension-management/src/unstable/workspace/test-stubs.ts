@@ -39,7 +39,10 @@ import {
   type InstallableExtensionType,
 } from "../extensions/index.js";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { decodeAbsolutePathSync, decodeRelativePathSync } from "../utils/path-types.js";
+import {
+  decodeAbsolutePathSync,
+  decodeRelativePathSync,
+} from "@agentxm/extension-model/unstable/path-types";
 import {
   decodeVersionSync,
   type Version,

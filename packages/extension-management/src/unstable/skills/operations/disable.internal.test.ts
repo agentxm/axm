@@ -23,7 +23,7 @@ import {
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 import { extensionName, handle } from "../../test-helpers.js";
-import { decodeRelativePathSync } from "../../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 // -----------------------------------------------------------------------------
 // Helpers

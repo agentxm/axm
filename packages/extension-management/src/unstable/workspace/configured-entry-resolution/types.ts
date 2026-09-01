@@ -9,7 +9,10 @@ import type { SkillExtensionRef } from "../../skills/index.js";
 import type { SubagentExtensionRef } from "../../subagents/index.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { NamedRegistryResolution } from "../../sources/index.js";
-import type { ReleaseAgeBypassRecord, ReleaseAgeHoldbackRecord } from "../../registry/index.js";
+import type {
+  ReleaseAgeBypassRecord,
+  ReleaseAgeHoldbackRecord,
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 export type ConfiguredEntryFailureReason =
   | "entry-malformed"

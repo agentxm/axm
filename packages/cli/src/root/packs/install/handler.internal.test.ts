@@ -27,7 +27,7 @@ import {
   WorkspaceMutations,
   type WorkspaceMutationsOptions,
 } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
 import {
   deriveOperationOutcome,

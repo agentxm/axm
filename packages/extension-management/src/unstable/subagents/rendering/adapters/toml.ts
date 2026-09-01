@@ -10,7 +10,7 @@
  */
 
 import { stringifyToml } from "../../../toml/index.js";
-import { decodeRelativePathSync } from "../../../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 

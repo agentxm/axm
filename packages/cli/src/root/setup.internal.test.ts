@@ -26,7 +26,7 @@ import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteractionTest,
 } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { expectDefined, expectRecord, property } from "../test-helpers.js";
 import {

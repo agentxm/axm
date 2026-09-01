@@ -30,7 +30,7 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeEvidence,
   type ReleaseAgeRecord,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
   operationPresentation,
   previewOrApplyPlan,

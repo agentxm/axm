@@ -17,7 +17,7 @@ import * as ServiceMap from "effect/Context";
 import { makeAppError } from "../app-error/index.js";
 import { envOption } from "../utils/index.js";
 import { getConfigHome, getHome } from "./constants.js";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   AgentDetectionMarker,

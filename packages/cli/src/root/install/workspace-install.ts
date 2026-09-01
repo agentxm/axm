@@ -16,7 +16,7 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeEvaluation,
   type ReleaseAgeHoldbackRecord,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
   operationPresentation,
   type Plan,

@@ -35,10 +35,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import YAML from "yaml";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { Settings } from "../../../settings/schema.js";
-import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "../../layout.js";
 
 // ---------------------------------------------------------------------------

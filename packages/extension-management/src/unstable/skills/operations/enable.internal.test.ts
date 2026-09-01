@@ -27,7 +27,7 @@ import { sanitizeName } from "../../extensions/utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../../test-helpers.js";
-import { decodeRelativePathSync } from "../../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { computePackageContentHash, type SourceHash } from "../../extensions/index.js";
 
 type SettingsSkillValue =

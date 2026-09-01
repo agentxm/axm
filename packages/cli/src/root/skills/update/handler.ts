@@ -37,8 +37,8 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
+import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {
-  createRegistryClient,
   isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,
   releaseAgeEvidence,
@@ -46,7 +46,7 @@ import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/extension-management/unstable/skills";

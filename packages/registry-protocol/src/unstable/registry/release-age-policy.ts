@@ -8,7 +8,7 @@ import {
   type ReleaseAgeExcludePattern,
 } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
-import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { VersionEntry } from "./schema.js";
 
 export interface ScopedReleaseAgeExcludePattern {
   readonly pattern: ReleaseAgeExcludePattern;

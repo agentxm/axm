@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { isPathSafe, safeChildPath } from "./path-safety.js";
-import { decodeAbsolutePathSync } from "./path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 describe("isPathSafe", () => {
   const check = (base: string, target: string) =>

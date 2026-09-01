@@ -171,6 +171,10 @@
       "types": "./dist/src/unstable/registry/publication-set.d.ts",
       "default": "./dist/src/unstable/registry/publication-set.js"
     },
+    "./unstable/registry/release-age-policy": {
+      "types": "./dist/src/unstable/registry/release-age-policy.d.ts",
+      "default": "./dist/src/unstable/registry/release-age-policy.js"
+    },
     "./unstable/registry/schema": {
       "types": "./dist/src/unstable/registry/schema.d.ts",
       "default": "./dist/src/unstable/registry/schema.js"

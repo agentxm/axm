@@ -36,7 +36,7 @@ import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 import {
   isUniversalSkillsRelativeDir,
   resolveUniversalDirPresence,
-} from "../../../extensions/universal-skills-dir.js";
+} from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { settingsDisplayPath } from "./display-paths.js";
 

@@ -23,9 +23,6 @@ export {
   type AgentExecutableResolverService,
 } from "./detection.js";
 
-// Registry (pure data)
-export { AGENTS, getAgentIds } from "./registry.js";
-
 export {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,

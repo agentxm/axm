@@ -22,7 +22,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { AbsolutePath } from "../../../utils/path-types.js";
+import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Scope } from "../types.js";
 
 // ---------------------------------------------------------------------------

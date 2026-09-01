@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   getProjectRuntimeDir,
   resolveUserAxmHome,

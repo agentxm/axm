@@ -1,9 +1,9 @@
 import {
-  AGENTS,
   CodingAgentRepository,
   CodingAgentRepositoryLive,
   resolveInstructionTarget,
 } from "@agentxm/extension-management/unstable/agents";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   isNonInteractive,

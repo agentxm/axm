@@ -7,7 +7,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { LockfileSchema, type Lockfile } from "../../lockfile/schema.js";
-import { formatSchemaIssuesToLines } from "../../schema/format-issues.js";
+import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import { SettingsSchema, type Settings } from "../../settings/schema.js";
 import {
   LockfileDecodeError,

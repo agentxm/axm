@@ -17,7 +17,7 @@ import type { WorkspaceScope } from "../workspace/scope.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { reconcilePatternList } from "../projection/adapters.js";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
   AgentId,

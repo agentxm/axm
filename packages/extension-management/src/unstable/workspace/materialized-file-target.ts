@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { RelativePathSchema } from "../utils/path-types.js";
+import { RelativePathSchema } from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * Ephemeral result of one Rule or Hook projection reconciliation. This is the

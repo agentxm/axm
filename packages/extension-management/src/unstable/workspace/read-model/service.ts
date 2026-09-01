@@ -11,7 +11,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { detectAgentsForScope } from "../../agents/detection.js";
 import type { AppError } from "../../app-error/index.js";
-import { AGENTS } from "../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import {
@@ -24,7 +24,7 @@ import {
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { Settings, SourceHostConfig } from "../../settings/schema.js";
-import { makeAbsolutePath, type AbsolutePath } from "../../utils/path-types.js";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,

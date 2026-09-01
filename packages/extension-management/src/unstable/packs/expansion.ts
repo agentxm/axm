@@ -21,7 +21,7 @@ import {
   type ReleaseAgeAwarePackDependencyResolution,
   type WorkspacePackDependencyResolver,
 } from "./dependency-resolution.js";
-import type { ReleaseAgeEvaluation } from "../registry/index.js";
+import type { ReleaseAgeEvaluation } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 // -----------------------------------------------------------------------------
 // expandPackInstallRefs

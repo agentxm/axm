@@ -27,7 +27,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   observeInstructionProjection,
   resolveInstructionsConfig,

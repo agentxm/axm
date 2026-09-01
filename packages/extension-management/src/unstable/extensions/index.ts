@@ -37,15 +37,6 @@ export {
   type ExtensionPathSource,
 } from "./extension-paths.js";
 
-export {
-  UNIVERSAL_SKILLS_DIR,
-  UNIVERSAL_SKILLS_DIR_SEGMENT,
-  isUniversalSkillsDir,
-  isUniversalSkillsRelativeDir,
-  resolveUniversalDirPresence,
-  stripTrailingSeparators,
-} from "./universal-skills-dir.js";
-
 // Ref base types
 export type {
   ExtensionRefBase,

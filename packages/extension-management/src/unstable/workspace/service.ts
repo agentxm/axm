@@ -70,9 +70,9 @@ import {
 import {
   DEFAULT_MINIMUM_RELEASE_AGE,
   type ScopedReleaseAgeExcludePattern,
-} from "../registry/index.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
-import { makeAbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 
 import { getProjectRuntimeDir, resolveUserHome } from "./paths.js";

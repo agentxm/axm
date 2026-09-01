@@ -17,7 +17,7 @@ import {
   protectWorkspacePath,
   WorkspaceMutations,
 } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";

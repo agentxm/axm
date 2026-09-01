@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
 import { detectAgentScopeResults, type AgentScopeDetection } from "../agents/index.js";
-import { AGENTS } from "../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   resolveInstructionTarget,
   syncInstructions,
@@ -33,7 +33,7 @@ import { isGitManaged } from "../git/detect.js";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
 import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
-import { makeAbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceMutationsOptions } from "./service-interface.js";
 import type { WorkspaceScope } from "./scope.js";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";

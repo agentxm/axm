@@ -58,14 +58,14 @@ import type {
   SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
-import type { ScopedReleaseAgeExcludePattern } from "../registry/index.js";
+import type { ScopedReleaseAgeExcludePattern } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
-import type { AbsolutePath } from "../utils/path-types.js";
+import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { WorkspaceLayout } from "./layout.js";

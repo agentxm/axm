@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Terminal from "effect/Terminal";
-import { AGENTS } from "../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { TestRenderer } from "../cli-renderer/index.js";
 import { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";

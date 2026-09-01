@@ -32,10 +32,12 @@ import {
   resolveVersionEntryWithReleaseAge,
   resolveVersionEntryForReleaseAge,
   extensionLifecycleWarnings,
+} from "../../../registry/index.js";
+import {
   isVersionEntryEligibleAt,
   releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
-} from "../../../registry/index.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   evaluateAxmSkillCandidate,

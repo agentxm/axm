@@ -15,7 +15,7 @@ import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle.js";

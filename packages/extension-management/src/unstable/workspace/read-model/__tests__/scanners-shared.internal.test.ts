@@ -24,7 +24,7 @@ import { makeAgentDirScanner } from "../scanners/agent-dir.js";
 import { makeAgentSettingsScanner } from "../scanners/agent-settings.js";
 import { makeCanonicalExtensionsScanner } from "../scanners/canonical-extensions.js";
 import { makeMcpConfigScanner } from "../scanners/mcp-config.js";
-import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout } from "../../layout.js";
 
 // Compile-time scanner contract assertions live in

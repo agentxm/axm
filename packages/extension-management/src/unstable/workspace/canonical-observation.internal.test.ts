@@ -13,7 +13,7 @@ import {
   TreeIntegritySchema,
 } from "../extensions/materialized-tree.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
-import { makeAbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "./canonical-observation.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";

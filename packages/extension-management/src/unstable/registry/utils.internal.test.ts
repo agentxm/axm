@@ -27,7 +27,7 @@ import {
   isVersionEntryMature,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
-} from "./release-age-policy.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import {
   extensionDir,
   extensionLifecycleWarnings,

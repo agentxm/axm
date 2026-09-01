@@ -41,7 +41,7 @@ import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";

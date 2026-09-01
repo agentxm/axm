@@ -16,7 +16,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
-import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");

@@ -16,18 +16,6 @@ export {
 export { stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
 export { isPathSafe, safeChildPath } from "./path-safety.js";
-export {
-  AbsolutePathSchema,
-  RelativePathSchema,
-  decodeAbsolutePathSync,
-  decodeRelativePathSync,
-  makeAbsolutePath,
-  makeRelativePath,
-  makeWorkspaceRelativePath,
-  makeWorkspaceRelativeSourcePath,
-  type AbsolutePath,
-  type RelativePath,
-} from "./path-types.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export {
   envOption,

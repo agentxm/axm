@@ -104,7 +104,7 @@ import {
   parseMinimumReleaseAge,
   normalizeReleaseAgeRecords,
   type ReleaseAgeEvaluation,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type {
   HookExtensionTarget,
   KnowledgeExtensionTarget,

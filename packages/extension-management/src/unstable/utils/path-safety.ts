@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAbsolutePath, type AbsolutePath } from "./path-types.js";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * Validates that a resolved target path stays within a base directory.

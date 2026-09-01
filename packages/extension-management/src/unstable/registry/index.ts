@@ -100,28 +100,4 @@ export {
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 export type { ReleaseAgeVersionResolution } from "./utils.js";
 
-export {
-  DEFAULT_MINIMUM_RELEASE_AGE,
-  DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
-  filterMatureVersions,
-  formatMinimumReleaseAgeSeconds,
-  isVersionEntryEligibleAt,
-  isVersionEntryMature,
-  parseMinimumReleaseAge,
-  releaseAgeEvidence,
-  releaseAgeExemptionForIdentity,
-  normalizeReleaseAgeRecords,
-  releaseAgeHoldbackWarning,
-} from "./release-age-policy.js";
-export type {
-  ReleaseAgeEvaluation,
-  ReleaseAgeExemption,
-  ReleaseAgeBypassRecord,
-  ReleaseAgeEvidence,
-  ReleaseAgeHoldbackRecord,
-  ReleaseAgeOperationEvidence,
-  ReleaseAgeRecord,
-  ReleaseAgeRecordBase,
-  ScopedReleaseAgeExcludePattern,
-} from "./release-age-policy.js";
 export { RegistryUrl } from "./registry-url.js";

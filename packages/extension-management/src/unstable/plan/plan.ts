@@ -26,7 +26,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry";
-import type { ReleaseAgeOperationEvidence } from "../registry/index.js";
+import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const PlanPolicyIds = ["ignore-version-constraints", "accept-warnings"] as const;

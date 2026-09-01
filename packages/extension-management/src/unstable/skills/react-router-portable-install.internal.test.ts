@@ -13,7 +13,7 @@ import { computeSourceHash } from "../extensions/index.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { printSourceParams, sourceToLockEntry, type GitHubSource } from "../sources/index.js";
 import { extensionName } from "../test-helpers.js";
-import { makeAbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { resolveProjectWorkspaceLayout } from "../workspace/layout.js";
 import type { GitHostedSkillRef } from "./refs.js";

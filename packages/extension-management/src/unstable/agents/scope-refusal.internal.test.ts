@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { userScopeRefusal, type UserScopedExtension } from "./scope-refusal.js";
 import {
   CONFIGURABLE_AGENT_IDS,

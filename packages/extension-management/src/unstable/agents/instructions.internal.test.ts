@@ -19,7 +19,7 @@ import {
   type InstructionStatusItem,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 
 const gitLocalEnvironmentVariables = [
   "GIT_ALTERNATE_OBJECT_DIRECTORIES",

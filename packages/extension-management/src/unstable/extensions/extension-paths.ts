@@ -8,7 +8,10 @@ import * as Option from "effect/Option";
 import type { ExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { GitBasedSource, LocalSource, RegistrySource } from "../sources/types.js";
-import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import {
+  decodeAbsolutePathSync,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 
 export type ExtensionPathSource =

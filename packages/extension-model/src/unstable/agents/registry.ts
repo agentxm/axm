@@ -8,15 +8,10 @@
  */
 
 import * as Record from "effect/Record";
-import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
-import { deriveAgentDescriptor } from "@agentxm/extension-model/unstable/agent-capabilities/derive";
+import { CONFIGURABLE_AGENTS_BY_ID } from "../agent-capabilities/catalog.js";
+import { deriveAgentDescriptor } from "../agent-capabilities/derive.js";
 import { UNIVERSAL_SKILLS_DIR } from "../extensions/universal-skills-dir.js";
-import {
-  AGENT_IDS,
-  type AgentDescriptor,
-  type AgentId,
-  type AgentRegistry,
-} from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_IDS, type AgentDescriptor, type AgentId, type AgentRegistry } from "./types.js";
 
 const UNIVERSAL_AGENT_DESCRIPTOR: AgentDescriptor = {
   id: "universal",

@@ -33,7 +33,7 @@ import {
 import { userScopeRefusal } from "./scope-refusal.js";
 import { getHome } from "./constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS, isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 

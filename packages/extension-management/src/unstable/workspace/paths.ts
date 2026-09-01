@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
-import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { AXM_DIR_NAME, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import type { WorkspaceScope } from "./scope.js";

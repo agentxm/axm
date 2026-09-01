@@ -20,7 +20,7 @@ import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
   ReleaseAgeExemption,
-} from "../registry/release-age-policy.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 // -----------------------------------------------------------------------------
 // Search Criteria

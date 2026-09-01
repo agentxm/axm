@@ -17,7 +17,8 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import { makeAppError } from "../app-error/index.js";
-import { makeAbsolutePath, safeChildPath } from "../utils/index.js";
+import { safeChildPath } from "../utils/index.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { resolveVersionInRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -35,7 +36,7 @@ import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
   type ReleaseAgeExemption,
-} from "./release-age-policy.js";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 // -----------------------------------------------------------------------------
 // Version Selection

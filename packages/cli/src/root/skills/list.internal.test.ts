@@ -19,7 +19,7 @@ import {
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { handleList } from "./list.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";

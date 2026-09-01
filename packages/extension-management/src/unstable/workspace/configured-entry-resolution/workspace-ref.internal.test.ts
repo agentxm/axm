@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import { AppError } from "../../app-error/index.js";
 import { handle } from "../../test-helpers.js";
-import { makeAbsolutePath } from "../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout } from "../layout.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 

@@ -15,7 +15,7 @@ export interface LossyRenderingWarning {
   readonly message: string;
 }
 import type { AgentOverrides } from "../../extensions/agent-overrides.js";
-import type { RelativePath } from "../../utils/path-types.js";
+import type { RelativePath } from "@agentxm/extension-model/unstable/path-types";
 
 export type { AgentOverrides } from "../../extensions/agent-overrides.js";
 

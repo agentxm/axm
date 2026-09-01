@@ -28,6 +28,10 @@
       "types": "./dist/src/unstable/agent-capabilities/derive.d.ts",
       "default": "./dist/src/unstable/agent-capabilities/derive.js"
     },
+    "./unstable/agents/registry": {
+      "types": "./dist/src/unstable/agents/registry.d.ts",
+      "default": "./dist/src/unstable/agents/registry.js"
+    },
     "./unstable/agents/types": {
       "types": "./dist/src/unstable/agents/types.d.ts",
       "default": "./dist/src/unstable/agents/types.js"
@@ -80,6 +84,10 @@
       "types": "./dist/src/unstable/extensions/registry-source.d.ts",
       "default": "./dist/src/unstable/extensions/registry-source.js"
     },
+    "./unstable/extensions/universal-skills-dir": {
+      "types": "./dist/src/unstable/extensions/universal-skills-dir.d.ts",
+      "default": "./dist/src/unstable/extensions/universal-skills-dir.js"
+    },
     "./unstable/hooks/manifest-schema": {
       "types": "./dist/src/unstable/hooks/manifest-schema.d.ts",
       "default": "./dist/src/unstable/hooks/manifest-schema.js"
@@ -120,9 +128,17 @@
       "types": "./dist/src/unstable/packs/manifest-schema.d.ts",
       "default": "./dist/src/unstable/packs/manifest-schema.js"
     },
+    "./unstable/path-types": {
+      "types": "./dist/src/unstable/path-types.d.ts",
+      "default": "./dist/src/unstable/path-types.js"
+    },
     "./unstable/rules/manifest-schema": {
       "types": "./dist/src/unstable/rules/manifest-schema.d.ts",
       "default": "./dist/src/unstable/rules/manifest-schema.js"
+    },
+    "./unstable/schema-issues": {
+      "types": "./dist/src/unstable/schema-issues.d.ts",
+      "default": "./dist/src/unstable/schema-issues.js"
     },
     "./unstable/skills/manifest-schema": {
       "types": "./dist/src/unstable/skills/manifest-schema.d.ts",

@@ -44,7 +44,7 @@ import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/ext
 import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "../../../extensions/discovery-walk.js";
-import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
 import type { WorkspaceLayout } from "../../layout.js";
 import {

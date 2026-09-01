@@ -27,7 +27,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { AGENTS } from "../../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { FixtureSpec } from "../../__fixtures__/builder.js";
 import { runScenario, SCENARIO_USER_HOME, SCENARIO_WORKSPACE_ROOT } from "./_harness.js";

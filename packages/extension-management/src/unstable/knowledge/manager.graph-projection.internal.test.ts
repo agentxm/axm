@@ -19,7 +19,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { makeAppError } from "../app-error/index.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { decodeRelativePathSync } from "../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";

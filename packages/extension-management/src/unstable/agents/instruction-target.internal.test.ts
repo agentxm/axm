@@ -8,7 +8,7 @@ import {
   resolveInstructionTargetShape,
   type InstructionTargetResolution,
 } from "./instructions.js";
-import { AGENTS, getAgentIds } from "./registry.js";
+import { AGENTS, getAgentIds } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 const SOURCE = "AGENTS.md";

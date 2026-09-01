@@ -26,11 +26,11 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
 import type { Source, InputParseResult } from "@agentxm/extension-management/unstable/sources";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {
-  createRegistryClient,
   isVersionEntryMature,
   parseMinimumReleaseAge,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import type { SkillPathSource } from "@agentxm/extension-management/unstable/workspace";

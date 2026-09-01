@@ -2,13 +2,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { AGENTS } from "../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { type AppError, makeAppError } from "../app-error/index.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR } from "../extensions/constants.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings } from "../settings/schema.js";
-import { makeAbsolutePath, type AbsolutePath } from "../utils/path-types.js";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { AXM_DIR_NAME, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 

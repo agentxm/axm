@@ -29,7 +29,7 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { parse, type ParseError } from "jsonc-parser";
 import { getHome } from "../../../agents/constants.js";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -42,7 +42,7 @@ import {
   ExtensionNameSchema,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { makeAbsolutePath } from "../../../utils/path-types.js";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { isPathSafe } from "../../../utils/index.js";
 import type { Diagnostics } from "../diagnostics.js";
 import type { Scope } from "../types.js";

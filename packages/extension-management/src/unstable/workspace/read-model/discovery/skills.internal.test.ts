@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { at } from "../../../test-helpers.js";
 import { type DiscoveryOptions, getPriorityDirectories, skillsInDir } from "./skills.js";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 
 // -----------------------------------------------------------------------------
 // Helpers

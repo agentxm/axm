@@ -9,7 +9,10 @@
  */
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { decodeAbsolutePathSync, type AbsolutePath } from "../utils/path-types.js";
+import {
+  decodeAbsolutePathSync,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "../workspace/layout.js";
 
 /**

@@ -2,7 +2,7 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import { handle } from "../test-helpers.js";
-import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { ProjectWorkspaceLayout } from "../workspace/layout.js";
 import {
   computeExtensionPathsForLayout,

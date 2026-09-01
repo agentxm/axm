@@ -49,7 +49,7 @@ import {
   installedRowsByName,
   unmanagedRowsByName,
 } from "./read-model-record-rows.js";
-import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 describe("WorkspaceMutationsService", () => {
   const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(

@@ -3,11 +3,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
-  AGENTS,
   detectAgentsForScope,
   observeInstructionProjection,
   resolveInstructionsConfig,
 } from "@agentxm/extension-management/unstable/agents";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CliRenderer,

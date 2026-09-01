@@ -24,7 +24,7 @@ import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
 import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";

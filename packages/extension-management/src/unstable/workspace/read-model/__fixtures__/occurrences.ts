@@ -18,7 +18,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { AbsolutePathSchema, type AbsolutePath } from "../../../utils/path-types.js";
+import {
+  AbsolutePathSchema,
+  type AbsolutePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import type {
   AgentDirOccurrence,
   AgentDirSubjectType,

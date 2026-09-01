@@ -4,7 +4,7 @@ import type * as Path from "effect/Path";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,
-} from "@agentxm/extension-management/unstable/utils";
+} from "@agentxm/extension-model/unstable/path-types";
 
 export interface ExecutionDirectoryService {
   readonly path: AbsolutePath;

@@ -9,7 +9,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { AGENTS } from "../../../agents/registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";

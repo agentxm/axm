@@ -9,7 +9,7 @@
 
 import * as crypto from "node:crypto";
 import * as Schema from "effect/Schema";
-import { RelativePathSchema } from "../utils/path-types.js";
+import { RelativePathSchema } from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * Branded string for content source hashes.

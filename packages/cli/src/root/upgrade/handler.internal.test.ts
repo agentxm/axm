@@ -38,7 +38,7 @@ import {
   type InstallMetaData,
 } from "@agentxm/extension-management/unstable/install-meta";
 import type { VersionRelation } from "@agentxm/extension-management/unstable/version-resolution";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { expectRecord, property } from "../../test-helpers.js";

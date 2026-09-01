@@ -26,7 +26,7 @@ import {
 } from "../workspace/test-stubs.js";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
 import type { SubagentLockEntry } from "../lockfile/schema.js";
-import { decodeRelativePathSync } from "../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 
 // ---------------------------------------------------------------------------

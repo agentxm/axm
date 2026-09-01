@@ -20,18 +20,20 @@ import {
   sourceToLockEntry,
 } from "../../sources/index.js";
 import {
-  UNIVERSAL_SKILLS_DIR,
   computePackageContentHash,
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
-  isUniversalSkillsDir,
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
-  stripTrailingSeparators,
   computeMaterializedTreeIntegrity,
 } from "../../extensions/index.js";
+import {
+  UNIVERSAL_SKILLS_DIR,
+  isUniversalSkillsDir,
+  stripTrailingSeparators,
+} from "@agentxm/extension-model/unstable/extensions/universal-skills-dir";
 import * as Schema from "effect/Schema";
 import type {
   GitHostedSkillRef,
@@ -42,11 +44,8 @@ import type {
 } from "../refs.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import {
-  isPathSafe,
-  makeWorkspaceRelativeSourcePath,
-  stripFileProtocol,
-} from "../../utils/index.js";
+import { isPathSafe, stripFileProtocol } from "../../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { createSymlink } from "../../workspace/create-symlink.js";
 import { validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";

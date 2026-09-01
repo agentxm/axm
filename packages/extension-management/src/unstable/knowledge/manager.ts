@@ -35,9 +35,10 @@ import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { KnowledgeMap } from "../settings/index.js";
 import { knowledgeLockEntryToRef } from "../sources/index.js";
-import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
+import { stripFileProtocol } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
-import { makeWorkspaceRelativePath } from "../utils/path-types.js";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {

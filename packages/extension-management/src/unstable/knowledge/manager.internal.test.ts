@@ -17,7 +17,7 @@ import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { decodeRelativePathSync } from "../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   makeBaseWorkspaceMock,
   readModelRecordStubs,

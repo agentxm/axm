@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { formatSchemaIssuesToLines } from "./format-issues.js";
+import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import type { JsonFileReadResult } from "./types.js";
 
 /**

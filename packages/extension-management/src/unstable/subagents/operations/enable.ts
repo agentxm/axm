@@ -19,7 +19,7 @@ import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { RenderedFilesMapSchema } from "../../extensions/rendered-files.js";
-import { makeWorkspaceRelativePath } from "../../utils/path-types.js";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import { subagentContentErrorToAppError } from "../../app-error/conversions.js";

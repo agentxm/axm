@@ -31,7 +31,8 @@ import {
   type SubagentSyncOutcome,
 } from "../agents/index.js";
 import { sanitizeName, copyExtensionDirectory } from "../extensions/utils.js";
-import { stripFileProtocol, makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { stripFileProtocol } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
 import {
   computeSubagentPathsForLayout,

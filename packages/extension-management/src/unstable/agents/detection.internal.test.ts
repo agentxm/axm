@@ -25,7 +25,7 @@ import {
   detectAgentsForScope,
   detectAgentsInRoot,
 } from "./detection.js";
-import { AGENTS } from "./registry.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 
 const home = os.homedir();

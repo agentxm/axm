@@ -57,9 +57,10 @@ import {
   serializeMarker,
 } from "../projection/marker-grammar.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { makeWorkspaceRelativeSourcePath, stripFileProtocol } from "../utils/index.js";
+import { stripFileProtocol } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
-import { makeWorkspaceRelativePath } from "../utils/path-types.js";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   ExtensionManager,

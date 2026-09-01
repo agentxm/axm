@@ -29,7 +29,7 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   layer as coreWorkspaceLayer,
   WorkspaceInitializationInteractionTest,

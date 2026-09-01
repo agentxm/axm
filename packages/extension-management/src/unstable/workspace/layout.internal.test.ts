@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import { decodeAbsolutePathSync } from "../utils/path-types.js";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, resolveUserWorkspaceLayout } from "./layout.js";
 
 const projectRoot = decodeAbsolutePathSync("/tmp/axm-project");

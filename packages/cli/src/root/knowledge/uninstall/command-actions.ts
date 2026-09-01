@@ -18,7 +18,7 @@ import {
 } from "@agentxm/extension-management/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import { makeWorkspaceRelativePath } from "@agentxm/extension-management/unstable/utils";
+import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   WorkspaceMutations,
   acceptedCanonicalObservation,

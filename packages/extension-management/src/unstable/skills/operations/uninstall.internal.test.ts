@@ -23,7 +23,7 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "../../workspace/test-stubs.js";
-import { decodeRelativePathSync } from "../../utils/path-types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";

@@ -81,7 +81,7 @@ import type { SourceHostConfig } from "@agentxm/extension-management/unstable/se
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,
-} from "@agentxm/extension-management/unstable/utils";
+} from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";

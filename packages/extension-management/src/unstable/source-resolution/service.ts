@@ -31,7 +31,7 @@ import type {
   Source,
 } from "../sources/index.js";
 import { fileUrlToPath, printSourceParams } from "../sources/index.js";
-import { makeWorkspaceRelativeSourcePath } from "../utils/index.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";

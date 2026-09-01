@@ -50,9 +50,8 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { SourceHostConfig } from "../settings/index.js";
-import { WorkspaceMutations } from "../workspace/index.js";
+import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
-import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -146,21 +145,18 @@ const firstSuccess = <A, E, R>(
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Get configured sources from workspace, mapping errors to AppError. */
+/** Get configured sources from the workspace catalog, mapping errors to AppError. */
 const getConfiguredSources = (_input: string) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    return yield* ws
-      .getConfiguredSources()
-      .pipe(Effect.mapError(toAppError))
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to get configured sources: ${e._tag}`,
-          }),
-        ),
-      );
+    const catalog = yield* WorkspaceCatalog;
+    return yield* catalog.configuredSources.pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to get configured sources: ${e._tag}`,
+        }),
+      ),
+    );
   });
 
 /** Parse shorthand input using the provider for the given source type. */
@@ -474,11 +470,11 @@ export const routeNameInput = (
 ): Effect.Effect<
   Source,
   AppError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceCatalog
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+    const catalog = yield* WorkspaceCatalog;
+    const graph = yield* catalog.desiredExtensionGraph;
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
@@ -514,20 +510,17 @@ export const routeRegistryInput = (
   _input: string,
 ) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const catalog = yield* WorkspaceCatalog;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
-    const sources = yield* ws
-      .getConfiguredSources()
-      .pipe(Effect.mapError(toAppError))
-      .pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
-          }),
-        ),
-      );
+    const sources = yield* catalog.configuredSources.pipe(
+      Effect.mapError((e) =>
+        makeAppError({
+          code: "validation",
+          detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
+        }),
+      ),
+    );
     const configured = Option.fromUndefinedOr(
       sources.find((source) => source.name === pattern.sourceName),
     );
@@ -576,7 +569,7 @@ export const resolveSlashInputSource = (
     if (Option.isSome(pattern.third)) {
       const type = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(type)) {
-        const ws = yield* WorkspaceMutations;
+        const catalog = yield* WorkspaceCatalog;
         const owner = pattern.first.startsWith("@") ? decodeHandleSync(pattern.first) : undefined;
         const extensionName = (() => {
           try {
@@ -585,17 +578,14 @@ export const resolveSlashInputSource = (
             return undefined;
           }
         })();
-        const registrySources = (yield* ws
-          .getRegistrySourceHosts()
-          .pipe(Effect.mapError(toAppError))
-          .pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Failed to get registry sources: ${e._tag}`,
-              }),
-            ),
-          )).filter((source) => source.name === "agentxm");
+        const registrySources = (yield* catalog.registrySourceHosts.pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "validation",
+              detail: `Failed to get registry sources: ${e._tag}`,
+            }),
+          ),
+        )).filter((source) => source.name === "agentxm");
 
         if (owner !== undefined && extensionName !== undefined) {
           for (const regSource of registrySources) {
@@ -671,7 +661,7 @@ export const resolveSource = (
 ): Effect.Effect<
   Source,
   AppError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceCatalog
 > =>
   Effect.gen(function* () {
     const trimmed = input.trim();

@@ -24,10 +24,24 @@ import {
   readModelRecordStubs,
   rowsFor,
 } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "../workspace/index.js";
 import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 
 const name = (value: string) => decodeExtensionNameSync(value);
+
+const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
+  const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+  return Layer.merge(
+    wsLayer,
+    WorkspaceCatalogLive.pipe(
+      Layer.provide(wsLayer),
+      Layer.provide(CodingAgentRepositoryLive),
+      Layer.provide(NodeServices.layer),
+    ),
+  );
+};
 const resolveTestIdentifier = (
   args: Omit<Parameters<typeof resolveIdentifier>[0], "registrySourceName">,
 ) => resolveIdentifier({ ...args, registrySourceName: "agentxm" });
@@ -43,8 +57,7 @@ const provide = (
   effect.pipe(
     Effect.provide(
       Layer.mergeAll(
-        Layer.succeed(
-          WorkspaceMutations,
+        workspaceWithCatalogLayer(
           makeBaseWorkspaceMock("/tmp/axm", {
             ...(options?.rows === undefined ? {} : { rows: options.rows }),
             ...(options?.getLockedSkills === undefined
@@ -295,10 +308,7 @@ const provideForType = (
   effect.pipe(
     Effect.provide(
       Layer.mergeAll(
-        Layer.succeed(
-          WorkspaceMutations,
-          makeBaseWorkspaceMock("/tmp/axm", desiredOverrideFor[type]),
-        ),
+        workspaceWithCatalogLayer(makeBaseWorkspaceMock("/tmp/axm", desiredOverrideFor[type])),
         Layer.merge(NodeServices.layer, FetchHttpClient.layer),
       ),
     ),

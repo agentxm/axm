@@ -1,24 +1,37 @@
+/**
+ * Destructive sweep of AXM-managed rendered files across agent surfaces:
+ * stale skill and subagent projections, managed MCP server entries, and
+ * managed hook groups. Read-only discovery primitives live in
+ * `extension-workspace/managed-file-discovery.ts`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { CodingAgentRepository, type CodingAgent } from "../extension-workspace/coding-agent.js";
+import { pruneManagedMcpServersForAgent } from "../extension-workspace/mcp-sync.js";
 import {
-  CodingAgentRepository,
-  pruneManagedMcpServersForAgent,
-  type CodingAgent,
-} from "../agents/index.js";
+  extensionNameFromFilename,
+  hasAxmManagedMarker,
+  safeReadDirectory,
+  safeReadFileString,
+  type WorkspaceOwnershipIssue,
+} from "../extension-workspace/managed-file-discovery.js";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   PER_AGENT_EXTENSION_TYPES,
   type PerAgentType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
-import { hasManagedFileBanner } from "../extensions/managed-file-banner.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "../workspace/constants.js";
 import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
-import type { WorkspaceScope } from "./scope.js";
-import { WorkspaceMutations } from "./service-interface.js";
-import { protectWorkspacePath } from "./transaction.js";
-import { recordFootprint } from "./footprint-recorder.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
+import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { toAppError } from "../app-error/conversions.js";
 
 export interface RenderedFileCleanupResult {
@@ -30,20 +43,7 @@ export interface RemovedAgentArtifactCleanupResult {
   readonly preservedPaths: ReadonlyArray<string>;
 }
 
-export interface WorkspaceOwnershipIssue {
-  readonly kind: "hook-ownership-ambiguous" | "managed-file-unowned";
-  readonly path: string;
-  readonly detail: string;
-}
-
 type RemovedAgentCleanupPaths = RemovedAgentArtifactCleanupResult;
-
-const extensionNameFromFilename = (fileName: string): string => {
-  const dotIndex = fileName.indexOf(".");
-  return dotIndex === -1 ? fileName : fileName.slice(0, dotIndex);
-};
-
-export const hasAxmManagedMarker = hasManagedFileBanner;
 
 const isWithin = (path: Path.Path, parent: string, child: string): boolean => {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
@@ -68,14 +68,6 @@ const removePath = (
           }),
         ),
       );
-
-const safeReadDirectory = (fs: FileSystem.FileSystem, dir: string, recursive = false) =>
-  fs
-    .readDirectory(dir, recursive ? { recursive: true } : undefined)
-    .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-const safeReadFileString = (fs: FileSystem.FileSystem, filePath: string) =>
-  fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed("")));
 
 const hasManagedSkillCopyMarker = (
   fs: FileSystem.FileSystem,
@@ -208,26 +200,6 @@ const cleanupSubagentArtifactsInDir = (args: {
     }
 
     return { removedPaths, preservedPaths } satisfies RemovedAgentCleanupPaths;
-  });
-
-/** Discover one subagent's AXM-managed files without mutating the workspace. */
-export const findManagedSubagentFiles = (subagentsDir: string, subagentName: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const managedPaths: Array<string> = [];
-    const entries = yield* safeReadDirectory(fs, subagentsDir);
-
-    for (const entry of entries) {
-      if (extensionNameFromFilename(entry) !== subagentName) continue;
-      const filePath = path.join(subagentsDir, entry);
-      const stat = yield* fs.stat(filePath).pipe(Effect.option);
-      if (stat._tag === "None" || stat.value.type !== "File") continue;
-      const content = yield* safeReadFileString(fs, filePath);
-      if (hasAxmManagedMarker(content)) managedPaths.push(filePath);
-    }
-
-    return managedPaths;
   });
 
 interface RemovedAgentCleanupContext {

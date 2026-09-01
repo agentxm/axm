@@ -10,7 +10,7 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

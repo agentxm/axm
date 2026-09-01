@@ -8,7 +8,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository, syncInlineMcpServerToAgents } from "../../agents/index.js";
+import {
+  CodingAgentRepository,
+  syncInlineMcpServerToAgents,
+} from "../../extension-workspace/index.js";
 import {
   normalizeHandle,
   parseExtensionFqnParts,

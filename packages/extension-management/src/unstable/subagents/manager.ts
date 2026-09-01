@@ -28,7 +28,7 @@ import {
   CodingAgentRepository,
   renderManagedSubagentOutputs,
   type SubagentSyncOutcome,
-} from "../agents/index.js";
+} from "../extension-workspace/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { sanitizeName } from "../workspace/extension-name.js";
 import { stripFileProtocol } from "../utils/index.js";
@@ -76,7 +76,7 @@ import {
 import {
   findManagedSubagentFiles,
   hasAxmManagedMarker,
-} from "../workspace/rendered-file-cleanup.js";
+} from "../extension-workspace/managed-file-discovery.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {

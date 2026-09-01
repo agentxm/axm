@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { McpServerSyncOutcome } from "../../agents/coding-agent.js";
+import type { McpServerSyncOutcome } from "../../extension-workspace/coding-agent.js";
 
 export interface AgentMcpSyncOutcome {
   readonly agentId: string;

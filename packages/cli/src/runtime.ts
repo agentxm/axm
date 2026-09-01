@@ -20,7 +20,10 @@ import {
   redactSensitiveValue,
 } from "@agentxm/extension-management/unstable/app-error";
 
-import { AgentPresenceProbeLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  AgentPresenceProbeLive,
+  WorkspaceCatalogLive,
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   type CliTelemetryConfig,
   type ExpectedCliError,
@@ -61,7 +64,7 @@ import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -282,9 +285,14 @@ const makeWorkspaceProgramLayer = (
     }),
     AgentPresenceProbeLive,
   );
-  const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
+  const workspaceCatalogLayer = Layer.provide(
+    WorkspaceCatalogLive,
+    Layer.merge(wsLayer, CodingAgentRepositoryLive),
+  );
+  const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceCatalogLayer);
   const workspaceServiceLayer = Layer.mergeAll(
     wsLayer,
+    workspaceCatalogLayer,
     sourceProvidersLayer,
     CodingAgentRepositoryLive,
   );

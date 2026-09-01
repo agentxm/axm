@@ -24,6 +24,8 @@ import {
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
 } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import {
   computeMaterializedTreeIntegritySync,
   exactVersion,
@@ -125,6 +127,8 @@ const managerLayer = (
   overrides: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> = {},
 ) =>
   KnowledgeManagerLive.pipe(
+    Layer.provideMerge(WorkspaceCatalogLive),
+    Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,

@@ -24,7 +24,7 @@ import {
   type McpEnvExpansion,
   type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { getHome } from "./constants.js";
+import { getHome } from "../agents/constants.js";
 import { envOption, isPathSafe } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";

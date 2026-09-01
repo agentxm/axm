@@ -17,7 +17,7 @@ import { expectNoOpPlanResult, makeWorkspaceHandlerTestContext } from "../../../
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/extension-workspace";
 import { handleDisableSubagent } from "./handler.js";
 
 // -----------------------------------------------------------------------------

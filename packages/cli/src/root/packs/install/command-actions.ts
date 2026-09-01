@@ -24,7 +24,7 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   evaluateSourceAuthority,
@@ -71,6 +71,7 @@ import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/t
 import {
   resolveSource,
   SourceHostProviders,
+  WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
@@ -395,6 +396,7 @@ const resolveMinimumReleaseAge = (
 
 export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
@@ -419,6 +421,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
   // services via the Effect context (e.g. resolveSource).
   const envLayer = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(CliRenderer, renderer),

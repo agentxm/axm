@@ -46,7 +46,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
   type CodingAgent,
-} from "../../agents/index.js";
+} from "../../extension-workspace/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SkillPathSource } from "../../workspace/skill-paths.js";

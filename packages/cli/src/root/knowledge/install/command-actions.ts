@@ -31,6 +31,7 @@ import { applyPlannedProjections } from "@agentxm/extension-management/unstable/
 import {
   resolveSource,
   SourceHostProviders,
+  WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -60,6 +61,7 @@ interface ParsedKnowledgeInstallArgs {
 
 export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
@@ -68,6 +70,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
   const loginSuggestionsFor = yield* makeRegistryLoginSuggestionResolver;
   const env = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),

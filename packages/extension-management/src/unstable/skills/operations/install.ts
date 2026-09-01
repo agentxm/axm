@@ -43,7 +43,7 @@ import type {
   WorkspaceSkillRef,
 } from "../../workspace/refs/skill.js";
 import { SourceHostProviders } from "../../source-resolution/index.js";
-import { CodingAgentRepository } from "../../agents/index.js";
+import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { isPathSafe, stripFileProtocol } from "../../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { createSymlink } from "../../workspace/create-symlink.js";

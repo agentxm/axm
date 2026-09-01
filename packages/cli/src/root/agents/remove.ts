@@ -6,7 +6,11 @@ import * as Path from "effect/Path";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/extension-workspace";
+import {
+  cleanupManagedArtifactsForRemovedAgents,
+  type RemovedAgentArtifactCleanupResult,
+} from "@agentxm/extension-management/unstable/workspace-sync";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   acceptWarningsFlag,
@@ -23,8 +27,6 @@ import {
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
 import {
-  cleanupManagedArtifactsForRemovedAgents,
-  type RemovedAgentArtifactCleanupResult,
   WorkspaceMutations,
   type WorkspaceMutationsService,
 } from "@agentxm/extension-management/unstable/workspace";

@@ -9,8 +9,8 @@ import { afterEach, beforeEach } from "vitest";
 import {
   codingAgentForId,
   CodingAgentRepository,
-} from "@agentxm/extension-management/unstable/agents";
-import type { CodingAgentRepositoryService } from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/extension-workspace";
+import type { CodingAgentRepositoryService } from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {

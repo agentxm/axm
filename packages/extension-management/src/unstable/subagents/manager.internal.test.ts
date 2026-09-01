@@ -17,8 +17,8 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "../workspace/refs/subagent.js";
-import type { AddSubagentArgs, CodingAgent } from "../agents/coding-agent.js";
-import { CodingAgentRepository } from "../agents/coding-agent.js";
+import type { AddSubagentArgs, CodingAgent } from "../extension-workspace/coding-agent.js";
+import { CodingAgentRepository } from "../extension-workspace/coding-agent.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   makeBaseWorkspaceMock,

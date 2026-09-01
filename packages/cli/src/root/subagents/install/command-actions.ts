@@ -17,14 +17,17 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "@agentxm/extension-management/unstable/source-resolution";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   WorkspaceMutations,
@@ -188,6 +191,7 @@ type InstallSubagentActions = InstallExtensionCommandWorkflowActions<
 
 export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const renderer = yield* CliRenderer;
   const subagentMgr = yield* SubagentManager;
@@ -205,6 +209,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
 
   const envLayer = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(CliRenderer, renderer),
     Layer.succeed(WorkspaceMutations, ws),

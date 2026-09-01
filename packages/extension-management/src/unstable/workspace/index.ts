@@ -231,18 +231,6 @@ export {
   type ResolvedConfiguredSubagent,
 } from "./configured-entry-resolution/types.js";
 
-export {
-  cleanupManagedArtifactsForRemovedAgents,
-  cleanupStaleManagedSkillDirectories,
-  cleanupStaleManagedSubagentFiles,
-  findManagedSubagentFiles,
-  hasAxmManagedMarker,
-  inspectWorkspaceOwnership,
-  type RemovedAgentArtifactCleanupResult,
-  type RenderedFileCleanupResult,
-  type WorkspaceOwnershipIssue,
-} from "./rendered-file-cleanup.js";
-
 // Source metadata
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./source-metadata.js";
 

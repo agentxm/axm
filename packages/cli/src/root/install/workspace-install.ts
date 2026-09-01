@@ -43,7 +43,10 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "@agentxm/extension-management/unstable/source-resolution";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import {
   extensionTypePluralSentenceLabels,
@@ -96,6 +99,7 @@ type WorkspaceInstallCollectorContext =
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceCatalog
   | SourceHostProviders
   | HookManager
   | KnowledgeManager

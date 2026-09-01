@@ -18,7 +18,7 @@ import {
 } from "@agentxm/extension-management/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { type UninstallHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {

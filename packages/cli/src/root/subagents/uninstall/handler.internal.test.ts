@@ -15,7 +15,7 @@ import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { type UninstallSubagentHandlerArgs } from "./command-actions.js";
 import { handleUninstall } from "./handler.js";
 import {

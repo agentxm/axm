@@ -16,7 +16,7 @@ import {
   SourceHostProviders,
   SourceHostProvidersLive,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { type RegistrySubagentRef } from "@agentxm/extension-management/unstable/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";

@@ -2,8 +2,8 @@
  * Coding agent service contracts for extension managers.
  *
  * Defines the CodingAgent type and CodingAgentRepository service interface
- * that extension managers depend on. The concrete implementation
- * (DefaultCodingAgentRepository) lives in the CLI package.
+ * that extension managers depend on. The registry-backed default
+ * implementation lives beside it in `repository.ts`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -213,4 +213,6 @@ export type CodingAgentRepositoryService = CodingAgentRepositoryShape<WorkspaceM
 export class CodingAgentRepository extends ServiceMap.Service<
   CodingAgentRepository,
   CodingAgentRepositoryService
->()("@agentxm/extension-management/unstable/agents/coding-agent/CodingAgentRepository") {}
+>()(
+  "@agentxm/extension-management/unstable/extension-workspace/coding-agent/CodingAgentRepository",
+) {}

@@ -23,8 +23,7 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { createRegistryClient } from "../registry/index.js";
-import { WorkspaceMutations } from "../workspace/index.js";
-import { toAppError } from "../app-error/conversions.js";
+import { WorkspaceCatalog } from "./workspace-catalog.js";
 
 /**
  * Every non-pack extension type an installed identifier can name. Packs are
@@ -164,12 +163,12 @@ const dedupeCandidates = (
 const installedCandidates = (
   input: string,
   resourceType: IdentifierResourceType,
-): Effect.Effect<ReadonlyArray<IdentifierCandidate>, AppError, WorkspaceMutations> =>
+): Effect.Effect<ReadonlyArray<IdentifierCandidate>, AppError, WorkspaceCatalog> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const catalog = yield* WorkspaceCatalog;
     const candidates: IdentifierCandidate[] = [];
 
-    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+    const graph = yield* catalog.desiredExtensionGraph;
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
@@ -226,14 +225,14 @@ const registryCandidates = (
 ): Effect.Effect<
   ReadonlyArray<IdentifierCandidate>,
   AppError,
-  WorkspaceMutations | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+  WorkspaceCatalog | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
 > =>
   Effect.gen(function* () {
     const name = yield* decodeName(input);
-    const ws = yield* WorkspaceMutations;
-    const registrySources = (yield* ws
-      .getRegistrySourceHosts()
-      .pipe(Effect.mapError(toAppError))).filter((source) => source.name === registrySourceName);
+    const catalog = yield* WorkspaceCatalog;
+    const registrySources = (yield* catalog.registrySourceHosts).filter(
+      (source) => source.name === registrySourceName,
+    );
 
     const results = yield* Effect.forEach(
       registrySources,

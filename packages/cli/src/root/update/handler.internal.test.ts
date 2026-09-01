@@ -35,7 +35,7 @@ import {
   decodeVersionSync,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";

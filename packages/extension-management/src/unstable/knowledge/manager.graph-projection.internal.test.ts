@@ -23,6 +23,8 @@ import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-t
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import type { KnowledgeMap } from "../settings/schema.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
@@ -120,6 +122,8 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         Effect.succeed(args.instructionFiles === false ? Option.none() : Option.some({})),
     });
     return KnowledgeManagerLive.pipe(
+      Layer.provideMerge(WorkspaceCatalogLive),
+      Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
       Layer.provide(
         Layer.succeed(SourceHostProviders, {

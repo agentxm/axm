@@ -19,6 +19,8 @@ import type { GitHubSource } from "@agentxm/extension-model/unstable/sources/typ
 import type { SourceHostConfig } from "../settings/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { at, extensionName, handle } from "../test-helpers.js";
 
 // -----------------------------------------------------------------------------
@@ -32,23 +34,30 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
-const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_SOURCES) =>
-  Layer.merge(
-    Layer.succeed(
-      WorkspaceMutations,
-      makeBaseWorkspaceMock("/tmp/axm", {
-        getConfiguredSources: () => Effect.succeed(sources),
-        getLockedSkills: () => Effect.succeed({}),
-        getRegistrySourceHosts: () =>
-          Effect.succeed(
-            sources.filter(
-              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-            ),
+const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_SOURCES) => {
+  const wsLayer = Layer.succeed(
+    WorkspaceMutations,
+    makeBaseWorkspaceMock("/tmp/axm", {
+      getConfiguredSources: () => Effect.succeed(sources),
+      getLockedSkills: () => Effect.succeed({}),
+      getRegistrySourceHosts: () =>
+        Effect.succeed(
+          sources.filter(
+            (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
           ),
-      }),
-    ),
+        ),
+    }),
+  );
+  const catalogLayer = WorkspaceCatalogLive.pipe(
+    Layer.provide(wsLayer),
+    Layer.provide(CodingAgentRepositoryLive),
+    Layer.provide(NodeServices.layer),
+  );
+  return Layer.merge(
+    Layer.merge(wsLayer, catalogLayer),
     Layer.merge(NodeServices.layer, FetchHttpClient.layer),
   );
+};
 
 const expectStringOption = (value: unknown): Option.Option<string> => {
   if (typeof value === "object" && value !== null && "_tag" in value && value._tag === "None") {

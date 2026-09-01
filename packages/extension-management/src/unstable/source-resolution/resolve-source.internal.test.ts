@@ -22,6 +22,8 @@ import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillsLockMap } from "../lockfile/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -83,28 +85,31 @@ const makeWorkspaceLayer = (
   sources: ReadonlyArray<SourceHostConfig>,
   skills: SkillsLockMap = {},
   registrySources?: ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
-) =>
-  Layer.merge(
-    Layer.merge(
-      Layer.succeed(
-        WorkspaceMutations,
-        makeBaseWorkspaceMock("/tmp/axm", {
-          getConfiguredSources: () => Effect.succeed(sources),
-          getLockedSkills: () => Effect.succeed(skills),
-          getRegistrySourceHosts: () =>
-            Effect.succeed(
-              registrySources ??
-                sources.filter(
-                  (s): s is Extract<SourceHostConfig, { type: "registry" }> =>
-                    s.type === "registry",
-                ),
+) => {
+  const wsLayer = Layer.succeed(
+    WorkspaceMutations,
+    makeBaseWorkspaceMock("/tmp/axm", {
+      getConfiguredSources: () => Effect.succeed(sources),
+      getLockedSkills: () => Effect.succeed(skills),
+      getRegistrySourceHosts: () =>
+        Effect.succeed(
+          registrySources ??
+            sources.filter(
+              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
             ),
-        }),
-      ),
-      remoteHttpLayer,
-    ),
+        ),
+    }),
+  );
+  const catalogLayer = WorkspaceCatalogLive.pipe(
+    Layer.provide(wsLayer),
+    Layer.provide(CodingAgentRepositoryLive),
+    Layer.provide(NodeServices.layer),
+  );
+  return Layer.merge(
+    Layer.merge(Layer.merge(wsLayer, catalogLayer), remoteHttpLayer),
     NodeServices.layer,
   );
+};
 
 /** Default built-in sources matching workspace defaults. */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [

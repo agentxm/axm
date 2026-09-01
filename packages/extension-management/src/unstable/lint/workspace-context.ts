@@ -22,7 +22,7 @@ import type { CanonicalObservation } from "../workspace/canonical-observation.js
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
 import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
-import type { WorkspaceOwnershipIssue } from "../workspace/rendered-file-cleanup.js";
+import type { WorkspaceOwnershipIssue } from "../extension-workspace/managed-file-discovery.js";
 
 /**
  * Context passed to `workspace/*` rules.

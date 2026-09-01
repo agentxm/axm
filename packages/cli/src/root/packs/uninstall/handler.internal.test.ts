@@ -38,7 +38,8 @@ import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/kno
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -234,7 +235,14 @@ describe("packs uninstall handler", () => {
       }),
       BaseLayer,
     );
-    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
+    const CatalogLayer = Layer.provide(
+      WorkspaceCatalogLive,
+      Layer.mergeAll(BaseLayer, WsLayer, CodingAgentRepositoryLive),
+    );
+    const SPLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer),
+    );
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
       SkillManagerLive,
@@ -244,7 +252,13 @@ describe("packs uninstall handler", () => {
       RuleManagerLive,
       SubagentManagerLive,
     );
-    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, CodingAgentRepositoryLive);
+    const CoreLayer = Layer.mergeAll(
+      BaseLayer,
+      WsLayer,
+      CatalogLayer,
+      SPLayer,
+      CodingAgentRepositoryLive,
+    );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);
 

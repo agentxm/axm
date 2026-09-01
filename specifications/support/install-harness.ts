@@ -15,7 +15,7 @@ import * as path from "node:path";
 
 import * as Layer from "effect/Layer";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import {
   KnowledgeIndexLive,

@@ -10,8 +10,11 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
-import type { CodingAgent } from "../../agents/coding-agent.js";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "../../extension-workspace/index.js";
+import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { type AppError } from "../../app-error/index.js";

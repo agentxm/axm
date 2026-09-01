@@ -67,6 +67,10 @@
       "types": "./dist/src/unstable/workspace-inspection/index.d.ts",
       "default": "./dist/src/unstable/workspace-inspection/index.js"
     },
+    "./unstable/workspace-sync": {
+      "types": "./dist/src/unstable/workspace-sync/index.d.ts",
+      "default": "./dist/src/unstable/workspace-sync/index.js"
+    },
     "./unstable/lockfile": {
       "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"

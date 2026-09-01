@@ -26,7 +26,7 @@ import {
 import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
 import {

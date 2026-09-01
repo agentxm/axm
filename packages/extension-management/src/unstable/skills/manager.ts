@@ -35,7 +35,7 @@ import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
-import { CodingAgentRepository } from "../agents/index.js";
+import { CodingAgentRepository } from "../extension-workspace/index.js";
 import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { computeSkillSourceHash } from "./operations/source-hash.js";

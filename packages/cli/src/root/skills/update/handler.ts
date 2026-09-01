@@ -19,7 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   credentialFreeLocatorRecoveryValue,

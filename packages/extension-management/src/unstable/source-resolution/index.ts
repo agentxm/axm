@@ -26,6 +26,15 @@ export {
   createRegistryMetaProvider,
 } from "./service.js";
 
+// Workspace catalog port (implemented by the composition root)
+export {
+  WorkspaceCatalog,
+  type DesiredExtensionGraphView,
+  type DesiredExtensionNodeView,
+  type SkillCandidates,
+  type WorkspaceCatalogService,
+} from "./workspace-catalog.js";
+
 // Source resolver
 export {
   resolveSource,

@@ -26,7 +26,10 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "@agentxm/extension-management/unstable/source-resolution";
 import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {
   isVersionEntryMature,
@@ -48,7 +51,7 @@ import {
 } from "@agentxm/extension-management/unstable/skills";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type {
   JobStepArtifact,
@@ -337,6 +340,7 @@ type InstallSkillActions = InstallExtensionCommandWorkflowActions<
 
 export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const renderer = yield* CliRenderer;
   const skillMgr = yield* SkillManager;
@@ -441,6 +445,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
   // (resolveSkillInstallSource, determineSkillsToInstall, etc.)
   const envLayer = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(CliRenderer, renderer),
     Layer.succeed(WorkspaceMutations, ws),

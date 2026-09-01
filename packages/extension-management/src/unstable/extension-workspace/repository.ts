@@ -30,8 +30,8 @@ import {
   removeRooSubagent,
   removeSubagentViaResolve,
 } from "./subagent-sync.js";
-import { userScopeRefusal } from "./scope-refusal.js";
-import { getHome } from "./constants.js";
+import { userScopeRefusal } from "../workspace/scope-refusal.js";
+import { getHome } from "../agents/constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS, isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";

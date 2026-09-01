@@ -14,8 +14,25 @@ import {
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
+
+const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
+  const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+  return Layer.merge(
+    wsLayer,
+    WorkspaceCatalogLive.pipe(
+      Layer.provide(wsLayer),
+      Layer.provide(CodingAgentRepositoryLive),
+      Layer.provide(NodeServices.layer),
+    ),
+  );
+};
 import { handle } from "../test-helpers.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
@@ -93,7 +110,7 @@ describe("extension list assessment", () => {
       const assessed = yield* Effect.scoped(assessExtensionListItems([item], "outdated")).pipe(
         Effect.provide(
           Layer.mergeAll(
-            Layer.succeed(WorkspaceMutations, ws),
+            workspaceWithCatalogLayer(ws),
             Layer.succeed(SourceHostProviders, providers),
             Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),
@@ -125,7 +142,7 @@ describe("extension list assessment", () => {
       const assessed = yield* assessExtensionListItems([item], "outdated").pipe(
         Effect.provide(
           Layer.mergeAll(
-            Layer.succeed(WorkspaceMutations, ws),
+            workspaceWithCatalogLayer(ws),
             Layer.succeed(SourceHostProviders, providers),
             Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),

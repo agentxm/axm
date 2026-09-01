@@ -23,7 +23,11 @@ import type {
 import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { RuleExtensionRef } from "../workspace/refs/rule.js";
-import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
+import {
+  resolveSource,
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "../source-resolution/index.js";
 import type { SkillExtensionRef } from "../workspace/refs/skill.js";
 import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -164,6 +168,7 @@ export const resolveConfiguredRegistryEntry = (
   Option.Option<ConfiguredRegistryResolution>,
   AppError,
   | SourceHostProviders
+  | WorkspaceCatalog
   | WorkspaceMutations
   | FileSystem.FileSystem
   | HttpClient.HttpClient

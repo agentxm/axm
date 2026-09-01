@@ -23,13 +23,14 @@ import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/t
 import {
   resolveSource,
   SourceHostProviders,
+  WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import {
   WorkspaceMutations,
   type McpServerExtensionRef,
 } from "@agentxm/extension-management/unstable/workspace";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
@@ -115,6 +116,7 @@ const isConfigurableAgentId = (agentId: string): agentId is ConfigurableAgentId 
 
 export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
   const renderer = yield* CliRenderer;
@@ -132,6 +134,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   // services via the Effect context (e.g. resolveSource).
   const envLayer = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),

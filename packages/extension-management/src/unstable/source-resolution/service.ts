@@ -19,7 +19,7 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { parseRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceMutations } from "../workspace/index.js";
+import { WorkspaceCatalog } from "./workspace-catalog.js";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type {
   ExtensionFiles,
@@ -48,7 +48,7 @@ import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 /**
  * Service interface for source host providers.
  *
- * Dependencies (FileSystem, Path, WorkspaceMutations) are resolved at layer creation —
+ * Dependencies (FileSystem, Path, WorkspaceCatalog) are resolved at layer creation —
  * callers only see the service, not its implementation details.
  *
  * @experimental This API is unstable and may change without notice.
@@ -188,7 +188,7 @@ export const createRegistryMetaProvider = () => ({
  * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
- * Captures FileSystem, Path, HttpClient, and WorkspaceMutations at creation
+ * Captures FileSystem, Path, HttpClient, and WorkspaceCatalog at creation
  * time so the service interface doesn't leak these dependencies.
  *
  * @experimental This API is unstable and may change without notice.
@@ -196,14 +196,14 @@ export const createRegistryMetaProvider = () => ({
 export const SourceHostProvidersLive: Layer.Layer<
   SourceHostProviders,
   never,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceMutations
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | WorkspaceCatalog
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
+    const catalog = yield* WorkspaceCatalog;
 
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
@@ -214,7 +214,6 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(Path.Path, path),
-      Layer.succeed(WorkspaceMutations, ws),
     );
 
     const findGitHosting = (source: GitHostingSource, options: FindOptions) => {
@@ -229,7 +228,9 @@ export const SourceHostProvidersLive: Layer.Layer<
 
     const localSourceForWorkspace = (source: Extract<Source, { readonly type: "local" }>) => ({
       ...source,
-      path: path.isAbsolute(source.path) ? source.path : path.resolve(ws.baseDir, source.path),
+      path: path.isAbsolute(source.path)
+        ? source.path
+        : path.resolve(catalog.workspaceRoot, source.path),
     });
 
     const normalizeLocalRefSourcePath = (
@@ -237,7 +238,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     ): Effect.Effect<ExtensionRef, AppError> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
       const selectedPath = fileUrlToPath(ref.location);
-      const relative = makeWorkspaceRelativeSourcePath(path, ws.baseDir, selectedPath);
+      const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
       if (Option.isNone(relative)) {
         return Effect.fail(
           makeAppError({

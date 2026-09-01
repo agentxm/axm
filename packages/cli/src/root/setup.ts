@@ -1,7 +1,7 @@
 import {
   CodingAgentRepository,
   CodingAgentRepositoryLive,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/extension-workspace";
 import {
   bootstrapWorkspace,
   resolveInstructionTarget,

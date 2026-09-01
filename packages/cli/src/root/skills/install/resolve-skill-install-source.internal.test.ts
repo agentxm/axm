@@ -22,6 +22,8 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/extension-management/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
+import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
@@ -114,10 +116,22 @@ const remoteHttpLayer = Layer.succeed(
   ),
 );
 
+const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
+  const wsLayer = WorkspaceMutations.layer(ws);
+  return Layer.merge(
+    wsLayer,
+    WorkspaceCatalogLive.pipe(
+      Layer.provide(wsLayer),
+      Layer.provide(CodingAgentRepositoryLive),
+      Layer.provide(NodeServices.layer),
+    ),
+  );
+};
+
 const provideTestLayers = (sources: ReadonlyArray<SourceHostConfig>) =>
   Layer.mergeAll(
     NodeServices.layer,
-    WorkspaceMutations.layer(makeWorkspace(sources)),
+    workspaceWithCatalogLayer(makeWorkspace(sources)),
     remoteHttpLayer,
   );
 
@@ -274,7 +288,7 @@ describe("resolveSkillInstallSource", () => {
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,
-            WorkspaceMutations.layer({
+            workspaceWithCatalogLayer({
               ...makeWorkspace(sources),
               getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test"))),
             }),
@@ -394,7 +408,7 @@ describe("resolveSkillRegistrySourceByName", () => {
   ) =>
     Layer.mergeAll(
       NodeServices.layer,
-      WorkspaceMutations.layer({
+      workspaceWithCatalogLayer({
         ...makeWorkspace(sources),
         getConfiguredOwner: () => Effect.succeed(owner),
       }),

@@ -19,7 +19,11 @@ import {
   pruneManagedMcpServersForAgent,
   syncInlineMcpServerToAgents,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/extension-workspace";
+import {
+  cleanupStaleManagedSkillDirectories,
+  cleanupStaleManagedSubagentFiles,
+} from "@agentxm/extension-management/unstable/workspace-sync";
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
@@ -57,8 +61,6 @@ import {
   type SubagentExtensionRef,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
-  cleanupStaleManagedSubagentFiles,
-  cleanupStaleManagedSkillDirectories,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
   WorkspaceMutations,

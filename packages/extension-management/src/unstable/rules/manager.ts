@@ -55,7 +55,7 @@ import {
   parseMarker,
   serializeMarker,
 } from "../projection/marker-grammar.js";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../workspace/remove-if-exists.js";
@@ -207,6 +207,7 @@ export const RuleManagerLive = Layer.effect(
     const httpClient = yield* HttpClient.HttpClient;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
+    const catalog = yield* WorkspaceCatalog;
     const baseDir = ws.baseDir;
     const workspaceScope = ws.scope;
 
@@ -219,6 +220,7 @@ export const RuleManagerLive = Layer.effect(
       fsPathLayer,
       Layer.succeed(WorkspaceMutations, ws),
       Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(WorkspaceCatalog, catalog),
     );
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);
 

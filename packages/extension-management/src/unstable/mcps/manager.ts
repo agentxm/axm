@@ -29,7 +29,7 @@ import {
 import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { removeMcpServerFromManifest } from "../agents/mcp-sync.js";
+import { removeMcpServerFromManifest } from "../extension-workspace/mcp-sync.js";
 import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {

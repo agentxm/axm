@@ -35,6 +35,8 @@ import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstab
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { ExecutionDirectory } from "./execution-directory.js";
 
@@ -526,7 +528,14 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ensureWorkspaceFiles(path.join(workspaceRoot, ".axm"));
   }
 
-  const wsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const coreWsLayer = Layer.provide(coreWorkspaceLayer(wsOptions), cliTestContext.baseLayer);
+  const wsLayer = Layer.merge(
+    coreWsLayer,
+    Layer.provide(
+      WorkspaceCatalogLive,
+      Layer.mergeAll(coreWsLayer, CodingAgentRepositoryLive, cliTestContext.baseLayer),
+    ),
+  );
   const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer, KnowledgeIndexLive);
 
   return {

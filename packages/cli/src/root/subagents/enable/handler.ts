@@ -13,7 +13,7 @@ import {
   operationPresentation,
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import type { EnableSubagentOperation } from "@agentxm/extension-management/unstable/subagents";
 import { enableSubagent } from "@agentxm/extension-management/unstable/subagents";
 import { emitOperationResolution } from "../../../operation-output.js";

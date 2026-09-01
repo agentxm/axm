@@ -25,7 +25,11 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistryClient } from "../../registry/client.js";
-import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
+import {
+  resolveSource,
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "../../source-resolution/index.js";
 import {
   VersionSchema,
   type Version,
@@ -317,6 +321,7 @@ const collectSourceFreshness = (args: {
   | HttpClient.HttpClient
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceCatalog
   | SourceHostProviders
   | Scope.Scope
 > =>
@@ -399,6 +404,7 @@ type SourceFreshnessCollector = () => Effect.Effect<
   | HttpClient.HttpClient
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceCatalog
   | SourceHostProviders
   | Scope.Scope
 >;
@@ -546,6 +552,7 @@ export const collectAllUpdateEntries = (
   | HttpClient.HttpClient
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceCatalog
   | SourceHostProviders
   | Scope.Scope
 > =>

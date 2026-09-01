@@ -22,7 +22,24 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "../../workspace/test-stubs.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import { WorkspaceCatalogLive } from "../../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../../extension-workspace/repository.js";
+
+const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
+  const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+  return Layer.merge(
+    wsLayer,
+    WorkspaceCatalogLive.pipe(
+      Layer.provide(wsLayer),
+      Layer.provide(CodingAgentRepositoryLive),
+      Layer.provide(NodeServices.layer),
+    ),
+  );
+};
+import {
+  WorkspaceMutations,
+  type WorkspaceMutationsService,
+} from "../../workspace/service-interface.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
@@ -96,7 +113,7 @@ describe("collectSkillCurrency", () => {
 
       const index = makeExtensionIndex("code-review", "skill", ["1.2.0", "1.1.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
 
@@ -134,7 +151,7 @@ describe("collectSkillCurrency", () => {
 
       const index = makeExtensionIndex("code-review", "skill", ["1.2.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -177,7 +194,7 @@ describe("collectSkillCurrency", () => {
       });
 
       const client = makeStubRegistryClient([]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectSkillCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -260,11 +277,7 @@ describe("collectSkillSourceFreshness", () => {
         origin: () => "https://github.com/vercel-labs/skills",
       };
       const layer = Layer.merge(
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, ws),
-          NodeServices.layer,
-          FetchHttpClient.layer,
-        ),
+        Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
         Layer.succeed(SourceHostProviders, sourceProviders),
       );
 
@@ -341,11 +354,7 @@ describe("git-source freshness beyond skills", () => {
         getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("hook", "guard", "same-tree") }),
       });
       const layer = Layer.merge(
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, ws),
-          NodeServices.layer,
-          FetchHttpClient.layer,
-        ),
+        Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
         Layer.succeed(
           SourceHostProviders,
           providersReturning([
@@ -387,11 +396,7 @@ describe("git-source freshness beyond skills", () => {
           }),
       });
       const layer = Layer.merge(
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, ws),
-          NodeServices.layer,
-          FetchHttpClient.layer,
-        ),
+        Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
         Layer.succeed(SourceHostProviders, providersReturning([])),
       );
 
@@ -421,11 +426,7 @@ describe("git-source freshness beyond skills", () => {
         getLockedMcpServers: () => Effect.succeed({}),
       });
       const layer = Layer.merge(
-        Layer.mergeAll(
-          Layer.succeed(WorkspaceMutations, ws),
-          NodeServices.layer,
-          FetchHttpClient.layer,
-        ),
+        Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
         Layer.succeed(SourceHostProviders, providersReturning([])),
       );
 
@@ -462,7 +463,7 @@ describe("collectMcpServerCurrency", () => {
 
       const index = makeExtensionIndex("my-server", "mcp-server", ["1.1.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectMcpServerCurrency(client).pipe(Effect.provide(layer));
 
@@ -511,7 +512,7 @@ describe("collectSubagentCurrency", () => {
 
       const index = makeExtensionIndex("my-agent", "subagent", ["1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectSubagentCurrency(client).pipe(Effect.provide(layer));
 
@@ -549,7 +550,7 @@ describe("collectPackCurrency", () => {
 
       const index = makeExtensionIndex("starter", "pack", ["1.5.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectPackCurrency(client).pipe(Effect.provide(layer));
 
@@ -584,7 +585,7 @@ describe("collectRuleCurrency", () => {
 
       const index = makeExtensionIndex("api-conventions", "rule", ["1.3.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
 
@@ -614,7 +615,7 @@ describe("collectRuleCurrency", () => {
 
       const index = makeExtensionIndex("api-conventions", "rule", ["1.3.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -651,7 +652,7 @@ describe("collectRuleCurrency", () => {
       });
 
       const client = makeStubRegistryClient([]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectRuleCurrency(client).pipe(Effect.provide(layer));
       expect(entries).toHaveLength(0);
@@ -679,7 +680,7 @@ describe("collectHookCurrency", () => {
 
       const index = makeExtensionIndex("block-secrets", "hook", ["2.0.0", "1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectHookCurrency(client).pipe(Effect.provide(layer));
 
@@ -711,7 +712,7 @@ describe("collectKnowledgeCurrency", () => {
 
       const index = makeExtensionIndex("payments", "knowledge", ["1.0.0"]);
       const client = makeStubRegistryClient([index]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectKnowledgeCurrency(client).pipe(Effect.provide(layer));
 
@@ -762,7 +763,7 @@ describe("collectAllCurrencyEntries", () => {
       const skillIndex = makeExtensionIndex("code-review", "skill", ["1.1.0", "1.0.0"]);
       const ruleIndex = makeExtensionIndex("api-conventions", "rule", ["1.4.0", "1.0.0"]);
       const client = makeStubRegistryClient([skillIndex, ruleIndex]);
-      const layer = Layer.succeed(WorkspaceMutations, ws);
+      const layer = workspaceWithCatalogLayer(ws);
 
       const entries = yield* collectAllCurrencyEntries(client).pipe(Effect.provide(layer));
 

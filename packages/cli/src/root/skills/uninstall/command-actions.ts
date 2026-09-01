@@ -20,9 +20,12 @@ import {
   sanitizeName,
   type SkillExtensionTarget,
 } from "@agentxm/extension-management/unstable/workspace";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  resolveInstalledIdentifierNameOrInput,
+  WorkspaceCatalog,
+} from "@agentxm/extension-management/unstable/source-resolution";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import {
   SkillManager,
   skillArtifactFromTargets,
@@ -107,6 +110,7 @@ const skillSourceTarget = (
 
 export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
   const ws = yield* WorkspaceMutations;
+  const catalog = yield* WorkspaceCatalog;
   const skillMgr = yield* SkillManager;
   const agentRepo = yield* CodingAgentRepository;
   const fs = yield* FileSystem.FileSystem;
@@ -138,7 +142,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
               yield* resolveInstalledIdentifierNameOrInput({
                 input: args.skill,
                 resourceType: "skill",
-              }).pipe(Effect.provideService(WorkspaceMutations, ws)),
+              }).pipe(Effect.provideService(WorkspaceCatalog, catalog)),
             ];
 
       return { skills: names } satisfies ParsedSkillUninstallArgs;

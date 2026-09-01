@@ -8,7 +8,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach, vi } from "vitest";
-import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "../../extension-workspace/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";

@@ -14,11 +14,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
@@ -51,8 +52,16 @@ const mockSourceHostProviders = {
 
 const renderer = TestRenderer.make();
 
+const workspaceLayer = Layer.succeed(WorkspaceMutations, mockWorkspace);
+const workspaceCatalogLayer = WorkspaceCatalogLive.pipe(
+  Layer.provide(workspaceLayer),
+  Layer.provide(CodingAgentRepositoryLive),
+  Layer.provide(NodeServices.layer),
+);
+
 const testLayer = Layer.mergeAll(
-  Layer.succeed(WorkspaceMutations, mockWorkspace),
+  workspaceLayer,
+  workspaceCatalogLayer,
   Layer.succeed(McpServerManager, mockMcpServerManager),
   Layer.succeed(SourceHostProviders, mockSourceHostProviders),
   renderer.layer,

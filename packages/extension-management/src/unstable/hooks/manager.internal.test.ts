@@ -22,6 +22,8 @@ import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import { HookManager, HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "../workspace/refs/hook.js";
@@ -96,6 +98,8 @@ const makeHookManagerLayer = (
     hookNames.map((name) => [name, { source: "./source-hook", enabled: true }]),
   );
   return HookManagerLive.pipe(
+    Layer.provideMerge(WorkspaceCatalogLive),
+    Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provide(
       Layer.succeed(
         WorkspaceMutations,

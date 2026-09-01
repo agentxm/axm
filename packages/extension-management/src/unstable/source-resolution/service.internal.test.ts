@@ -25,6 +25,8 @@ import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceMutationsService } from "../workspace/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import type { FindOptions } from "../workspace/source-host-provider.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
@@ -109,8 +111,13 @@ const runWithService = <A, E>(
   axmDir?: string,
 ) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, makeTestWorkspace(sources, axmDir));
-  const spLayer = SourceHostProvidersLive.pipe(
+  const catalogLayer = WorkspaceCatalogLive.pipe(
     Layer.provide(wsLayer),
+    Layer.provide(CodingAgentRepositoryLive),
+    Layer.provide(NodeServices.layer),
+  );
+  const spLayer = SourceHostProvidersLive.pipe(
+    Layer.provide(catalogLayer),
     Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
   );
   const fullLayer = Layer.mergeAll(spLayer, NodeServices.layer, FetchHttpClient.layer);

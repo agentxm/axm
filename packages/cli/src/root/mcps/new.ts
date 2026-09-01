@@ -16,7 +16,7 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

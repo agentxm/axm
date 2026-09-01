@@ -7,8 +7,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../agents/index.js";
-import type { CodingAgent } from "../../agents/coding-agent.js";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "../../extension-workspace/index.js";
+import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import type { McpServerEntry } from "../../settings/index.js";

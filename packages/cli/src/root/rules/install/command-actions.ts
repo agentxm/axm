@@ -26,6 +26,7 @@ import {
 import {
   resolveSource,
   SourceHostProviders,
+  WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -57,6 +58,7 @@ type InstallRuleActions = InstallExtensionCommandWorkflowActions<
 
 export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
   const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
   const httpClient = yield* HttpClient.HttpClient;
   const ws = yield* WorkspaceMutations;
   const ruleManager = yield* RuleManager;
@@ -66,6 +68,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
 
   const envLayer = Layer.mergeAll(
     Layer.succeed(SourceHostProviders, sources),
+    Layer.succeed(WorkspaceCatalog, catalog),
     Layer.succeed(HttpClient.HttpClient, httpClient),
     Layer.succeed(WorkspaceMutations, ws),
     Layer.succeed(FileSystem.FileSystem, fs),

@@ -5,14 +5,14 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { codingAgentForId, CodingAgentRepository } from "../agents/index.js";
-import type { CodingAgentRepositoryService } from "../agents/index.js";
-import { WorkspaceMutations } from "./service-interface.js";
-import { makeBaseWorkspaceMock } from "./test-stubs.js";
+import { codingAgentForId, CodingAgentRepository } from "../extension-workspace/index.js";
+import type { CodingAgentRepositoryService } from "../extension-workspace/index.js";
+import { hasAxmManagedMarker } from "../extension-workspace/managed-file-discovery.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import {
   cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSkillDirectories,
-  hasAxmManagedMarker,
 } from "./index.js";
 
 const AXM_MANAGED_MARKER =

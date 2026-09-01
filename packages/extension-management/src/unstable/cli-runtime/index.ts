@@ -112,3 +112,4 @@ export {
   type SourceKind,
 } from "./command-summary.js";
 export { AgentPresenceProbeLive } from "./agent-presence-live.js";
+export { WorkspaceCatalogLive } from "./workspace-catalog-live.js";

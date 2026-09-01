@@ -13,7 +13,7 @@ import {
   CodingAgentRepository,
   type CodingAgent,
   type CodingAgentRepositoryService,
-} from "../../agents/index.js";
+} from "../../extension-workspace/index.js";
 import type { SubagentLockEntry } from "../../lockfile/index.js";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 

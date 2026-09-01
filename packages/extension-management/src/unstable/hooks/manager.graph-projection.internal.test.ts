@@ -27,6 +27,8 @@ import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
+import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { HookManager, HookManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
@@ -127,6 +129,8 @@ describe("HookManager graph-derived unit projection", () => {
       getInstructionsConfig: () => Effect.succeed(Option.some({})),
     });
     return HookManagerLive.pipe(
+      Layer.provideMerge(WorkspaceCatalogLive),
+      Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provide(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),

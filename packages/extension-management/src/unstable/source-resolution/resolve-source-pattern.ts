@@ -8,27 +8,16 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "effect/FileSystem";
+import type * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
-import * as Path from "effect/Path";
-import * as Array from "effect/Array";
+import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
-import { CodingAgentRepository } from "../agents/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { skillsInDir, type DiscoveredSkill } from "../workspace/read-model/discovery/index.js";
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
-import { WorkspaceMutations } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import { fileUrlToPath } from "./file-url.js";
+import { WorkspaceCatalog } from "./workspace-catalog.js";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  configuredRowsByName,
-  installedRowsByName,
-  unmanagedRowsByName,
-} from "../workspace/read-model-record-rows.js";
-import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -36,78 +25,6 @@ import { toAppError } from "../app-error/conversions.js";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));
-
-/** Build candidate skill names and on-disk locations from all available sources. */
-const buildCandidates = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  const path = yield* Path.Path;
-  const agentRepo = yield* CodingAgentRepository;
-  const base = ws.baseDir;
-  const installedSkills = yield* ws.records
-    .rows("skill")
-    .pipe(Effect.mapError(toAppError))
-    .pipe(Effect.map(installedRowsByName));
-  const unmanagedSkills = yield* ws.records
-    .rows("skill")
-    .pipe(Effect.mapError(toAppError))
-    .pipe(Effect.map(unmanagedRowsByName));
-  const configuredSkills = yield* ws.records
-    .rows("skill")
-    .pipe(Effect.mapError(toAppError))
-    .pipe(Effect.map(configuredRowsByName));
-  const configuredAgents = yield* agentRepo
-    .getMaterializationAgents()
-    .pipe(Effect.provideService(WorkspaceMutations, ws));
-  const resolvedAgents = yield* Effect.forEach(
-    configuredAgents,
-    (agent) =>
-      agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: base })
-        .pipe(Effect.map((outcome) => ({ agent, outcome }))),
-    { concurrency: "unbounded" },
-  );
-
-  const agentRoots = sortNames(
-    Array.dedupe(
-      Array.getSomes(
-        Array.map(resolvedAgents, ({ outcome }) =>
-          outcome._tag === "supported"
-            ? Option.some(path.normalize(outcome.dir))
-            : Option.none<string>(),
-        ),
-      ),
-    ),
-  );
-
-  const onDiskRefs = yield* Effect.forEach(
-    agentRoots,
-    (agentRoot) =>
-      skillsInDir(agentRoot, Option.none(), {
-        fullDepth: false,
-        includeInternal: false,
-      }).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
-    { concurrency: "unbounded" },
-  ).pipe(Effect.map(Array.flatten));
-
-  const refsSortedByLocation = [...onDiskRefs].sort((a, b) => a.location.localeCompare(b.location));
-  const onDiskByName = new Map<string, string>();
-  for (const ref of refsSortedByLocation) {
-    if (!onDiskByName.has(ref.skill.name)) {
-      onDiskByName.set(ref.skill.name, fileUrlToPath(ref.location));
-    }
-  }
-
-  // Candidate set: installed + unmanaged.
-  const names = sortNames(
-    Array.dedupe([
-      ...Object.keys(installedSkills),
-      ...Object.keys(unmanagedSkills),
-      ...onDiskByName.keys(),
-    ]),
-  );
-
-  return { names, configuredSkills, onDiskByName } as const;
-});
 
 /** Resolve a single skill name with fallbacks: resolveSource → configured source → on-disk path. */
 const resolveNameWithFallback = (
@@ -155,15 +72,12 @@ export const resolveSourcePattern = (
 ): Effect.Effect<
   ReadonlyArray<Source>,
   AppError,
-  | WorkspaceMutations
-  | FileSystem.FileSystem
-  | HttpClient.HttpClient
-  | Path.Path
-  | CodingAgentRepository
+  WorkspaceCatalog | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
 > =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
-        const candidates = yield* buildCandidates;
+        const catalog = yield* WorkspaceCatalog;
+        const candidates = yield* catalog.skillCandidates;
         const matchedNames = expandGlobs([input], candidates.names);
 
         if (matchedNames.length === 0) {
@@ -192,7 +106,8 @@ export const resolveSourcePattern = (
             return Effect.fail(error);
           }
           return Effect.gen(function* () {
-            const candidates = yield* buildCandidates;
+            const catalog = yield* WorkspaceCatalog;
+            const candidates = yield* catalog.skillCandidates;
             return yield* resolveNameWithFallback(
               input,
               candidates.configuredSkills,

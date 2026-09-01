@@ -11,7 +11,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { CodingAgentRepository } from "../../agents/index.js";
+import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";

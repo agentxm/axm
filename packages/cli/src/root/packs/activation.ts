@@ -8,7 +8,10 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
+import {
+  CodingAgentRepository,
+  findManagedSubagentFiles,
+} from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -16,7 +19,6 @@ import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-run
 import {
   RenderedFilePathSchema,
   sanitizeName,
-  findManagedSubagentFiles,
   isDesiredExtensionActive,
   WorkspaceMutations,
   type DesiredExtensionNode,
@@ -38,7 +40,10 @@ import {
   type ProjectionPlan,
 } from "@agentxm/extension-management/unstable/projection";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import {
+  SourceHostProviders,
+  WorkspaceCatalog,
+} from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 
 import { scopeFlag } from "../../cli-flags.js";
@@ -251,6 +256,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     | HttpClient.HttpClient
     | CliRenderer
     | SourceHostProviders
+    | WorkspaceCatalog
     | WorkspaceMutations
     | CodingAgentRepository
     | FileSystem.FileSystem

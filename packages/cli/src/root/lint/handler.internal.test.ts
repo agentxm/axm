@@ -20,7 +20,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import {
   TestMachineRenderer,
   TestRenderer,
@@ -38,6 +38,7 @@ import {
   SkillManagerLive,
 } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
@@ -124,9 +125,17 @@ describe("axm lint handler", () => {
     };
     const wsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), baseLayer);
     const workspaceFoundation = Layer.mergeAll(baseLayer, wsLayer);
-    const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceFoundation);
+    const workspaceCatalogLayer = Layer.provide(
+      WorkspaceCatalogLive,
+      Layer.merge(workspaceFoundation, CodingAgentRepositoryLive),
+    );
+    const sourceProvidersLayer = Layer.provide(
+      SourceHostProvidersLive,
+      Layer.merge(workspaceFoundation, workspaceCatalogLayer),
+    );
     const workspaceServiceLayer = Layer.mergeAll(
       workspaceFoundation,
+      workspaceCatalogLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
     );

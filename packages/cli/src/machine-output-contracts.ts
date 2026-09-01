@@ -65,7 +65,7 @@ const planFamily = {
   humanOutputKind: "mutation",
   liveness: "progress",
   livenessCoverage: [
-    "packages/extension-management/src/unstable/plan/resolve-plan.internal.test.ts",
+    "packages/workspace-operations/src/plan/resolve-plan.internal.test.ts",
     "packages/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],

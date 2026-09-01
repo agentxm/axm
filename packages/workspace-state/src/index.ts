@@ -82,6 +82,13 @@ export {
   ConfiguredAgentOutcomeSchema,
   type ConfiguredAgentOutcome,
 } from "./workspace/configured-agent-outcome.js";
+export {
+  ConfiguredAgentOutcomesProvider,
+  ConfiguredAgentOutcomesUnavailable,
+  type ConfiguredAgentOutcomesFailureCategory,
+  type ConfiguredAgentOutcomesForState,
+  type ConfiguredAgentOutcomesProviderService,
+} from "./workspace/configured-agent-outcomes-provider.js";
 
 // MCP entry settings semantics
 export {

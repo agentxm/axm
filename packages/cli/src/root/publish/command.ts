@@ -41,6 +41,7 @@ import {
   withArgvTracking,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -84,7 +85,6 @@ import {
   unitIdOf,
   type OperationJournalState,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,

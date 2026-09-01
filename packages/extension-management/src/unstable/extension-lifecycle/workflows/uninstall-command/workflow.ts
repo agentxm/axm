@@ -12,7 +12,7 @@ import type { AppError } from "../../../app-error/index.js";
 import type { Plan } from "@agentxm/workspace-operations";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { OperationResolution } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "../../../plan/resolve-plan.js";
+import { previewOrApplyPlan } from "@agentxm/workspace-operations";
 import type { PlanExecution } from "@agentxm/workspace-operations";
 
 // -----------------------------------------------------------------------------

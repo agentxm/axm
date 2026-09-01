@@ -19,6 +19,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -51,7 +52,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import type { SkillsLockMap } from "@agentxm/workspace-state";
 import {
   detectHoldbackWarnings,

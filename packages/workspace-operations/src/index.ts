@@ -1,11 +1,11 @@
 /**
  * @agentxm/workspace-operations public API.
  *
- * The workspace-operations kernel: plan vocabulary and execution, operation
+ * The workspace-operations kernel: plan vocabulary and execution, the
+ * interactive preview/apply orchestration (`previewOrApplyPlan`), operation
  * resolutions and journals, plan readiness and reconciliation gating, and the
  * workspace transaction and transition-lock machinery. The composed workspace
- * layer lives behind `./live`; the interactive preview/apply orchestration
- * (`previewOrApplyPlan`) stays with the application-facing feature layer.
+ * layer lives behind `./live`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -109,6 +109,7 @@ export {
 
 // Serialized error vocabulary and the plan-family tagged errors.
 export {
+  ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
   OPERATION_ERROR_CATEGORIES,
   OperationErrorCategorySchema,
@@ -118,6 +119,9 @@ export {
   StepFailure,
   type OperationErrorCategory,
 } from "./plan/errors.js";
+
+// Interactive preview/apply orchestration over the workspace read model.
+export { previewOrApplyPlan } from "./plan/resolve-plan.js";
 
 // Interaction port for preview/apply presentation, progress, and confirmation.
 // The CLI runtime provides the Live implementation.

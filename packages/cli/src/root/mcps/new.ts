@@ -21,6 +21,7 @@ import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/age
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -36,7 +37,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,

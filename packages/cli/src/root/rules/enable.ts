@@ -7,12 +7,12 @@ import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
+  previewOrApplyPlan,
   operationPresentation,
   type JobStepArtifact,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {

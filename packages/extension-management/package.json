@@ -99,10 +99,6 @@
       "types": "./dist/src/unstable/auth/index.d.ts",
       "default": "./dist/src/unstable/auth/index.js"
     },
-    "./unstable/plan": {
-      "types": "./dist/src/unstable/plan/index.d.ts",
-      "default": "./dist/src/unstable/plan/index.js"
-    },
     "./unstable/projection": {
       "types": "./dist/src/unstable/projection/index.d.ts",
       "default": "./dist/src/unstable/projection/index.js"

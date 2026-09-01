@@ -24,6 +24,7 @@ import {
   WorkspaceTransitionCompromised,
 } from "@agentxm/workspace-state";
 import {
+  ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
   OPERATION_ERROR_CATEGORIES,
   PlanInteractionFailed,
@@ -31,6 +32,7 @@ import {
   StaleExecutionCandidate,
   StepFailure,
 } from "@agentxm/workspace-operations";
+import { ConfiguredAgentOutcomesUnavailable } from "@agentxm/workspace-state";
 import { SettingsWriteError } from "@agentxm/workspace-state";
 import {
   LockfileResolvedVersionInvalid,
@@ -797,6 +799,28 @@ export const planInteractionFailedToAppError = (error: PlanInteractionFailed): A
     ...(error.cause === undefined ? {} : { cause: error.cause }),
   });
 
+/** Translate a plan-execution contract violation, byte-identical to the former envelope. */
+export const approvalRecoveryMissingToAppError = (_error: ApprovalRecoveryMissing): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: "Apply execution is missing approval recovery metadata",
+  });
+
+/**
+ * Translate a configured-agent-outcomes provider failure: the implementation
+ * chose the category and wording at construction, so the envelope carries
+ * them over 1:1.
+ */
+export const configuredAgentOutcomesUnavailableToAppError = (
+  error: ConfiguredAgentOutcomesUnavailable,
+): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
 /**
  * Every typed failure the application boundary knows how to convert. Each
  * package's error union registers here as it stops constructing `AppError`
@@ -842,6 +866,8 @@ export type KnownFailure =
   | SubagentScanFailed
   | CandidateFingerprintFailed
   | PlanInteractionFailed
+  | ApprovalRecoveryMissing
+  | ConfiguredAgentOutcomesUnavailable
   | WorkspaceSnapshotError
   | WorkspaceDirectoryError
   | TransitionLockError
@@ -958,6 +984,8 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof SubagentScanFailed ||
   error instanceof CandidateFingerprintFailed ||
   error instanceof PlanInteractionFailed ||
+  error instanceof ApprovalRecoveryMissing ||
+  error instanceof ConfiguredAgentOutcomesUnavailable ||
   error instanceof WorkspaceSnapshotError ||
   error instanceof WorkspaceDirectoryError ||
   error instanceof TransitionLockError ||
@@ -1118,6 +1146,10 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return candidateFingerprintFailedToAppError(error);
     case "PlanInteractionFailed":
       return planInteractionFailedToAppError(error);
+    case "ApprovalRecoveryMissing":
+      return approvalRecoveryMissingToAppError(error);
+    case "ConfiguredAgentOutcomesUnavailable":
+      return configuredAgentOutcomesUnavailableToAppError(error);
     case "WorkspaceSnapshotError":
       return workspaceSnapshotErrorToAppError(error);
     case "WorkspaceDirectoryError":

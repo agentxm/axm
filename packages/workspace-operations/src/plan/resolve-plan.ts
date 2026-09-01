@@ -4,7 +4,9 @@
  * Orchestrates `augmentPlanWithReconciliation`, `scanPlanReadiness`,
  * and `applyPlan` with the `ResolvePlanInteraction` port, and produces
  * one `OperationResolution` at every termination path. Channels project the
- * returned resolution; presentation and prompting live behind the port.
+ * returned resolution; presentation and prompting live behind the port, and
+ * per-type outcome refinement behind the optional
+ * `ConfiguredAgentOutcomesProvider` port.
  *
  * This is a free function, not a method on WorkspaceMutationsService.
  *
@@ -17,28 +19,21 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../app-error/index.js";
 import {
-  appErrorToStepFailure,
-  failureToStepFailure,
-  restorationIncompleteToAppError,
-  toAppError,
-} from "../app-error/conversions.js";
-import {
+  ApprovalRecoveryMissing,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
-} from "@agentxm/workspace-operations";
-import { applyPlan } from "@agentxm/workspace-operations";
+} from "./errors.js";
+import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
   type ExecutionCandidate,
-} from "@agentxm/workspace-operations";
-import { augmentPlanWithReconciliation } from "@agentxm/workspace-operations";
-import { scanPlanReadiness } from "@agentxm/workspace-operations";
-import type { LockfileState } from "@agentxm/workspace-state";
-import type { CompletedJobStep, ExecutedPlan, Plan } from "@agentxm/workspace-operations";
+} from "./execution-candidate.js";
+import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
+import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
+import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
 import {
   declaredAtomicity,
   executedUnits,
@@ -46,17 +41,18 @@ import {
   plannedUnits,
   unitIdOf,
   type OperationBlock,
+  type OperationFootprintEntry,
+  type OperationPhase,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "./operation-resolution.js";
 import {
   appendResolvedUnit,
   appendStartedUnit,
   recordJournalPhase,
   recordOperationJournal,
-} from "@agentxm/workspace-operations";
-import { publishLifecycleEvent, publishPhaseStarted } from "@agentxm/workspace-operations";
-import type { OperationPhase } from "@agentxm/workspace-operations";
+} from "./operation-journal.js";
+import { publishLifecycleEvent, publishPhaseStarted } from "./operation-events.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   readPendingClosureRestorationFailures,
@@ -66,21 +62,27 @@ import {
   rollbackWorkspaceClosure,
   settleWorkspaceClosure,
   withWorkspaceClosure,
-} from "@agentxm/workspace-operations";
+} from "../operations/transaction.js";
 import { readFootprint } from "@agentxm/workspace-state";
-import type { OperationFootprintEntry } from "@agentxm/workspace-operations";
-import { InterruptionSignalSource } from "@agentxm/workspace-operations";
-import { ResolvePlanInteraction } from "@agentxm/workspace-operations";
-import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
-import { HookManager } from "../hooks/manager.js";
-import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
-import { configuredAgentLifecycleOutcomes } from "@agentxm/workspace-state";
+import { InterruptionSignalSource } from "./interruption-signal.js";
+import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
 import {
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
+  type ConfiguredAgentOperation,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
+} from "./plan-execution.js";
+import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-state";
+import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
+import { configuredAgentLifecycleOutcomes } from "@agentxm/workspace-state";
 import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
+import {
+  candidateFingerprintFailedToStepFailure,
+  configuredAgentOutcomesUnavailableToStepFailure,
+  restorationIncompleteToStepFailure,
+  workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailureToStepFailure,
+} from "./step-failure-conversions.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
@@ -184,31 +186,29 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   const mode = options.execution.request.mode;
 
-  const getLockfileState = (): Effect.Effect<LockfileState, AppError> =>
-    ws.getLockfileState().pipe(Effect.mapError(toAppError));
-
   yield* publishPhaseStarted("planning");
 
   // Step 1: Lockfile reconciliation
   const augmented = yield* interaction.withPlanningProgress(plan.name, () =>
-    augmentPlanWithReconciliation(plan, getLockfileState),
+    augmentPlanWithReconciliation(plan, () => ws.getLockfileState()),
   );
 
   const operations = options.execution.configuredAgentOperations ?? [];
-  const configuredAgents =
-    operations.length === 0
-      ? []
-      : yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
+  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
   const configuredMcpServers = operations.some(
     ({ extensionType }) => extensionType === "mcp-server",
   )
     ? yield* ws.getConfiguredMcpServerEntries()
     : {};
-  const hookManager = yield* Effect.serviceOption(HookManager);
+  const outcomesProvider = yield* Effect.serviceOption(ConfiguredAgentOutcomesProvider);
+  const outcomesOverrideFor = (extensionType: ConfiguredAgentOperation["extensionType"]) =>
+    Option.isSome(outcomesProvider)
+      ? outcomesProvider.value.byExtensionType[extensionType]
+      : undefined;
   const outcomesFor = (
     operation: ConfiguredAgentOperation,
     state: "projected" | "current",
-  ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, AppError> => {
+  ): Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>> => {
     const mcpEntry =
       operation.extensionType === "mcp-server" ? configuredMcpServers[operation.name] : undefined;
     const generic = configuredAgentLifecycleOutcomes({
@@ -228,13 +228,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
             ),
           }),
     });
-    if (
-      operation.plannedState === "enabled" &&
-      operation.extensionType === "hook" &&
-      Option.isSome(hookManager) &&
-      hookManager.value.configuredAgentOutcomes !== undefined
-    ) {
-      return hookManager.value.configuredAgentOutcomes(state).pipe(
+    const override = outcomesOverrideFor(operation.extensionType);
+    if (operation.plannedState === "enabled" && override !== undefined) {
+      return override(state).pipe(
         Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
         Effect.map((outcomes) => (outcomes.length === 0 ? generic : outcomes)),
         Effect.catch(() => Effect.succeed(generic)),
@@ -395,10 +391,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   }
 
   if (!("approvalRecovery" in options.execution)) {
-    return yield* makeAppError({
-      code: "internal",
-      detail: "Apply execution is missing approval recovery metadata",
-    });
+    return yield* new ApprovalRecoveryMissing();
   }
   const applyExecution = options.execution;
 
@@ -458,9 +451,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       });
     }
     yield* enterPhase("confirmation");
-    const confirmation = yield* interaction
-      .confirmApplyChanges(applyExecution.approvalRecovery)
-      .pipe(Effect.mapError(toAppError));
+    const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
     if (confirmation !== "approved") {
       return notExecuted({ declined: true });
     }
@@ -555,7 +546,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         (error) =>
           ({
             error:
-              error._tag === "CandidateFingerprintFailed" ? failureToStepFailure(error) : error,
+              error._tag === "CandidateFingerprintFailed"
+                ? candidateFingerprintFailedToStepFailure(error)
+                : error,
           }) satisfies PlanApplyFailure<Output>,
       ),
     );
@@ -599,17 +592,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
-    const currentOutcomes = (yield* Effect.forEach(operations, (operation) =>
-      operation.plannedState === "enabled" &&
-      operation.extensionType === "hook" &&
-      Option.isSome(hookManager) &&
-      hookManager.value.configuredAgentOutcomes !== undefined
-        ? hookManager.value
-            .configuredAgentOutcomes("current")
-            .pipe(Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)))
+    const currentOutcomes = (yield* Effect.forEach(operations, (operation) => {
+      const override = outcomesOverrideFor(operation.extensionType);
+      return operation.plannedState === "enabled" && override !== undefined
+        ? override("current").pipe(
+            Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
+            Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
+          )
         : operation.plannedState === "enabled"
           ? ws.records.getExtensionInventory(operation.extensionType, {}).pipe(
-              Effect.mapError(toAppError),
+              Effect.mapError(workspaceStateReadFailureToStepFailure),
               Effect.map(
                 (inventory) =>
                   inventory.items.find((item) => item.name === operation.name)?.agentOutcomes ??
@@ -634,8 +626,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
                 targetState: operation.plannedState,
                 installed: false,
               }),
-            ),
-    )).flat();
+            );
+    })).flat();
     const incomplete = currentOutcomes.find(
       ({ outcome }) => outcome === "blocked" || outcome === "failed",
     );
@@ -685,16 +677,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         const inner = Option.getOrUndefined(transitionFailure);
         const innerApplyFailure = isPlanApplyFailureShape(inner) ? inner : undefined;
         return {
-          error:
-            innerApplyFailure?.error ??
-            appErrorToStepFailure(restorationIncompleteToAppError(failure)),
+          error: innerApplyFailure?.error ?? restorationIncompleteToStepFailure(failure),
           ...(innerApplyFailure?.attemptedExecution === undefined
             ? {}
             : { attemptedExecution: innerApplyFailure.attemptedExecution }),
           restoration: failure,
         };
       }
-      return "error" in failure ? failure : { error: failureToStepFailure(failure) };
+      return "error" in failure
+        ? failure
+        : { error: workspaceTransactionFailureToStepFailure(failure) };
     }),
   );
   const applyResult = yield* Effect.scoped(

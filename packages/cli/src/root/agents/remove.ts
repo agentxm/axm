@@ -20,12 +20,12 @@ import {
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
+  previewOrApplyPlan,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

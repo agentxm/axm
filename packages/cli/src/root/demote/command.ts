@@ -9,6 +9,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
@@ -30,7 +31,6 @@ import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

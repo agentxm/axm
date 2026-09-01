@@ -5,14 +5,18 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
+import {
+  previewOrApplyPlan,
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/workspace-operations";
 import {
   deriveOperationOutcome,
   operationPresentation,
   type JobStepResult,
   type Plan,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 

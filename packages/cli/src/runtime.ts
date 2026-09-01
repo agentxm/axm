@@ -54,7 +54,10 @@ import {
   SkillManagerLive,
 } from "@agentxm/extension-management/unstable/skills";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import {
+  HookConfiguredAgentOutcomesProviderLive,
+  HookManagerLive,
+} from "@agentxm/extension-management/unstable/hooks";
 import {
   KnowledgeIndexLive,
   KnowledgeManagerLive,
@@ -308,7 +311,11 @@ const makeWorkspaceProgramLayer = (
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
-  return Layer.merge(fullLayer, invariantFactsLayer);
+  const configuredAgentOutcomesLayer = Layer.provide(
+    HookConfiguredAgentOutcomesProviderLive,
+    fullLayer,
+  );
+  return Layer.mergeAll(fullLayer, invariantFactsLayer, configuredAgentOutcomesLayer);
 };
 
 const envToBool = (opt: Option.Option<string>): boolean =>

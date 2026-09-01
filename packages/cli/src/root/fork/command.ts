@@ -19,6 +19,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -48,7 +49,6 @@ import {
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   SourceHostProviders,
   findExtensionPackagesFromSource,

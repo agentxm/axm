@@ -32,8 +32,7 @@ import {
   usableAcceptedCanonical,
 } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";

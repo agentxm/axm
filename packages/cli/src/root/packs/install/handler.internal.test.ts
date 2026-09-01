@@ -31,8 +31,7 @@ import {
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";

@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import type { ConfirmationRecovery, ConfiguredAgentOperation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
-import { type Plan, type PlanPolicyId } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan, type Plan, type PlanPolicyId } from "@agentxm/workspace-operations";
 import { makePlanExecution } from "./confirmation-recovery.js";
 
 export interface LocalPlanFlags {

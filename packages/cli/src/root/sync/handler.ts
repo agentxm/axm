@@ -38,7 +38,11 @@ import {
   type ReleaseAgeOperationEvidence,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { preapprovedPlanExecution, previewPlanExecution } from "@agentxm/workspace-operations";
+import {
+  previewOrApplyPlan,
+  preapprovedPlanExecution,
+  previewPlanExecution,
+} from "@agentxm/workspace-operations";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   buildMaterializeOperation,
@@ -113,7 +117,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

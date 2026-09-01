@@ -6,13 +6,13 @@ import * as Path from "effect/Path";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   operationPresentation,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";

@@ -6,6 +6,7 @@ import {
   summarizeCommandOutcome,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   recoveryPositional,
   recoverySwitch,
@@ -13,7 +14,6 @@ import {
 } from "@agentxm/workspace-operations";
 import type { OperationResolution, Plan } from "@agentxm/workspace-operations";
 import { makeOperationResolution, operationPresentation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   makeConfiguredReleaseAgeEvaluation,
   runInstallCommandWorkflow,

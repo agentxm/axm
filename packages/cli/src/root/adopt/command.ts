@@ -23,8 +23,7 @@ import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowled
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
-import { operationPresentation } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";

@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
+  previewOrApplyPlan,
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -38,7 +39,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";

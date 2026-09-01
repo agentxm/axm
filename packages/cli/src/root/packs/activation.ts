@@ -27,13 +27,13 @@ import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import {
+  previewOrApplyPlan,
   operationPresentation,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   applyProjectionPlans,

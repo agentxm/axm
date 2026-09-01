@@ -9,13 +9,13 @@ import {
 } from "@agentxm/extension-management/unstable/extensions";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import {
+  previewOrApplyPlan,
   operationPresentation,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   usableAcceptedCanonical,

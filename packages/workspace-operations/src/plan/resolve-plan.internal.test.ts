@@ -9,32 +9,31 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
-import { failureToStepFailure } from "../app-error/conversions.js";
 import {
   applyPlanExecution,
   promptablePlanExecution,
   preapprovedPlanExecution,
   previewPlanExecution,
   type ConfirmationRecovery,
-} from "@agentxm/workspace-operations";
+} from "./plan-execution.js";
+import { runWorkspaceTransaction } from "../operations/transaction.js";
 import {
   acquireWorkspaceTransitionLock,
   isWorkspaceTransitionHeldByThisInvocation,
-  runWorkspaceTransaction,
-} from "@agentxm/workspace-operations";
+} from "../operations/transition-lock.js";
 import {
   protectWorkspacePath,
   WorkspaceMutations,
   type WorkspaceMutationsService,
   type WorkspaceTransitionAcquirer,
 } from "@agentxm/workspace-state";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
-import { type ApplyConfirmation } from "@agentxm/workspace-operations";
+import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import type { Plan } from "@agentxm/workspace-operations";
-import { StepFailure, type PlanInteractionFailed } from "@agentxm/workspace-operations";
-import { isExecutionCandidateFresh, makeExecutionCandidate } from "@agentxm/workspace-operations";
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import type { Plan } from "./plan.js";
+import { StepFailure, type PlanInteractionFailed } from "./errors.js";
+import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
+import { deriveOperationOutcome } from "./operation-resolution.js";
+import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
@@ -685,7 +684,7 @@ describe("previewOrApplyPlan", () => {
                   readiness: "ready",
                   label: "first",
                   run: protectWorkspacePath(target).pipe(
-                    Effect.mapError(failureToStepFailure),
+                    Effect.mapError(workspaceTransactionFailureToStepFailure),
                     Effect.andThen(
                       fs.writeFileString(target, "changed").pipe(
                         Effect.mapError(
@@ -784,7 +783,7 @@ describe("previewOrApplyPlan", () => {
       const context = makeTestContext(undefined, undefined, workspace);
       const write = (target: string, content: string) =>
         protectWorkspacePath(target).pipe(
-          Effect.mapError(failureToStepFailure),
+          Effect.mapError(workspaceTransactionFailureToStepFailure),
           Effect.andThen(
             fs
               .writeFileString(target, content)
@@ -900,7 +899,7 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:a",
                 label: "a",
                 run: protectWorkspacePath(fileA).pipe(
-                  Effect.mapError(failureToStepFailure),
+                  Effect.mapError(workspaceTransactionFailureToStepFailure),
                   Effect.andThen(
                     fs.writeFileString(fileA, "a-changed").pipe(
                       Effect.mapError(
@@ -921,7 +920,7 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:b",
                 label: "b",
                 run: protectWorkspacePath(fileB).pipe(
-                  Effect.mapError(failureToStepFailure),
+                  Effect.mapError(workspaceTransactionFailureToStepFailure),
                   Effect.andThen(
                     fs.writeFileString(fileB, "b-changed").pipe(
                       Effect.mapError(
@@ -1010,7 +1009,7 @@ describe("previewOrApplyPlan", () => {
                 // own restoration impossible: the parent directory is
                 // replaced by a plain file before the step reports failure.
                 run: protectWorkspacePath(target).pipe(
-                  Effect.mapError(failureToStepFailure),
+                  Effect.mapError(workspaceTransactionFailureToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
                   Effect.andThen(
@@ -1100,7 +1099,7 @@ describe("previewOrApplyPlan", () => {
                 readiness: "ready",
                 label: "first",
                 run: protectWorkspacePath(target).pipe(
-                  Effect.mapError(failureToStepFailure),
+                  Effect.mapError(workspaceTransactionFailureToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   // Restoration cannot recreate the target afterwards: its
                   // parent directory is replaced by a plain file.

@@ -9,11 +9,11 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
+  previewOrApplyPlan,
   StepFailure,
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

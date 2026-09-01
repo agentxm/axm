@@ -7,11 +7,11 @@ import { CodingAgentRepository } from "@agentxm/extension-management/unstable/ex
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { disableMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import {
+  previewOrApplyPlan,
   operationPresentation,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

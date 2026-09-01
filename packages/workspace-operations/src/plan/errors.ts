@@ -99,6 +99,16 @@ export class CandidateFingerprintFailed extends Schema.TaggedError<CandidateFing
 ) {}
 
 /**
+ * An apply-mode execution reached the plan pipeline without approval
+ * recovery metadata: a caller violated the `PlanExecution` contract. The CLI
+ * boundary owns the rendering.
+ */
+export class ApprovalRecoveryMissing extends Schema.TaggedError<ApprovalRecoveryMissing>()(
+  "ApprovalRecoveryMissing",
+  {},
+) {}
+
+/**
  * The plan interaction implementation could not complete a presentation or
  * confirmation exchange. The implementation owns wording and category choice;
  * the kernel only transports the failure to the boundary that renders it.

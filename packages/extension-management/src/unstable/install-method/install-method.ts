@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { envOption } from "../utils/index.js";
-import { resolveUserAxmHomePure } from "../workspace/paths.js";
+import { resolveUserAxmHomePure } from "@agentxm/workspace-state";
 
 export type DetectionSource =
   | "executable-path"

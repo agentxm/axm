@@ -16,9 +16,9 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
   type WorkspaceMutationsOptions,
-  type RegistrySkillRef,
   computePackManifestContentIdentity,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";

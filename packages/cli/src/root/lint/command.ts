@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintView } from "@agentxm/extension-management/unstable/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 

@@ -10,7 +10,7 @@ import {
   extensionPathSourceFromLockEntry,
   WorkspaceMutations,
   type WorkspaceLayout,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_SOURCE_DIR,
@@ -22,7 +22,7 @@ import {
   inspectKnowledgePackage,
   readKnowledgePackageManifest,
 } from "@agentxm/extension-management/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 
 export { inspectKnowledgePackage } from "@agentxm/extension-management/unstable/knowledge";
 

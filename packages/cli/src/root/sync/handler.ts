@@ -38,10 +38,7 @@ import {
   type ReleaseAgeOperationEvidence,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import {
-  preapprovedPlanExecution,
-  previewPlanExecution,
-} from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution, previewPlanExecution } from "@agentxm/workspace-operations";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   buildMaterializeOperation,
@@ -52,13 +49,6 @@ import {
 } from "@agentxm/extension-management/unstable/extensions";
 import {
   sanitizeName,
-  type ExtensionRef,
-  type SkillExtensionRef,
-  type McpServerExtensionRef,
-  type HookExtensionRef,
-  type KnowledgeExtensionRef,
-  type RuleExtensionRef,
-  type SubagentExtensionRef,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
   isSourcedDesiredExtension,
@@ -69,7 +59,14 @@ import {
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ResolvedConfiguredEntry,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -92,7 +89,7 @@ import {
   inspectMcpServerAcrossAgents,
   installMcpServer,
 } from "@agentxm/extension-management/unstable/mcps";
-import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
@@ -108,7 +105,6 @@ import {
 } from "@agentxm/extension-management/unstable/projection";
 import {
   deriveOperationOutcome,
-  previewOrApplyPlan,
   StepFailure,
   type Job,
   type JobStepArtifact,
@@ -116,7 +112,8 @@ import {
   type OperationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

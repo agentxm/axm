@@ -10,17 +10,14 @@
 
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
   StepFailure,
-} from "@agentxm/extension-management/unstable/plan";
-import type {
-  SubagentLockEntry,
-  SubagentsLockMap,
-} from "@agentxm/extension-management/unstable/lockfile";
+} from "@agentxm/workspace-operations";
+import type { SubagentLockEntry, SubagentsLockMap } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Types

@@ -39,13 +39,13 @@ import {
   type OperationResolution,
   type ResolvedUnit,
   type OperationJournalState,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   FootprintRecorder,
   WorkspaceMutations,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 
 import { emitOperationResolution } from "../../operation-output.js";
 

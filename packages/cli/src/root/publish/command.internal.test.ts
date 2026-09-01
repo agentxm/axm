@@ -13,16 +13,13 @@ import {
   getCommandSemanticProperties,
   isEffectCliExit,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import {
-  StepFailure,
-  renderConfirmationRecoveryCommand,
-} from "@agentxm/extension-management/unstable/plan";
+import { StepFailure, renderConfirmationRecoveryCommand } from "@agentxm/workspace-operations";
 import {
   extensionTypes,
   extensionTypeToPlural,
   formatFqn,
 } from "@agentxm/extension-model/unstable/extensions";
-import { applyPlan, type JobStepResult } from "@agentxm/extension-management/unstable/plan";
+import { applyPlan, type JobStepResult } from "@agentxm/workspace-operations";
 import {
   normalizePublishInput,
   validateArchive,

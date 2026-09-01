@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
-import { SettingsIoError } from "../../../workspace/read-model/errors.js";
-import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
+import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
+import { SettingsIoError } from "@agentxm/workspace-state";
+import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,

@@ -32,7 +32,7 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
-import { makeOperationResolution } from "@agentxm/extension-management/unstable/plan";
+import { makeOperationResolution } from "@agentxm/workspace-operations";
 
 import { withRuntime } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

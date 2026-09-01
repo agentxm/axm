@@ -14,17 +14,17 @@ import * as Option from "effect/Option";
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { findManagedSubagentFiles } from "../../extension-workspace/managed-file-discovery.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { RenderedFilePathSchema } from "../../workspace/rendered-files.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
-import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
+import { RenderedFilePathSchema } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
+import { installedRowsByName } from "@agentxm/workspace-state";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 

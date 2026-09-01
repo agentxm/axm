@@ -1,4 +1,4 @@
-import type { KnowledgeExtensionTarget } from "@agentxm/extension-management/unstable/workspace";
+import type { KnowledgeExtensionTarget } from "@agentxm/workspace-state";
 
 export interface UninstallKnowledgeCommandIntent {
   readonly targets: ReadonlyArray<KnowledgeExtensionTarget>;

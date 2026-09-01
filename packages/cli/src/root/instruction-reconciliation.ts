@@ -15,7 +15,7 @@ import {
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
 } from "@agentxm/extension-management/unstable/workspace-configuration";
-import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const configuredAgents = (ws: WorkspaceMutationsService) =>

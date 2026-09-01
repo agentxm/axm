@@ -18,9 +18,9 @@ import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { type AppError } from "../../app-error/index.js";
-import { SettingsWriteError } from "../../settings/errors.js";
-import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
-import { LockfileWriteError } from "../../lockfile/errors.js";
+import { SettingsWriteError } from "@agentxm/workspace-state";
+import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
+import { LockfileWriteError } from "@agentxm/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   McpServerExtensionRef,
@@ -28,11 +28,8 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
   expectRecord,
   exactVersion,

@@ -5,7 +5,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**

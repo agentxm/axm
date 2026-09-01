@@ -21,10 +21,10 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 
-import type { SourceHostConfig } from "../settings/index.js";
-import type { WorkspaceMutationsService } from "../workspace/index.js";
-import { WorkspaceMutations } from "../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";

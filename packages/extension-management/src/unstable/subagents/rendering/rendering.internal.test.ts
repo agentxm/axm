@@ -1,3 +1,4 @@
+import { computeSourceHash } from "@agentxm/workspace-state";
 import { describe, expect, it } from "vitest";
 import { renderSubagent, selectSubagentRenderer } from "./index.js";
 import type { SubagentRenderInput } from "./types.js";
@@ -87,8 +88,7 @@ describe("Kiro dual-format rendering", () => {
 });
 
 describe("source hash computation (reuse from rendered-files)", () => {
-  it("is available via the shared utility", async () => {
-    const { computeSourceHash } = await import("../../workspace/rendered-files.js");
+  it("is available via the shared utility", () => {
     const hash1 = computeSourceHash("content A");
     const hash2 = computeSourceHash("content A");
     const hash3 = computeSourceHash("content B");

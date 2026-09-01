@@ -18,16 +18,16 @@ import type { CodingAgent, McpServerSyncOutcome } from "../../extension-workspac
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import type { StepFailure } from "../../plan/errors.js";
-import { appendWarningsToMessage } from "../../plan/job-step-message.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { removeIfExists } from "../../workspace/remove-if-exists.js";
+import type { StepFailure } from "@agentxm/workspace-operations";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { removeIfExists } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,
   removableAcceptedCanonicalPath,
-} from "../../workspace/accepted-canonical-ref.js";
+} from "@agentxm/workspace-state";
 import { agentConfigTarget, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 
 // -----------------------------------------------------------------------------

@@ -75,13 +75,11 @@ import {
 } from "@agentxm/extension-management/unstable/auth";
 import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
-import type {
-  WorkspaceMutationsOptions,
-  WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { SourceHostConfig } from "@agentxm/extension-management/unstable/settings";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,

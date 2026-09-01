@@ -12,21 +12,10 @@ import type { PlatformError } from "effect/PlatformError";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import { isPathSafe } from "../utils/index.js";
-import { PathTraversalDetected } from "./errors.js";
 
 // -----------------------------------------------------------------------------
 // Path Safety Validation
 // -----------------------------------------------------------------------------
-
-export const validatePathSafety = (
-  path: Path.Path,
-  baseDir: string,
-  targetPath: string,
-): Effect.Effect<void, PathTraversalDetected> =>
-  isPathSafe(path, baseDir, targetPath)
-    ? Effect.void
-    : new PathTraversalDetected({ path: targetPath });
 
 // -----------------------------------------------------------------------------
 // Extension Directory Copy

@@ -18,10 +18,10 @@ import type { AppError } from "../app-error/index.js";
 import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
 import type { ProjectionInvariantFact } from "../projection/index.js";
 import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
-import type { CanonicalObservation } from "../workspace/canonical-observation.js";
-import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
-import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
-import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
+import type { CanonicalObservation } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
+import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
+import type { WorkspaceReadModel } from "@agentxm/workspace-state";
 import type { WorkspaceOwnershipIssue } from "../extension-workspace/managed-file-discovery.js";
 
 /**

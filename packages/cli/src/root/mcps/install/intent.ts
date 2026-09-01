@@ -7,7 +7,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { McpServerExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 
 /**

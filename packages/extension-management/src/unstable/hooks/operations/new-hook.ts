@@ -17,9 +17,9 @@ import {
 } from "../../extensions/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   HOOK_EXTENSION_DIR,

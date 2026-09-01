@@ -12,7 +12,7 @@ import {
   type KnowledgeQueryClause,
 } from "@agentxm/extension-management/unstable/knowledge";
 import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
-import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";

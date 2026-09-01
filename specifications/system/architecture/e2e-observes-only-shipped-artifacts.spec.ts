@@ -24,12 +24,16 @@ const FORBIDDEN_PACKAGE_NAMES = [
   "@agentxm/extension-model",
   "@agentxm/registry-protocol",
   "@agentxm/extension-management",
+  "@agentxm/workspace-operations",
+  "@agentxm/workspace-state",
   "axm.sh",
 ] as const;
 const FORBIDDEN_PROJECT_ROOTS = [
   "packages/extension-model",
   "packages/registry-protocol",
   "packages/extension-management",
+  "packages/workspace-operations",
+  "packages/workspace-state",
   "packages/cli",
 ] as const;
 const DEPENDENCY_FIELDS = [

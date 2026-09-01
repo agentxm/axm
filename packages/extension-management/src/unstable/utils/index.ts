@@ -15,8 +15,6 @@ export {
 } from "./build-zip-archive.js";
 export { stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
-export { isPathSafe, safeChildPath } from "./path-safety.js";
-export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
 export {
   envOption,
   envWithDefault,

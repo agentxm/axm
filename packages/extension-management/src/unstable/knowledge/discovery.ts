@@ -12,7 +12,7 @@ import {
   parseMarker,
   serializeMarker,
 } from "../projection/marker-grammar.js";
-import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
+import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
 
 const KNOWLEDGE_REGION = "knowledge";
 export const KNOWLEDGE_REGION_OWNER = "@agentxm/knowledge/discovery";

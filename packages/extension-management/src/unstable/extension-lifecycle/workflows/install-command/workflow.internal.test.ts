@@ -16,12 +16,12 @@ import {
   promptablePlanExecution,
   preapprovedPlanExecution,
   type ConfirmationRecovery,
-} from "../../../plan/plan-execution.js";
+} from "@agentxm/workspace-operations";
 import { makeAppError } from "../../../app-error/index.js";
-import type { Plan } from "../../../plan/index.js";
-import { ResolvePlanInteractionTest } from "../../../plan/resolve-plan-interaction.js";
-import { WorkspaceMutations } from "../../../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
+import type { Plan } from "@agentxm/workspace-operations";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,

@@ -17,17 +17,17 @@ import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { removeIfExists } from "../../workspace/remove-if-exists.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { removeIfExists } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,
   removableAcceptedCanonicalPath,
-} from "../../workspace/accepted-canonical-ref.js";
+} from "@agentxm/workspace-state";
 
 // Operation types
 // -----------------------------------------------------------------------------

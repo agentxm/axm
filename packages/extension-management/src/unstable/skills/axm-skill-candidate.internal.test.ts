@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { computeSourceHash } from "../workspace/rendered-files.js";
+import { computeSourceHash } from "@agentxm/workspace-state";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "./axm-skill-compatibility.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";

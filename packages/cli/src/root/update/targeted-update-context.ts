@@ -9,12 +9,12 @@ import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
   DesiredStateGraph,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   desiredStateProblemText,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export type TargetedUpdateBlocker =
@@ -33,7 +33,7 @@ export type TargetedUpdateEffect = "unchanged" | "may-update";
 export interface TargetedUpdatePublicContext {
   readonly target: {
     readonly type: Exclude<
-      import("@agentxm/extension-management/unstable/workspace").InstallableExtensionType,
+      import("@agentxm/extension-model/unstable/extensions/installable-types").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;
@@ -58,7 +58,7 @@ export interface TargetedUpdatePublicContext {
   readonly effectiveConstraint?: string;
   readonly memberClosure: ReadonlyArray<{
     readonly type: Exclude<
-      import("@agentxm/extension-management/unstable/workspace").InstallableExtensionType,
+      import("@agentxm/extension-model/unstable/extensions/installable-types").InstallableExtensionType,
       "pack"
     >;
     readonly name: string;

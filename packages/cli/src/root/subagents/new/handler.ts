@@ -9,11 +9,8 @@ import {
   recoverCanonicalDirectory,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
-import {
-  computeSourceHash,
-  type WorkspaceSubagentRef,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   decodeExtensionNameSync,
   formatFqn,
@@ -29,8 +26,8 @@ import {
   subagentContentPath,
   SubagentManager,
 } from "@agentxm/extension-management/unstable/subagents";
-import type { JobStepArtifact, Plan } from "@agentxm/extension-management/unstable/plan";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

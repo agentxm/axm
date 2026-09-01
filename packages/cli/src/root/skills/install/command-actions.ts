@@ -36,12 +36,8 @@ import {
   parseMinimumReleaseAge,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  WorkspaceMutations,
-  type SkillPathSource,
-  type SkillExtensionRef,
-  sanitizeName,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   computeSkillSourceHash,
   gitHostedSkillArtifactSource,
@@ -53,16 +49,13 @@ import { buildInstallOperation } from "@agentxm/extension-management/unstable/ex
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import type {
-  JobStepArtifact,
-  JobStepArtifactTarget,
-} from "@agentxm/extension-management/unstable/plan";
+import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import {
   operationPresentation,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   formatPackageDisplay,
   PackageUrlPartsSchema,
@@ -365,6 +358,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
         .pipe(Effect.catch(() => Effect.succeed(false)));
       if (!exists) return undefined;
       return yield* computeSkillSourceHash(skillSrcPath).pipe(
+        Effect.mapError(toAppError),
         Effect.provideService(FileSystem.FileSystem, fsSvc),
         Effect.provideService(Path.Path, pathSvc),
       );
@@ -710,6 +704,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
               Effect.gen(function* () {
                 const fileCount = yield* countFiles(fsSvc, pathSvc, skillSrcPath);
                 const currentSourceHash = yield* computeSkillSourceHash(skillSrcPath).pipe(
+                  Effect.mapError(toAppError),
                   Effect.provideService(FileSystem.FileSystem, fsSvc),
                   Effect.provideService(Path.Path, pathSvc),
                 );

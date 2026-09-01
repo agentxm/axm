@@ -10,18 +10,18 @@ import { buildUninstallOperation } from "@agentxm/extension-management/unstable/
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-  type KnowledgeExtensionRef,
   WorkspaceMutations,
   acceptedCanonicalObservation,
   type KnowledgeExtensionTarget,
   type WorkspaceLayout,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import {
   KnowledgeManager,
   KnowledgeManagerLive,
 } from "@agentxm/extension-management/unstable/knowledge";
-import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
@@ -91,7 +91,7 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
               workspace: ws,
               type: "knowledge",
               name: target.name,
-            }).pipe(Effect.provide(platformLayer));
+            }).pipe(Effect.mapError(toAppError), Effect.provide(platformLayer));
       const expectedCanonicalPath = Option.match(acceptedObservation, {
         onNone: () =>
           Option.isSome(locked) ? lockCanonicalRoot(path, ws.layout, locked.value) : undefined,

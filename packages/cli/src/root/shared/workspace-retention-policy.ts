@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import type { UninstallRetentionPolicy } from "@agentxm/extension-management/unstable/extensions";
-import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const makeWorkspaceRetentionPolicy = (

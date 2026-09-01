@@ -4,12 +4,12 @@ import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   deriveOperationOutcome,
   operationPresentation,
   type Plan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";

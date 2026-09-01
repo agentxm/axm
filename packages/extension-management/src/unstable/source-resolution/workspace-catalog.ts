@@ -16,7 +16,7 @@ import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { AppError } from "../app-error/index.js";
-import type { SourceHostConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 
 /**
  * The slice of one desired extension that source resolution consumes:

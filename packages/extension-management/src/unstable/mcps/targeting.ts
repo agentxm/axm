@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type Agent,
@@ -12,7 +12,7 @@ import {
   type McpConfig,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { SharedMcpTargetMember } from "./shared-target.js";
-import { isMcpServerApplicableToAgent } from "../workspace/mcp-entry-semantics.js";
+import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 
 export const MCP_NOT_APPLICABLE_REASON = "MCP server is not targeted to this agent";
 

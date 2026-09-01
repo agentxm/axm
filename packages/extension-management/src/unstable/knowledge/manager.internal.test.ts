@@ -13,17 +13,17 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { computeSourceHash } from "../workspace/rendered-files.js";
-import type { KnowledgeLockEntry } from "../lockfile/index.js";
+import { computeSourceHash } from "@agentxm/workspace-state";
+import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import { applyPlannedProjections } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   makeBaseWorkspaceMock,
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
-} from "../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import {

@@ -32,7 +32,7 @@ import {
   configuredRowsByName,
   getLockedEntries,
   lockEntryVersion,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -17,15 +17,15 @@ import type { SubagentContentError } from "@agentxm/registry-protocol/unstable/c
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionsError } from "../extensions/errors.js";
 import type { ProjectionError } from "../projection/errors.js";
-import type { MaterializedTreeInvalid } from "../workspace/materialized-tree.js";
+import type { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,
-} from "../workspace/transaction.js";
+} from "@agentxm/workspace-state";
 import type {
   WorkspaceStateMutationFailure,
   WorkspaceStateReadFailure,
-} from "../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
 import type { TransientBackupFailed } from "../utils/transient-backup.js";
 import type { RuleManagerError } from "../rules/errors.js";
 import type { HookManagerError } from "../hooks/errors.js";
@@ -35,15 +35,27 @@ import type { SkillManagerError } from "../skills/errors.js";
 import type { PackManagerError } from "../packs/errors.js";
 import type { KnowledgeManagerError } from "../knowledge/errors.js";
 import type {
+  AcceptedResolutionMissing,
   CanonicalPathRemovalError,
   DesiredPackGraphIncomplete,
+  InlineExtensionSourceMissing,
   InvalidAgentId,
   LockedSkillMissing,
+  LockEntryEndpointConflict,
+  LockEntryNameInvalid,
+  LockEntrySourceMissing,
+  LockEntrySourceTypeConflict,
+  LockEntryUrlInvalid,
+  PackageContentHashFailed,
   SettingsEntryMissing,
+  SupersededCanonicalRemovalFailed,
   SymlinkCreationError,
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
-} from "../workspace/errors.js";
+  WorkspaceSourceInvalid,
+} from "@agentxm/workspace-state";
+import type { SkillDiscoveryRootInvalid, SubagentScanFailed } from "@agentxm/workspace-state";
+import type { LockfileResolvedVersionInvalid } from "@agentxm/workspace-state";
 
 /**
  * A managed-file write failed after its pre-write backup was taken; the
@@ -90,6 +102,19 @@ export type ExtensionManagerFailure =
   | DesiredPackGraphIncomplete
   | CanonicalPathRemovalError
   | SymlinkCreationError
+  | LockEntrySourceMissing
+  | LockEntryUrlInvalid
+  | LockEntryNameInvalid
+  | LockEntryEndpointConflict
+  | LockEntrySourceTypeConflict
+  | AcceptedResolutionMissing
+  | InlineExtensionSourceMissing
+  | SupersededCanonicalRemovalFailed
+  | PackageContentHashFailed
+  | WorkspaceSourceInvalid
+  | SkillDiscoveryRootInvalid
+  | SubagentScanFailed
+  | LockfileResolvedVersionInvalid
   | FqnInvalidError
   | FrontmatterParseFailure
   | SubagentContentError;

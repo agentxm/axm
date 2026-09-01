@@ -8,9 +8,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import { SettingsWriteError } from "../../settings/errors.js";
+import { SettingsWriteError } from "@agentxm/workspace-state";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as Schema from "effect/Schema";
 import { SourceHostProviders } from "../../source-resolution/index.js";
@@ -19,8 +19,8 @@ import {
   WorkspaceMutations,
   type SetPackArgs,
   type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import type { InstallPackOperation } from "./install.js";
 import { installPack } from "./install.js";

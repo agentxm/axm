@@ -23,7 +23,7 @@ import {
   DeprecationViewSchema,
   type DeprecationView,
 } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { installCommandFor } from "../shared/per-type-install.js";
 

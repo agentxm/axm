@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
-import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
+import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
+import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
 import { emptyWorkspaceState, type WorkspaceState } from "../workspace-fixtures/interpret-ops.js";
 import { scopeFilesFromWorkspaceState } from "../workspace-fixtures/fixture-state.js";
 import { sourceEndpointsAlignedRule } from "./source-endpoints-aligned.js";

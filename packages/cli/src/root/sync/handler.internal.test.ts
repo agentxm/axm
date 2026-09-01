@@ -1,4 +1,4 @@
-import { StepFailure } from "@agentxm/extension-management/unstable/plan";
+import { StepFailure } from "@agentxm/workspace-operations";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -17,11 +17,9 @@ import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import {
-  computePackManifestContentIdentity,
-  type PackRef,
-  type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";

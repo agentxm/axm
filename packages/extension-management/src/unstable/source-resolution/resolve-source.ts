@@ -49,7 +49,7 @@ import {
   toExtensionType,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { SourceHostConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
 

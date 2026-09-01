@@ -4,21 +4,21 @@ import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
-  type HookExtensionRef,
   acquiredExtensionDisplayPathFromLockEntry,
   type HookExtensionTarget,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";

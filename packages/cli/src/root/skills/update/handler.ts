@@ -1,10 +1,7 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import {
-  type SkillExtensionRef,
-  WorkspaceMutations,
-  configuredRowsByName,
-} from "@agentxm/extension-management/unstable/workspace";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
@@ -27,7 +24,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 
 import {
   decodeExtensionNameSync,
@@ -50,12 +47,12 @@ import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/extension-management/unstable/skills";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import type { SkillsLockMap } from "@agentxm/extension-management/unstable/lockfile";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import type { SkillsLockMap } from "@agentxm/workspace-state";
 import {
   detectHoldbackWarnings,
   resolveConstrainedVersion,
@@ -709,8 +706,8 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@agentxm/extension-management/unstable/plan").StepFailure;
-  }): import("@agentxm/extension-management/unstable/plan").JobStepResult =>
+    readonly error?: import("@agentxm/workspace-operations").StepFailure;
+  }): import("@agentxm/workspace-operations").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }
       : { result: "success", message: result.message };

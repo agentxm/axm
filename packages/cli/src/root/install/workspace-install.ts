@@ -8,7 +8,7 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import type { ConfiguredAgentOperation } from "@agentxm/extension-management/unstable/plan";
+import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import {
@@ -21,18 +21,20 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   acceptedResolutionRef,
   acceptedLockedResolutionRef,
   WorkspaceMutations,
   type WorkspaceMutationsService,
+  computePackManifestContentIdentity,
+} from "@agentxm/workspace-state";
+import {
   installableExtensionTypes,
   type InstallableExtensionType,
   toInstallableExtensionTypePlural,
-  computePackManifestContentIdentity,
-  type PackRef,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -419,6 +421,7 @@ const acceptedPackDependencyResolver =
   ): PackDependencyRefResolver =>
   ({ owner, type, name, root }) =>
     acceptedLockedResolutionRef({ workspace: ws, type, name }).pipe(
+      Effect.mapError(toAppError),
       Effect.flatMap(
         Option.match({
           onNone: () =>

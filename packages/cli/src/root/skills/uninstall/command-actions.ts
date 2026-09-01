@@ -19,7 +19,7 @@ import {
   acquiredExtensionDisplayPathFromLockEntry,
   sanitizeName,
   type SkillExtensionTarget,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   resolveInstalledIdentifierNameOrInput,
   WorkspaceCatalog,
@@ -32,7 +32,7 @@ import {
   type InstallableSkillTarget,
 } from "@agentxm/extension-management/unstable/skills";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { SkillLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { SkillLockEntry } from "@agentxm/workspace-state";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {
   workspaceAuthoredPath,
@@ -47,7 +47,7 @@ import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";

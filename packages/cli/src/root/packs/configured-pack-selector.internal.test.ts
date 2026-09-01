@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import type { ConfiguredRecordRow } from "@agentxm/extension-management/unstable/workspace";
+import type { ConfiguredRecordRow } from "@agentxm/workspace-state";
 
 import { resolveConfiguredPackSelector } from "./configured-pack-selector.js";
 

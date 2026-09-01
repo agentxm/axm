@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { PathTraversalDetected } from "@agentxm/workspace-state";
 import * as Data from "effect/Data";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 
@@ -75,11 +76,6 @@ export class CreateDestinationInspectionFailed extends Data.TaggedError(
 )<{
   readonly path: string;
   readonly cause: unknown;
-}> {}
-
-/** A resolved path escaped its workspace base directory. */
-export class PathTraversalDetected extends Data.TaggedError("PathTraversalDetected")<{
-  readonly path: string;
 }> {}
 
 /** Fork input content or identity did not validate. */

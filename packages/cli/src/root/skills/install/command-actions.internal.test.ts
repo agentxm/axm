@@ -12,7 +12,7 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import type {
   RegistrySkillRef,
   LocalSkillRef,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   PackageTypeSchema,
   type PackageUrlParts,

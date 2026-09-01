@@ -15,7 +15,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   type WorkspaceMutationsOptions,
   computePackManifestContentIdentity,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

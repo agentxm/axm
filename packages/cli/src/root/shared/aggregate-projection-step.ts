@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   applyProjectionPlans,
   type ProjectionPlan,

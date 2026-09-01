@@ -19,7 +19,7 @@ import type {
   ExtensionTarget,
   ExtensionTargetFor,
   WorkspaceTransactionRunner,
-} from "../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
 
 /**
  * Machine-local effects observed during the most recent materialization.

@@ -1,6 +1,6 @@
-import type { WorkspaceScope } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import type * as Path from "effect/Path";
 
 /** Stable workspace-relative paths for user-facing plans and results. */

@@ -10,18 +10,18 @@ import {
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   WorkspaceMutations,
   usableAcceptedCanonical,
   type DesiredExtensionNode,
   type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

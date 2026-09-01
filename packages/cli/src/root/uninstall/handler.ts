@@ -4,10 +4,7 @@ import {
   summarizeCommandOutcome,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-} from "@agentxm/extension-management/unstable/plan";
+import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
 import {
   runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,

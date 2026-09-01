@@ -2,26 +2,36 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { AppError } from "../app-error/index.js";
 import { CanonicalPackageProbeFailed } from "./errors.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
-import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
+import type { PathTraversalDetected } from "@agentxm/workspace-state";
+import type { PackageContentHashFailed, WorkspaceSourceInvalid } from "@agentxm/workspace-state";
+import type { LockEntryToRefError } from "@agentxm/workspace-state";
+import type { WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
+import type { SkillLockEntry } from "@agentxm/workspace-state";
+import type { ConfiguredRecordRow } from "@agentxm/workspace-state";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import type { SourceHostConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "../workspace/lock-entry-to-source-params.js";
-import { skillLockEntryToRef } from "../workspace/lock-entry-to-ref.js";
+import { lockEntryToSourceParams } from "@agentxm/workspace-state";
+import { skillLockEntryToRef } from "@agentxm/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
+import { resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceLayout } from "../workspace/layout.js";
+import type { WorkspaceLayout } from "@agentxm/workspace-state";
 import { enabledConfiguredEntries } from "./configured-entry.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { stripFileProtocol } from "../utils/fs-helpers.js";
+
+type DiskRefError =
+  | LockEntryToRefError
+  | WorkspaceSourceInvalid
+  | PathTraversalDetected
+  | PackageContentHashFailed
+  | CanonicalPackageProbeFailed;
 
 interface DiskRefEnv {
   readonly fs: FileSystem.FileSystem;
@@ -33,10 +43,13 @@ interface DiskRefEnv {
 
 interface SkillDiskAcceptedResolutionContext {
   readonly lockEntries: Readonly<Record<string, SkillLockEntry>>;
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
+  readonly getConfiguredSources: () => Effect.Effect<
+    ReadonlyArray<SourceHostConfig>,
+    WorkspaceSettingsReadFailure
+  >;
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, WorkspaceSettingsReadFailure>;
 }
 
 const isGitHostedLockEntry = (
@@ -76,10 +89,10 @@ export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
   accepted?: SkillDiskAcceptedResolutionContext,
-): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError | CanonicalPackageProbeFailed> =>
+): Effect.Effect<ReadonlyArray<SkillExtensionRef>, DiskRefError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
-    ([settingsName, entry]) => {
+    ([settingsName, entry]): Effect.Effect<Option.Option<SkillExtensionRef>, DiskRefError> => {
       if (entry.origin === "bundled") {
         const owner = decodeHandleSync("@agentxm");
         const packageName = decodeExtensionNameSync(settingsName);
@@ -161,10 +174,10 @@ export const configuredSkillsToDiskRefs = (
 export const configuredMcpServersToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
-): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, AppError> =>
+): Effect.Effect<ReadonlyArray<McpServerExtensionRef>, DiskRefError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
-    ([settingsName, entry]) =>
+    ([settingsName, entry]): Effect.Effect<Option.Option<McpServerExtensionRef>, DiskRefError> =>
       entry.source !== undefined && isWorkspaceSourceLocator(entry.source)
         ? resolveWorkspaceFromDisk(env, settingsName, entry.source, "mcp-server").pipe(
             Effect.map((ref) =>
@@ -178,7 +191,7 @@ export const configuredMcpServersToDiskRefs = (
 export const configuredSubagentsToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
-): Effect.Effect<ReadonlyArray<SubagentExtensionRef>, AppError> =>
+): Effect.Effect<ReadonlyArray<SubagentExtensionRef>, DiskRefError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>
@@ -195,7 +208,7 @@ export const configuredSubagentsToDiskRefs = (
 export const configuredPacksToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
-): Effect.Effect<ReadonlyArray<PackRef>, AppError> =>
+): Effect.Effect<ReadonlyArray<PackRef>, DiskRefError> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) =>

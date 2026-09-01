@@ -31,10 +31,10 @@ import {
   TestRenderer,
   logsByTag,
 } from "@agentxm/extension-management/unstable/cli-renderer";
-import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";

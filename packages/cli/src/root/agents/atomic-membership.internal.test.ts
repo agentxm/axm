@@ -10,19 +10,16 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  layer as coreWorkspaceLayer,
-  protectWorkspacePath,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { protectWorkspacePath, WorkspaceMutations } from "@agentxm/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { StepFailure } from "@agentxm/extension-management/unstable/plan";
+import { StepFailure } from "@agentxm/workspace-operations";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 

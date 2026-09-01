@@ -84,5 +84,17 @@ export {
   formatCommandPath,
 } from "./command-tree-test-helpers.js";
 export { rootCommand } from "./app.js";
+// Workspace-state vocabulary the settings-contract and reachability
+// specifications consume; specs may not import kernel roots directly, so the
+// harness re-exports the needed surface (application code may compose
+// anything).
+export {
+  LOCKFILE_VERSION,
+  LockfileSchema,
+  SETTINGS_KEY_ORDER,
+  SettingsSchema,
+  computePackManifestContentIdentity,
+  writeSettingsAtPath,
+} from "@agentxm/workspace-state";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 export { loadVersion } from "./version.js";

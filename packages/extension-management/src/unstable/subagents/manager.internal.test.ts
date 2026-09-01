@@ -19,14 +19,14 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { AddSubagentArgs, CodingAgent } from "../extension-workspace/coding-agent.js";
 import { CodingAgentRepository } from "../extension-workspace/coding-agent.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { SubagentManager, SubagentManagerLive } from "./manager.js";
-import type { SubagentLockEntry } from "../lockfile/schema.js";
+import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 
@@ -100,9 +100,7 @@ const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): Codi
 });
 
 const makeTestLayer = (overrides?: {
-  readonly wsOverrides?: Partial<
-    import("../workspace/service-interface.js").WorkspaceMutationsService
-  >;
+  readonly wsOverrides?: Partial<import("@agentxm/workspace-state").WorkspaceMutationsService>;
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
 }) => {

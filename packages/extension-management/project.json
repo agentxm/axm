@@ -19,6 +19,7 @@
       "inputs": [
         "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
         "{workspaceRoot}/packages/extension-model/src/unstable/extensions/common.ts",
+        "{workspaceRoot}/packages/workspace-state/src/workspace/configured-agent-outcomes.ts",
         "{projectRoot}/src/unstable/extension-types/parity/**/*.ts",
         "{workspaceRoot}/.prettierrc.json"
       ],

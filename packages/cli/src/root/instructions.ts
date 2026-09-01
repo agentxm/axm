@@ -4,10 +4,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import type {
-  InstructionsConfig,
-  InstructionsConfigValue,
-} from "@agentxm/extension-management/unstable/settings";
+import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
 import {
   instructionProjectionEffects,
   instructionProjectionRemovalEffects,
@@ -29,13 +26,13 @@ import type {
   OperationPresentation,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   applyPlannedProjections,
   observeProjectionPlans,
 } from "@agentxm/extension-management/unstable/projection";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";

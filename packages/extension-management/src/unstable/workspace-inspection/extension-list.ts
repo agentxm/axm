@@ -18,7 +18,7 @@ import { createRegistryClient } from "../registry/index.js";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "../workspace/lock-entry-to-source-params.js";
+import { lockEntryToSourceParams } from "@agentxm/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type {
   HookLockEntry,
@@ -28,14 +28,14 @@ import type {
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
-} from "../lockfile/index.js";
+} from "@agentxm/workspace-state";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ReadModelRecordRow } from "../workspace/read-model-record-types.js";
+import type { ReadModelRecordRow } from "@agentxm/workspace-state";
 import {
   WorkspaceMutations,
   type WorkspaceLockfileReadFailure,
   type WorkspaceMutationsService,
-} from "../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
 import { checkCurrency } from "./version-currency/index.js";
 import { toAppError } from "../app-error/conversions.js";
 

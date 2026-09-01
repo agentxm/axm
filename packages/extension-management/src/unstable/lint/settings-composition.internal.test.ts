@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
-import { SettingsSchema } from "../settings/schema.js";
+import { SettingsSchema } from "@agentxm/workspace-state";
 import { registerLintRuleIds } from "@agentxm/registry-protocol/unstable/lint/config";
 
 // Register a sample rule id so tests can reference it. Tests in the same

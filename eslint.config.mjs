@@ -97,6 +97,8 @@ export default [
                 "scope:core",
                 "scope:extension-model",
                 "scope:registry-protocol",
+                "scope:workspace-operations",
+                "scope:workspace-state",
               ],
             },
             {
@@ -110,6 +112,8 @@ export default [
                 "scope:core",
                 "scope:extension-model",
                 "scope:registry-protocol",
+                "scope:workspace-operations",
+                "scope:workspace-state",
               ],
             },
             // Layer direction: dependencies point inward and never back
@@ -237,6 +241,8 @@ export default [
       "packages/extension-management/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
+      "packages/workspace-operations/src/**/*.ts",
+      "packages/workspace-state/src/**/*.ts",
       "packages/cli/src/**/*.ts",
     ],
     ignores: [
@@ -363,7 +369,14 @@ export default [
   },
   {
     files: ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx"],
-    ignores: ["packages/cli/src/runtime.ts", "**/*.test.ts", "**/*.spec.ts"],
+    // The composition root plus the CLI's test-support module (consumed only
+    // by internal tests) are the bounded non-test exceptions.
+    ignores: [
+      "packages/cli/src/runtime.ts",
+      "packages/cli/src/test-helpers.ts",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -428,7 +441,7 @@ export default [
     files: [
       "packages/extension-management/src/unstable/registry/remote-client.ts",
       "packages/extension-management/src/unstable/source-resolution/providers/convention-discovery.ts",
-      "packages/extension-management/src/unstable/workspace/version-currency/collectors.ts",
+      "packages/extension-management/src/unstable/workspace-inspection/version-currency/collectors.ts",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,

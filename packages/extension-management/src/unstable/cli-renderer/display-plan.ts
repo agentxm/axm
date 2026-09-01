@@ -21,7 +21,7 @@ import {
   type Plan,
   type PlanRiskCondition,
   type PlannedJobStep,
-} from "../plan/plan.js";
+} from "@agentxm/workspace-operations";
 
 const renderPlannedStep = (
   step: PlannedJobStep<unknown, unknown>,

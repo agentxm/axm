@@ -16,7 +16,7 @@ import {
   type TableView,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { agentLifecycle, lifecycleCell } from "./lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

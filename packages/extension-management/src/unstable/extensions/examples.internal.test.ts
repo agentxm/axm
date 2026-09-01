@@ -9,9 +9,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import * as YAML from "yaml";
-import { LockfileSchema } from "../lockfile/index.js";
-import { SettingsSchema } from "../settings/index.js";
 import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
@@ -24,30 +21,7 @@ function readJsonFile(filePath: string): unknown {
   return JSON.parse(content);
 }
 
-function readYamlFile(filePath: string): unknown {
-  const content = fs.readFileSync(filePath, "utf-8");
-  return YAML.parse(content);
-}
-
 describe("example files", () => {
-  it("axm-lock.example.yaml conforms to LockfileSchema", () => {
-    const example = readYamlFile(path.join(CORE_UNSTABLE, "lockfile/axm-lock.example.yaml"));
-    const result = Schema.decodeUnknownSync(LockfileSchema)(example);
-    expect(result).toBeDefined();
-    expect(result.lockfileVersion).toBe(6);
-    expect(result.skills["code-review"]).toBeDefined();
-  });
-
-  it("settings.example.json conforms to SettingsSchema", () => {
-    const example = readJsonFile(path.join(CORE_UNSTABLE, "settings/settings.example.json"));
-    const result = Schema.decodeUnknownSync(SettingsSchema)(example, {
-      onExcessProperty: "error",
-    });
-    expect(result).toBeDefined();
-    expect(result.owner).toBe("@acme");
-    expect(result.agents).toContain("claude-code");
-  });
-
   it("skill.example.json conforms to SkillManifestSchema", () => {
     const example = readJsonFile(path.join(CORE_UNSTABLE, "skills/skill.example.json"));
     const result = Schema.decodeUnknownSync(SkillManifestSchema)(example);

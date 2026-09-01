@@ -14,18 +14,18 @@ import * as Schema from "effect/Schema";
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { RenderedFilesMapSchema } from "../../workspace/rendered-files.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { RenderedFilesMapSchema } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import { subagentContentErrorToAppError } from "../../app-error/conversions.js";
 import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
-import { usableAcceptedCanonical } from "../../workspace/accepted-canonical-ref.js";
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import { managedSubagentFile } from "../managed-file.js";
 
 /**

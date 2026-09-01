@@ -7,14 +7,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "../../workspace/test-stubs.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepository,
   type CodingAgent,
   type CodingAgentRepositoryService,
 } from "../../extension-workspace/index.js";
-import type { SubagentLockEntry } from "../../lockfile/index.js";
+import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 
 const makeOp = (subagentName: string): DisableSubagentOperation => ({

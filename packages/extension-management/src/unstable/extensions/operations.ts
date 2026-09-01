@@ -15,11 +15,11 @@ import {
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
 } from "./errors.js";
-import type { StepFailure } from "../plan/errors.js";
-import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
+import type { StepFailure } from "@agentxm/workspace-operations";
+import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { ExtensionTarget, ExtensionTargetFor } from "../workspace/service-interface.js";
+import type { ExtensionTarget, ExtensionTargetFor } from "@agentxm/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { formatDeprecationWarning } from "../registry/deprecation-warning.js";

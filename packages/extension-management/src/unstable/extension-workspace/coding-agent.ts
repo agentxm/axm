@@ -16,11 +16,11 @@ import * as ServiceMap from "effect/Context";
 import type { AppError } from "../app-error/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { ManagedFileProvenance } from "../extensions/managed-file-banner.js";
-import type { RenderedFilePath } from "../workspace/rendered-files.js";
-import type { ArtifactChange } from "../workspace/artifact-change.js";
+import type { RenderedFilePath } from "@agentxm/workspace-state";
+import type { ArtifactChange } from "@agentxm/workspace-state";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceMutations } from "../workspace/service-interface.js";
+import type { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 
 /**

@@ -16,11 +16,11 @@ import {
   type ExtensionInventory,
   type PackagingKind,
   type ReadModelRecordRow,
-  SourceHashSchema,
   TreeIntegritySchema,
-  type InstallableExtensionType,
   computeSourceHash,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
   ExtensionDependencyConstraintMapSchema,
@@ -36,7 +36,7 @@ import {
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
-} from "@agentxm/extension-management/unstable/lockfile";
+} from "@agentxm/workspace-state";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,

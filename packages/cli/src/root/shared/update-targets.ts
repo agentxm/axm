@@ -9,10 +9,7 @@ import {
   resolveSource,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { expandGlobs } from "@agentxm/extension-management/unstable/utils";
-import {
-  WorkspaceMutations,
-  configuredRowsByName,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Flag } from "effect/unstable/cli";

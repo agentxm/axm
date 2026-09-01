@@ -1,12 +1,30 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { AgentPresenceUnavailable, type AgentPresenceProbeService } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
   runScenario,
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
-} from "../../../workspace/read-model/__tests__/scenarios/_harness.js";
+} from "@agentxm/workspace-state/testing";
+import { detectAgentsForScope } from "../../../agents/detection.js";
 import { agentsDetectedDeclaredRule } from "./agents-detected-declared.js";
+
+// The fixture layer detects no agents by default; these scenarios assert
+// detection-driven presence, so they inject the real structured detection
+// over the fixture filesystem.
+const detectionProbe = (fs: FileSystem.FileSystem, path: Path.Path): AgentPresenceProbeService => ({
+  detect: (root, scope) =>
+    detectAgentsForScope(root, scope).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.map((detected) => new Set<AgentId>(detected.map((agent) => agent.id))),
+      Effect.mapError((error) => new AgentPresenceUnavailable({ message: error.message })),
+    ),
+});
 
 const contextFor = (workspace: WorkspaceRuleContext["workspace"]): WorkspaceRuleContext => ({
   workspace,
@@ -38,6 +56,7 @@ describe("workspace/agents-detected-declared", () => {
           expect(findings).toEqual([]);
           expect(detected.filter((row) => row.present).map((row) => row.agentId)).toEqual([]);
         }),
+      { probe: detectionProbe },
     ),
   );
 
@@ -69,6 +88,7 @@ describe("workspace/agents-detected-declared", () => {
           );
           expect(readModelPresence.map((row) => row.agentId)).toEqual(["cursor"]);
         }),
+      { probe: detectionProbe },
     ),
   );
 });

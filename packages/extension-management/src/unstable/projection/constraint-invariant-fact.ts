@@ -16,8 +16,8 @@ import type {
 import type {
   CanonicalConstraintContributor,
   CanonicalConstraintMismatchObservation,
-} from "../workspace/canonical-observation.js";
-import type { DesiredExtensionNode } from "../workspace/desired-state-graph.js";
+} from "@agentxm/workspace-state";
+import type { DesiredExtensionNode } from "@agentxm/workspace-state";
 
 export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;

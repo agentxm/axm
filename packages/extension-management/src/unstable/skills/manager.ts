@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { sourceToLockEntry } from "../workspace/source-to-lock-entry.js";
+import { sourceToLockEntry } from "@agentxm/workspace-state";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
@@ -26,18 +26,21 @@ import type {
   ExtensionManager,
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
-import type { ExtensionTarget, SkillExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { sanitizeName } from "../workspace/extension-name.js";
+import type { ExtensionTarget, SkillExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { computePackageContentHash } from "../workspace/package-hash.js";
-import type { TreeIntegrity } from "../workspace/materialized-tree.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
+import type { TreeIntegrity } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../workspace/remove-if-exists.js";
+import { removeIfExists } from "@agentxm/workspace-state";
 import { CodingAgentRepository } from "../extension-workspace/index.js";
 import { type AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
 import { computeSkillSourceHash } from "./operations/source-hash.js";
 import {
   ensureSkillAgentArtifact,
@@ -45,14 +48,14 @@ import {
   removeSkillAgentArtifact,
   type ProvideRegistryMaterialization,
 } from "./materialization.js";
-import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
+import { configuredRowsByName } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonicalRef,
-} from "../workspace/accepted-canonical-ref.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+} from "@agentxm/workspace-state";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 import { toAppError } from "../app-error/conversions.js";
 import { SkillDefinitionInvalid, SkillInstallStateMissing } from "./errors.js";

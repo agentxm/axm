@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import {
   renderSubagent,
   buildRooModeEntry,

@@ -4,7 +4,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { readYamlEntry } from "../yaml/index.js";
 import { writeAgentMcpConfig } from "./config-writer.js";
 import { collectManagedAgentMcpServers, inspectAgentMcpServer } from "./inspection.js";

@@ -19,13 +19,13 @@ import { toAppError } from "../app-error/conversions.js";
 import { CodingAgentRepository } from "../extension-workspace/coding-agent.js";
 import { fileUrlToPath } from "../source-resolution/file-url.js";
 import { WorkspaceCatalog, type SkillCandidates } from "../source-resolution/workspace-catalog.js";
-import { skillsInDir, type DiscoveredSkill } from "../workspace/read-model/discovery/index.js";
+import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace-state";
 import {
   configuredRowsByName,
   installedRowsByName,
   unmanagedRowsByName,
-} from "../workspace/read-model-record-rows.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));

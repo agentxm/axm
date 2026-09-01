@@ -34,17 +34,9 @@ import {
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
-  type ExtensionRef,
   acceptedLockedCanonicalPath,
   WorkspaceMutations,
   isDesiredExtensionActive,
-  type SkillExtensionRef,
-  type PackRef,
-  type HookExtensionRef,
-  type KnowledgeExtensionRef,
-  type RuleExtensionRef,
-  type McpServerExtensionRef,
-  type SubagentExtensionRef,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
   type McpServerExtensionTarget,
@@ -53,7 +45,15 @@ import {
   type SubagentExtensionTarget,
   type DesiredStateGraph,
   usableAcceptedCanonical,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
@@ -100,7 +100,7 @@ import {
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   parseMinimumReleaseAge,
   normalizeReleaseAgeRecords,
@@ -496,7 +496,9 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         if (desired === undefined) continue;
 
         const canonical = yield* provide(
-          usableAcceptedCanonical({ workspace: ws, type: parsed.type, name: parsed.name }),
+          usableAcceptedCanonical({ workspace: ws, type: parsed.type, name: parsed.name }).pipe(
+            Effect.mapError(toAppError),
+          ),
         );
         const targetIdentity = `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
         const configuredVersion =

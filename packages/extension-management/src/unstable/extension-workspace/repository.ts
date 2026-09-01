@@ -16,7 +16,7 @@ import {
   type ConfigurableAgentId as CatalogAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { AppError } from "../app-error/index.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   type CodingAgent,
   CodingAgentRepository,
@@ -30,7 +30,7 @@ import {
   removeRooSubagent,
   removeSubagentViaResolve,
 } from "./subagent-sync.js";
-import { userScopeRefusal } from "../workspace/scope-refusal.js";
+import { userScopeRefusal } from "@agentxm/workspace-state";
 import { getHome } from "../agents/constants.js";
 import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-sync.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";

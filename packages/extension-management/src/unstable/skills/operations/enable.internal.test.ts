@@ -7,14 +7,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import { LockedSkillMissing } from "../../workspace/errors.js";
-import { acquiredExtensionDisplayPathFromLockEntry } from "../../workspace/extension-paths.js";
-import type { SkillLockEntry } from "../../lockfile/index.js";
+import { LockedSkillMissing } from "@agentxm/workspace-state";
+import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/workspace-state";
+import type { SkillLockEntry } from "@agentxm/workspace-state";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   configuredRow,
   makeBaseWorkspaceMock,
@@ -22,13 +19,13 @@ import {
   rowsFor,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../../workspace/test-stubs.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+} from "@agentxm/workspace-state/testing";
+import { sanitizeName } from "@agentxm/workspace-state";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { computePackageContentHash } from "../../workspace/package-hash.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 type SettingsSkillValue =

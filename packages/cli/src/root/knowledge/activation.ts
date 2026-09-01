@@ -5,9 +5,9 @@ import { Argument } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,

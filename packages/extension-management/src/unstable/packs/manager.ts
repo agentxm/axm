@@ -30,26 +30,29 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { ExtensionTarget, PackExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
+import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import { computePackPathsForLayout } from "../workspace/pack-paths.js";
-import { removeIfExists } from "../workspace/remove-if-exists.js";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import { computePackPathsForLayout } from "@agentxm/workspace-state";
+import { removeIfExists } from "@agentxm/workspace-state";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { configuredRowsByName } from "@agentxm/workspace-state";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-} from "../workspace/accepted-canonical-ref.js";
-import { computePackManifestContentIdentity } from "../workspace/pack-manifest-content-identity.js";
+} from "@agentxm/workspace-state";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
   type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+} from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Service Tag

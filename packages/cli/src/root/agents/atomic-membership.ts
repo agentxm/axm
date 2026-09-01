@@ -4,8 +4,8 @@ import {
   StepFailure,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 

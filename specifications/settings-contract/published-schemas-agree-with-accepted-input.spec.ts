@@ -8,11 +8,12 @@ import { describe, expect, it } from "@effect/vitest";
 // does, so settings documents referencing registered lint rule identities
 // decode the way they do inside the CLI.
 import { allCatalogRuleIds } from "@agentxm/extension-management/unstable/lint";
-import { LOCKFILE_VERSION, LockfileSchema } from "@agentxm/extension-management/unstable/lockfile";
 import {
+  LOCKFILE_VERSION,
+  LockfileSchema,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
-} from "@agentxm/extension-management/unstable/settings";
+} from "axm.sh/specification-harness";
 
 import { defineSpecification } from "../support/contract.js";
 

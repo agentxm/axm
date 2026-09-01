@@ -6,11 +6,11 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { StepFailure } from "@agentxm/extension-management/unstable/plan";
+import { StepFailure } from "@agentxm/workspace-operations";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { JobStepResult, Plan } from "@agentxm/extension-management/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";

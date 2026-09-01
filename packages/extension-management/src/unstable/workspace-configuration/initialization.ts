@@ -31,24 +31,25 @@ import {
 import { makeAppError } from "../app-error/index.js";
 import { isGitManaged } from "../git/detect.js";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
-import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
-import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceMutationsOptions } from "../workspace/service-interface.js";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
+import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace-state";
 import {
-  makeWorkspaceReadModel,
-  WorkspaceReadModelConfig,
-} from "../workspace/read-model/service.js";
+  createDefaultSettings,
+  type Settings,
+  writeSettingsAtPath,
+} from "@agentxm/workspace-state";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { AgentRootResolverLive } from "@agentxm/workspace-state";
+import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "@agentxm/workspace-state";
 import {
   WorkspaceInitializationInteraction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "../workspace/paths.js";
-import { setupScopeSupport } from "../workspace/setup-scope-support.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
-import { LOCK_FILENAME } from "../workspace/layout.js";
+import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "@agentxm/workspace-state";
+import { setupScopeSupport } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { LOCK_FILENAME } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({

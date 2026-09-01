@@ -12,7 +12,7 @@
 
 import * as Effect from "effect/Effect";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
-import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import type { DesiredStateGraph } from "@agentxm/workspace-state";
 import { requireCompleteGraph } from "./contributors.js";
 import type { ProjectionUnitObservation } from "./invariant-facts.js";
 import type {

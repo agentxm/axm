@@ -19,7 +19,7 @@ import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extens
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**

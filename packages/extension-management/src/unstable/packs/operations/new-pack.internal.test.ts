@@ -8,11 +8,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { handle } from "../../test-helpers.js";
 import type { NewPackOperation } from "./new-pack.js";
 import { newPack } from "./new-pack.js";

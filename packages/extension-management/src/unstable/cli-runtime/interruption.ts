@@ -8,7 +8,7 @@
  */
 
 import * as Layer from "effect/Layer";
-import { InterruptionSignalSource } from "../plan/interruption-signal.js";
+import { InterruptionSignalSource } from "@agentxm/workspace-operations";
 
 let requestedSignal: "SIGINT" | "SIGTERM" | undefined;
 

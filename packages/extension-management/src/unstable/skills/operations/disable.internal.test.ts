@@ -7,11 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "../../lockfile/index.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
+import type { SkillLockEntry } from "@agentxm/workspace-state";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   implicitRow,
   makeBaseWorkspaceMock,
@@ -19,7 +16,7 @@ import {
   rowsFor,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 import { extensionName, handle } from "../../test-helpers.js";

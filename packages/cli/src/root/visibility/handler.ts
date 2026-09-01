@@ -23,7 +23,7 @@ import {
   type ExtensionVisibility,
 } from "@agentxm/extension-management/unstable/registry";
 import { manifestFilenameForType } from "@agentxm/registry-protocol/unstable/publish";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { runWithStepUp } from "../step-up.js";
 

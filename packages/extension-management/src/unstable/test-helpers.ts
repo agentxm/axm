@@ -15,8 +15,8 @@ import {
   type ExtensionFqn,
   type ExtensionSpec,
 } from "@agentxm/extension-model/unstable/extensions";
-import { RenderedFilePathSchema, type RenderedFilePath } from "./workspace/rendered-files.js";
-import { TreeIntegritySchema, type TreeIntegrity } from "./workspace/materialized-tree.js";
+import { RenderedFilePathSchema, type RenderedFilePath } from "@agentxm/workspace-state";
+import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace-state";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   decodeVersionSync,

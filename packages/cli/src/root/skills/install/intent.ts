@@ -5,7 +5,7 @@
  */
 
 import type * as Option from "effect/Option";
-import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 /**

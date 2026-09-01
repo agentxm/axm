@@ -368,7 +368,7 @@ const adversarialContracts = [
   ],
   [
     "authored-and-unowned-content-preserved",
-    "packages/extension-management/src/unstable/workspace/operations/transaction.internal.test.ts",
+    "packages/workspace-operations/src/operations/transaction.internal.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",
@@ -398,16 +398,16 @@ const adversarialContracts = [
   ["global-sync-reports-local-outcomes", "packages/cli/src/root/sync/handler.internal.test.ts"],
   [
     "lock-only-pack-members-do-not-create-reachability",
-    "packages/extension-management/src/unstable/workspace/desired-state-graph.internal.test.ts",
+    "packages/workspace-state/src/workspace/desired-state-graph.internal.test.ts",
   ],
   [
     "invalid-lock-authority-is-not-reconstructed",
-    "packages/extension-management/src/unstable/lockfile/authority-schema.internal.test.ts",
+    "packages/workspace-state/src/lockfile/authority-schema.internal.test.ts",
   ],
   ["mutable-source-identity-is-stable", "packages/cli/src/root/update/handler.internal.test.ts"],
   [
     "unsupported-state-is-rejected",
-    "packages/extension-management/src/unstable/settings/schema.internal.test.ts",
+    "packages/workspace-state/src/settings/schema.internal.test.ts",
   ],
   [
     "pack-uninstall-readiness-agrees-with-apply",

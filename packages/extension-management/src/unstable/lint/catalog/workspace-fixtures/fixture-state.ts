@@ -1,10 +1,6 @@
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  FileSpec,
-  FixtureSpec,
-  ScopeFiles,
-} from "../../../workspace/read-model/__fixtures__/builder.js";
+import type { FileSpec, FixtureSpec, ScopeFiles } from "@agentxm/workspace-state";
 import type { WorkspaceState } from "./interpret-ops.js";
 
 const pathSegments = (relativePath: string): ReadonlyArray<string> =>

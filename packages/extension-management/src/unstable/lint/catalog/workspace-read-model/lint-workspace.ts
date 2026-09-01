@@ -32,18 +32,18 @@ import {
   observeInstructionProjection,
   resolveInstructionsConfig,
 } from "../../../workspace-configuration/instructions.js";
-import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
+import { AgentRootResolverLive } from "@agentxm/workspace-state";
 import {
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
-} from "../../../workspace/read-model/service.js";
-import { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "../../../workspace/paths.js";
+} from "@agentxm/workspace-state";
+import { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "@agentxm/workspace-state";
 import type {
   LockfileReadError,
   SettingsReadError,
   WorkspaceRootEscape,
-} from "../../../workspace/read-model/errors.js";
+} from "@agentxm/workspace-state";
 import type {
   ActualMcpServer,
   ActualPack,
@@ -56,7 +56,7 @@ import type {
   InstalledRule,
   InstalledSkill,
   InstalledSubagent,
-} from "../../../workspace/read-model/extensions/index.js";
+} from "@agentxm/workspace-state";
 import type {
   HookRuleContext,
   KnowledgeRuleContext,
@@ -77,9 +77,9 @@ import { makePlatformPackFileAccessor } from "../pack-accessor/platform.js";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type ExtensionPathLockEntry,
-} from "../../../workspace/extension-paths.js";
+} from "@agentxm/workspace-state";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
+import type { SkillLockEntry } from "@agentxm/workspace-state";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import { inspectKnowledgePackage } from "../../../knowledge/package-inspection.js";

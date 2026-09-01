@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import {
   runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,

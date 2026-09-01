@@ -8,7 +8,7 @@ import {
   isInstallableExtensionTypePlural,
   toInstallableExtensionType,
   type InstallableExtensionType,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { RegistrySourceRefSchema } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 

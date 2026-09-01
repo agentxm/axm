@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { deriveOperationOutcome } from "@agentxm/extension-management/unstable/plan";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";

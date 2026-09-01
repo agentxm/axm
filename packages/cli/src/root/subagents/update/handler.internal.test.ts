@@ -18,7 +18,7 @@ import {
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { type RegistrySubagentRef } from "@agentxm/extension-management/unstable/workspace";
+import { type RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {

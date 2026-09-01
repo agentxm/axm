@@ -9,15 +9,15 @@ import YAML from "yaml";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/extension-management/unstable/knowledge";
-import { LockfileSchema } from "@agentxm/extension-management/unstable/lockfile";
-import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
+import { LockfileSchema } from "@agentxm/workspace-state";
+import { SettingsSchema } from "@agentxm/workspace-state";
 import {
   resolveProjectWorkspaceStatePaths,
   resolveUserHome,
   resolveUserWorkspaceLayout,
-  type WorkspaceScope,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { ExecutionDirectory } from "../../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";

@@ -3,16 +3,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  SourceHashSchema,
-  TreeIntegritySchema,
-  type SkillExtensionRef,
-} from "@agentxm/extension-management/unstable/workspace";
-import type {
-  SkillLockEntry,
-  SkillsLockMap,
-} from "@agentxm/extension-management/unstable/lockfile";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { TreeIntegritySchema } from "@agentxm/workspace-state";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { SkillLockEntry, SkillsLockMap } from "@agentxm/workspace-state";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { exactVersion, extensionName } from "../../../test-stubs.js";

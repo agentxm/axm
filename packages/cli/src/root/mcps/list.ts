@@ -9,12 +9,12 @@ import {
   inspectMcpServerAcrossAgents,
   type AgentMcpServerInspection,
 } from "@agentxm/extension-management/unstable/mcps";
-import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   type ConfiguredAgentOutcome,
   ExtensionInventorySchema,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

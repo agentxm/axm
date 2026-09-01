@@ -23,10 +23,10 @@ import {
   makeRegistrySkillLockEntry,
   readModelRecordStubs,
   rowsFor,
-} from "../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "../workspace/index.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 
 const name = (value: string) => decodeExtensionNameSync(value);

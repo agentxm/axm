@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { toAppError } from "../app-error/conversions.js";
 import * as Effect from "effect/Effect";
-import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
+import type { DesiredStateGraph } from "@agentxm/workspace-state";
 import {
   applyProjectionPlans,
   planAggregateProjection,

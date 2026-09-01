@@ -12,7 +12,7 @@ import {
   withArgvTracking,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import { type KnowledgeDiagnostic } from "@agentxm/registry-protocol/unstable/knowledge";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeConfig } from "./flags.js";

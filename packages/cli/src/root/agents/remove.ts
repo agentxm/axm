@@ -24,12 +24,9 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

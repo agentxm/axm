@@ -24,7 +24,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   buildAuthoredExtensionStep,
   copyExtensionDirectory,
@@ -33,10 +33,7 @@ import {
   preflightCreateOnly,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
-import {
-  computePackageContentHash,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   extensionTypeFromPlural,
   extensionTypeToPlural,
@@ -49,15 +46,9 @@ import {
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type {
-  JobStepArtifact,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   SourceHostProviders,
   findExtensionPackagesFromSource,

@@ -8,7 +8,7 @@
 
 import type * as Option from "effect/Option";
 import type { PackDependencyRefResolver } from "@agentxm/extension-management/unstable/packs";
-import type { PackRef } from "@agentxm/extension-management/unstable/workspace";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 

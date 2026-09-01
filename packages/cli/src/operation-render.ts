@@ -19,7 +19,7 @@ import {
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 
 const capitalize = (value: string): string =>
   value.length === 0 ? value : `${value[0]?.toUpperCase() ?? ""}${value.slice(1)}`;

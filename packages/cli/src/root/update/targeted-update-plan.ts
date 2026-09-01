@@ -6,8 +6,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { buildAtomicPackGraphStep, type AtomicPackGraphChild } from "../packs/graph-transition.js";
 import {

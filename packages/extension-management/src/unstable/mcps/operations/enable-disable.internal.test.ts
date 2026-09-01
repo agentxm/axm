@@ -13,19 +13,19 @@ import {
 } from "../../extension-workspace/index.js";
 import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import type { McpServerLockEntry } from "../../lockfile/index.js";
-import type { McpServerEntry } from "../../settings/index.js";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   computeMaterializedTreeIntegritySync,
   handle,
   makeCodingAgentStub,
 } from "../../test-helpers.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import type { WorkspaceMutationsService } from "../../workspace/service-interface.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
-} from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { disableMcpServer } from "./disable.js";
 import { enableMcpServer } from "./enable.js";
 

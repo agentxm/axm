@@ -5,8 +5,8 @@ import {
   makeProspectiveExtensionConstraintFacts,
   planExtensionConstraintFact,
 } from "./constraint-invariant-fact.js";
-import type { CanonicalConstraintMismatchObservation } from "../workspace/canonical-observation.js";
-import type { DesiredExtensionNode } from "../workspace/desired-state-graph.js";
+import type { CanonicalConstraintMismatchObservation } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode } from "@agentxm/workspace-state";
 
 const desired = {
   type: "skill",

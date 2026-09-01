@@ -15,12 +15,12 @@ import {
   WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,
   type SubagentExtensionTarget,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { SubagentLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
@@ -29,7 +29,7 @@ import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import type { UninstallSubagentCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {

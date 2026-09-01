@@ -17,16 +17,16 @@ import { appErrorToStepFailure, toAppError } from "../../app-error/conversions.j
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { recoverCanonicalDirectory, replaceCanonicalDirectory } from "../../extensions/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { validateExactResolvedVersion } from "../../lockfile/index.js";
+import { validateExactResolvedVersion } from "@agentxm/workspace-state";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../../source-resolution/index.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../../extensions/utils.js";
-import { computePackPathsForLayout } from "../../workspace/pack-paths.js";
+import { computePackPathsForLayout } from "@agentxm/workspace-state";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
@@ -36,8 +36,8 @@ import {
   type ResolvedPackDependencyMap,
   validateExactPackDependencyVersions,
 } from "../resolved-dependency.js";
-import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
-import { computeMaterializedTreeIntegrity } from "../../workspace/materialized-tree.js";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Types

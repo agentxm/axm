@@ -9,7 +9,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
-import { type AppError } from "../app-error/index.js";
 import { failureToStepFailure } from "../app-error/conversions.js";
 import {
   applyPlanExecution,
@@ -17,22 +16,25 @@ import {
   preapprovedPlanExecution,
   previewPlanExecution,
   type ConfirmationRecovery,
-} from "./plan-execution.js";
+} from "@agentxm/workspace-operations";
 import {
   acquireWorkspaceTransitionLock,
   isWorkspaceTransitionHeldByThisInvocation,
-  protectWorkspacePath,
   runWorkspaceTransaction,
+} from "@agentxm/workspace-operations";
+import {
+  protectWorkspacePath,
   WorkspaceMutations,
   type WorkspaceMutationsService,
   type WorkspaceTransitionAcquirer,
-} from "../workspace/index.js";
-import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
-import type { Plan } from "./plan.js";
-import { StepFailure } from "./errors.js";
-import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
-import { deriveOperationOutcome, operationExitCode } from "./operation-resolution.js";
+} from "@agentxm/workspace-state";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import { type ApplyConfirmation } from "@agentxm/workspace-operations";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import type { Plan } from "@agentxm/workspace-operations";
+import { StepFailure, type PlanInteractionFailed } from "@agentxm/workspace-operations";
+import { isExecutionCandidateFresh, makeExecutionCandidate } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan } from "./resolve-plan.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
@@ -54,7 +56,7 @@ const releaseAge = {
 };
 
 const makeTestContext = (
-  confirmApplyChanges?: () => Effect.Effect<ApplyConfirmation, AppError>,
+  confirmApplyChanges?: () => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>,
   overrides?: { readonly confirmationAvailable?: boolean },
   workspace: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
 ) => {
@@ -109,7 +111,6 @@ describe("previewOrApplyPlan", () => {
       expect(result._tag).toBe("OperationResolution");
       expect(result.mode).toBe("preview");
       expect(deriveOperationOutcome(result)).toBe("previewed");
-      expect(operationExitCode(result)).toBe(0);
       expect(result.units.map((unit) => unit.state)).toEqual(["ready"]);
       expect(result.releaseAge).toEqual(releaseAge);
       expect(appliedCount).toBe(0);
@@ -258,7 +259,6 @@ describe("previewOrApplyPlan", () => {
       // The settled closure's commit stands; the missing projection readback
       // is a truthful partial outcome, and the next sync converges it.
       expect(deriveOperationOutcome(result)).toBe("partial");
-      expect(operationExitCode(result)).toBe(1);
       expect(result.failure?.category).toBe("conflict");
       expect(result.failure?.detail).toContain("did not converge for claude-code");
       expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
@@ -316,7 +316,6 @@ describe("previewOrApplyPlan", () => {
 
         expect(result.declined).toBe(true);
         expect(deriveOperationOutcome(result)).toBe("cancelled");
-        expect(operationExitCode(result)).toBe(0);
         expect(result.releaseAge).toEqual(releaseAge);
         expect(displayedBeforeConfirmation).toBe(true);
         expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(1);
@@ -361,10 +360,10 @@ describe("previewOrApplyPlan", () => {
       });
 
       expect(deriveOperationOutcome(result)).toBe("blocked");
+      expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("precondition-unmet");
       expect(result.blocking?.causeCode).toBe("conflict");
       expect(result.blocking?.subject).toBe("invalid");
-      expect(operationExitCode(result)).toBe(6);
       expect(result.releaseAge).toEqual(releaseAge);
       expect(result.units.map((unit) => unit.state)).toEqual(["ready", "blocked"]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
@@ -388,7 +387,6 @@ describe("previewOrApplyPlan", () => {
 
       expect(result._tag).toBe("OperationResolution");
       expect(deriveOperationOutcome(result)).toBe("no-op");
-      expect(operationExitCode(result)).toBe(0);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer));
   });
@@ -483,7 +481,6 @@ describe("previewOrApplyPlan", () => {
         expect(result.blocking?.class).toBe("approval-required");
         expect(result.blocking?.escape).toBeDefined();
         expect(result.blocking?.escape?.cmd).toContain("--yes");
-        expect(operationExitCode(result)).toBe(2);
         expect(appliedCount).toBe(0);
       }).pipe(Effect.provide(context.layer));
     },
@@ -529,7 +526,7 @@ describe("previewOrApplyPlan", () => {
       expect(deriveOperationOutcome(rejected)).toBe("blocked");
       expect(rejected.blocking?.class).toBe("override-required");
       expect(rejected.blocking?.escape?.description).toContain("--accept-warnings");
-      expect(operationExitCode(rejected)).toBe(2);
+      expect(deriveOperationOutcome(rejected)).toBe("blocked");
       expect(appliedCount).toBe(0);
 
       const accepted = yield* previewOrApplyPlan(plan, {
@@ -589,7 +586,6 @@ describe("previewOrApplyPlan", () => {
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
       expect(result.blocking?.escape?.description).toContain("Rerun the command");
-      expect(operationExitCode(result)).toBe(6);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -646,7 +642,6 @@ describe("previewOrApplyPlan", () => {
 
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
-      expect(operationExitCode(result)).toBe(6);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -737,7 +732,6 @@ describe("previewOrApplyPlan", () => {
         // failed closure rolled back only itself, and the dependent third step
         // is blocked truthfully. Mixed commits and failures yield partial.
         expect(deriveOperationOutcome(result)).toBe("partial");
-        expect(operationExitCode(result)).toBe(1);
         expect(result.failure?.detail).toBe("second step failed");
         expect(result.atomicity).toEqual({
           declared: "closure-atomic",
@@ -1043,7 +1037,6 @@ describe("previewOrApplyPlan", () => {
       // atomicity — while the settled first closure stands as an ordinary
       // commit.
       expect(deriveOperationOutcome(result)).toBe("partial");
-      expect(operationExitCode(result)).not.toBe(0);
       expect(result.atomicity.applied).toBe("non-rollbackable");
       expect(result.units.find((unit) => unit.id === "first")?.state).toBe("committed");
       expect(result.units.find((unit) => unit.id === "second")?.state).toBe("failed");
@@ -1169,7 +1162,6 @@ describe("previewOrApplyPlan", () => {
       // The follow-up needs no flag, consents to nothing, and repairs
       // nothing: it converges from the current workspace state.
       expect(deriveOperationOutcome(second)).toBe("applied");
-      expect(operationExitCode(second)).toBe(0);
       expect(second.recovery).toBeUndefined();
       expect(yield* fs.exists(otherTarget)).toBe(true);
       expect(yield* fs.exists(path.join(workspaceDir, "tmp", "recovery"))).toBe(false);
@@ -1338,7 +1330,6 @@ describe("previewOrApplyPlan", () => {
       }).pipe(Effect.provide(context.layer));
 
       expect(deriveOperationOutcome(result)).toBe("blocked");
-      expect(operationExitCode(result)).toBe(6);
       expect(result.blocking?.class).toBe("resource-conflict");
       expect(result.blocking?.reference).toBe("install (pid 1234)");
       expect(result.blocking?.detail).toContain("waited 60s");

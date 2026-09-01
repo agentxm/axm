@@ -7,8 +7,8 @@ import {
   publicRecoveryValue,
   recoveryPositional,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/extension-management/unstable/plan";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
 import {
   makeConfirmationRecovery,

@@ -32,18 +32,18 @@ import {
 import {
   AXM_DIR_NAME,
   resolveUserWorkspaceRoot,
-  runWorkspaceTransaction,
   scanAllSubagentFiles,
   setupScopeSupport,
   type AgentSubagentSummary,
   type SetupScopeSupportCategory,
   type WorkspaceMutationsOptions,
-  type WorkspaceScope,
   WorkspaceMutations,
   sanitizeName,
   ArtifactChangeSchema,
   type ArtifactChange,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace-operations";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import { replaceCanonicalDirectory } from "@agentxm/extension-management/unstable/extensions";
 import {

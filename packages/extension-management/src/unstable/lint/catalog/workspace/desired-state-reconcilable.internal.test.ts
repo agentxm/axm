@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
-import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
-import type { DesiredExtensionNode } from "../../../workspace/desired-state-graph.js";
+import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
+import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import type { CanonicalObservation } from "../../../workspace/canonical-observation.js";
+import type { CanonicalObservation } from "@agentxm/workspace-state";
 import { desiredStateReconcilableRule } from "./desired-state-reconcilable.js";
 
 const makeContext = (

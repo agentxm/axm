@@ -22,18 +22,18 @@ import {
   isDesiredExtensionActive,
   WorkspaceMutations,
   type DesiredExtensionNode,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import {
   applyProjectionPlans,

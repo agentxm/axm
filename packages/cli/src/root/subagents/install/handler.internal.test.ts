@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

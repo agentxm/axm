@@ -13,19 +13,19 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
-  type SkillExtensionRef,
-  type PackRef,
-  type HookExtensionRef,
-  type KnowledgeExtensionRef,
-  type McpServerExtensionRef,
-  type RuleExtensionRef,
-  type SubagentExtensionRef,
   type DesiredStateGraph,
   type ExtensionTarget,
   type PackExtensionTarget,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
@@ -53,7 +53,7 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";

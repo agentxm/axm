@@ -19,14 +19,14 @@ import {
   type ConfirmationRecoveryArgument,
   type ConfiguredAgentOperation,
   type PlanExecution,
-} from "@agentxm/extension-management/unstable/plan";
-import type { PlanPolicyId } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import type { PlanPolicyId } from "@agentxm/workspace-operations";
 import {
   isExtensionTypePlural,
   parseExtensionSpecParts,
   toExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,

@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import type { SkillExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { extensionName, handle } from "../../../test-stubs.js";
 import { getAppError } from "../../../test-helpers.js";
 import { determineSkillsToInstall } from "./select-skills.js";

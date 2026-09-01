@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 
+import * as Cause from "effect/Cause";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { StepFailure } from "@agentxm/workspace-operations";
+import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-state";
 import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
-import { isKnownFailure, toAppError, type KnownFailure } from "./conversions.js";
-import { SettingsWriteError } from "../settings/errors.js";
-import { LockfileValidationError, LockfileWriteError } from "../lockfile/errors.js";
+import {
+  isKnownFailure,
+  restorationIncompleteToAppError,
+  toAppError,
+  type KnownFailure,
+} from "./conversions.js";
+import { SettingsWriteError } from "@agentxm/workspace-state";
+import { LockfileValidationError, LockfileWriteError } from "@agentxm/workspace-state";
 import {
   CanonicalPathRemovalError,
   DesiredPackGraphIncomplete,
@@ -14,7 +22,7 @@ import {
   SymlinkCreationError,
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
-} from "../workspace/errors.js";
+} from "@agentxm/workspace-state";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -23,7 +31,7 @@ import {
   SettingsIoError,
   SettingsParseError,
   WorkspaceRootEscape,
-} from "../workspace/read-model/errors.js";
+} from "@agentxm/workspace-state";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -31,7 +39,7 @@ import {
   WorkspaceRestorationError,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "../workspace/transaction.js";
+} from "@agentxm/workspace-state";
 
 const ioCause = new Error("EACCES");
 
@@ -597,5 +605,40 @@ describe("workspace-state conversions", () => {
     const original = makeAppError({ code: "conflict", detail: "already handled" });
     expect(toAppError(original)).toBe(original);
     expect(isKnownFailure(original)).toBe(false);
+  });
+
+  it("summarizes an untyped transition defect without exposing its stack", () => {
+    const error = restorationIncompleteToAppError(
+      new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.die(new Error("injected transition defect")),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      }),
+    );
+
+    expect(error.detail).toBe(
+      "Transition failed: Error: injected transition defect. Workspace restoration did not complete; the affected paths keep the state the failure left.",
+    );
+    expect(error.detail).not.toContain("transaction.internal.test.ts");
+  });
+
+  it("renders the deciding typed failure inside a restoration-incomplete transition", () => {
+    const error = restorationIncompleteToAppError(
+      new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.fail(
+          new StepFailure({ category: "internal", detail: "injected transition failure" }),
+        ),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      }),
+    );
+
+    expect(error.detail).toMatch(
+      /^Transition failed: injected transition failure\. Workspace restoration did not complete;/,
+    );
   });
 });

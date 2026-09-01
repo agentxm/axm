@@ -8,17 +8,13 @@ import * as Layer from "effect/Layer";
 
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  deriveOperationOutcome,
-  operationExitCode,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  WorkspaceMutations,
-  isWorkspaceTransitionHeldByThisInvocation,
-} from "@agentxm/extension-management/unstable/workspace";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { isWorkspaceTransitionHeldByThisInvocation } from "@agentxm/workspace-operations";
 import * as Option from "effect/Option";
 
 import { makeBaseWorkspaceMock } from "../../test-stubs.js";
+import { operationExitCode } from "../../operation-exit-code.js";
 import { interruptionResolution, withOperationLifecycle } from "./operation-lifecycle.js";
 
 let tempDir: string;

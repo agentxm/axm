@@ -14,18 +14,15 @@ import {
 } from "../../extension-workspace/index.js";
 import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import type { McpServerLockEntry } from "../../lockfile/index.js";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { type AppError } from "../../app-error/index.js";
-import { SettingsWriteError } from "../../settings/errors.js";
-import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
+import { SettingsWriteError } from "@agentxm/workspace-state";
+import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
-} from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { handle, makeCodingAgentStub } from "../../test-helpers.js";
 import type { UninstallMcpServerOperation } from "./uninstall.js";
 import { uninstallMcpServer } from "./uninstall.js";

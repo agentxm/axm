@@ -12,7 +12,7 @@ import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   type ExtensionType,
@@ -28,16 +28,14 @@ import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
-import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,

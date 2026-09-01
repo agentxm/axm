@@ -2,7 +2,7 @@ import { Flag } from "effect/unstable/cli";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WORKSPACE_SCOPES,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const scopeFlag = Flag.choice("scope", WORKSPACE_SCOPES).pipe(
   Flag.withDescription("Configuration scope: project (default) or user"),

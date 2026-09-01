@@ -10,13 +10,13 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   StepFailure,
-  previewOrApplyPlan,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
 import { renderOperationOutcome } from "../../operation-render.js";

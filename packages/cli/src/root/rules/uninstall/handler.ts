@@ -1,8 +1,5 @@
 import * as Effect from "effect/Effect";
-import {
-  deriveOperationOutcome,
-  operationPresentation,
-} from "@agentxm/extension-management/unstable/plan";
+import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
 import { runUninstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";

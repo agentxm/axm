@@ -19,11 +19,9 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach } from "vitest";
-import {
-  deriveOperationOutcome,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
-import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

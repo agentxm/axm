@@ -44,13 +44,13 @@ import type {
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
-} from "../../lockfile/index.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { isSourcedDesiredExtension } from "../../workspace/desired-state-graph.js";
+} from "@agentxm/workspace-state";
+import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { toAppError } from "../../app-error/conversions.js";
 

@@ -25,7 +25,8 @@ import {
   type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { getHome } from "../agents/constants.js";
-import { envOption, isPathSafe } from "../utils/index.js";
+import { envOption } from "../utils/index.js";
+import { isPathSafe } from "@agentxm/workspace-state";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import {
@@ -38,7 +39,7 @@ import {
   AXM_MCP_METADATA_KEY,
   isAxmManagedMcpEntry,
   isMcpServerApplicableToAgent,
-} from "../workspace/mcp-entry-semantics.js";
+} from "@agentxm/workspace-state";
 import { inferInlineRemoteTransport, projectExpectedEntry } from "../mcps/projection.js";
 import { inspectAgentMcpServer } from "../mcps/inspection.js";
 import { planMcpTargetGroups, sharedMcpTargetPolicyConflict } from "../mcps/targeting.js";
@@ -48,7 +49,7 @@ import {
   type SharedMcpTransport,
 } from "../mcps/shared-target.js";
 import { resolveMcpServer } from "../mcps/resolution.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "../mcps/config-writer.js";
 import { managedYamlNames } from "../yaml/index.js";
 import type {
@@ -57,7 +58,7 @@ import type {
   McpServerSyncTarget,
   RemoveMcpServerArgs,
 } from "./coding-agent.js";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 
 export interface CliInvocation {
   readonly command: string;

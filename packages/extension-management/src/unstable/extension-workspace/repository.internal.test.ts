@@ -2,11 +2,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { handle } from "../test-helpers.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 

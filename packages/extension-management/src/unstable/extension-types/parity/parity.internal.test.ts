@@ -19,8 +19,8 @@ import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
-import { LOCK_ENTRY_SCHEMA_BY_TYPE } from "../../lockfile/schema.js";
-import { READ_MODEL_EXTENSION_FAMILY_BY_TYPE } from "../../workspace/read-model/service.js";
+import { LOCK_ENTRY_SCHEMA_BY_TYPE } from "@agentxm/workspace-state";
+import { READ_MODEL_EXTENSION_FAMILY_BY_TYPE } from "@agentxm/workspace-state";
 import {
   CATALOG_EXTENSION_TYPES,
   type CatalogExtensionType,

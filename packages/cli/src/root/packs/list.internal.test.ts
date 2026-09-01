@@ -18,8 +18,8 @@ import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags
 import {
   computePackManifestContentIdentity,
   type WorkspaceMutationsOptions,
-  layer as coreWorkspaceLayer,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-helpers.js";
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";

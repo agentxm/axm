@@ -15,15 +15,13 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeOperationResolution,
   operationPresentation,
   type JobStepArtifact,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

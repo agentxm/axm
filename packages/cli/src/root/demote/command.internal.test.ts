@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
+import { SettingsSchema } from "@agentxm/workspace-state";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";

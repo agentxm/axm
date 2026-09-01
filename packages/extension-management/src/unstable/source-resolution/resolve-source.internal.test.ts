@@ -18,10 +18,10 @@ import * as Option from "effect/Option";
 
 import { AppError } from "../app-error/index.js";
 import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
-import type { SourceHostConfig } from "../settings/index.js";
-import type { SkillsLockMap } from "../lockfile/index.js";
-import { WorkspaceMutations } from "../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
+import type { SkillsLockMap } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 

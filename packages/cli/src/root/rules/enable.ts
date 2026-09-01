@@ -8,13 +8,13 @@ import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-run
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifact,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,

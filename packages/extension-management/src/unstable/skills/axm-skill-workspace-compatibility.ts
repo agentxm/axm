@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type { WorkspaceReadModel } from "../workspace/read-model/service.js";
-import type { LockfileReadError, SettingsReadError } from "../workspace/read-model/errors.js";
+import type { WorkspaceReadModel } from "@agentxm/workspace-state";
+import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
 import {
   AXM_SKILL_FQN,

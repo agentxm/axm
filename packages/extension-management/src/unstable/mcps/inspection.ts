@@ -26,14 +26,11 @@ import {
   McpSharedTargetConflict,
   type McpManagerError,
 } from "./errors.js";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./config-writer.js";
-import {
-  isAxmManagedMcpEntry,
-  isMcpServerApplicableToAgent,
-} from "../workspace/mcp-entry-semantics.js";
+import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import {
   diffAgentEntry,
   inferInlineRemoteTransport,

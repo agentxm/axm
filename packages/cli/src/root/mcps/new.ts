@@ -25,21 +25,18 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  DEFAULT_WORKSPACE_SCOPE,
-  resolveWorkspaceExtensionRef,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
+import { resolveWorkspaceExtensionRef, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,

@@ -24,17 +24,21 @@ import {
   restorationIncompleteToAppError,
   toAppError,
 } from "../app-error/conversions.js";
-import { STALE_CANDIDATE_DETAIL, StaleExecutionCandidate, StepFailure } from "./errors.js";
-import { applyPlan } from "./apply-plan.js";
+import {
+  STALE_CANDIDATE_DETAIL,
+  StaleExecutionCandidate,
+  StepFailure,
+} from "@agentxm/workspace-operations";
+import { applyPlan } from "@agentxm/workspace-operations";
 import {
   isExecutionCandidateFresh,
   makeExecutionCandidate,
   type ExecutionCandidate,
-} from "./execution-candidate.js";
-import { augmentPlanWithReconciliation } from "../workspace/operations/augment-plan.js";
-import { scanPlanReadiness } from "../workspace/operations/scan-plan-readiness.js";
-import type { LockfileState } from "../workspace/service-interface.js";
-import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
+} from "@agentxm/workspace-operations";
+import { augmentPlanWithReconciliation } from "@agentxm/workspace-operations";
+import { scanPlanReadiness } from "@agentxm/workspace-operations";
+import type { LockfileState } from "@agentxm/workspace-state";
+import type { CompletedJobStep, ExecutedPlan, Plan } from "@agentxm/workspace-operations";
 import {
   declaredAtomicity,
   executedUnits,
@@ -44,39 +48,39 @@ import {
   type OperationBlock,
   type OperationResolution,
   type ResolvedUnit,
-} from "./operation-resolution.js";
+} from "@agentxm/workspace-operations";
 import {
   appendResolvedUnit,
   appendStartedUnit,
   recordJournalPhase,
   recordOperationJournal,
-} from "./operation-journal.js";
-import { publishLifecycleEvent, publishPhaseStarted } from "./operation-events.js";
-import type { OperationPhase } from "./operation-resolution.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+} from "@agentxm/workspace-operations";
+import { publishLifecycleEvent, publishPhaseStarted } from "@agentxm/workspace-operations";
+import type { OperationPhase } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   readPendingClosureRestorationFailures,
   WorkspaceRestorationIncomplete,
-} from "../workspace/transaction.js";
+} from "@agentxm/workspace-state";
 import {
   rollbackWorkspaceClosure,
   settleWorkspaceClosure,
   withWorkspaceClosure,
-} from "../workspace/operations/transaction.js";
-import { readFootprint } from "../workspace/footprint-recorder.js";
-import type { OperationFootprintEntry } from "./operation-resolution.js";
-import { InterruptionSignalSource } from "./interruption-signal.js";
-import { ResolvePlanInteraction } from "./resolve-plan-interaction.js";
-import type { ConfiguredAgentOperation } from "./plan-execution.js";
+} from "@agentxm/workspace-operations";
+import { readFootprint } from "@agentxm/workspace-state";
+import type { OperationFootprintEntry } from "@agentxm/workspace-operations";
+import { InterruptionSignalSource } from "@agentxm/workspace-operations";
+import { ResolvePlanInteraction } from "@agentxm/workspace-operations";
+import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
 import { HookManager } from "../hooks/manager.js";
-import { isMcpServerApplicableToAgent } from "../workspace/mcp-entry-semantics.js";
-import { configuredAgentLifecycleOutcomes } from "../workspace/configured-agent-outcomes.js";
+import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
+import { configuredAgentLifecycleOutcomes } from "@agentxm/workspace-state";
 import {
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   type PlanExecution,
-} from "./plan-execution.js";
-import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
+} from "@agentxm/workspace-operations";
+import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
@@ -454,7 +458,9 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       });
     }
     yield* enterPhase("confirmation");
-    const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
+    const confirmation = yield* interaction
+      .confirmApplyChanges(applyExecution.approvalRecovery)
+      .pipe(Effect.mapError(toAppError));
     if (confirmation !== "approved") {
       return notExecuted({ declined: true });
     }
@@ -548,7 +554,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       Effect.mapError(
         (error) =>
           ({
-            error: error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+            error:
+              error._tag === "CandidateFingerprintFailed" ? failureToStepFailure(error) : error,
           }) satisfies PlanApplyFailure<Output>,
       ),
     );

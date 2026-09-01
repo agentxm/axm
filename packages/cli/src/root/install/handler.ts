@@ -9,9 +9,9 @@ import {
   recoveryPositional,
   recoverySwitch,
   type PlanExecution,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { operationPresentation, type Plan } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";

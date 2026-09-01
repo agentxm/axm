@@ -9,12 +9,9 @@ import {
   buildNewExtensionStep,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
-import {
-  computeSourceHash,
-  type WorkspaceHookRef,
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -28,15 +25,15 @@ import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/
 import { HookManager, newHook } from "@agentxm/extension-management/unstable/hooks";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { joinDisplayPath } from "../shared/display-path.js";
@@ -109,7 +106,7 @@ export interface HooksNewHandlerArgs {
 const toJobStepResult = (result: {
   readonly result: string;
   readonly message: string;
-  readonly error?: import("@agentxm/extension-management/unstable/plan").StepFailure;
+  readonly error?: import("@agentxm/workspace-operations").StepFailure;
 }): JobStepResult =>
   result.result === "error" && result.error != null
     ? { result: "error", message: result.message, error: result.error }

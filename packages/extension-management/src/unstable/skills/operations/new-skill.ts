@@ -16,10 +16,10 @@ import {
 } from "../../extensions/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,

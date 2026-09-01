@@ -8,27 +8,27 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
-  type HookExtensionRef,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   ACQUIRED_EXTENSIONS_DIR,
   type ConfiguredAgentOutcome,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
 import {
   resolveSource,

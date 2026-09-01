@@ -5,23 +5,14 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  WorkspaceMutations,
-  installedRowsByName,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { EnableSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import { enableSkill } from "@agentxm/extension-management/unstable/skills";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import type {
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { emitOperationResolution } from "../../operation-output.js";

@@ -16,13 +16,14 @@ import { Prompt } from "effect/unstable/cli";
 import { requireInteractive } from "../cli/prompt/index.js";
 import { isNonInteractiveOptional, Verbosity } from "../cli-flags/index.js";
 import { CliRenderer, displayPlan } from "../cli-renderer/index.js";
-import { subscribeToLifecycle } from "../plan/operation-events.js";
-import { confirmationRecoverySuggestions } from "../plan/plan-execution.js";
+import { PlanInteractionFailed } from "@agentxm/workspace-operations";
+import { subscribeToLifecycle } from "@agentxm/workspace-operations";
+import { confirmationRecoverySuggestions } from "@agentxm/workspace-operations";
 import {
   ResolvePlanInteraction,
   type ApplyConfirmation,
   type ResolvePlanInteractionService,
-} from "../plan/resolve-plan-interaction.js";
+} from "@agentxm/workspace-operations";
 
 const confirmApplyChangesMessage = "Apply changes?";
 
@@ -57,6 +58,15 @@ export const ResolvePlanInteractionLive = Layer.effect(
           Effect.provide(promptEnvironment),
           Effect.map((confirmed): ApplyConfirmation => (confirmed ? "approved" : "declined")),
           Effect.catchTag("PromptCancelled", () => Effect.succeed("cancelled" as const)),
+          Effect.mapError(
+            (error) =>
+              new PlanInteractionFailed({
+                category: error.code,
+                detail: error.detail,
+                ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+                ...(error.cause === undefined ? {} : { cause: error.cause }),
+              }),
+          ),
         ),
       presentPlan: (plan, options) =>
         Effect.suspend(() => {

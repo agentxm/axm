@@ -9,15 +9,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { computeSourceHash } from "../workspace/rendered-files.js";
+import { computeSourceHash } from "@agentxm/workspace-state";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { GitHubSource } from "@agentxm/extension-model/unstable/sources/types";
-import { sourceToLockEntry } from "../workspace/source-to-lock-entry.js";
+import { sourceToLockEntry } from "@agentxm/workspace-state";
 import { extensionName } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
-import { resolveProjectWorkspaceLayout } from "../workspace/layout.js";
+import { observeCanonicalExtension } from "@agentxm/workspace-state";
+import { resolveProjectWorkspaceLayout } from "@agentxm/workspace-state";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   materializeSkillCanonical,

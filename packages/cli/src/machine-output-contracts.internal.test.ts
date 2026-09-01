@@ -13,7 +13,7 @@ import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { ExtensionInventorySchema } from "@agentxm/extension-management/unstable/workspace";
+import { ExtensionInventorySchema } from "@agentxm/workspace-state";
 
 import {
   captureHelpDoc,

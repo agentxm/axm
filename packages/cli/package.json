@@ -82,6 +82,8 @@
     "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
     "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "semver": "catalog:",

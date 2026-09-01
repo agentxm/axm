@@ -7,14 +7,14 @@ import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

@@ -10,9 +10,9 @@ import type {
   McpRemoteDialect,
   McpStdioDialect,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { buildAxmMcpMetadataFromSettingsSource } from "./metadata.js";
-import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "../workspace/mcp-entry-semantics.js";
+import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 
 export type InlineRemoteTransport = "streamable-http" | "sse";
 

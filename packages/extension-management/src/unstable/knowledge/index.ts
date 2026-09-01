@@ -75,10 +75,6 @@ export {
 export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";
 export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
 export {
-  resolveKnowledgeDiscoveryConfig,
-  type ResolvedKnowledgeDiscoveryConfig,
-} from "./discovery-config.js";
-export {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryReason,
   type KnowledgeInstructionEntryResolution,

@@ -4,10 +4,8 @@ import { type AppError, makeAppError } from "@agentxm/extension-management/unsta
 import { CredentialStore, getCurrentUserHandle } from "@agentxm/extension-management/unstable/auth";
 import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions";
-import {
-  WorkspaceMutations,
-  type WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { workspaceSettingsPath } from "./workspace-display-paths.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 

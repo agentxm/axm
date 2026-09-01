@@ -17,29 +17,30 @@ import {
   protectCreatedAncestors,
   protectWorkspacePath,
   type WorkspaceSnapshotError,
-} from "../workspace/transaction.js";
-import { recordFootprint } from "../workspace/footprint-recorder.js";
+} from "@agentxm/workspace-state";
+import { recordFootprint } from "@agentxm/workspace-state";
 import type {
   ExtensionName,
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
-import { copyExtensionDirectory, validatePathSafety } from "./utils.js";
+import { copyExtensionDirectory } from "./utils.js";
+import { validatePathSafety } from "@agentxm/workspace-state";
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  PathTraversalDetected,
   StagedPackageInvalid,
 } from "./errors.js";
+import { PathTraversalDetected } from "@agentxm/workspace-state";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
   type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+} from "@agentxm/workspace-state";
 
 export const canonicalMaterializationPaths = (canonicalPath: string) => ({
   stagingPath: `${canonicalPath}.axm-staging`,

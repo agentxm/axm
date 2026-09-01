@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "./coding-agent.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
-import { RenderedFilePathSchema } from "../workspace/rendered-files.js";
+import { RenderedFilePathSchema } from "@agentxm/workspace-state";
 import * as Schema from "effect/Schema";
 import { codingAgentForId } from "./repository.js";
 

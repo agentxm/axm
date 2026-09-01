@@ -8,12 +8,9 @@ import {
   buildNewExtensionStep,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
-import {
-  computeSourceHash,
-  type WorkspaceSkillRef,
-  WorkspaceMutations,
-  DEFAULT_WORKSPACE_SCOPE,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   decodeExtensionNameSync,
   normalizeHandle,
@@ -40,8 +37,8 @@ import type {
   JobStepArtifactTarget,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

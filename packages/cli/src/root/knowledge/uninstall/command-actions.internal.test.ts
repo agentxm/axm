@@ -7,14 +7,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import {
-  preapprovedPlanExecution,
-  previewPlanExecution,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  deriveOperationOutcome,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import { preapprovedPlanExecution, previewPlanExecution } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";

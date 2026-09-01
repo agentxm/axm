@@ -16,14 +16,14 @@ import { DefaultCodingAgentRepository } from "../../extension-workspace/index.js
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
 import { ensureSkillAgentArtifact } from "../materialization.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
-import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
+import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 
 // Operation types
 // -----------------------------------------------------------------------------

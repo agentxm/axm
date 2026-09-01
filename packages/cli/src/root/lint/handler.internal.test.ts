@@ -40,8 +40,8 @@ import {
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";

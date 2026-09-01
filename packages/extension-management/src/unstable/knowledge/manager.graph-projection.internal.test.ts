@@ -20,13 +20,13 @@ import { makeAppError } from "../app-error/index.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/planning.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
-import type { KnowledgeMap } from "../settings/schema.js";
+import type { KnowledgeMap } from "@agentxm/workspace-state";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
 
 const OWNER = "@acme";

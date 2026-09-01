@@ -81,7 +81,16 @@ describe("aggregate ownership unit conformance", () => {
     }
 
     const serviceContract = nodeFs.readFileSync(
-      nodePath.join(packageSrc, "workspace", "service-interface.ts"),
+      nodePath.join(
+        packageSrc,
+        "..",
+        "..",
+        "..",
+        "workspace-state",
+        "src",
+        "workspace",
+        "service-interface.ts",
+      ),
       "utf8",
     );
     expect(serviceContract).not.toContain("reconcileProjections");

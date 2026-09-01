@@ -15,20 +15,20 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { printSkillLockSourceLocator } from "../../workspace/lock-entry-to-source-params.js";
-import { sourceToLockEntry } from "../../workspace/source-to-lock-entry.js";
+import { printSkillLockSourceLocator } from "@agentxm/workspace-state";
+import { sourceToLockEntry } from "@agentxm/workspace-state";
 import {
   canReuseInstalledPackage,
   materializeExternalPackage,
   materializeRegistryPackage,
 } from "../../extensions/index.js";
-import { computePackageContentHash } from "../../workspace/package-hash.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
 import {
   type RenderedFilePath,
   type RenderedFilesMap,
   RenderedFilePathSchema,
-} from "../../workspace/rendered-files.js";
-import { computeMaterializedTreeIntegrity } from "../../workspace/materialized-tree.js";
+} from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
 import {
   UNIVERSAL_SKILLS_DIR,
   isUniversalSkillsDir,
@@ -44,32 +44,33 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
-import { isPathSafe, stripFileProtocol } from "../../utils/index.js";
+import { stripFileProtocol } from "../../utils/index.js";
+import { isPathSafe } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { createSymlink } from "../../workspace/create-symlink.js";
-import { validatePathSafety } from "../../extensions/index.js";
+import { createSymlink } from "@agentxm/workspace-state";
+import { validatePathSafety } from "@agentxm/workspace-state";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import { StepFailure } from "../../plan/errors.js";
+import { StepFailure } from "@agentxm/workspace-operations";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
-} from "../../lockfile/index.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import { appendWarningsToMessage } from "../../plan/job-step-message.js";
-import type { Operation } from "../../plan/plan.js";
+} from "@agentxm/workspace-state";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
 import type {
   JobStepArtifact,
   JobStepArtifactSource,
   JobStepArtifactTarget,
   JobStepResult,
-} from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   copyExtensionDirectory,
   formatCopyExtensionDirectoryFailure,
 } from "../../extensions/utils.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
 import { validateAxmSkillCandidate } from "../axm-skill-candidate.js";

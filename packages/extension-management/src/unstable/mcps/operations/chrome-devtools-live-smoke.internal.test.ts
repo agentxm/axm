@@ -14,8 +14,8 @@ import {
 } from "../../extension-workspace/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { uninstallMcpServer } from "./uninstall.js";
 import { installMcpServer } from "./install.js";
 

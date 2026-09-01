@@ -15,7 +15,7 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { OperationPreconditionSchema } from "@agentxm/extension-management/unstable/plan";
+import { OperationPreconditionSchema } from "@agentxm/workspace-operations";
 import { AppErrorCodeSchema } from "@agentxm/extension-management/unstable/app-error";
 import {
   PublishVisibilitySchema,

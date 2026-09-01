@@ -30,16 +30,16 @@ import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   type ExtensionPathLockEntry,
-} from "../workspace/extension-paths.js";
+} from "@agentxm/workspace-state";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
   type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+} from "@agentxm/workspace-state";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { DesiredExtensionNode, DesiredStateGraph } from "../workspace/desired-state-graph.js";
-import { desiredStateProblemsText } from "../workspace/desired-state-problem-text.js";
-import type { WorkspaceLayout } from "../workspace/layout.js";
+import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
+import { desiredStateProblemsText } from "@agentxm/workspace-state";
+import type { WorkspaceLayout } from "@agentxm/workspace-state";
 
 /**
  * Minimal structural view of a per-extension source lock entry. Registry

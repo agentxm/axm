@@ -15,7 +15,7 @@ export {
 export { fqnInvalidErrorToAppError } from "../app-error/conversions.js";
 
 // Shared utilities
-export { copyExtensionDirectory, validatePathSafety } from "./utils.js";
+export { copyExtensionDirectory } from "./utils.js";
 
 export {
   enabledConfiguredEntries,
@@ -131,7 +131,6 @@ export {
   NativeImportUnsupported,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  PathTraversalDetected,
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,

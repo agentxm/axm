@@ -21,18 +21,18 @@ import {
   type ExtensionManagerFailure,
 } from "../extension-workspace/errors.js";
 import { getHome } from "../agents/constants.js";
-import { isPathSafe } from "../utils/index.js";
+import { isPathSafe } from "@agentxm/workspace-state";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { stringifyToml, stringifyTomlKey } from "../toml/index.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml/index.js";
-import { isAxmManagedMcpEntry } from "../workspace/mcp-entry-semantics.js";
+import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 import type {
   McpActivationField,
   McpConfigTarget,
   McpServersKey,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { ArtifactChange } from "../workspace/artifact-change.js";
+import type { ArtifactChange } from "@agentxm/workspace-state";
 import { reconcileKeyedBlock } from "../projection/adapters.js";
 
 export interface WriteAgentMcpConfigArgs {

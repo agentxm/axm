@@ -23,11 +23,11 @@ import type {
   NativeImportUnsupported,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  PathTraversalDetected,
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
 } from "../../extensions/errors.js";
+import { PathTraversalDetected } from "@agentxm/workspace-state";
 import type {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
@@ -90,7 +90,7 @@ import type {
   SubagentIoFailed,
 } from "../../subagents/errors.js";
 import type { TransientBackupFailed } from "../../utils/transient-backup.js";
-import type { MaterializedTreeInvalid } from "../../workspace/materialized-tree.js";
+import type { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import { AppError, makeAppError } from "../app-error.js";
 
 /** Translate a staging/swap machinery failure, reproducing each step's detail. */

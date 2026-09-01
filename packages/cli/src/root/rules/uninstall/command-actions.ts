@@ -4,13 +4,10 @@ import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { Plan } from "@agentxm/extension-management/unstable/plan";
+import type { Plan } from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import {
-  type RuleExtensionRef,
-  type RuleExtensionTarget,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type RuleExtensionTarget, WorkspaceMutations } from "@agentxm/workspace-state";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { UninstallRuleCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";

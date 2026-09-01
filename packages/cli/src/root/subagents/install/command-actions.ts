@@ -29,10 +29,8 @@ import {
   WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  WorkspaceMutations,
-  type SubagentExtensionRef,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
@@ -40,7 +38,7 @@ import {
   operationPresentation,
   type JobStepArtifact,
   type Plan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import type { InstallSubagentCommandIntent } from "./intent.js";
 import { resolveSubagentInstallSource } from "./resolve-subagent-install-source.js";
 import {

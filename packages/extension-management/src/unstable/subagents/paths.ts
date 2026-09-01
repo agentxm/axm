@@ -12,9 +12,9 @@ import {
   extensionContentFilename,
   extensionContentPath,
   type ExtensionPathSource,
-} from "../workspace/extension-paths.js";
+} from "@agentxm/workspace-state";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceLayout } from "../workspace/layout.js";
+import type { WorkspaceLayout } from "@agentxm/workspace-state";
 
 /**
  * Minimal structural discriminant for determining subagent path layout.

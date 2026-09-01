@@ -1,5 +1,5 @@
 import type * as Option from "effect/Option";
-import type { RuleExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 export interface InstallRuleCommandIntent {

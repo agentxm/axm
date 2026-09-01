@@ -22,25 +22,41 @@ import {
   WorkspaceRestorationIncomplete,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "../workspace/transaction.js";
+} from "@agentxm/workspace-state";
 import {
+  CandidateFingerprintFailed,
   OPERATION_ERROR_CATEGORIES,
+  PlanInteractionFailed,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
-} from "../plan/errors.js";
-import { SettingsWriteError } from "../settings/errors.js";
-import { LockfileValidationError, LockfileWriteError } from "../lockfile/errors.js";
+} from "@agentxm/workspace-operations";
+import { SettingsWriteError } from "@agentxm/workspace-state";
 import {
+  LockfileResolvedVersionInvalid,
+  LockfileValidationError,
+  LockfileWriteError,
+} from "@agentxm/workspace-state";
+import {
+  AcceptedResolutionMissing,
   CanonicalPathRemovalError,
+  InlineExtensionSourceMissing,
   DesiredPackGraphIncomplete,
   InvalidAgentId,
   LockedSkillMissing,
+  LockEntryEndpointConflict,
+  LockEntryNameInvalid,
+  LockEntrySourceMissing,
+  LockEntrySourceTypeConflict,
+  LockEntryUrlInvalid,
+  PackageContentHashFailed,
   SettingsEntryMissing,
+  SupersededCanonicalRemovalFailed,
   SymlinkCreationError,
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
-} from "../workspace/errors.js";
+  WorkspaceSourceInvalid,
+} from "@agentxm/workspace-state";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -48,10 +64,12 @@ import {
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
+  SkillDiscoveryRootInvalid,
+  SubagentScanFailed,
   WorkspaceRootEscape,
   type LockfileReadError,
   type SettingsReadError,
-} from "../workspace/read-model/errors.js";
+} from "@agentxm/workspace-state";
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
@@ -68,12 +86,11 @@ import {
   NativeImportUnsupported,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  PathTraversalDetected,
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
 } from "../extensions/errors.js";
-import { MaterializedTreeInvalid } from "../workspace/materialized-tree.js";
+import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
 import { RuleDefinitionInvalid, RuleInstallStateMissing } from "../rules/errors.js";
 import {
   HookConfigInvalid,
@@ -645,6 +662,141 @@ export const symlinkCreationErrorToAppError = (error: SymlinkCreationError): App
   return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
 };
 
+/** Translate a lock entry referencing an unconfigured source name. */
+export const lockEntrySourceMissingToAppError = (error: LockEntrySourceMissing): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Lockfile ${error.entryType} entry references source "${error.sourceName}", but that source is not configured`,
+  });
+
+/** Translate an unparseable lockfile source URL. */
+export const lockEntryUrlInvalidToAppError = (error: LockEntryUrlInvalid): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Lockfile source URL is invalid: ${error.value}`,
+  });
+
+/** Translate an undecodable lockfile extension name. */
+export const lockEntryNameInvalidToAppError = (error: LockEntryNameInvalid): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Lockfile extension name is invalid: ${error.name}`,
+  });
+
+/** Translate a lock entry whose accepted endpoint disagrees with configuration. */
+export const lockEntryEndpointConflictToAppError = (error: LockEntryEndpointConflict): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Lockfile ${error.sourceKind} source "${error.sourceName}" accepts endpoint ${error.acceptedEndpoint}, but configuration resolves it to ${error.resolvedEndpoint}`,
+  });
+
+/** Translate a lock entry whose source name resolves to a different source type. */
+export const lockEntrySourceTypeConflictToAppError = (
+  error: LockEntrySourceTypeConflict,
+): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `Lockfile ${error.sourceKind} entry references source "${error.sourceName}", but configuration does not resolve that name to ${error.sourceKind}`,
+  });
+
+/** Translate a missing accepted resolution for a desired extension. */
+export const acceptedResolutionMissingToAppError = (error: AcceptedResolutionMissing): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Missing accepted ${error.label} resolution for ${error.name}`,
+  });
+
+/** Translate an inline entry with no resolvable package source. */
+export const inlineExtensionSourceMissingToAppError = (
+  error: InlineExtensionSourceMissing,
+): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Inline MCP server "${error.name}" has no package source to resolve.`,
+  });
+
+/** Translate a superseded-canonical removal failure. */
+export const supersededCanonicalRemovalFailedToAppError = (
+  error: SupersededCanonicalRemovalFailed,
+): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Failed to remove superseded canonical package: ${error.path}`,
+    cause: error.cause,
+  });
+
+/** Translate a package content hash failure. */
+export const packageContentHashFailedToAppError = (error: PackageContentHashFailed): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Failed to hash package content at ${error.packageDir}`,
+    cause: error.cause,
+  });
+
+/** Translate an invalid configured workspace source with the canonical recovery. */
+export const workspaceSourceInvalidToAppError = (error: WorkspaceSourceInvalid): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: `Invalid workspace source "${error.source}": ${error.detail}`,
+    recover: "Restore a valid canonical workspace package or update the settings source.",
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/** Translate a skill discovery root problem, reproducing each site's detail. */
+export const skillDiscoveryRootInvalidToAppError = (error: SkillDiscoveryRootInvalid): AppError =>
+  makeAppError({
+    code: "internal",
+    detail:
+      error.problem === "inaccessible"
+        ? `Directory does not exist or is not accessible: ${error.searchRoot}`
+        : `Path is not a directory: ${error.searchRoot}`,
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/** Translate a subagent file scan failure. */
+export const subagentScanFailedToAppError = (error: SubagentScanFailed): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Failed to scan subagent files for ${error.agentName}`,
+    cause: error.cause,
+  });
+
+/** Translate an inexact lockfile resolved version with the canonical suggestion. */
+export const lockfileResolvedVersionInvalidToAppError = (
+  error: LockfileResolvedVersionInvalid,
+): AppError =>
+  makeAppError({
+    code: "validation",
+    detail: "Lockfile resolved versions must be exact semver values",
+    suggestions: [
+      {
+        description:
+          "Resolve the constraint first, then persist the exact resolved version (for example, 1.2.3 instead of ^1.2.3).",
+      },
+    ],
+    cause: error.cause,
+  });
+
+/** Translate an execution-material fingerprint failure. */
+export const candidateFingerprintFailedToAppError = (error: CandidateFingerprintFailed): AppError =>
+  makeAppError({
+    code: "internal",
+    detail: `Failed to fingerprint execution material at ${error.target}`,
+    cause: error.cause,
+  });
+
+/**
+ * Translate a plan interaction failure: the implementation chose the category
+ * and wording at construction, so the envelope carries them over 1:1.
+ */
+export const planInteractionFailedToAppError = (error: PlanInteractionFailed): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
 /**
  * Every typed failure the application boundary knows how to convert. Each
  * package's error union registers here as it stops constructing `AppError`
@@ -667,6 +819,7 @@ export type KnownFailure =
   | SettingsWriteError
   | LockfileWriteError
   | LockfileValidationError
+  | LockfileResolvedVersionInvalid
   | WorkspaceLayoutError
   | WorkspaceNotInitialized
   | LockedSkillMissing
@@ -675,6 +828,20 @@ export type KnownFailure =
   | DesiredPackGraphIncomplete
   | CanonicalPathRemovalError
   | SymlinkCreationError
+  | LockEntrySourceMissing
+  | LockEntryUrlInvalid
+  | LockEntryNameInvalid
+  | LockEntryEndpointConflict
+  | LockEntrySourceTypeConflict
+  | AcceptedResolutionMissing
+  | InlineExtensionSourceMissing
+  | SupersededCanonicalRemovalFailed
+  | PackageContentHashFailed
+  | WorkspaceSourceInvalid
+  | SkillDiscoveryRootInvalid
+  | SubagentScanFailed
+  | CandidateFingerprintFailed
+  | PlanInteractionFailed
   | WorkspaceSnapshotError
   | WorkspaceDirectoryError
   | TransitionLockError
@@ -768,6 +935,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof SettingsWriteError ||
   error instanceof LockfileWriteError ||
   error instanceof LockfileValidationError ||
+  error instanceof LockfileResolvedVersionInvalid ||
   error instanceof WorkspaceLayoutError ||
   error instanceof WorkspaceNotInitialized ||
   error instanceof LockedSkillMissing ||
@@ -776,6 +944,20 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof DesiredPackGraphIncomplete ||
   error instanceof CanonicalPathRemovalError ||
   error instanceof SymlinkCreationError ||
+  error instanceof LockEntrySourceMissing ||
+  error instanceof LockEntryUrlInvalid ||
+  error instanceof LockEntryNameInvalid ||
+  error instanceof LockEntryEndpointConflict ||
+  error instanceof LockEntrySourceTypeConflict ||
+  error instanceof AcceptedResolutionMissing ||
+  error instanceof InlineExtensionSourceMissing ||
+  error instanceof SupersededCanonicalRemovalFailed ||
+  error instanceof PackageContentHashFailed ||
+  error instanceof WorkspaceSourceInvalid ||
+  error instanceof SkillDiscoveryRootInvalid ||
+  error instanceof SubagentScanFailed ||
+  error instanceof CandidateFingerprintFailed ||
+  error instanceof PlanInteractionFailed ||
   error instanceof WorkspaceSnapshotError ||
   error instanceof WorkspaceDirectoryError ||
   error instanceof TransitionLockError ||
@@ -890,6 +1072,8 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return lockfileWriteErrorToAppError(error);
     case "LockfileValidationError":
       return lockfileValidationErrorToAppError(error);
+    case "LockfileResolvedVersionInvalid":
+      return lockfileResolvedVersionInvalidToAppError(error);
     case "WorkspaceLayoutError":
       return workspaceLayoutErrorToAppError(error);
     case "WorkspaceNotInitialized":
@@ -906,6 +1090,34 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return canonicalPathRemovalErrorToAppError(error);
     case "SymlinkCreationError":
       return symlinkCreationErrorToAppError(error);
+    case "LockEntrySourceMissing":
+      return lockEntrySourceMissingToAppError(error);
+    case "LockEntryUrlInvalid":
+      return lockEntryUrlInvalidToAppError(error);
+    case "LockEntryNameInvalid":
+      return lockEntryNameInvalidToAppError(error);
+    case "LockEntryEndpointConflict":
+      return lockEntryEndpointConflictToAppError(error);
+    case "LockEntrySourceTypeConflict":
+      return lockEntrySourceTypeConflictToAppError(error);
+    case "AcceptedResolutionMissing":
+      return acceptedResolutionMissingToAppError(error);
+    case "InlineExtensionSourceMissing":
+      return inlineExtensionSourceMissingToAppError(error);
+    case "SupersededCanonicalRemovalFailed":
+      return supersededCanonicalRemovalFailedToAppError(error);
+    case "PackageContentHashFailed":
+      return packageContentHashFailedToAppError(error);
+    case "WorkspaceSourceInvalid":
+      return workspaceSourceInvalidToAppError(error);
+    case "SkillDiscoveryRootInvalid":
+      return skillDiscoveryRootInvalidToAppError(error);
+    case "SubagentScanFailed":
+      return subagentScanFailedToAppError(error);
+    case "CandidateFingerprintFailed":
+      return candidateFingerprintFailedToAppError(error);
+    case "PlanInteractionFailed":
+      return planInteractionFailedToAppError(error);
     case "WorkspaceSnapshotError":
       return workspaceSnapshotErrorToAppError(error);
     case "WorkspaceDirectoryError":

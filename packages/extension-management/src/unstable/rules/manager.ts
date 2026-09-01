@@ -28,7 +28,7 @@ import {
   canReuseInstalledPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
+import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import { activeContributors } from "../projection/contributors.js";
 import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
 import {
@@ -38,16 +38,16 @@ import {
   type ProjectionRenderInput,
 } from "../projection/planning.js";
 import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import { computePackageContentHash } from "../workspace/package-hash.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { RuleLockEntry } from "../lockfile/index.js";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
-import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
-import { gitSourceLockFields } from "../lockfile/entry-fields.js";
+import type { RuleLockEntry } from "@agentxm/workspace-state";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
+import { MaterializedFileTargetSchema } from "@agentxm/workspace-state";
+import { gitSourceLockFields } from "@agentxm/workspace-state";
 import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import {
   MARKER_KIND_POINT,
@@ -58,7 +58,7 @@ import {
 import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../workspace/remove-if-exists.js";
+import { removeIfExists } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
@@ -66,18 +66,18 @@ import type {
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
-import type { ExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import type { ExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,
 } from "../extension-lifecycle/configured-entry-resolution.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-} from "../workspace/accepted-canonical-ref.js";
+} from "@agentxm/workspace-state";
 import {
   RULE_BODY_FILENAME,
   RULE_EXTENSION_DIR,

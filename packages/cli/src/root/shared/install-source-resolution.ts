@@ -7,7 +7,7 @@ import {
 import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveIdentifier } from "@agentxm/extension-management/unstable/source-resolution";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { ADD_REGISTRY_SOURCE } from "../suggested-actions.js";

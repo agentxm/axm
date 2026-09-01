@@ -14,7 +14,7 @@ import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   assessExtensionListItems,
   collectExtensionListItems,

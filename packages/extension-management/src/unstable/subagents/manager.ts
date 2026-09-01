@@ -25,27 +25,24 @@ import type {
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
-import type { ExtensionTarget, SubagentExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import type { ExtensionTarget, SubagentExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
   renderManagedSubagentOutputs,
   type SubagentSyncOutcome,
 } from "../extension-workspace/index.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import { sanitizeName } from "../workspace/extension-name.js";
+import { sanitizeName } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { removeIfExists } from "../workspace/remove-if-exists.js";
+import { removeIfExists } from "@agentxm/workspace-state";
 import {
   computeSubagentPathsForLayout,
   subagentContentFilename,
   subagentContentPath,
 } from "./paths.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import {
@@ -57,7 +54,10 @@ import {
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { buildRooModeEntry } from "./rendering/index.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
 import { buildSubagentLockEntry } from "./lock-entry-builder.js";
 import {
   canReuseInstalledPackage,
@@ -66,8 +66,8 @@ import {
   materializeRegistryPackageWithTreeIntegrity,
   type ManagedFileProvenance,
 } from "../extensions/index.js";
-import { computePackageContentHash } from "../workspace/package-hash.js";
-import { computeSourceHash, RenderedFilePathSchema } from "../workspace/rendered-files.js";
+import { computePackageContentHash } from "@agentxm/workspace-state";
+import { computeSourceHash, RenderedFilePathSchema } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   MANIFEST_FILENAME,
@@ -77,18 +77,18 @@ import {
   findManagedSubagentFiles,
   hasAxmManagedMarker,
 } from "../extension-workspace/managed-file-discovery.js";
-import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { configuredRowsByName } from "@agentxm/workspace-state";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-} from "../workspace/accepted-canonical-ref.js";
+} from "@agentxm/workspace-state";
 import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
 } from "../projection/planning.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { managedSubagentFile } from "./managed-file.js";
 
 const decodeSubagentManifest = Schema.decodeUnknownSync(SubagentManifestSchema);

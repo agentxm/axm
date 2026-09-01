@@ -18,13 +18,17 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { StepFailure } from "../../plan/errors.js";
-import { appendWarningsToMessage } from "../../plan/job-step-message.js";
-import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import type { McpServerLockEntry } from "../../lockfile/index.js";
+import type { StepFailure } from "@agentxm/workspace-operations";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifactTarget,
+  JobStepResult,
+  Operation,
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
-import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
+import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import {
   applyProjectionPlansWithResults,
@@ -32,7 +36,7 @@ import {
 } from "../../projection/planning.js";
 import { inspectAgentMcpServer } from "../inspection.js";
 import { sharedMcpTargetPolicyConflict } from "../targeting.js";
-import { isMcpServerApplicableToAgent } from "../../workspace/mcp-entry-semantics.js";
+import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 
 export type EnableMcpServerOperation = Operation<
   "enable-mcp-server",

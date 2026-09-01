@@ -18,15 +18,9 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import {
-  type KnowledgeExtensionRef,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
-import type {
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
 import {
   resolveSource,

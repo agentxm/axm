@@ -22,11 +22,9 @@ import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { PackManager } from "@agentxm/extension-management/unstable/packs";
-import type { JobStepArtifact, Plan } from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
@@ -34,7 +32,7 @@ import {
   protectCreatedAncestors,
   WorkspaceMutations,
   resolveWorkspaceExtensionRef,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

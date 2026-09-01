@@ -20,7 +20,7 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import { writeFileAtomic } from "../utils/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { InstallMethodLiteral } from "../install-method/install-method.js";
-import { resolveUserAxmHome } from "../workspace/paths.js";
+import { resolveUserAxmHome } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Schema

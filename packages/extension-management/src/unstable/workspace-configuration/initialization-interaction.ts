@@ -5,7 +5,7 @@ import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { AppError } from "../app-error/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { SetupScopeSupportCategory } from "../workspace/setup-scope-support.js";
+import type { SetupScopeSupportCategory } from "@agentxm/workspace-state";
 
 /**
  * Typed cancellation of workspace initialization. The CLI implementation maps

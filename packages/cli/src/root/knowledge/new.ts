@@ -13,11 +13,8 @@ import {
   recoverCanonicalDirectory,
   preflightCreateOnly,
 } from "@agentxm/extension-management/unstable/extensions";
-import {
-  computeSourceHash,
-  DEFAULT_WORKSPACE_SCOPE,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -26,8 +23,8 @@ import {
   type KnowledgeManifest,
 } from "@agentxm/extension-model/unstable/knowledge";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import type { Plan } from "@agentxm/extension-management/unstable/plan";
-import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import type { Plan } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { emitOperationResolution } from "../../operation-output.js";

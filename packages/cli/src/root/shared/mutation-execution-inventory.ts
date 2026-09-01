@@ -1,4 +1,4 @@
-import { PlanPolicyIds, type PlanPolicyId } from "@agentxm/extension-management/unstable/plan";
+import { PlanPolicyIds, type PlanPolicyId } from "@agentxm/workspace-operations";
 
 export type MutationExecutionInventoryEntry =
   | {

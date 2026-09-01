@@ -17,10 +17,7 @@ import {
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import {
-  acceptedCanonicalObservation,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { acceptedCanonicalObservation, WorkspaceMutations } from "@agentxm/workspace-state";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

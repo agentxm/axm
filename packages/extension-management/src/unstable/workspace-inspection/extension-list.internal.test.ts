@@ -7,18 +7,15 @@ import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
+import { TreeIntegritySchema } from "@agentxm/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 

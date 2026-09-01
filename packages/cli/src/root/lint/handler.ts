@@ -62,10 +62,10 @@ import {
   WorkspaceMutations,
   resolveUserHome,
   acceptedCanonicalObservation,
-  type WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
-import { SettingsSchema } from "@agentxm/extension-management/unstable/settings";
-import type { Settings } from "@agentxm/extension-management/unstable/settings";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import { SettingsSchema } from "@agentxm/workspace-state";
+import type { Settings } from "@agentxm/workspace-state";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -546,7 +546,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
             workspace: ws,
             type: node.type,
             name: node.name,
-          });
+          }).pipe(Effect.mapError(toAppError));
           if (Option.isNone(accepted)) {
             return yield* makeAppError({
               code: "internal",

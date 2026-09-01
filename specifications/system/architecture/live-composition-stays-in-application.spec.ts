@@ -52,7 +52,12 @@ describe("Application-only composition of concrete implementations", () => {
     Effect.sync(() => {
       const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
       expect(eslintConfig).toContain(
-        'ignores: ["packages/cli/src/runtime.ts", "**/*.test.ts", "**/*.spec.ts"]',
+        `ignores: [
+      "packages/cli/src/runtime.ts",
+      "packages/cli/src/test-helpers.ts",
+      "**/*.test.ts",
+      "**/*.spec.ts",
+    ],`,
       );
     }),
   );

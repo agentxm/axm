@@ -40,18 +40,14 @@ import {
   countUnitStates,
   deriveOperationOutcome,
   makeOperationResolution,
-  operationExitCode,
-  operationOk,
   unitsByStableIdentity,
   type JobStepArtifact,
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  ArtifactChangeSchema,
-  ConfiguredAgentOutcomeSchema,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-operations";
+import { operationExitCode, operationOk } from "./operation-exit-code.js";
+import { ArtifactChangeSchema, ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-state";
 import {
   AppErrorCodeSchema,
   redactSensitiveText,

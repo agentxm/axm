@@ -1,15 +1,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
-  type PackRef,
   desiredStateProblemsText,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
   type DesiredStateProblem,
   type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
-import type { Plan } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-state";
+import type { Plan } from "@agentxm/workspace-operations";
 
 const normalizedPackIdentity = (identity: string): string => identity.replace(/^workspace:/u, "");
 

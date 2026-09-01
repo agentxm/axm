@@ -8,7 +8,7 @@ import {
   type McpConfig,
   type McpEnvExpansion,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isAxmManagedMcpEntry } from "../../../workspace/mcp-entry-semantics.js";
+import { isAxmManagedMcpEntry } from "@agentxm/workspace-state";
 import {
   diffAgentEntry,
   inferInlineRemoteTransport,
@@ -16,11 +16,8 @@ import {
 } from "../../../mcps/projection.js";
 import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
 import { planMcpTargetGroups } from "../../../mcps/targeting.js";
-import type { McpServerEntry } from "../../../settings/index.js";
-import type {
-  ActualMcpServer,
-  InstalledMcpServer,
-} from "../../../workspace/read-model/extensions/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
+import type { ActualMcpServer, InstalledMcpServer } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type {
   AdvisoryFinding,

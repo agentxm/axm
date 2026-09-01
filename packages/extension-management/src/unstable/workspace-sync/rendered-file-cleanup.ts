@@ -26,12 +26,12 @@ import {
   PER_AGENT_EXTENSION_TYPES,
   type PerAgentType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { ACQUIRED_EXTENSIONS_DIR } from "../workspace/constants.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/workspace-state";
 import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
-import { recordFootprint } from "../workspace/footprint-recorder.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { recordFootprint } from "@agentxm/workspace-state";
 import { toAppError } from "../app-error/conversions.js";
 
 export interface RenderedFileCleanupResult {

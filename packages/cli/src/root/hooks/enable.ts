@@ -7,20 +7,20 @@ import { buildInstallOperation } from "@agentxm/extension-management/unstable/ex
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
 } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
+import type { HookLockEntry } from "@agentxm/workspace-state";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

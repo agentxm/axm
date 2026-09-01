@@ -22,9 +22,9 @@ import type {
   McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { buildAxmMcpMetadata } from "./metadata.js";
-import { AXM_MCP_METADATA_KEY } from "../workspace/mcp-entry-semantics.js";
+import { AXM_MCP_METADATA_KEY } from "@agentxm/workspace-state";
 import { projectExpectedEntry, type InlineRemoteTransport } from "./projection.js";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 
 type UpstreamRemoteTransport = "streamable-http" | "sse";
 type ConfiguredMcpCapability = McpExtensionCapability & {

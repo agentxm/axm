@@ -4,15 +4,10 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  WorkspaceMutations,
-  installedRowsByName,
-} from "@agentxm/extension-management/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import type { DisableSubagentOperation } from "@agentxm/extension-management/unstable/subagents";
 import { disableSubagent } from "@agentxm/extension-management/unstable/subagents";

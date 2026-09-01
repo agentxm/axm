@@ -12,10 +12,10 @@ import type * as Scope from "effect/Scope";
 import type { AppError } from "../../../app-error/index.js";
 import { CliRenderer } from "../../../cli-renderer/index.js";
 import type { PromptCancelled } from "../../../cli-prompt/prompt-cancelled.js";
-import type { Plan } from "../../../plan/plan.js";
-import type { OperationResolution } from "../../../plan/operation-resolution.js";
+import type { Plan } from "@agentxm/workspace-operations";
+import type { OperationResolution } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan } from "../../../plan/resolve-plan.js";
-import type { PlanExecution } from "../../../plan/plan-execution.js";
+import type { PlanExecution } from "@agentxm/workspace-operations";
 
 // -----------------------------------------------------------------------------
 // Install Command Workflow Actions Interface

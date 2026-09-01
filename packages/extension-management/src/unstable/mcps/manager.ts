@@ -21,31 +21,31 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerLockEntry } from "../lockfile/index.js";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { ExtensionTarget, McpServerExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
+import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   canReuseInstalledPackage,
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../workspace/extension-paths.js";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
+import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { removeMcpServerFromManifest } from "../extension-workspace/mcp-sync.js";
-import { configuredRowsByName } from "../workspace/read-model-record-rows.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+import { configuredRowsByName } from "@agentxm/workspace-state";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-} from "../workspace/accepted-canonical-ref.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+} from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
 // Service Tag

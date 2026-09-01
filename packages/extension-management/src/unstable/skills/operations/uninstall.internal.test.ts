@@ -8,26 +8,26 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
-import { SettingsWriteError } from "../../settings/errors.js";
+import type { PackLockEntry, SkillLockEntry } from "@agentxm/workspace-state";
+import { SettingsWriteError } from "@agentxm/workspace-state";
 import type {
   WorkspaceSettingsMutationFailure,
   WorkspaceStateMutationFailure,
-} from "../../workspace/service-interface.js";
-import { LockfileParseError, type LockfileReadError } from "../../workspace/read-model/errors.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+} from "@agentxm/workspace-state";
+import { LockfileParseError, type LockfileReadError } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
 import {
   WorkspaceMutations,
   type SetSkillArgs,
   type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   makeRegistryPackLockEntry,
   makeRegistrySkillLockEntry,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import type { UninstallSkillOperation } from "./uninstall.js";

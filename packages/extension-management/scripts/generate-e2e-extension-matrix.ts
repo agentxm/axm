@@ -8,6 +8,7 @@
  * no coverage has to be answered for — without adding an edge to the graph.
  */
 
+/* eslint-disable @nx/enforce-module-boundaries -- Generator must read kernel source directly so the emitted matrix cannot drift behind stale dist output. */
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off — build-time generation script, not Effect code
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -20,7 +21,7 @@ import {
   EXTENSION_TYPE_TABLE,
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { EXTENSION_CONFIGURED_AGENT_POLICY } from "../src/unstable/workspace/configured-agent-outcomes.js";
+import { EXTENSION_CONFIGURED_AGENT_POLICY } from "../../workspace-state/src/workspace/configured-agent-outcomes.js";
 
 const CORE_ROOT = path.join(import.meta.dirname, "..");
 const OUTPUT_PATH = path.join(CORE_ROOT, "../cli-e2e/src/__generated__/extension-type-matrix.ts");

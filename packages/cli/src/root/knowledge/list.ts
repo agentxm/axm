@@ -13,7 +13,7 @@ import {
   ConfiguredAgentOutcomeSchema,
   configuredAgentLifecycleOutcomes,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryResolution,

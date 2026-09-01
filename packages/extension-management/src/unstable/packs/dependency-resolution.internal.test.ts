@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { evaluateSourceAuthority } from "../extensions/index.js";
-import { computeSourceHash } from "../workspace/rendered-files.js";
+import { computeSourceHash } from "@agentxm/workspace-state";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";

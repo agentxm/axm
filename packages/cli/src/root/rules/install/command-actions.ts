@@ -16,13 +16,11 @@ import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import {
-  type RuleExtensionRef,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   resolveSource,
   SourceHostProviders,

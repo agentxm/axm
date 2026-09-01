@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../app-error/index.js";
-import { SettingsDecodeError } from "../workspace/read-model/errors.js";
+import { SettingsDecodeError } from "@agentxm/workspace-state";
 import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   JsonEnvelopeSchema,

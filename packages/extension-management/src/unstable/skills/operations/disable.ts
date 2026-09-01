@@ -16,13 +16,13 @@ import * as Layer from "effect/Layer";
 import { DefaultCodingAgentRepository } from "../../extension-workspace/index.js";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import type { OperationHandler } from "../../plan/apply-plan.js";
-import type { Operation } from "../../plan/plan.js";
-import type { JobStepResult } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+import type { OperationHandler } from "@agentxm/workspace-operations";
+import type { Operation } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { sanitizeName } from "@agentxm/workspace-state";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
-import { installedRowsByName } from "../../workspace/read-model-record-rows.js";
+import { installedRowsByName } from "@agentxm/workspace-state";
 import { removeSkillAgentArtifact } from "../materialization.js";
 
 // -----------------------------------------------------------------------------

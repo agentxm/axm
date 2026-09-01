@@ -31,22 +31,22 @@ import {
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
-} from "../workspace/extension-paths.js";
-import { computePackageContentHash } from "../workspace/package-hash.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+} from "@agentxm/workspace-state";
+import { computePackageContentHash } from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { KnowledgeLockEntry } from "../lockfile/index.js";
-import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
-import { gitSourceLockFields } from "../lockfile/entry-fields.js";
+import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
+import {
+  acceptedRegistryVersionForRef,
+  validateExactResolvedVersion,
+} from "@agentxm/workspace-state";
+import { gitSourceLockFields } from "@agentxm/workspace-state";
 import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
-import type { KnowledgeMap } from "../settings/index.js";
-import { knowledgeLockEntryToRef } from "../workspace/lock-entry-to-ref.js";
+import type { KnowledgeMap } from "@agentxm/workspace-state";
+import { knowledgeLockEntryToRef } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { recordFootprint } from "../workspace/footprint-recorder.js";
+import { recordFootprint } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -54,23 +54,20 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
 } from "../extension-lifecycle/configured-entry-resolution.js";
-import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
+import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
-import type { ExtensionTarget } from "../workspace/service-interface.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { isObservedInstalled } from "../workspace/observed-installed.js";
+import type { ExtensionTarget } from "@agentxm/workspace-state";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
   prepareAcceptedCanonicalTransition,
   removableAcceptedCanonicalPath,
-} from "../workspace/accepted-canonical-ref.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
-import {
-  isSourcedDesiredExtension,
-  type DesiredStateGraph,
-} from "../workspace/desired-state-graph.js";
-import type { ResolvedKnowledgeDiscoveryConfig } from "./discovery-config.js";
+} from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
+import { isSourcedDesiredExtension, type DesiredStateGraph } from "@agentxm/workspace-state";
+import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
 import {
   applyProjectionPlans,
   planAggregateProjection,
@@ -765,7 +762,7 @@ export const KnowledgeManagerLive = Layer.effect(
           path,
           scope: ws.scope,
           getConfiguredSourceByName: (sourceName: string) =>
-            ws.getConfiguredSourceByName(sourceName).pipe(Effect.mapError(toAppError)),
+            ws.getConfiguredSourceByName(sourceName),
         });
         if (ref.refType === "registry" && Option.isNone(ref.integrity)) {
           return yield* new KnowledgeUnavailable({

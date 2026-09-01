@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { TestRenderer, type TestRendererState, CliRenderer, logsByTag } from "./index.js";
 import { type Verbosity, TestFlagsLayer } from "../cli-flags/index.js";
 import { displayPlan } from "./display-plan.js";
-import type { OperationPresentation, Plan } from "../plan/plan.js";
+import type { OperationPresentation, Plan } from "@agentxm/workspace-operations";
 
 // -----------------------------------------------------------------------------
 // Helpers

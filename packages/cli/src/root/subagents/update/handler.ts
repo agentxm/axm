@@ -1,9 +1,9 @@
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
-  type SubagentExtensionRef,
   WorkspaceMutations,
   configuredRowsByName,
   type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
@@ -18,7 +18,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 
 import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
@@ -33,12 +33,12 @@ import {
 import { type ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,
-  previewOrApplyPlan,
   StepFailure,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";

@@ -1,8 +1,8 @@
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { ACQUIRED_EXTENSIONS_DIR } from "../../workspace/constants.js";
-import { acquiredExtensionDisplayPathFromLockEntry } from "../../workspace/extension-paths.js";
-import type { McpServerLockEntry } from "../../lockfile/index.js";
-import type { JobStepArtifact, JobStepArtifactTarget } from "../../plan/plan.js";
+import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/workspace-state";
+import { acquiredExtensionDisplayPathFromLockEntry } from "@agentxm/workspace-state";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
+import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>

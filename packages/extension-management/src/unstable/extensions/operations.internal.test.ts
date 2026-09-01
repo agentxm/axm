@@ -18,7 +18,7 @@ import {
   toStepKey,
 } from "./operations.js";
 import { makeAppError } from "../app-error/index.js";
-import { computeSourceHash } from "../workspace/rendered-files.js";
+import { computeSourceHash } from "@agentxm/workspace-state";
 import {
   exactVersion,
   extensionName,
@@ -27,7 +27,7 @@ import {
   packageUrl,
 } from "../test-helpers.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { WorkspaceTransactionRunner } from "../workspace/service-interface.js";
+import type { WorkspaceTransactionRunner } from "@agentxm/workspace-state";
 import type {
   RegistrySkillRef,
   SkillExtensionRef,

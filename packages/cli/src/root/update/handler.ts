@@ -10,13 +10,10 @@ import {
   recoveryPositional,
   recoverySwitch,
   type PlanExecution,
-} from "@agentxm/extension-management/unstable/plan";
-import type { OperationResolution, Plan } from "@agentxm/extension-management/unstable/plan";
-import {
-  makeOperationResolution,
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import type { OperationResolution, Plan } from "@agentxm/workspace-operations";
+import { makeOperationResolution, operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   makeConfiguredReleaseAgeEvaluation,
   runInstallCommandWorkflow,
@@ -39,7 +36,7 @@ import {
   WorkspaceMutations,
   acceptedResolutionRef,
   usableAcceptedCanonical,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   decodeVersionRangeSync,
   versionSatisfiesRange,

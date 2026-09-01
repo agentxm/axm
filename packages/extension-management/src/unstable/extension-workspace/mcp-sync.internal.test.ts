@@ -11,7 +11,7 @@ import {
   CONFIGURABLE_AGENT_IDS,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { ExitCode } from "../app-error/index.js";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { handle } from "../test-helpers.js";
 import {
   addMcpServerMixed,

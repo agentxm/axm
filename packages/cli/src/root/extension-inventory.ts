@@ -3,7 +3,7 @@ import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
   ExtensionInventoryRow,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 
 export const inventoryState = (row: ExtensionInventoryRow): string => row.classification.lifecycle;
 

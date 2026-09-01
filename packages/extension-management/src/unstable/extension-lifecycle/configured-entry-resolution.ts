@@ -34,14 +34,18 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { acceptedResolutionRef } from "../workspace/accepted-canonical-ref.js";
-import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { acceptedResolutionRef } from "@agentxm/workspace-state";
+import { resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
 import type {
   ConfiguredRegistryResolution,
   ResolvedConfiguredEntry,
-} from "../workspace/configured-entry-resolution/types.js";
+} from "@agentxm/workspace-state";
 import { toAppError } from "../app-error/conversions.js";
+
+const resolveWorkspaceExtensionRefToApp = (
+  args: Parameters<typeof resolveWorkspaceExtensionRef>[0],
+) => resolveWorkspaceExtensionRef(args).pipe(Effect.mapError(toAppError));
 
 export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =>
   Effect.gen(function* () {
@@ -224,7 +228,7 @@ export const resolveConfiguredRegistryEntry = (
       workspace,
       type: expectedType,
       name,
-    });
+    }).pipe(Effect.mapError(toAppError));
     const accepted = Option.flatMap(acceptedRef, (ref) =>
       ref.refType === "registry" && ref.owner === owner && ref.name === name
         ? Option.some({
@@ -264,7 +268,7 @@ export const resolveConfiguredSkill = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "skill",
@@ -365,7 +369,7 @@ export const resolveConfiguredSubagent = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "subagent",
@@ -469,7 +473,7 @@ export const resolveConfiguredRule = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "rule",
@@ -571,7 +575,7 @@ export const resolveConfiguredHook = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "hook",
@@ -673,7 +677,7 @@ export const resolveConfiguredKnowledge = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "knowledge",
@@ -764,7 +768,7 @@ export const resolveConfiguredMcpServer = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "mcp-server",
@@ -868,7 +872,7 @@ export const resolveConfiguredPack = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
       const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
+      const ref = yield* resolveWorkspaceExtensionRefToApp({
         settingsName: name,
         source,
         expectedType: "pack",

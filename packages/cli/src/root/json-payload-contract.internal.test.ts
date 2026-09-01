@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ExtensionInventorySchema } from "@agentxm/extension-management/unstable/workspace";
+import { ExtensionInventorySchema } from "@agentxm/workspace-state";
 
 import { MACHINE_OUTPUT_CONTRACT_ROWS } from "../machine-output-contracts.js";
 import { AgentsListOutputSchema } from "./agents/list.js";

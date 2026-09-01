@@ -8,8 +8,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { TEST_CONTENT_IDENTITY } from "../workspace/test-stubs.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import {
   configuredMcpServersToDiskRefs,

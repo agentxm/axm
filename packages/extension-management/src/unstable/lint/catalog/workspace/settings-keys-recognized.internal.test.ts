@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { WorkspaceReadModelTest } from "../../../workspace/read-model/__fixtures__/test-layer.js";
-import { makeWorkspaceReadModel } from "../../../workspace/read-model/service.js";
+import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
+import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
 import { settingsKeysRecognizedRule } from "./settings-keys-recognized.js";
 
 const testWorkspace = WorkspaceReadModelTest({

@@ -6,11 +6,9 @@ import {
   summarizeCommandOutcome,
   type SubjectType,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { recoverySwitch } from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+import { recoverySwitch } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

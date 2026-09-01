@@ -15,9 +15,12 @@ const collectProductionFiles = (directory: string): ReadonlyArray<string> =>
   });
 
 describe("accepted-resolution authority boundary", () => {
-  const productionFiles = ["packages/extension-management/src", "packages/cli/src"].flatMap(
-    (directory) => collectProductionFiles(path.join(repoRoot, directory)),
-  );
+  const productionFiles = [
+    "packages/extension-management/src",
+    "packages/workspace-operations/src",
+    "packages/workspace-state/src",
+    "packages/cli/src",
+  ].flatMap((directory) => collectProductionFiles(path.join(repoRoot, directory)));
 
   it("has no trust repository production dependency", () => {
     const offenders = productionFiles
@@ -32,24 +35,26 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
     const lockingSources = [
-      "packages/extension-management/src/unstable/workspace/transaction.ts",
-      "packages/extension-management/src/unstable/workspace/operations/transaction.ts",
-      "packages/extension-management/src/unstable/workspace/operations/transition-lock.ts",
+      "packages/workspace-state/src/workspace/transaction.ts",
+      "packages/workspace-operations/src/operations/transaction.ts",
+      "packages/workspace-operations/src/operations/transition-lock.ts",
     ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
-    const corePackage = fs.readFileSync(
-      path.join(repoRoot, "packages/extension-management/package.json"),
-      "utf8",
-    );
+    const kernelPackages = [
+      "packages/workspace-state/package.json",
+      "packages/workspace-operations/package.json",
+    ].map((manifest) => fs.readFileSync(path.join(repoRoot, manifest), "utf8"));
 
     for (const source of lockingSources) {
       expect(source).not.toContain("fs-native-extensions");
     }
-    expect(corePackage).not.toContain("fs-native-extensions");
+    for (const manifest of kernelPackages) {
+      expect(manifest).not.toContain("fs-native-extensions");
+    }
   });
 
   it("keeps history, projection, authored, and pack-membership fields out of lock schema", () => {
     const source = fs.readFileSync(
-      path.join(repoRoot, "packages/extension-management/src/unstable/lockfile/schema.ts"),
+      path.join(repoRoot, "packages/workspace-state/src/lockfile/schema.ts"),
       "utf8",
     );
     for (const forbidden of [

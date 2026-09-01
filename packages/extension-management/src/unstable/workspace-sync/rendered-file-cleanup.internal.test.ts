@@ -8,8 +8,8 @@ import * as Layer from "effect/Layer";
 import { codingAgentForId, CodingAgentRepository } from "../extension-workspace/index.js";
 import type { CodingAgentRepositoryService } from "../extension-workspace/index.js";
 import { hasAxmManagedMarker } from "../extension-workspace/managed-file-discovery.js";
-import { WorkspaceMutations } from "../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
   cleanupManagedArtifactsForRemovedAgents,
   cleanupStaleManagedSkillDirectories,

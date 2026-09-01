@@ -18,7 +18,7 @@ import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstabl
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";

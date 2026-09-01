@@ -9,11 +9,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../../cli-renderer/index.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "../../workspace/test-stubs.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { configuredRow, makeBaseWorkspaceMock, rowsFor } from "@agentxm/workspace-state/testing";
 import { handle } from "../../test-helpers.js";
 import type { AddToPackOperation } from "./add-to-pack.js";
 import { addToPack } from "./add-to-pack.js";

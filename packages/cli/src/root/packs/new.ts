@@ -9,11 +9,11 @@ import {
 } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeSourceHash,
-  type WorkspacePackRef,
   computePackPathsForLayout,
   WorkspaceMutations,
-  DEFAULT_WORKSPACE_SCOPE,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type WorkspacePackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   decodeExtensionNameSync,
   formatFqn,
@@ -24,7 +24,7 @@ import {
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { NewPackOperation } from "@agentxm/extension-management/unstable/packs";
 import { newPack, PackManager } from "@agentxm/extension-management/unstable/packs";
-import { operationPresentation, type Plan } from "@agentxm/extension-management/unstable/plan";
+import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { emitOperationResolution } from "../../operation-output.js";

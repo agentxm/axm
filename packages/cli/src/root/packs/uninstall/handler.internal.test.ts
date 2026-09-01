@@ -23,10 +23,10 @@ import {
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   type WorkspaceMutationsOptions,
-  layer as coreWorkspaceLayer,
   computePackManifestContentIdentity,
-} from "@agentxm/extension-management/unstable/workspace";
-import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { handleUninstallPack } from "./handler.js";

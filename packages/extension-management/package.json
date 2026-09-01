@@ -71,18 +71,6 @@
       "types": "./dist/src/unstable/workspace-sync/index.d.ts",
       "default": "./dist/src/unstable/workspace-sync/index.js"
     },
-    "./unstable/lockfile": {
-      "types": "./dist/src/unstable/lockfile/index.d.ts",
-      "default": "./dist/src/unstable/lockfile/index.js"
-    },
-    "./unstable/schema": {
-      "types": "./dist/src/unstable/schema/index.d.ts",
-      "default": "./dist/src/unstable/schema/index.js"
-    },
-    "./unstable/settings": {
-      "types": "./dist/src/unstable/settings/index.d.ts",
-      "default": "./dist/src/unstable/settings/index.js"
-    },
     "./unstable/cli-flags": {
       "types": "./dist/src/unstable/cli-flags/index.d.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"
@@ -122,10 +110,6 @@
     "./unstable/lint": {
       "types": "./dist/src/unstable/lint/index.d.ts",
       "default": "./dist/src/unstable/lint/index.js"
-    },
-    "./unstable/workspace": {
-      "types": "./dist/src/unstable/workspace/index.d.ts",
-      "default": "./dist/src/unstable/workspace/index.js"
     },
     "./unstable/source-resolution": {
       "types": "./dist/src/unstable/source-resolution/index.d.ts",
@@ -224,6 +208,8 @@
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",
     "effect": "catalog:",
     "fflate": "catalog:",

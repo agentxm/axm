@@ -32,7 +32,7 @@ import type {
   AdvisoryRule,
   LintFinding,
 } from "@agentxm/registry-protocol/unstable/lint/rule";
-import { type SkillLockEntry } from "../../../lockfile/schema.js";
+import { type SkillLockEntry } from "@agentxm/workspace-state";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 import { lockfileDisplayPath } from "./display-paths.js";
 

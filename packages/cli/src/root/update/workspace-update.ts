@@ -17,16 +17,15 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import {
-  WorkspaceMutations,
-  configuredRowsByName,
   installableExtensionTypes,
   type InstallableExtensionType,
-  type ExtensionRef,
   toInstallableExtensionTypePlural,
-  type WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
@@ -45,7 +44,7 @@ import {
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { JobStepResult } from "@agentxm/extension-management/unstable/plan";
+import type { JobStepResult } from "@agentxm/workspace-operations";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 

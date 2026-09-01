@@ -11,23 +11,21 @@ import {
   canReuseInstalledPackage,
   materializeExternalPackageWithTreeIntegrity,
   materializeRegistryPackageWithTreeIntegrity,
-  validatePathSafety,
 } from "../extensions/index.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../workspace/materialized-tree.js";
+import { validatePathSafety } from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { computeSkillPathsForLayout, type SkillPathSource } from "../workspace/skill-paths.js";
-import type { WorkspaceLayout } from "../workspace/layout.js";
-import { isPathSafe, stripFileProtocol } from "../utils/index.js";
-import { createSymlink } from "../workspace/create-symlink.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import { computeSkillPathsForLayout, type SkillPathSource } from "@agentxm/workspace-state";
+import type { WorkspaceLayout } from "@agentxm/workspace-state";
+import { stripFileProtocol } from "../utils/index.js";
+import { isPathSafe } from "@agentxm/workspace-state";
+import { createSymlink } from "@agentxm/workspace-state";
+import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 
 export type ProvideFs = <A, E, R>(

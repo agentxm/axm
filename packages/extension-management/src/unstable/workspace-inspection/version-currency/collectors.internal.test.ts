@@ -21,7 +21,7 @@ import {
   makeRegistryPackLockEntry,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../../extension-workspace/repository.js";
 
@@ -36,10 +36,7 @@ const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
     ),
   );
 };
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,

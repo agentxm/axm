@@ -22,7 +22,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   computePackManifestContentIdentity,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

@@ -17,9 +17,9 @@ import {
   TestMachineRenderer,
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
-import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
-import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   expectAppliedPlanResult,

@@ -1,7 +1,7 @@
 import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {

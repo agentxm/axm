@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { McpServerEntry } from "../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { planMcpTargetGroups, sharedMcpTargetPolicyConflict } from "./targeting.js";
 
 const entry = {

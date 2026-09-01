@@ -4,7 +4,7 @@ import * as Result from "effect/Result";
 import { inferInlineRemoteTransport } from "../../../mcps/projection.js";
 import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
 import { groupConfiguredMcpTargets } from "../../../mcps/targeting.js";
-import type { McpServerEntry } from "../../../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
 import { settingsDisplayPath } from "./display-paths.js";

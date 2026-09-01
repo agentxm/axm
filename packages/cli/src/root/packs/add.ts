@@ -30,19 +30,14 @@ import {
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
-} from "@agentxm/extension-management/unstable/workspace";
-import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  previewOrApplyPlan,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-state";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import {
-  publicRecoveryValue,
-  recoveryPositional,
-} from "@agentxm/extension-management/unstable/plan";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
+import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

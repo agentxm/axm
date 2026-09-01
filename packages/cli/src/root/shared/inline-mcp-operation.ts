@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { JobStepResult, Plan } from "@agentxm/extension-management/unstable/plan";
+import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
 
 export const inlineMcpNotApplicablePlan = (
   name: string,

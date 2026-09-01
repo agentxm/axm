@@ -7,12 +7,12 @@ import type {
   PlannedJobStep,
   ReadyJobStep,
   WarnJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   desiredStateProblemsText,
   WorkspaceMutations,
   type DesiredExtensionNode,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   failureToStepFailure,
   toAppError,

@@ -18,34 +18,31 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgent, McpServerSyncOutcome } from "../../extension-workspace/coding-agent.js";
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isPathSafe } from "../../utils/index.js";
+import { isPathSafe } from "@agentxm/workspace-state";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
-import type { StepFailure } from "../../plan/errors.js";
+import type { StepFailure } from "@agentxm/workspace-operations";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
-} from "../../lockfile/index.js";
-import { appendWarningsToMessage } from "../../plan/job-step-message.js";
-import type { JobStepResult, Operation } from "../../plan/plan.js";
-import { WorkspaceMutations } from "../../workspace/service-interface.js";
+} from "@agentxm/workspace-state";
+import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   applyProjectionPlansWithResults,
   planSingletonProjection,
 } from "../../projection/planning.js";
 import { canReuseInstalledPackage, materializeRegistryPackage } from "../../extensions/index.js";
-import { computeExtensionPathsForLayout } from "../../workspace/extension-paths.js";
+import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerLockEntry } from "../../lockfile/index.js";
-import {
-  computeMaterializedTreeIntegrity,
-  type TreeIntegrity,
-} from "../../workspace/materialized-tree.js";
+import type { McpServerLockEntry } from "@agentxm/workspace-state";
+import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -55,10 +52,10 @@ import {
   type McpServerManifest,
   McpServerManifestSchema,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import type { McpServerEntry } from "../../settings/index.js";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import { inspectAgentMcpServer } from "../inspection.js";
 import { sharedMcpTargetPolicyConflict } from "../targeting.js";
-import { isMcpServerApplicableToAgent } from "../../workspace/mcp-entry-semantics.js";
+import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import {
   agentConfigTargets,
   mcpServerArtifact,

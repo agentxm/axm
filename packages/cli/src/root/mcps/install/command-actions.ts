@@ -25,10 +25,8 @@ import {
   SourceHostProviders,
   WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  WorkspaceMutations,
-  type McpServerExtensionRef,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
 import {
@@ -36,7 +34,7 @@ import {
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import type { Plan } from "@agentxm/extension-management/unstable/plan";
+import type { Plan } from "@agentxm/workspace-operations";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import type { InstallMcpServerCommandIntent } from "./intent.js";

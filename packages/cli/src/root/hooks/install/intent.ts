@@ -1,5 +1,5 @@
 import type * as Option from "effect/Option";
-import type { HookExtensionRef } from "@agentxm/extension-management/unstable/workspace";
+import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 export interface InstallHookCommandIntent {

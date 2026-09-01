@@ -11,12 +11,12 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import { SettingsWriteError } from "../../settings/errors.js";
-import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
-import { LockfileWriteError } from "../../lockfile/errors.js";
-import { LockedSkillMissing } from "../../workspace/errors.js";
-import { acquiredExtensionDisplayPath } from "../../workspace/extension-paths.js";
-import { computeSourceHash } from "../../workspace/rendered-files.js";
+import { SettingsWriteError } from "@agentxm/workspace-state";
+import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
+import { LockfileWriteError } from "@agentxm/workspace-state";
+import { LockedSkillMissing } from "@agentxm/workspace-state";
+import { acquiredExtensionDisplayPath } from "@agentxm/workspace-state";
+import { computeSourceHash } from "@agentxm/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   GitHostedSkillRef,
@@ -32,8 +32,8 @@ import {
   WorkspaceMutations,
   type SetSkillArgs,
   type WorkspaceMutationsService,
-} from "../../workspace/service-interface.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+} from "@agentxm/workspace-state";
+import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {
   at,
   expectRecord,
@@ -49,10 +49,10 @@ import {
 } from "../../extension-workspace/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { SkillPathSource } from "../../workspace/skill-paths.js";
+import type { SkillPathSource } from "@agentxm/workspace-state";
 import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
-import { sanitizeName } from "../../workspace/extension-name.js";
+import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "../axm-skill-compatibility.js";
 

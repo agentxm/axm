@@ -47,7 +47,7 @@ import {
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,
@@ -75,16 +75,16 @@ import type {
   OperationPrecondition,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
 import {
   OperationJournal,
   StepFailure,
   getOperationJournal,
   makeOperationJournal,
-  previewOrApplyPlan,
   unitIdOf,
   type OperationJournalState,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { previewOrApplyPlan } from "@agentxm/extension-management/unstable/plan";
 import {
   extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,
@@ -151,8 +151,8 @@ import {
   WorkspaceMutations,
   acceptedCanonicalObservation,
   configuredRowsByName,
-  type WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import {
   emitPublishResult,

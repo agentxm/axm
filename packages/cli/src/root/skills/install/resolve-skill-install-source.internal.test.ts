@@ -12,15 +12,12 @@ import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import { afterEach } from "vitest";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { SourceHostConfig } from "@agentxm/extension-management/unstable/settings";
+import type { SourceHostConfig } from "@agentxm/workspace-state";
 import {
   parseInputPattern,
   type InputParseResult,
 } from "@agentxm/extension-model/unstable/sources/parser";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

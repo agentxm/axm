@@ -19,12 +19,12 @@ import {
   NativeImportUnsupported,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  PathTraversalDetected,
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
 } from "../../extensions/errors.js";
-import { MaterializedTreeInvalid } from "../../workspace/materialized-tree.js";
+import { PathTraversalDetected } from "@agentxm/workspace-state";
+import { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,

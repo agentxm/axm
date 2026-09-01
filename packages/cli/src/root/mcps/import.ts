@@ -25,7 +25,7 @@ import {
   isAxmManagedMcpEntry,
   WorkspaceMutations,
   type WorkspaceMutationsService,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
@@ -44,17 +44,14 @@ import {
   toAppError,
   failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
+import type { McpServerEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
   JobStepResult,
   Plan,
   PlannedJobStep,
-} from "@agentxm/extension-management/unstable/plan";
-import {
-  operationPresentation,
-  type OperationResolution,
-} from "@agentxm/extension-management/unstable/plan";
+} from "@agentxm/workspace-operations";
+import { operationPresentation, type OperationResolution } from "@agentxm/workspace-operations";
 import { emitOperationResolution } from "../../operation-output.js";
 import { scopeFlag } from "../../cli-flags.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";

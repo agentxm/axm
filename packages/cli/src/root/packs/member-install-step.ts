@@ -15,15 +15,15 @@ import {
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
-  type ExtensionRef,
-  type HookExtensionRef,
-  type KnowledgeExtensionRef,
-  type McpServerExtensionRef,
-  type RuleExtensionRef,
-  type SkillExtensionRef,
-  type SubagentExtensionRef,
   WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/workspace-state";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   type ExtensionType,
   type ExtensionTypePlural,
@@ -31,7 +31,7 @@ import {
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
-import type { JobStepArtifact, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";

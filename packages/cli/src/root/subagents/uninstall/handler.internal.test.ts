@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
+import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";

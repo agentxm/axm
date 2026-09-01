@@ -9,11 +9,11 @@
 
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../../app-error/index.js";
-import type { Plan } from "../../../plan/plan.js";
-import type { StepFailure } from "../../../plan/errors.js";
-import type { OperationResolution } from "../../../plan/operation-resolution.js";
+import type { Plan } from "@agentxm/workspace-operations";
+import type { StepFailure } from "@agentxm/workspace-operations";
+import type { OperationResolution } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan } from "../../../plan/resolve-plan.js";
-import type { PlanExecution } from "../../../plan/plan-execution.js";
+import type { PlanExecution } from "@agentxm/workspace-operations";
 
 // -----------------------------------------------------------------------------
 // Uninstall Command Workflow Actions Interface

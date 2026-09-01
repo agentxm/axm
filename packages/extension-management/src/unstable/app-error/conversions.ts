@@ -6,11 +6,22 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import type { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
+import { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import type { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
+import type { AppErrorCode } from "./app-error.js";
+import {
+  WorkspaceRestorationIncomplete,
+  restorationIncompleteToAppError,
+} from "../workspace/transaction.js";
+import { OPERATION_ERROR_CATEGORIES } from "../plan/errors.js";
 import { makeAppError, type AppError } from "./index.js";
+
+// The kernel's serialized category vocabulary and the CLI's AppErrorCode must
+// stay the same strings; divergence is a compile error here, at the boundary
+// that owns the mapping.
+OPERATION_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
 
 /**
  * Translate a `FqnInvalidError` into a CLI-facing `AppError` with the canonical
@@ -53,3 +64,31 @@ export const subagentContentErrorToAppError = (error: SubagentContentError): App
     suggestions: error.suggestion === undefined ? [] : [{ description: error.suggestion }],
     cause: error,
   });
+
+/**
+ * Every typed failure the application boundary knows how to convert. Each
+ * package's error union registers here as it stops constructing `AppError`
+ * directly; the dispatcher is the single conversion seam the CLI uses.
+ */
+export type KnownFailure =
+  FqnInvalidError | FrontmatterParseFailure | SubagentContentError | WorkspaceRestorationIncomplete;
+
+export const isKnownFailure = (error: unknown): error is KnownFailure =>
+  error instanceof FqnInvalidError ||
+  error instanceof FrontmatterParseFailure ||
+  error instanceof SubagentContentError ||
+  error instanceof WorkspaceRestorationIncomplete;
+
+/** Convert a known typed failure into the CLI-facing `AppError` envelope. */
+export const toAppError = (error: KnownFailure): AppError => {
+  switch (error._tag) {
+    case "FqnInvalidError":
+      return fqnInvalidErrorToAppError(error);
+    case "FrontmatterParseFailure":
+      return frontmatterParseFailureToAppError(error);
+    case "SubagentContentError":
+      return subagentContentErrorToAppError(error);
+    case "WorkspaceRestorationIncomplete":
+      return restorationIncompleteToAppError(error);
+  }
+};

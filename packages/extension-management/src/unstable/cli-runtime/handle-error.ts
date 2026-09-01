@@ -10,6 +10,7 @@ import {
   redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
@@ -119,6 +120,14 @@ export const classifyError = (
     return {
       exitCode: exitCodeFor(error.code),
       ...renderAppErrorChannels(error, format, options),
+    };
+  }
+
+  if (isKnownFailure(error)) {
+    const appError = toAppError(error);
+    return {
+      exitCode: exitCodeFor(appError.code),
+      ...renderAppErrorChannels(appError, format, options),
     };
   }
 

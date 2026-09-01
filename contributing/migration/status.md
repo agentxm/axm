@@ -26,6 +26,9 @@ read-only for this work.
 
 ## Committed locally (push after the current batch)
 
+Interaction-split batch (S1-S5 + straggler fix + migration docs) pushed to main
+at 06a6b8e08.
+
 | Commit    | Content                                                                                                                                                                                                   |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0ed62c73f | Interaction-split S1: PlanExecution/ConfirmationRecovery vocabulary moves into plan/plan-execution.ts                                                                                                     |

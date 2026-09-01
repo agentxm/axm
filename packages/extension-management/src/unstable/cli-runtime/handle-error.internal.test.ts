@@ -4,6 +4,8 @@ import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
 import { effectCliExit } from "./effect-cli-exit.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
+import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 
 /** Parse the NDJSON stderr lines a classification would write, in order. */
 const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>
@@ -75,6 +77,27 @@ describe("classifyError — ShowHelp", () => {
       title: "Usage Error",
       detail: "Missing required flag: --name",
     });
+  });
+});
+
+describe("classifyError — known typed failures", () => {
+  it("classifies a known typed failure exactly like its converted AppError", () => {
+    const failure = new FqnInvalidError({ input: "not-a-valid-fqn" });
+
+    const direct = classifyError(toAppError(failure), "json");
+    const viaDispatcher = classifyError(failure, "json");
+
+    expect(viaDispatcher).toEqual(direct);
+    expect(viaDispatcher.exitCode).toBe(ExitCode.Validation);
+  });
+
+  it("classifies a known typed failure in text format", () => {
+    const failure = new FqnInvalidError({ input: "still-not-valid" });
+
+    const result = classifyError(failure, "text");
+
+    expect(result.exitCode).toBe(ExitCode.Validation);
+    expect(result.stderr?.join("\n")).toContain("Invalid fully qualified name: still-not-valid");
   });
 });
 

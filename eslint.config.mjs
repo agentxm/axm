@@ -258,6 +258,8 @@ export default [
       "packages/extension-model/src/**/*.ts",
       "packages/extension-sources/src/**/*.ts",
       "packages/extension-workspace/src/**/*.ts",
+      "packages/knowledge-query/src/**/*.ts",
+      "packages/registry-auth/src/**/*.ts",
       "packages/registry-client/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
       "packages/workspace-lint/src/**/*.ts",

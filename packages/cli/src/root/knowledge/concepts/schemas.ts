@@ -8,7 +8,7 @@ import {
 import {
   KnowledgeDiscoveryCapabilitiesSchema,
   KnowledgeQuerySchema,
-} from "@agentxm/extension-management/unstable/knowledge";
+} from "@agentxm/knowledge-query";
 
 import { FrontmatterDocumentSchema } from "../schemas.js";
 

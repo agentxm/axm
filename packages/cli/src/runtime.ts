@@ -29,7 +29,6 @@ import {
   type CliTelemetryConfig,
   type ExpectedCliError,
   type OutputFormat,
-  AuthLoginPresenterLive,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
   makeFoundationLayer,
@@ -61,9 +60,10 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-lifecycle/live";
-import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
+import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { LifecycleFailureAdapterLive } from "./feature-errors.js";
 import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
@@ -75,7 +75,7 @@ import {
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
-} from "@agentxm/extension-management/unstable/auth";
+} from "@agentxm/registry-auth/live";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/telemetry";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";

@@ -13,9 +13,10 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
-} from "@agentxm/extension-management/unstable/auth";
+} from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { StepUpRequired } from "@agentxm/registry-auth";
+import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   TestMachineRenderer,
@@ -270,29 +271,23 @@ describe("auth token handler", () => {
           createCalls.push({ params, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
-              makeAppError({
-                code: "auth_required",
-                detail: "Step-up authentication is required",
-                metadata: {
-                  response: {
-                    status: 401,
-                    body: {
-                      code: "eotp",
-                      max_age: 300,
-                      step_up: {
-                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
-                        verification_url:
-                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                        status_url:
-                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                        expires_at: "2026-08-10T16:05:00.000Z",
-                        interval: 2,
-                        action: "Create access token",
-                        target: "ci-admin",
-                      },
-                    },
-                  },
+              new StepUpRequired({
+                stepUp: {
+                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
+                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                  statusUrl:
+                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                  expiresAt: "2026-08-10T16:05:00.000Z",
+                  intervalSeconds: 2,
+                  maxAgeSeconds: 300,
+                  action: "Create access token",
+                  target: "ci-admin",
                 },
+                failure: new RegistryRequestFailed({
+                  category: "auth",
+                  detail: "Step-up authentication is required",
+                  metadata: { response: { status: 401 } },
+                }),
               }),
             );
           }
@@ -582,29 +577,23 @@ describe("auth token handler", () => {
           deleteCalls.push({ tokenId, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
-              makeAppError({
-                code: "auth",
-                detail: "Step-up authentication is required",
-                metadata: {
-                  response: {
-                    status: 401,
-                    body: {
-                      code: "eotp",
-                      max_age: 300,
-                      step_up: {
-                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
-                        verification_url:
-                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                        status_url:
-                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                        expires_at: "2026-08-10T16:05:00.000Z",
-                        interval: 2,
-                        action: "Revoke access token",
-                        target: "token_123",
-                      },
-                    },
-                  },
+              new StepUpRequired({
+                stepUp: {
+                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
+                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                  statusUrl:
+                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                  expiresAt: "2026-08-10T16:05:00.000Z",
+                  intervalSeconds: 2,
+                  maxAgeSeconds: 300,
+                  action: "Revoke access token",
+                  target: "token_123",
                 },
+                failure: new RegistryRequestFailed({
+                  category: "auth",
+                  detail: "Step-up authentication is required",
+                  metadata: { response: { status: 401 } },
+                }),
               }),
             );
           }
@@ -661,29 +650,23 @@ describe("auth token handler", () => {
           deleteCalls.push({ tokenId, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
-              makeAppError({
-                code: "auth",
-                detail: "Step-up authentication is required",
-                metadata: {
-                  response: {
-                    status: 401,
-                    body: {
-                      code: "eotp",
-                      max_age: 300,
-                      step_up: {
-                        request_id: "step_01h455vb4pexka56gq5w2r7cpc",
-                        verification_url:
-                          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                        status_url:
-                          "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                        expires_at: "2026-08-10T16:05:00.000Z",
-                        interval: 2,
-                        action: "Revoke access token",
-                        target: "token_123",
-                      },
-                    },
-                  },
+              new StepUpRequired({
+                stepUp: {
+                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
+                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+                  statusUrl:
+                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
+                  expiresAt: "2026-08-10T16:05:00.000Z",
+                  intervalSeconds: 2,
+                  maxAgeSeconds: 300,
+                  action: "Revoke access token",
+                  target: "token_123",
                 },
+                failure: new RegistryRequestFailed({
+                  category: "auth",
+                  detail: "Step-up authentication is required",
+                  metadata: { response: { status: 401 } },
+                }),
               }),
             );
           }

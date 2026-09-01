@@ -3,11 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeHttp from "node:http";
 import { pathToFileURL } from "node:url";
-import {
-  AuthClientTest,
-  DeviceLoginInteractionTest,
-  type CreatePublishAuthorizationRequestParams,
-} from "@agentxm/extension-management/unstable/auth";
+import { type CreatePublishAuthorizationRequestParams } from "@agentxm/registry-auth";
+import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-auth/testing";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
@@ -43,6 +40,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { RegistryAuthFailed } from "@agentxm/registry-auth";
 
 import {
   at,
@@ -1101,7 +1099,10 @@ describe("root publish", () => {
       createPublishAuthorizationRequest: () => {
         authorizationRequests += 1;
         return Effect.fail(
-          makeAppError({ code: "internal", detail: "Preview must not create publish authority" }),
+          new RegistryAuthFailed({
+            category: "internal",
+            detail: "Preview must not create publish authority",
+          }),
         );
       },
     });
@@ -1189,11 +1190,17 @@ describe("root publish", () => {
         Effect.gen(function* () {
           const request = authorizationRequest;
           if (request === undefined) {
-            return yield* makeAppError({ code: "internal", detail: "Missing auth request" });
+            return yield* new RegistryAuthFailed({
+              category: "internal",
+              detail: "Missing auth request",
+            });
           }
           const descriptor = request.publicationSet.candidates[0];
           if (descriptor === undefined) {
-            return yield* makeAppError({ code: "internal", detail: "Missing descriptor" });
+            return yield* new RegistryAuthFailed({
+              category: "internal",
+              detail: "Missing descriptor",
+            });
           }
           const setDigest = publicationSetDigest(request.publicationSet.candidates);
           return {

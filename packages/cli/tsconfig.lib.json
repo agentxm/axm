@@ -29,6 +29,12 @@
       "path": "../registry-client/tsconfig.lib.json"
     },
     {
+      "path": "../registry-auth/tsconfig.lib.json"
+    },
+    {
+      "path": "../knowledge-query/tsconfig.lib.json"
+    },
+    {
       "path": "../extension-workspace/tsconfig.lib.json"
     },
     {

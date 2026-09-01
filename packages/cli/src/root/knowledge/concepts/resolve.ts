@@ -7,7 +7,7 @@ import {
   effectCliExit,
   withArgvTracking,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { resolveKnowledgeConcept } from "@agentxm/extension-management/unstable/knowledge";
+import { resolveKnowledgeConcept } from "@agentxm/knowledge-query";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { scopeConfig } from "../flags.js";

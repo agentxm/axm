@@ -8,7 +8,7 @@ import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { LoginDocumentSchema } from "@agentxm/extension-management/unstable/auth";
+import { LoginDocumentSchema } from "@agentxm/registry-auth";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,

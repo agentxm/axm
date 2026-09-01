@@ -6,10 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import {
-  getKnowledgeIndexConcept,
-  relatedKnowledgeConcepts,
-} from "@agentxm/extension-management/unstable/knowledge";
+import { getKnowledgeIndexConcept, relatedKnowledgeConcepts } from "@agentxm/knowledge-query";
 import { parseConceptRef } from "@agentxm/extension-model/unstable/knowledge";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";

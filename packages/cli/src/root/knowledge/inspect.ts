@@ -16,10 +16,7 @@ import {
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeBundleFqnSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
-import {
-  KnowledgeIndex,
-  captureKnowledgeIndexBundles,
-} from "@agentxm/extension-management/unstable/knowledge";
+import { KnowledgeIndex, captureKnowledgeIndexBundles } from "@agentxm/knowledge-query";
 import {
   inspectKnowledgePackage,
   readKnowledgePackageManifest,

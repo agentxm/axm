@@ -182,8 +182,8 @@ const loginFamily = defineResultFamily({
   humanOutputKind: "mutation",
   commandCoverage: [
     "packages/cli/src/root/auth/login.internal.test.ts",
-    "packages/extension-management/src/unstable/auth/device-login.internal.test.ts",
-    "packages/extension-management/src/unstable/auth/loopback-login.internal.test.ts",
+    "packages/registry-auth/src/device-login.internal.test.ts",
+    "packages/registry-auth/src/loopback-login.internal.test.ts",
   ],
 });
 
@@ -404,9 +404,7 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   optionalTopLevelKeys: ["candidate", "candidates", "reason"],
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
-  commandCoverage: [
-    "packages/extension-management/src/unstable/knowledge/knowledge-graph.internal.test.ts",
-  ],
+  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
 });
 
 const knowledgeConceptRelatedFamily = defineResultFamily({
@@ -428,9 +426,7 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: [
-    "packages/extension-management/src/unstable/knowledge/knowledge-graph.internal.test.ts",
-  ],
+  commandCoverage: ["packages/knowledge-query/src/knowledge-graph.internal.test.ts"],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({

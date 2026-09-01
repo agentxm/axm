@@ -29,6 +29,8 @@ const WORKSPACE_MANIFESTS = [
   "packages/extension-model/package.json",
   "packages/extension-sources/package.json",
   "packages/extension-workspace/package.json",
+  "packages/knowledge-query/package.json",
+  "packages/registry-auth/package.json",
   "packages/registry-client/package.json",
   "packages/workspace-lint/package.json",
   "packages/workspace-operations/package.json",

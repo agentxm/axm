@@ -13,7 +13,7 @@ import {
   KnowledgeIndex,
   type KnowledgeQueryClause,
   makeKnowledgeQuery,
-} from "@agentxm/extension-management/unstable/knowledge";
+} from "@agentxm/knowledge-query";
 import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 

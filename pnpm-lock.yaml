@@ -282,6 +282,12 @@ importers:
       '@agentxm/extension-workspace':
         specifier: workspace:^
         version: link:../extension-workspace
+      '@agentxm/knowledge-query':
+        specifier: workspace:^
+        version: link:../knowledge-query
+      '@agentxm/registry-auth':
+        specifier: workspace:^
+        version: link:../registry-auth
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../registry-client
@@ -444,9 +450,6 @@ importers:
       '@agentxm/workspace-state':
         specifier: workspace:^
         version: link:../workspace-state
-      '@napi-rs/keyring':
-        specifier: ^1.3.0
-        version: 1.3.0
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -459,9 +462,6 @@ importers:
       packageurl-js:
         specifier: 'catalog:'
         version: 2.0.1
-      proper-lockfile:
-        specifier: ^4.1.2
-        version: 4.1.2
       semver:
         specifier: 'catalog:'
         version: 7.8.5
@@ -481,9 +481,6 @@ importers:
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
-      '@types/proper-lockfile':
-        specifier: ^4.1.4
-        version: 4.1.4
       '@types/semver':
         specifier: 'catalog:'
         version: 7.7.1
@@ -619,6 +616,80 @@ importers:
       smol-toml:
         specifier: 'catalog:'
         version: 1.7.1
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/knowledge-query:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../extension-model
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../registry-protocol
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/registry-auth:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../extension-model
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../registry-client
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../registry-protocol
+      '@napi-rs/keyring':
+        specifier: ^1.3.0
+        version: 1.3.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      proper-lockfile:
+        specifier: ^4.1.2
+        version: 4.1.2
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/proper-lockfile':
+        specifier: ^4.1.4
+        version: 4.1.4
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
@@ -886,6 +957,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../packages/extension-model
+      '@agentxm/registry-auth':
+        specifier: workspace:^
+        version: link:../packages/registry-auth
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../packages/registry-protocol

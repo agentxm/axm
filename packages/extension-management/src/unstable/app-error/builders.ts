@@ -29,21 +29,6 @@ export const errAuthRequired = (message = "Authentication required", cause?: unk
     cause,
   });
 
-export const errAuthTokenRequired = (cause?: unknown) =>
-  makeAppError({
-    code: "auth_required",
-    detail: "No authentication token is available.",
-    blockedOn: "human",
-    suggestions: [
-      BC.do("Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication."),
-      {
-        description: "Create a personal access token in AgentXM.ai.",
-        url: "https://agentxm.ai/u/settings/tokens",
-      },
-    ],
-    cause,
-  });
-
 export const errPublishConflict = (args: { readonly version?: string; readonly cause?: unknown }) =>
   makeAppError({
     code: "conflict",

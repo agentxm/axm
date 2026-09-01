@@ -8,7 +8,7 @@ import YAML from "yaml";
 
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/extension-management/unstable/knowledge";
+import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "@agentxm/knowledge-query";
 import { LockfileSchema } from "@agentxm/workspace-state";
 import { SettingsSchema } from "@agentxm/workspace-state";
 import {

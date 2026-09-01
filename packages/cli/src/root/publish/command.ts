@@ -30,7 +30,8 @@ import {
   resolveRequestToken,
   runPublishAuthorization,
   type PublishCapabilityResponse,
-} from "@agentxm/extension-management/unstable/auth";
+} from "@agentxm/registry-auth";
+import { authFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -2071,7 +2072,9 @@ const runPublish = Effect.fn("Publish.run")(function* (
 
   const isRemoteRegistry =
     registry.url.startsWith("https://") || registry.url.startsWith("http://");
-  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  const storedToken = yield* resolveRequestToken(registry.url, registryUrl).pipe(
+    Effect.mapError(authFailureToAppError),
+  );
   const workspaceDefaultVisibility = yield* workspaceMutations.getPublishDefaultVisibility();
   const shouldPreviewAuthoritatively =
     preflightErrors.length === 0 &&
@@ -2257,7 +2260,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           const exchange = yield* runPublishAuthorization({
             registryUrl: registry.url,
             publicationSet,
-          });
+          }).pipe(Effect.mapError(authFailureToAppError));
           if (exchange.status === "blocked") {
             const firstFinding = exchange.preview.packs
               .flatMap((pack) => pack.findings)

@@ -19,7 +19,6 @@ export {
 export {
   BC,
   errAuthRequired,
-  errAuthTokenRequired,
   errInstallFailed,
   errPublishConflict,
   errRegistryPublishRejected,

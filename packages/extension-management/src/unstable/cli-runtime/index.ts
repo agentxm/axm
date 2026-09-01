@@ -60,7 +60,6 @@ export {
   recordInterruptionSignal,
   requestedInterruptionSignal,
 } from "./interruption.js";
-export { AuthLoginPresenterLive } from "./auth-login-presenter-live.js";
 export { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
 export { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";

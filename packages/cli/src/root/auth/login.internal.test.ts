@@ -9,23 +9,25 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import {
-  AuthClientTest,
-  AuthLoginInteractionTest,
   type MeResponse,
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
   CredentialStore,
+  RegistryAuthFailed,
+} from "@agentxm/registry-auth";
+import {
+  AuthClientTest,
+  AuthLoginInteractionTest,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
-} from "@agentxm/extension-management/unstable/auth";
+} from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import {
   TestMachineRenderer,
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { AuthLoginPresenterLive } from "@agentxm/extension-management/unstable/cli-runtime";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-helpers.js";
 import { handleLogin } from "./login.js";
@@ -104,8 +106,8 @@ const makeLayers = (opts?: {
     getMe: opts?.getMeFails
       ? () =>
           Effect.fail(
-            makeAppError({
-              code: "auth",
+            new RegistryAuthFailed({
+              category: "auth",
               detail: "Token invalid",
             }),
           )
@@ -645,8 +647,8 @@ describe("auth login handler", () => {
         }),
       getMe: () =>
         Effect.fail(
-          makeAppError({
-            code: "auth",
+          new RegistryAuthFailed({
+            category: "auth",
             detail: "Not authenticated or token is invalid",
           }),
         ),

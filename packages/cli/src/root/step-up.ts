@@ -5,13 +5,17 @@ import * as Result from "effect/Result";
 import {
   AuthClient,
   AuthLoginInteraction,
+  authLoginRequired,
   readStepUpRequest,
+  StepUpRequired,
   resolveRequiredToken,
-} from "@agentxm/extension-management/unstable/auth";
+  type StepUpRequest,
+} from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { errAuthRequired, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { isNonInteractive, jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
+import { coerceAuthFailure } from "../feature-errors.js";
 
 export interface StepUpOperationMessages {
   readonly initial: string;
@@ -22,8 +26,15 @@ export interface StepUpOperationMessages {
   readonly authorized: string;
 }
 
-export const runWithStepUp = <A, R>(
-  operation: (stepUpRequestId?: string) => Effect.Effect<A, AppError, R>,
+const failureStepUpRequest = (failure: unknown): StepUpRequest | null =>
+  failure instanceof StepUpRequired
+    ? failure.stepUp
+    : failure instanceof AppError
+      ? readStepUpRequest(failure)
+      : null;
+
+export const runWithStepUp = <A, E, R>(
+  operation: (stepUpRequestId?: string) => Effect.Effect<A, E, R>,
   messages: StepUpOperationMessages,
 ) =>
   Effect.gen(function* () {
@@ -37,10 +48,10 @@ export const runWithStepUp = <A, R>(
       return { value: initial.success, stepUpCompleted: false };
     }
 
-    const stepUp = readStepUpRequest(initial.failure);
+    const stepUp = failureStepUpRequest(initial.failure);
     if (stepUp === null) {
       yield* activity.error(messages.failure);
-      return yield* initial.failure;
+      return yield* Effect.fail(initial.failure);
     }
     yield* activity.stop("Additional verification required");
 
@@ -50,8 +61,8 @@ export const runWithStepUp = <A, R>(
     const nonInteractive = yield* isNonInteractive;
     const jsonMode = Option.getOrElse(yield* jsonFlag, () => false);
     const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: errAuthRequired("Not authenticated"),
-    });
+      missingTokenError: authLoginRequired("Not authenticated"),
+    }).pipe(Effect.mapError(coerceAuthFailure));
 
     const opened =
       nonInteractive || jsonMode ? false : yield* interaction.openBrowser(stepUp.verificationUrl);
@@ -70,7 +81,10 @@ export const runWithStepUp = <A, R>(
 
     yield* renderer.withSpinner(
       messages.waiting,
-      () => authClient.waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds),
+      () =>
+        authClient
+          .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
+          .pipe(Effect.mapError(coerceAuthFailure)),
       { successMessage: messages.authorized },
     );
     const value = yield* renderer.withSpinner(messages.initial, () => operation(stepUp.requestId), {

@@ -63,10 +63,6 @@
       "types": "./dist/src/unstable/cli-renderer/index.d.ts",
       "default": "./dist/src/unstable/cli-renderer/index.js"
     },
-    "./unstable/auth": {
-      "types": "./dist/src/unstable/auth/index.d.ts",
-      "default": "./dist/src/unstable/auth/index.js"
-    },
     "./unstable/skills": {
       "types": "./dist/src/unstable/skills/index.d.ts",
       "default": "./dist/src/unstable/skills/index.js"
@@ -78,10 +74,6 @@
     "./unstable/hooks": {
       "types": "./dist/src/unstable/hooks/index.d.ts",
       "default": "./dist/src/unstable/hooks/index.js"
-    },
-    "./unstable/knowledge": {
-      "types": "./dist/src/unstable/knowledge/index.d.ts",
-      "default": "./dist/src/unstable/knowledge/index.js"
     },
     "./unstable/publish": {
       "types": "./dist/src/unstable/publish/index.d.ts",
@@ -142,12 +134,10 @@
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
-    "@napi-rs/keyring": "^1.3.0",
     "effect": "catalog:",
     "fflate": "catalog:",
     "marked": "^18.0.9",
     "packageurl-js": "catalog:",
-    "proper-lockfile": "^4.1.2",
     "semver": "catalog:",
     "yaml": "catalog:"
   },
@@ -156,7 +146,6 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
-    "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "swagger2openapi": "catalog:",

@@ -9,7 +9,13 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { makeAppError, AppError } from "@agentxm/extension-management/unstable/app-error";
+import {
+  errAuthRequired,
+  makeAppError,
+  withAppErrorSemantics,
+  AppError,
+  type AppErrorCode,
+} from "@agentxm/extension-management/unstable/app-error";
 import {
   appErrorToStepFailure,
   isKnownFailure,
@@ -20,6 +26,20 @@ import {
   LifecycleFailureAdapter,
   type LifecycleFailureAdapterService,
 } from "@agentxm/extension-lifecycle";
+import type { ExpectedCliError } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  isRegistryAuthFailure,
+  REGISTRY_AUTH_ERROR_CATEGORIES,
+  type AuthExchangeFailed,
+  type AuthLoginRequired,
+  type AuthTokenPolicyRequired,
+  type DeviceAuthorizationPending,
+  type DeviceLoginCodeExpired,
+  type DeviceLoginDenied,
+  type RegistryAuthFailed,
+  type RegistryAuthFailure,
+  type StepUpRequired,
+} from "@agentxm/registry-auth";
 import type { LintStagingFailed } from "@agentxm/workspace-lint";
 import {
   WorkspaceSyncFailed,
@@ -135,3 +155,168 @@ export const coerceLifecycleFailure = <E>(failure: E | ExtensionLifecycleFailed)
   failure instanceof ExtensionLifecycleFailed
     ? extensionLifecycleFailedToAppError(failure)
     : failure;
+
+// The registry-auth category vocabulary and the CLI's AppErrorCode must stay
+// the same strings; divergence is a compile error here, at the boundary that
+// owns the mapping.
+REGISTRY_AUTH_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
+
+/**
+ * Translate a registry-auth policy failure: the implementation chose the
+ * category and wording at construction, so the envelope carries them over
+ * 1:1. A typed auth failure in cause position converts recursively so the
+ * serialized cause chain matches the former in-place construction, where the
+ * nested value was already an envelope.
+ */
+export const registryAuthFailedToAppError = (error: RegistryAuthFailed): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.recover === undefined ? {} : { recover: error.recover }),
+    ...(error.cmd === undefined ? {} : { cmd: error.cmd }),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined
+      ? {}
+      : {
+          cause: isRegistryAuthFailure(error.cause)
+            ? registryAuthFailureToAppError(error.cause)
+            : error.cause,
+        }),
+  });
+
+/** Sign-in required: the shared builder renders the fixed device-flow guidance. */
+export const authLoginRequiredToAppError = (error: AuthLoginRequired): AppError =>
+  errAuthRequired(error.message, error.cause);
+
+/** Ambient-token-only policy: the former builder's envelope, verbatim. */
+export const authTokenPolicyRequiredToAppError = (error: AuthTokenPolicyRequired): AppError =>
+  makeAppError({
+    code: "auth_required",
+    detail: "No authentication token is available.",
+    blockedOn: "human",
+    suggestions: [
+      {
+        description:
+          "Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication.",
+      },
+      {
+        description: "Create a personal access token in AgentXM.ai.",
+        url: "https://agentxm.ai/u/settings/tokens",
+      },
+    ],
+    cause: error.cause,
+  });
+
+export const deviceLoginDeniedToAppError = (_error: DeviceLoginDenied): AppError =>
+  makeAppError({
+    code: "auth",
+    detail: "Login was denied or cancelled",
+    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+  });
+
+export const deviceLoginCodeExpiredToAppError = (_error: DeviceLoginCodeExpired): AppError =>
+  makeAppError({
+    code: "auth",
+    detail: "Login code expired",
+    suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
+  });
+
+/** A bounded device-approval wait elapsed: the pending-human envelope. */
+export const deviceAuthorizationPendingToAppError = (error: DeviceAuthorizationPending): AppError =>
+  makeAppError({
+    code: "timeout",
+    status: "pending-human",
+    retryable: true,
+    blockedOn: "human",
+    action: {
+      kind: "open-url",
+      url: error.verificationUriComplete,
+      fallbackUrl: error.verificationUri,
+      code: error.userCode,
+      expiresAt: error.expiresAt,
+      resume: error.resume,
+    },
+    detail: `Device sign-in did not complete within ${error.timeoutSeconds} seconds. The pending flow is still available.`,
+    suggestions: [
+      { description: "Resume waiting after approval.", cmd: "axm login --wait --json" },
+    ],
+  });
+
+/**
+ * Step-up verification demanded: metadata and cause restore from the carried
+ * transport failure, exactly as the former in-place construction read them
+ * off the mapped envelope.
+ */
+export const stepUpRequiredToAppError = (error: StepUpRequired): AppError => {
+  const mapped = toAppError(error.failure);
+  return makeAppError({
+    code: "auth_required",
+    detail: "Step-up authentication is required",
+    blockedOn: "human",
+    action: {
+      kind: "open-url",
+      url: error.stepUp.verificationUrl,
+      expiresAt: error.stepUp.expiresAt,
+    },
+    ...(mapped.metadata === undefined ? {} : { metadata: mapped.metadata }),
+    recover: "Complete verification while the command is waiting, or rerun the command to restart.",
+    cause: mapped.cause,
+  });
+};
+
+/**
+ * Token-exchange auth semantics: overlay the carried detail and suggestions
+ * onto the mapped transport failure through the same semantics helper the
+ * former in-place conversion used, preserving title, metadata, and cause.
+ */
+export const authExchangeFailedToAppError = (error: AuthExchangeFailed): AppError =>
+  withAppErrorSemantics(toAppError(error.failure), {
+    code: "auth",
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+  });
+
+/** Convert any registry-auth typed failure into the CLI-facing envelope. */
+export const registryAuthFailureToAppError = (failure: RegistryAuthFailure): AppError => {
+  switch (failure._tag) {
+    case "RegistryAuthFailed":
+      return registryAuthFailedToAppError(failure);
+    case "AuthLoginRequired":
+      return authLoginRequiredToAppError(failure);
+    case "AuthTokenPolicyRequired":
+      return authTokenPolicyRequiredToAppError(failure);
+    case "DeviceLoginDenied":
+      return deviceLoginDeniedToAppError(failure);
+    case "DeviceLoginCodeExpired":
+      return deviceLoginCodeExpiredToAppError(failure);
+    case "DeviceAuthorizationPending":
+      return deviceAuthorizationPendingToAppError(failure);
+    case "StepUpRequired":
+      return stepUpRequiredToAppError(failure);
+    case "AuthExchangeFailed":
+      return authExchangeFailedToAppError(failure);
+  }
+};
+
+/**
+ * Convert only the registry-auth feature's own typed failures into the
+ * envelope, leaving every other expected failure untouched. Concretely typed
+ * so the auth members leave the channel instead of being reabsorbed by a
+ * generic parameter.
+ */
+export const coerceAuthFailure = (
+  failure: ExpectedCliError | RegistryAuthFailure,
+): ExpectedCliError =>
+  isRegistryAuthFailure(failure) ? registryAuthFailureToAppError(failure) : failure;
+
+/**
+ * Convert any failure an auth use case can surface — the feature's own typed
+ * failures, a known registry transport failure, or an envelope that travelled
+ * through a still-coupled channel — into the CLI-facing `AppError`.
+ */
+export const authFailureToAppError = (failure: unknown): AppError => {
+  if (isRegistryAuthFailure(failure)) return registryAuthFailureToAppError(failure);
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};

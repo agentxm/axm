@@ -1,7 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CredentialStore, getCurrentUserHandle } from "@agentxm/extension-management/unstable/auth";
+import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
+import { registryAuthFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -40,7 +41,9 @@ export const resolveOwnerForNewContent = (
     if (Option.isSome(configured)) return configured.value;
 
     const registryUrl = yield* RegistryUrl;
-    const loggedIn = yield* getCurrentUserHandle(registryUrl);
+    const loggedIn = yield* getCurrentUserHandle(registryUrl).pipe(
+      Effect.mapError(registryAuthFailureToAppError),
+    );
     if (Option.isSome(loggedIn)) return loggedIn.value;
 
     if (fallback && Option.isSome(fallback)) return fallback.value;

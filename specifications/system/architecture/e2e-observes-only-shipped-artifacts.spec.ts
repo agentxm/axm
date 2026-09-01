@@ -23,6 +23,8 @@ const E2E_PROJECT_ROOTS = ["packages/cli-e2e", "packages/e2e-utils"] as const;
 const FORBIDDEN_PACKAGE_NAMES = [
   "@agentxm/agent-integration",
   "@agentxm/extension-model",
+  "@agentxm/knowledge-query",
+  "@agentxm/registry-auth",
   "@agentxm/registry-client",
   "@agentxm/registry-protocol",
   "@agentxm/extension-lifecycle",
@@ -38,6 +40,8 @@ const FORBIDDEN_PACKAGE_NAMES = [
 const FORBIDDEN_PROJECT_ROOTS = [
   "packages/agent-integration",
   "packages/extension-model",
+  "packages/knowledge-query",
+  "packages/registry-auth",
   "packages/registry-client",
   "packages/registry-protocol",
   "packages/extension-lifecycle",

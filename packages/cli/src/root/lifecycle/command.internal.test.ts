@@ -10,7 +10,7 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
-} from "@agentxm/extension-management/unstable/auth";
+} from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {

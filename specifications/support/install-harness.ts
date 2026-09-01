@@ -15,10 +15,10 @@ import * as path from "node:path";
 
 import * as Layer from "effect/Layer";
 
-import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
 import * as Effect from "effect/Effect";
 
 import {
+  KnowledgeIndexLive,
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
   type TestPromptConfig,

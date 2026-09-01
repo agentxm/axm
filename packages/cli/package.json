@@ -85,6 +85,8 @@
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/knowledge-query": "workspace:^",
+    "@agentxm/registry-auth": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-lint": "workspace:^",

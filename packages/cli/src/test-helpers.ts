@@ -18,11 +18,8 @@ import {
   isKnownFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
-import {
-  AuthLoginPresenterTest,
-  CredentialStoreTest,
-} from "@agentxm/extension-management/unstable/auth";
+import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
@@ -42,6 +39,7 @@ import {
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+export { KnowledgeIndexLive };
 export {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,

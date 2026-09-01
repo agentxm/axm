@@ -10,7 +10,7 @@ import {
   effectCliExit,
   withArgvTracking,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { getKnowledgeIndexConcept } from "@agentxm/extension-management/unstable/knowledge";
+import { getKnowledgeIndexConcept } from "@agentxm/knowledge-query";
 import {
   KnowledgeRevisionSchema,
   parseConceptRef,

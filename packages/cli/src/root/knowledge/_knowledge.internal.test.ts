@@ -8,7 +8,7 @@ import {
   KNOWLEDGE_DISCOVERY_OPERATIONS,
   KNOWLEDGE_QUERY_OPERATORS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
-} from "@agentxm/extension-management/unstable/knowledge";
+} from "@agentxm/knowledge-query";
 
 import { rootCommand } from "../../app.js";
 import { makeAxmFormatter } from "../../formatter.js";

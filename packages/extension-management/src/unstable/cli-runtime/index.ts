@@ -111,3 +111,4 @@ export {
   type SubjectType,
   type SourceKind,
 } from "./command-summary.js";
+export { AgentPresenceProbeLive } from "./agent-presence-live.js";

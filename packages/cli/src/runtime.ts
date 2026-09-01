@@ -20,6 +20,7 @@ import {
   redactSensitiveValue,
 } from "@agentxm/extension-management/unstable/app-error";
 
+import { AgentPresenceProbeLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   type CliTelemetryConfig,
   type ExpectedCliError,
@@ -274,10 +275,13 @@ const makeWorkspaceProgramLayer = (
   workspace: Omit<WorkspaceMutationsOptions, "builtInSources">,
 ) => {
   // -- WorkspaceMutations foundation --
-  const wsLayer = coreWorkspaceLayer({
-    ...workspace,
-    builtInSources: getBuiltInSources(registryLocation),
-  });
+  const wsLayer = Layer.provide(
+    coreWorkspaceLayer({
+      ...workspace,
+      builtInSources: getBuiltInSources(registryLocation),
+    }),
+    AgentPresenceProbeLive,
+  );
   const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
   const workspaceServiceLayer = Layer.mergeAll(
     wsLayer,

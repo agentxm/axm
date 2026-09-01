@@ -9,8 +9,8 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { detectAgentsForScope } from "../../agents/detection.js";
 import type { AppError } from "../../app-error/index.js";
+import { AgentPresenceProbe } from "./agent-presence.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
@@ -568,21 +568,24 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
       })),
     ),
   );
+  const presenceProbe = yield* Effect.serviceOption(AgentPresenceProbe);
   const presence = yield* Effect.cached(
-    detectAgentsForScope(workspaceRoot, scope).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.map((detectedAgents) => new Set<AgentId>(detectedAgents.map((agent) => agent.id))),
-      Effect.catch((error) =>
-        diagnostics
-          .append({
-            source: "scanner",
-            message: `agent-presence: structured detection failed: ${error.message}`,
-            code: "scanner-io",
-          })
-          .pipe(Effect.map(() => new Set<AgentId>())),
-      ),
-    ),
+    Option.match(presenceProbe, {
+      onNone: () => Effect.succeed(new Set<AgentId>()),
+      onSome: (probe) =>
+        probe.detect(workspaceRoot, scope).pipe(
+          Effect.map((detected) => new Set<AgentId>(detected)),
+          Effect.catch((error) =>
+            diagnostics
+              .append({
+                source: "scanner",
+                message: `agent-presence: structured detection failed: ${error.message}`,
+                code: "scanner-io",
+              })
+              .pipe(Effect.map(() => new Set<AgentId>())),
+          ),
+        ),
+    }),
   );
   const agents: ScopedAgentsApi = makeScopedAgentsApi({
     scope,

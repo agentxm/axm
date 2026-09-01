@@ -444,3 +444,8 @@ export {
   type ExtensionSourceFreshnessEntry,
   type ExtensionUpdateEntry,
 } from "./version-currency/index.js";
+export {
+  AgentPresenceProbe,
+  AgentPresenceUnavailable,
+  type AgentPresenceProbeService,
+} from "./read-model/agent-presence.js";

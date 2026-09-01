@@ -20,7 +20,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { detectAgentsForScope } from "../../../agents/detection.js";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
+import { AgentPresenceProbe, AgentPresenceUnavailable } from "../agent-presence.js";
 import { WorkspaceReadModelConfig } from "../service.js";
 import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.js";
 
@@ -60,7 +63,11 @@ export const WorkspaceReadModelTest = (
   spec: FixtureSpec,
   options: WorkspaceReadModelTestOptions = {},
 ): Layer.Layer<
-  FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig | AgentRootResolver,
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceReadModelConfig
+  | AgentRootResolver
+  | AgentPresenceProbe,
   PathEscapeError
 > =>
   Layer.unwrap(
@@ -75,10 +82,20 @@ export const WorkspaceReadModelTest = (
         userHome: makeAbsolutePath(deps.path, deps.userHome),
         allowedRoot: makeAbsolutePath(deps.path, allowedRoot),
       });
+      const probeLayer = Layer.succeed(AgentPresenceProbe, {
+        detect: (root, scope) =>
+          detectAgentsForScope(root, scope).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, deps.path),
+            Effect.map((detected) => new Set<AgentId>(detected.map((agent) => agent.id))),
+            Effect.mapError((error) => new AgentPresenceUnavailable({ message: error.message })),
+          ),
+      });
       return Layer.mergeAll(
         fsLayer,
         pathLayer,
         configLayer,
+        probeLayer,
         AgentRootResolverLive.pipe(Layer.provide(pathLayer)),
       );
     }),

@@ -27,6 +27,7 @@ import {
 import { getHome } from "./constants.js";
 import { envOption, isPathSafe } from "../utils/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
@@ -421,7 +422,7 @@ const upsertJsonConfigServer = (
       },
     };
 
-    yield* protectWorkspacePath(configPath);
+    yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -461,7 +462,7 @@ const removeJsonConfigServer = (
       servers: rest,
     };
 
-    yield* protectWorkspacePath(configPath);
+    yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
     yield* fs.writeFileString(configPath, `${JSON.stringify(updated, null, 2)}\n`).pipe(
       Effect.mapError((error) =>
         makeAppError({

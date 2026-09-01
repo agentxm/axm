@@ -22,6 +22,10 @@ import { resolveTelemetryMode } from "@agentxm/extension-management/unstable/tel
 import { envOption } from "@agentxm/extension-management/unstable/utils";
 import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
+  isKnownFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
   AXM_DIR_NAME,
   bootstrapWorkspace,
   resolveUserWorkspaceRoot,
@@ -34,7 +38,6 @@ import {
   type WorkspaceMutationsOptions,
   type WorkspaceScope,
   WorkspaceMutations,
-  surfaceRestorationIncomplete,
   sanitizeName,
   ArtifactChangeSchema,
   type ArtifactChange,
@@ -403,7 +406,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
           }
         }),
     })
-    .pipe(surfaceRestorationIncomplete);
+    .pipe(Effect.mapError(toAppError));
 });
 
 const installDefaultSkill = (args: InstallDefaultSkillArgs) =>
@@ -849,7 +852,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
           targets: [],
           transition: initialize,
           validate: () => Effect.void,
-        }).pipe(surfaceRestorationIncomplete);
+        }).pipe(Effect.catchIf(isKnownFailure, (error) => Effect.fail(toAppError(error))));
   const defaultSkillInstalled = initialized;
   const agentIds = settings.agents ?? [];
   const scopeAgentIds = cancelled

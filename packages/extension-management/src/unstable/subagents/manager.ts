@@ -45,7 +45,11 @@ import {
 } from "../workspace/materialized-tree.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
-import { subagentContentErrorToAppError, toAppError } from "../app-error/conversions.js";
+import {
+  isKnownFailure,
+  subagentContentErrorToAppError,
+  toAppError,
+} from "../app-error/conversions.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { buildRooModeEntry } from "./rendering/index.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -248,8 +252,8 @@ export const SubagentManagerLive = Layer.effect(
         } satisfies SubagentSyncOutcome;
       }).pipe(
         Effect.mapError((cause) =>
-          cause._tag === "AppError"
-            ? cause
+          isKnownFailure(cause)
+            ? toAppError(cause)
             : makeAppError({
                 code: "internal",
                 detail: `Failed to materialize subagent fallback for ${args.agentId}`,
@@ -659,7 +663,7 @@ export const SubagentManagerLive = Layer.effect(
                         Option.isSome(fallbackContent) &&
                         hasAxmManagedMarker(fallbackContent.value)
                       ) {
-                        yield* protectWorkspacePath(fallbackPath);
+                        yield* protectWorkspacePath(fallbackPath).pipe(Effect.mapError(toAppError));
                         yield* fs.remove(fallbackPath, { recursive: true, force: true }).pipe(
                           Effect.mapError((error) =>
                             makeAppError({

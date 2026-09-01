@@ -9,7 +9,11 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
-import { AppError, makeAppError } from "../../app-error/index.js";
+import { SettingsWriteError } from "../../settings/errors.js";
+import type {
+  WorkspaceSettingsMutationFailure,
+  WorkspaceStateMutationFailure,
+} from "../../workspace/service-interface.js";
 import { LockfileParseError, type LockfileReadError } from "../../workspace/read-model/errors.js";
 import { sanitizeName } from "../../workspace/extension-name.js";
 import {
@@ -40,11 +44,13 @@ const makeWorkspaceMock = (
   axmDir: string,
   lockfileSkills: Record<string, SkillLockEntry> = {},
   overrides?: {
-    removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
-    removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeSkillFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+    removeSkillFromSettingsFn?: (
+      name: string,
+    ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
     lockfileErrorOverride?: () => Effect.Effect<never, LockfileReadError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, WorkspaceStateMutationFailure>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, WorkspaceStateMutationFailure>;
     lockedPacks?: Record<string, PackLockEntry>;
     requiredByPack?: boolean;
   },
@@ -155,11 +161,13 @@ const withServices = (
   axmDir: string,
   lockfileSkills: Record<string, SkillLockEntry> = {},
   wsOverrides?: {
-    removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
-    removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeSkillFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+    removeSkillFromSettingsFn?: (
+      name: string,
+    ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
     lockfileErrorOverride?: () => Effect.Effect<never, LockfileReadError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, WorkspaceStateMutationFailure>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, WorkspaceStateMutationFailure>;
     lockedPacks?: Record<string, PackLockEntry>;
     requiredByPack?: boolean;
   },
@@ -404,9 +412,9 @@ describe("uninstallSkill", () => {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
         const removeSkillFn = vi.fn(() =>
           Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: "write failed",
+            new SettingsWriteError({
+              path: "axm.json",
+              step: "encode",
               cause: new Error("write failed"),
             }),
           ),
@@ -726,9 +734,10 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code", "cursor"]),
         };
-        const writeError = makeAppError({
-          code: "internal",
-          detail: "write failed",
+        const writeError = new SettingsWriteError({
+          path: "axm.json",
+          step: "encode",
+          cause: new Error("write failed"),
         });
 
         const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
@@ -751,9 +760,10 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code"]),
         };
-        const writeError = makeAppError({
-          code: "internal",
-          detail: "write failed",
+        const writeError = new SettingsWriteError({
+          path: "axm.json",
+          step: "encode",
+          cause: new Error("write failed"),
         });
 
         // Full uninstall now swallows removeSkill errors (catchAll in the handler)

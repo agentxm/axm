@@ -11,6 +11,7 @@ import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { AppError, AppErrorCode } from "../app-error/index.js";
 import { makeAppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import type { Version, VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { createRegistryClient, extractZip } from "../registry/index.js";
 import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
@@ -158,7 +159,9 @@ export const replaceCanonicalDirectoryWithInspection = <A, R>(
     const { stagingPath, backupPath } = canonicalMaterializationPaths(args.canonicalPath);
 
     yield* recoverCanonicalDirectory(args);
-    yield* protectCreatedAncestors(fs, path, path.dirname(args.canonicalPath));
+    yield* protectCreatedAncestors(fs, path, path.dirname(args.canonicalPath)).pipe(
+      Effect.mapError(toAppError),
+    );
     yield* fs.makeDirectory(path.dirname(args.canonicalPath), { recursive: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({
@@ -187,7 +190,7 @@ export const replaceCanonicalDirectoryWithInspection = <A, R>(
         fs.remove(stagingPath, { recursive: true, force: true }).pipe(Effect.ignore),
       ),
     );
-    yield* protectWorkspacePath(args.canonicalPath);
+    yield* protectWorkspacePath(args.canonicalPath).pipe(Effect.mapError(toAppError));
     const hadCanonical = yield* fs.exists(args.canonicalPath).pipe(
       Effect.mapError((cause) =>
         makeAppError({

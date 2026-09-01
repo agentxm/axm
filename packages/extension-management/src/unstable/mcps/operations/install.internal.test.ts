@@ -14,7 +14,9 @@ import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../
 import type { CodingAgent } from "../../agents/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { type AppError } from "../../app-error/index.js";
+import { SettingsWriteError } from "../../settings/errors.js";
+import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
 import { LockfileWriteError } from "../../lockfile/errors.js";
 import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import type {
@@ -72,7 +74,7 @@ type SetMcpServerArgs = Parameters<WorkspaceMutationsService["setMcpServer"]>[0]
 const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
-    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
 ): WorkspaceMutationsService => {
   const readLf = () => {
@@ -105,9 +107,9 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeAppError({
-                code: "internal",
-                detail: "Mock write failed",
+              new SettingsWriteError({
+                path: "axm.json",
+                step: "encode",
                 cause: error,
               }),
           }),
@@ -155,7 +157,7 @@ const defaultAgentRepo: CodingAgentRepositoryService = {
 const withServices = (
   axmDir: string,
   wsOverrides?: {
-    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => makeServices(axmDir, wsOverrides, agentRepo).layer;
@@ -163,7 +165,7 @@ const withServices = (
 const makeServices = (
   axmDir: string,
   wsOverrides?: {
-    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
@@ -628,9 +630,9 @@ describe("installMcpServer", () => {
         setupRegistryCanonical(base, "@community");
         const setMcpServerFn = vi.fn(() =>
           Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: "write failed",
+            new SettingsWriteError({
+              path: "axm.json",
+              step: "encode",
               cause: new Error("write failed"),
             }),
           ),

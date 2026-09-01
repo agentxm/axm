@@ -19,7 +19,6 @@ import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableAcceptedCanonicalObservation } from "../../workspace/accepted-canonical-ref.js";
@@ -74,35 +73,33 @@ export const enableMcpServer = (
 
     if (entry.kind === "inline") {
       const agentIds = yield* ws.getConfiguredAgents();
-      const outcomes = yield* ws
-        .runTransaction({
-          transition: Effect.gen(function* () {
-            const synced = yield* syncInlineMcpServerToAgents(agentIds, {
-              workspaceRoot: ws.baseDir,
-              serverName: op.args.serverName,
-              entry: { ...entry, enabled: true },
-              scope: ws.scope,
-            }).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-            );
-            const agentOutcomes = agentIds.map((agentId, index) => ({
-              agentId,
-              outcome: synced[index] ?? {
-                _tag: "failed" as const,
-                reason: "Agent sync returned no outcome",
-              },
-            }));
-            yield* requireSuccessfulMcpSync(op.args.serverName, agentOutcomes);
-            yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-              ...current,
-              enabled: true,
-            }));
-            return synced;
-          }),
-          validate: () => Effect.void,
-        })
-        .pipe(surfaceRestorationIncomplete);
+      const outcomes = yield* ws.runTransaction({
+        transition: Effect.gen(function* () {
+          const synced = yield* syncInlineMcpServerToAgents(agentIds, {
+            workspaceRoot: ws.baseDir,
+            serverName: op.args.serverName,
+            entry: { ...entry, enabled: true },
+            scope: ws.scope,
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
+          const agentOutcomes = agentIds.map((agentId, index) => ({
+            agentId,
+            outcome: synced[index] ?? {
+              _tag: "failed" as const,
+              reason: "Agent sync returned no outcome",
+            },
+          }));
+          yield* requireSuccessfulMcpSync(op.args.serverName, agentOutcomes);
+          yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+            ...current,
+            enabled: true,
+          }));
+          return synced;
+        }),
+        validate: () => Effect.void,
+      });
       const identifiedOutcomes = agentIds.map((agentId, index) => ({
         agentId,
         outcome: outcomes[index] ?? {
@@ -167,89 +164,87 @@ export const enableMcpServer = (
     if (sharedTargetConflict !== undefined) {
       return yield* makeAppError({ code: "conflict", detail: sharedTargetConflict });
     }
-    const outcomes = yield* ws
-      .runTransaction({
-        transition: Effect.gen(function* () {
-          const synced = yield* applyProjectionPlansWithResults(
-            agents.map((agent) =>
-              planSingletonProjection({
-                unitId: "mcp-server:native-config-entry",
-                targetFile: "mcp:configured-agents",
-                contributor: op.args,
-                adapter: {
-                  observe: () =>
-                    Effect.succeed({
-                      unitId: "mcp-server:native-config-entry",
-                      path: `${agent.id}:${op.args.serverName}`,
-                      present: false,
-                      current: false,
-                      expectedContributors: [op.args.serverName],
-                      observedContributors: [],
-                    }),
-                  apply: () =>
-                    Effect.gen(function* () {
-                      if (!isMcpServerApplicableToAgent(entry, agent.id)) {
-                        const inspection = yield* inspectAgentMcpServer({
-                          workspaceRoot: ws.baseDir,
-                          scope: ws.scope,
-                          agentId: agent.id,
-                          serverName: op.args.serverName,
-                          entry,
-                        });
-                        if (inspection.status === "unmanaged") {
-                          return yield* makeAppError({
-                            code: "conflict",
-                            detail: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
-                          });
-                        }
-                        return inspection.status === "drift"
-                          ? yield* agent.removeMcpServer({
-                              workspaceRoot: ws.baseDir,
-                              scope: ws.scope,
-                              serverName: op.args.serverName,
-                            })
-                          : ({ _tag: "success", targets: [] } as const);
-                      }
-                      return yield* agent.addMcpServer({
+    const outcomes = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const synced = yield* applyProjectionPlansWithResults(
+          agents.map((agent) =>
+            planSingletonProjection({
+              unitId: "mcp-server:native-config-entry",
+              targetFile: "mcp:configured-agents",
+              contributor: op.args,
+              adapter: {
+                observe: () =>
+                  Effect.succeed({
+                    unitId: "mcp-server:native-config-entry",
+                    path: `${agent.id}:${op.args.serverName}`,
+                    present: false,
+                    current: false,
+                    expectedContributors: [op.args.serverName],
+                    observedContributors: [],
+                  }),
+                apply: () =>
+                  Effect.gen(function* () {
+                    if (!isMcpServerApplicableToAgent(entry, agent.id)) {
+                      const inspection = yield* inspectAgentMcpServer({
                         workspaceRoot: ws.baseDir,
                         scope: ws.scope,
+                        agentId: agent.id,
                         serverName: op.args.serverName,
-                        canonicalPath,
-                        owner,
-                        resolvedVersion,
-                        enabled: true,
-                        configValues: entry.env,
+                        entry,
                       });
-                    }).pipe(
-                      Effect.provideService(FileSystem.FileSystem, fs),
-                      Effect.provideService(Path.Path, path),
-                    ),
-                },
-              }),
-            ),
-          );
-          yield* requireSuccessfulMcpSync(
-            op.args.serverName,
-            agents.map((agent, index) => ({
-              agentId: agent.id,
-              outcome: synced[index] ?? {
-                _tag: "failed" as const,
-                reason: "Agent sync returned no outcome",
+                      if (inspection.status === "unmanaged") {
+                        return yield* makeAppError({
+                          code: "conflict",
+                          detail: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
+                        });
+                      }
+                      return inspection.status === "drift"
+                        ? yield* agent.removeMcpServer({
+                            workspaceRoot: ws.baseDir,
+                            scope: ws.scope,
+                            serverName: op.args.serverName,
+                          })
+                        : ({ _tag: "success", targets: [] } as const);
+                    }
+                    return yield* agent.addMcpServer({
+                      workspaceRoot: ws.baseDir,
+                      scope: ws.scope,
+                      serverName: op.args.serverName,
+                      canonicalPath,
+                      owner,
+                      resolvedVersion,
+                      enabled: true,
+                      configValues: entry.env,
+                    });
+                  }).pipe(
+                    Effect.provideService(FileSystem.FileSystem, fs),
+                    Effect.provideService(Path.Path, path),
+                  ),
               },
-            })),
-          );
-          yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
-            ...current,
-            enabled: true,
-          }));
-          return synced;
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-        validate: () => Effect.void,
-      })
-      .pipe(surfaceRestorationIncomplete);
+            }),
+          ),
+        );
+        yield* requireSuccessfulMcpSync(
+          op.args.serverName,
+          agents.map((agent, index) => ({
+            agentId: agent.id,
+            outcome: synced[index] ?? {
+              _tag: "failed" as const,
+              reason: "Agent sync returned no outcome",
+            },
+          })),
+        );
+        yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+          ...current,
+          enabled: true,
+        }));
+        return synced;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
     const warnings = mcpSyncWarnings(
       op.args.serverName,
       agents.map((agent, index) => ({

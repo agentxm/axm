@@ -207,7 +207,7 @@ export const McpServerManagerLive = Layer.effect(
         );
         const serverPath = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(serverPath)) {
-          yield* protectWorkspacePath(serverPath.value);
+          yield* protectWorkspacePath(serverPath.value).pipe(Effect.mapError(toAppError));
           yield* fs.remove(serverPath.value, { recursive: true, force: true }).pipe(
             Effect.mapError((cause) =>
               makeAppError({

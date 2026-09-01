@@ -13,10 +13,11 @@ import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { restorationIncompleteToAppError } from "../../app-error/conversions.js";
 import {
   protectWorkspacePath,
-  restorationIncompleteToAppError,
   WorkspaceRestorationIncomplete,
+  type WorkspaceTransactionFailure,
 } from "../transaction.js";
 import {
   runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
@@ -30,10 +31,14 @@ const runWorkspaceTransaction = <A, E, R>(
   args: Omit<WorkspaceTransactionArgs<A, E, R>, "semaphore">,
 ) => runWorkspaceTransactionWithSemaphore({ ...args, semaphore: transactionSemaphore });
 
-const detailOf = (error: AppError | WorkspaceRestorationIncomplete): string =>
+const detailOf = (
+  error: AppError | WorkspaceTransactionFailure | WorkspaceRestorationIncomplete,
+): string =>
   error._tag === "AppError"
     ? error.detail
-    : `restoration-incomplete:${error.snapshotDir ?? "<none>"}`;
+    : error._tag === "WorkspaceRestorationIncomplete"
+      ? `restoration-incomplete:${error.snapshotDir ?? "<none>"}`
+      : `machinery:${error._tag}`;
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));

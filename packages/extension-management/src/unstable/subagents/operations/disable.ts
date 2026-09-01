@@ -18,7 +18,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { findManagedSubagentFiles } from "../../workspace/rendered-file-cleanup.js";
 import * as Layer from "effect/Layer";
@@ -88,81 +87,74 @@ export const disableSubagent: OperationHandler<
     const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    yield* ws
-      .runTransaction({
-        transition: Effect.gen(function* () {
-          if (isImplicit) {
-            const source =
-              desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
-            if (source === undefined) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
-                suggestions: [{ description: "Provide a source when disabling this subagent" }],
-              });
-            }
-            yield* ws.setSubagentEntry(op.args.subagentName, {
-              source,
-              enabled: false,
+    yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        if (isImplicit) {
+          const source =
+            desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
+          if (source === undefined) {
+            return yield* makeAppError({
+              code: "internal",
+              detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
+              suggestions: [{ description: "Provide a source when disabling this subagent" }],
             });
-          } else {
-            yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
-              ...entry,
-              enabled: false,
-            }));
           }
+          yield* ws.setSubagentEntry(op.args.subagentName, {
+            source,
+            enabled: false,
+          });
+        } else {
+          yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+            ...entry,
+            enabled: false,
+          }));
+        }
 
-          yield* Effect.forEach(
-            configuredAgents,
-            (agent) =>
-              agent
-                .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
-                .pipe(
-                  Effect.provide(fsPathLayer),
-                  Effect.flatMap((resolved) =>
-                    resolved._tag === "supported"
-                      ? findManagedSubagentFiles(
-                          resolved.dir,
-                          sanitizeName(op.args.subagentName),
-                        ).pipe(
-                          Effect.provide(fsPathLayer),
-                          Effect.flatMap((managedPaths) => {
-                            renderedFiles[agent.id] = managedPaths.map((filePath) => ({
-                              path: path.relative(ws.baseDir, filePath),
-                            }));
-                            return agent
-                              .removeSubagent({
-                                workspaceRoot: ws.baseDir,
-                                scope: ws.scope,
-                                subagentName: op.args.subagentName,
-                                renderedFilePaths: managedPaths.map((filePath) =>
-                                  decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
-                                ),
-                              })
-                              .pipe(
-                                Effect.flatMap((outcome) =>
-                                  outcome._tag === "conflict"
-                                    ? makeAppError({
-                                        code: "conflict",
-                                        detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
-                                      })
-                                    : Effect.void,
-                                ),
-                              );
-                          }),
-                        )
-                      : Effect.void,
-                  ),
-                ),
-            { concurrency: "unbounded" },
-          );
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-        validate: () => Effect.void,
-      })
-      .pipe(surfaceRestorationIncomplete);
+        yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+              Effect.provide(fsPathLayer),
+              Effect.flatMap((resolved) =>
+                resolved._tag === "supported"
+                  ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
+                      Effect.provide(fsPathLayer),
+                      Effect.flatMap((managedPaths) => {
+                        renderedFiles[agent.id] = managedPaths.map((filePath) => ({
+                          path: path.relative(ws.baseDir, filePath),
+                        }));
+                        return agent
+                          .removeSubagent({
+                            workspaceRoot: ws.baseDir,
+                            scope: ws.scope,
+                            subagentName: op.args.subagentName,
+                            renderedFilePaths: managedPaths.map((filePath) =>
+                              decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+                            ),
+                          })
+                          .pipe(
+                            Effect.flatMap((outcome) =>
+                              outcome._tag === "conflict"
+                                ? makeAppError({
+                                    code: "conflict",
+                                    detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
+                                  })
+                                : Effect.void,
+                            ),
+                          );
+                      }),
+                    )
+                  : Effect.void,
+              ),
+            ),
+          { concurrency: "unbounded" },
+        );
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
 
     return {
       result: "success",

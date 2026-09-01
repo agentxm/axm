@@ -11,6 +11,7 @@ import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import { AppError, makeAppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
@@ -134,7 +135,7 @@ const writeIfChanged = (
     if (oldRaw === newRaw) return { targets: [] };
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    yield* protectWorkspacePath(configPath);
+    yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({

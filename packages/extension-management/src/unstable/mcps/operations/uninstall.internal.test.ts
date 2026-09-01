@@ -12,7 +12,9 @@ import { CodingAgentRepository, type CodingAgentRepositoryService } from "../../
 import type { CodingAgent } from "../../agents/coding-agent.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { type AppError } from "../../app-error/index.js";
+import { SettingsWriteError } from "../../settings/errors.js";
+import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -33,7 +35,7 @@ const makeWorkspaceMock = (
   axmDir: string,
   lockfileMcpServers: Record<string, McpServerLockEntry> = {},
   overrides?: {
-    removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeMcpServerFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
 ): WorkspaceMutationsService => {
   let mcpServers: Record<string, McpServerLockEntry> = { ...lockfileMcpServers };
@@ -79,7 +81,7 @@ const withServices = (
   axmDir: string,
   lockfileMcpServers: Record<string, McpServerLockEntry> = {},
   wsOverrides?: {
-    removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeMcpServerFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => makeServices(axmDir, lockfileMcpServers, wsOverrides, agentRepo).layer;
@@ -88,7 +90,7 @@ const makeServices = (
   axmDir: string,
   lockfileMcpServers: Record<string, McpServerLockEntry> = {},
   wsOverrides?: {
-    removeMcpServerFn?: (name: string) => Effect.Effect<void, AppError>;
+    removeMcpServerFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
@@ -261,9 +263,9 @@ describe("uninstallMcpServer", () => {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn(() =>
           Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: "write failed",
+            new SettingsWriteError({
+              path: "axm.json",
+              step: "encode",
               cause: new Error("write failed"),
             }),
           ),

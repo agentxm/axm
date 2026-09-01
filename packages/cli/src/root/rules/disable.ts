@@ -15,7 +15,6 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -125,7 +124,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
             : disableTransition,
           validate: () => Effect.void,
         })
-        .pipe(surfaceRestorationIncomplete, Effect.mapError(failureToStepFailure)),
+        .pipe(Effect.mapError(failureToStepFailure)),
     }),
   });
   const plan: Plan = {

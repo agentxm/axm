@@ -24,6 +24,14 @@ import {
   SettingsParseError,
   WorkspaceRootEscape,
 } from "../workspace/read-model/errors.js";
+import {
+  TransitionLockError,
+  TransitionLockUnavailable,
+  WorkspaceDirectoryError,
+  WorkspaceRestorationError,
+  WorkspaceSnapshotError,
+  WorkspaceTransitionCompromised,
+} from "../workspace/transaction.js";
 
 const ioCause = new Error("EACCES");
 
@@ -361,6 +369,200 @@ const cases: ReadonlyArray<ConversionCase> = [
     code: "internal",
     detail: "Failed to create symlink at /w/link",
     cause: ioCause,
+  },
+  {
+    name: "WorkspaceSnapshotError inspect-target",
+    failure: new WorkspaceSnapshotError({
+      target: "/w/axm.json",
+      step: "inspect-target",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail: "Failed to inspect transaction target /w/axm.json",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceSnapshotError create-store",
+    failure: new WorkspaceSnapshotError({
+      target: "/w/axm.json",
+      step: "create-store",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail: "Failed to create the rollback snapshot directory",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceSnapshotError copy",
+    failure: new WorkspaceSnapshotError({ target: "/w/axm.json", step: "copy", cause: ioCause }),
+    code: "internal",
+    detail: "Failed to snapshot transaction target /w/axm.json",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceSnapshotError inspect-ancestor",
+    failure: new WorkspaceSnapshotError({
+      target: "/w/agent_extensions",
+      step: "inspect-ancestor",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail: "Failed to inspect transaction ancestor /w/agent_extensions",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceDirectoryError inspect",
+    failure: new WorkspaceDirectoryError({ path: "/w/.axm", step: "inspect", cause: ioCause }),
+    code: "internal",
+    detail: "Failed to inspect workspace state directory /w/.axm",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceDirectoryError create",
+    failure: new WorkspaceDirectoryError({ path: "/w/.axm", step: "create", cause: ioCause }),
+    code: "internal",
+    detail: "Failed to create workspace state directory /w/.axm",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError create-scratch",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp",
+      step: "create-scratch",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail: "Failed to create workspace scratch directory /w/.axm/tmp",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError acquire",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "acquire",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail:
+      "Failed to acquire the workspace transition lock at /w/.axm/tmp/workspace-transition.lock",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError record-holder",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "record-holder",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail:
+      "Failed to record the workspace transition holder at /w/.axm/tmp/workspace-transition.lock",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError inspect-timestamp",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "inspect-timestamp",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail:
+      "Failed to inspect the workspace transition lock timestamp at /w/.axm/tmp/workspace-transition.lock",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError missing-timestamp",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "missing-timestamp",
+    }),
+    code: "internal",
+    detail:
+      "Workspace transition lock at /w/.axm/tmp/workspace-transition.lock has no modification time",
+  },
+  {
+    name: "TransitionLockError preserve-timestamp",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "preserve-timestamp",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail:
+      "Failed to preserve the workspace transition lock timestamp at /w/.axm/tmp/workspace-transition.lock",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockError release",
+    failure: new TransitionLockError({
+      path: "/w/.axm/tmp/workspace-transition.lock",
+      step: "release",
+      cause: ioCause,
+    }),
+    code: "internal",
+    detail: "Failed to release workspace transition lock at /w/.axm/tmp/workspace-transition.lock",
+    cause: ioCause,
+  },
+  {
+    name: "TransitionLockUnavailable with holder",
+    failure: new TransitionLockUnavailable({
+      holder: { command: "install", pid: 123 },
+      waitedMillis: 60_000,
+    }),
+    code: "conflict",
+    detail: "another operation holds the workspace transition (install (pid 123)); waited 60s",
+  },
+  {
+    name: "TransitionLockUnavailable without holder",
+    failure: new TransitionLockUnavailable({ holder: undefined, waitedMillis: 1_499 }),
+    code: "conflict",
+    detail: "another operation holds the workspace transition; waited 1s",
+  },
+  {
+    name: "WorkspaceTransitionCompromised",
+    failure: new WorkspaceTransitionCompromised({
+      workspaceDir: "/w/.axm",
+      lockPath: "/w/.axm/tmp/workspace-transition.lock",
+      cause: ioCause,
+    }),
+    code: "conflict",
+    detail:
+      "The workspace transition at /w/.axm/tmp/workspace-transition.lock was compromised; the operation stopped.",
+    cause: ioCause,
+  },
+  {
+    name: "WorkspaceRestorationError stage",
+    failure: new WorkspaceRestorationError({
+      target: "/w/axm.json",
+      step: "stage",
+      cause: { stagedHash: "a", backupHash: "b" },
+    }),
+    code: "internal",
+    detail: "Staged restoration did not validate for /w/axm.json",
+    cause: { stagedHash: "a", backupHash: "b" },
+  },
+  {
+    name: "WorkspaceRestorationError stopped",
+    failure: new WorkspaceRestorationError({
+      target: "/w/axm.json",
+      step: "stopped",
+      cause: undefined,
+    }),
+    code: "internal",
+    detail:
+      "Workspace restoration stopped before /w/axm.json: the workspace transition was compromised",
+  },
+  {
+    name: "WorkspaceRestorationError verify",
+    failure: new WorkspaceRestorationError({
+      target: "/w/axm.json",
+      step: "verify",
+      cause: { state: "copied" },
+    }),
+    code: "internal",
+    detail: "Workspace restoration did not verify for /w/axm.json",
+    cause: { state: "copied" },
   },
 ];
 

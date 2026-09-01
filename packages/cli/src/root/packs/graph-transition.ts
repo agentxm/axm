@@ -13,9 +13,8 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import {
-  appErrorToStepFailure,
+  failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 
@@ -141,10 +140,9 @@ export const buildAtomicPackGraphStep = (args: {
             validatedCoverage = yield* aggregatePackCoverage(results, args.artifact.scope);
           }),
       })
-      .pipe(surfaceRestorationIncomplete)
       .pipe(
         Effect.mapError((error) =>
-          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+          error._tag === "StepFailure" ? error : failureToStepFailure(error),
         ),
         Effect.map((results) => {
           const warnings = results.flatMap(({ result }) => result.warnings ?? []);

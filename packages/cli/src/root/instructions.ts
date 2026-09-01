@@ -36,7 +36,6 @@ import {
   observeProjectionPlans,
 } from "@agentxm/extension-management/unstable/projection";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
@@ -340,7 +339,6 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
           ),
           validate: () => Effect.void,
         })
-        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.mapError(failureToStepFailure),
           Effect.as({
@@ -416,7 +414,6 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
           ),
           validate: () => Effect.void,
         })
-        .pipe(surfaceRestorationIncomplete)
         .pipe(
           Effect.mapError(failureToStepFailure),
           Effect.as({

@@ -6,7 +6,6 @@ import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-run
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
-  surfaceRestorationIncomplete,
 } from "@agentxm/extension-management/unstable/workspace";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
@@ -133,22 +132,20 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
                 .getLockedHookEntry(args.name)
                 .pipe(Effect.mapError(toAppError))
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              yield* hookManager
-                .runTransaction({
-                  transition: Effect.gen(function* () {
-                    yield* ws
-                      .updateHookEntry(args.name, (current) => ({
-                        ...current,
-                        enabled: false,
-                      }))
-                      .pipe(Effect.mapError(toAppError));
-                    yield* hookManager.materializeDeactivate({
-                      target: { type: "hook", name: args.name },
-                    });
-                  }),
-                  validate: () => Effect.void,
-                })
-                .pipe(surfaceRestorationIncomplete);
+              yield* hookManager.runTransaction({
+                transition: Effect.gen(function* () {
+                  yield* ws
+                    .updateHookEntry(args.name, (current) => ({
+                      ...current,
+                      enabled: false,
+                    }))
+                    .pipe(Effect.mapError(toAppError));
+                  yield* hookManager.materializeDeactivate({
+                    target: { type: "hook", name: args.name },
+                  });
+                }),
+                validate: () => Effect.void,
+              });
               return {
                 result: "success",
                 message: `Disabled ${args.name}`,

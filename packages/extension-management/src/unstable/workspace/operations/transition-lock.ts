@@ -31,7 +31,6 @@
 import * as nodeFs from "node:fs";
 import { randomBytes } from "node:crypto";
 
-import * as Data from "effect/Data";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -41,8 +40,14 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
 
-import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { TransitionContention, TransitionLockHolder } from "../service-interface.js";
+import {
+  TransitionLockError,
+  WorkspaceDirectoryError,
+  WorkspaceTransitionCompromised,
+  type TransitionContention,
+  type TransitionLockHolder,
+  type WorkspaceTransitionAcquireFailure,
+} from "../transaction.js";
 
 export const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
 // Staleness must tolerate a saturated event loop: a heavy apply starves the
@@ -66,20 +71,6 @@ export const TRANSITION_WAIT_BOUND_MILLIS = 60_000;
 interface StoredTransitionHolder extends TransitionLockHolder {
   readonly token: string;
 }
-
-/**
- * The hold is no longer provably owned: `proper-lockfile` failed to confirm
- * ownership within the staleness window, so a contender may already have
- * reclaimed the lock. Any further durable write by the original owner —
- * mutation and restoration alike — could overwrite a successor's work.
- */
-export class WorkspaceTransitionCompromised extends Data.TaggedError(
-  "WorkspaceTransitionCompromised",
-)<{
-  readonly workspaceDir: string;
-  readonly lockPath: string;
-  readonly cause: unknown;
-}> {}
 
 /** The live view of one acquisition this process currently holds. */
 export interface HeldWorkspaceTransition {
@@ -196,16 +187,14 @@ const writeHolder = (
   path: Path.Path,
   lockPath: string,
   holder: StoredTransitionHolder,
-): Effect.Effect<void, AppError> =>
-  fs.writeFileString(path.join(lockPath, "holder.json"), JSON.stringify(holder)).pipe(
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to record the workspace transition holder at ${lockPath}`,
-        cause: error,
-      }),
-    ),
-  );
+): Effect.Effect<void, TransitionLockError> =>
+  fs
+    .writeFileString(path.join(lockPath, "holder.json"), JSON.stringify(holder))
+    .pipe(
+      Effect.mapError(
+        (cause) => new TransitionLockError({ path: lockPath, step: "record-holder", cause }),
+      ),
+    );
 
 /**
  * Acquire the workspace transition lock, waiting up to the bound while
@@ -222,7 +211,7 @@ export const acquireWorkspaceTransitionLock = (args: {
   readonly timingMillis?: { readonly stale: number; readonly update: number };
 }): Effect.Effect<
   Option.Option<TransitionContention>,
-  AppError,
+  WorkspaceTransitionAcquireFailure,
   FileSystem.FileSystem | Path.Path | Scope.Scope
 > =>
   Effect.gen(function* () {
@@ -232,24 +221,20 @@ export const acquireWorkspaceTransitionLock = (args: {
     const scratchDir = path.join(workspaceDir, "tmp");
     const lockPath = path.join(scratchDir, TRANSITION_LOCK_FILENAME);
     const waitBound = args.waitBoundMillis ?? TRANSITION_WAIT_BOUND_MILLIS;
-    const workspaceExisted = yield* fs.exists(workspaceDir).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to inspect workspace state directory ${workspaceDir}`,
-          cause: error,
-        }),
-      ),
-    );
-    yield* fs.makeDirectory(scratchDir, { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create workspace scratch directory ${scratchDir}`,
-          cause: error,
-        }),
-      ),
-    );
+    const workspaceExisted = yield* fs
+      .exists(workspaceDir)
+      .pipe(
+        Effect.mapError(
+          (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
+        ),
+      );
+    yield* fs
+      .makeDirectory(scratchDir, { recursive: true })
+      .pipe(
+        Effect.mapError(
+          (cause) => new TransitionLockError({ path: scratchDir, step: "create-scratch", cause }),
+        ),
+      );
     const removeEmptyScratch = fs.readDirectory(scratchDir).pipe(
       Effect.flatMap((entries) =>
         entries.length === 0
@@ -312,9 +297,9 @@ export const acquireWorkspaceTransitionLock = (args: {
             }
             return {
               _tag: "failed",
-              error: makeAppError({
-                code: "internal",
-                detail: `Failed to acquire the workspace transition lock at ${lockPath}`,
+              error: new TransitionLockError({
+                path: lockPath,
+                step: "acquire",
                 cause: granted.failure.cause,
               }),
             } as const;
@@ -322,23 +307,17 @@ export const acquireWorkspaceTransitionLock = (args: {
           const release = granted.success;
           const token = randomBytes(16).toString("hex");
           const holderStamped = yield* Effect.gen(function* () {
-            const lockInfo = yield* fs.stat(lockPath).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to inspect the workspace transition lock timestamp at ${lockPath}`,
-                  cause: error,
-                }),
-              ),
-            );
+            const lockInfo = yield* fs
+              .stat(lockPath)
+              .pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new TransitionLockError({ path: lockPath, step: "inspect-timestamp", cause }),
+                ),
+              );
             const lockMtime = yield* Option.match(lockInfo.mtime, {
               onNone: () =>
-                Effect.fail(
-                  makeAppError({
-                    code: "internal",
-                    detail: `Workspace transition lock at ${lockPath} has no modification time`,
-                  }),
-                ),
+                Effect.fail(new TransitionLockError({ path: lockPath, step: "missing-timestamp" })),
               onSome: Effect.succeed,
             });
             yield* writeHolder(fs, path, lockPath, {
@@ -349,15 +328,14 @@ export const acquireWorkspaceTransitionLock = (args: {
             // mtime with the timestamp it recorded at acquisition. Writing
             // holder.json changes that directory mtime, so restore the exact
             // acquired value before the first refresh observes it.
-            yield* fs.utimes(lockPath, lockMtime, lockMtime).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to preserve the workspace transition lock timestamp at ${lockPath}`,
-                  cause: error,
-                }),
-              ),
-            );
+            yield* fs
+              .utimes(lockPath, lockMtime, lockMtime)
+              .pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new TransitionLockError({ path: lockPath, step: "preserve-timestamp", cause }),
+                ),
+              );
           }).pipe(Effect.result);
           if (holderStamped._tag === "Failure") {
             // The holder metadata is the only ownership evidence this
@@ -366,12 +344,7 @@ export const acquireWorkspaceTransitionLock = (args: {
             // Release the lock and fail rather than hold anonymously.
             yield* Effect.tryPromise({
               try: () => release(),
-              catch: (cause) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to release workspace transition lock at ${lockPath}`,
-                  cause,
-                }),
+              catch: (cause) => new TransitionLockError({ path: lockPath, step: "release", cause }),
             }).pipe(Effect.ignore);
             return { _tag: "failed", error: holderStamped.failure } as const;
           }
@@ -398,11 +371,7 @@ export const acquireWorkspaceTransitionLock = (args: {
                 yield* Effect.tryPromise({
                   try: () => release(),
                   catch: (cause) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to release workspace transition lock at ${lockPath}`,
-                      cause,
-                    }),
+                    new TransitionLockError({ path: lockPath, step: "release", cause }),
                 }).pipe(Effect.ignore);
                 // A compromised hold makes release() refuse; the directory is
                 // still ours by exact token match — remove it directly.

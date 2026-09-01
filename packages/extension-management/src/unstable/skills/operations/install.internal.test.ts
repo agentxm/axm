@@ -11,7 +11,8 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { SettingsWriteError } from "../../settings/errors.js";
+import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
 import { LockfileWriteError } from "../../lockfile/errors.js";
 import { LockedSkillMissing } from "../../workspace/errors.js";
 import { acquiredExtensionDisplayPath } from "../../workspace/extension-paths.js";
@@ -61,7 +62,7 @@ const makeWorkspaceMock = (
   overrides?: {
     setSkillFn?: (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
-    ) => Effect.Effect<void, AppError>;
+    ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
     configuredAgents?: ReadonlyArray<string>;
     settingsSkills?: Readonly<
       Record<string, { readonly source: string; readonly enabled: boolean }>
@@ -142,9 +143,9 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeAppError({
-                code: "internal",
-                detail: "Mock write failed",
+              new SettingsWriteError({
+                path: "axm.json",
+                step: "encode",
                 cause: error,
               }),
           }),
@@ -185,7 +186,7 @@ const makeServices = (
   wsOverrides?: {
     setSkillFn?: (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
-    ) => Effect.Effect<void, AppError>;
+    ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
     configuredAgents?: ReadonlyArray<string>;
     settingsSkills?: Readonly<
       Record<string, { readonly source: string; readonly enabled: boolean }>
@@ -276,7 +277,7 @@ const withServices = (
   wsOverrides?: {
     setSkillFn?: (
       args: Pick<SetSkillArgs, "name" | "lockEntry" | "versionRange">,
-    ) => Effect.Effect<void, AppError>;
+    ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
     configuredAgents?: ReadonlyArray<string>;
     settingsSkills?: Readonly<
       Record<string, { readonly source: string; readonly enabled: boolean }>
@@ -679,9 +680,9 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
         const setSkillFn = vi.fn(() =>
           Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: "write failed",
+            new SettingsWriteError({
+              path: "axm.json",
+              step: "encode",
               cause: new Error("write failed"),
             }),
           ),

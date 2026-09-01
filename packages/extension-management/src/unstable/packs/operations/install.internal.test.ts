@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
-import { makeAppError } from "../../app-error/index.js";
+import { SettingsWriteError } from "../../settings/errors.js";
 import type { ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
@@ -292,9 +292,10 @@ describe("installPack", () => {
     const services = makeServices(projectDir, packSourceDir, {
       setPack: () =>
         Effect.fail(
-          makeAppError({
-            code: "internal",
-            detail: "write failed",
+          new SettingsWriteError({
+            path: "axm.json",
+            step: "encode",
+            cause: new Error("write failed"),
           }),
         ),
     });

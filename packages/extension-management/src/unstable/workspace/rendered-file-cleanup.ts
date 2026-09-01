@@ -326,7 +326,7 @@ const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
       if (next === raw) continue;
 
       if (!context.dryRun) {
-        yield* protectWorkspacePath(configPath);
+        yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
         yield* context.fs.writeFileString(configPath, next).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -546,7 +546,7 @@ export const cleanupStaleManagedSubagentFiles = (args: {
         if (expected) continue;
 
         if (args.dryRun !== true) {
-          yield* protectWorkspacePath(filePath);
+          yield* protectWorkspacePath(filePath).pipe(Effect.mapError(toAppError));
           yield* fs.remove(filePath).pipe(
             Effect.mapError((error) =>
               makeAppError({

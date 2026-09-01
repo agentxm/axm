@@ -6,14 +6,22 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Cause from "effect/Cause";
+import * as Option from "effect/Option";
+
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import type { AppErrorCode } from "./app-error.js";
 import {
+  TransitionLockError,
+  TransitionLockUnavailable,
+  WorkspaceDirectoryError,
+  WorkspaceRestorationError,
   WorkspaceRestorationIncomplete,
-  restorationIncompleteToAppError,
+  WorkspaceSnapshotError,
+  WorkspaceTransitionCompromised,
 } from "../workspace/transaction.js";
 import {
   OPERATION_ERROR_CATEGORIES,
@@ -92,6 +100,132 @@ export const subagentContentErrorToAppError = (error: SubagentContentError): App
     suggestions: error.suggestion === undefined ? [] : [{ description: error.suggestion }],
     cause: error,
   });
+
+/** Render the first deciding line of a transition cause for the boundary text. */
+const firstCauseLine = (cause: Cause.Cause<unknown>): string => {
+  const failure = Option.getOrUndefined(Cause.findErrorOption(cause));
+  if (failure instanceof AppError) return failure.detail;
+  if (isKnownFailure(failure)) return toAppError(failure).detail;
+  return Cause.pretty(cause).split(/\r?\n/, 1)[0]?.trim() || "The transition did not complete";
+};
+
+const sentence = (text: string): string => (/[.!?]$/.test(text) ? text : `${text}.`);
+
+/** Render the deciding transition cause before restoration consequences. */
+const transitionFailureText = (error: WorkspaceRestorationIncomplete): string =>
+  error.terminationCause === "interruption"
+    ? "Transition was interrupted."
+    : `Transition failed: ${sentence(firstCauseLine(error.transitionCause))}`;
+
+/**
+ * Render the typed restoration failure: the deciding transition cause, the
+ * retained-state consequence, and the preserved snapshot directory when one
+ * exists.
+ */
+export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncomplete): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `${transitionFailureText(error)} Workspace restoration did not complete; the affected paths keep the state the failure left${
+      error.snapshotDir === undefined
+        ? "."
+        : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`
+    }`,
+    cause: {
+      transition: Cause.pretty(error.transitionCause),
+      restoration: error.restorationCause,
+    },
+    suggestions: [
+      {
+        description:
+          "Re-run the command; the next mutation plans from the current workspace state.",
+      },
+    ],
+  });
+
+/** Translate a path-protection preimage failure, reproducing each step's detail. */
+export const workspaceSnapshotErrorToAppError = (error: WorkspaceSnapshotError): AppError => {
+  const detail = (): string => {
+    switch (error.step) {
+      case "inspect-target":
+        return `Failed to inspect transaction target ${error.target}`;
+      case "create-store":
+        return "Failed to create the rollback snapshot directory";
+      case "copy":
+        return `Failed to snapshot transaction target ${error.target}`;
+      case "inspect-ancestor":
+        return `Failed to inspect transaction ancestor ${error.target}`;
+    }
+  };
+  return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
+};
+
+/** Translate a workspace state-directory preparation failure. */
+export const workspaceDirectoryErrorToAppError = (error: WorkspaceDirectoryError): AppError =>
+  makeAppError({
+    code: "internal",
+    detail:
+      error.step === "inspect"
+        ? `Failed to inspect workspace state directory ${error.path}`
+        : `Failed to create workspace state directory ${error.path}`,
+    cause: error.cause,
+  });
+
+/** Translate a transition-lock mechanics failure, reproducing each step's detail. */
+export const transitionLockErrorToAppError = (error: TransitionLockError): AppError => {
+  const detail = (): string => {
+    switch (error.step) {
+      case "create-scratch":
+        return `Failed to create workspace scratch directory ${error.path}`;
+      case "acquire":
+        return `Failed to acquire the workspace transition lock at ${error.path}`;
+      case "record-holder":
+        return `Failed to record the workspace transition holder at ${error.path}`;
+      case "inspect-timestamp":
+        return `Failed to inspect the workspace transition lock timestamp at ${error.path}`;
+      case "missing-timestamp":
+        return `Workspace transition lock at ${error.path} has no modification time`;
+      case "preserve-timestamp":
+        return `Failed to preserve the workspace transition lock timestamp at ${error.path}`;
+      case "release":
+        return `Failed to release workspace transition lock at ${error.path}`;
+    }
+  };
+  return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
+};
+
+/** Translate an elapsed contention wait with the machine-readable holder reference. */
+export const transitionLockUnavailableToAppError = (error: TransitionLockUnavailable): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `another operation holds the workspace transition${
+      error.holder === undefined ? "" : ` (${error.holder.command} (pid ${error.holder.pid}))`
+    }; waited ${Math.round(error.waitedMillis / 1000)}s`,
+  });
+
+/** Translate a compromised transition hold into its conflict rendering. */
+export const workspaceTransitionCompromisedToAppError = (
+  error: WorkspaceTransitionCompromised,
+): AppError =>
+  makeAppError({
+    code: "conflict",
+    detail: `The workspace transition at ${error.lockPath} was compromised; the operation stopped.`,
+    cause: error.cause,
+  });
+
+/** Translate a restoration-step failure, reproducing each step's detail. */
+export const workspaceRestorationErrorToAppError = (error: WorkspaceRestorationError): AppError => {
+  const detail = (): string => {
+    switch (error.step) {
+      case "stage":
+        return `Staged restoration did not validate for ${error.target}`;
+      case "stopped":
+        return `Workspace restoration stopped before ${error.target}: the workspace transition was compromised`;
+      case "verify":
+        return `Workspace restoration did not verify for ${error.target}`;
+    }
+  };
+  return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
+};
 
 /**
  * Translate a plan step failure into the CLI-facing `AppError` envelope: the
@@ -386,7 +520,13 @@ export type KnownFailure =
   | InvalidAgentId
   | DesiredPackGraphIncomplete
   | CanonicalPathRemovalError
-  | SymlinkCreationError;
+  | SymlinkCreationError
+  | WorkspaceSnapshotError
+  | WorkspaceDirectoryError
+  | TransitionLockError
+  | TransitionLockUnavailable
+  | WorkspaceTransitionCompromised
+  | WorkspaceRestorationError;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof FqnInvalidError ||
@@ -412,7 +552,13 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof InvalidAgentId ||
   error instanceof DesiredPackGraphIncomplete ||
   error instanceof CanonicalPathRemovalError ||
-  error instanceof SymlinkCreationError;
+  error instanceof SymlinkCreationError ||
+  error instanceof WorkspaceSnapshotError ||
+  error instanceof WorkspaceDirectoryError ||
+  error instanceof TransitionLockError ||
+  error instanceof TransitionLockUnavailable ||
+  error instanceof WorkspaceTransitionCompromised ||
+  error instanceof WorkspaceRestorationError;
 
 /**
  * Convert a known typed failure into the CLI-facing `AppError` envelope. An
@@ -468,5 +614,17 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return canonicalPathRemovalErrorToAppError(error);
     case "SymlinkCreationError":
       return symlinkCreationErrorToAppError(error);
+    case "WorkspaceSnapshotError":
+      return workspaceSnapshotErrorToAppError(error);
+    case "WorkspaceDirectoryError":
+      return workspaceDirectoryErrorToAppError(error);
+    case "TransitionLockError":
+      return transitionLockErrorToAppError(error);
+    case "TransitionLockUnavailable":
+      return transitionLockUnavailableToAppError(error);
+    case "WorkspaceTransitionCompromised":
+      return workspaceTransitionCompromisedToAppError(error);
+    case "WorkspaceRestorationError":
+      return workspaceRestorationErrorToAppError(error);
   }
 };

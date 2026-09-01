@@ -240,8 +240,11 @@ describe("workspace transition lock", () => {
           holder: { command: "update", pid: process.pid },
         }),
       ).pipe(Effect.flip);
-      expect(failure._tag).toBe("AppError");
-      expect(failure.detail).toContain("workspace transition holder");
+      expect(failure._tag).toBe("TransitionLockError");
+      if (failure._tag === "TransitionLockError") {
+        expect(failure.step).toBe("record-holder");
+        expect(failure.path).toBe(lockPath);
+      }
       expect(fs.existsSync(lockPath)).toBe(false);
       expect(isWorkspaceTransitionHeldByThisInvocation(path.resolve(workspaceDir))).toBe(false);
     }).pipe(Effect.provide(holderWriteFailingServices)),
@@ -347,8 +350,11 @@ describe("workspace transition lock", () => {
       );
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure._tag).toBe("AppError");
-        expect(result.failure.detail).toContain("workspace transition lock");
+        expect(result.failure._tag).toBe("TransitionLockError");
+        if (result.failure._tag === "TransitionLockError") {
+          expect(result.failure.step).toBe("acquire");
+          expect(result.failure.path).toBe(lockPath);
+        }
       }
       expect(Date.now() - started).toBeLessThan(2_000);
       expect(fs.existsSync(lockPath)).toBe(true);

@@ -31,7 +31,6 @@ import {
   resolveWorkspaceExtensionRef,
   WorkspaceMutations,
 } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import {
   operationPresentation,
   previewOrApplyPlan,
@@ -60,7 +59,7 @@ import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmat
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import {
-  appErrorToStepFailure,
+  failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 
@@ -287,10 +286,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             }
           }),
       })
-      .pipe(surfaceRestorationIncomplete)
       .pipe(
         Effect.mapError((error) =>
-          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+          error._tag === "StepFailure" ? error : failureToStepFailure(error),
         ),
         Effect.as({
           result: "success",

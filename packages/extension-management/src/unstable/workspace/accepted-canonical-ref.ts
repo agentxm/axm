@@ -159,7 +159,7 @@ export const prepareAcceptedCanonicalTransition = (
 
     return yield* Effect.succeed(
       Effect.gen(function* () {
-        yield* protectWorkspacePath(previous.value);
+        yield* protectWorkspacePath(previous.value).pipe(Effect.mapError(toAppError));
         yield* fs.remove(previous.value, { recursive: true, force: true }).pipe(
           Effect.mapError((cause) =>
             makeAppError({

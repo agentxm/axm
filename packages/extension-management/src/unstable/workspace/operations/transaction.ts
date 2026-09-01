@@ -16,21 +16,24 @@ import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError, type AppError } from "../../app-error/index.js";
 import { recordFootprint } from "../footprint-recorder.js";
 import {
   CurrentWorkspaceClosure,
   CurrentWorkspaceTransaction,
   protectInContext,
+  TransitionLockUnavailable,
+  WorkspaceDirectoryError,
+  WorkspaceRestorationError,
   WorkspaceRestorationIncomplete,
+  WorkspaceTransitionCompromised,
   type Snapshot,
   type WorkspaceTransactionContext,
+  type WorkspaceTransactionFailure,
 } from "../transaction.js";
 import {
   acquireWorkspaceTransitionLock,
   heldWorkspaceTransition,
   isWorkspaceTransitionHeldByThisInvocation,
-  WorkspaceTransitionCompromised,
 } from "./transition-lock.js";
 
 /** Run one semantic closure's mutations under its closure identity. */
@@ -52,9 +55,6 @@ export interface WorkspaceTransactionArgs<A, E, R> {
   /** Observes the start of rollback restoration; never controls it. */
   readonly onRestorationStarted?: Effect.Effect<void>;
 }
-
-const transactionError = (detail: string, cause: unknown): AppError =>
-  makeAppError({ code: "internal", detail, cause });
 
 const normalizedTargets = (
   path: Path.Path,
@@ -210,7 +210,7 @@ const restoreSnapshot = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   snapshot: Snapshot,
-): Effect.Effect<void, PlatformError | AppError> =>
+): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
   Effect.gen(function* () {
     if (snapshot.state === "absent") {
       if (!(yield* pathPresent(fs, snapshot.target))) return;
@@ -228,20 +228,22 @@ const restoreSnapshot = (
         yield* fs.symlink(snapshot.linkTarget, staging);
         const staged = yield* fs.readLink(staging);
         if (staged !== snapshot.linkTarget) {
-          return yield* transactionError(
-            `Staged restoration did not validate for ${snapshot.target}`,
-            { staged, expected: snapshot.linkTarget },
-          );
+          return yield* new WorkspaceRestorationError({
+            target: snapshot.target,
+            step: "stage",
+            cause: { staged, expected: snapshot.linkTarget },
+          });
         }
       } else {
         yield* fs.copy(snapshot.backup, staging, { preserveTimestamps: true });
         const stagedHash = yield* hashPathState(fs, path, staging);
         const backupHash = yield* hashPathState(fs, path, snapshot.backup);
         if (stagedHash !== backupHash || stagedHash === "unhashable") {
-          return yield* transactionError(
-            `Staged restoration did not validate for ${snapshot.target}`,
-            { stagedHash, backupHash },
-          );
+          return yield* new WorkspaceRestorationError({
+            target: snapshot.target,
+            step: "stage",
+            cause: { stagedHash, backupHash },
+          });
         }
       }
       const targetLink = yield* fs.readLink(snapshot.target).pipe(Effect.option);
@@ -275,19 +277,20 @@ const restoreAll = (
   path: Path.Path,
   snapshots: ReadonlyArray<Snapshot>,
   transitionCompromised: () => boolean,
-): Effect.Effect<void, PlatformError | AppError> =>
+): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
   Effect.forEach(
     [...snapshots].reverse(),
     (snapshot) =>
-      Effect.suspend((): Effect.Effect<void, PlatformError | AppError> =>
+      Effect.suspend((): Effect.Effect<void, PlatformError | WorkspaceRestorationError> =>
         // Restoration is a durable write like any other: once lock ownership
         // is lost it must stop, or it could overwrite a successor's work.
         transitionCompromised()
           ? Effect.fail(
-              transactionError(
-                `Workspace restoration stopped before ${snapshot.target}: the workspace transition was compromised`,
-                undefined,
-              ),
+              new WorkspaceRestorationError({
+                target: snapshot.target,
+                step: "stopped",
+                cause: undefined,
+              }),
             )
           : restoreSnapshot(fs, path, snapshot).pipe(
               Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
@@ -302,7 +305,7 @@ const verifySnapshots = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   snapshots: ReadonlyArray<Snapshot>,
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, WorkspaceRestorationError> =>
   Effect.forEach(
     snapshots,
     (snapshot) =>
@@ -320,10 +323,11 @@ const verifySnapshots = (
           return restored === backup && restored !== "unhashable";
         }).pipe(Effect.catch(() => Effect.succeed(false)));
         if (!verified) {
-          return yield* transactionError(
-            `Workspace restoration did not verify for ${snapshot.target}`,
-            { state: snapshot.state },
-          );
+          return yield* new WorkspaceRestorationError({
+            target: snapshot.target,
+            step: "verify",
+            cause: { state: snapshot.state },
+          });
         }
       }),
     { discard: true },
@@ -348,7 +352,7 @@ export const runWorkspaceTransaction = <A, E, R>(
   args: WorkspaceTransactionArgs<A, E, R>,
 ): Effect.Effect<
   A,
-  AppError | WorkspaceRestorationIncomplete | E,
+  WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E,
   R | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -374,8 +378,8 @@ export const runWorkspaceTransaction = <A, E, R>(
       const exists = yield* fs
         .exists(ancestor)
         .pipe(
-          Effect.mapError((error) =>
-            transactionError(`Failed to inspect workspace state directory ${ancestor}`, error),
+          Effect.mapError(
+            (cause) => new WorkspaceDirectoryError({ path: ancestor, step: "inspect", cause }),
           ),
         );
       if (exists) break;
@@ -390,8 +394,8 @@ export const runWorkspaceTransaction = <A, E, R>(
         yield* fs
           .makeDirectory(workspaceDir, { recursive: true })
           .pipe(
-            Effect.mapError((error) =>
-              transactionError(`Failed to create workspace state directory ${workspaceDir}`, error),
+            Effect.mapError(
+              (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "create", cause }),
             ),
           );
         const scratchDir = path.join(workspaceDir, "tmp");
@@ -427,12 +431,9 @@ export const runWorkspaceTransaction = <A, E, R>(
                 holder: { command: "workspace-transaction", pid: process.pid },
               });
               if (Option.isSome(contention)) {
-                const holder = Option.getOrUndefined(contention.value.holder);
-                return yield* makeAppError({
-                  code: "conflict",
-                  detail: `another operation holds the workspace transition${
-                    holder === undefined ? "" : ` (${holder.command} (pid ${holder.pid}))`
-                  }; waited ${Math.round(contention.value.waitedMillis / 1000)}s`,
+                return yield* new TransitionLockUnavailable({
+                  holder: Option.getOrUndefined(contention.value.holder),
+                  waitedMillis: contention.value.waitedMillis,
                 });
               }
             }
@@ -536,22 +537,6 @@ export const runWorkspaceTransaction = <A, E, R>(
                   },
                   onSuccess: (value) => removeSnapshotStore.pipe(Effect.as(value)),
                 }),
-              ),
-            ).pipe(
-              // The compromise branch above consumes the raced error; this
-              // conversion only discharges the type union — an escaped
-              // compromise still surfaces as its conflict rendering.
-              Effect.catchIf(
-                (error): error is WorkspaceTransitionCompromised =>
-                  error instanceof WorkspaceTransitionCompromised,
-                (error) =>
-                  Effect.fail(
-                    makeAppError({
-                      code: "conflict",
-                      detail: `The workspace transition at ${error.lockPath} was compromised; the operation stopped.`,
-                      cause: error.cause,
-                    }),
-                  ),
               ),
             );
           }),

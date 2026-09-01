@@ -1,18 +1,19 @@
 /**
- * Workspace transaction state: the ambient authority context and the write
- * registration primitives every workspace writer calls.
+ * Workspace transaction state: the ambient authority context, the write
+ * registration primitives every workspace writer calls, and the typed
+ * failure vocabulary of the transaction and transition-lock machinery.
  *
  * This module owns the ambient transaction/closure references and the
  * protection primitives (`protectWorkspacePath`, `protectCreatedAncestors`)
- * that snapshot a path before its first mutation, plus the typed
- * restoration-incomplete fact and its boundary rendering. The transaction
- * runner and closure settlement mechanics that consume this context live in
- * `./operations/transaction.ts`.
+ * that snapshot a path before its first mutation. The transaction runner and
+ * closure settlement mechanics that consume this context live in
+ * `./operations/transaction.ts`; the application error boundary owns the
+ * rendering, codes, and suggestions for every failure declared here.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Cause from "effect/Cause";
+import type * as Cause from "effect/Cause";
 import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -20,8 +21,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
-
-import { AppError, makeAppError } from "../app-error/index.js";
 
 /** One pre-mutation preimage of a protected path, keyed to its owning closure. */
 export type Snapshot = { readonly closure: string | undefined } & (
@@ -92,60 +91,100 @@ export class WorkspaceRestorationIncomplete extends Data.TaggedError(
   readonly closureIds?: ReadonlyArray<string>;
 }> {}
 
-/** Render the typed restoration failure for boundaries without a resolution. */
-const firstCauseLine = (cause: Cause.Cause<unknown>): string => {
-  const failure = Option.getOrUndefined(Cause.findErrorOption(cause));
-  if (failure instanceof AppError) return failure.detail;
-  return Cause.pretty(cause).split(/\r?\n/, 1)[0]?.trim() || "The transition did not complete";
-};
+/** Identity an invocation records while it holds the workspace transition. */
+export interface TransitionLockHolder {
+  readonly command: string;
+  readonly pid: number;
+  readonly candidateId?: string;
+}
 
-const sentence = (text: string): string => (/[.!?]$/.test(text) ? text : `${text}.`);
-
-/** Render the deciding transition cause before restoration consequences. */
-const transitionFailureText = (error: WorkspaceRestorationIncomplete): string =>
-  error.terminationCause === "interruption"
-    ? "Transition was interrupted."
-    : `Transition failed: ${sentence(firstCauseLine(error.transitionCause))}`;
-
-export const restorationIncompleteToAppError = (error: WorkspaceRestorationIncomplete): AppError =>
-  makeAppError({
-    code: "conflict",
-    detail: `${transitionFailureText(error)} Workspace restoration did not complete; the affected paths keep the state the failure left${
-      error.snapshotDir === undefined
-        ? "."
-        : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`
-    }`,
-    cause: {
-      transition: Cause.pretty(error.transitionCause),
-      restoration: error.restorationCause,
-    },
-    suggestions: [
-      {
-        description:
-          "Re-run the command; the next mutation plans from the current workspace state.",
-      },
-    ],
-  });
+export interface TransitionContention {
+  /** The holder recorded by the invocation that owns the lock, when readable. */
+  readonly holder: Option.Option<TransitionLockHolder>;
+  readonly waitedMillis: number;
+}
 
 /**
- * Surface the typed restoration failure as its AppError rendering at a
- * boundary whose error contract is AppError. Inside a plan-family apply this
- * is type-satisfaction only: nested transactions reuse the outer snapshot
- * store and never fail restoration themselves.
+ * Registering a path with the active transaction failed: the pre-mutation
+ * preimage could not be taken, so the path was never mutated. `target` is the
+ * path being protected; the `create-store` step's message interpolates
+ * nothing.
  */
-export const surfaceRestorationIncomplete = <A, E, R>(
-  effect: Effect.Effect<A, E | WorkspaceRestorationIncomplete, R>,
-): Effect.Effect<A, E | AppError, R> =>
-  effect.pipe(
-    Effect.catchIf(
-      (error): error is WorkspaceRestorationIncomplete =>
-        error instanceof WorkspaceRestorationIncomplete,
-      (error) => Effect.fail(restorationIncompleteToAppError(error)),
-    ),
-  );
+export class WorkspaceSnapshotError extends Data.TaggedError("WorkspaceSnapshotError")<{
+  readonly target: string;
+  readonly step: "inspect-target" | "create-store" | "copy" | "inspect-ancestor";
+  readonly cause: unknown;
+}> {}
 
-const transactionError = (detail: string, cause: unknown): AppError =>
-  makeAppError({ code: "internal", detail, cause });
+/** Preparing the workspace state directory for a transition failed. */
+export class WorkspaceDirectoryError extends Data.TaggedError("WorkspaceDirectoryError")<{
+  readonly path: string;
+  readonly step: "inspect" | "create";
+  readonly cause: unknown;
+}> {}
+
+/**
+ * Workspace transition-lock mechanics failed. `path` carries the fact each
+ * step's message interpolates: the scratch directory for `create-scratch`,
+ * the lock path otherwise. `missing-timestamp` has no underlying cause.
+ */
+export class TransitionLockError extends Data.TaggedError("TransitionLockError")<{
+  readonly path: string;
+  readonly step:
+    | "create-scratch"
+    | "acquire"
+    | "record-holder"
+    | "inspect-timestamp"
+    | "missing-timestamp"
+    | "preserve-timestamp"
+    | "release";
+  readonly cause?: unknown;
+}> {}
+
+/**
+ * The bounded contention wait elapsed while another invocation held the
+ * workspace transition.
+ */
+export class TransitionLockUnavailable extends Data.TaggedError("TransitionLockUnavailable")<{
+  readonly holder: TransitionLockHolder | undefined;
+  readonly waitedMillis: number;
+}> {}
+
+/**
+ * The hold is no longer provably owned: ownership could not be confirmed
+ * within the staleness window, so a contender may already have reclaimed the
+ * lock. Any further durable write by the original owner — mutation and
+ * restoration alike — could overwrite a successor's work.
+ */
+export class WorkspaceTransitionCompromised extends Data.TaggedError(
+  "WorkspaceTransitionCompromised",
+)<{
+  readonly workspaceDir: string;
+  readonly lockPath: string;
+  readonly cause: unknown;
+}> {}
+
+/**
+ * One restoration step did not complete or verify. Never a channel failure:
+ * it travels as the `restorationCause` inside
+ * {@link WorkspaceRestorationIncomplete} and the pending closure records.
+ */
+export class WorkspaceRestorationError extends Data.TaggedError("WorkspaceRestorationError")<{
+  readonly target: string;
+  readonly step: "stage" | "stopped" | "verify";
+  readonly cause: unknown;
+}> {}
+
+/** Failures acquiring the workspace transition lock. */
+export type WorkspaceTransitionAcquireFailure = WorkspaceDirectoryError | TransitionLockError;
+
+/** Failures the transaction machinery itself produces, beside the transition's own. */
+export type WorkspaceTransactionFailure =
+  | WorkspaceSnapshotError
+  | WorkspaceDirectoryError
+  | TransitionLockError
+  | TransitionLockUnavailable
+  | WorkspaceTransitionCompromised;
 
 const closureKey = (closure: string | undefined): string => closure ?? "";
 
@@ -158,7 +197,7 @@ export const protectInContext = (
   context: WorkspaceTransactionContext,
   target: string,
   closure: string | undefined,
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, WorkspaceSnapshotError> =>
   context.snapshotSemaphore.withPermits(1)(
     Effect.gen(function* () {
       const { fs, path } = context;
@@ -177,8 +216,9 @@ export const protectInContext = (
         const exists = yield* fs
           .exists(normalized)
           .pipe(
-            Effect.mapError((error) =>
-              transactionError(`Failed to inspect transaction target ${normalized}`, error),
+            Effect.mapError(
+              (cause) =>
+                new WorkspaceSnapshotError({ target: normalized, step: "inspect-target", cause }),
             ),
           );
         if (!exists) {
@@ -188,8 +228,9 @@ export const protectInContext = (
             context.snapshotStore.dir = yield* fs
               .makeTempDirectory({ prefix: "axm-rollback-" })
               .pipe(
-                Effect.mapError((error) =>
-                  transactionError("Failed to create the rollback snapshot directory", error),
+                Effect.mapError(
+                  (cause) =>
+                    new WorkspaceSnapshotError({ target: normalized, step: "create-store", cause }),
                 ),
               );
           }
@@ -202,8 +243,8 @@ export const protectInContext = (
           yield* fs
             .copy(normalized, backup, { preserveTimestamps: true })
             .pipe(
-              Effect.mapError((error) =>
-                transactionError(`Failed to snapshot transaction target ${normalized}`, error),
+              Effect.mapError(
+                (cause) => new WorkspaceSnapshotError({ target: normalized, step: "copy", cause }),
               ),
             );
           snapshot = { closure, target: normalized, state: "copied", backup };
@@ -216,7 +257,7 @@ export const protectInContext = (
   );
 
 /** Snapshot a path before its first mutation when a workspace transaction is active. */
-export const protectWorkspacePath = (target: string): Effect.Effect<void, AppError> =>
+export const protectWorkspacePath = (target: string): Effect.Effect<void, WorkspaceSnapshotError> =>
   Effect.gen(function* () {
     const current = yield* CurrentWorkspaceTransaction;
     if (Option.isNone(current)) return;
@@ -258,7 +299,7 @@ export const protectCreatedAncestors = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   directory: string,
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, WorkspaceSnapshotError> =>
   CurrentWorkspaceTransaction.pipe(
     Effect.flatMap(
       Option.match({
@@ -268,13 +309,16 @@ export const protectCreatedAncestors = (
             let firstMissing: string | undefined;
             let current = path.resolve(directory);
             while (true) {
-              const exists = yield* fs
-                .exists(current)
-                .pipe(
-                  Effect.mapError((error) =>
-                    transactionError(`Failed to inspect transaction ancestor ${current}`, error),
-                  ),
-                );
+              const exists = yield* fs.exists(current).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new WorkspaceSnapshotError({
+                      target: current,
+                      step: "inspect-ancestor",
+                      cause,
+                    }),
+                ),
+              );
               if (exists) break;
               firstMissing = current;
               const parent = path.dirname(current);

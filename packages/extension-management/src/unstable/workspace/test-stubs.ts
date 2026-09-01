@@ -17,11 +17,11 @@ import type {
   PackagingKind,
 } from "./index.js";
 import type {
-  TransitionContention,
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
 } from "./service-interface.js";
+import type { TransitionContention } from "./transaction.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,

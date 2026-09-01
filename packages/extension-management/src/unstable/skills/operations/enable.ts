@@ -20,7 +20,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { sanitizeName } from "../../workspace/extension-name.js";
 import { ensureSkillAgentArtifact } from "../materialization.js";
 import { skillArtifactFromTargets, type InstallableSkillTarget } from "./install.js";
@@ -89,64 +88,62 @@ export const enableSkill: OperationHandler<
 
     const skillSrcPath = canonical.value.observation.path;
 
-    const installableTargets = yield* ws
-      .runTransaction({
-        transition: Effect.gen(function* () {
-          const resolvedTargets = yield* Effect.forEach(
-            materializationAgents,
-            (agent) =>
-              agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-                Effect.provide(fsPathLayer),
-                Effect.map((outcome) => ({ agent, outcome })),
-              ),
-            { concurrency: "unbounded" },
-          );
-          const targets: ReadonlyArray<InstallableSkillTarget> = resolvedTargets.flatMap(
-            ({ agent, outcome }) =>
-              outcome._tag === "supported"
-                ? [{ agentId: agent.id, targetDir: path.normalize(outcome.dir) }]
-                : [],
-          );
-          const locations = new Map<
-            string,
-            { readonly targetDir: string; readonly agentIds: AgentId[] }
-          >();
-          for (const target of targets) {
-            const current = locations.get(target.targetDir);
-            if (current === undefined) {
-              locations.set(target.targetDir, {
-                targetDir: target.targetDir,
-                agentIds: [target.agentId],
-              });
-            } else if (!current.agentIds.includes(target.agentId)) {
-              current.agentIds.push(target.agentId);
-            }
+    const installableTargets = yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        const resolvedTargets = yield* Effect.forEach(
+          materializationAgents,
+          (agent) =>
+            agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+              Effect.provide(fsPathLayer),
+              Effect.map((outcome) => ({ agent, outcome })),
+            ),
+          { concurrency: "unbounded" },
+        );
+        const targets: ReadonlyArray<InstallableSkillTarget> = resolvedTargets.flatMap(
+          ({ agent, outcome }) =>
+            outcome._tag === "supported"
+              ? [{ agentId: agent.id, targetDir: path.normalize(outcome.dir) }]
+              : [],
+        );
+        const locations = new Map<
+          string,
+          { readonly targetDir: string; readonly agentIds: AgentId[] }
+        >();
+        for (const target of targets) {
+          const current = locations.get(target.targetDir);
+          if (current === undefined) {
+            locations.set(target.targetDir, {
+              targetDir: target.targetDir,
+              agentIds: [target.agentId],
+            });
+          } else if (!current.agentIds.includes(target.agentId)) {
+            current.agentIds.push(target.agentId);
           }
-          yield* Effect.forEach(
-            [...locations.values()],
-            (location) =>
-              ensureSkillAgentArtifact({
-                canonicalSkillSrcPath: skillSrcPath,
-                targetDir: location.targetDir,
-                sanitizedName,
-                pathService: path,
-                baseDir: base,
-                provide,
-              }),
-            { concurrency: "unbounded" },
-          );
-          yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
-            ...entry,
-            enabled: true,
-          }));
-          return targets;
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-        validate: () => Effect.void,
-      })
-      .pipe(surfaceRestorationIncomplete);
+        }
+        yield* Effect.forEach(
+          [...locations.values()],
+          (location) =>
+            ensureSkillAgentArtifact({
+              canonicalSkillSrcPath: skillSrcPath,
+              targetDir: location.targetDir,
+              sanitizedName,
+              pathService: path,
+              baseDir: base,
+              provide,
+            }),
+          { concurrency: "unbounded" },
+        );
+        yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
+          ...entry,
+          enabled: true,
+        }));
+        return targets;
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
     const artifact = yield* skillArtifactFromTargets({
       targets: installableTargets,
       workspaceRoot: base,

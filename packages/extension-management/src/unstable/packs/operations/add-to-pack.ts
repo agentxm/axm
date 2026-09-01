@@ -17,7 +17,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   PACK_MANIFEST_FILENAME,
@@ -97,128 +96,126 @@ export const addToPack: OperationHandler<
       packName,
       PACK_MANIFEST_FILENAME,
     );
-    yield* ws
-      .runTransaction({
-        targets: [manifestPath],
-        transition: Effect.gen(function* () {
-          // Read and stale-check under the workspace lock.
-          const manifestContent = yield* fs.readFileString(manifestPath).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "not_found",
-                detail: `Pack manifest not found at ${manifestPath}`,
-                suggestions: [{ description: "Ensure the pack exists on disk" }],
-                cause: e,
-              }),
-            ),
-          );
-
-          // 3. Stale-check: compare content hash
-          const currentHash = hashContent(manifestContent);
-          if (currentHash !== manifestHash) {
-            return yield* makeAppError({
-              code: "conflict",
-              detail: `Pack manifest is stale — it was modified since the plan was created`,
-              suggestions: [{ description: "Re-run the command to create a fresh plan" }],
-            });
-          }
-
-          // 4. Parse and apply additions
-          const json = yield* Effect.try({
-            try: () => {
-              const parsed: unknown = JSON.parse(manifestContent);
-              return parsed;
-            },
-            catch: (e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Failed to parse pack manifest: ${manifestPath}`,
-                cause: e,
-              }),
-          });
-
-          const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-            Effect.mapError((e) =>
-              makeAppError({
-                code: "validation",
-                detail: `Invalid pack manifest: ${manifestPath}`,
-                cause: e,
-              }),
-            ),
-          );
-
-          const dependencies: Record<string, string> = { ...manifest.dependencies };
-          for (const [fqn, version] of Object.entries(additions)) {
-            dependencies[fqn] = version;
-          }
-
-          const updatedManifest = {
-            ...manifest,
-            owner: manifest.owner,
-            type: manifest.type,
-            name: manifest.name,
-            version: manifest.version,
-            dependencies,
-          };
-          const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
-            updatedManifest,
-          ).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "validation",
-                detail: `Updated pack manifest is invalid: ${manifestPath}`,
-                cause,
-              }),
-            ),
-          );
-
-          // 5. Write updated manifest
-          yield* fs
-            .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
-            .pipe(
-              Effect.mapError((e) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to write pack manifest: ${manifestPath}`,
-                  cause: e,
-                }),
-              ),
-            );
-        }),
-        validate: () =>
-          fs.readFileString(manifestPath).pipe(
-            Effect.flatMap((content) =>
-              Effect.try({
-                try: (): unknown => JSON.parse(content),
-                catch: (cause) =>
-                  makeAppError({
-                    code: "validation",
-                    detail: `Updated pack manifest could not be parsed: ${manifestPath}`,
-                    cause,
-                  }),
-              }),
-            ),
-            Effect.flatMap(Schema.decodeUnknownEffect(PackManifestSchema)),
-            Effect.flatMap((manifest) =>
-              Object.entries(additions).every(
-                ([fqn, constraint]) => manifest.dependencies[fqn] === constraint,
-              )
-                ? Effect.void
-                : makeAppError({
-                    code: "internal",
-                    detail: `Updated pack manifest did not retain the requested dependencies`,
-                  }),
-            ),
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "validation",
-                detail: `Updated pack manifest failed postcondition validation`,
-                cause,
-              }),
-            ),
+    yield* ws.runTransaction({
+      targets: [manifestPath],
+      transition: Effect.gen(function* () {
+        // Read and stale-check under the workspace lock.
+        const manifestContent = yield* fs.readFileString(manifestPath).pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "not_found",
+              detail: `Pack manifest not found at ${manifestPath}`,
+              suggestions: [{ description: "Ensure the pack exists on disk" }],
+              cause: e,
+            }),
           ),
-      })
-      .pipe(surfaceRestorationIncomplete);
+        );
+
+        // 3. Stale-check: compare content hash
+        const currentHash = hashContent(manifestContent);
+        if (currentHash !== manifestHash) {
+          return yield* makeAppError({
+            code: "conflict",
+            detail: `Pack manifest is stale — it was modified since the plan was created`,
+            suggestions: [{ description: "Re-run the command to create a fresh plan" }],
+          });
+        }
+
+        // 4. Parse and apply additions
+        const json = yield* Effect.try({
+          try: () => {
+            const parsed: unknown = JSON.parse(manifestContent);
+            return parsed;
+          },
+          catch: (e) =>
+            makeAppError({
+              code: "validation",
+              detail: `Failed to parse pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+        });
+
+        const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
+          Effect.mapError((e) =>
+            makeAppError({
+              code: "validation",
+              detail: `Invalid pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
+          ),
+        );
+
+        const dependencies: Record<string, string> = { ...manifest.dependencies };
+        for (const [fqn, version] of Object.entries(additions)) {
+          dependencies[fqn] = version;
+        }
+
+        const updatedManifest = {
+          ...manifest,
+          owner: manifest.owner,
+          type: manifest.type,
+          name: manifest.name,
+          version: manifest.version,
+          dependencies,
+        };
+        const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
+          updatedManifest,
+        ).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Updated pack manifest is invalid: ${manifestPath}`,
+              cause,
+            }),
+          ),
+        );
+
+        // 5. Write updated manifest
+        yield* fs
+          .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
+          .pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "internal",
+                detail: `Failed to write pack manifest: ${manifestPath}`,
+                cause: e,
+              }),
+            ),
+          );
+      }),
+      validate: () =>
+        fs.readFileString(manifestPath).pipe(
+          Effect.flatMap((content) =>
+            Effect.try({
+              try: (): unknown => JSON.parse(content),
+              catch: (cause) =>
+                makeAppError({
+                  code: "validation",
+                  detail: `Updated pack manifest could not be parsed: ${manifestPath}`,
+                  cause,
+                }),
+            }),
+          ),
+          Effect.flatMap(Schema.decodeUnknownEffect(PackManifestSchema)),
+          Effect.flatMap((manifest) =>
+            Object.entries(additions).every(
+              ([fqn, constraint]) => manifest.dependencies[fqn] === constraint,
+            )
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Updated pack manifest did not retain the requested dependencies`,
+                }),
+          ),
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "validation",
+              detail: `Updated pack manifest failed postcondition validation`,
+              cause,
+            }),
+          ),
+        ),
+    });
 
     return {
       result: "success",

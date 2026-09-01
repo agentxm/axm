@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   StepFailure,
   previewOrApplyPlan,
@@ -16,10 +16,7 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
 import { logsByTag } from "@agentxm/extension-management/unstable/cli-renderer";
-import {
-  surfaceRestorationIncomplete,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { toPlanResolutionResult } from "../../operation-output.js";
 import { renderOperationOutcome } from "../../operation-render.js";
@@ -80,7 +77,7 @@ describe("atomic pack graph transition", () => {
                 }),
                 validate: () => Effect.void,
               })
-              .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
+              .pipe(Effect.mapError(failureToStepFailure)),
           }));
           const graphStep = yield* buildAtomicPackGraphStep({
             label: "@test/packs/atomic",
@@ -149,7 +146,7 @@ describe("atomic pack graph transition", () => {
                       }),
                       validate: () => Effect.void,
                     })
-                    .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
+                    .pipe(Effect.mapError(failureToStepFailure)),
                 },
               },
             ],
@@ -449,7 +446,7 @@ describe("atomic pack graph transition", () => {
                     }),
                     validate: () => Effect.void,
                   })
-                  .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
+                  .pipe(Effect.mapError(failureToStepFailure)),
               },
             },
           ],

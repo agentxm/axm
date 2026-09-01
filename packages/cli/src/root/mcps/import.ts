@@ -25,7 +25,6 @@ import {
   isAxmManagedMcpEntry,
   WorkspaceMutations,
   type WorkspaceMutationsService,
-  surfaceRestorationIncomplete,
 } from "@agentxm/extension-management/unstable/workspace";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -421,7 +420,7 @@ const applyImport = (
           });
         }),
     })
-    .pipe(surfaceRestorationIncomplete);
+    .pipe(Effect.mapError(toAppError));
 };
 
 const importArtifact = (

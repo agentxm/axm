@@ -17,8 +17,14 @@ import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
-import type { AppError } from "../app-error/index.js";
-import type { WorkspaceRestorationIncomplete } from "./transaction.js";
+import type {
+  TransitionContention,
+  TransitionLockHolder,
+  WorkspaceRestorationIncomplete,
+  WorkspaceSnapshotError,
+  WorkspaceTransactionFailure,
+  WorkspaceTransitionAcquireFailure,
+} from "./transaction.js";
 import type {
   LockfileReadError,
   SettingsReadError,
@@ -185,12 +191,11 @@ export type WorkspaceLockfileReadFailure = LockfileReadError | WorkspaceRootEsca
 export type WorkspaceStateReadFailure = SettingsReadError | LockfileReadError | WorkspaceRootEscape;
 
 /**
- * Settings read-modify-write. The transaction path-protection primitives
- * still fail with `AppError`; that member dissolves when the transaction
- * seam gets its typed errors.
+ * Settings read-modify-write, including the transaction path-protection
+ * preimage taken before the first mutation.
  */
 export type WorkspaceSettingsMutationFailure =
-  WorkspaceSettingsReadFailure | SettingsWriteError | AppError;
+  WorkspaceSettingsReadFailure | SettingsWriteError | WorkspaceSnapshotError;
 
 /** Lockfile read-modify-write through the snapshot-commit path. */
 export type WorkspaceLockfileMutationFailure =
@@ -200,7 +205,7 @@ export type WorkspaceLockfileMutationFailure =
 export type WorkspaceStateMutationFailure =
   WorkspaceSettingsMutationFailure | WorkspaceLockfileMutationFailure;
 
-export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
+export interface WorkspaceLifecycleTransactionArgs<A, E = never, R = never> {
   readonly targets?: ReadonlyArray<string>;
   readonly transition: Effect.Effect<A, E, R>;
   readonly validate: (value: A) => Effect.Effect<void, E, R>;
@@ -217,22 +222,9 @@ export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly claimDefaultTargets?: boolean;
 }
 
-export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(
+export type WorkspaceTransactionRunner = <A, E = never, R = never>(
   args: WorkspaceLifecycleTransactionArgs<A, E, R>,
-) => Effect.Effect<A, AppError | WorkspaceRestorationIncomplete | E, R>;
-
-/** Identity an invocation records while it holds the workspace transition. */
-export interface TransitionLockHolder {
-  readonly command: string;
-  readonly pid: number;
-  readonly candidateId?: string;
-}
-
-export interface TransitionContention {
-  /** The holder recorded by the invocation that owns the lock, when readable. */
-  readonly holder: Option.Option<TransitionLockHolder>;
-  readonly waitedMillis: number;
-}
+) => Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R>;
 
 /** What a post-confirmation apply records as the workspace transition holder. */
 export interface WorkspaceTransitionRequest {
@@ -249,7 +241,11 @@ export interface WorkspaceTransitionRequest {
  */
 export type WorkspaceTransitionAcquirer = (
   request: WorkspaceTransitionRequest,
-) => Effect.Effect<Option.Option<TransitionContention>, AppError, Scope.Scope>;
+) => Effect.Effect<
+  Option.Option<TransitionContention>,
+  WorkspaceTransitionAcquireFailure,
+  Scope.Scope
+>;
 
 // ---------------------------------------------------------------------------
 // Transaction capabilities (implemented by workspace operations)

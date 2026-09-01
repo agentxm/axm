@@ -18,7 +18,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { appErrorToStepFailure, toAppError } from "../app-error/conversions.js";
+import {
+  appErrorToStepFailure,
+  failureToStepFailure,
+  restorationIncompleteToAppError,
+  toAppError,
+} from "../app-error/conversions.js";
 import { STALE_CANDIDATE_DETAIL, StaleExecutionCandidate, StepFailure } from "./errors.js";
 import { applyPlan } from "./apply-plan.js";
 import {
@@ -51,7 +56,6 @@ import type { OperationPhase } from "./operation-resolution.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   readPendingClosureRestorationFailures,
-  restorationIncompleteToAppError,
   WorkspaceRestorationIncomplete,
 } from "../workspace/transaction.js";
 import {
@@ -683,7 +687,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
           restoration: failure,
         };
       }
-      return "error" in failure ? failure : { error: appErrorToStepFailure(failure) };
+      return "error" in failure ? failure : { error: failureToStepFailure(failure) };
     }),
   );
   const applyResult = yield* Effect.scoped(

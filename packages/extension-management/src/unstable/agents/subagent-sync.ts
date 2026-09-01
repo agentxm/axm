@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import { insertManagedFileBanner, managedFileFormatForPath } from "../extensions/index.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import {
@@ -146,7 +147,7 @@ export const writeSubagentFiles = (
     for (const { output, filePath } of resolvedOutputs) {
       // Ensure parent dir exists (for nested paths)
       const parentDir = path.dirname(filePath);
-      yield* protectWorkspacePath(filePath);
+      yield* protectWorkspacePath(filePath).pipe(Effect.mapError(toAppError));
       yield* fs.makeDirectory(parentDir, { recursive: true }).pipe(
         Effect.mapError((error) =>
           makeAppError({
@@ -202,7 +203,7 @@ export const removeSubagentFiles = (
       );
 
       if (exists) {
-        yield* protectWorkspacePath(filePath);
+        yield* protectWorkspacePath(filePath).pipe(Effect.mapError(toAppError));
         yield* fs.remove(filePath).pipe(
           Effect.mapError((error) =>
             makeAppError({
@@ -311,7 +312,7 @@ export const addRooSubagent = (
       ),
     );
 
-    yield* protectWorkspacePath(roomodesPath);
+    yield* protectWorkspacePath(roomodesPath).pipe(Effect.mapError(toAppError));
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -355,7 +356,7 @@ export const removeRooSubagent = (
 
     const newContent = JSON.stringify({ customModes: filtered }, null, 2);
 
-    yield* protectWorkspacePath(roomodesPath);
+    yield* protectWorkspacePath(roomodesPath).pipe(Effect.mapError(toAppError));
     yield* fs.writeFileString(roomodesPath, newContent).pipe(
       Effect.mapError((error) =>
         makeAppError({

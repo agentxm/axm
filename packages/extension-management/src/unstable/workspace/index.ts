@@ -333,8 +333,6 @@ export {
   type ExtensionTarget,
   type ExtensionTargetFor,
   type LockfileState,
-  type TransitionContention,
-  type TransitionLockHolder,
   type WorkspaceTransactionRunner,
   type WorkspaceTransactionCapabilities,
   type WorkspaceTransitionAcquirer,
@@ -387,9 +385,17 @@ export {
   protectCreatedAncestors,
   protectWorkspacePath,
   readPendingClosureRestorationFailures,
-  restorationIncompleteToAppError,
-  surfaceRestorationIncomplete,
+  TransitionLockError,
+  TransitionLockUnavailable,
+  WorkspaceDirectoryError,
+  WorkspaceRestorationError,
   WorkspaceRestorationIncomplete,
+  WorkspaceSnapshotError,
+  WorkspaceTransitionCompromised,
+  type TransitionContention,
+  type TransitionLockHolder,
+  type WorkspaceTransactionFailure,
+  type WorkspaceTransitionAcquireFailure,
 } from "./transaction.js";
 export {
   rollbackWorkspaceClosure,
@@ -446,7 +452,6 @@ export {
   heldWorkspaceTransition,
   isWorkspaceTransitionHeldByThisInvocation,
   transitionLockPath,
-  WorkspaceTransitionCompromised,
   type HeldWorkspaceTransition,
 } from "./operations/transition-lock.js";
 

@@ -1,15 +1,11 @@
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  appErrorToStepFailure,
-  failureToStepFailure,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   StepFailure,
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
 import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
-import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 
@@ -106,7 +102,6 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
       }),
       validate: (results) => args.validate(results).pipe(Effect.mapError(failureToStepFailure)),
     })
-    .pipe(surfaceRestorationIncomplete)
     .pipe(
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(
@@ -114,9 +109,9 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
             rollbackResults(
               executable,
               attempt,
-              transactionError._tag === "AppError"
-                ? appErrorToStepFailure(transactionError)
-                : transactionError,
+              transactionError._tag === "StepFailure"
+                ? transactionError
+                : failureToStepFailure(transactionError),
             ),
           ),
         ),

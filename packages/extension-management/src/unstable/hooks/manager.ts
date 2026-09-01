@@ -280,7 +280,7 @@ const writeIfChanged = (
     if (oldRaw === newRaw) return;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    yield* protectWorkspacePath(configPath);
+    yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -1106,7 +1106,7 @@ export const HookManagerLive = Layer.effect(
         );
         const packageRoot = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(packageRoot)) {
-          yield* protectWorkspacePath(packageRoot.value);
+          yield* protectWorkspacePath(packageRoot.value).pipe(Effect.mapError(toAppError));
           yield* fs.remove(packageRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
               makeAppError({

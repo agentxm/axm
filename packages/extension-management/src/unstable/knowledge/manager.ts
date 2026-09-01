@@ -48,7 +48,6 @@ import {
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionTarget } from "../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
@@ -945,7 +944,7 @@ export const KnowledgeManagerLive = Layer.effect(
               ),
             ),
         })
-        .pipe(surfaceRestorationIncomplete)
+        .pipe(Effect.mapError(toAppError))
         .pipe(
           Effect.scoped,
           Effect.tapError(() =>
@@ -976,7 +975,7 @@ export const KnowledgeManagerLive = Layer.effect(
           Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
         );
         if (Option.isSome(ownedRoot)) {
-          yield* protectWorkspacePath(ownedRoot.value);
+          yield* protectWorkspacePath(ownedRoot.value).pipe(Effect.mapError(toAppError));
           yield* fs.remove(ownedRoot.value, { recursive: true, force: true }).pipe(
             Effect.mapError((error) =>
               makeAppError({
@@ -1003,7 +1002,7 @@ export const KnowledgeManagerLive = Layer.effect(
             transition: applyKnowledgeProjection,
             validate: () => Effect.void,
           })
-          .pipe(surfaceRestorationIncomplete),
+          .pipe(Effect.mapError(toAppError)),
       sync: ({ dryRun }) =>
         dryRun
           ? Effect.scoped(syncLocked(true))
@@ -1013,7 +1012,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   transition: syncLocked(false),
                   validate: () => Effect.void,
                 })
-                .pipe(surfaceRestorationIncomplete),
+                .pipe(Effect.mapError(toAppError)),
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>

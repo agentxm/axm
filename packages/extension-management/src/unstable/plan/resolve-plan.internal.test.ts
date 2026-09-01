@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
 import { type AppError } from "../app-error/index.js";
-import { appErrorToStepFailure } from "../app-error/conversions.js";
+import { failureToStepFailure } from "../app-error/conversions.js";
 import {
   applyPlanExecution,
   promptablePlanExecution,
@@ -690,7 +690,7 @@ describe("previewOrApplyPlan", () => {
                   readiness: "ready",
                   label: "first",
                   run: protectWorkspacePath(target).pipe(
-                    Effect.mapError(appErrorToStepFailure),
+                    Effect.mapError(failureToStepFailure),
                     Effect.andThen(
                       fs.writeFileString(target, "changed").pipe(
                         Effect.mapError(
@@ -790,7 +790,7 @@ describe("previewOrApplyPlan", () => {
       const context = makeTestContext(undefined, undefined, workspace);
       const write = (target: string, content: string) =>
         protectWorkspacePath(target).pipe(
-          Effect.mapError(appErrorToStepFailure),
+          Effect.mapError(failureToStepFailure),
           Effect.andThen(
             fs
               .writeFileString(target, content)
@@ -906,7 +906,7 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:a",
                 label: "a",
                 run: protectWorkspacePath(fileA).pipe(
-                  Effect.mapError(appErrorToStepFailure),
+                  Effect.mapError(failureToStepFailure),
                   Effect.andThen(
                     fs.writeFileString(fileA, "a-changed").pipe(
                       Effect.mapError(
@@ -927,7 +927,7 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:b",
                 label: "b",
                 run: protectWorkspacePath(fileB).pipe(
-                  Effect.mapError(appErrorToStepFailure),
+                  Effect.mapError(failureToStepFailure),
                   Effect.andThen(
                     fs.writeFileString(fileB, "b-changed").pipe(
                       Effect.mapError(
@@ -1016,7 +1016,7 @@ describe("previewOrApplyPlan", () => {
                 // own restoration impossible: the parent directory is
                 // replaced by a plain file before the step reports failure.
                 run: protectWorkspacePath(target).pipe(
-                  Effect.mapError(appErrorToStepFailure),
+                  Effect.mapError(failureToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
                   Effect.andThen(
@@ -1107,7 +1107,7 @@ describe("previewOrApplyPlan", () => {
                 readiness: "ready",
                 label: "first",
                 run: protectWorkspacePath(target).pipe(
-                  Effect.mapError(appErrorToStepFailure),
+                  Effect.mapError(failureToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   // Restoration cannot recreate the target afterwards: its
                   // parent directory is replaced by a plain file.

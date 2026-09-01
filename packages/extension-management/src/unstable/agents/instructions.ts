@@ -1255,7 +1255,7 @@ const writeFile = (filePath: string, content: string) =>
         }),
       ),
     );
-    yield* protectWorkspacePath(filePath);
+    yield* protectWorkspacePath(filePath).pipe(Effect.mapError(toAppError));
     yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -1280,7 +1280,7 @@ const writeFile = (filePath: string, content: string) =>
 const removeTargetFile = (targetPath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    yield* protectWorkspacePath(targetPath);
+    yield* protectWorkspacePath(targetPath).pipe(Effect.mapError(toAppError));
     yield* fs.remove(targetPath, { force: true }).pipe(
       Effect.mapError((cause) =>
         makeAppError({

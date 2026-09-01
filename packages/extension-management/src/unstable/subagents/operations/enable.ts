@@ -18,7 +18,6 @@ import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
-import { surfaceRestorationIncomplete } from "../../workspace/transaction.js";
 import { RenderedFilesMapSchema } from "../../workspace/rendered-files.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { subagentContentFilename, subagentContentPath } from "../paths.js";
@@ -145,66 +144,64 @@ export const enableSubagent: OperationHandler<
 
     const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
 
-    yield* ws
-      .runTransaction({
-        transition: Effect.gen(function* () {
-          yield* Effect.forEach(
-            configuredAgents,
-            (agent) =>
-              agent
-                .addSubagent({
-                  workspaceRoot: baseDir,
-                  scope: ws.scope,
-                  managedFile,
-                  input: {
-                    agentId: agent.id,
-                    name: op.args.subagentName,
-                    body: parsed.body,
-                    frontmatter: renderFrontmatter,
-                    agentOverrides: agentOverrides?.[agent.id],
-                  },
-                  force: false,
-                })
-                .pipe(
-                  Effect.flatMap((outcome) => {
-                    if (outcome._tag === "conflict") {
-                      return makeAppError({
-                        code: "conflict",
-                        detail: `Subagent rendering failed for ${agent.id}: ${outcome.reason}`,
-                      });
+    yield* ws.runTransaction({
+      transition: Effect.gen(function* () {
+        yield* Effect.forEach(
+          configuredAgents,
+          (agent) =>
+            agent
+              .addSubagent({
+                workspaceRoot: baseDir,
+                scope: ws.scope,
+                managedFile,
+                input: {
+                  agentId: agent.id,
+                  name: op.args.subagentName,
+                  body: parsed.body,
+                  frontmatter: renderFrontmatter,
+                  agentOverrides: agentOverrides?.[agent.id],
+                },
+                force: false,
+              })
+              .pipe(
+                Effect.flatMap((outcome) => {
+                  if (outcome._tag === "conflict") {
+                    return makeAppError({
+                      code: "conflict",
+                      detail: `Subagent rendering failed for ${agent.id}: ${outcome.reason}`,
+                    });
+                  }
+                  if (outcome._tag !== "success") return Effect.void;
+                  return Effect.forEach(outcome.renderedFilePaths, (renderedPath) => {
+                    const relativePath = makeWorkspaceRelativePath(path, baseDir, renderedPath);
+                    if (Option.isNone(relativePath)) {
+                      return Effect.fail(
+                        makeAppError({
+                          code: "internal",
+                          detail: `Rendered subagent path escapes workspace root: ${renderedPath}`,
+                        }),
+                      );
                     }
-                    if (outcome._tag !== "success") return Effect.void;
-                    return Effect.forEach(outcome.renderedFilePaths, (renderedPath) => {
-                      const relativePath = makeWorkspaceRelativePath(path, baseDir, renderedPath);
-                      if (Option.isNone(relativePath)) {
-                        return Effect.fail(
-                          makeAppError({
-                            code: "internal",
-                            detail: `Rendered subagent path escapes workspace root: ${renderedPath}`,
-                          }),
-                        );
-                      }
-                      return Effect.succeed({ path: relativePath.value });
-                    }).pipe(
-                      Effect.map((entries) => {
-                        renderedFilesMap[agent.id] = entries;
-                      }),
-                    );
-                  }),
-                ),
-            { concurrency: "unbounded" },
-          );
-          yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
-            ...entry,
-            enabled: true,
-          }));
-        }).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-          Effect.provideService(Path.Path, path),
-        ),
-        validate: () => Effect.void,
-      })
-      .pipe(surfaceRestorationIncomplete);
+                    return Effect.succeed({ path: relativePath.value });
+                  }).pipe(
+                    Effect.map((entries) => {
+                      renderedFilesMap[agent.id] = entries;
+                    }),
+                  );
+                }),
+              ),
+          { concurrency: "unbounded" },
+        );
+        yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+          ...entry,
+          enabled: true,
+        }));
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+      validate: () => Effect.void,
+    });
 
     const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
     const renderedFiles = decodeRenderedFiles(renderedFilesMap);

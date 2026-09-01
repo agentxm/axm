@@ -16,7 +16,7 @@ import {
   resolveIdentifier,
   type IdentifierResourceType,
   type ResolvedIdentifier,
-} from "@agentxm/extension-management/unstable/source-resolution";
+} from "@agentxm/extension-sources";
 import { createRegistryClient } from "@agentxm/registry-client";
 import { type ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import {

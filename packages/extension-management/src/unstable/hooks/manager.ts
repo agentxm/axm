@@ -5,7 +5,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { coupleRemainingAppError } from "../app-error/conversions.js";
+import { coupleRemainingAppError, toAppError } from "../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
@@ -64,7 +64,7 @@ import {
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import { MaterializedFileTargetSchema } from "@agentxm/workspace-state";
 import { gitSourceLockFields } from "@agentxm/workspace-state";
-import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -680,7 +680,10 @@ export const HookManagerLive = Layer.effect(
     const readManifestForRef = (ref: HookExtensionRef) =>
       ref.refType === "registry"
         ? Effect.scoped(
-            sources.fetch(ref).pipe(Effect.flatMap(({ directory }) => readManifest(directory))),
+            sources.fetch(ref).pipe(
+              Effect.mapError(toAppError),
+              Effect.flatMap(({ directory }) => readManifest(directory)),
+            ),
           )
         : readManifest(stripFileProtocol(ref.location));
 

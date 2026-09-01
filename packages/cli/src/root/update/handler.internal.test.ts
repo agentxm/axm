@@ -26,10 +26,7 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-stubs.js";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,

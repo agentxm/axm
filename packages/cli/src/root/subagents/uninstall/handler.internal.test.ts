@@ -13,7 +13,7 @@ import * as Layer from "effect/Layer";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { type UninstallSubagentHandlerArgs } from "./command-actions.js";

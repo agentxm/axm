@@ -15,7 +15,7 @@ import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/kno
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";

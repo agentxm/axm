@@ -24,10 +24,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
-import {
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";

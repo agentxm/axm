@@ -71,10 +71,6 @@
       "types": "./dist/src/unstable/cli-renderer/index.d.ts",
       "default": "./dist/src/unstable/cli-renderer/index.js"
     },
-    "./unstable/git": {
-      "types": "./dist/src/unstable/git/index.d.ts",
-      "default": "./dist/src/unstable/git/index.js"
-    },
     "./unstable/auth": {
       "types": "./dist/src/unstable/auth/index.d.ts",
       "default": "./dist/src/unstable/auth/index.js"
@@ -86,10 +82,6 @@
     "./unstable/lint": {
       "types": "./dist/src/unstable/lint/index.d.ts",
       "default": "./dist/src/unstable/lint/index.js"
-    },
-    "./unstable/source-resolution": {
-      "types": "./dist/src/unstable/source-resolution/index.d.ts",
-      "default": "./dist/src/unstable/source-resolution/index.js"
     },
     "./unstable/skills": {
       "types": "./dist/src/unstable/skills/index.d.ts",
@@ -176,6 +168,7 @@
   "dependencies": {
     "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
@@ -188,7 +181,6 @@
     "packageurl-js": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",
-    "simple-git": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {

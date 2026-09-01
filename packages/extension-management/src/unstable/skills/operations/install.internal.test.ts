@@ -26,8 +26,8 @@ import type {
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import { SourceHostProviders } from "../../source-resolution/index.js";
-import type { SourceHostProvidersService } from "../../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import {
   WorkspaceMutations,
   type SetSkillArgs,

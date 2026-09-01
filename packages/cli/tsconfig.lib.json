@@ -11,6 +11,9 @@
   "exclude": ["src/**/*.test.ts", "src/**/*.e2e.test.ts"],
   "references": [
     {
+      "path": "../extension-sources/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {

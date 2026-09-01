@@ -11,12 +11,11 @@ import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import { applyPlannedProjections } from "@agentxm/extension-workspace";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -146,7 +145,8 @@ const managerLayer = (
       Layer.succeed(SourceHostProviders, {
         resolveNamedRegistry: () => Effect.die("not used"),
         find: () => Effect.succeed([]),
-        fetch: () => Effect.fail(makeAppError({ code: "validation", detail: "not used" })),
+        fetch: () =>
+          Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
         cloneUrl: () => Option.none(),
         origin: () => "test",
       }),

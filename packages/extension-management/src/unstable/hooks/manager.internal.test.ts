@@ -15,10 +15,9 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { applyPlannedProjections } from "@agentxm/extension-workspace";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
@@ -75,12 +74,7 @@ const makeSourceHostProviders = () =>
     resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed([]),
     fetch: () =>
-      Effect.fail(
-        makeAppError({
-          code: "validation",
-          detail: "not used",
-        }),
-      ),
+      Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
     cloneUrl: () => Option.none(),
     origin: () => "test",
   });

@@ -112,4 +112,5 @@ export {
   type SourceKind,
 } from "./command-summary.js";
 export { AgentPresenceProbeLive } from "./agent-presence-live.js";
+export { AxmSkillCandidateGateLive } from "./axm-skill-gate-live.js";
 export { WorkspaceCatalogLive } from "./workspace-catalog-live.js";

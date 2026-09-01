@@ -56,7 +56,7 @@ import {
   resolveSource,
   type ExtensionPackageFilter,
   type ResolvedExtensionPackage,
-} from "@agentxm/extension-management/unstable/source-resolution";
+} from "@agentxm/extension-sources";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 import { emitOperationResolution } from "../../operation-output.js";

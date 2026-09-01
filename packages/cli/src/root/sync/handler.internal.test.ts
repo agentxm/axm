@@ -12,7 +12,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
@@ -25,9 +24,10 @@ import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unsta
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import {
   SourceHostProviders,
-  SourceHostProvidersLive,
   type SourceHostProvidersService,
-} from "@agentxm/extension-management/unstable/source-resolution";
+  SourceNotResolvable,
+} from "@agentxm/extension-sources";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import YAML from "yaml";
 import {
@@ -328,7 +328,10 @@ const makePackRollbackFixture = (
         return Effect.succeed({ directory: availableSkillSource });
       }
       return Effect.fail(
-        makeAppError({ code: "not_found", detail: `Unexpected fixture ref ${ref.type}` }),
+        new SourceNotResolvable({
+          category: "not_found",
+          detail: `Unexpected fixture ref ${ref.type}`,
+        }),
       );
     },
     cloneUrl: () => Option.none(),
@@ -506,7 +509,9 @@ const makeConstraintMismatchFixture = (
     fetch: (ref) =>
       ref.type === "skill" && ref.refType === "registry" && ref.version === "2.2.0"
         ? Effect.succeed({ directory: availableSkillSource })
-        : Effect.fail(makeAppError({ code: "not_found", detail: "Unexpected fixture ref" })),
+        : Effect.fail(
+            new SourceNotResolvable({ category: "not_found", detail: "Unexpected fixture ref" }),
+          ),
     cloneUrl: () => Option.none(),
     origin: () => "test-registry",
   } satisfies SourceHostProvidersService;

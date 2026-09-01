@@ -20,11 +20,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";

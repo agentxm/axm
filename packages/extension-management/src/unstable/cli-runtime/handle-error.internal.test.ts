@@ -6,6 +6,7 @@ import { effectCliExit } from "./effect-cli-exit.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
+import { SourceNotResolvable } from "@agentxm/extension-sources";
 
 /** Parse the NDJSON stderr lines a classification would write, in order. */
 const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>
@@ -340,5 +341,30 @@ describe("handleError — integration", () => {
       throw e;
     }
     throw new Error("handleError did not call process.exit");
+  });
+});
+
+describe("classifyError — extension-sources typed failures", () => {
+  it("produces the same JSON envelope as the former AppError construction", () => {
+    const typed = classifyError(
+      new SourceNotResolvable({
+        category: "not_found",
+        detail: "No skills matched the given pattern",
+        suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
+      }),
+      "json",
+    );
+    const former = classifyError(
+      makeAppError({
+        code: "not_found",
+        detail: "No skills matched the given pattern",
+        suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
+      }),
+      "json",
+    );
+
+    expect(typed.exitCode).toBe(former.exitCode);
+    expect(typed.stdout).toBe(former.stdout);
+    expect(typed.stderr).toEqual(former.stderr);
   });
 });

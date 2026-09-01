@@ -25,11 +25,7 @@ import type {
 import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "../source-resolution/index.js";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -185,13 +181,14 @@ export const resolveConfiguredRegistryEntry = (
     if (isWorkspaceSourceLocator(source)) return Option.none();
 
     const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
+      Effect.mapError((failure) => {
+        const cause = toAppError(failure);
+        return makeAppError({
           code: "validation",
           detail: `Invalid ${expectedType} source for ${name}: ${cause.detail}`,
           cause,
-        }),
-      ),
+        });
+      }),
     );
     if (resolvedSource.type !== "registry") return Option.none();
 
@@ -238,14 +235,16 @@ export const resolveConfiguredRegistryEntry = (
         : Option.none(),
     );
     const providers = yield* SourceHostProviders;
-    const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
-      name,
-      type: expectedType,
-      owner,
-      versionRange,
-      releaseAgeEvaluation,
-      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
-    });
+    const resolution = yield* providers
+      .resolveNamedRegistry(resolvedSource, {
+        name,
+        type: expectedType,
+        owner,
+        versionRange,
+        releaseAgeEvaluation,
+        ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
+      })
+      .pipe(Effect.mapError(toAppError));
     const acceptedVersion =
       Option.isSome(accepted) &&
       (resolution.kind === "selected" || resolution.kind === "exempted") &&

@@ -16,7 +16,7 @@ type PackExpansionError = AppError | PackManagerError | SourceAuthorityBlocked;
 import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type * as Duration from "effect/Duration";
 import { resolvePackDependencies } from "./dependency-resolution.js";
 import {

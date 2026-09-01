@@ -34,10 +34,7 @@ import {
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import {
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 
 import { scopeFlag } from "../../cli-flags.js";

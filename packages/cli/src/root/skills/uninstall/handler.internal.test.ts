@@ -16,7 +16,7 @@ import {
   type WorkspaceMutationsOptions,
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { type UninstallHandlerArgs } from "./command-actions.js";

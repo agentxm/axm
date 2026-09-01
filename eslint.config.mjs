@@ -97,6 +97,7 @@ export default [
                 "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-sources",
                 "scope:extension-workspace",
                 "scope:registry-client",
                 "scope:registry-protocol",
@@ -115,6 +116,7 @@ export default [
                 "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-sources",
                 "scope:extension-workspace",
                 "scope:registry-client",
                 "scope:registry-protocol",
@@ -247,6 +249,7 @@ export default [
       "packages/agent-integration/src/**/*.ts",
       "packages/extension-management/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
+      "packages/extension-sources/src/**/*.ts",
       "packages/extension-workspace/src/**/*.ts",
       "packages/registry-client/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
@@ -449,7 +452,7 @@ export default [
     // concurrency census. Keep literal unbounded traversal from returning.
     files: [
       "packages/registry-client/src/remote-client.ts",
-      "packages/extension-management/src/unstable/source-resolution/providers/convention-discovery.ts",
+      "packages/extension-sources/src/providers/convention-discovery.ts",
       "packages/extension-management/src/unstable/workspace-inspection/version-currency/collectors.ts",
     ],
     plugins: {

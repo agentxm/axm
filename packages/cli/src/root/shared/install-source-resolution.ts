@@ -1,4 +1,5 @@
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   type ExtensionName,
   type ExtensionType,
@@ -6,7 +7,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { createRegistryClient } from "@agentxm/registry-client";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { resolveIdentifier } from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveIdentifier } from "@agentxm/extension-sources";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -228,7 +229,8 @@ export const resolveDefaultRegistrySourceByName = ({
         registrySourceName: "agentxm",
       }),
     ).pipe(
-      Effect.mapError((error) => {
+      Effect.mapError((failure) => {
+        const error = toAppError(failure);
         if (error.code !== "not_found") return error;
         const detail = Option.match(maybeOwner, {
           onNone: () => `${label} "${name}" could not be looked up (no default owner)`,

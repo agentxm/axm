@@ -68,11 +68,7 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";

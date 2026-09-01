@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,

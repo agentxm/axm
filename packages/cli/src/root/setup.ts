@@ -49,7 +49,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
 } from "@agentxm/extension-workspace";
-import { isGitManaged } from "@agentxm/extension-management/unstable/git";
+import { isGitManaged } from "@agentxm/extension-sources";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";

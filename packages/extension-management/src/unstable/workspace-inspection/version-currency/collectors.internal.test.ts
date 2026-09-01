@@ -37,10 +37,7 @@ const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   );
 };
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-} from "../../source-resolution/index.js";
+import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import {
   collectSkillCurrency,
   collectSkillSourceFreshness,

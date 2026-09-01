@@ -10,7 +10,7 @@ import { evaluateSourceAuthority } from "../extensions/index.js";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";
 import type {
   RegistryPackRef,

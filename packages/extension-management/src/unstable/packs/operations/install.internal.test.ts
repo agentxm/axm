@@ -13,8 +13,8 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as Schema from "effect/Schema";
-import { SourceHostProviders } from "../../source-resolution/index.js";
-import type { SourceHostProvidersService } from "../../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import {
   WorkspaceMutations,
   type SetPackArgs,

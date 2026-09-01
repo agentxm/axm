@@ -13,7 +13,7 @@ import {
   previewPlanExecution,
 } from "@agentxm/workspace-operations";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";

@@ -22,7 +22,7 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import { InstallMcpServerCommandWorkflowActions, parseEnvFlag } from "./command-actions.js";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {

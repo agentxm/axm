@@ -589,8 +589,7 @@ describe("resolveSkillUrl", () => {
         "https://unknown-host.com/owner/repo",
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
 
-      expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("validation");
+      expect(error._tag).toBe("SourceHostNotConfigured");
     });
   });
 });

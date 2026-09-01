@@ -28,10 +28,7 @@ import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
-import {
-  SourceHostProviders,
-  resolveSource,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import {
   WorkspaceMutations,
   acceptedResolutionRef,

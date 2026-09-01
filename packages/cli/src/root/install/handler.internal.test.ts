@@ -23,7 +23,7 @@ import {
   planResultUnits,
 } from "../../test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-stubs.js";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";

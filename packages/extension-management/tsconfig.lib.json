@@ -31,6 +31,9 @@
       "path": "../extension-workspace/tsconfig.lib.json"
     },
     {
+      "path": "../extension-sources/tsconfig.lib.json"
+    },
+    {
       "path": "../extension-model/tsconfig.lib.json"
     },
     {

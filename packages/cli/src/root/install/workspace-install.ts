@@ -45,10 +45,7 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
 } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import {
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import {
   extensionTypePluralSentenceLabels,
@@ -357,13 +354,14 @@ const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
     const manifest = yield* Effect.scoped(
       Effect.gen(function* () {
         const fetched = yield* sources.fetch(ref).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
+          Effect.mapError((failure) => {
+            const cause = toAppError(failure);
+            return makeAppError({
               code: cause.code,
               detail: `Failed to fetch accepted Pack ${ref.owner}/packs/${ref.name}@${ref.version}: ${cause.detail}`,
               cause,
-            }),
-          ),
+            });
+          }),
         );
         const manifestPath = path.join(fetched.directory, PACK_MANIFEST_FILENAME);
         const manifestText = yield* fs.readFileString(manifestPath).pipe(

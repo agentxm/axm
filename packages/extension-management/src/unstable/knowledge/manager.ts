@@ -49,7 +49,7 @@ import {
   validateExactResolvedVersion,
 } from "@agentxm/workspace-state";
 import { gitSourceLockFields } from "@agentxm/workspace-state";
-import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { KnowledgeMap } from "@agentxm/workspace-state";
 import { knowledgeLockEntryToRef } from "@agentxm/workspace-state";
 import { stripFileProtocol } from "../utils/index.js";
@@ -774,12 +774,14 @@ export const KnowledgeManagerLive = Layer.effect(
         if (ref.refType !== "git-hosted") {
           return yield* preparePackage(ref);
         }
-        const discovered = yield* sources.find(ref.source, {
-          names: [name],
-          type: "knowledge",
-          owner: Option.none(),
-          versionRange: Option.none(),
-        });
+        const discovered = yield* sources
+          .find(ref.source, {
+            names: [name],
+            type: "knowledge",
+            owner: Option.none(),
+            versionRange: Option.none(),
+          })
+          .pipe(Effect.mapError(toAppError));
         const candidate = discovered.find(
           (item): item is GitHostedKnowledgeRef =>
             item.type === "knowledge" && item.refType === "git-hosted",

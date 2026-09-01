@@ -28,7 +28,7 @@ import type {
   PackRef,
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { ExtensionManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";

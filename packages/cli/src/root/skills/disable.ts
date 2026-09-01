@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { DisableSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import { disableSkill } from "@agentxm/extension-management/unstable/skills";

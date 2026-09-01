@@ -26,10 +26,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
-import {
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
   isVersionEntryMature,
@@ -539,6 +536,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
             versionRange: req.versionRange,
           })
           .pipe(
+            Effect.mapError(toAppError),
             Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
             Effect.flatMap((discoveredSkills) =>
               !Array.isReadonlyArrayEmpty(discoveredSkills)

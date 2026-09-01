@@ -177,7 +177,8 @@ errors, and tests with the feature that owns them.
 code directly under `src/`. Packages extracted during the package-architecture
 migration (`@agentxm/workspace-state`, `@agentxm/workspace-operations`,
 `@agentxm/extension-workspace`, `@agentxm/registry-client`,
-`@agentxm/agent-integration`) use the successor convention instead: code under
+`@agentxm/extension-sources`, `@agentxm/agent-integration`) use the successor
+convention instead: code under
 `src/` with an intentional root export plus at most `./live` and `./testing`
 subpaths — no `unstable/*` namespace and no other deep exports.
 

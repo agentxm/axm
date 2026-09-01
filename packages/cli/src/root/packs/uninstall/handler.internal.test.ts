@@ -28,7 +28,7 @@ import {
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
@@ -39,7 +39,10 @@ import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcp
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  AxmSkillCandidateGateLive,
+  WorkspaceCatalogLive,
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -241,7 +244,7 @@ describe("packs uninstall handler", () => {
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer),
+      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer, AxmSkillCandidateGateLive),
     );
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,

@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { computeSourceHash } from "@agentxm/workspace-state";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { GitHubSource } from "@agentxm/extension-model/unstable/sources/types";
 import { sourceToLockEntry } from "@agentxm/workspace-state";

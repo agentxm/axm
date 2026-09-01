@@ -21,7 +21,7 @@ import { sourceToLockEntry } from "@agentxm/workspace-state";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, SkillExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

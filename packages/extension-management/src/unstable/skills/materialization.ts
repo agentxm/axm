@@ -18,7 +18,7 @@ import {
 import { validatePathSafety } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/utils.js";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type {
   SkillExtensionRef,
   WorkspaceSkillRef,

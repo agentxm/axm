@@ -16,7 +16,7 @@ import {
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { createRegistryClient } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
+import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "@agentxm/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -315,7 +315,10 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
     Effect.result,
   );
   if (source._tag === "Failure") {
-    return { state: "unknown", reason: source.failure.detail } satisfies ExtensionAssessment;
+    return {
+      state: "unknown",
+      reason: toAppError(source.failure).detail,
+    } satisfies ExtensionAssessment;
   }
   const refs = yield* providers
     .find(source.success, {
@@ -326,7 +329,10 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
     })
     .pipe(Effect.result);
   if (refs._tag === "Failure") {
-    return { state: "unknown", reason: refs.failure.detail } satisfies ExtensionAssessment;
+    return {
+      state: "unknown",
+      reason: toAppError(refs.failure).detail,
+    } satisfies ExtensionAssessment;
   }
   const match = refs.success.find((ref) => ref.type === item.type && refName(ref) === item.name);
   if (match === undefined || match.refType !== "git-hosted") {

@@ -42,7 +42,7 @@ import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { SourceHostProviders } from "../../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import { CodingAgentRepository, validateAxmSkillCandidate } from "@agentxm/extension-workspace";
 import { stripFileProtocol } from "../../utils/index.js";
 import { isPathSafe } from "@agentxm/workspace-state";

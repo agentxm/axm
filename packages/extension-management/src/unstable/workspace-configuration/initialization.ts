@@ -29,7 +29,7 @@ import {
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../app-error/index.js";
-import { isGitManaged } from "../git/detect.js";
+import { isGitManaged } from "@agentxm/extension-sources";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace-state";
 import {

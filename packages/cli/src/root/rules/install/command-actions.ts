@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
@@ -21,11 +22,7 @@ import { applyPlannedProjections } from "@agentxm/extension-workspace";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
@@ -125,6 +122,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
               versionRange: req.versionRange,
             })
             .pipe(
+              Effect.mapError(toAppError),
               Effect.map((refs) =>
                 refs.filter((ref): ref is RuleExtensionRef => ref.type === "rule"),
               ),

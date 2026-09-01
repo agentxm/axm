@@ -1,13 +1,10 @@
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
-import type { IdentifierResourceType } from "@agentxm/extension-management/unstable/source-resolution";
+import type { IdentifierResourceType } from "@agentxm/extension-sources";
 import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
-import {
-  SourceHostProviders,
-  resolveSource,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import { expandGlobs } from "@agentxm/extension-management/unstable/utils";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
 import * as Effect from "effect/Effect";

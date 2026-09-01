@@ -19,7 +19,7 @@ import {
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
 import { type RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";

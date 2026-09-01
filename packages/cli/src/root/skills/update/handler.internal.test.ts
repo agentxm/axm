@@ -24,7 +24,7 @@ import {
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";

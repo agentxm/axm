@@ -25,11 +25,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistryClient } from "@agentxm/registry-client";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "../../source-resolution/index.js";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import {
   VersionSchema,
   type Version,
@@ -370,7 +366,7 @@ const collectSourceFreshness = (args: {
 
           const sourceResult = yield* resolveSource(node.source).pipe(Effect.result);
           if (sourceResult._tag === "Failure") {
-            return unresolved(sourceResult.failure.detail);
+            return unresolved(toAppError(sourceResult.failure).detail);
           }
 
           const refsResult = yield* providers
@@ -383,7 +379,7 @@ const collectSourceFreshness = (args: {
             .pipe(Effect.result);
 
           if (refsResult._tag === "Failure") {
-            return unresolved(refsResult.failure.detail);
+            return unresolved(toAppError(refsResult.failure).detail);
           }
 
           return freshnessEntry({

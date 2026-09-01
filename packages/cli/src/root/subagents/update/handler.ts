@@ -6,7 +6,7 @@ import {
 } from "@agentxm/workspace-state";
 import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
-import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -23,7 +23,7 @@ import {
 
 import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
-import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource } from "@agentxm/extension-sources";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {

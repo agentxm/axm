@@ -20,7 +20,7 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import { validateExactResolvedVersion } from "@agentxm/workspace-state";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { SourceHostProviders } from "../../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";

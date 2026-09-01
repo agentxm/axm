@@ -21,7 +21,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";

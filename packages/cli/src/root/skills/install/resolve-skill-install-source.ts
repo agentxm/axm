@@ -8,7 +8,7 @@ import {
   resolveSlashInputSource,
   routeScpInput,
   routeUrlInput,
-} from "@agentxm/extension-management/unstable/source-resolution";
+} from "@agentxm/extension-sources";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {

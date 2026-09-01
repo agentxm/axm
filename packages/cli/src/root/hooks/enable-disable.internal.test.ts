@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectNoOpPlanResult,

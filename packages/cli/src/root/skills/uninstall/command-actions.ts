@@ -23,7 +23,7 @@ import {
 import {
   resolveInstalledIdentifierNameOrInput,
   WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+} from "@agentxm/extension-sources";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
@@ -142,7 +142,10 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
               yield* resolveInstalledIdentifierNameOrInput({
                 input: args.skill,
                 resourceType: "skill",
-              }).pipe(Effect.provideService(WorkspaceCatalog, catalog)),
+              }).pipe(
+                Effect.mapError(toAppError),
+                Effect.provideService(WorkspaceCatalog, catalog),
+              ),
             ];
 
       return { skills: names } satisfies ParsedSkillUninstallArgs;

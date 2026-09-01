@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { operationPresentation } from "@agentxm/workspace-operations";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";

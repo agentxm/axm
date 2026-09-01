@@ -55,7 +55,7 @@ import {
 } from "@agentxm/workspace-state";
 import { MaterializedFileTargetSchema } from "@agentxm/workspace-state";
 import { gitSourceLockFields } from "@agentxm/workspace-state";
-import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "@agentxm/workspace-state";

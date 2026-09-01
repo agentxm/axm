@@ -35,11 +35,9 @@ import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-o
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
-import {
-  SourceHostProvidersLive,
-  SourceHostProviders,
-} from "@agentxm/extension-management/unstable/source-resolution";
-import type { SourceHostProvidersService } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { handleInstallPack } from "./handler.js";
 import {
   type InstallPackHandlerArgs,
@@ -53,9 +51,11 @@ import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/kno
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
+import {
+  AxmSkillCandidateGateLive,
+  WorkspaceCatalogLive,
+} from "@agentxm/extension-management/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
 import {
@@ -81,7 +81,7 @@ const MYORG = normalizeHandle("@myorg");
 const serviceStubs: SourceHostProvidersService = {
   find: () => Effect.succeed([]),
   resolveNamedRegistry: () => Effect.die("unused"),
-  fetch: () => Effect.fail(makeAppError({ code: "internal", detail: "stub" })),
+  fetch: () => Effect.fail(new SourceNotResolvable({ category: "internal", detail: "stub" })),
   cloneUrl: () => Option.none(),
   origin: () => "unknown",
 };
@@ -185,7 +185,7 @@ describe("packs install handler", () => {
     );
     const SPLayer = Layer.provide(
       SourceHostProvidersLive,
-      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer),
+      Layer.mergeAll(BaseLayer, WsLayer, CatalogLayer, AxmSkillCandidateGateLive),
     );
     const ManagersLayer = Layer.mergeAll(
       PackManagerLive,
@@ -1082,8 +1082,8 @@ describe("packs install handler", () => {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           return Effect.fail(
-            makeAppError({
-              code: "internal",
+            new SourceNotResolvable({
+              category: "internal",
               detail: "Unexpected fetch call",
             }),
           );
@@ -1257,8 +1257,8 @@ describe("packs install handler", () => {
           if (source.type === "registry" && source.location.protocol !== "file:") {
             attemptedRemote = true;
             return Effect.fail(
-              makeAppError({
-                code: "internal",
+              new SourceNotResolvable({
+                category: "internal",
                 detail: "remote registry not yet supported",
               }),
             );
@@ -1310,8 +1310,8 @@ describe("packs install handler", () => {
 
           if (source.type === "registry" && source.location.protocol !== "file:") {
             return Effect.fail(
-              makeAppError({
-                code: "internal",
+              new SourceNotResolvable({
+                category: "internal",
                 detail: "remote registry not yet supported",
               }),
             );
@@ -1765,7 +1765,9 @@ describe("packs install handler", () => {
         fetch: (ref) =>
           ref.type === "pack"
             ? Effect.succeed({ directory: nextPackDir })
-            : Effect.fail(makeAppError({ code: "internal", detail: "Unexpected Pack member" })),
+            : Effect.fail(
+                new SourceNotResolvable({ category: "internal", detail: "Unexpected Pack member" }),
+              ),
       };
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/reg" }],

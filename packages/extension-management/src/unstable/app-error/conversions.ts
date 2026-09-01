@@ -149,12 +149,30 @@ import {
   RegistryProblem,
   RegistryRequestFailed,
 } from "@agentxm/registry-client";
+import {
+  AxmSkillGateUnavailable,
+  GitOperationFailed,
+  SourceHostNotConfigured,
+  SourceNetworkFailure,
+  SourceNotResolvable,
+  SourceSyntaxInvalid,
+  WorkspaceCatalogUnavailable,
+} from "@agentxm/extension-sources";
 import { agentDetectionFailedToAppError } from "./conversions/agent-integration.js";
 import {
   registryOperationFailedToAppError,
   registryProblemToAppError,
   registryRequestFailedToAppError,
 } from "./conversions/registry-client.js";
+import {
+  axmSkillGateUnavailableToAppError,
+  gitOperationFailedToAppError,
+  sourceHostNotConfiguredToAppError,
+  sourceNetworkFailureToAppError,
+  sourceNotResolvableToAppError,
+  sourceSyntaxInvalidToAppError,
+  workspaceCatalogUnavailableToAppError,
+} from "./conversions/extension-sources.js";
 import {
   archiveIntegrityMismatchToAppError,
   canonicalPackageProbeFailedToAppError,
@@ -973,7 +991,14 @@ export type KnownFailure =
   | AgentDetectionFailed
   | RegistryProblem
   | RegistryRequestFailed
-  | RegistryOperationFailed;
+  | RegistryOperationFailed
+  | SourceSyntaxInvalid
+  | SourceHostNotConfigured
+  | SourceNotResolvable
+  | SourceNetworkFailure
+  | GitOperationFailed
+  | WorkspaceCatalogUnavailable
+  | AxmSkillGateUnavailable;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof FqnInvalidError ||
@@ -1096,7 +1121,14 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof AgentDetectionFailed ||
   error instanceof RegistryProblem ||
   error instanceof RegistryRequestFailed ||
-  error instanceof RegistryOperationFailed;
+  error instanceof RegistryOperationFailed ||
+  error instanceof SourceSyntaxInvalid ||
+  error instanceof SourceHostNotConfigured ||
+  error instanceof SourceNotResolvable ||
+  error instanceof SourceNetworkFailure ||
+  error instanceof GitOperationFailed ||
+  error instanceof WorkspaceCatalogUnavailable ||
+  error instanceof AxmSkillGateUnavailable;
 
 /**
  * Convert a known typed failure into the CLI-facing `AppError` envelope. An
@@ -1342,6 +1374,20 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return registryRequestFailedToAppError(error);
     case "RegistryOperationFailed":
       return registryOperationFailedToAppError(error);
+    case "SourceSyntaxInvalid":
+      return sourceSyntaxInvalidToAppError(error);
+    case "SourceHostNotConfigured":
+      return sourceHostNotConfiguredToAppError(error);
+    case "SourceNotResolvable":
+      return sourceNotResolvableToAppError(error);
+    case "SourceNetworkFailure":
+      return sourceNetworkFailureToAppError(error);
+    case "GitOperationFailed":
+      return gitOperationFailedToAppError(error);
+    case "WorkspaceCatalogUnavailable":
+      return workspaceCatalogUnavailableToAppError(error);
+    case "AxmSkillGateUnavailable":
+      return axmSkillGateUnavailableToAppError(error);
     case "CoupledDependencyFailure":
       return coupledDependencyFailureToAppError(error);
     case "WriteBackupRetained": {

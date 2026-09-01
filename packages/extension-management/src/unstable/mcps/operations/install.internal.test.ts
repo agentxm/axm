@@ -25,8 +25,8 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { SourceHostProviders } from "../../source-resolution/index.js";
-import type { SourceHostProvidersService } from "../../source-resolution/index.js";
+import { SourceHostProviders } from "@agentxm/extension-sources";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {

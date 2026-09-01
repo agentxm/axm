@@ -8,7 +8,7 @@ import {
   managedFileFormatForPath,
   managedFileMarker,
 } from "@agentxm/extension-workspace";
-import { isGitManaged } from "../git/detect.js";
+import { isGitManaged } from "@agentxm/extension-sources";
 import { type InstructionsConfig } from "@agentxm/workspace-state";
 import { createSymlink } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";

@@ -16,9 +16,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { makeAppError } from "../app-error/index.js";
 import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/extension-workspace";
-import { SourceHostProviders } from "../source-resolution/index.js";
+import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -129,7 +128,8 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         Layer.succeed(SourceHostProviders, {
           resolveNamedRegistry: () => Effect.die("not used"),
           find: () => Effect.succeed([]),
-          fetch: () => Effect.fail(makeAppError({ code: "validation", detail: "not used" })),
+          fetch: () =>
+            Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
           cloneUrl: () => Option.none(),
           origin: () => "test",
         }),

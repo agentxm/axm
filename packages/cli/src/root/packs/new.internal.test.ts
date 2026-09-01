@@ -15,7 +15,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, handle, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
   expectAppliedPlanResult,

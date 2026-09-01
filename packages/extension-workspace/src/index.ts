@@ -129,12 +129,6 @@ export {
   type ManagedFileSource,
 } from "./extensions/managed-file-banner.js";
 export {
-  discoverManifestPackagesInDir,
-  type DiscoveredManifestPackage,
-  type ManifestPackageDiscoveryConfig,
-  type ManifestPackageDiscoveryOptions,
-} from "./extensions/manifest-package-discovery.js";
-export {
   applyOverrides,
   warnOnOrphanOverrides,
   type AgentOverrides,
@@ -230,11 +224,6 @@ export {
   type HookManagerError,
 } from "./hooks/errors.js";
 export {
-  hookPackagesInDir,
-  type DiscoveredHookPackage,
-  type HookPackageDiscoveryOptions,
-} from "./hooks/discovery.js";
-export {
   ambiguousHookCommands,
   isManagedHookEntry,
   managedHookCommands,
@@ -252,11 +241,6 @@ export {
   RuleInstallStateMissing,
   type RuleManagerError,
 } from "./rules/errors.js";
-export {
-  rulePackagesInDir,
-  type DiscoveredRulePackage,
-  type RulePackageDiscoveryOptions,
-} from "./rules/discovery.js";
 
 // MCP vocabulary
 export {

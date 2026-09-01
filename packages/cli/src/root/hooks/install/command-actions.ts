@@ -30,11 +30,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { applyPlannedProjections } from "@agentxm/extension-workspace";
-import {
-  resolveSource,
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
@@ -178,6 +174,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
               versionRange: req.versionRange,
             })
             .pipe(
+              Effect.mapError(toAppError),
               Effect.map((refs) =>
                 refs.filter((ref): ref is HookExtensionRef => ref.type === "hook"),
               ),

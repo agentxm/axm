@@ -5,10 +5,7 @@ import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-sta
 import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import {
-  resolveSource,
-  SourceHostProviders,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import type * as Duration from "effect/Duration";
 import * as DateTime from "effect/DateTime";

@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveSource } from "axm.sh/specification-harness";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { getAppError } from "axm.sh/specification-harness";

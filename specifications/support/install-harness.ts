@@ -25,7 +25,6 @@ import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import * as Effect from "effect/Effect";
 
@@ -35,6 +34,7 @@ import {
   type TestPromptConfig,
   CodingAgentRepositoryLive,
   makeAxmSkillCompatibilityPolicyLayer,
+  SourceHostProvidersLive,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {

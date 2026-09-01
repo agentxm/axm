@@ -22,6 +22,7 @@ import {
 
 import {
   AgentPresenceProbeLive,
+  AxmSkillCandidateGateLive,
   WorkspaceCatalogLive,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
@@ -64,7 +65,7 @@ import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcp
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   AuthClientLive,
@@ -288,7 +289,10 @@ const makeWorkspaceProgramLayer = (
     WorkspaceCatalogLive,
     Layer.merge(wsLayer, CodingAgentRepositoryLive),
   );
-  const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, workspaceCatalogLayer);
+  const sourceProvidersLayer = Layer.provide(
+    SourceHostProvidersLive,
+    Layer.merge(workspaceCatalogLayer, AxmSkillCandidateGateLive),
+  );
   const workspaceServiceLayer = Layer.mergeAll(
     wsLayer,
     workspaceCatalogLayer,

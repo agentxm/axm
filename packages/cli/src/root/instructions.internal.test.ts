@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,

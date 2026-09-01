@@ -9,10 +9,7 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "@agentxm/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-} from "../source-resolution/index.js";
+import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";

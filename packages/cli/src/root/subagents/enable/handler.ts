@@ -3,7 +3,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-management/unstable/source-resolution";
+import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";

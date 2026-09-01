@@ -37,10 +37,7 @@ import {
   resolveConfiguredSubagent,
   resolveConfiguredRegistryEntry,
 } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import {
-  SourceHostProviders,
-  WorkspaceCatalog,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

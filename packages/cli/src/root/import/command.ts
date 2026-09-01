@@ -37,10 +37,7 @@ import {
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { JobStepArtifact, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
-import {
-  acquireExternalSource,
-  resolveSource,
-} from "@agentxm/extension-management/unstable/source-resolution";
+import { acquireExternalSource, resolveSource } from "@agentxm/extension-sources";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

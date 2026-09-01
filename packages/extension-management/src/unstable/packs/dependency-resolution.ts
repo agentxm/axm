@@ -13,9 +13,10 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
-import type { SourceHostProvidersService } from "../source-resolution/index.js";
+import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import {
   SourceAuthorityBlocked,
   PackConstraintShadowed,
@@ -241,7 +242,7 @@ const resolveDependencyRef = (
         versionRange: Option.some<string>(constraint),
         ...(minimumReleaseAge === undefined ? {} : { minimumReleaseAge }),
       }),
-    );
+    ).pipe(Effect.mapError(toAppError));
 
     const matchingRef = matches.find(
       (candidate): candidate is Extract<ExtensionRef, { readonly refType: "registry" }> =>
@@ -384,7 +385,7 @@ const resolveDependencyRefWithReleaseAge = (
         versionRange: Option.some<string>(constraint),
         releaseAgeEvaluation: evaluation,
       }),
-    );
+    ).pipe(Effect.mapError(toAppError));
     const packTarget = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
     const dependencyTarget = formatFqn(parsed);
     if (resolution.kind === "not_found") {

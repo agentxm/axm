@@ -61,6 +61,7 @@ export {
   requestedInterruptionSignal,
 } from "./interruption.js";
 export { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
+export { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 export { runCliMain, resolveCliContext, type CliMainContext } from "./run-cli-main.js";
 export {
   type CliTelemetryConfig,

@@ -8,7 +8,6 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   isNonInteractive,
   jsonFlag,
-  nonInteractiveFlag,
   previewFlag,
   yesFlag,
   Verbosity,
@@ -750,20 +749,18 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
   yield* renderSetupBranding(renderer);
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
+  const nonInteractive = (yield* isNonInteractive) || machineOutput;
 
   const workspaceOptions: WorkspaceMutationsOptions = {
     scope: args.scope,
     projectRoot: executionDirectory.path,
+    nonInteractive,
     ...(args.agents !== undefined && args.agents.length > 0 ? { agents: args.agents } : {}),
     ...(args.yes !== undefined ? { yes: args.yes } : {}),
     ...(args.preview !== undefined ? { preview: args.preview } : {}),
   };
   const initialize = Effect.gen(function* () {
-    const result = yield* bootstrapWorkspace(workspaceOptions).pipe(
-      machineOutput
-        ? Effect.provideService(nonInteractiveFlag, Option.some(true))
-        : (effect) => effect,
-    );
+    const result = yield* bootstrapWorkspace(workspaceOptions);
     if (result.initialized) {
       yield* installSkill({
         scope: args.scope,
@@ -791,7 +788,6 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
       }),
     ),
   );
-  const nonInteractive = (yield* isNonInteractive) || machineOutput;
   const unattended = nonInteractive || args.yes === true;
   const unattendedIntentComplete =
     args.yes === true &&

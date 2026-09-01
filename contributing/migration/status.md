@@ -26,21 +26,19 @@ read-only for this work.
 
 ## Committed locally (push after the current batch)
 
-| Commit    | Content                                                                                                                                  |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 0ed62c73f | Interaction-split S1: PlanExecution/ConfirmationRecovery vocabulary moves into plan/plan-execution.ts                                    |
-| 50d1e1c39 | Interaction-split S3: isCI → utils/environment, count() inlined, MCP install takes explicit nonInteractive                               |
-| b67707066 | Interaction-split S2: resolve-plan behind the CLI-free ResolvePlanInteraction port; displayPlan → cli-renderer; InterruptionSignalSource |
+| Commit    | Content                                                                                                                                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0ed62c73f | Interaction-split S1: PlanExecution/ConfirmationRecovery vocabulary moves into plan/plan-execution.ts                                                                                                     |
+| 50d1e1c39 | Interaction-split S3: isCI → utils/environment, count() inlined, MCP install takes explicit nonInteractive                                                                                                |
+| b67707066 | Interaction-split S2: resolve-plan behind the CLI-free ResolvePlanInteraction port; displayPlan → cli-renderer; InterruptionSignalSource                                                                  |
+| 95c655575 | Interaction-split S4: workspace initialization decoupling — WorkspaceInitializationCancelled, presenter methods on the interaction service, WorkspaceMutationsOptions.nonInteractive, Live in cli-runtime |
 
 ## In flight
 
-- Interaction-split S4 (workspace initialization decoupling,
-  WorkspaceInitializationCancelled, presenter methods, options.nonInteractive):
-  edits complete, final gates running.
+- Interaction-split S5 auth presenter (design-interaction-split §S5).
 
 ## Remaining (in order)
 
-1. S5 auth presenter (~16 files, design-interaction-split §S5)
 2. Error-decoupling wave 0 enablers: toAppError dispatcher + classifyError
    branch + OperationErrorCategory (~11 files)
 3. Workspace-partition S1 contract descent: release-age → registry-protocol,

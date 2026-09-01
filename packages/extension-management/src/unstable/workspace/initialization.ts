@@ -28,9 +28,7 @@ import {
   type AgentId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import { isNonInteractive } from "../cli-flags/index.js";
 import { makeAppError } from "../app-error/index.js";
-import { CliRenderer } from "../cli-renderer/index.js";
 import { isGitManaged } from "../git/detect.js";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
@@ -40,9 +38,12 @@ import type { WorkspaceMutationsOptions } from "./service-interface.js";
 import type { WorkspaceScope } from "./scope.js";
 import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
-import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
+import {
+  WorkspaceInitializationInteraction,
+  type SetupPlanRow,
+} from "./initialization-interaction.js";
 import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "./paths.js";
-import { setupScopeSupport, type SetupScopeSupportCategory } from "./setup-scope-support.js";
+import { setupScopeSupport } from "./setup-scope-support.js";
 import { protectWorkspacePath } from "./transaction.js";
 import { LOCK_FILENAME } from "./layout.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
@@ -53,7 +54,6 @@ const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   suggestions: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
 });
 
-const SETUP_PHASES = "Detect · Agents · Instructions · Review";
 const DEFAULT_INSTRUCTIONS_FILE = "AGENTS.md";
 const DEFAULT_INSTRUCTIONS_GITIGNORE = true;
 const POPULAR_AGENT_IDS = [
@@ -177,12 +177,6 @@ interface SetupInstructionSourceChoice {
   readonly exists: boolean;
   readonly lines: number;
   readonly content: Option.Option<string>;
-}
-
-interface SetupPlanRow {
-  readonly target: string;
-  readonly action: string;
-  readonly detail: string;
 }
 
 const instructionValueFromSettings = (settings: Settings) => settings.instructionFiles;
@@ -392,39 +386,14 @@ const instructionPlanRows = (args: {
   return rows;
 };
 
-const renderSetupPlan = (rows: ReadonlyArray<SetupPlanRow>) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    yield* renderer.info(`Plan ·Review·`);
-    for (const row of rows) {
-      yield* renderer.info(`  ${row.target}  ${row.action}  ${row.detail}`);
-    }
-  });
-
-const renderSetupScopeSupport = (
-  scope: WorkspaceScope,
-  categories: ReadonlyArray<SetupScopeSupportCategory>,
-) =>
-  Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
-    yield* renderer.info(`Scope support · ${scope}`);
-    for (const category of categories) {
-      for (const outcome of category.outcomes) {
-        const target = outcome.agentName ?? category.placement;
-        yield* renderer.info(
-          `  ${category.label}  ${outcome.status}  ${target} [${outcome.reasonCode}]: ${outcome.reason}`,
-        );
-      }
-    }
-  });
-
 const selectSetupAgents = (args: {
   readonly options: WorkspaceMutationsOptions;
   readonly existingSettings: Settings;
   readonly workspaceRoot: string;
 }) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractive;
+    const nonInteractive = args.options.nonInteractive === true;
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const requested = args.options.agents;
     if (requested !== undefined && requested.length > 0) {
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
@@ -437,7 +406,6 @@ const selectSetupAgents = (args: {
         });
       }
     }
-    const renderer = yield* CliRenderer;
     const detections = yield* detectAgentScopeResults(args.workspaceRoot).pipe(
       Effect.mapError((error) =>
         makeAppError({
@@ -473,15 +441,15 @@ const selectSetupAgents = (args: {
       } satisfies SetupAgentSelection;
     }
 
-    yield* renderer.info(
-      `Scanned this repo and your machine - found ${String(detectedAgents.length)} agents.`,
-    );
-    for (const agent of retiredDetectedAgents) {
-      yield* renderer.warn(
-        `${agent.name} is retired and was not selected automatically. To opt in, run \`axm setup --agent ${agent.id}\`.`,
-      );
+    if (Option.isSome(interaction)) {
+      yield* interaction.value.presentAgentScan({
+        detectedCount: detectedAgents.length,
+        retiredAgents: retiredDetectedAgents.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+        })),
+      });
     }
-    yield* renderer.info(SETUP_PHASES);
 
     const configuredIds = args.existingSettings.agents ?? [];
     const strongDetectedIds =
@@ -506,7 +474,6 @@ const selectSetupAgents = (args: {
       } satisfies SetupAgentSelection;
     }
 
-    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const selectedIds = Option.isSome(interaction)
       ? yield* interaction.value.selectAgents({
           allAgents: allAgentDescriptors(preferredIds),
@@ -538,7 +505,7 @@ const resolveInstructionSetup = (args: {
   readonly workspaceRoot: string;
 }) =>
   Effect.gen(function* () {
-    const nonInteractive = yield* isNonInteractive;
+    const nonInteractive = args.options.nonInteractive === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const defaultSyncEnabled = currentInstructionSyncEnabled(args.existingSettings);
     const syncEnabled =
@@ -656,7 +623,7 @@ const configureProjectWorkspace = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const workspaceRoot = path.dirname(args.localDir);
-    const nonInteractive = yield* isNonInteractive;
+    const nonInteractive = args.options.nonInteractive === true;
     const selection = yield* selectSetupAgents({
       options: args.options,
       existingSettings: args.existingSettings,
@@ -705,8 +672,9 @@ const configureProjectWorkspace = (args: {
             detail: "instructions disabled",
           } satisfies SetupPlanRow,
         ];
-    if (!nonInteractive || args.options.preview === true) {
-      yield* renderSetupPlan([
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true)) {
+      yield* interaction.value.presentSetupPlan([
         {
           target: SETTINGS_FILENAME,
           action: "create",
@@ -724,13 +692,12 @@ const configureProjectWorkspace = (args: {
         ...planRows,
       ]);
       if (args.options.preview !== true) {
-        yield* renderSetupScopeSupport(
+        yield* interaction.value.presentScopeSupport(
           args.options.scope,
           setupScopeSupport(agentIds, args.options.scope),
         );
       }
     }
-    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
       args.options.preview === true ||
       args.options.yes === true ||
@@ -780,9 +747,10 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceMutati
       agents: agentIds,
       skills: DEFAULT_SETUP_SKILLS,
     };
-    const nonInteractive = yield* isNonInteractive;
-    if (!nonInteractive || options.preview === true) {
-      yield* renderSetupPlan([
+    const nonInteractive = options.nonInteractive === true;
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    if (Option.isSome(interaction) && (!nonInteractive || options.preview === true)) {
+      yield* interaction.value.presentSetupPlan([
         {
           target: SETTINGS_FILENAME,
           action: "create",
@@ -795,10 +763,12 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceMutati
         },
       ]);
       if (options.preview !== true) {
-        yield* renderSetupScopeSupport(options.scope, setupScopeSupport(agentIds, options.scope));
+        yield* interaction.value.presentScopeSupport(
+          options.scope,
+          setupScopeSupport(agentIds, options.scope),
+        );
       }
     }
-    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const confirmed =
       options.preview === true ||
       options.yes === true ||

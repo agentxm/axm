@@ -19,10 +19,10 @@ import {
   makeAppError,
   redactSensitiveValue,
 } from "@agentxm/extension-management/unstable/app-error";
-import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 import {
   type CliTelemetryConfig,
+  type ExpectedCliError,
   type OutputFormat,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
@@ -31,6 +31,7 @@ import {
   resolveCliFormat,
   setCommandSemanticProperties,
   withCliErrorHandling,
+  WorkspaceInitializationInteractionLive,
 } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   Verbosity,
@@ -73,10 +74,7 @@ import type {
   WorkspaceMutationsOptions,
   WorkspaceScope,
 } from "@agentxm/extension-management/unstable/workspace";
-import {
-  layer as coreWorkspaceLayer,
-  WorkspaceInitializationInteractionLive,
-} from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import type { SourceHostConfig } from "@agentxm/extension-management/unstable/settings";
 import {
@@ -326,7 +324,7 @@ type CliWorkspaceOptions = Omit<WorkspaceMutationsOptions, "builtInSources" | "p
 
 export const withWorkspace =
   (options: WorkspaceScope | CliWorkspaceOptions) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+  <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const envConfig = yield* readRuntimeEnvConfig;
       const executionDirectory = yield* ExecutionDirectory;
@@ -373,7 +371,7 @@ export const withWorkspace =
 
 export const withRuntime =
   (command?: string) =>
-  <A, R>(program: Effect.Effect<A, AppError | PromptCancelled, R>) =>
+  <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
       const selected = Option.getOrElse(directory, () => process.cwd());

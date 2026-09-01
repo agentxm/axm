@@ -8,9 +8,8 @@ import {
   collectSensitiveStrings,
   errorClassForAppErrorCode,
   redactSensitiveText,
-  type AppError,
 } from "../app-error/index.js";
-import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
+import type { ExpectedCliError } from "./runtime-envelope.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
@@ -100,7 +99,7 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
 // ---------------------------------------------------------------------------
 
 export const reportCliError = (
-  error: AppError | PromptCancelled,
+  error: ExpectedCliError,
   command: string,
 ): Effect.Effect<void, never, TelemetryClient> =>
   error._tag === "AppError"

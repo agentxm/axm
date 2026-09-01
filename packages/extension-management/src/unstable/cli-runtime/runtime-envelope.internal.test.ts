@@ -1,18 +1,24 @@
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { CliRenderer } from "../cli-renderer/index.js";
 import { Verbosity } from "../cli-flags/index.js";
-import { verboseFlag, debugFlag, quietFlag } from "../cli-flags/index.js";
+import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
+import { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
+import { isEffectCliExit } from "./effect-cli-exit.js";
 import {
   exitCodeForSemanticProperties,
   makeFoundationLayer,
+  withCliErrorHandling,
   writeDefect,
   writeExpectedCliError,
 } from "./runtime-envelope.js";
@@ -324,6 +330,20 @@ describe("writeExpectedCliError", () => {
       }),
   );
 
+  it.effect("stays silent for WorkspaceInitializationCancelled in both formats", () =>
+    Effect.gen(function* () {
+      const cancellation = new WorkspaceInitializationCancelled({
+        message: "Operation cancelled.",
+      });
+
+      yield* writeExpectedCliError(cancellation, "text");
+      yield* writeExpectedCliError(cancellation, "json");
+
+      expect(stdoutWrites).toEqual([]);
+      expect(stderrWrites).toEqual([]);
+    }),
+  );
+
   it.effect("text mode: uses Verbosity service for debug cause details", () =>
     Effect.gen(function* () {
       const cause = new Error("settings decode failed");
@@ -343,5 +363,79 @@ describe("writeExpectedCliError", () => {
       expect(stderr).toContain("Stack: Error: settings decode failed");
       expect(stderr).toContain("Stack:  at decode");
     }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// withCliErrorHandling — cancellation errors exit successfully and silently
+// ---------------------------------------------------------------------------
+
+describe("withCliErrorHandling cancellation", () => {
+  let stdoutWrites: Array<string>;
+  let stderrWrites: Array<string>;
+  let stdoutWriteSpy: MockInstance;
+  let stderrWriteSpy: MockInstance;
+
+  beforeEach(() => {
+    stdoutWrites = [];
+    stderrWrites = [];
+    stdoutWriteSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stdoutWrites.push(String(args[0]));
+        return true;
+      });
+    stderrWriteSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((...args: Array<unknown>) => {
+        stderrWrites.push(String(args[0]));
+        return true;
+      });
+  });
+
+  afterEach(() => {
+    stdoutWriteSpy.mockRestore();
+    stderrWriteSpy.mockRestore();
+  });
+
+  const stubHttpClient = HttpClient.make((request) =>
+    Effect.succeed(
+      HttpClientResponse.fromWeb(
+        request,
+        new Response("Unexpected test HTTP request", { status: 500 }),
+      ),
+    ),
+  );
+
+  it.effect("maps WorkspaceInitializationCancelled to a silent success exit", () =>
+    Effect.gen(function* () {
+      const exit = yield* withCliErrorHandling(
+        Effect.fail(new WorkspaceInitializationCancelled({ message: "Operation cancelled." })),
+        {
+          command: "setup",
+          format: "text",
+          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
+        },
+      ).pipe(Effect.exit);
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit)) {
+        const defect = Cause.squash(exit.cause);
+        expect(isEffectCliExit(defect)).toBe(true);
+        if (isEffectCliExit(defect)) {
+          expect(defect.exitCode).toBe(ExitCode.Success);
+        }
+      }
+      expect(stdoutWrites).toEqual([]);
+      expect(stderrWrites).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          globalFlagLayer,
+          Layer.succeed(jsonFlag, Option.none()),
+          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+        ),
+      ),
+    ),
   );
 });

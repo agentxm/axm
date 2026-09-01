@@ -22,8 +22,10 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace";
-import { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import {
+  WorkspaceInitializationCancelled,
+  WorkspaceInitializationInteractionTest,
+} from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-management/unstable/utils";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { expectDefined, expectRecord, property } from "../test-helpers.js";
@@ -87,7 +89,9 @@ const makeSetupTestContext = (opts?: {
       : {
           confirmSetupPlan: () =>
             opts.confirmSetup === "interrupt"
-              ? Effect.fail(new PromptCancelled({ message: "Operation cancelled." }))
+              ? Effect.fail(
+                  new WorkspaceInitializationCancelled({ message: "Operation cancelled." }),
+                )
               : Effect.succeed(opts.confirmSetup ?? true),
         }),
     ...(syncInstructionsOverride === undefined
@@ -259,7 +263,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("does not auto-select a detected retired agent during setup", () => {
-      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+      const { handleSetup, provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
       fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
@@ -275,12 +279,11 @@ describe("setup.handler", () => {
             "github-copilot-cli",
             "opencode",
           ]);
-          expect(rendererState.logs).toContainEqual(
-            expect.objectContaining({
-              _tag: "warn",
-              message: expect.stringContaining("was not selected automatically"),
-            }),
-          );
+          // The retired-agent warning wording lives in the CLI Live; the
+          // kernel reports the retirement through the interaction port.
+          expect(
+            promptState.presentAgentScanCalls.some((scan) => scan.retiredAgents.length > 0),
+          ).toBe(true);
         }),
       );
     });
@@ -1191,7 +1194,7 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" }).pipe(
-            Effect.catchTag("PromptCancelled", () => Effect.void),
+            Effect.catchTag("WorkspaceInitializationCancelled", () => Effect.void),
           );
 
           expect(installCalls).toEqual([]);

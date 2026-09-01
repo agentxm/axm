@@ -666,6 +666,8 @@ export interface WorkspaceMutationsOptions {
   readonly agents?: ReadonlyArray<string>;
   /** Auto-accept setup defaults and confirmations */
   readonly yes?: boolean;
+  /** Suppress interactive setup prompts; the transport boundary resolves flag/CI/TTY. */
+  readonly nonInteractive?: boolean;
   /** Compute the setup plan without writing files */
   readonly preview?: boolean;
   /** Built-in source host configs (defaults to git forges only when not provided) */

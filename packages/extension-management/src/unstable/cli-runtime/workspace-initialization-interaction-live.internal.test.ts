@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -8,10 +10,10 @@ import * as Queue from "effect/Queue";
 import * as Terminal from "effect/Terminal";
 import { AGENTS } from "../agents/registry.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
-import {
-  WorkspaceInitializationInteraction,
-  WorkspaceInitializationInteractionLive,
-} from "./initialization-interaction.js";
+import { TestRenderer } from "../cli-renderer/index.js";
+import { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
+import { WorkspaceInitializationInteraction } from "../workspace/initialization-interaction.js";
+import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 
 const ansiPattern = new RegExp(String.raw`\u001B\[[0-9;]*[A-Za-z]`, "g");
 
@@ -44,6 +46,7 @@ const makeHarness = Effect.gen(function* () {
     FileSystem.layerNoop({}),
     Path.layer,
     Layer.succeed(Terminal.Terminal, terminal),
+    TestRenderer.make().layer,
   );
 
   const layer = Layer.mergeAll(
@@ -104,6 +107,24 @@ describe("WorkspaceInitializationInteractionLive", () => {
       }).pipe(Effect.provide(harness.layer));
 
       expect(selected).toEqual(["codex"]);
+    }),
+  );
+
+  it.effect("maps a cancelled prompt into WorkspaceInitializationCancelled", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.end(harness.queue);
+
+      const exit = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.confirmSetupPlan();
+      }).pipe(Effect.provide(harness.layer), Effect.exit);
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      if (Exit.isFailure(exit)) {
+        const failure = Cause.squash(exit.cause);
+        expect(failure).toBeInstanceOf(WorkspaceInitializationCancelled);
+      }
     }),
   );
 

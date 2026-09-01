@@ -1965,7 +1965,11 @@ describe("WorkspaceMutationsService", () => {
         workspaceInitInteraction.layer,
         flagsLayer,
       );
-      const wsOptions = defaultOptions;
+      // Initialization reads non-interactivity from the options, not the flag.
+      const wsOptions = {
+        ...defaultOptions,
+        ...(flags.nonInteractive === undefined ? {} : { nonInteractive: flags.nonInteractive }),
+      };
       return {
         run: bootstrapWorkspace(wsOptions).pipe(
           Effect.map((r) => r.settings),

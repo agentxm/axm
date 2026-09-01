@@ -337,17 +337,15 @@ service-interface.ts:190 threads `E`).
 
 ```ts
 yield *
-  fs
-    .makeDirectory(settingsDir, { recursive: true })
-    .pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create directory: ${settingsDir}`,
-          cause: error,
-        }),
-      ),
-    );
+  fs.makeDirectory(settingsDir, { recursive: true }).pipe(
+    Effect.mapError((error) =>
+      makeAppError({
+        code: "internal",
+        detail: `Failed to create directory: ${settingsDir}`,
+        cause: error,
+      }),
+    ),
+  );
 ```
 
 After (kernel):

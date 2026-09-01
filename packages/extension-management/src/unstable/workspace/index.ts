@@ -261,12 +261,15 @@ export {
   type ConfiguredAgentLifecycleState,
 } from "./configured-agent-outcomes.js";
 export type {
+  InstructionSourceChoice,
+  SetupAgentScan,
+  SetupPlanRow,
   WorkspaceInitializationInteractionService,
   WorkspaceInitializationInteractionTestState,
 } from "./initialization-interaction.js";
 export {
+  WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
-  WorkspaceInitializationInteractionLive,
   WorkspaceInitializationInteractionTest,
 } from "./initialization-interaction.js";
 

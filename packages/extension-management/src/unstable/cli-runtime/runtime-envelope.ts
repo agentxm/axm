@@ -12,6 +12,7 @@ import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
+import type { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";
@@ -86,11 +87,13 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
   );
 };
 
-export type ExpectedCliError = AppError | PromptCancelled;
+export type ExpectedCliError = AppError | PromptCancelled | WorkspaceInitializationCancelled;
 export type CliRuntimeFoundation = CliRenderer | Verbosity;
 
+// Cancellation tags (PromptCancelled, WorkspaceInitializationCancelled) exit
+// successfully; only AppError carries a failure exit code.
 const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
-  error._tag === "PromptCancelled" ? ExitCode.Success : exitCodeFor(error.code);
+  error._tag === "AppError" ? exitCodeFor(error.code) : ExitCode.Success;
 
 const positiveNumericProperty = (properties: TelemetryProperties, key: string): boolean => {
   const value = properties[key];
@@ -133,7 +136,7 @@ export const exitCodeForSemanticProperties = (
  */
 export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
   Effect.gen(function* () {
-    if (error._tag === "PromptCancelled") {
+    if (error._tag !== "AppError") {
       return;
     }
 
@@ -333,7 +336,7 @@ export const withCliErrorHandling = <A, R>(
       ),
       Effect.catch((error: ExpectedCliError) => {
         const exitCode = defaultExitCodeForExpectedError(error);
-        const result = error._tag === "PromptCancelled" ? "cancelled" : "error";
+        const result = error._tag === "AppError" ? "error" : "cancelled";
 
         return writeExpectedCliError(error, options.format).pipe(
           Effect.andThen(reportCliError(error, command)),

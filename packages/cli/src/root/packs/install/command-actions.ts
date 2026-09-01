@@ -112,6 +112,7 @@ import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-p
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -379,7 +380,7 @@ const resolveMinimumReleaseAge = (
   Effect.gen(function* () {
     if (!unattended) return Option.none<Duration.Duration>();
 
-    const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+    const minimumReleaseAge = yield* ws.getMinimumReleaseAge().pipe(Effect.mapError(toAppError));
     const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
     if (Option.isNone(minimumAge)) {
       return yield* makeAppError({
@@ -440,7 +441,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
 
   const scanWorkspaceAuthority = (pack: PackRef) =>
     Effect.gen(function* () {
-      const graph = yield* ws.getDesiredStateGraph();
+      const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
       const packIdentity = `${pack.owner}/packs/${pack.name}`;
       const blockers: Array<SourceAuthorityBlockedFact> = [];
       const workspaceRefs = new Map<string, ExtensionRef>();
@@ -590,27 +591,30 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
             };
           }
 
-          const owner = yield* ws.getConfiguredOwner().pipe(
-            Effect.flatMap(
-              Option.match({
-                onNone: () =>
-                  Effect.fail(
-                    makeAppError({
-                      code: "validation",
-                      detail: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
-                      suggestions: [
-                        {
-                          description:
-                            "Use the fully-qualified `@owner/packs/name` form, set `owner` in settings, or sign in.",
-                          cmd: "axm login",
-                        },
-                      ],
-                    }),
-                  ),
-                onSome: Effect.succeed,
-              }),
-            ),
-          );
+          const owner = yield* ws
+            .getConfiguredOwner()
+            .pipe(Effect.mapError(toAppError))
+            .pipe(
+              Effect.flatMap(
+                Option.match({
+                  onNone: () =>
+                    Effect.fail(
+                      makeAppError({
+                        code: "validation",
+                        detail: `Cannot resolve bare pack name "${parsed.success.name}" without a configured owner`,
+                        suggestions: [
+                          {
+                            description:
+                              "Use the fully-qualified `@owner/packs/name` form, set `owner` in settings, or sign in.",
+                            cmd: "axm login",
+                          },
+                        ],
+                      }),
+                    ),
+                  onSome: Effect.succeed,
+                }),
+              ),
+            );
           const versionRange = Option.fromUndefinedOr(parsed.success.versionRange);
           const resolvedInput = Option.match(versionRange, {
             onNone: () => `${owner}/packs/${parsed.success.name}`,
@@ -760,7 +764,9 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
               isRemoteReadNotImplemented(initialResult.failure)
             ) {
               // Fallback to file:// registries
-              const registryHosts = yield* ws.getRegistrySourceHosts();
+              const registryHosts = yield* ws
+                .getRegistrySourceHosts()
+                .pipe(Effect.mapError(toAppError));
               const fallbackSources = registryHosts
                 .filter((host) => host.location.protocol === "file:")
                 .map(
@@ -825,7 +831,9 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
               });
             }
 
-            const registryHosts = yield* ws.getRegistrySourceHosts();
+            const registryHosts = yield* ws
+              .getRegistrySourceHosts()
+              .pipe(Effect.mapError(toAppError));
 
             if (!resolvedRefs || resolvedRefs.length === 0) {
               const loginSuggestions = yield* loginSuggestionsFor(
@@ -873,7 +881,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
     Effect.gen(function* () {
       const discovery = refs[0];
       if (!discovery) {
-        const registryHosts = yield* ws.getRegistrySourceHosts();
+        const registryHosts = yield* ws.getRegistrySourceHosts().pipe(Effect.mapError(toAppError));
         const loginSuggestions = yield* loginSuggestionsFor(
           registryHosts.map((host) => host.location.href),
         );
@@ -1003,7 +1011,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
       if (expansion.kind === "policy_held") {
         let preservable = false;
         if (intent.releaseAgeHoldbackBehavior === "preserve-or-block") {
-          const graph = yield* ws.getDesiredStateGraph();
+          const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
           if (graph.complete) {
             const currentPack = yield* provide(
               usableAcceptedCanonical({

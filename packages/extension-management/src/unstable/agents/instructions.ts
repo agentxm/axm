@@ -23,6 +23,7 @@ import type {
   AgentId,
   AgentInstructionsDescriptor,
 } from "@agentxm/extension-model/unstable/agents/types";
+import { toAppError } from "../app-error/conversions.js";
 
 export interface ResolvedInstructionsConfig {
   readonly fileName: string;
@@ -1356,7 +1357,9 @@ const syncOneTarget = (args: {
     }
     if (args.dryRun) return Option.some(item.targetFile);
     if (item.mechanism === "symlink") {
-      yield* createSymlink({ target: item.sourceFile, link: item.targetFile });
+      yield* createSymlink({ target: item.sourceFile, link: item.targetFile }).pipe(
+        Effect.mapError(toAppError),
+      );
       return Option.some(item.targetFile);
     }
     yield* writeFile(

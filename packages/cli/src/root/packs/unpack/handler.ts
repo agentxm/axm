@@ -31,7 +31,10 @@ import {
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
@@ -51,17 +54,19 @@ const promoteToDirectSettings = (
   const run = (() => {
     switch (node.type) {
       case "skill":
-        return ws.setSkillEntry(node.name, entry);
+        return ws.setSkillEntry(node.name, entry).pipe(Effect.mapError(toAppError));
       case "mcp-server":
-        return ws.setMcpServerEntry(node.name, { ...entry, env: {} });
+        return ws
+          .setMcpServerEntry(node.name, { ...entry, env: {} })
+          .pipe(Effect.mapError(toAppError));
       case "subagent":
-        return ws.setSubagentEntry(node.name, entry);
+        return ws.setSubagentEntry(node.name, entry).pipe(Effect.mapError(toAppError));
       case "rule":
-        return ws.setRuleEntry(node.name, entry);
+        return ws.setRuleEntry(node.name, entry).pipe(Effect.mapError(toAppError));
       case "hook":
-        return ws.setHookEntry(node.name, entry);
+        return ws.setHookEntry(node.name, entry).pipe(Effect.mapError(toAppError));
       case "knowledge":
-        return ws.setKnowledgeEntry(node.name, entry);
+        return ws.setKnowledgeEntry(node.name, entry).pipe(Effect.mapError(toAppError));
       case "pack":
         return Effect.fail(
           makeAppError({
@@ -75,7 +80,7 @@ const promoteToDirectSettings = (
     readiness: "ready",
     label: node.name,
     run: run.pipe(
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
       Effect.as({
         result: "success",
         message: `Promoted ${node.type} ${node.name}`,
@@ -105,7 +110,7 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
   const packManager = yield* PackManager;
   const path = yield* Path.Path;
 
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   if (!graph.complete) {
     return yield* makeAppError({
       code: "validation",

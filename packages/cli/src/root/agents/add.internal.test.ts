@@ -28,6 +28,7 @@ import {
 } from "../../test-helpers.js";
 import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",
@@ -318,7 +319,7 @@ describe("agents add.handler", () => {
           preview: false,
         }).pipe(Effect.flip);
 
-        expect(error.code).toBe("validation");
+        expect(toAppError(error).code).toBe("validation");
         expect(rendererState.results).toEqual([]);
         expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
           "lockfileVersion: 4\nskills: []\n",

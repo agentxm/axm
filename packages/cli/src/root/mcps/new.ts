@@ -59,7 +59,10 @@ import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
@@ -107,7 +110,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
   const targetDir = path.join(workspaceAuthoredRoot(path, ws, "mcp-server", owner), args.name);
   const manifestPath = path.join(targetDir, MCP_SERVER_MANIFEST_FILENAME);
   const sourcePath = path.relative(ws.baseDir, targetDir);
-  const configuredServers = yield* ws.getConfiguredMcpServerEntries();
+  const configuredServers = yield* ws
+    .getConfiguredMcpServerEntries()
+    .pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "MCP server",
     name: args.name,
@@ -138,7 +143,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       ],
     },
   };
-  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const configuredAgentIds = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const agentsByConfigPath = new Map<string, Set<string>>();
   const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
   for (const agentId of configuredAgentIds) {
@@ -178,7 +183,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       .runTransaction({
         targets: [targetDir],
         transition: Effect.gen(function* () {
-          const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+          const currentConfigured = yield* ws
+            .getConfiguredMcpServerEntries()
+            .pipe(Effect.mapError(toAppError));
           yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir }).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
@@ -213,11 +220,13 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           );
-          yield* ws.setMcpServerEntry(args.name, {
-            source: "workspace",
-            enabled: true,
-            env: {},
-          });
+          yield* ws
+            .setMcpServerEntry(args.name, {
+              source: "workspace",
+              enabled: true,
+              env: {},
+            })
+            .pipe(Effect.mapError(toAppError));
           const resolvedRef = yield* resolveWorkspaceExtensionRef({
             settingsName: args.name,
             source: "workspace",
@@ -258,7 +267,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
         }),
         validate: () =>
           Effect.gen(function* () {
-            const currentConfigured = yield* ws.getConfiguredMcpServerEntries();
+            const currentConfigured = yield* ws
+              .getConfiguredMcpServerEntries()
+              .pipe(Effect.mapError(toAppError));
             const manifestExists = yield* fs.exists(manifestPath).pipe(
               Effect.mapError((cause) =>
                 makeAppError({

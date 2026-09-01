@@ -68,6 +68,7 @@ import { SettingsSchema } from "@agentxm/extension-management/unstable/settings"
 import type { Settings } from "@agentxm/extension-management/unstable/settings";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Handler args
@@ -484,7 +485,10 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     scope: args.scope,
     gitIndexView: args.input.view === "git-index",
     axmSkillCompatibilityPolicy,
-    owner: ws.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+    owner: ws
+      .getConfiguredOwner()
+      .pipe(Effect.mapError(toAppError))
+      .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
     projections: {
       facts: invariantFacts.projectionFacts,
     },
@@ -533,7 +537,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const skillContexts = buildSkillRuleContexts(view);
   const packContexts = buildPackRuleContexts(view);
   const canonicalObservations = Effect.gen(function* () {
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     return yield* Effect.forEach(
       graph.nodes,
       (node) =>
@@ -567,7 +571,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     ...workspaceContext,
     ownership: Effect.succeed(ownershipIssues),
     health: {
-      desiredState: ws.getDesiredStateGraph(),
+      desiredState: ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError)),
       canonicalObservations,
     },
   };

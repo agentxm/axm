@@ -28,8 +28,13 @@ import type {
 } from "../lockfile/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "./service-interface.js";
+import {
+  WorkspaceMutations,
+  type WorkspaceLockfileReadFailure,
+  type WorkspaceMutationsService,
+} from "./service-interface.js";
 import { checkCurrency } from "./version-currency/index.js";
+import { toAppError } from "../app-error/conversions.js";
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 
@@ -82,22 +87,25 @@ const getAcceptedEntry = (
   type: InstallableExtensionType,
   name: string,
 ): Effect.Effect<Option.Option<AcceptedEntry>, AppError> => {
-  switch (type) {
-    case "skill":
-      return ws.getLockedSkill(name);
-    case "mcp-server":
-      return ws.getLockedMcpServer(name);
-    case "subagent":
-      return ws.getLockedSubagent(name);
-    case "rule":
-      return ws.getLockedRuleEntry(name);
-    case "hook":
-      return ws.getLockedHookEntry(name);
-    case "knowledge":
-      return ws.getLockedKnowledgeEntry(name);
-    case "pack":
-      return ws.getLockedPack(name);
-  }
+  const read = (): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceLockfileReadFailure> => {
+    switch (type) {
+      case "skill":
+        return ws.getLockedSkill(name);
+      case "mcp-server":
+        return ws.getLockedMcpServer(name);
+      case "subagent":
+        return ws.getLockedSubagent(name);
+      case "rule":
+        return ws.getLockedRuleEntry(name);
+      case "hook":
+        return ws.getLockedHookEntry(name);
+      case "knowledge":
+        return ws.getLockedKnowledgeEntry(name);
+      case "pack":
+        return ws.getLockedPack(name);
+    }
+  };
+  return read().pipe(Effect.mapError(toAppError));
 };
 
 const recordSource = (row: ReadModelRecordRow | undefined): string | undefined => {
@@ -131,23 +139,29 @@ const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
   function* (type?: InstallableExtensionType) {
     const ws = yield* WorkspaceMutations;
-    const inventory = yield* ws.records.getInventory(type === undefined ? {} : { type });
+    const inventory = yield* ws.records
+      .getInventory(type === undefined ? {} : { type })
+      .pipe(Effect.mapError(toAppError));
     const types = type === undefined ? installableExtensionTypes : [type];
     const rowsByKey = new Map<string, ReadModelRecordRow>();
-    const rowsByType = yield* Effect.forEach(types, (itemType) => ws.records.rows(itemType), {
-      concurrency: "unbounded",
-    });
+    const rowsByType = yield* Effect.forEach(
+      types,
+      (itemType) => ws.records.rows(itemType).pipe(Effect.mapError(toAppError)),
+      {
+        concurrency: "unbounded",
+      },
+    );
     for (const row of rowsByType.flat()) {
       rowsByKey.set(inventoryKey(row.type, row.name), row);
     }
     const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all([
-      ws.getLockedSkills(),
-      ws.getLockedMcpServers(),
-      ws.getLockedSubagents(),
-      ws.getLockedRules(),
-      ws.getLockedHooks(),
-      ws.getLockedKnowledge(),
-      ws.getLockedPacks(),
+      ws.getLockedSkills().pipe(Effect.mapError(toAppError)),
+      ws.getLockedMcpServers().pipe(Effect.mapError(toAppError)),
+      ws.getLockedSubagents().pipe(Effect.mapError(toAppError)),
+      ws.getLockedRules().pipe(Effect.mapError(toAppError)),
+      ws.getLockedHooks().pipe(Effect.mapError(toAppError)),
+      ws.getLockedKnowledge().pipe(Effect.mapError(toAppError)),
+      ws.getLockedPacks().pipe(Effect.mapError(toAppError)),
     ]);
     const accepted = (
       itemType: InstallableExtensionType,
@@ -233,7 +247,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
   }
   const identity = { owner: record.owner, type: item.type, name: record.name };
   const sourceName = record.sourceName;
-  const source = yield* ws.getConfiguredSourceByName(sourceName);
+  const source = yield* ws.getConfiguredSourceByName(sourceName).pipe(Effect.mapError(toAppError));
   if (Option.isNone(source) || source.value.type !== "registry") {
     return {
       state: "unknown",

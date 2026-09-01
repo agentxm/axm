@@ -213,61 +213,89 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   let finalizeAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
   switch (target.type) {
     case "skill": {
-      const current = yield* ws.getConfiguredSkillEntries();
+      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "mcp-server": {
-      const current = yield* ws.getConfiguredMcpServerEntries();
+      const current = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
       const existing = current[target.name];
       enabled = args.enable || (existing?.enabled ?? false);
-      markAuthored = ws.setMcpServerEntry(target.name, {
-        source: sourceLocator,
-        enabled: true,
-        env: existing?.env ?? {},
-      });
-      finalizeAuthored = ws.setMcpServerEntry(target.name, {
-        source: sourceLocator,
-        enabled,
-        env: existing?.env ?? {},
-      });
+      markAuthored = ws
+        .setMcpServerEntry(target.name, {
+          source: sourceLocator,
+          enabled: true,
+          env: existing?.env ?? {},
+        })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setMcpServerEntry(target.name, {
+          source: sourceLocator,
+          enabled,
+          env: existing?.env ?? {},
+        })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "subagent": {
-      const current = yield* ws.getConfiguredSubagentEntries();
+      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "rule": {
-      const current = yield* ws.getConfiguredRuleEntries();
+      const current = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setRuleEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setRuleEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setRuleEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setRuleEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "hook": {
-      const current = yield* ws.getConfiguredHookEntries();
+      const current = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setHookEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setHookEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setHookEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setHookEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "knowledge": {
-      const current = yield* ws.getConfiguredKnowledgeEntries();
+      const current = yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setKnowledgeEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setKnowledgeEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setKnowledgeEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setKnowledgeEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "pack": {
-      const current = yield* ws.getConfiguredPackEntries();
+      const current = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setPackEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setPackEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setPackEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setPackEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
   }

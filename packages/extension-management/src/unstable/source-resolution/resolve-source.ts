@@ -52,6 +52,7 @@ import {
 import type { SourceHostConfig } from "../settings/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { refFromFragment, refFromUrlHash, stripUrlHash } from "./url-fragment.js";
+import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -149,14 +150,17 @@ const firstSuccess = <A, E, R>(
 const getConfiguredSources = (_input: string) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    return yield* ws.getConfiguredSources().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to get configured sources: ${e._tag}`,
-        }),
-      ),
-    );
+    return yield* ws
+      .getConfiguredSources()
+      .pipe(Effect.mapError(toAppError))
+      .pipe(
+        Effect.mapError((e) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to get configured sources: ${e._tag}`,
+          }),
+        ),
+      );
   });
 
 /** Parse shorthand input using the provider for the given source type. */
@@ -474,7 +478,7 @@ export const routeNameInput = (
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
@@ -513,14 +517,17 @@ export const routeRegistryInput = (
     const ws = yield* WorkspaceMutations;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
-    const sources = yield* ws.getConfiguredSources().pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
-        }),
-      ),
-    );
+    const sources = yield* ws
+      .getConfiguredSources()
+      .pipe(Effect.mapError(toAppError))
+      .pipe(
+        Effect.mapError((e) =>
+          makeAppError({
+            code: "validation",
+            detail: `Failed to get source ${pattern.sourceName}: ${e._tag}`,
+          }),
+        ),
+      );
     const configured = Option.fromUndefinedOr(
       sources.find((source) => source.name === pattern.sourceName),
     );
@@ -578,14 +585,17 @@ export const resolveSlashInputSource = (
             return undefined;
           }
         })();
-        const registrySources = (yield* ws.getRegistrySourceHosts().pipe(
-          Effect.mapError((e) =>
-            makeAppError({
-              code: "validation",
-              detail: `Failed to get registry sources: ${e._tag}`,
-            }),
-          ),
-        )).filter((source) => source.name === "agentxm");
+        const registrySources = (yield* ws
+          .getRegistrySourceHosts()
+          .pipe(Effect.mapError(toAppError))
+          .pipe(
+            Effect.mapError((e) =>
+              makeAppError({
+                code: "validation",
+                detail: `Failed to get registry sources: ${e._tag}`,
+              }),
+            ),
+          )).filter((source) => source.name === "agentxm");
 
         if (owner !== undefined && extensionName !== undefined) {
           for (const regSource of registrySources) {

@@ -14,7 +14,10 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
@@ -67,19 +70,21 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
     const entry = { source: "workspace" as const, enabled: true };
     switch (parsed.type) {
       case "skill":
-        return ws.setSkillEntry(parsed.name, entry);
+        return ws.setSkillEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
       case "mcp-server":
-        return ws.setMcpServerEntry(parsed.name, { ...entry, env: {} });
+        return ws
+          .setMcpServerEntry(parsed.name, { ...entry, env: {} })
+          .pipe(Effect.mapError(toAppError));
       case "subagent":
-        return ws.setSubagentEntry(parsed.name, entry);
+        return ws.setSubagentEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
       case "rule":
-        return ws.setRuleEntry(parsed.name, entry);
+        return ws.setRuleEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
       case "hook":
-        return ws.setHookEntry(parsed.name, entry);
+        return ws.setHookEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
       case "knowledge":
-        return ws.setKnowledgeEntry(parsed.name, entry);
+        return ws.setKnowledgeEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
       case "pack":
-        return ws.setPackEntry(parsed.name, entry);
+        return ws.setPackEntry(parsed.name, entry).pipe(Effect.mapError(toAppError));
     }
   })();
   const preflight = Effect.gen(function* () {

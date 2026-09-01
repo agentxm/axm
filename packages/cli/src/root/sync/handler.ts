@@ -116,7 +116,10 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const SYNC_RECOVERY_IDS = {
   packManifestDivergence: "pack:manifest-divergence",
@@ -259,7 +262,7 @@ interface ConfiguredPackRecovery {
 const collectConfiguredPackRecovery = Effect.fn("Sync.collectConfiguredPackRecovery")(
   function* (args: { readonly selection: SyncSelection; readonly ignoreReleaseAge: boolean }) {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const recoveryProblems = scopedProblems(graph, args.selection).filter(
       (problem) => recoverableExternalPackName(graph, problem) !== undefined,
     );
@@ -521,7 +524,7 @@ const buildInlineMcpServerSyncOperation = ({
           : `Synced inline MCP server ${name} with ${count(warnings.length, "warning")}`,
       ...(warnings.length > 0 ? { warnings } : {}),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure)),
+  }).pipe(Effect.mapError(failureToStepFailure)),
 });
 
 const buildMcpServerPruneOperation = ({
@@ -556,7 +559,7 @@ const buildMcpServerPruneOperation = ({
             : `Pruned stale managed MCP server entries with ${count(warnings.length, "warning")}`,
       } satisfies JobStepResult;
     }),
-    Effect.mapError(appErrorToStepFailure),
+    Effect.mapError(failureToStepFailure),
   ),
 });
 
@@ -577,6 +580,7 @@ const isObservedMaterializationCurrent = (
         ? { agents: configuredAgents }
         : {}),
     })
+    .pipe(Effect.mapError(toAppError))
     .pipe(
       Effect.flatMap((inventory) => {
         const observed = inventory.items.find((item) => item.name === node.name && item.installed);
@@ -682,9 +686,12 @@ export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
     args?.ignoreReleaseAge === true ? "ignore" : "enforce",
   );
-  const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
-  const configuredAgents = args?.configuredAgents ?? (yield* ws.getConfiguredAgents());
-  const desiredState = yield* ws.getDesiredStateGraph();
+  const configuredMcpServerEntries = yield* ws
+    .getConfiguredMcpServerEntries()
+    .pipe(Effect.mapError(toAppError));
+  const configuredAgents =
+    args?.configuredAgents ?? (yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)));
+  const desiredState = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   const selection = args?.selection ?? { target: Option.none(), type: Option.none() };
   const isScoped = Option.isSome(selection.target) || Option.isSome(selection.type);
   const problems = scopedProblems(desiredState, selection);
@@ -1173,7 +1180,7 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
 }) {
   const manager = yield* KnowledgeManager;
   const ws = yield* WorkspaceMutations;
-  const instructions = yield* ws.getInstructionsConfig();
+  const instructions = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
   const instructionFile = resolveInstructionsConfig(
     Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
   ).fileName;
@@ -1218,7 +1225,7 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
     artifact,
     ...(message.length === 0 ? {} : { message }),
     run: manager.sync({ dryRun: false }).pipe(
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
       Effect.map((result): JobStepResult => {
         const mechanism = result.artifacts.find(
           (artifact) => artifact.mechanism !== undefined,
@@ -1276,7 +1283,7 @@ const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
       }),
       cleanupStaleManagedSubagentFiles({ expectedSubagentNames }),
     ]).pipe(
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
       Effect.map((results): JobStepResult => {
         const removedPaths = results.flatMap((result) => result.removedPaths);
         return {
@@ -1411,7 +1418,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
         message: "Reconciled managed hook entries and the fallback region",
         artifact: { ...artifact, agentOutcomes: currentOutcomes },
       } satisfies JobStepResult;
-    }).pipe(Effect.mapError(appErrorToStepFailure)),
+    }).pipe(Effect.mapError(failureToStepFailure)),
   });
 });
 
@@ -1419,7 +1426,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
   projectionFacts: ReadonlyArray<ProjectionInvariantFact>,
 ) {
   const ws = yield* WorkspaceMutations;
-  const config = yield* ws.getInstructionsConfig();
+  const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
   const manager = yield* RuleManager;
   const unsupported = projectionFacts.find(
     ({ observation }) => observation.reasonCode === "unsupported-version",
@@ -1457,7 +1464,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
       label: projectionDivergenceLabel("managed Rules region", projectionFacts),
       artifact,
       run: applyPlannedProjections(manager).pipe(
-        Effect.mapError(appErrorToStepFailure),
+        Effect.mapError(failureToStepFailure),
         Effect.as({
           result: "success",
           message: "Reconciled the managed Rules region",
@@ -1467,7 +1474,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     });
   }
 
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const resolvedConfig = resolveInstructionsConfig(config.value);
   const snapshot = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
@@ -1518,7 +1525,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
     run: applyPlannedProjections(manager).pipe(
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
       Effect.map((): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",
@@ -1692,7 +1699,8 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (
     ...Option.toArray(cleanupStep),
     ...Option.toArray(instructionStep),
   ];
-  const lockfileNeedsRecovery = (yield* ws.getLockfileState()) !== "ok";
+  const lockfileNeedsRecovery =
+    (yield* ws.getLockfileState().pipe(Effect.mapError(toAppError))) !== "ok";
   if (baseSteps.length === 0 && !lockfileNeedsRecovery) {
     yield* emitNoOpOutcome("sync", {
       planName,

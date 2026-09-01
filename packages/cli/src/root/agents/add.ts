@@ -34,7 +34,10 @@ import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -55,23 +58,26 @@ const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJo
     fileCount: 1,
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
-  run: ws.addConfiguredAgent(agentId).pipe(
-    Effect.mapError(appErrorToStepFailure),
-    Effect.as({
-      result: "success",
-      message: `Configured ${agentId}`,
-      artifact: {
-        path: workspaceSettingsPath(ws.scope),
-        scope: ws.scope,
-        agents: [agentId],
-        change: "updated",
-        fileCount: 1,
-        targets: [
-          { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
-        ],
-      },
-    } satisfies JobStepResult),
-  ),
+  run: ws
+    .addConfiguredAgent(agentId)
+    .pipe(Effect.mapError(toAppError))
+    .pipe(
+      Effect.mapError(failureToStepFailure),
+      Effect.as({
+        result: "success",
+        message: `Configured ${agentId}`,
+        artifact: {
+          path: workspaceSettingsPath(ws.scope),
+          scope: ws.scope,
+          agents: [agentId],
+          change: "updated",
+          fileCount: 1,
+          targets: [
+            { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
+          ],
+        },
+      } satisfies JobStepResult),
+    ),
 });
 
 const materializationArtifact = (
@@ -201,7 +207,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   }
 
   const requested = yield* validateAgentIds(args.ids);
-  const configured = yield* ws.getConfiguredAgents();
+  const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const detected = args.detected
     ? yield* renderer.withSpinner(
@@ -273,18 +279,21 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
     ws,
     steps,
     validate: () =>
-      ws.getConfiguredAgents().pipe(
-        Effect.flatMap((current) => {
-          const currentSet = new Set(current);
-          const missing = agentIds.filter((agentId) => !currentSet.has(agentId));
-          return missing.length === 0
-            ? Effect.void
-            : makeAppError({
-                code: "internal",
-                detail: `Agent membership transition did not configure: ${missing.join(", ")}`,
-              });
-        }),
-      ),
+      ws
+        .getConfiguredAgents()
+        .pipe(Effect.mapError(toAppError))
+        .pipe(
+          Effect.flatMap((current) => {
+            const currentSet = new Set(current);
+            const missing = agentIds.filter((agentId) => !currentSet.has(agentId));
+            return missing.length === 0
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Agent membership transition did not configure: ${missing.join(", ")}`,
+                });
+          }),
+        ),
   });
   const basePlan = makePlan(agentIds, atomicSteps);
   const plan =

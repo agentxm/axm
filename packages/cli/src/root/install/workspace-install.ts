@@ -69,6 +69,7 @@ import type { InstallSubagentCommandIntent } from "../subagents/install/intent.j
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 
@@ -338,7 +339,7 @@ const hydrateAcceptedPackRef = (name: string, ref: PackRef) =>
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const locked = yield* ws.getLockedPack(name);
+    const locked = yield* ws.getLockedPack(name).pipe(Effect.mapError(toAppError));
     if (Option.isNone(locked)) {
       return yield* makeAppError({
         code: "conflict",
@@ -478,7 +479,7 @@ const collectSkillPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredSkillEntries();
+    const configured = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured).filter(
       ([, entry]) => entry.origin !== "bundled",
     );
@@ -509,7 +510,7 @@ const collectRulePlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredRuleEntries();
+    const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -538,7 +539,7 @@ const collectHookPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredHookEntries();
+    const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -567,7 +568,7 @@ const collectKnowledgePlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const configured = yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -596,7 +597,7 @@ const collectSubagentPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredSubagentEntries();
+    const configured = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -625,7 +626,7 @@ const collectMcpServerPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredMcpServerEntries();
+    const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured);
 
     const plans = yield* Effect.forEach(
@@ -659,7 +660,7 @@ const collectPackPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredPackEntries();
+    const configured = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
     const entries = enabledConfiguredEntries(configured).filter(
       ([name]) => selectedNames === undefined || selectedNames.has(name),
     );
@@ -718,13 +719,22 @@ const makeWorkspaceInstallCollectors = (
   actions: InstallCommandActions,
 ): ReadonlyArray<WorkspaceInstallCollector> => {
   const collectorsByType = {
-    skill: (releaseAge) => collectSkillPlans(releaseAge, actions.skill),
-    rule: (releaseAge) => collectRulePlans(releaseAge, actions.rule),
-    hook: (releaseAge) => collectHookPlans(releaseAge, actions.hook),
-    knowledge: (releaseAge) => collectKnowledgePlans(releaseAge, actions.knowledge),
-    subagent: (releaseAge) => collectSubagentPlans(releaseAge, actions.subagent),
-    "mcp-server": (releaseAge) => collectMcpServerPlans(releaseAge, actions.mcpServer),
-    pack: (releaseAge) => collectPackPlans(releaseAge, actions.pack, undefined, undefined, true),
+    skill: (releaseAge) =>
+      collectSkillPlans(releaseAge, actions.skill).pipe(Effect.mapError(toAppError)),
+    rule: (releaseAge) =>
+      collectRulePlans(releaseAge, actions.rule).pipe(Effect.mapError(toAppError)),
+    hook: (releaseAge) =>
+      collectHookPlans(releaseAge, actions.hook).pipe(Effect.mapError(toAppError)),
+    knowledge: (releaseAge) =>
+      collectKnowledgePlans(releaseAge, actions.knowledge).pipe(Effect.mapError(toAppError)),
+    subagent: (releaseAge) =>
+      collectSubagentPlans(releaseAge, actions.subagent).pipe(Effect.mapError(toAppError)),
+    "mcp-server": (releaseAge) =>
+      collectMcpServerPlans(releaseAge, actions.mcpServer).pipe(Effect.mapError(toAppError)),
+    pack: (releaseAge) =>
+      collectPackPlans(releaseAge, actions.pack, undefined, undefined, true).pipe(
+        Effect.mapError(toAppError),
+      ),
   } satisfies Record<InstallableExtensionType, WorkspaceInstallCollector["collect"]>;
 
   return installableExtensionTypes.map((type) => ({

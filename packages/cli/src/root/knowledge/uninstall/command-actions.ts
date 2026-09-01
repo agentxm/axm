@@ -26,6 +26,7 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface UninstallKnowledgeHandlerArgs {
   readonly name: string;
@@ -73,9 +74,13 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
     target: KnowledgeExtensionTarget,
   ): Effect.Effect<KnowledgeUninstallOwnership, AppError> =>
     Effect.gen(function* () {
-      const configured = yield* ws.getConfiguredKnowledgeEntries();
-      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
-      const graph = yield* ws.getDesiredStateGraph();
+      const configured = yield* ws
+        .getConfiguredKnowledgeEntries()
+        .pipe(Effect.mapError(toAppError));
+      const locked = yield* ws
+        .getLockedKnowledgeEntry(target.name)
+        .pipe(Effect.mapError(toAppError));
+      const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
       const desired = graph.nodes.find(
         (node) => node.type === "knowledge" && node.name === target.name,
       );
@@ -92,7 +97,9 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
           Option.isSome(locked) ? lockCanonicalRoot(path, ws.layout, locked.value) : undefined,
         onSome: (accepted) => accepted.observation.path,
       });
-      const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
+      const inventory = yield* ws.records
+        .getExtensionInventory("knowledge", {})
+        .pipe(Effect.mapError(toAppError));
       const actualPaths = inventory.items
         .filter((item) => item.name === target.name)
         .flatMap((item) => item.paths.map((itemPath) => path.resolve(ws.baseDir, itemPath)));
@@ -101,7 +108,9 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
       const workspaceOwned = desired?.identity.startsWith("workspace:") === true;
       const hasAcceptedOwnership = workspaceOwned || Option.isSome(locked);
       const settingsPresent = configured[target.name] !== undefined;
-      const instructionsConfig = yield* ws.getInstructionsConfig();
+      const instructionsConfig = yield* ws
+        .getInstructionsConfig()
+        .pipe(Effect.mapError(toAppError));
       const resolvedInstructions = resolveInstructionsConfig(
         Option.match(instructionsConfig, {
           onNone: () => undefined,
@@ -132,11 +141,13 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
 
   const isAcceptedTargetPresent = (target: KnowledgeExtensionTarget) =>
     Effect.gen(function* () {
-      const graph = yield* ws.getDesiredStateGraph();
+      const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
       const desired = graph.nodes.find(
         (node) => node.type === "knowledge" && node.name === target.name,
       );
-      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+      const locked = yield* ws
+        .getLockedKnowledgeEntry(target.name)
+        .pipe(Effect.mapError(toAppError));
       return desired?.identity.startsWith("workspace:") === true || Option.isSome(locked);
     });
 
@@ -166,7 +177,9 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
             ? Option.none<string>()
             : yield* manager.getConfiguredSource({ target });
         const installed = yield* manager.isInstalled({ target });
-        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+        const locked = yield* ws
+          .getLockedKnowledgeEntry(target.name)
+          .pipe(Effect.mapError(toAppError));
         const authoredPackagePresent =
           ws.layout.scope === "project" &&
           (yield* fs.exists(path.join(ws.layout.authoredRoot("knowledge"), target.name)).pipe(

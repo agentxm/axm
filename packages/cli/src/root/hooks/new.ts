@@ -147,7 +147,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
   const ws = yield* WorkspaceMutations;
   const manager = yield* HookManager;
 
-  const configuredHooks = yield* ws.getConfiguredHookEntries();
+  const configuredHooks = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
 
   // 4. Apply matcher default for tool-scoped events
   const matcher = Option.isSome(args.matcher)
@@ -218,7 +218,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
     message: `Created hook ${fqn}`,
     plannedArtifact,
     preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredHookEntries();
+      const current = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
       yield* preflightCreateOnly({
         subject: "Hook",
         name: args.name,
@@ -230,6 +230,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
       Effect.gen(function* () {
         const currentLockEntry = yield* ws
           .getLockedHookEntry(args.name)
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         const materialization =
           manager.getLastMaterialization === undefined
@@ -263,10 +264,12 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
           pathService: path,
         });
       }),
-    markAuthored: ws.setHookEntry(args.name, {
-      source: "workspace",
-      enabled: true,
-    }),
+    markAuthored: ws
+      .setHookEntry(args.name, {
+        source: "workspace",
+        enabled: true,
+      })
+      .pipe(Effect.mapError(toAppError)),
     scaffold: newHook(op).pipe(
       Effect.map(toJobStepResult),
       Effect.mapError(toAppError),

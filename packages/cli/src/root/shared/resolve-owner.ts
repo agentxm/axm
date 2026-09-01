@@ -9,6 +9,7 @@ import {
   type WorkspaceScope,
 } from "@agentxm/extension-management/unstable/workspace";
 import { workspaceSettingsPath } from "./workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const makeOwnerRequiredError = (action: string, scope: WorkspaceScope): AppError =>
   makeAppError({
@@ -37,7 +38,7 @@ export const resolveOwnerForNewContent = (
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
 
-    const configured = yield* ws.getConfiguredOwner();
+    const configured = yield* ws.getConfiguredOwner().pipe(Effect.mapError(toAppError));
     if (Option.isSome(configured)) return configured.value;
 
     const registryUrl = yield* RegistryUrl;

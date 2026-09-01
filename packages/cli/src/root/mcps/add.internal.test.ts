@@ -15,6 +15,7 @@ import {
   planResultUnits,
 } from "../../test-helpers.js";
 import { handleMcpsAdd } from "./add.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 describe("mcps add output", () => {
   let tempDir: string;
@@ -276,8 +277,9 @@ describe("mcps add output", () => {
 
         expect(Result.isFailure(result)).toBe(true);
         if (Result.isFailure(result)) {
-          expect(result.failure.code).toBe("usage");
-          expect(result.failure.detail).toContain("axm mcps install @acme/mcps/demo");
+          const failure = toAppError(result.failure);
+          expect(failure.code).toBe("usage");
+          expect(failure.detail).toContain("axm mcps install @acme/mcps/demo");
         }
         const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers).toEqual({});

@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 
 import { StepFailure } from "@agentxm/extension-management/unstable/plan";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { JobStepResult, Plan } from "@agentxm/extension-management/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
@@ -107,7 +107,7 @@ describe("targeted update transaction", () => {
         const wrapped = yield* wrapTargetedUpdatePlan({
           plan: planWithStep(
             workspace.removeSkillFromSettings(target.name).pipe(
-              Effect.mapError(appErrorToStepFailure),
+              Effect.mapError(failureToStepFailure),
               Effect.map(() => ({
                 result: "success" as const,
                 message: "removed direct intent",

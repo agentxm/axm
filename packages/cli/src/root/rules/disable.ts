@@ -29,7 +29,10 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleDisableRule = (args: {
   readonly name: string;
@@ -55,7 +58,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const scope = ws.scope;
-  const configured = yield* ws.getConfiguredRuleEntries();
+  const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
   const entry = configured[args.name];
   if (entry === undefined) {
     yield* emitNoOpOutcome("rules.disable", {
@@ -80,10 +83,12 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
       })
     : Option.none();
   const disableTransition = Effect.gen(function* () {
-    yield* ws.updateRuleEntry(args.name, (current) => ({
-      ...current,
-      enabled: false,
-    }));
+    yield* ws
+      .updateRuleEntry(args.name, (current) => ({
+        ...current,
+        enabled: false,
+      }))
+      .pipe(Effect.mapError(toAppError));
     yield* ruleManager.materializeDeactivate({
       target: { type: "rule", name: args.name },
     });
@@ -120,7 +125,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
             : disableTransition,
           validate: () => Effect.void,
         })
-        .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
+        .pipe(surfaceRestorationIncomplete, Effect.mapError(failureToStepFailure)),
     }),
   });
   const plan: Plan = {

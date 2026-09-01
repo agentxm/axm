@@ -37,7 +37,10 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;
@@ -94,7 +97,7 @@ const cleanupStep = (
   },
   run: provideCleanupServices(
     cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
       Effect.map(
         (result) =>
           ({
@@ -140,23 +143,26 @@ const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): Planne
     fileCount: 1,
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
-  run: ws.removeConfiguredAgent(agentId).pipe(
-    Effect.mapError(appErrorToStepFailure),
-    Effect.as({
-      result: "success",
-      message: `Removed ${agentId}`,
-      artifact: {
-        path: workspaceSettingsPath(ws.scope),
-        scope: ws.scope,
-        agents: [agentId],
-        change: "updated",
-        fileCount: 1,
-        targets: [
-          { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
-        ],
-      },
-    } satisfies JobStepResult),
-  ),
+  run: ws
+    .removeConfiguredAgent(agentId)
+    .pipe(Effect.mapError(toAppError))
+    .pipe(
+      Effect.mapError(failureToStepFailure),
+      Effect.as({
+        result: "success",
+        message: `Removed ${agentId}`,
+        artifact: {
+          path: workspaceSettingsPath(ws.scope),
+          scope: ws.scope,
+          agents: [agentId],
+          change: "updated",
+          fileCount: 1,
+          targets: [
+            { path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] },
+          ],
+        },
+      } satisfies JobStepResult),
+    ),
 });
 
 const makePlan = <Requirements, Output>(
@@ -190,7 +196,7 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const agentRepo = yield* CodingAgentRepository;
 
   const agentIds = yield* validateAgentIds(args.ids);
-  const configured = yield* ws.getConfiguredAgents();
+  const configured = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredSet = new Set(configured);
   const missing = agentIds.filter((id) => !configuredSet.has(id));
 
@@ -224,18 +230,21 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
     ws,
     steps,
     validate: () =>
-      ws.getConfiguredAgents().pipe(
-        Effect.flatMap((current) => {
-          const currentSet = new Set(current);
-          const retained = agentIds.filter((agentId) => currentSet.has(agentId));
-          return retained.length === 0
-            ? Effect.void
-            : makeAppError({
-                code: "internal",
-                detail: `Agent membership transition did not remove: ${retained.join(", ")}`,
-              });
-        }),
-      ),
+      ws
+        .getConfiguredAgents()
+        .pipe(Effect.mapError(toAppError))
+        .pipe(
+          Effect.flatMap((current) => {
+            const currentSet = new Set(current);
+            const retained = agentIds.filter((agentId) => currentSet.has(agentId));
+            return retained.length === 0
+              ? Effect.void
+              : makeAppError({
+                  code: "internal",
+                  detail: `Agent membership transition did not remove: ${retained.join(", ")}`,
+                });
+          }),
+        ),
   });
   const plan = makePlan(agentIds, atomicSteps);
 

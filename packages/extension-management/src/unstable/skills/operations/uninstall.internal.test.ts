@@ -10,6 +10,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { PackLockEntry, SkillLockEntry } from "../../lockfile/index.js";
 import { AppError, makeAppError } from "../../app-error/index.js";
+import { LockfileParseError, type LockfileReadError } from "../../workspace/read-model/errors.js";
 import { sanitizeName } from "../../workspace/extension-name.js";
 import {
   WorkspaceMutations,
@@ -41,7 +42,7 @@ const makeWorkspaceMock = (
   overrides?: {
     removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
     removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
-    lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, LockfileReadError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
@@ -156,7 +157,7 @@ const withServices = (
   wsOverrides?: {
     removeSkillFn?: (name: string) => Effect.Effect<void, AppError>;
     removeSkillFromSettingsFn?: (name: string) => Effect.Effect<void, AppError>;
-    lockfileErrorOverride?: () => Effect.Effect<never, AppError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, LockfileReadError>;
     setSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, AppError>;
     lockedPacks?: Record<string, PackLockEntry>;
@@ -697,9 +698,10 @@ describe("uninstallSkill", () => {
               {
                 lockfileErrorOverride: () =>
                   Effect.fail(
-                    makeAppError({
-                      code: "validation",
-                      detail: "corrupt lockfile",
+                    new LockfileParseError({
+                      path: "axm-lock.yaml",
+                      raw: "corrupt lockfile",
+                      cause: new Error("corrupt lockfile"),
                     }),
                   ),
               },

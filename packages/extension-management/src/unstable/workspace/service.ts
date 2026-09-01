@@ -44,7 +44,14 @@ import {
   formatFqn,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import {
+  DesiredPackGraphIncomplete,
+  InvalidAgentId,
+  LockedSkillMissing,
+  SettingsEntryMissing,
+  WorkspaceNotInitialized,
+} from "./errors.js";
+import { LockfileValidationError } from "../lockfile/errors.js";
 import {
   createDefaultSettings,
   type HookEntry,
@@ -109,6 +116,8 @@ import {
   type ExtensionTarget,
   type LockfileState,
   type MakeWorkspaceTransactionCapabilities,
+  type WorkspaceSettingsReadFailure,
+  type WorkspaceStateReadFailure,
 } from "./service-interface.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
@@ -155,75 +164,6 @@ const subagentLockEntrySemanticallyEqual = (
   next: SubagentLockEntry,
 ): boolean => lockEntrySemanticallyEqual(current, next);
 
-const contextReadErrorToAppError = (
-  source: "settings" | "lockfile" | "workspace",
-  error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
-): AppError => {
-  // A hand-edited settings file the user can correct is a validation failure,
-  // not an internal error; name the offending keys so the fix is obvious.
-  if (error._tag === "SettingsDecodeError") {
-    return makeAppError({
-      code: "validation",
-      detail: `Invalid workspace settings at ${error.path}: ${error.issues.join("; ")}`,
-      cause: error,
-      suggestions: [
-        { description: "Edit the settings file to fix the invalid value, then re-run." },
-      ],
-    });
-  }
-  if (error._tag === "SettingsParseError") {
-    return makeAppError({
-      code: "validation",
-      detail: `Workspace settings at ${error.path} are not valid JSON`,
-      cause: error,
-      suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
-    });
-  }
-  if (error._tag === "SettingsIoError") {
-    return makeAppError({
-      code: "validation",
-      detail: `Workspace settings at ${error.path} could not be read`,
-      cause: error,
-      suggestions: [
-        {
-          description: "Repair the settings file permissions or restore the file, then re-run.",
-        },
-      ],
-    });
-  }
-
-  // An unreadable or corrupt lockfile is actionable workspace state, not a
-  // violated invariant.
-  const lockfileFailure =
-    error._tag === "LockfileIoError" ||
-    error._tag === "LockfileParseError" ||
-    error._tag === "LockfileDecodeError";
-  return makeAppError({
-    code: lockfileFailure ? "validation" : "internal",
-    detail: lockfileFailure
-      ? `Failed to read the workspace lockfile. Fix the file's permissions or restore it from version control, then rerun.`
-      : `Failed to read workspace ${source}`,
-    cause: error,
-  });
-};
-
-const contextCellErrorToAppError = (
-  error: SettingsReadError | LockfileReadError | WorkspaceRootEscape,
-): AppError => {
-  switch (error._tag) {
-    case "LockfileIoError":
-    case "LockfileParseError":
-    case "LockfileDecodeError":
-      return contextReadErrorToAppError("lockfile", error);
-    case "SettingsIoError":
-    case "SettingsParseError":
-    case "SettingsDecodeError":
-      return contextReadErrorToAppError("settings", error);
-    case "WorkspaceRootEscape":
-      return contextReadErrorToAppError("workspace", error);
-  }
-};
-
 /**
  * Options for creating workspace mutations.
  */
@@ -231,19 +171,12 @@ export type WorkspaceLayerOptions = WorkspaceMutationsOptions;
 
 const requireInitializedWorkspace = (
   settingsPath: string,
-  settings: Effect.Effect<Option.Option<Settings>, AppError>,
+  settings: Effect.Effect<Option.Option<Settings>, WorkspaceSettingsReadFailure>,
 ) =>
   settings.pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () =>
-          Effect.fail(
-            makeAppError({
-              code: "internal",
-              detail: `Workspace settings not found: ${settingsPath}`,
-              suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
-            }),
-          ),
+        onNone: () => Effect.fail(new WorkspaceNotInitialized({ settingsPath })),
         onSome: () => Effect.void,
       }),
     ),
@@ -253,10 +186,10 @@ const requireInitializedWorkspace = (
  * Create the workspace mutations service from an existing workspace on disk.
  *
  * The workspace must already be initialized. Missing or invalid settings fail
- * fast with an `AppError`. The two operations-side capabilities — the
- * transaction runner and transition acquirer — are injected through
- * `makeCapabilities`; the composition seam in `./operations/load-workspace.ts`
- * supplies the live implementation.
+ * fast with a typed `WorkspaceMutationsError`. The two operations-side
+ * capabilities — the transaction runner and transition acquirer — are
+ * injected through `makeCapabilities`; the composition seam in
+ * `./operations/load-workspace.ts` supplies the live implementation.
  */
 export const makeWorkspaceMutations = (
   options: WorkspaceLayerOptions,
@@ -308,7 +241,6 @@ export const makeWorkspaceMutations = (
       makeWorkspaceReadModel(scopeForDir(dir, sharedScope)).pipe(
         Effect.flatMap((readModel) => readModel.state.settings),
         Effect.provide(contextEnv),
-        Effect.mapError((error) => contextReadErrorToAppError("settings", error)),
       );
 
     const readLockfileCell = (dir: string, sharedScope?: "project" | "user") =>
@@ -316,7 +248,6 @@ export const makeWorkspaceMutations = (
         Effect.flatMap((readModel) => readModel.state.lockfile),
         Effect.map(Option.getOrElse(createEmptyLockfile)),
         Effect.provide(contextEnv),
-        Effect.mapError((error) => contextReadErrorToAppError("lockfile", error)),
       );
 
     if (options.allowUninitialized !== true) {
@@ -373,56 +304,53 @@ export const makeWorkspaceMutations = (
     });
 
     /**
-     * Look up `key` in `record`, failing with an `AppError` when absent.
+     * Look up `key` in `record`, failing with `onMissing`'s error when absent.
      */
-    const getEntryOrFail = <T>(
+    const getEntryOrFail = <T, E>(
       record: Readonly<Record<string, T>>,
       key: string,
-      code: AppError["code"],
-      message: string,
-    ): Effect.Effect<T, AppError> =>
+      onMissing: () => E,
+    ): Effect.Effect<T, E> =>
       key in record && record[key] !== undefined
         ? Effect.succeed(record[key])
-        : Effect.fail(makeAppError({ code, detail: message }));
+        : Effect.fail(onMissing());
 
     /**
      * Probe lockfile state without mutating disk.
      */
-    const getLockfileState = (): Effect.Effect<LockfileState, AppError> =>
+    const getLockfileState = (): Effect.Effect<
+      LockfileState,
+      LockfileValidationError | WorkspaceRootEscape
+    > =>
       Effect.gen(function* () {
-        const exists = yield* fs.exists(lockPath).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "validation",
-              detail: `Failed to check if lockfile exists at ${lockPath}`,
-              cause: error,
-            }),
-          ),
-        );
+        const exists = yield* fs
+          .exists(lockPath)
+          .pipe(
+            Effect.mapError(
+              (cause) => new LockfileValidationError({ path: lockPath, step: "probe", cause }),
+            ),
+          );
 
         if (!exists) {
           return "missing";
         }
 
+        // An unreadable or corrupt lockfile is actionable workspace state,
+        // not a violated invariant.
         return yield* readLockfileSafe(workspaceDir).pipe(
           Effect.as("ok" as const),
-          Effect.catch((error) => {
-            if (error.code === "validation") {
-              return Effect.succeed("invalid" as const);
-            }
-
-            return Effect.fail(error);
-          }),
+          Effect.catchTag(["LockfileIoError", "LockfileParseError", "LockfileDecodeError"], () =>
+            Effect.succeed("invalid" as const),
+          ),
         );
       }).pipe(Effect.withSpan("WorkspaceMutations.getLockfileState"));
 
     const readScopedContext = <A>(
       f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
-    ): Effect.Effect<A, AppError> =>
+    ): Effect.Effect<A, WorkspaceStateReadFailure> =>
       makeWorkspaceReadModel(scopeForDir(workspaceDir)).pipe(
         Effect.flatMap(f),
         Effect.provide(contextEnv),
-        Effect.mapError(contextCellErrorToAppError),
       );
 
     const readDesiredStateGraph = (graphOptions?: {
@@ -496,7 +424,10 @@ export const makeWorkspaceMutations = (
      * Three-layer merge: project sources -> user-scope sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
-    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError> =>
+    const getConfiguredSources = (): Effect.Effect<
+      ReadonlyArray<SourceHostConfig>,
+      WorkspaceSettingsReadFailure
+    > =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
@@ -1180,16 +1111,7 @@ export const makeWorkspaceMutations = (
           );
 
           if (Option.isNone(lockEntry)) {
-            return yield* makeAppError({
-              code: "conflict",
-              detail: `Skill "${name}" not found in lockfile`,
-              suggestions: [
-                {
-                  description: "Install the skill first.",
-                  cmd: "axm skills install <source>",
-                },
-              ],
-            });
+            return yield* new LockedSkillMissing({ name });
           }
 
           const entry = lockEntry.value;
@@ -1382,8 +1304,7 @@ export const makeWorkspaceMutations = (
             const currentEntry = yield* getEntryOrFail(
               currentSkills,
               name,
-              "not_found",
-              `Skill "${name}" not found in settings`,
+              () => new SettingsEntryMissing({ entryType: "skill", name }),
             );
             const updated = updater(currentEntry);
             const updatedSettings = {
@@ -1412,15 +1333,7 @@ export const makeWorkspaceMutations = (
           Effect.gen(function* () {
             const validId = yield* Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(
               agentId,
-            ).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "validation",
-                  detail: `Invalid agent ID: ${agentId}`,
-                  cause: error,
-                }),
-              ),
-            );
+            ).pipe(Effect.mapError((cause) => new InvalidAgentId({ agentId, cause })));
             const current = yield* readSettingsSafe(workspaceDir);
             const agents = current.agents ?? [];
             if (agents.includes(validId)) return;
@@ -1434,15 +1347,7 @@ export const makeWorkspaceMutations = (
           Effect.gen(function* () {
             const validId = yield* Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(
               agentId,
-            ).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "validation",
-                  detail: `Invalid agent ID: ${agentId}`,
-                  cause: error,
-                }),
-              ),
-            );
+            ).pipe(Effect.mapError((cause) => new InvalidAgentId({ agentId, cause })));
             const current = yield* readSettingsSafe(workspaceDir);
             const agents = current.agents ?? [];
             if (!agents.includes(validId)) return;
@@ -1841,8 +1746,7 @@ export const makeWorkspaceMutations = (
             const currentEntry = yield* getEntryOrFail(
               currentMcpServers,
               name,
-              "not_found",
-              `MCP server "${name}" not found in settings`,
+              () => new SettingsEntryMissing({ entryType: "mcp-server", name }),
             );
             const updated = updater(currentEntry);
             const updatedSettings = {
@@ -1992,11 +1896,7 @@ export const makeWorkspaceMutations = (
           if (target.type === "pack") return false;
           const graph = yield* readDesiredStateGraph();
           if (!graph.complete) {
-            return yield* makeAppError({
-              code: "conflict",
-              detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
-              recover: "Restore or reinstall configured pack manifests, then retry.",
-            });
+            return yield* new DesiredPackGraphIncomplete();
           }
           return graph.nodes.some(
             (node) =>

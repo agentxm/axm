@@ -49,7 +49,7 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { createSymlink } from "../../workspace/create-symlink.js";
 import { validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { StepFailure } from "../../plan/errors.js";
 import {
   acceptedRegistryVersionForRef,
@@ -892,12 +892,13 @@ export const installSkill: OperationHandler<
             });
     const writeFailure = yield* writeEffect.pipe(Effect.result);
     if (writeFailure._tag === "Failure") {
-      const detail = `Installed ${ref.skill.name}, but failed to record desired state: ${writeFailure.failure.detail}`;
+      const failure = toAppError(writeFailure.failure);
+      const detail = `Installed ${ref.skill.name}, but failed to record desired state: ${failure.detail}`;
       return {
         result: "error",
         message: detail,
         error: new StepFailure({
-          category: writeFailure.failure.code,
+          category: failure.code,
           detail,
           suggestions: [
             {
@@ -905,7 +906,7 @@ export const installSkill: OperationHandler<
               cmd: `axm skills install ${baseLockEntry === undefined ? printSourceParams(ref.source) : printSkillLockSourceLocator(ref.skill.name, baseLockEntry)}`,
             },
           ],
-          cause: writeFailure.failure,
+          cause: failure,
         }),
       } satisfies JobStepResult;
     }
@@ -932,4 +933,4 @@ export const installSkill: OperationHandler<
         ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
       },
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

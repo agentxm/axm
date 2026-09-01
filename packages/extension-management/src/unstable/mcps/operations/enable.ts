@@ -14,7 +14,7 @@ import {
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
@@ -275,4 +275,4 @@ export const enableMcpServer = (
         targets: agentConfigTargets(agentOutcomes),
       }),
     };
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

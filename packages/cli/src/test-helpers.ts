@@ -14,6 +14,10 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/extension-management/unstable/app-error";
+import {
+  isKnownFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
 import {
   AuthLoginPresenterTest,
@@ -339,10 +343,15 @@ export const stringArrayProperty = (
 };
 
 export const getAppError = (error: unknown): AppError => {
-  if (!(error instanceof AppError)) {
-    throw new Error("Expected AppError");
+  if (error instanceof AppError) {
+    return error;
   }
-  return error;
+  // Typed workspace failures assert through their boundary rendering; the
+  // byte-for-byte contract for each tag is pinned by the conversion tests.
+  if (isKnownFailure(error)) {
+    return toAppError(error);
+  }
+  throw new Error("Expected AppError");
 };
 
 export const getErrorResult = (result: unknown): AppErrorResult => {

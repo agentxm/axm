@@ -317,6 +317,12 @@ export {
   type WorkspaceMutationsService,
   type WorkspaceMutationsError,
   type WorkspaceMutationsOptions,
+  type WorkspaceSettingsReadFailure,
+  type WorkspaceLockfileReadFailure,
+  type WorkspaceStateReadFailure,
+  type WorkspaceSettingsMutationFailure,
+  type WorkspaceLockfileMutationFailure,
+  type WorkspaceStateMutationFailure,
   type SetSkillArgs,
   type SetPackArgs,
   type SetMcpServerArgs,
@@ -348,6 +354,31 @@ export type {
   ExtensionManager,
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
+
+// Read-model per-source typed failure families
+export {
+  LockfileDecodeError,
+  LockfileIoError,
+  LockfileParseError,
+  SettingsDecodeError,
+  SettingsIoError,
+  SettingsParseError,
+  WorkspaceRootEscape,
+  type LockfileReadError,
+  type SettingsReadError,
+} from "./read-model/errors.js";
+
+// Workspace-state typed failure families
+export {
+  CanonicalPathRemovalError,
+  DesiredPackGraphIncomplete,
+  InvalidAgentId,
+  LockedSkillMissing,
+  SettingsEntryMissing,
+  SymlinkCreationError,
+  WorkspaceLayoutError,
+  WorkspaceNotInitialized,
+} from "./errors.js";
 
 // Workspace mutation service implementation (layer)
 export { type WorkspaceLayerOptions } from "./service.js";

@@ -73,7 +73,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
   // Check if pack already exists
   const packDir = computePackPathsForLayout(path.join, ws.layout, "workspace", owner, args.name);
   const authoredPath = path.relative(base, packDir.canonicalPath);
-  const configuredPacks = yield* ws.getConfiguredPackEntries();
+  const configuredPacks = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "Pack",
     name: args.name,
@@ -121,7 +121,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     label: fqn,
     message: `Created pack ${fqn}`,
     preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredPackEntries();
+      const current = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
       yield* preflightCreateOnly({
         subject: "Pack",
         name: args.name,
@@ -129,7 +129,9 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
         destinations: [packDir.canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws.setPackEntry(args.name, { source: "workspace", enabled: true }),
+    markAuthored: ws
+      .setPackEntry(args.name, { source: "workspace", enabled: true })
+      .pipe(Effect.mapError(toAppError)),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(

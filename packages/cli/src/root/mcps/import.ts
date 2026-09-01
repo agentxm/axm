@@ -43,6 +43,7 @@ import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extension
 import {
   fqnInvalidErrorToAppError,
   toAppError,
+  failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
 import type {
@@ -72,7 +73,7 @@ import {
   type McpImportSource,
   preflightMcpImports,
 } from "./import-preflight.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
@@ -187,8 +188,8 @@ const collectImportSources = (
       );
     };
 
-    const agentIds = [...(yield* ws.getConfiguredAgents())].sort((left, right) =>
-      left.localeCompare(right),
+    const agentIds = [...(yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)))].sort(
+      (left, right) => left.localeCompare(right),
     );
     for (const agentId of agentIds) {
       if (!isCapabilityAgentId(agentId)) continue;
@@ -391,7 +392,9 @@ const applyImport = (
       targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
       transition: Effect.gen(function* () {
         for (const candidate of candidates) {
-          yield* ws.setMcpServerEntry(candidate.name, settingsEntry(candidate));
+          yield* ws
+            .setMcpServerEntry(candidate.name, settingsEntry(candidate))
+            .pipe(Effect.mapError(toAppError));
         }
         for (const adoption of adoptions) {
           if (hooks.beforeAdoptionWrite !== undefined) {
@@ -402,7 +405,9 @@ const applyImport = (
       }),
       validate: () =>
         Effect.gen(function* () {
-          const configured = yield* ws.getConfiguredMcpServerEntries();
+          const configured = yield* ws
+            .getConfiguredMcpServerEntries()
+            .pipe(Effect.mapError(toAppError));
           for (const candidate of candidates) {
             if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
               return yield* makeAppError({
@@ -464,7 +469,7 @@ const makePlan = (
             message: `Candidates: ${preflight.candidates.map((candidate) => candidate.name).join(", ")}`,
             artifact: importArtifact(preflight, ws, path),
             run: applyImport(preflight.candidates, ws, fs, hooks).pipe(
-              Effect.mapError(appErrorToStepFailure),
+              Effect.mapError(failureToStepFailure),
               Effect.as({
                 result: "success",
                 message: `Imported ${count(preflight.candidates.length, "MCP server")}`,
@@ -655,12 +660,14 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
       Effect.provideService(FileSystem.FileSystem, args.fs),
       Effect.provideService(Path.Path, args.path),
     ),
-    markAuthored: args.ws.setMcpServerEntry(target.name, {
-      source,
-      enabled: true,
-      env: candidate.env,
-      ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
-    }),
+    markAuthored: args.ws
+      .setMcpServerEntry(target.name, {
+        source,
+        enabled: true,
+        env: candidate.env,
+        ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
+      })
+      .pipe(Effect.mapError(toAppError)),
     finalizeAuthored: args.ws
       .setMcpServerEntry(target.name, {
         source,
@@ -668,6 +675,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         env: candidate.env,
         ...(candidate.agents === undefined ? {} : { agents: candidate.agents }),
       })
+      .pipe(Effect.mapError(toAppError))
       .pipe(
         Effect.andThen(
           Effect.forEach(candidate.adoptions, (adoption) =>
@@ -740,7 +748,7 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const now = yield* DateTime.now;
-  const configured = yield* ws.getConfiguredMcpServerEntries();
+  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
   const discovery = yield* collectImportSources(ws, fs, path);
   const normalized = preflightMcpImports({
     configuredNames: new Set(Object.keys(configured)),

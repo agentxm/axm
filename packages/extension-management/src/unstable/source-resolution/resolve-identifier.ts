@@ -24,6 +24,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { createRegistryClient } from "../registry/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
+import { toAppError } from "../app-error/conversions.js";
 
 /**
  * Every non-pack extension type an installed identifier can name. Packs are
@@ -168,7 +169,7 @@ const installedCandidates = (
     const ws = yield* WorkspaceMutations;
     const candidates: IdentifierCandidate[] = [];
 
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     if (!graph.complete) {
       return yield* makeAppError({
         code: "conflict",
@@ -230,9 +231,9 @@ const registryCandidates = (
   Effect.gen(function* () {
     const name = yield* decodeName(input);
     const ws = yield* WorkspaceMutations;
-    const registrySources = (yield* ws.getRegistrySourceHosts()).filter(
-      (source) => source.name === registrySourceName,
-    );
+    const registrySources = (yield* ws
+      .getRegistrySourceHosts()
+      .pipe(Effect.mapError(toAppError))).filter((source) => source.name === registrySourceName);
 
     const results = yield* Effect.forEach(
       registrySources,

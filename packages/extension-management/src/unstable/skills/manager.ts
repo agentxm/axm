@@ -54,6 +54,7 @@ import {
 } from "../workspace/accepted-canonical-ref.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
+import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -122,7 +123,9 @@ export const SkillManagerLive = Layer.effect(
     )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
 
-      const lockedEntry = yield* ws.getLockedSkill(ref.skill.name);
+      const lockedEntry = yield* ws
+        .getLockedSkill(ref.skill.name)
+        .pipe(Effect.mapError(toAppError));
       const lockedVersion =
         ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
 
@@ -312,7 +315,8 @@ export const SkillManagerLive = Layer.effect(
             acceptedCanonicalObservation({ workspace: ws, type: "skill", name: target.name }),
           );
           const packageRoot = removableAcceptedCanonicalPath(canonical);
-          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
+          if (Option.isSome(packageRoot))
+            yield* removeIfExists(fs, packageRoot.value).pipe(Effect.mapError(toAppError));
         }
       });
     const materializeUninstall = makeMaterializeRemoval(false);
@@ -326,7 +330,9 @@ export const SkillManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "skill", target.name);
+        return yield* isObservedInstalled(ws, "skill", target.name).pipe(
+          Effect.mapError(toAppError),
+        );
       }),
 
       materializeInstall,
@@ -347,7 +353,7 @@ export const SkillManagerLive = Layer.effect(
           },
         ),
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredSkillEntries();
+        const configured = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
         const entry = configured[target.name];
         if (entry?.origin === "bundled") {
           return Option.some(`bundled:@agentxm/skills/${target.name}`);
@@ -355,8 +361,13 @@ export const SkillManagerLive = Layer.effect(
         return Option.fromUndefinedOr(entry?.source);
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
-        const configuredEntries = yield* ws.getConfiguredSkillEntries();
+        const configured = yield* ws.records
+          .rows("skill")
+          .pipe(Effect.mapError(toAppError))
+          .pipe(Effect.map(configuredRowsByName));
+        const configuredEntries = yield* ws
+          .getConfiguredSkillEntries()
+          .pipe(Effect.mapError(toAppError));
         const configuredWithoutBundled = Object.fromEntries(
           Object.entries(configured).filter(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
@@ -413,10 +424,12 @@ export const SkillManagerLive = Layer.effect(
         const sourceHash = lastSourceHashes.get(ref.skill.name);
         const treeIntegrity = lastTreeIntegrities.get(ref.skill.name);
         if (ref.refType === "workspace") {
-          return yield* ws.setSkillEntry(ref.skill.name, {
-            source: "workspace",
-            enabled: true,
-          });
+          return yield* ws
+            .setSkillEntry(ref.skill.name, {
+              source: "workspace",
+              enabled: true,
+            })
+            .pipe(Effect.mapError(toAppError));
         }
         if (sourceHash === undefined || treeIntegrity === undefined) {
           return yield* makeAppError({
@@ -442,16 +455,19 @@ export const SkillManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSkill({
-          name: ref.skill.name,
-          lockEntry,
-          versionRange,
-        });
+        return yield* ws
+          .setSkill({
+            name: ref.skill.name,
+            lockEntry,
+            versionRange,
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
         ws
           .removeSkillFromSettings(target.name)
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.withSpan("SkillManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("SkillManager.upsertLockfileEntry")(function* ({
@@ -474,7 +490,7 @@ export const SkillManagerLive = Layer.effect(
           });
         }
         if (ref.refType === "workspace") {
-          yield* ws.removeSkillLock(ref.skill.name);
+          yield* ws.removeSkillLock(ref.skill.name).pipe(Effect.mapError(toAppError));
           return;
         }
         const sourceHash = lastSourceHashes.get(ref.skill.name);
@@ -503,15 +519,20 @@ export const SkillManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSkillLock({
-          name: ref.skill.name,
-          lockEntry,
-          versionRange: Option.none(),
-        });
+        return yield* ws
+          .setSkillLock({
+            name: ref.skill.name,
+            lockEntry,
+            versionRange: Option.none(),
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws.removeSkillLock(target.name).pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),
+        ws
+          .removeSkillLock(target.name)
+          .pipe(Effect.mapError(toAppError))
+          .pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),
     } satisfies ExtensionManager<SkillExtensionRef>;
   }),
 );

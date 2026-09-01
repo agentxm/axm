@@ -56,7 +56,10 @@ import {
   configuredPackConstraintBlockPlan,
   prospectivePackConstraintProblems,
 } from "../packs/constraint-gate.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -610,7 +613,7 @@ const collectRulePlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredRuleEntries();
+    const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -643,7 +646,7 @@ const collectHookPlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredHookEntries();
+    const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -676,7 +679,7 @@ const collectKnowledgePlans = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const configured = yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError));
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -872,13 +875,20 @@ const makeWorkspaceUpdateCollectors = (
   actions: InstallCommandActions,
 ): ReadonlyArray<WorkspaceUpdateCollector> => {
   const collectorsByType = {
-    skill: (selection) => collectSkillPlans(selection, actions.skill),
-    rule: (selection) => collectRulePlans(selection, actions.rule),
-    hook: (selection) => collectHookPlans(selection, actions.hook),
-    knowledge: (selection) => collectKnowledgePlans(selection, actions.knowledge),
-    subagent: (selection) => collectSubagentPlans(selection, actions.subagent),
-    "mcp-server": (selection) => collectMcpServerPlans(selection, actions.mcpServer),
-    pack: (selection) => collectPackPlans(selection, actions.pack),
+    skill: (selection) =>
+      collectSkillPlans(selection, actions.skill).pipe(Effect.mapError(toAppError)),
+    rule: (selection) =>
+      collectRulePlans(selection, actions.rule).pipe(Effect.mapError(toAppError)),
+    hook: (selection) =>
+      collectHookPlans(selection, actions.hook).pipe(Effect.mapError(toAppError)),
+    knowledge: (selection) =>
+      collectKnowledgePlans(selection, actions.knowledge).pipe(Effect.mapError(toAppError)),
+    subagent: (selection) =>
+      collectSubagentPlans(selection, actions.subagent).pipe(Effect.mapError(toAppError)),
+    "mcp-server": (selection) =>
+      collectMcpServerPlans(selection, actions.mcpServer).pipe(Effect.mapError(toAppError)),
+    pack: (selection) =>
+      collectPackPlans(selection, actions.pack).pipe(Effect.mapError(toAppError)),
   } satisfies Record<InstallableExtensionType, WorkspaceUpdateCollector["collect"]>;
 
   return installableExtensionTypes.map((type) => ({

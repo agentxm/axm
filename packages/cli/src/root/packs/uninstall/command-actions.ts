@@ -58,6 +58,7 @@ import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-p
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -167,7 +168,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
 
   const parseArgs = (args: UninstallPackHandlerArgs) =>
     Effect.gen(function* () {
-      const graph = yield* ws.getDesiredStateGraph();
+      const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
       const requested = parseExtensionFqnParts(args.name);
       if (requested !== undefined && requested.type !== "pack") {
         return yield* makeAppError({
@@ -207,7 +208,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
 
   const finalizeIntent = (parsed: ParsedPackUninstallArgs) =>
     Effect.gen(function* () {
-      const graph = yield* ws.getDesiredStateGraph();
+      const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
 
       const targets = new Map<string, ResolvedPackUninstallTarget>();
       for (const selector of parsed.selectors) {
@@ -238,7 +239,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
 
   const buildUninstallPlan = (intent: UninstallPackCommandIntent) =>
     Effect.gen(function* () {
-      const observedGraph = yield* ws.getDesiredStateGraph();
+      const observedGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
       const graphReadiness = planPackUninstallGraphReadiness(
         observedGraph,
         intent.packsToUninstall.map((pack) => pack.desiredIdentity),
@@ -429,7 +430,7 @@ export const UninstallPackCommandWorkflowActions = Effect.gen(function* () {
           })),
         ],
         preTransition: Effect.gen(function* () {
-          const currentGraph = yield* ws.getDesiredStateGraph();
+          const currentGraph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
           yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
         }),
         validate: validatePackGraphPostcondition({ absent: orderedTargets }),

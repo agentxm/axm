@@ -8,8 +8,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import type { AppError } from "../app-error/index.js";
 import { installableExtensionTypes, type InstallableExtensionType } from "./installable-types.js";
+import type { WorkspaceStateReadFailure } from "./service-interface.js";
 import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "./mcp-entry-semantics.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
@@ -29,28 +29,28 @@ type WorkspaceManagedExtensionType = InstallableExtensionType;
 
 type ReadScopedContext = <A>(
   f: (scoped: WorkspaceReadModel) => Effect.Effect<A, SettingsReadError | LockfileReadError>,
-) => Effect.Effect<A, AppError>;
+) => Effect.Effect<A, WorkspaceStateReadFailure>;
 
 export interface ReadModelRecordReaders {
   readonly getInventory: (options: {
     readonly type?: InstallableExtensionType;
-  }) => Effect.Effect<ExtensionInventory, AppError>;
+  }) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   readonly getReadModelRecordRows: (
     type: WorkspaceManagedExtensionType,
-  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure>;
   readonly getExtensionInventory: (
     type: WorkspaceManagedExtensionType,
     options: {
       readonly agents?: ReadonlyArray<string>;
     },
-  ) => Effect.Effect<ExtensionInventory, AppError>;
+  ) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
 }
 
 export const makeReadModelRecordReaders = (args: {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly readScopedContext: ReadScopedContext;
-  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, AppError>;
+  readonly getDesiredStateGraph: () => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
 }): ReadModelRecordReaders => {
   const packagingKindForSource = (
     type: WorkspaceManagedExtensionType,
@@ -175,7 +175,7 @@ export const makeReadModelRecordReaders = (args: {
 
   const getDesiredPackMemberNames = (
     type: WorkspaceManagedExtensionType,
-  ): Effect.Effect<ReadonlyArray<string>, AppError> =>
+  ): Effect.Effect<ReadonlyArray<string>, WorkspaceStateReadFailure> =>
     type === "pack"
       ? Effect.succeed([])
       : args

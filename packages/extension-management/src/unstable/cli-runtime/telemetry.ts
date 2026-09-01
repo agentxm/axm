@@ -10,6 +10,7 @@ import {
   redactSensitiveText,
 } from "../app-error/index.js";
 import type { ExpectedCliError } from "./runtime-envelope.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
@@ -101,23 +102,26 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
 export const reportCliError = (
   error: ExpectedCliError,
   command: string,
-): Effect.Effect<void, never, TelemetryClient> =>
-  error._tag === "AppError"
-    ? Effect.gen(function* () {
+): Effect.Effect<void, never, TelemetryClient> => {
+  const resolved =
+    error._tag === "AppError" ? error : isKnownFailure(error) ? toAppError(error) : undefined;
+  return resolved === undefined
+    ? Effect.void
+    : Effect.gen(function* () {
         const telemetry = yield* TelemetryClient;
         yield* telemetry.reportError({
-          name: error.code,
-          message: redactSensitiveText(error.detail, {
-            secrets: collectSensitiveStrings(error.metadata),
+          name: resolved.code,
+          message: redactSensitiveText(resolved.detail, {
+            secrets: collectSensitiveStrings(resolved.metadata),
           }),
-          category: error.code,
+          category: resolved.code,
           level: "error",
-          errorClass: errorClassForAppErrorCode(error.code),
+          errorClass: errorClassForAppErrorCode(resolved.code),
           handled: true,
           command,
         });
-      }).pipe(Effect.catchCause(() => Effect.void))
-    : Effect.void;
+      }).pipe(Effect.catchCause(() => Effect.void));
+};
 
 // ---------------------------------------------------------------------------
 // Command semantic properties (Ref-based forwarding)

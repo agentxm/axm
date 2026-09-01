@@ -43,6 +43,7 @@ import {
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
@@ -91,7 +92,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "rule", name });
   const targetDir = path.join(workspaceAuthoredRoot(path, ws, "rule", owner), name);
-  const configuredRules = yield* ws.getConfiguredRuleEntries();
+  const configuredRules = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "Rule",
     name,
@@ -190,7 +191,9 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
             message: `Created rule ${fqn}`,
             plannedArtifact: artifact,
             preflight: Effect.gen(function* () {
-              const current = yield* ws.getConfiguredRuleEntries();
+              const current = yield* ws
+                .getConfiguredRuleEntries()
+                .pipe(Effect.mapError(toAppError));
               yield* recoverCanonicalDirectory({
                 baseDir: ws.baseDir,
                 canonicalPath: targetDir,
@@ -206,10 +209,12 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
               }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
             }),
             scaffold,
-            markAuthored: ws.setRuleEntry(name, {
-              source: "workspace",
-              enabled: true,
-            }),
+            markAuthored: ws
+              .setRuleEntry(name, {
+                source: "workspace",
+                enabled: true,
+              })
+              .pipe(Effect.mapError(toAppError)),
             buildArtifact: () => Effect.succeed(artifact),
           }),
         ],

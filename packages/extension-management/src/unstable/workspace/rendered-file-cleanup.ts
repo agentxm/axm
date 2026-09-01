@@ -19,6 +19,7 @@ import type { WorkspaceScope } from "./scope.js";
 import { WorkspaceMutations } from "./service-interface.js";
 import { protectWorkspacePath } from "./transaction.js";
 import { recordFootprint } from "./footprint-recorder.js";
+import { toAppError } from "../app-error/conversions.js";
 
 export interface RenderedFileCleanupResult {
   readonly removedPaths: ReadonlyArray<string>;
@@ -153,7 +154,9 @@ export const cleanupStaleManagedSkillDirectories = (args: {
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    const configuredAgentIds = new Set(yield* ws.getConfiguredAgents());
+    const configuredAgentIds = new Set(
+      yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)),
+    );
     const agents = yield* agentRepo.all;
     const removedPaths: Array<string> = [];
     const ownershipRoots =
@@ -418,7 +421,7 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    const configured = new Set(yield* ws.getConfiguredAgents());
+    const configured = new Set(yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)));
     const agents = yield* agentRepo.all;
     const issues: Array<WorkspaceOwnershipIssue> = [];
     for (const agent of agents) {
@@ -507,7 +510,9 @@ export const cleanupStaleManagedSubagentFiles = (args: {
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    const configuredAgentIds = new Set(yield* ws.getConfiguredAgents());
+    const configuredAgentIds = new Set(
+      yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)),
+    );
     const agents = yield* agentRepo.all;
     const removedPaths: Array<string> = [];
 

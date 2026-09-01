@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { appErrorToStepFailure } from "../app-error/conversions.js";
+import { failureToStepFailure } from "../app-error/conversions.js";
 import type { StepFailure } from "../plan/errors.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
@@ -331,7 +331,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
       message: args.message ?? "Applied install operation",
       ...(artifactWithLifecycle === undefined ? {} : { artifact: artifactWithLifecycle }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));
 
 /**
  * Build a PlannedJobStep for an install operation.
@@ -462,7 +462,7 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
           } satisfies JobStepResult;
         }),
       ),
-      Effect.mapError(appErrorToStepFailure),
+      Effect.mapError(failureToStepFailure),
     ),
   } satisfies PlannedJobStep;
 };
@@ -542,7 +542,7 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
       message: args.message ?? "Synced agent artifacts",
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));
 
 export const buildMaterializeOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -714,7 +714,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       message: uninstallSettlementMessage(args.target, result.settlement),
       ...(result.settlement.declaration === "absent" ? { disposition: "unchanged" as const } : {}),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));
 
 /**
  * Build a PlannedJobStep for an uninstall operation.

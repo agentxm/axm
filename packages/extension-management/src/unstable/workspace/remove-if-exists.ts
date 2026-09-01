@@ -6,7 +6,7 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
-import { makeAppError } from "../app-error/index.js";
+import { CanonicalPathRemovalError } from "./errors.js";
 import { protectWorkspacePath } from "./transaction.js";
 import { recordFootprint } from "./footprint-recorder.js";
 
@@ -15,25 +15,21 @@ import { recordFootprint } from "./footprint-recorder.js";
  */
 export const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
   Effect.gen(function* () {
-    const exists = yield* fsService.exists(dirPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to inspect canonical extension path ${dirPath}`,
-          cause: error,
-        }),
-      ),
-    );
+    const exists = yield* fsService
+      .exists(dirPath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new CanonicalPathRemovalError({ path: dirPath, step: "inspect", cause }),
+        ),
+      );
     if (!exists) return;
     yield* protectWorkspacePath(dirPath);
-    yield* fsService.remove(dirPath, { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to remove canonical extension path ${dirPath}`,
-          cause: error,
-        }),
-      ),
-    );
+    yield* fsService
+      .remove(dirPath, { recursive: true })
+      .pipe(
+        Effect.mapError(
+          (cause) => new CanonicalPathRemovalError({ path: dirPath, step: "remove", cause }),
+        ),
+      );
     yield* recordFootprint({ path: dirPath, change: "removed" });
   });

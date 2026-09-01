@@ -1,5 +1,8 @@
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  appErrorToStepFailure,
+  failureToStepFailure,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   StepFailure,
   type JobStepResult,
@@ -101,7 +104,7 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
         }
         return results;
       }),
-      validate: (results) => args.validate(results).pipe(Effect.mapError(appErrorToStepFailure)),
+      validate: (results) => args.validate(results).pipe(Effect.mapError(failureToStepFailure)),
     })
     .pipe(surfaceRestorationIncomplete)
     .pipe(

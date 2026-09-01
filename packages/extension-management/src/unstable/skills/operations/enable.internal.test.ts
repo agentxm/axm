@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import { makeAppError } from "../../app-error/index.js";
+import { LockedSkillMissing } from "../../workspace/errors.js";
 import { acquiredExtensionDisplayPathFromLockEntry } from "../../workspace/extension-paths.js";
 import type { SkillLockEntry } from "../../lockfile/index.js";
 import { TestRenderer } from "../../cli-renderer/index.js";
@@ -81,12 +81,7 @@ const makeWorkspaceMock = (
       const sanitized = sanitizeName(name);
       const lockEntry = lockfileSkills[name];
       if (lockEntry === undefined) {
-        return Effect.fail(
-          makeAppError({
-            code: "conflict",
-            detail: `Skill "${name}" not found in lockfile`,
-          }),
-        );
+        return Effect.fail(new LockedSkillMissing({ name }));
       }
       const canonicalPath = path.join(
         base,

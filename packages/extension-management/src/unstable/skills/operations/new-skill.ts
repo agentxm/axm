@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
@@ -162,4 +162,4 @@ export const newSkill: OperationHandler<
       result: "success",
       message: `Created skill ${fqn}`,
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

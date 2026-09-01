@@ -20,7 +20,10 @@ import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
@@ -44,7 +47,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
   preview: boolean,
 ) {
   const ws = yield* WorkspaceMutations;
-  const configured = yield* ws.getConfiguredKnowledgeEntries();
+  const configured = yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError));
   const entry = configured[name];
   if (entry === undefined) {
     return yield* makeAppError({
@@ -85,10 +88,12 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
         run: manager
           .runTransaction({
             transition: Effect.gen(function* () {
-              yield* ws.updateKnowledgeEntry(name, (current) => ({
-                ...current,
-                enabled: false,
-              }));
+              yield* ws
+                .updateKnowledgeEntry(name, (current) => ({
+                  ...current,
+                  enabled: false,
+                }))
+                .pipe(Effect.mapError(toAppError));
               yield* manager.materializeDeactivate({
                 target: { type: "knowledge", name },
               });
@@ -97,7 +102,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
           })
           .pipe(surfaceRestorationIncomplete)
           .pipe(
-            Effect.mapError(appErrorToStepFailure),
+            Effect.mapError(failureToStepFailure),
             Effect.as({
               result: "success",
               message: `Disabled knowledge bundle ${name}`,

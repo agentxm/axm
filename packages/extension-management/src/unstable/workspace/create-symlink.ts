@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
+import { SymlinkCreationError } from "./errors.js";
 import { protectCreatedAncestors, protectWorkspacePath } from "./transaction.js";
 import { recordFootprint } from "./footprint-recorder.js";
 import { resolveParentSymlinks } from "../utils/resolve-parent-symlinks.js";
@@ -32,12 +32,8 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
 
     // Resolve both paths through parent symlinks for accurate comparison
     const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to resolve target path`,
-          cause: e,
-        }),
+      Effect.mapError(
+        (cause) => new SymlinkCreationError({ path: opts.target, step: "resolve-target", cause }),
       ),
     );
     const resolvedLink = yield* resolveParentSymlinks(opts.link).pipe(
@@ -61,40 +57,35 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
 
     // If something exists that needs replacing, remove it
     if (existingResult === "replace") {
-      yield* fs.remove(opts.link, { recursive: true }).pipe(
-        Effect.mapError((e) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to remove existing path at ${opts.link}`,
-            cause: e,
-          }),
-        ),
-      );
+      yield* fs
+        .remove(opts.link, { recursive: true })
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new SymlinkCreationError({ path: opts.link, step: "remove-existing", cause }),
+          ),
+        );
     }
 
     // Create parent directories
     const linkParent = p.dirname(opts.link);
     yield* protectCreatedAncestors(fs, p, linkParent);
-    yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create parent directory ${linkParent}`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* fs
+      .makeDirectory(linkParent, { recursive: true })
+      .pipe(
+        Effect.mapError(
+          (cause) => new SymlinkCreationError({ path: linkParent, step: "mkdir-parent", cause }),
+        ),
+      );
 
     // Create the symlink
-    yield* fs.symlink(relTarget, opts.link).pipe(
-      Effect.mapError((e) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create symlink at ${opts.link}`,
-          cause: e,
-        }),
-      ),
-    );
+    yield* fs
+      .symlink(relTarget, opts.link)
+      .pipe(
+        Effect.mapError(
+          (cause) => new SymlinkCreationError({ path: opts.link, step: "symlink", cause }),
+        ),
+      );
     yield* recordFootprint({
       path: opts.link,
       change: existingResult === "replace" ? "modified" : "created",

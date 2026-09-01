@@ -41,6 +41,7 @@ import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
+import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -132,7 +133,7 @@ export const PackManagerLive = Layer.effect(
         }
         return;
       }
-      const lockedEntry = yield* ws.getLockedPack(ref.pack.name);
+      const lockedEntry = yield* ws.getLockedPack(ref.pack.name).pipe(Effect.mapError(toAppError));
       const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
       if (
         yield* provide(
@@ -195,7 +196,8 @@ export const PackManagerLive = Layer.effect(
         acceptedCanonicalObservation({ workspace: ws, type: "pack", name: target.name }),
       );
       const packDir = removableAcceptedCanonicalPath(canonical);
-      if (Option.isSome(packDir)) yield* removeIfExists(fs, packDir.value);
+      if (Option.isSome(packDir))
+        yield* removeIfExists(fs, packDir.value).pipe(Effect.mapError(toAppError));
     });
     const materializeDeactivate: ExtensionManager<PackRef>["materializeDeactivate"] = () =>
       Effect.void;
@@ -224,7 +226,9 @@ export const PackManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "pack", target.name);
+        return yield* isObservedInstalled(ws, "pack", target.name).pipe(
+          Effect.mapError(toAppError),
+        );
       }),
       materializeInstall,
       prepareSourceTransition: ({ ref }) =>
@@ -237,11 +241,14 @@ export const PackManagerLive = Layer.effect(
           }),
         ),
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredPackEntries();
+        const configured = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+        const configured = yield* ws.records
+          .rows("pack")
+          .pipe(Effect.mapError(toAppError))
+          .pipe(Effect.map(configuredRowsByName));
         return yield* configuredPacksToDiskRefs(
           { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
           configured,
@@ -259,29 +266,37 @@ export const PackManagerLive = Layer.effect(
       }) {
         const args = yield* buildCurrentPackArgs(ref, versionRange);
         if (Option.isSome(args)) {
-          yield* ws.setPack(args.value);
+          yield* ws.setPack(args.value).pipe(Effect.mapError(toAppError));
         } else {
-          yield* ws.setPackEntry(ref.pack.name, {
-            source: "workspace",
-            enabled: true,
-          });
+          yield* ws
+            .setPackEntry(ref.pack.name, {
+              source: "workspace",
+              enabled: true,
+            })
+            .pipe(Effect.mapError(toAppError));
         }
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
+        ws
+          .removePackSettings(target.name)
+          .pipe(Effect.mapError(toAppError))
+          .pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({ ref }) {
         const args = yield* buildCurrentPackArgs(ref, Option.none());
         if (Option.isSome(args)) {
-          yield* ws.setPackLock(args.value);
+          yield* ws.setPackLock(args.value).pipe(Effect.mapError(toAppError));
         } else {
-          yield* ws.removePackLock(ref.pack.name);
+          yield* ws.removePackLock(ref.pack.name).pipe(Effect.mapError(toAppError));
         }
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
+        ws
+          .removePackLock(target.name)
+          .pipe(Effect.mapError(toAppError))
+          .pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
     } satisfies ExtensionManager<PackRef>;
   }),
 );

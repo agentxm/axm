@@ -11,6 +11,7 @@ import type { OutputFormat } from "./output-mode.js";
 import { makeErrorEvent } from "./output-mode.js";
 import type { AppError } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
+import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
 import type { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
 import { renderAppErrorChannels } from "./handle-error.js";
@@ -87,13 +88,23 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat): 
   );
 };
 
-export type ExpectedCliError = AppError | PromptCancelled | WorkspaceInitializationCancelled;
+export type ExpectedCliError =
+  AppError | KnownFailure | PromptCancelled | WorkspaceInitializationCancelled;
 export type CliRuntimeFoundation = CliRenderer | Verbosity;
 
-// Cancellation tags (PromptCancelled, WorkspaceInitializationCancelled) exit
-// successfully; only AppError carries a failure exit code.
-const defaultExitCodeForExpectedError = (error: ExpectedCliError): number =>
-  error._tag === "AppError" ? exitCodeFor(error.code) : ExitCode.Success;
+/**
+ * Resolve the AppError rendering for an expected error. Known typed failures
+ * convert through the application-error boundary; cancellation tags
+ * (PromptCancelled, WorkspaceInitializationCancelled) resolve to none and
+ * exit successfully.
+ */
+const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
+  error._tag === "AppError" ? error : isKnownFailure(error) ? toAppError(error) : undefined;
+
+const defaultExitCodeForExpectedError = (error: ExpectedCliError): number => {
+  const resolved = expectedErrorToAppError(error);
+  return resolved === undefined ? ExitCode.Success : exitCodeFor(resolved.code);
+};
 
 const positiveNumericProperty = (properties: TelemetryProperties, key: string): boolean => {
   const value = properties[key];
@@ -136,7 +147,8 @@ export const exitCodeForSemanticProperties = (
  */
 export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFormat) =>
   Effect.gen(function* () {
-    if (error._tag !== "AppError") {
+    const resolved = expectedErrorToAppError(error);
+    if (resolved === undefined) {
       return;
     }
 
@@ -149,7 +161,7 @@ export const writeExpectedCliError = (error: ExpectedCliError, format: OutputFor
       }),
     });
 
-    const { stderr, stdout } = renderAppErrorChannels(error, format, { verbose, debug });
+    const { stderr, stdout } = renderAppErrorChannels(resolved, format, { verbose, debug });
 
     for (const line of stderr) {
       writeStderr(line);

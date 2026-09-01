@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import type { ExtensionRef } from "./refs/extension-ref.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -28,7 +29,10 @@ import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensi
 import { protectWorkspacePath } from "./transaction.js";
 import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
-import type { WorkspaceMutationsService } from "./service-interface.js";
+import type {
+  WorkspaceLockfileReadFailure,
+  WorkspaceMutationsService,
+} from "./service-interface.js";
 
 interface AcceptedCanonicalRefArgs {
   readonly workspace: WorkspaceMutationsService;
@@ -65,22 +69,28 @@ const getAcceptedResolution = (
   type: DesiredExtensionNode["type"],
   name: string,
 ): Effect.Effect<Option.Option<AcceptedExtensionResolution>, AppError> => {
-  switch (type) {
-    case "skill":
-      return workspace.getLockedSkill(name);
-    case "mcp-server":
-      return workspace.getLockedMcpServer(name);
-    case "subagent":
-      return workspace.getLockedSubagent(name);
-    case "rule":
-      return workspace.getLockedRuleEntry(name);
-    case "hook":
-      return workspace.getLockedHookEntry(name);
-    case "knowledge":
-      return workspace.getLockedKnowledgeEntry(name);
-    case "pack":
-      return workspace.getLockedPack(name);
-  }
+  const read = (): Effect.Effect<
+    Option.Option<AcceptedExtensionResolution>,
+    WorkspaceLockfileReadFailure
+  > => {
+    switch (type) {
+      case "skill":
+        return workspace.getLockedSkill(name);
+      case "mcp-server":
+        return workspace.getLockedMcpServer(name);
+      case "subagent":
+        return workspace.getLockedSubagent(name);
+      case "rule":
+        return workspace.getLockedRuleEntry(name);
+      case "hook":
+        return workspace.getLockedHookEntry(name);
+      case "knowledge":
+        return workspace.getLockedKnowledgeEntry(name);
+      case "pack":
+        return workspace.getLockedPack(name);
+    }
+  };
+  return read().pipe(Effect.mapError(toAppError));
 };
 
 /** Exact acquired canonical path reconstructed directly from accepted lock authority. */
@@ -167,7 +177,8 @@ const lockRefDeps = (workspace: WorkspaceMutationsService, path: Path.Path) => (
   baseDir: workspace.baseDir,
   path,
   scope: workspace.scope,
-  getConfiguredSourceByName: workspace.getConfiguredSourceByName,
+  getConfiguredSourceByName: (name: string) =>
+    workspace.getConfiguredSourceByName(name).pipe(Effect.mapError(toAppError)),
 });
 
 const missingAccepted = (label: string, name: string): AppError =>
@@ -186,49 +197,51 @@ const refFromAcceptedResolution = (
     const deps = lockRefDeps(workspace, path);
     switch (type) {
       case "skill": {
-        const entry = yield* workspace.getLockedSkill(name);
+        const entry = yield* workspace.getLockedSkill(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Skill", name)),
           onSome: (value) => skillLockEntryToRef(name, value, deps),
         });
       }
       case "mcp-server": {
-        const entry = yield* workspace.getLockedMcpServer(name);
+        const entry = yield* workspace.getLockedMcpServer(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("MCP", name)),
           onSome: (value) => mcpServerLockEntryToRef(name, value, deps),
         });
       }
       case "subagent": {
-        const entry = yield* workspace.getLockedSubagent(name);
+        const entry = yield* workspace.getLockedSubagent(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Subagent", name)),
           onSome: (value) => subagentLockEntryToRef(name, value, deps),
         });
       }
       case "rule": {
-        const entry = yield* workspace.getLockedRuleEntry(name);
+        const entry = yield* workspace.getLockedRuleEntry(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Rule", name)),
           onSome: (value) => ruleLockEntryToRef(name, value, deps),
         });
       }
       case "hook": {
-        const entry = yield* workspace.getLockedHookEntry(name);
+        const entry = yield* workspace.getLockedHookEntry(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Hook", name)),
           onSome: (value) => hookLockEntryToRef(name, value, deps),
         });
       }
       case "knowledge": {
-        const entry = yield* workspace.getLockedKnowledgeEntry(name);
+        const entry = yield* workspace
+          .getLockedKnowledgeEntry(name)
+          .pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Knowledge", name)),
           onSome: (value) => knowledgeLockEntryToRef(name, value, deps),
         });
       }
       case "pack": {
-        const entry = yield* workspace.getLockedPack(name);
+        const entry = yield* workspace.getLockedPack(name).pipe(Effect.mapError(toAppError));
         return yield* Option.match(entry, {
           onNone: () => Effect.fail(missingAccepted("Pack", name)),
           onSome: (value) => packLockEntryToRef(name, value, deps),
@@ -308,7 +321,7 @@ export const acceptedResolutionRef = (
   args: AcceptedCanonicalRefArgs,
 ): Effect.Effect<Option.Option<ExtensionRef>, AppError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const graph = yield* args.workspace.getDesiredStateGraph();
+    const graph = yield* args.workspace.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const desired = graph.nodes.find((node) => node.type === args.type && node.name === args.name);
     if (desired === undefined || desired.identity.startsWith("workspace:")) {
       return Option.none();
@@ -326,7 +339,7 @@ export const acceptedCanonicalObservation = ({
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const graph = yield* workspace.getDesiredStateGraph();
+    const graph = yield* workspace.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const desired = graph.nodes.find((node) => node.type === type && node.name === name);
     if (desired === undefined) return Option.none();
     const accepted = yield* getAcceptedResolution(workspace, type, name);

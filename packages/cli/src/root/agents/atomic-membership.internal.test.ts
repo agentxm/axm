@@ -21,7 +21,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { StepFailure } from "@agentxm/extension-management/unstable/plan";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
@@ -65,7 +65,7 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Add cursor",
           readiness: "ready",
           run: ws.addConfiguredAgent("cursor").pipe(
-            Effect.mapError(appErrorToStepFailure),
+            Effect.mapError(failureToStepFailure),
             Effect.as({
               result: "success",
               message: "Configured cursor",
@@ -223,7 +223,7 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Remove cursor",
           readiness: "ready",
           run: ws.removeConfiguredAgent("cursor").pipe(
-            Effect.mapError(appErrorToStepFailure),
+            Effect.mapError(failureToStepFailure),
             Effect.andThen(
               new StepFailure({
                 category: "internal",

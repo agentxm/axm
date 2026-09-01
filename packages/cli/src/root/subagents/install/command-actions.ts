@@ -45,6 +45,7 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSubagentsToInstall } from "./select-subagents.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -243,7 +244,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
           onRegistryProbe: (probe) => {
             resolutionProbes.push(probe);
           },
-        });
+        }).pipe(Effect.mapError(toAppError));
 
         const requestedSubagents = extractRequestedSubagents(args.subagents, parsedSource);
         const requestedOwner = extractRequestedOwner(parsedSource, source);
@@ -404,6 +405,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
             const ref = entry.ref;
             const previousLockEntry = yield* ws
               .getLockedSubagent(ref.subagent.name)
+              .pipe(Effect.mapError(toAppError))
               .pipe(Effect.catch(() => Effect.succeed(Option.none())));
             const previousVersion = Option.match(previousLockEntry, {
               onNone: () => undefined,
@@ -422,6 +424,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
               Effect.gen(function* () {
                 const lockEntryOption = yield* ws
                   .getLockedSubagent(ref.subagent.name)
+                  .pipe(Effect.mapError(toAppError))
                   .pipe(Effect.catch(() => Effect.succeed(Option.none())));
                 const lockEntry = Option.getOrUndefined(lockEntryOption);
                 const sourceHash =

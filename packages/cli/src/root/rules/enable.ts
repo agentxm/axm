@@ -34,8 +34,8 @@ import {
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
 import {
-  appErrorToStepFailure,
   toAppError,
+  failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleEnableRule = (args: {
@@ -125,7 +125,7 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
               : installStep.run.pipe(Effect.mapError(toAppError));
             const run = ruleManager
               .runTransaction({ transition, validate: () => Effect.void })
-              .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure));
+              .pipe(surfaceRestorationIncomplete, Effect.mapError(failureToStepFailure));
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,

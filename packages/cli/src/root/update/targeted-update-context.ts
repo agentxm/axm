@@ -15,6 +15,7 @@ import {
   configuredRowsByName,
   desiredStateProblemText,
 } from "@agentxm/extension-management/unstable/workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export type TargetedUpdateBlocker =
   | "not-desired"
@@ -274,11 +275,12 @@ export const resolveTargetedUpdateContext = (args: {
 }) =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
-    const graph = yield* workspace.getDesiredStateGraph();
+    const graph = yield* workspace.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const configuredPacks = yield* workspace.records
       .rows("pack")
+      .pipe(Effect.mapError(toAppError))
       .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
-    const configuredOwner = yield* workspace.getConfiguredOwner();
+    const configuredOwner = yield* workspace.getConfiguredOwner().pipe(Effect.mapError(toAppError));
     const baseArgs = {
       target: args.target,
       ...(args.explicitRange === undefined ? {} : { explicitRange: args.explicitRange }),
@@ -295,7 +297,9 @@ export const resolveTargetedUpdateContext = (args: {
               candidate.type === "pack" && normalizedIdentity(candidate.identity) === pack.fqn,
           );
           if (packNode === undefined) return { fqn: pack.fqn, accepted: "absent" };
-          const accepted = yield* workspace.getLockedPack(packNode.name);
+          const accepted = yield* workspace
+            .getLockedPack(packNode.name)
+            .pipe(Effect.mapError(toAppError));
           return {
             fqn: pack.fqn,
             accepted: Option.getOrUndefined(accepted) ?? "absent",

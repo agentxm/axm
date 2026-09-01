@@ -52,7 +52,10 @@ import {
   reconcileInstructionTransition,
   removeInstructionTargetsFor,
 } from "./instruction-reconciliation.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 interface InstructionTableItem {
   readonly agentId: string;
@@ -121,7 +124,7 @@ registerEntity<InstructionTableItem>("agent-rule", {
 
 const currentInstructionsConfig = Effect.fn("Instructions.currentConfig")(function* () {
   const ws = yield* WorkspaceMutations;
-  const config = yield* ws.getInstructionsConfig();
+  const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
   if (Option.isNone(config) || config.value === false) return Option.none();
   return Option.some(resolveInstructionsConfig(config.value));
 });
@@ -206,7 +209,7 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
     return;
   }
 
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const { status } = yield* observeInstructionProjection({
     workspaceRoot: ws.baseDir,
     scope: ws.scope,
@@ -259,7 +262,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
     fileName: args.fileName,
     gitignoreAliases: args.gitignore,
   } satisfies InstructionsConfig;
-  const current = yield* ws.getInstructionsConfig();
+  const current = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
 
   const resolvedConfig = resolveInstructionsConfig(config);
   const previousConfig =
@@ -325,7 +328,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
               if (configChanged && Option.isSome(previousConfig)) {
                 yield* removeInstructionTargetsFor({ ws, config: previousConfig.value });
               }
-              yield* ws.setInstructionsConfig(config);
+              yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
               yield* applyPlannedProjections(ruleManager);
             }).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
@@ -339,7 +342,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
         })
         .pipe(surfaceRestorationIncomplete)
         .pipe(
-          Effect.mapError(appErrorToStepFailure),
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: "Enabled and reconciled instruction-file management",
@@ -381,7 +384,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const current = yield* ws.getInstructionsConfig();
+  const current = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
 
   if (Option.isNone(current) || current.value === false) {
     yield* emitNoOpOutcome("instructions.disable", {
@@ -415,7 +418,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
         })
         .pipe(surfaceRestorationIncomplete)
         .pipe(
-          Effect.mapError(appErrorToStepFailure),
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: "Disabled instruction-file management and removed owned aliases",

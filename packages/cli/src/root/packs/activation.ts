@@ -55,8 +55,8 @@ import {
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
 import {
-  appErrorToStepFailure,
   toAppError,
+  failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
@@ -203,7 +203,7 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
   packIdentity: string,
 ) {
   const ws = yield* WorkspaceMutations;
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   const hasMembers = graph.nodes.some(
     (node) => node.type !== "pack" && packContributesTo(node, packIdentity),
   );
@@ -263,7 +263,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     | SkillManager
     | SubagentManager
   >();
-  const entries = yield* ws.getConfiguredPackEntries();
+  const entries = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
   const entry = entries[args.name];
   const verb = args.enabled ? "enable" : "disable";
   const titleVerb = args.enabled ? "Enable" : "Disable";
@@ -284,7 +284,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
     return;
   }
 
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
   if (!graph.complete) {
     return yield* makeAppError({
       code: "conflict",
@@ -341,7 +341,9 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
               yield* ws
                 .runTransaction({
                   transition: Effect.gen(function* () {
-                    yield* ws.setPackEntry(args.name, { ...entry, enabled: args.enabled });
+                    yield* ws
+                      .setPackEntry(args.name, { ...entry, enabled: args.enabled })
+                      .pipe(Effect.mapError(toAppError));
                     const memberTypes = args.enabled
                       ? new Set(
                           graph.nodes
@@ -390,7 +392,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                 message: `${titleVerb}d ${packIdentity}`,
                 artifact: activationArtifact,
               } satisfies JobStepResult;
-            }).pipe(Effect.provide(runServices), Effect.mapError(appErrorToStepFailure)),
+            }).pipe(Effect.provide(runServices), Effect.mapError(failureToStepFailure)),
           },
         ],
       },

@@ -3,7 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { WorkspaceLayoutError } from "./errors.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   ACQUIRED_EXTENSIONS_DIR,
@@ -91,12 +91,8 @@ export const configuredAuthoredDirectory = (settings: Settings, type: ExtensionT
   }
 };
 
-const layoutError = (detail: string, cause?: unknown): AppError =>
-  makeAppError({
-    code: "validation",
-    detail,
-    ...(cause === undefined ? {} : { cause }),
-  });
+const layoutError = (detail: string, cause?: unknown): WorkspaceLayoutError =>
+  new WorkspaceLayoutError({ detail, ...(cause === undefined ? {} : { cause }) });
 
 const overlaps = (path: Path.Path, left: string, right: string): boolean => {
   const relative = path.relative(left, right);
@@ -109,7 +105,7 @@ const validateLexicalDirectory = (
   type: ExtensionType,
   configured: string,
   reservedRoots: ReadonlyArray<string>,
-): Effect.Effect<AbsolutePath, AppError> => {
+): Effect.Effect<AbsolutePath, WorkspaceLayoutError> => {
   if (
     path.isAbsolute(configured) ||
     configured === "." ||
@@ -146,7 +142,7 @@ const validateExistingAuthoredRoot = (
   projectRoot: AbsolutePath,
   type: ExtensionType,
   root: AbsolutePath,
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, WorkspaceLayoutError> =>
   Effect.gen(function* () {
     const exists = yield* fs
       .exists(root)
@@ -211,7 +207,7 @@ const validateExistingAuthoredRoot = (
 export const resolveProjectWorkspaceLayout = (
   projectRoot: AbsolutePath,
   settings: Settings,
-): Effect.Effect<ProjectWorkspaceLayout, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ProjectWorkspaceLayout, WorkspaceLayoutError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

@@ -18,7 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { appErrorToStepFailure } from "../app-error/conversions.js";
+import { appErrorToStepFailure, toAppError } from "../app-error/conversions.js";
 import { STALE_CANDIDATE_DETAIL, StaleExecutionCandidate, StepFailure } from "./errors.js";
 import { applyPlan } from "./apply-plan.js";
 import {
@@ -176,7 +176,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
 
   const mode = options.execution.request.mode;
 
-  const getLockfileState = (): Effect.Effect<LockfileState, AppError> => ws.getLockfileState();
+  const getLockfileState = (): Effect.Effect<LockfileState, AppError> =>
+    ws.getLockfileState().pipe(Effect.mapError(toAppError));
 
   yield* publishPhaseStarted("planning");
 
@@ -186,7 +187,10 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   );
 
   const operations = options.execution.configuredAgentOperations ?? [];
-  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const configuredAgents =
+    operations.length === 0
+      ? []
+      : yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
   const configuredMcpServers = operations.some(
     ({ extensionType }) => extensionType === "mcp-server",
   )
@@ -594,6 +598,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
             .pipe(Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)))
         : operation.plannedState === "enabled"
           ? ws.records.getExtensionInventory(operation.extensionType, {}).pipe(
+              Effect.mapError(toAppError),
               Effect.map(
                 (inventory) =>
                   inventory.items.find((item) => item.name === operation.name)?.agentOutcomes ??

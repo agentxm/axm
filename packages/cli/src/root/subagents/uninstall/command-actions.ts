@@ -38,6 +38,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -141,7 +142,7 @@ export const UninstallSubagentCommandWorkflowActions = Effect.gen(function* () {
     args: UninstallSubagentHandlerArgs,
   ): Effect.Effect<ParsedSubagentUninstallArgs, AppError> =>
     Effect.gen(function* () {
-      const rows = yield* ws.records.rows("subagent");
+      const rows = yield* ws.records.rows("subagent").pipe(Effect.mapError(toAppError));
       const installedNames = [...new Set(rows.map((row) => row.name))];
 
       // Expand glob pattern against installed subagent names
@@ -189,6 +190,7 @@ export const UninstallSubagentCommandWorkflowActions = Effect.gen(function* () {
           const run = Effect.gen(function* () {
             const lockEntryOption = yield* ws
               .getLockedSubagent(entry.subagentName)
+              .pipe(Effect.mapError(toAppError))
               .pipe(Effect.catch(() => Effect.succeed(Option.none())));
             const lockEntry = Option.getOrUndefined(lockEntryOption);
             const unchangedArtifact = subagentArtifact({

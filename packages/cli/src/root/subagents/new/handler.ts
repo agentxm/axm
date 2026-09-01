@@ -42,6 +42,7 @@ import {
   workspaceAuthoredRoot,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -104,7 +105,9 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   }
 
   // 3. Check existence
-  const configuredSubagents = yield* ws.getConfiguredSubagentEntries();
+  const configuredSubagents = yield* ws
+    .getConfiguredSubagentEntries()
+    .pipe(Effect.mapError(toAppError));
   const fqn = formatFqn({ owner, type: "subagent", name: args.name });
   const base = ws.baseDir;
   const canonicalPath = path.join(workspaceAuthoredRoot(path, ws, "subagent", owner), args.name);
@@ -153,7 +156,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
     label: fqn,
     message: `Created subagent ${fqn}`,
     preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredSubagentEntries();
+      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
       yield* recoverCanonicalDirectory({ baseDir: base, canonicalPath }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
@@ -165,10 +168,12 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
         destinations: [canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws.setSubagentEntry(args.name, {
-      source: "workspace",
-      enabled: true,
-    }),
+    markAuthored: ws
+      .setSubagentEntry(args.name, {
+        source: "workspace",
+        enabled: true,
+      })
+      .pipe(Effect.mapError(toAppError)),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: createCanonicalDirectory({

@@ -16,13 +16,9 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
-import {
-  sweepStaleAtomicWriteTemps,
-  writeFileAtomic,
-  type AtomicWriteFailure,
-} from "../utils/index.js";
+import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/index.js";
+import { LockfileValidationError, LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -66,37 +62,23 @@ const ensureLockfileParent = (lockfilePath: string) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const parent = path.dirname(lockfilePath);
-    yield* fs.makeDirectory(parent, { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create directory ${parent}`,
-          cause: error,
-        }),
-      ),
-    );
+    yield* fs
+      .makeDirectory(parent, { recursive: true })
+      .pipe(
+        Effect.mapError((cause) => new LockfileWriteError({ path: parent, step: "mkdir", cause })),
+      );
   });
 
-const encodeLockfileYaml = (lockfile: Lockfile) =>
+const encodeLockfileYaml = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const encoded = yield* Effect.try({
       try: () => Schema.encodeSync(LockfileSchema)(lockfile),
-      catch: (error) =>
-        makeAppError({
-          code: "internal",
-          detail: "Failed to encode lockfile",
-          cause: error,
-        }),
+      catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
     });
 
     return yield* Effect.try({
       try: () => YAML.stringify(encoded),
-      catch: (error) =>
-        makeAppError({
-          code: "internal",
-          detail: "Failed to serialize lockfile to YAML",
-          cause: error,
-        }),
+      catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
     });
   });
 
@@ -159,47 +141,38 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
 
 const readLockfileIfPresent = (
   lockfilePath: string,
-): Effect.Effect<Lockfile | undefined, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  Lockfile | undefined,
+  LockfileValidationError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(lockfilePath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to check the lockfile at ${lockfilePath}. Fix the file's permissions or restore it from version control, then rerun.`,
-          cause: error,
-        }),
-      ),
-    );
+    const exists = yield* fs
+      .exists(lockfilePath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new LockfileValidationError({ path: lockfilePath, step: "check", cause }),
+        ),
+      );
     if (!exists) return undefined;
 
-    const raw = yield* fs.readFileString(lockfilePath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to read the lockfile at ${lockfilePath}. Fix the file's permissions or restore it from version control, then rerun.`,
-          cause: error,
-        }),
-      ),
-    );
+    const raw = yield* fs
+      .readFileString(lockfilePath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new LockfileValidationError({ path: lockfilePath, step: "read", cause }),
+        ),
+      );
     const parsed = yield* Effect.try({
       try: (): unknown => YAML.parse(raw),
-      catch: (error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to parse lockfile at ${lockfilePath}`,
-          cause: error,
-        }),
+      catch: (cause) => new LockfileValidationError({ path: lockfilePath, step: "parse", cause }),
     });
     const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed, {
       onExcessProperty: "error",
     }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "validation",
-          detail: `Failed to decode lockfile at ${lockfilePath}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (cause) => new LockfileValidationError({ path: lockfilePath, step: "decode", cause }),
       ),
     );
     return decoded;
@@ -208,7 +181,7 @@ const readLockfileIfPresent = (
 const withLockfileLock = <A, E, R>(
   lockfilePath: string,
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | AppError, R | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<A, E, R | FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const key = path.resolve(lockfilePath);
@@ -219,23 +192,10 @@ const withLockfileLock = <A, E, R>(
     return yield* semaphore.withPermits(1)(effect);
   });
 
-const lockfileWriteErrorDetail = (lockfilePath: string, failure: AtomicWriteFailure): string => {
-  switch (failure.step) {
-    case "check-target":
-      return `Failed to check lockfile at ${lockfilePath}`;
-    case "read-target":
-      return `Failed to read lockfile at ${lockfilePath}`;
-    case "write-temp":
-      return `Failed to write lockfile temp file at ${failure.tempPath}`;
-    case "rename":
-      return `Failed to atomically replace lockfile at ${lockfilePath}`;
-  }
-};
-
 const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const yamlContent = yield* encodeLockfileYaml(lockfile);
+    const yamlContent = yield* encodeLockfileYaml(lockfilePath, lockfile);
     const existed = yield* fs.exists(lockfilePath).pipe(Effect.orElseSucceed(() => true));
     yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
     const written = yield* writeFileAtomic(fs, {
@@ -243,9 +203,9 @@ const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
       content: yamlContent,
       skipIfUnchanged: "fail-on-read-error",
       mapError: (failure) =>
-        makeAppError({
-          code: "validation",
-          detail: `${lockfileWriteErrorDetail(lockfilePath, failure)}. Fix the path's permissions or remove whatever occupies it, then rerun.`,
+        new LockfileWriteError({
+          path: failure.step === "write-temp" ? failure.tempPath : lockfilePath,
+          step: failure.step,
           cause: failure.cause,
         }),
     });

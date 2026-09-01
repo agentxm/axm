@@ -28,6 +28,7 @@ import {
   installedRowsByName,
   unmanagedRowsByName,
 } from "../workspace/read-model-record-rows.js";
+import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -42,9 +43,18 @@ const buildCandidates = Effect.gen(function* () {
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const base = ws.baseDir;
-  const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
-  const unmanagedSkills = yield* ws.records.rows("skill").pipe(Effect.map(unmanagedRowsByName));
-  const configuredSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+  const installedSkills = yield* ws.records
+    .rows("skill")
+    .pipe(Effect.mapError(toAppError))
+    .pipe(Effect.map(installedRowsByName));
+  const unmanagedSkills = yield* ws.records
+    .rows("skill")
+    .pipe(Effect.mapError(toAppError))
+    .pipe(Effect.map(unmanagedRowsByName));
+  const configuredSkills = yield* ws.records
+    .rows("skill")
+    .pipe(Effect.mapError(toAppError))
+    .pipe(Effect.map(configuredRowsByName));
   const configuredAgents = yield* agentRepo
     .getMaterializationAgents()
     .pipe(Effect.provideService(WorkspaceMutations, ws));

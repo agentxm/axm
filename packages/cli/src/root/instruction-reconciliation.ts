@@ -16,8 +16,10 @@ import {
   type ResolvedInstructionsConfig,
 } from "@agentxm/extension-management/unstable/agents";
 import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
-const configuredAgents = (ws: WorkspaceMutationsService) => ws.getConfiguredAgents();
+const configuredAgents = (ws: WorkspaceMutationsService) =>
+  ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
 
 /** The one observation a command's planning derives its views from. */
 export const observeInstructions = Effect.fn("Instructions.observe")(function* (args: {
@@ -36,7 +38,7 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
 export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(function* (
   ws: WorkspaceMutationsService,
 ) {
-  const value = yield* ws.getInstructionsConfig();
+  const value = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
   if (Option.isNone(value) || value.value === false) {
     return Option.none<ResolvedInstructionsConfig>();
   }
@@ -130,7 +132,7 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
       workspaceRoot: args.ws.baseDir,
       dryRun: false,
     });
-    yield* args.ws.setInstructionsConfig(false);
+    yield* args.ws.setInstructionsConfig(false).pipe(Effect.mapError(toAppError));
     return {
       removed,
       gitignore: Option.getOrUndefined(gitignore),

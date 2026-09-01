@@ -45,7 +45,7 @@ import {
 } from "../workspace/materialized-tree.js";
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
-import { subagentContentErrorToAppError } from "../app-error/conversions.js";
+import { subagentContentErrorToAppError, toAppError } from "../app-error/conversions.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { buildRooModeEntry } from "./rendering/index.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -319,7 +319,9 @@ export const SubagentManagerLive = Layer.effect(
       force: boolean,
     ) =>
       Effect.gen(function* () {
-        const lockedEntry = yield* ws.getLockedSubagent(ref.subagent.name);
+        const lockedEntry = yield* ws
+          .getLockedSubagent(ref.subagent.name)
+          .pipe(Effect.mapError(toAppError));
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const useExisting = yield* provide(
           canReuseInstalledPackage({
@@ -705,7 +707,8 @@ export const SubagentManagerLive = Layer.effect(
             acceptedCanonicalObservation({ workspace: ws, type: "subagent", name: target.name }),
           );
           const packageRoot = removableAcceptedCanonicalPath(canonical);
-          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
+          if (Option.isSome(packageRoot))
+            yield* removeIfExists(fs, packageRoot.value).pipe(Effect.mapError(toAppError));
         }
       });
     const materializeUninstall = makeMaterializeRemoval(false);
@@ -858,7 +861,9 @@ export const SubagentManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "subagent", target.name);
+        return yield* isObservedInstalled(ws, "subagent", target.name).pipe(
+          Effect.mapError(toAppError),
+        );
       }),
 
       materializeInstall,
@@ -876,12 +881,15 @@ export const SubagentManagerLive = Layer.effect(
           lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
         ),
       getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredSubagentEntries();
+        const configured = yield* ws
+          .getConfiguredSubagentEntries()
+          .pipe(Effect.mapError(toAppError));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
         const configured = yield* ws.records
           .rows("subagent")
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.map(configuredRowsByName));
         return yield* configuredSubagentsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
@@ -916,10 +924,12 @@ export const SubagentManagerLive = Layer.effect(
         }
         const state = lastInstallState.get(ref.subagent.name);
         if (ref.refType === "workspace") {
-          return yield* ws.setSubagentEntry(ref.subagent.name, {
-            source: "workspace",
-            enabled: true,
-          });
+          return yield* ws
+            .setSubagentEntry(ref.subagent.name, {
+              source: "workspace",
+              enabled: true,
+            })
+            .pipe(Effect.mapError(toAppError));
         }
         if (state === undefined) {
           return yield* makeAppError({
@@ -945,16 +955,19 @@ export const SubagentManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSubagent({
-          name: ref.subagent.name,
-          lockEntry,
-          versionRange,
-        });
+        return yield* ws
+          .setSubagent({
+            name: ref.subagent.name,
+            lockEntry,
+            versionRange,
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws
           .removeSubagentSettings(target.name)
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.withSpan("SubagentManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("SubagentManager.upsertLockfileEntry")(function* ({
@@ -977,7 +990,7 @@ export const SubagentManagerLive = Layer.effect(
           });
         }
         if (ref.refType === "workspace") {
-          yield* ws.removeSubagentLock(ref.subagent.name);
+          yield* ws.removeSubagentLock(ref.subagent.name).pipe(Effect.mapError(toAppError));
           return;
         }
         const state = lastInstallState.get(ref.subagent.name);
@@ -1005,16 +1018,19 @@ export const SubagentManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSubagentLock({
-          name: ref.subagent.name,
-          lockEntry,
-          versionRange: Option.none(),
-        });
+        return yield* ws
+          .setSubagentLock({
+            name: ref.subagent.name,
+            lockEntry,
+            versionRange: Option.none(),
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws
           .removeSubagentLock(target.name)
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.withSpan("SubagentManager.removeLockfileEntry")),
     } satisfies SubagentManagerService;
   }),

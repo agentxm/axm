@@ -39,7 +39,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface InstallHookHandlerArgs {
   readonly source: string;
@@ -331,7 +331,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
                 label: "hook projections",
                 readiness: "ready",
                 run: applyPlannedProjections(hookManager).pipe(
-                  Effect.mapError(appErrorToStepFailure),
+                  Effect.mapError(failureToStepFailure),
                   Effect.as({
                     result: "success",
                     message: "Rendered installed Hooks from the complete contributor set",

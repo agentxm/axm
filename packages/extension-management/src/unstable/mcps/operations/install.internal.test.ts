@@ -15,6 +15,7 @@ import type { CodingAgent } from "../../agents/coding-agent.js";
 import { nonInteractiveFlag } from "../../cli-flags/index.js";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { LockfileWriteError } from "../../lockfile/errors.js";
 import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import type {
   McpServerExtensionRef,
@@ -111,7 +112,17 @@ const makeWorkspaceMock = (
               }),
           }),
     setMcpServerLock: setMcpServerFn
-      ? (args: SetMcpServerArgs) => setMcpServerFn(args)
+      ? (args: SetMcpServerArgs) =>
+          setMcpServerFn(args).pipe(
+            Effect.mapError(
+              (cause) =>
+                new LockfileWriteError({
+                  path: path.join(axmDir, "axm-lock.yaml"),
+                  step: "write-temp",
+                  cause,
+                }),
+            ),
+          )
       : (args: SetMcpServerArgs) =>
           Effect.try({
             try: () => {
@@ -124,9 +135,9 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeAppError({
-                code: "internal",
-                detail: "Mock write failed",
+              new LockfileWriteError({
+                path: path.join(axmDir, "axm-lock.yaml"),
+                step: "write-temp",
                 cause: error,
               }),
           }),

@@ -59,5 +59,6 @@ export {
   writeLockfile,
   writeLockfileAtPath,
 } from "./lockfile.js";
+export { LockfileValidationError, LockfileWriteError } from "./errors.js";
 export { validateExactResolvedVersion } from "./resolved-version.js";
 export { acceptedRegistryVersionForRef } from "./accepted-registry-version.js";

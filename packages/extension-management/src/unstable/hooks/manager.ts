@@ -94,6 +94,7 @@ import {
 } from "../workspace/refs/hook.js";
 import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
 import { evaluateHookAgentOutcome } from "./outcomes.js";
+import { toAppError } from "../app-error/conversions.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
@@ -473,7 +474,9 @@ export const HookManagerLive = Layer.effect(
           HOOK_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const lockedEntry = yield* ws.getLockedHookEntry(ref.hook.name);
+        const lockedEntry = yield* ws
+          .getLockedHookEntry(ref.hook.name)
+          .pipe(Effect.mapError(toAppError));
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
@@ -746,7 +749,7 @@ export const HookManagerLive = Layer.effect(
 
     const hookFallbackTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
         );
@@ -864,13 +867,13 @@ export const HookManagerLive = Layer.effect(
 
     const makeHookProjectionPlans = () =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
         const fallbackTarget = yield* hookFallbackTarget();
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* ws.getLockedHooks();
+        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+        const locked = yield* ws.getLockedHooks().pipe(Effect.mapError(toAppError));
         const contributors = yield* selectHookContributors({ graph, locked });
         const outcomes = evaluateConfiguredOutcomes({
           configuredAgents,
@@ -976,13 +979,13 @@ export const HookManagerLive = Layer.effect(
 
     const configuredAgentOutcomes = (state: "projected" | "current") =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
         const fallbackTarget = yield* hookFallbackTarget();
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* ws.getLockedHooks();
+        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+        const locked = yield* ws.getLockedHooks().pipe(Effect.mapError(toAppError));
         const contributors = yield* selectHookContributors({ graph, locked });
         return evaluateConfiguredOutcomes({
           configuredAgents,
@@ -995,7 +998,7 @@ export const HookManagerLive = Layer.effect(
 
     const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
@@ -1128,6 +1131,7 @@ export const HookManagerLive = Layer.effect(
       configuredAgentOutcomesForRef,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "hook", target.name).pipe(
+          Effect.mapError(toAppError),
           Effect.withSpan("HookManager.isInstalled"),
         ),
 
@@ -1143,12 +1147,12 @@ export const HookManagerLive = Layer.effect(
         ),
       getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredHookEntries();
+        const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
       listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
-        const configured = yield* ws.getConfiguredHookEntries();
+        const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
         const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const refs = yield* Effect.scoped(
           Effect.forEach(
@@ -1172,10 +1176,12 @@ export const HookManagerLive = Layer.effect(
       }) {
         const lockEntry = yield* buildLockEntry(ref);
         if (Option.isNone(lockEntry)) {
-          yield* ws.setHookEntry(ref.hook.name, {
-            source: "workspace",
-            enabled: true,
-          });
+          yield* ws
+            .setHookEntry(ref.hook.name, {
+              source: "workspace",
+              enabled: true,
+            })
+            .pipe(Effect.mapError(toAppError));
           return;
         }
         if (lockEntry.value.type === "registry") {
@@ -1184,21 +1190,23 @@ export const HookManagerLive = Layer.effect(
             lockEntry.value.resolvedVersion,
           );
         }
-        yield* ws.setHook({
-          name: ref.hook.name,
-          lockEntry: lockEntry.value,
-          versionRange,
-        });
+        yield* ws
+          .setHook({
+            name: ref.hook.name,
+            lockEntry: lockEntry.value,
+            versionRange,
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeSettingsEntry: Effect.fn("HookManager.removeSettingsEntry")(function* ({ target }) {
-        yield* ws.removeHookSettings(target.name);
+        yield* ws.removeHookSettings(target.name).pipe(Effect.mapError(toAppError));
       }),
 
       upsertLockfileEntry: Effect.fn("HookManager.upsertLockfileEntry")(function* ({ ref }) {
         const entry = yield* buildLockEntry(ref);
         if (Option.isNone(entry)) {
-          yield* ws.removeHookLock(ref.hook.name);
+          yield* ws.removeHookLock(ref.hook.name).pipe(Effect.mapError(toAppError));
           return;
         }
         if (ref.refType === "registry") {
@@ -1207,15 +1215,17 @@ export const HookManagerLive = Layer.effect(
             ref.version,
           );
         }
-        yield* ws.setHookLock({
-          name: ref.hook.name,
-          lockEntry: entry.value,
-          versionRange: Option.none(),
-        });
+        yield* ws
+          .setHookLock({
+            name: ref.hook.name,
+            lockEntry: entry.value,
+            versionRange: Option.none(),
+          })
+          .pipe(Effect.mapError(toAppError));
       }),
 
       removeLockfileEntry: Effect.fn("HookManager.removeLockfileEntry")(function* ({ target }) {
-        yield* ws.removeHookLock(target.name);
+        yield* ws.removeHookLock(target.name).pipe(Effect.mapError(toAppError));
       }),
     };
   }),

@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer } from "../cli-renderer/index.js";
 import YAML from "yaml";
-import { AppError } from "../app-error/index.js";
+import { InvalidAgentId, LockedSkillMissing, SettingsEntryMissing } from "./errors.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { McpServerLockEntry, SkillLockEntry, SubagentLockEntry } from "../lockfile/index.js";
@@ -1839,15 +1839,15 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("fails with AppError for invalid agent ID", () =>
+    it.effect("fails with InvalidAgentId for an invalid agent ID", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.addConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("validation");
+        expect(result).toBeInstanceOf(InvalidAgentId);
+        expect(result._tag).toBe("InvalidAgentId");
 
         // Verify settings were not changed
         const settingsPath = path.join(projectDir, "axm.json");
@@ -1856,15 +1856,15 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("fails with AppError for the synthetic universal agent", () =>
+    it.effect("fails with InvalidAgentId for the synthetic universal agent", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.addConfiguredAgent("universal").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("validation");
+        expect(result).toBeInstanceOf(InvalidAgentId);
+        expect(result._tag).toBe("InvalidAgentId");
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -1900,15 +1900,15 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("fails with AppError for invalid agent ID", () =>
+    it.effect("fails with InvalidAgentId for an invalid agent ID", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.removeConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("validation");
+        expect(result).toBeInstanceOf(InvalidAgentId);
+        expect(result._tag).toBe("InvalidAgentId");
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -1916,15 +1916,15 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("fails with AppError for the synthetic universal agent", () =>
+    it.effect("fails with InvalidAgentId for the synthetic universal agent", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.removeConfiguredAgent("universal").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("validation");
+        expect(result).toBeInstanceOf(InvalidAgentId);
+        expect(result._tag).toBe("InvalidAgentId");
 
         const settingsPath = path.join(projectDir, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -2141,8 +2141,8 @@ describe("WorkspaceMutationsService", () => {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getSkillDir("nonexistent").pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("conflict");
+        expect(result).toBeInstanceOf(LockedSkillMissing);
+        expect(result._tag).toBe("LockedSkillMissing");
       }),
     );
   });
@@ -2359,7 +2359,7 @@ describe("WorkspaceMutationsService", () => {
       }),
     );
 
-    it.effect("fails with AppError for missing skill name", () =>
+    it.effect("fails with SettingsEntryMissing for a missing skill name", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"], skills: {} });
 
@@ -2368,8 +2368,8 @@ describe("WorkspaceMutationsService", () => {
           .updateSkillEntry("nonexistent", (entry) => entry)
           .pipe(Effect.flip);
 
-        expect(result).toBeInstanceOf(AppError);
-        expect(result.code).toBe("not_found");
+        expect(result).toBeInstanceOf(SettingsEntryMissing);
+        expect(result._tag).toBe("SettingsEntryMissing");
       }),
     );
   });

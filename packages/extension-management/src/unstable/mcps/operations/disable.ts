@@ -10,7 +10,7 @@ import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
@@ -148,4 +148,4 @@ export const disableMcpServer = (
         targets: [mcpSettingsTarget(ws.scope, "updated"), ...agentConfigTargets(syncedAgents)],
       }),
     };
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

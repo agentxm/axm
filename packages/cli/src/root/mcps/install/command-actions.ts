@@ -41,6 +41,7 @@ import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -124,6 +125,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
 
   const registryLoginSuggestions = ws
     .getRegistrySourceHosts()
+    .pipe(Effect.mapError(toAppError))
     .pipe(Effect.flatMap((hosts) => loginSuggestionsFor(hosts.map((host) => host.location.href))));
 
   // Build a service layer to provide to inner effects that still require
@@ -164,27 +166,30 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
           };
         }
 
-        const owner = yield* ws.getConfiguredOwner().pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  makeAppError({
-                    code: "validation",
-                    detail: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
-                    suggestions: [
-                      {
-                        description:
-                          "Use the fully-qualified `@owner/mcps/name` form, set `owner` in settings, or sign in.",
-                        cmd: "axm login",
-                      },
-                    ],
-                  }),
-                ),
-              onSome: Effect.succeed,
-            }),
-          ),
-        );
+        const owner = yield* ws
+          .getConfiguredOwner()
+          .pipe(Effect.mapError(toAppError))
+          .pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    makeAppError({
+                      code: "validation",
+                      detail: `Cannot resolve bare MCP server name "${parsed.success.name}" without a configured owner`,
+                      suggestions: [
+                        {
+                          description:
+                            "Use the fully-qualified `@owner/mcps/name` form, set `owner` in settings, or sign in.",
+                          cmd: "axm login",
+                        },
+                      ],
+                    }),
+                  ),
+                onSome: Effect.succeed,
+              }),
+            ),
+          );
         return {
           owner,
           serverName: parsed.success.name,
@@ -342,7 +347,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
   const buildPlan = (intent: InstallMcpServerCommandIntent): Effect.Effect<Plan, AppError> =>
     Effect.gen(function* () {
       if (ws.scope === "user") {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
         const refused = configuredAgents.flatMap((agentId) => {
           if (!isConfigurableAgentId(agentId)) {
             return [`${agentId}: no MCP capability catalog entry`];

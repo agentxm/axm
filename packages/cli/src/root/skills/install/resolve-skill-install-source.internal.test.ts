@@ -23,6 +23,7 @@ import {
 } from "@agentxm/extension-management/unstable/workspace";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceMutationsService =>
   makeBaseWorkspaceMock("/tmp/test-workspace/.axm", {
@@ -304,9 +305,9 @@ describe("resolveSkillInstallSource", () => {
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("AppError");
-      expect(error.code).toBe("not_found");
-      expect(error.detail).toContain("@acme/skills/my-skill");
-      expect(error.detail).toContain("not found");
+      expect(toAppError(error).code).toBe("not_found");
+      expect(toAppError(error).detail).toContain("@acme/skills/my-skill");
+      expect(toAppError(error).detail).toContain("not found");
     });
   });
 });
@@ -464,9 +465,9 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile(sources, Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("not_found");
-        expect(error.detail).toContain("@myns/skills/missing-skill");
-        expect(error.detail).toContain("not found");
+        expect(toAppError(error).code).toBe("not_found");
+        expect(toAppError(error).detail).toContain("@myns/skills/missing-skill");
+        expect(toAppError(error).detail).toContain("not found");
       });
     },
   );
@@ -484,8 +485,8 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile(sources, Option.none())),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("not_found");
-        expect(error.detail).toContain("no default owner");
+        expect(toAppError(error).code).toBe("not_found");
+        expect(toAppError(error).detail).toContain("no default owner");
       });
     },
   );
@@ -499,8 +500,8 @@ describe("resolveSkillRegistrySourceByName", () => {
           Effect.provide(provideLayersWithProfile([], Option.some(normalizeHandle("@myns")))),
         );
         expect(error._tag).toBe("AppError");
-        expect(error.code).toBe("not_found");
-        expect(error.detail).toContain("no registry sources");
+        expect(toAppError(error).code).toBe("not_found");
+        expect(toAppError(error).detail).toContain("no registry sources");
       });
     },
   );

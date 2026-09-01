@@ -47,6 +47,7 @@ import type {
 } from "@agentxm/extension-management/unstable/plan";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -116,7 +117,10 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
   ): Effect.Effect<ParsedSkillUninstallArgs, AppError> =>
     Effect.gen(function* () {
       // Load installed skills for glob expansion
-      const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
+      const installedSkills = yield* ws.records
+        .rows("skill")
+        .pipe(Effect.mapError(toAppError))
+        .pipe(Effect.map(installedRowsByName));
       const installedNames = Object.keys(installedSkills);
 
       // Expand the glob pattern against installed skill names.
@@ -191,6 +195,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
                 : yield* skillMgr.getConfiguredSource({ target });
             const lockEntry = yield* ws
               .getLockedSkill(entry.skillName)
+              .pipe(Effect.mapError(toAppError))
               .pipe(Effect.catch(() => Effect.succeed(Option.none())));
             const artifact = yield* skillArtifactFromTargets({
               targets: installableTargets,

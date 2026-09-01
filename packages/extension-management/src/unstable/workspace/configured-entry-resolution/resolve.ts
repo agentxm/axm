@@ -32,11 +32,12 @@ import { WorkspaceMutations } from "../service-interface.js";
 import { acceptedResolutionRef } from "../accepted-canonical-ref.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
 import type { ConfiguredRegistryResolution, ResolvedConfiguredEntry } from "./types.js";
+import { toAppError } from "../../app-error/conversions.js";
 
 export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getMinimumReleaseAge();
+    const configured = yield* ws.getMinimumReleaseAge().pipe(Effect.mapError(toAppError));
     const minimumReleaseAge = parseMinimumReleaseAge(configured);
     if (Option.isNone(minimumReleaseAge)) {
       return yield* makeAppError({
@@ -46,7 +47,7 @@ export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =
       });
     }
     const evaluatedAt = yield* DateTime.now;
-    const exclude = yield* ws.getMinimumReleaseAgeExclude();
+    const exclude = yield* ws.getMinimumReleaseAgeExclude().pipe(Effect.mapError(toAppError));
     return {
       minimumReleaseAge: minimumReleaseAge.value,
       evaluatedAt,

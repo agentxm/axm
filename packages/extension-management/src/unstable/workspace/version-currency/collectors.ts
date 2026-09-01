@@ -42,9 +42,13 @@ import type {
   SubagentLockEntry,
 } from "../../lockfile/index.js";
 import { WorkspaceMutations } from "../service-interface.js";
-import type { WorkspaceMutationsService } from "../service-interface.js";
+import type {
+  WorkspaceLockfileReadFailure,
+  WorkspaceMutationsService,
+} from "../service-interface.js";
 import { isSourcedDesiredExtension } from "../desired-state-graph.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
+import { toAppError } from "../../app-error/conversions.js";
 
 // Registry currency reads share the same four-request transport cap used by
 // publishing. Git source probes stay serial because each provider may allocate
@@ -120,22 +124,28 @@ const getAcceptedResolution = (
   type: ExtensionType,
   name: string,
 ): Effect.Effect<Option.Option<AcceptedResolution>, AppError> => {
-  switch (type) {
-    case "skill":
-      return ws.getLockedSkill(name);
-    case "mcp-server":
-      return ws.getLockedMcpServer(name);
-    case "subagent":
-      return ws.getLockedSubagent(name);
-    case "rule":
-      return ws.getLockedRuleEntry(name);
-    case "hook":
-      return ws.getLockedHookEntry(name);
-    case "knowledge":
-      return ws.getLockedKnowledgeEntry(name);
-    case "pack":
-      return ws.getLockedPack(name);
-  }
+  const read = (): Effect.Effect<
+    Option.Option<AcceptedResolution>,
+    WorkspaceLockfileReadFailure
+  > => {
+    switch (type) {
+      case "skill":
+        return ws.getLockedSkill(name);
+      case "mcp-server":
+        return ws.getLockedMcpServer(name);
+      case "subagent":
+        return ws.getLockedSubagent(name);
+      case "rule":
+        return ws.getLockedRuleEntry(name);
+      case "hook":
+        return ws.getLockedHookEntry(name);
+      case "knowledge":
+        return ws.getLockedKnowledgeEntry(name);
+      case "pack":
+        return ws.getLockedPack(name);
+    }
+  };
+  return read().pipe(Effect.mapError(toAppError));
 };
 
 type GitAcceptedResolution = Exclude<AcceptedResolution, { readonly type: "registry" | "local" }>;
@@ -160,7 +170,7 @@ const collectCurrency = (
 ): Effect.Effect<ReadonlyArray<ExtensionCurrencyEntry>, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     if (!graph.complete) {
       return yield* makeAppError({
         code: "validation",
@@ -314,7 +324,7 @@ const collectSourceFreshness = (args: {
     const providers = yield* SourceHostProviders;
     const ws = yield* WorkspaceMutations;
     const { extensionType } = args;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     if (!graph.complete) {
       return yield* makeAppError({
         code: "validation",

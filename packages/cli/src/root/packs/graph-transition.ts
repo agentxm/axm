@@ -14,7 +14,10 @@ import {
   type DesiredExtensionNode,
 } from "@agentxm/extension-management/unstable/workspace";
 import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -209,7 +212,7 @@ export const validatePackGraphPostcondition = (args: {
 }): Effect.Effect<void, AppError, WorkspaceMutations> =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
     const requiredPackIdentities = new Set(
       (args.requiredPacks ?? []).map((pack) => normalizedIdentity(pack.identity)),
     );

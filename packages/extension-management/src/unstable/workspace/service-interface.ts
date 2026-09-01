@@ -19,6 +19,21 @@ import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
 import type { WorkspaceRestorationIncomplete } from "./transaction.js";
+import type {
+  LockfileReadError,
+  SettingsReadError,
+  WorkspaceRootEscape,
+} from "./read-model/errors.js";
+import type { SettingsWriteError } from "../settings/errors.js";
+import type { LockfileValidationError, LockfileWriteError } from "../lockfile/errors.js";
+import type {
+  DesiredPackGraphIncomplete,
+  InvalidAgentId,
+  LockedSkillMissing,
+  SettingsEntryMissing,
+  WorkspaceLayoutError,
+  WorkspaceNotInitialized,
+} from "./errors.js";
 import type { InstallableExtensionType } from "./installable-types.js";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -156,6 +171,35 @@ export type ExtensionTargetFor<TRef extends ExtensionRef> = Extract<
 /** Lockfile health state used for reconciliation decisions. */
 export type LockfileState = "ok" | "missing" | "invalid";
 
+// ---------------------------------------------------------------------------
+// Failure unions
+// ---------------------------------------------------------------------------
+
+/** Scoped settings read through the read model. */
+export type WorkspaceSettingsReadFailure = SettingsReadError | WorkspaceRootEscape;
+
+/** Scoped lockfile read through the read model. */
+export type WorkspaceLockfileReadFailure = LockfileReadError | WorkspaceRootEscape;
+
+/** Any scoped workspace-state read. */
+export type WorkspaceStateReadFailure = SettingsReadError | LockfileReadError | WorkspaceRootEscape;
+
+/**
+ * Settings read-modify-write. The transaction path-protection primitives
+ * still fail with `AppError`; that member dissolves when the transaction
+ * seam gets its typed errors.
+ */
+export type WorkspaceSettingsMutationFailure =
+  WorkspaceSettingsReadFailure | SettingsWriteError | AppError;
+
+/** Lockfile read-modify-write through the snapshot-commit path. */
+export type WorkspaceLockfileMutationFailure =
+  WorkspaceLockfileReadFailure | LockfileValidationError | LockfileWriteError;
+
+/** Coupled settings-and-lockfile mutation. */
+export type WorkspaceStateMutationFailure =
+  WorkspaceSettingsMutationFailure | WorkspaceLockfileMutationFailure;
+
 export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly targets?: ReadonlyArray<string>;
   readonly transition: Effect.Effect<A, E, R>;
@@ -240,14 +284,14 @@ export interface WorkspaceReadModelRecords {
   /** Deterministic inventory across every installable extension type or one selected type. */
   readonly getInventory: (options: {
     readonly type?: InstallableExtensionType;
-  }) => Effect.Effect<ExtensionInventory, AppError>;
+  }) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   /** Read-only physical inventory for one extension type. */
   readonly getExtensionInventory: (
     type: InstallableExtensionType,
     options: {
       readonly agents?: ReadonlyArray<string>;
     },
-  ) => Effect.Effect<ExtensionInventory, AppError>;
+  ) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   /**
    * Every read-model row for one extension type, tagged with its lifecycle
    * (`configured` / `implicit` / `unmanaged`).
@@ -258,7 +302,7 @@ export interface WorkspaceReadModelRecords {
    */
   readonly rows: (
     type: InstallableExtensionType,
-  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError>;
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure>;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,240 +400,332 @@ export interface WorkspaceMutationsService {
   /** Acquire the workspace transition for a post-confirmation apply. */
   readonly acquireTransition: WorkspaceTransitionAcquirer;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
-  readonly getLockfileState: () => Effect.Effect<LockfileState, AppError>;
+  readonly getLockfileState: () => Effect.Effect<
+    LockfileState,
+    LockfileValidationError | WorkspaceRootEscape
+  >;
   /** Build desired extension state from settings and installed or prospective Pack manifests. */
   readonly getDesiredStateGraph: (options?: {
     readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-  }) => Effect.Effect<DesiredStateGraph, AppError>;
+  }) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, AppError>;
+  readonly getConfiguredSources: () => Effect.Effect<
+    ReadonlyArray<SourceHostConfig>,
+    WorkspaceSettingsReadFailure
+  >;
   /** Lookup a source by name from the merged sources list. */
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceHostConfig>, AppError>;
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, WorkspaceSettingsReadFailure>;
   /** Filter merged sources to registry sources. */
   readonly getRegistrySourceHosts: () => Effect.Effect<
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
-    AppError
+    WorkspaceSettingsReadFailure
   >;
   readonly records: WorkspaceReadModelRecords;
   /** Resolve owner: project settings -> user-scope settings -> Option.none(). */
-  readonly getConfiguredOwner: () => Effect.Effect<Option.Option<Handle>, AppError>;
+  readonly getConfiguredOwner: () => Effect.Effect<
+    Option.Option<Handle>,
+    WorkspaceSettingsReadFailure
+  >;
   /** Repository publication default for this exact workspace scope. */
   readonly getPublishDefaultVisibility: () => Effect.Effect<
     Option.Option<ExtensionVisibility>,
-    AppError
+    WorkspaceSettingsReadFailure
   >;
   /** Resolve minimumReleaseAge: project settings -> user-scope settings -> default. */
-  readonly getMinimumReleaseAge: () => Effect.Effect<MinimumReleaseAge, AppError>;
+  readonly getMinimumReleaseAge: () => Effect.Effect<
+    MinimumReleaseAge,
+    WorkspaceSettingsReadFailure
+  >;
   /** Resolve minimumReleaseAgeExclude with the same scope precedence; an explicit [] wins. */
   readonly getMinimumReleaseAgeExclude: () => Effect.Effect<
     ReadonlyArray<ScopedReleaseAgeExcludePattern>,
-    AppError
+    WorkspaceSettingsReadFailure
   >;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
-  readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, AppError>;
+  readonly addConfiguredSource: (
+    source: SourceHostConfig,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Read settings and return configured skills, defaulting to `{}`. */
-  readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, AppError>;
+  readonly getConfiguredSkillEntries: () => Effect.Effect<SkillsMap, WorkspaceSettingsReadFailure>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
-  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, AppError>;
+  readonly getConfiguredAgents: () => Effect.Effect<
+    ReadonlyArray<string>,
+    WorkspaceSettingsReadFailure
+  >;
   /** Read settings and return instruction-file config, defaulting to unset. */
   readonly getInstructionsConfig: () => Effect.Effect<
     Option.Option<InstructionsConfigValue>,
-    AppError
+    WorkspaceSettingsReadFailure
   >;
   /** Set instruction-file config. Use false for explicit manual mode. Serialized by semaphore. */
   readonly setInstructionsConfig: (
     config: InstructionsConfigValue,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Read settings and return configured MCP server entries, defaulting to `{}`. */
-  readonly getConfiguredMcpServerEntries: () => Effect.Effect<McpServersMap, AppError>;
+  readonly getConfiguredMcpServerEntries: () => Effect.Effect<
+    McpServersMap,
+    WorkspaceSettingsReadFailure
+  >;
   /** Read settings and return configured rules, defaulting to `{}`. */
-  readonly getConfiguredRuleEntries: () => Effect.Effect<RulesMap, AppError>;
+  readonly getConfiguredRuleEntries: () => Effect.Effect<RulesMap, WorkspaceSettingsReadFailure>;
   /** Read lockfile and return the rules lock map. */
-  readonly getLockedRules: () => Effect.Effect<RulesLockMap, AppError>;
+  readonly getLockedRules: () => Effect.Effect<RulesLockMap, WorkspaceLockfileReadFailure>;
   /** Read lockfile and return the entry for a specific rule, or Option.none(). */
   readonly getLockedRuleEntry: (
     name: string,
-  ) => Effect.Effect<Option.Option<RuleLockEntry>, AppError>;
+  ) => Effect.Effect<Option.Option<RuleLockEntry>, WorkspaceLockfileReadFailure>;
   /** Update desired rule settings and any external accepted resolution atomically. */
-  readonly setRule: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
+  readonly setRule: (args: SetRuleArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Add or update a rule in lockfile only. Used for pack dependencies. Serialized by semaphore. */
-  readonly setRuleLock: (args: SetRuleArgs) => Effect.Effect<void, AppError>;
+  readonly setRuleLock: (
+    args: SetRuleArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove a rule from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeRule: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeRule: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Remove a rule from settings only. Serialized by semaphore. */
-  readonly removeRuleSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeRuleSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove a rule from lockfile only. Serialized by semaphore. */
-  readonly removeRuleLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeRuleLock: (name: string) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Update a rule entry by applying an updater function. Serialized by semaphore. */
   readonly updateRuleEntry: (
     name: string,
     updater: (entry: RuleEntry) => RuleEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Create or overwrite a rule entry in settings only. Serialized by semaphore. */
-  readonly setRuleEntry: (name: string, entry: RuleEntry) => Effect.Effect<void, AppError>;
+  readonly setRuleEntry: (
+    name: string,
+    entry: RuleEntry,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Read settings and return configured hooks, defaulting to `{}`. */
-  readonly getConfiguredHookEntries: () => Effect.Effect<HooksMap, AppError>;
+  readonly getConfiguredHookEntries: () => Effect.Effect<HooksMap, WorkspaceSettingsReadFailure>;
   /** Read lockfile and return the hooks lock map. */
-  readonly getLockedHooks: () => Effect.Effect<HooksLockMap, AppError>;
+  readonly getLockedHooks: () => Effect.Effect<HooksLockMap, WorkspaceLockfileReadFailure>;
   /** Read lockfile and return the entry for a specific hook, or Option.none(). */
   readonly getLockedHookEntry: (
     name: string,
-  ) => Effect.Effect<Option.Option<HookLockEntry>, AppError>;
+  ) => Effect.Effect<Option.Option<HookLockEntry>, WorkspaceLockfileReadFailure>;
   /** Update desired hook settings and any external accepted resolution atomically. */
-  readonly setHook: (args: SetHookArgs) => Effect.Effect<void, AppError>;
+  readonly setHook: (args: SetHookArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Add or update a hook in lockfile only. Used for pack dependencies. Serialized by semaphore. */
-  readonly setHookLock: (args: SetHookArgs) => Effect.Effect<void, AppError>;
+  readonly setHookLock: (
+    args: SetHookArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove a hook from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeHook: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeHook: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Remove a hook from settings only. Serialized by semaphore. */
-  readonly removeHookSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeHookSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove a hook from lockfile only. Serialized by semaphore. */
-  readonly removeHookLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeHookLock: (name: string) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Update a hook entry by applying an updater function. Serialized by semaphore. */
   readonly updateHookEntry: (
     name: string,
     updater: (entry: HookEntry) => HookEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Create or overwrite a hook entry in settings only. Serialized by semaphore. */
-  readonly setHookEntry: (name: string, entry: HookEntry) => Effect.Effect<void, AppError>;
+  readonly setHookEntry: (
+    name: string,
+    entry: HookEntry,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Read, write, and remove isolated Open Knowledge Format bundles. */
   readonly getKnowledgeDiscoveryConfig: () => Effect.Effect<
     ResolvedKnowledgeDiscoveryConfig,
-    AppError
+    WorkspaceSettingsReadFailure
   >;
-  readonly getConfiguredKnowledgeEntries: () => Effect.Effect<KnowledgeMap, AppError>;
-  readonly getLockedKnowledge: () => Effect.Effect<KnowledgeLockMap, AppError>;
+  readonly getConfiguredKnowledgeEntries: () => Effect.Effect<
+    KnowledgeMap,
+    WorkspaceSettingsReadFailure
+  >;
+  readonly getLockedKnowledge: () => Effect.Effect<KnowledgeLockMap, WorkspaceLockfileReadFailure>;
   readonly getLockedKnowledgeEntry: (
     name: string,
-  ) => Effect.Effect<Option.Option<KnowledgeLockEntry>, AppError>;
-  readonly setKnowledge: (args: SetKnowledgeArgs) => Effect.Effect<void, AppError>;
-  readonly setKnowledgeLock: (args: SetKnowledgeArgs) => Effect.Effect<void, AppError>;
-  readonly removeKnowledge: (name: string) => Effect.Effect<void, AppError>;
-  readonly removeKnowledgeSettings: (name: string) => Effect.Effect<void, AppError>;
-  readonly removeKnowledgeLock: (name: string) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<Option.Option<KnowledgeLockEntry>, WorkspaceLockfileReadFailure>;
+  readonly setKnowledge: (
+    args: SetKnowledgeArgs,
+  ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+  readonly setKnowledgeLock: (
+    args: SetKnowledgeArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
+  readonly removeKnowledge: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+  readonly removeKnowledgeSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
+  readonly removeKnowledgeLock: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   readonly updateKnowledgeEntry: (
     name: string,
     updater: (entry: KnowledgeEntry) => KnowledgeEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   readonly setKnowledgeEntry: (
     name: string,
     entry: KnowledgeEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Read lockfile and return the skills lock map. */
-  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, AppError>;
+  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, WorkspaceLockfileReadFailure>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */
-  readonly getLockedSkill: (name: string) => Effect.Effect<Option.Option<SkillLockEntry>, AppError>;
+  readonly getLockedSkill: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SkillLockEntry>, WorkspaceLockfileReadFailure>;
   /** Compute skill directory paths. If source is omitted, looks up the lock entry to determine source type. */
   readonly getSkillDir: (
     name: string,
     source?: SkillPathSource,
-  ) => Effect.Effect<SkillDirPaths, AppError>;
+  ) => Effect.Effect<SkillDirPaths, WorkspaceStateReadFailure | LockedSkillMissing>;
   /** Update desired skill settings and any external accepted resolution atomically. */
-  readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
+  readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Add or update a skill in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setSkillLock: (args: SetSkillArgs) => Effect.Effect<void, AppError>;
+  readonly setSkillLock: (
+    args: SetSkillArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeSkill: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSkill: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Remove a skill from settings only (keep lockfile entry). Used when a pack still references the skill. Serialized by semaphore. */
-  readonly removeSkillFromSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSkillFromSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSkillEntry: (
     name: string,
     updater: (entry: SkillEntry) => SkillEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure | SettingsEntryMissing>;
   /** Create or overwrite a skill entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setSkillEntry: (name: string, entry: SkillEntry) => Effect.Effect<void, AppError>;
+  readonly setSkillEntry: (
+    name: string,
+    entry: SkillEntry,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Update the agents field on a lock entry. Serialized by semaphore. */
-  /** Append an agent ID if not already present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
-  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
-  /** Remove an agent ID if present and write to disk. Fails with AppError if invalid. Serialized by semaphore. */
-  readonly removeConfiguredAgent: (agentId: string) => Effect.Effect<void, AppError>;
+  /** Append an agent ID if not already present and write to disk. Fails typed if invalid. Serialized by semaphore. */
+  readonly addConfiguredAgent: (
+    agentId: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure | InvalidAgentId>;
+  /** Remove an agent ID if present and write to disk. Fails typed if invalid. Serialized by semaphore. */
+  readonly removeConfiguredAgent: (
+    agentId: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure | InvalidAgentId>;
   /** Read settings and return configured packs, defaulting to `{}`. */
-  readonly getConfiguredPackEntries: () => Effect.Effect<PacksMap, AppError>;
+  readonly getConfiguredPackEntries: () => Effect.Effect<PacksMap, WorkspaceSettingsReadFailure>;
   /** Read lockfile and return the packs lock map. */
-  readonly getLockedPacks: () => Effect.Effect<PacksLockMap, AppError>;
+  readonly getLockedPacks: () => Effect.Effect<PacksLockMap, WorkspaceLockfileReadFailure>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
-  readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, AppError>;
+  readonly getLockedPack: (
+    name: string,
+  ) => Effect.Effect<Option.Option<PackLockEntry>, WorkspaceLockfileReadFailure>;
   /** Update desired Pack settings and any Registry accepted resolution atomically. */
-  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Update an accepted external Pack resolution without changing desired settings. */
-  readonly setPackLock: (args: SetPackArgs) => Effect.Effect<void, AppError>;
+  readonly setPackLock: (
+    args: SetPackArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Create or overwrite a pack entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setPackEntry: (name: string, entry: PackEntry) => Effect.Effect<void, AppError>;
+  readonly setPackEntry: (
+    name: string,
+    entry: PackEntry,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removePack: (name: string) => Effect.Effect<void, AppError>;
+  readonly removePack: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
   readonly getPackDir: (
     name: string,
     owner: Handle,
     sourceName: string,
-  ) => Effect.Effect<PackDirPath, AppError>;
+  ) => Effect.Effect<PackDirPath>;
   /** Read lockfile and return the subagents lock map. */
-  readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, AppError>;
+  readonly getLockedSubagents: () => Effect.Effect<SubagentsLockMap, WorkspaceLockfileReadFailure>;
   /** Read lockfile and return the entry for a specific subagent, or Option.none(). */
   readonly getLockedSubagent: (
     name: string,
-  ) => Effect.Effect<Option.Option<SubagentLockEntry>, AppError>;
+  ) => Effect.Effect<Option.Option<SubagentLockEntry>, WorkspaceLockfileReadFailure>;
   /** Read settings and return configured subagents, defaulting to `{}`. */
-  readonly getConfiguredSubagentEntries: () => Effect.Effect<SubagentsMap, AppError>;
+  readonly getConfiguredSubagentEntries: () => Effect.Effect<
+    SubagentsMap,
+    WorkspaceSettingsReadFailure
+  >;
   /** Update desired subagent settings and any external accepted resolution atomically. */
-  readonly setSubagent: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
+  readonly setSubagent: (
+    args: SetSubagentArgs,
+  ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Add or update a subagent in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setSubagentLock: (args: SetSubagentArgs) => Effect.Effect<void, AppError>;
+  readonly setSubagentLock: (
+    args: SetSubagentArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove a subagent from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeSubagent: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSubagent: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Update a subagent entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSubagentEntry: (
     name: string,
     updater: (entry: SubagentEntry) => SubagentEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Create or overwrite a subagent entry in settings only (no lockfile). Serialized by semaphore. */
-  readonly setSubagentEntry: (name: string, entry: SubagentEntry) => Effect.Effect<void, AppError>;
+  readonly setSubagentEntry: (
+    name: string,
+    entry: SubagentEntry,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   // --- Granular subagent removal methods (settings-only or lockfile-only) ---
   /** Remove a subagent from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeSubagentSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSubagentSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove a subagent from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeSubagentLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSubagentLock: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Read lockfile and return the MCP servers lock map. */
-  readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, AppError>;
+  readonly getLockedMcpServers: () => Effect.Effect<
+    McpServersLockMap,
+    WorkspaceLockfileReadFailure
+  >;
   /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */
   readonly getLockedMcpServer: (
     name: string,
-  ) => Effect.Effect<Option.Option<McpServerLockEntry>, AppError>;
+  ) => Effect.Effect<Option.Option<McpServerLockEntry>, WorkspaceLockfileReadFailure>;
   /** Update desired MCP settings and any external accepted resolution atomically. */
-  readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+  readonly setMcpServer: (
+    args: SetMcpServerArgs,
+  ) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   /** Add or update an MCP server in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
-  readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, AppError>;
+  readonly setMcpServerLock: (
+    args: SetMcpServerArgs,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Update an MCP server entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateMcpServerEntry: (
     name: string,
     updater: (entry: McpServerEntry) => McpServerEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure | SettingsEntryMissing>;
   /** Create or overwrite an MCP server entry in settings only (no lockfile). Serialized by semaphore. */
   readonly setMcpServerEntry: (
     name: string,
     entry: McpServerEntry,
-  ) => Effect.Effect<void, AppError>;
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove an MCP server from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeMcpServer: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeMcpServer: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
   // --- Granular removal methods (settings-only or lockfile-only) ---
   /** Remove a skill from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeSkillLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeSkillLock: (name: string) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove an MCP server from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removeMcpServerSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeMcpServerSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove an MCP server from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removeMcpServerLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removeMcpServerLock: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   /** Remove a pack from settings only (keep lockfile entry). Serialized by semaphore. */
-  readonly removePackSettings: (name: string) => Effect.Effect<void, AppError>;
+  readonly removePackSettings: (
+    name: string,
+  ) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
-  readonly removePackLock: (name: string) => Effect.Effect<void, AppError>;
+  readonly removePackLock: (name: string) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   // --- Pack dependency queries ---
   /** Check if an extension target is referenced by any installed pack's dependency maps. */
   readonly isExtensionRequiredByInstalledPack: (
     target: ExtensionTarget,
-  ) => Effect.Effect<boolean, AppError>;
+  ) => Effect.Effect<boolean, WorkspaceStateReadFailure | DesiredPackGraphIncomplete>;
 }
 
 // ---------------------------------------------------------------------------
@@ -637,8 +773,10 @@ export interface WorkspaceMutationsOptions {
 }
 
 /**
- * Error loading workspace mutations.
+ * Error loading workspace mutations: scoped settings reads, layout
+ * resolution, and the initialization gate.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type WorkspaceMutationsError = AppError;
+export type WorkspaceMutationsError =
+  WorkspaceSettingsReadFailure | WorkspaceLayoutError | WorkspaceNotInitialized;

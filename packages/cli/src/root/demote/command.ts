@@ -22,6 +22,7 @@ import {
 import {
   appErrorToStepFailure,
   fqnInvalidErrorToAppError,
+  toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
@@ -71,19 +72,19 @@ const configuredEntry = Effect.fn("Demote.configuredEntry")(function* (
   const ws = yield* WorkspaceMutations;
   switch (type) {
     case "skill":
-      return (yield* ws.getConfiguredSkillEntries())[name];
+      return (yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError)))[name];
     case "mcp-server":
-      return (yield* ws.getConfiguredMcpServerEntries())[name];
+      return (yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError)))[name];
     case "subagent":
-      return (yield* ws.getConfiguredSubagentEntries())[name];
+      return (yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError)))[name];
     case "rule":
-      return (yield* ws.getConfiguredRuleEntries())[name];
+      return (yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError)))[name];
     case "hook":
-      return (yield* ws.getConfiguredHookEntries())[name];
+      return (yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError)))[name];
     case "knowledge":
-      return (yield* ws.getConfiguredKnowledgeEntries())[name];
+      return (yield* ws.getConfiguredKnowledgeEntries().pipe(Effect.mapError(toAppError)))[name];
     case "pack":
-      return (yield* ws.getConfiguredPackEntries())[name];
+      return (yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError)))[name];
   }
 });
 
@@ -100,22 +101,22 @@ const restoreDisabledState = Effect.fn("Demote.restoreDisabledState")(function* 
   });
   switch (type) {
     case "skill":
-      yield* ws.updateSkillEntry(name, disable);
+      yield* ws.updateSkillEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "mcp-server":
-      yield* ws.updateMcpServerEntry(name, disable);
+      yield* ws.updateMcpServerEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "subagent":
-      yield* ws.updateSubagentEntry(name, disable);
+      yield* ws.updateSubagentEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "rule":
-      yield* ws.updateRuleEntry(name, disable);
+      yield* ws.updateRuleEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "hook":
-      yield* ws.updateHookEntry(name, disable);
+      yield* ws.updateHookEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "knowledge":
-      yield* ws.updateKnowledgeEntry(name, disable);
+      yield* ws.updateKnowledgeEntry(name, disable).pipe(Effect.mapError(toAppError));
       return;
     case "pack":
       return;

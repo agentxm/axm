@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
-import type { AppError } from "../app-error/index.js";
 import type { InstallableExtensionType } from "./installable-types.js";
-import type { WorkspaceMutationsService } from "./service-interface.js";
+import type { WorkspaceMutationsService, WorkspaceStateReadFailure } from "./service-interface.js";
 
 /**
  * Determine installation from the observable workspace inventory. Lock
@@ -11,7 +10,7 @@ export const isObservedInstalled = (
   workspace: WorkspaceMutationsService,
   type: InstallableExtensionType,
   name: string,
-): Effect.Effect<boolean, AppError> =>
+): Effect.Effect<boolean, WorkspaceStateReadFailure> =>
   workspace.records
     .getExtensionInventory(type, {})
     .pipe(

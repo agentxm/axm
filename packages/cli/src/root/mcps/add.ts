@@ -37,7 +37,10 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import type { InlineMcpDefinition } from "./import-preflight.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -237,12 +240,12 @@ const syncStep = (
   label: `Sync ${name} to configured agents`,
   readiness: "ready",
   run: Effect.gen(function* () {
-    const entries = yield* ws.getConfiguredMcpServerEntries();
+    const entries = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
     const entry = entries[name];
     if (entry === undefined) {
       return { result: "success", message: `${name} is not configured` } satisfies JobStepResult;
     }
-    const agentIds = yield* ws.getConfiguredAgents();
+    const agentIds = yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
     const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
       workspaceRoot: ws.baseDir,
       serverName: name,
@@ -321,7 +324,7 @@ const syncStep = (
       ...(warningDetails.length > 0 ? { warnings: warningDetails } : {}),
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure)),
+  }).pipe(Effect.mapError(failureToStepFailure)),
 });
 
 const configArtifact = (
@@ -381,7 +384,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
     yield* validateRemoteUrl(args.url.value);
   }
   const definition = yield* makeInlineDefinition(args, headers);
-  const configured = yield* ws.getConfiguredMcpServerEntries();
+  const configured = yield* ws.getConfiguredMcpServerEntries().pipe(Effect.mapError(toAppError));
   const existingEntry = configured[args.name];
   if (
     matchesInlineMcpEntry({
@@ -413,8 +416,9 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
           enabled: true,
           ...(args.agents === undefined ? {} : { agents: args.agents }),
         })
+        .pipe(Effect.mapError(toAppError))
         .pipe(
-          Effect.mapError(appErrorToStepFailure),
+          Effect.mapError(failureToStepFailure),
           Effect.as({
             result: "success",
             message: `Configured ${args.name}`,

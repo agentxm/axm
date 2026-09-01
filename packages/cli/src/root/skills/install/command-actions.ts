@@ -72,6 +72,7 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSkillsToInstall } from "./select-skills.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -352,7 +353,9 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
   });
   const computeExistingSourceHash = (ref: SkillExtensionRef) =>
     Effect.gen(function* () {
-      const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+      const { skillSrcPath } = yield* ws
+        .getSkillDir(ref.skill.name, skillPathSourceFor(ref))
+        .pipe(Effect.mapError(toAppError));
       const exists = yield* fsSvc
         .exists(skillSrcPath)
         .pipe(Effect.catch(() => Effect.succeed(false)));
@@ -367,7 +370,9 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
     Effect.gen(function* () {
       if (installedBefore || ref.refType !== "registry") return Option.none<string>();
 
-      const excluded = (yield* ws.getMinimumReleaseAgeExclude()).some(({ pattern }) =>
+      const excluded = (yield* ws
+        .getMinimumReleaseAgeExclude()
+        .pipe(Effect.mapError(toAppError))).some(({ pattern }) =>
         matchesReleaseAgeExcludePattern(pattern, {
           owner: ref.owner,
           type: "skill",
@@ -376,7 +381,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
       );
       if (excluded) return Option.none<string>();
 
-      const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+      const minimumReleaseAge = yield* ws.getMinimumReleaseAge().pipe(Effect.mapError(toAppError));
       const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
       if (
         Option.isNone(minimumAge) ||
@@ -476,7 +481,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
             onRegistryProbe: (probe) => {
               resolutionProbes.push(probe);
             },
-          });
+          }).pipe(Effect.mapError(toAppError));
 
           const requestedSkills = extractRequestedSkills(args.skills, parsedSource);
           const requestedOwner = extractRequestedOwner(parsedSource, source);
@@ -624,6 +629,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
             const ref = entry.ref;
             const previousLockEntry = yield* ws
               .getLockedSkill(ref.skill.name)
+              .pipe(Effect.mapError(toAppError))
               .pipe(Effect.catch(() => Effect.succeed(Option.none())));
             const previousVersion = Option.match(previousLockEntry, {
               onNone: () => undefined,
@@ -647,7 +653,9 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
                 ),
               { concurrency: "unbounded" },
             );
-            const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+            const { skillSrcPath } = yield* ws
+              .getSkillDir(ref.skill.name, skillPathSourceFor(ref))
+              .pipe(Effect.mapError(toAppError));
             const sanitizedName = sanitizeName(ref.skill.name);
             const installableTargets = resolvedAgents.flatMap(
               ({ agentId, outcome }): ReadonlyArray<InstallableSkillTarget> =>

@@ -33,7 +33,10 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   JobStepArtifact,
   Plan,
@@ -134,17 +137,25 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   let finalizeAuthored: Effect.Effect<void, ReturnType<typeof makeAppError>>;
   switch (target.type) {
     case "skill": {
-      const current = yield* ws.getConfiguredSkillEntries();
+      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSkillEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSkillEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
     case "subagent": {
-      const current = yield* ws.getConfiguredSubagentEntries();
+      const current = yield* ws.getConfiguredSubagentEntries().pipe(Effect.mapError(toAppError));
       enabled = args.enable || (current[target.name]?.enabled ?? false);
-      markAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled: true });
-      finalizeAuthored = ws.setSubagentEntry(target.name, { source: sourceLocator, enabled });
+      markAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled: true })
+        .pipe(Effect.mapError(toAppError));
+      finalizeAuthored = ws
+        .setSubagentEntry(target.name, { source: sourceLocator, enabled })
+        .pipe(Effect.mapError(toAppError));
       break;
     }
   }

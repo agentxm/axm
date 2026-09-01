@@ -20,7 +20,7 @@ import { CodingAgentRepository } from "../../agents/index.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "../../utils/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import type { StepFailure } from "../../plan/errors.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -805,7 +805,9 @@ export const installMcpServer: (
               });
     const writeWarning = yield* writeEffect.pipe(
       Effect.as(Option.none<string>()),
-      Effect.catch((e) => Effect.succeed(Option.some(`MCP server update failed: ${e.detail}`))),
+      Effect.catch((e) =>
+        Effect.succeed(Option.some(`MCP server update failed: ${toAppError(e).detail}`)),
+      ),
     );
 
     const warnings = Option.match(writeWarning, {
@@ -842,4 +844,4 @@ export const installMcpServer: (
         ],
       }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

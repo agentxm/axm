@@ -9,6 +9,7 @@ import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/exten
 import { makeWorkspaceHandlerTestContext } from "../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS, handleExtensionShow } from "./extension-show.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const configured = { source: "@acme/skills/thing", enabled: true };
 
@@ -75,7 +76,7 @@ describe("extension show", () => {
 
           expect(result._tag).toBe("Failure");
           if (result._tag === "Failure") {
-            expect(result.failure.code).toBe("not_found");
+            expect(toAppError(result.failure).code).toBe("not_found");
           }
         }),
       );

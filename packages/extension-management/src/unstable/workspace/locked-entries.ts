@@ -11,7 +11,6 @@
 
 import type * as Effect from "effect/Effect";
 
-import type { AppError } from "../app-error/index.js";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import type {
   HookLockEntry,
@@ -22,7 +21,10 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import type { WorkspaceMutationsService } from "./service-interface.js";
+import type {
+  WorkspaceLockfileReadFailure,
+  WorkspaceMutationsService,
+} from "./service-interface.js";
 
 /**
  * Any per-type lock entry. Every arm of every lock union comes from the same
@@ -53,19 +55,19 @@ const lockedEntryReaders = {
   knowledge: (ws) => ws.getLockedKnowledge(),
 } as const satisfies Record<
   CatalogExtensionType,
-  (ws: WorkspaceMutationsService) => Effect.Effect<AnyLockMap, AppError>
+  (ws: WorkspaceMutationsService) => Effect.Effect<AnyLockMap, WorkspaceLockfileReadFailure>
 >;
 
 /** Read the whole lock map for one catalog extension type. */
 export const getLockedEntries = (
   ws: WorkspaceMutationsService,
   type: CatalogExtensionType,
-): Effect.Effect<AnyLockMap, AppError> => lockedEntryReaders[type](ws);
+): Effect.Effect<AnyLockMap, WorkspaceLockfileReadFailure> => lockedEntryReaders[type](ws);
 
 /** Read accepted external Knowledge resolutions from the workspace lockfile. */
 export const getKnowledgeLockEntries = (
   ws: WorkspaceMutationsService,
-): Effect.Effect<KnowledgeLockMap, AppError> => ws.getLockedKnowledge();
+): Effect.Effect<KnowledgeLockMap, WorkspaceLockfileReadFailure> => ws.getLockedKnowledge();
 
 /** Resolved version for a lock entry, when its source arm carries one. */
 export const lockEntryVersion = (entry: AnyLockEntry): string | null => {

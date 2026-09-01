@@ -39,6 +39,7 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleKnowledgeNew = (args: {
   readonly name: string;
@@ -75,7 +76,9 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
   const version = decodeVersionSync("0.1.0");
   const fqn = formatFqn({ owner, type: "knowledge", name });
   const targetDir = path.join(workspaceAuthoredRoot(path, ws, "knowledge", owner), name);
-  const configuredKnowledge = yield* ws.getConfiguredKnowledgeEntries();
+  const configuredKnowledge = yield* ws
+    .getConfiguredKnowledgeEntries()
+    .pipe(Effect.mapError(toAppError));
   yield* preflightCreateOnly({
     subject: "Knowledge bundle",
     name,
@@ -183,7 +186,9 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
             message: `Created knowledge bundle ${fqn}`,
             plannedArtifact: artifact,
             preflight: Effect.gen(function* () {
-              const current = yield* ws.getConfiguredKnowledgeEntries();
+              const current = yield* ws
+                .getConfiguredKnowledgeEntries()
+                .pipe(Effect.mapError(toAppError));
               yield* recoverCanonicalDirectory({
                 baseDir: ws.baseDir,
                 canonicalPath: targetDir,
@@ -199,10 +204,12 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
               }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
             }),
             scaffold,
-            markAuthored: ws.setKnowledgeEntry(name, {
-              source: "workspace",
-              enabled: true,
-            }),
+            markAuthored: ws
+              .setKnowledgeEntry(name, {
+                source: "workspace",
+                enabled: true,
+              })
+              .pipe(Effect.mapError(toAppError)),
             buildArtifact: () => Effect.succeed(artifact),
           }),
         ],

@@ -16,8 +16,12 @@ import type {
   ReadModelRecordRow,
   PackagingKind,
 } from "./index.js";
-import type { TransitionContention } from "./service-interface.js";
-import type { AppError } from "../app-error/index.js";
+import type {
+  TransitionContention,
+  WorkspaceLockfileReadFailure,
+  WorkspaceSettingsReadFailure,
+  WorkspaceStateReadFailure,
+} from "./service-interface.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
@@ -49,9 +53,9 @@ import {
 type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
   Partial<WorkspaceMutationsService["records"]>;
 
-const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure> =>
   Effect.succeed([]);
-const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
+const emptyInventory = (): Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure> =>
   Effect.succeed({
     items: [],
     count: 0,
@@ -134,7 +138,9 @@ export const unmanagedRow = (args: {
  */
 export const rowsFor =
   (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
-  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+  (
+    type: InstallableExtensionType,
+  ): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure> =>
     Effect.succeed(byType[type] ?? []);
 
 /**
@@ -182,14 +188,16 @@ export const makeBaseWorkspaceMock = (
     ...(rows === undefined ? {} : { rows }),
     ...(recordOverrides ?? {}),
   };
-  const emptyLocked = (): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
-    Effect.succeed({});
+  const emptyLocked = (): Effect.Effect<
+    Readonly<Record<string, unknown>>,
+    WorkspaceSettingsReadFailure
+  > => Effect.succeed({});
   const configuredForType = (
     type: ExtensionType,
-  ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> => {
+  ): Effect.Effect<Readonly<Record<string, unknown>>, WorkspaceSettingsReadFailure> => {
     const normalize = <A>(
-      effect: Effect.Effect<Readonly<Record<string, A>>, AppError>,
-    ): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
+      effect: Effect.Effect<Readonly<Record<string, A>>, WorkspaceSettingsReadFailure>,
+    ): Effect.Effect<Readonly<Record<string, unknown>>, WorkspaceSettingsReadFailure> =>
       effect.pipe(Effect.map((entries): Readonly<Record<string, unknown>> => entries));
     switch (type) {
       case "skill":
@@ -288,8 +296,8 @@ export const makeBaseWorkspaceMock = (
   const acquireTransition: WorkspaceTransitionAcquirer = () =>
     Effect.succeed(Option.none<TransitionContention>());
   const entryFrom =
-    <A>(read: () => Effect.Effect<Readonly<Record<string, A>>, AppError>) =>
-    (name: string): Effect.Effect<Option.Option<A>, AppError> =>
+    <A>(read: () => Effect.Effect<Readonly<Record<string, A>>, WorkspaceLockfileReadFailure>) =>
+    (name: string): Effect.Effect<Option.Option<A>, WorkspaceLockfileReadFailure> =>
       read().pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[name])));
   const lockedSkills = serviceOverrides.getLockedSkills ?? (() => Effect.succeed({}));
   const lockedMcpServers = serviceOverrides.getLockedMcpServers ?? (() => Effect.succeed({}));

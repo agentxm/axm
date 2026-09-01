@@ -10,8 +10,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
 import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "../utils/index.js";
+import { SettingsWriteError } from "./errors.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import {
@@ -185,24 +185,18 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
     const settingsDir = path.dirname(settingsPath);
 
     // Ensure directory exists
-    yield* fs.makeDirectory(settingsDir, { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create directory: ${settingsDir}`,
-          cause: error,
-        }),
-      ),
-    );
+    yield* fs
+      .makeDirectory(settingsDir, { recursive: true })
+      .pipe(
+        Effect.mapError(
+          (cause) => new SettingsWriteError({ path: settingsDir, step: "mkdir", cause }),
+        ),
+      );
 
     // Encode through schema (converts Option -> nullable, URL -> string, etc.)
     const encoded = yield* Schema.encodeEffect(SettingsSchema)(settings).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to encode settings: ${error.message}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (cause) => new SettingsWriteError({ path: settingsPath, step: "encode", cause }),
       ),
     );
 
@@ -267,14 +261,13 @@ export const writeSettingsAtPath = (settingsPath: string, settings: Settings) =>
       targetPath: settingsPath,
       content,
       mapError: (failure) =>
-        makeAppError({
-          code: "internal",
-          detail:
-            failure.step === "rename"
-              ? `Failed to atomically replace settings file: ${settingsPath}`
-              : `Failed to write settings temp file: ${failure.tempPath}`,
-          cause: failure.cause,
-        }),
+        failure.step === "rename"
+          ? new SettingsWriteError({ path: settingsPath, step: "rename", cause: failure.cause })
+          : new SettingsWriteError({
+              path: failure.tempPath,
+              step: "write-temp",
+              cause: failure.cause,
+            }),
     });
     yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
   });

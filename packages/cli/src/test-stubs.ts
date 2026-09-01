@@ -21,7 +21,7 @@ import {
   type InstallableExtensionType,
   computeSourceHash,
 } from "@agentxm/extension-management/unstable/workspace";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+
 import {
   ExtensionDependencyConstraintMapSchema,
   decodeExtensionNameSync,
@@ -67,9 +67,8 @@ export const managerLifecycleStubs = {
   materializeDeactivate: () => Effect.void,
 };
 
-const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
-  Effect.succeed([]);
-const emptyInventory = (): Effect.Effect<ExtensionInventory, AppError> =>
+const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> => Effect.succeed([]);
+const emptyInventory = (): Effect.Effect<ExtensionInventory> =>
   Effect.succeed({
     items: [],
     count: 0,
@@ -155,7 +154,7 @@ export const unmanagedRow = (args: {
  */
 export const rowsFor =
   (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
-  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>, AppError> =>
+  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> =>
     Effect.succeed(byType[type] ?? []);
 
 /**

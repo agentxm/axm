@@ -36,6 +36,7 @@ import { addMcpServerFromManifest, removeMcpServerFromManifest } from "./mcp-syn
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { AGENT_IDS, isConfigurableAgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { toAppError } from "../app-error/conversions.js";
 
 const UNIVERSAL_AGENT_ID = "universal";
 
@@ -191,7 +192,9 @@ const get = (id: AgentId) => fromId(id);
 const all = Effect.forEach(AGENT_IDS, (id) => fromId(id));
 
 const getConfiguredAgentIds = () =>
-  WorkspaceMutations.pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
+  WorkspaceMutations.pipe(
+    Effect.flatMap((ws) => ws.getConfiguredAgents().pipe(Effect.mapError(toAppError))),
+  );
 
 const getConfiguredAgents = () =>
   getConfiguredAgentIds().pipe(

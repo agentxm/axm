@@ -16,7 +16,7 @@ import { DefaultCodingAgentRepository } from "../../agents/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -241,4 +241,4 @@ export const uninstallSkill: OperationHandler<
       result: "success",
       message: `Uninstalled ${op.args.skillName}`,
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

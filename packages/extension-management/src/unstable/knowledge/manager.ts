@@ -92,6 +92,7 @@ import type {
   LocalKnowledgeRef,
   RegistryKnowledgeRef,
 } from "../workspace/refs/knowledge.js";
+import { toAppError } from "../app-error/conversions.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
@@ -350,7 +351,9 @@ export const KnowledgeManagerLive = Layer.effect(
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
         if (ref.refType === "registry") {
-          const lockedEntry = yield* ws.getLockedKnowledgeEntry(ref.knowledge.name);
+          const lockedEntry = yield* ws
+            .getLockedKnowledgeEntry(ref.knowledge.name)
+            .pipe(Effect.mapError(toAppError));
           const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
           const reuse = yield* provide(
             canReuseInstalledPackage({
@@ -481,7 +484,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const getInstructionsTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
         const enabled = Option.isSome(config) && config.value !== false;
         const resolved = resolveInstructionsConfig(enabled ? config.value : undefined);
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
@@ -547,21 +550,24 @@ export const KnowledgeManagerLive = Layer.effect(
     });
 
     const activeKnowledgeNodes = () =>
-      ws.getDesiredStateGraph().pipe(
-        Effect.flatMap((graph) =>
-          graph.complete
-            ? Effect.succeed(
-                graph.nodes
-                  .filter(isSourcedDesiredExtension)
-                  .filter((node) => node.type === "knowledge" && node.enabled),
-              )
-            : makeAppError({
-                code: "conflict",
-                detail:
-                  "Knowledge desired state cannot be reconciled until pack and declaration problems are fixed",
-              }),
-        ),
-      );
+      ws
+        .getDesiredStateGraph()
+        .pipe(Effect.mapError(toAppError))
+        .pipe(
+          Effect.flatMap((graph) =>
+            graph.complete
+              ? Effect.succeed(
+                  graph.nodes
+                    .filter(isSourcedDesiredExtension)
+                    .filter((node) => node.type === "knowledge" && node.enabled),
+                )
+              : makeAppError({
+                  code: "conflict",
+                  detail:
+                    "Knowledge desired state cannot be reconciled until pack and declaration problems are fixed",
+                }),
+          ),
+        );
 
     const selectKnowledgeBundles = (
       graph: DesiredStateGraph,
@@ -592,10 +598,12 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const resolveKnowledgeProjection = () =>
       Effect.gen(function* () {
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* getKnowledgeLockEntries(ws);
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
-        const config = yield* ws.getKnowledgeDiscoveryConfig();
+        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
+        const locked = yield* getKnowledgeLockEntries(ws).pipe(Effect.mapError(toAppError));
+        const configured = yield* ws
+          .getConfiguredKnowledgeEntries()
+          .pipe(Effect.mapError(toAppError));
+        const config = yield* ws.getKnowledgeDiscoveryConfig().pipe(Effect.mapError(toAppError));
         const instructionsTarget = yield* getInstructionsTarget();
         return { graph, locked, configured, config, instructionsTarget };
       });
@@ -741,15 +749,19 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const setKnowledgeSourceEntry = (name: string, source: string) =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const configured = yield* ws
+          .getConfiguredKnowledgeEntries()
+          .pipe(Effect.mapError(toAppError));
         const current = configured[name];
-        yield* ws.setKnowledgeEntry(name, {
-          source,
-          enabled: true,
-          ...(current?.instructionEntry === undefined
-            ? {}
-            : { instructionEntry: current.instructionEntry }),
-        });
+        yield* ws
+          .setKnowledgeEntry(name, {
+            source,
+            enabled: true,
+            ...(current?.instructionEntry === undefined
+              ? {}
+              : { instructionEntry: current.instructionEntry }),
+          })
+          .pipe(Effect.mapError(toAppError));
       });
 
     const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
@@ -758,7 +770,8 @@ export const KnowledgeManagerLive = Layer.effect(
           baseDir,
           path,
           scope: ws.scope,
-          getConfiguredSourceByName: ws.getConfiguredSourceByName,
+          getConfiguredSourceByName: (sourceName: string) =>
+            ws.getConfiguredSourceByName(sourceName).pipe(Effect.mapError(toAppError)),
         });
         if (ref.refType === "registry" && Option.isNone(ref.integrity)) {
           return yield* makeAppError({
@@ -797,7 +810,7 @@ export const KnowledgeManagerLive = Layer.effect(
     ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>, Scope.Scope> =>
       Effect.gen(function* () {
         const desired = yield* activeKnowledgeNodes();
-        const locked = yield* getKnowledgeLockEntries(ws);
+        const locked = yield* getKnowledgeLockEntries(ws).pipe(Effect.mapError(toAppError));
         const prepared: Array<PreparedKnowledgePackage> = [];
         for (const node of desired) {
           const { name } = node;
@@ -899,11 +912,13 @@ export const KnowledgeManagerLive = Layer.effect(
               }
               const lockEntry = yield* buildLockEntry(args.ref);
               if (Option.isSome(lockEntry)) {
-                yield* ws.setKnowledge({
-                  name,
-                  lockEntry: lockEntry.value,
-                  versionRange: args.versionRange,
-                });
+                yield* ws
+                  .setKnowledge({
+                    name,
+                    lockEntry: lockEntry.value,
+                    versionRange: args.versionRange,
+                  })
+                  .pipe(Effect.mapError(toAppError));
               } else {
                 yield* setKnowledgeSourceEntry(name, "workspace");
               }
@@ -919,6 +934,7 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
           validate: ({ name }) =>
             isObservedInstalled(ws, "knowledge", name).pipe(
+              Effect.mapError(toAppError),
               Effect.flatMap((installed) =>
                 installed
                   ? Effect.void
@@ -953,7 +969,9 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
         );
         const root = removableAcceptedCanonicalPath(canonical);
-        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+        const locked = yield* ws
+          .getLockedKnowledgeEntry(target.name)
+          .pipe(Effect.mapError(toAppError));
         const ownedRoot = Option.orElse(root, () =>
           Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
         );
@@ -999,7 +1017,7 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(ws, "knowledge", target.name),
+        isObservedInstalled(ws, "knowledge", target.name).pipe(Effect.mapError(toAppError)),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(
         function* ({ ref, force }) {
           const relativeLocalSource =
@@ -1041,6 +1059,7 @@ export const KnowledgeManagerLive = Layer.effect(
       getConfiguredSource: ({ target }) =>
         ws
           .getConfiguredKnowledgeEntries()
+          .pipe(Effect.mapError(toAppError))
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       listMaterializable: () =>
         Effect.gen(function* () {
@@ -1065,19 +1084,23 @@ export const KnowledgeManagerLive = Layer.effect(
         buildLockEntry(ref).pipe(
           Effect.flatMap((lockEntry) =>
             Option.isSome(lockEntry)
-              ? ws.setKnowledge({
-                  name: ref.knowledge.name,
-                  lockEntry: lockEntry.value,
-                  versionRange,
-                })
+              ? ws
+                  .setKnowledge({
+                    name: ref.knowledge.name,
+                    lockEntry: lockEntry.value,
+                    versionRange,
+                  })
+                  .pipe(Effect.mapError(toAppError))
               : setKnowledgeSourceEntry(ref.knowledge.name, "workspace"),
           ),
         ),
-      removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
+      removeSettingsEntry: ({ target }) =>
+        ws.removeKnowledgeSettings(target.name).pipe(Effect.mapError(toAppError)),
       upsertLockfileEntry: ({ ref }) =>
         buildLockEntry(ref).pipe(
           Effect.flatMap((lockEntry) => {
-            if (Option.isNone(lockEntry)) return ws.removeKnowledgeLock(ref.knowledge.name);
+            if (Option.isNone(lockEntry))
+              return ws.removeKnowledgeLock(ref.knowledge.name).pipe(Effect.mapError(toAppError));
             const validate =
               lockEntry.value.type === "registry"
                 ? validateExactResolvedVersion(
@@ -1087,16 +1110,19 @@ export const KnowledgeManagerLive = Layer.effect(
                 : Effect.void;
             return validate.pipe(
               Effect.flatMap(() =>
-                ws.setKnowledgeLock({
-                  name: ref.knowledge.name,
-                  lockEntry: lockEntry.value,
-                  versionRange: Option.none(),
-                }),
+                ws
+                  .setKnowledgeLock({
+                    name: ref.knowledge.name,
+                    lockEntry: lockEntry.value,
+                    versionRange: Option.none(),
+                  })
+                  .pipe(Effect.mapError(toAppError)),
               ),
             );
           }),
         ),
-      removeLockfileEntry: ({ target }) => ws.removeKnowledgeLock(target.name),
+      removeLockfileEntry: ({ target }) =>
+        ws.removeKnowledgeLock(target.name).pipe(Effect.mapError(toAppError)),
     } satisfies KnowledgeManagerService;
   }),
 );

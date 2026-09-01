@@ -28,7 +28,10 @@ import {
   workspaceCanonicalRoot,
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
-import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const hookPackagePath = (
   scope: JobStepArtifact["scope"],
@@ -93,7 +96,7 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
   const ws = yield* WorkspaceMutations;
   const hookManager = yield* HookManager;
   const scope = ws.scope;
-  const configured = yield* ws.getConfiguredHookEntries();
+  const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(toAppError));
   const entry = configured[args.name];
   if (entry === undefined) {
     yield* emitNoOpOutcome("hooks.disable", {
@@ -128,14 +131,17 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
             run: Effect.gen(function* () {
               const lockEntry = yield* ws
                 .getLockedHookEntry(args.name)
+                .pipe(Effect.mapError(toAppError))
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               yield* hookManager
                 .runTransaction({
                   transition: Effect.gen(function* () {
-                    yield* ws.updateHookEntry(args.name, (current) => ({
-                      ...current,
-                      enabled: false,
-                    }));
+                    yield* ws
+                      .updateHookEntry(args.name, (current) => ({
+                        ...current,
+                        enabled: false,
+                      }))
+                      .pipe(Effect.mapError(toAppError));
                     yield* hookManager.materializeDeactivate({
                       target: { type: "hook", name: args.name },
                     });
@@ -148,7 +154,7 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
                 message: `Disabled ${args.name}`,
                 artifact: hookDisableArtifact({ lockEntry, name: args.name, scope }),
               } satisfies JobStepResult;
-            }).pipe(Effect.mapError(appErrorToStepFailure)),
+            }).pipe(Effect.mapError(failureToStepFailure)),
           },
         ],
       },

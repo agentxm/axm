@@ -108,9 +108,10 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
     });
   }
 
-  const configuredSkills = yield* ws.getConfiguredSkillEntries();
+  const configuredSkills = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
   const requestedAgents = Option.getOrUndefined(args.agents);
-  const agents = requestedAgents ?? (yield* ws.getConfiguredAgents());
+  const agents =
+    requestedAgents ?? (yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)));
 
   // 5. Capture services for run closure
   const fs = yield* FileSystem.FileSystem;
@@ -205,7 +206,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
     message: `Created skill ${fqn}`,
     plannedArtifact: previewArtifact,
     preflight: Effect.gen(function* () {
-      const current = yield* ws.getConfiguredSkillEntries();
+      const current = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(toAppError));
       yield* preflightCreateOnly({
         subject: "Skill",
         name: args.name,
@@ -213,10 +214,12 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
         destinations: [canonicalPath],
       }).pipe(Effect.provideService(FileSystem.FileSystem, fs));
     }),
-    markAuthored: ws.setSkillEntry(args.name, {
-      source: "workspace",
-      enabled: true,
-    }),
+    markAuthored: ws
+      .setSkillEntry(args.name, {
+        source: "workspace",
+        enabled: true,
+      })
+      .pipe(Effect.mapError(toAppError)),
     scaffold: newSkill(op).pipe(
       Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),

@@ -17,7 +17,7 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { failureToStepFailure, toAppError } from "../../app-error/conversions.js";
 import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
@@ -270,7 +270,9 @@ export const uninstallMcpServer: (
     const removeWarning = yield* ws.removeMcpServer(op.args.serverName).pipe(
       Effect.as(Option.none<string>()),
       Effect.catch((e) =>
-        Effect.succeed(Option.some(`MCP server removal from settings failed: ${e.detail}`)),
+        Effect.succeed(
+          Option.some(`MCP server removal from settings failed: ${toAppError(e).detail}`),
+        ),
       ),
     );
 
@@ -302,4 +304,4 @@ export const uninstallMcpServer: (
         ],
       }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(appErrorToStepFailure));
+  }).pipe(Effect.mapError(failureToStepFailure));

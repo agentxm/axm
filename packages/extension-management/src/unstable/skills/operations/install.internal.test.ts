@@ -12,6 +12,8 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { LockfileWriteError } from "../../lockfile/errors.js";
+import { LockedSkillMissing } from "../../workspace/errors.js";
 import { acquiredExtensionDisplayPath } from "../../workspace/extension-paths.js";
 import { computeSourceHash } from "../../workspace/rendered-files.js";
 import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
@@ -90,9 +92,7 @@ const makeWorkspaceMock = (
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
       if (source === undefined) {
-        return Effect.fail(
-          makeAppError({ code: "validation", detail: `Missing source for ${name}` }),
-        );
+        return Effect.fail(new LockedSkillMissing({ name }));
       }
       if (source.refType === "workspace") {
         const canonicalPath = path.join(
@@ -150,7 +150,16 @@ const makeWorkspaceMock = (
           }),
     setSkillLock: setSkillFn
       ? ({ name, lockEntry, versionRange }: SetSkillArgs) =>
-          setSkillFn({ name, lockEntry, versionRange })
+          setSkillFn({ name, lockEntry, versionRange }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new LockfileWriteError({
+                  path: path.join(axmDir, "axm-lock.yaml"),
+                  step: "write-temp",
+                  cause,
+                }),
+            ),
+          )
       : ({ name, lockEntry }: Pick<SetSkillArgs, "name" | "lockEntry">) =>
           Effect.try({
             try: () => {
@@ -162,9 +171,9 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              makeAppError({
-                code: "internal",
-                detail: "Mock write failed",
+              new LockfileWriteError({
+                path: path.join(axmDir, "axm-lock.yaml"),
+                step: "write-temp",
                 cause: error,
               }),
           }),

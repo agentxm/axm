@@ -9,7 +9,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import type { AppError } from "../../app-error/index.js";
+import type { WorkspaceLayoutError } from "../errors.js";
 import { AgentPresenceProbe } from "./agent-presence.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
@@ -265,7 +265,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   const layoutSettings: Settings = Result.isSuccess(settingsResult)
     ? Option.getOrElse(settingsResult.success, () => ({}))
     : {};
-  const resolveLayout = (): Effect.Effect<WorkspaceLayout, AppError> =>
+  const resolveLayout = (): Effect.Effect<WorkspaceLayout, WorkspaceLayoutError> =>
     scope === "project"
       ? resolveProjectWorkspaceLayout(makeAbsolutePath(path, workspaceRoot), layoutSettings).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),

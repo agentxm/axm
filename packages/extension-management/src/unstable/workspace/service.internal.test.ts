@@ -36,7 +36,7 @@ import { computeSourceHash } from "./rendered-files.js";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { layer as workspaceLayer } from "./service.js";
+import { layer as workspaceLayer } from "./operations/load-workspace.js";
 import {
   WorkspaceMutations,
   type SetMcpServerArgs,

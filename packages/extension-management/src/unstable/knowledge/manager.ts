@@ -46,7 +46,8 @@ import {
   resolveConfiguredKnowledge,
 } from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
-import type { ExtensionManager, ExtensionTarget } from "../workspace/service-interface.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget } from "../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";

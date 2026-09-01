@@ -12,12 +12,14 @@ import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   protectWorkspacePath,
   restorationIncompleteToAppError,
-  runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
   WorkspaceRestorationIncomplete,
+} from "../transaction.js";
+import {
+  runWorkspaceTransaction as runWorkspaceTransactionWithSemaphore,
   type WorkspaceTransactionArgs,
 } from "./transaction.js";
 import { acquireWorkspaceTransitionLock } from "./transition-lock.js";

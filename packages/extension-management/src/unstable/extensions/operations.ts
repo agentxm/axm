@@ -11,11 +11,8 @@ import { makeAppError, type AppError } from "../app-error/index.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type {
-  ExtensionManager,
-  ExtensionTarget,
-  ExtensionTargetFor,
-} from "../workspace/service-interface.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget, ExtensionTargetFor } from "../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "./source-authority.js";

@@ -16,7 +16,7 @@ import type {
   ReadModelRecordRow,
   PackagingKind,
 } from "./index.js";
-import type { TransitionContention } from "./transition-lock.js";
+import type { TransitionContention } from "./service-interface.js";
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {

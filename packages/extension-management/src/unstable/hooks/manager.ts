@@ -68,9 +68,9 @@ import {
 } from "../workspace/configured-entry-resolution/index.js";
 import type {
   ExtensionManager,
-  ExtensionTarget,
   MaterializationObservation,
-} from "../workspace/service-interface.js";
+} from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {

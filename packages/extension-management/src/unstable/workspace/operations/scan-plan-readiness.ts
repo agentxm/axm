@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { Plan } from "../plan/plan.js";
+import type { Plan } from "../../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Types

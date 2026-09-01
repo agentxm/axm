@@ -21,11 +21,8 @@ import {
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { PackRef, RegistryPackRef } from "../workspace/refs/pack.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import type {
-  ExtensionManager,
-  ExtensionTarget,
-  PackExtensionTarget,
-} from "../workspace/service-interface.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget, PackExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations, type SetPackArgs } from "../workspace/service-interface.js";
 import { copyExtensionDirectory } from "../extensions/utils.js";
 import { computePackPathsForLayout } from "../workspace/pack-paths.js";

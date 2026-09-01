@@ -20,10 +20,9 @@ import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "../workspace/refs/subagent.js";
 import type {
   ExtensionManager,
-  ExtensionTarget,
   MaterializationObservation,
-  SubagentExtensionTarget,
-} from "../workspace/service-interface.js";
+} from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget, SubagentExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   CodingAgentRepository,

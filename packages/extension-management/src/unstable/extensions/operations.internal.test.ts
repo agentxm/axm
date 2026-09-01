@@ -26,10 +26,8 @@ import {
   handle,
   packageUrl,
 } from "../test-helpers.js";
-import type {
-  ExtensionManager,
-  WorkspaceTransactionRunner,
-} from "../workspace/service-interface.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { WorkspaceTransactionRunner } from "../workspace/service-interface.js";
 import type {
   RegistrySkillRef,
   SkillExtensionRef,

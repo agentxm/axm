@@ -97,7 +97,6 @@ import type {
   WorkspaceRootEscape,
 } from "./read-model/errors.js";
 import {
-  WorkspaceMutations,
   type WorkspaceMutationsOptions,
   type SetSkillArgs,
   type SetPackArgs,
@@ -108,15 +107,12 @@ import {
   type SetSubagentArgs,
   type SkillPathSource,
   type ExtensionTarget,
-  type WorkspaceTransactionRunner,
-  type WorkspaceTransitionAcquirer,
+  type LockfileState,
+  type MakeWorkspaceTransactionCapabilities,
 } from "./service-interface.js";
-import type { LockfileState } from "./augment-plan.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import { buildDesiredStateGraph } from "./desired-state-graph.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
-import { runWorkspaceTransaction } from "./transaction.js";
-import { acquireWorkspaceTransitionLock } from "./transition-lock.js";
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
   skills: {},
@@ -233,19 +229,6 @@ const contextCellErrorToAppError = (
  */
 export type WorkspaceLayerOptions = WorkspaceMutationsOptions;
 
-/**
- * Create workspace mutations effect.
- *
- * Loads an existing workspace from disk.
- *
- * The workspace must already be initialized. Missing or invalid settings fail
- * fast with an `AppError`.
- *
- * @param options - WorkspaceMutations layer options
- * @returns Effect yielding WorkspaceMutationsService
- *
- * @internal Not exported from barrel - use layer() for external access
- */
 const requireInitializedWorkspace = (
   settingsPath: string,
   settings: Effect.Effect<Option.Option<Settings>, AppError>,
@@ -266,7 +249,19 @@ const requireInitializedWorkspace = (
     ),
   );
 
-export const loadWorkspace = (options: WorkspaceLayerOptions) =>
+/**
+ * Create the workspace mutations service from an existing workspace on disk.
+ *
+ * The workspace must already be initialized. Missing or invalid settings fail
+ * fast with an `AppError`. The two operations-side capabilities — the
+ * transaction runner and transition acquirer — are injected through
+ * `makeCapabilities`; the composition seam in `./operations/load-workspace.ts`
+ * supplies the live implementation.
+ */
+export const makeWorkspaceMutations = (
+  options: WorkspaceLayerOptions,
+  makeCapabilities: MakeWorkspaceTransactionCapabilities,
+) =>
   Effect.gen(function* () {
     const userHome = yield* resolveUserHome();
     const initialUserLayout = yield* resolveUserWorkspaceLayout(userHome);
@@ -278,10 +273,6 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const semaphore = yield* Semaphore.make(1);
-    // Transaction admission must be distinct from the mutation mutex: a
-    // transaction calls the same service's mutation methods while it owns the
-    // outer admission permit.
-    const transactionSemaphore = yield* Semaphore.make(1);
     const initialProjectState = resolveProjectWorkspaceStatePaths(path, options.projectRoot);
     const settingsPath =
       options.scope === "user" ? initialUserLayout.settingsPath : initialProjectState.settingsPath;
@@ -375,31 +366,11 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
     const commitWorkspaceState = (base: Lockfile, next: Lockfile) =>
       commitLockfileSnapshotUpdateAtPath(lockPath, base, next).pipe(Effect.provide(fsLayer));
 
-    const runTransaction: WorkspaceTransactionRunner = (args) =>
-      runWorkspaceTransaction({
-        workspaceDir,
-        semaphore: transactionSemaphore,
-        targets: [
-          ...(args.claimDefaultTargets === false ? [] : [settingsPath, lockPath]),
-          ...(args.targets ?? []),
-        ],
-        transition: args.transition,
-        validate: args.validate,
-        ...(args.onRestorationStarted === undefined
-          ? {}
-          : { onRestorationStarted: args.onRestorationStarted }),
-      }).pipe(Effect.provide(fsLayer));
-
-    const acquireTransition: WorkspaceTransitionAcquirer = (request) =>
-      acquireWorkspaceTransitionLock({
-        workspaceDir,
-        holder: {
-          command: request.command,
-          pid: process.pid,
-          ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
-        },
-        ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
-      }).pipe(Effect.provide(fsLayer));
+    const { runTransaction, acquireTransition } = yield* makeCapabilities({
+      workspaceDir,
+      settingsPath,
+      lockPath,
+    });
 
     /**
      * Look up `key` in `record`, failing with an `AppError` when absent.
@@ -2036,16 +2007,3 @@ export const loadWorkspace = (options: WorkspaceLayerOptions) =>
         }),
     };
   });
-
-/**
- * Create a layer that loads workspace read model from disk.
- *
- * The workspace must already be initialized.
- *
- * @param options - WorkspaceMutations layer options
- * @returns Layer providing WorkspaceMutations
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const layer = (options: WorkspaceLayerOptions) =>
-  Layer.effect(WorkspaceMutations, loadWorkspace(options));

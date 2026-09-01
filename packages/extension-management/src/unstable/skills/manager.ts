@@ -24,10 +24,9 @@ import type { SkillExtensionRef } from "../workspace/refs/skill.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
-  ExtensionTarget,
   MaterializationObservation,
-  SkillExtensionTarget,
-} from "../workspace/service-interface.js";
+} from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { sanitizeName } from "../workspace/extension-name.js";
 import type { SourceHash } from "../workspace/rendered-files.js";

@@ -18,11 +18,8 @@ import { makeAppError } from "../app-error/index.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type { McpServerExtensionRef, RegistryMcpServerRef } from "../workspace/refs/mcp-server.js";
 import type { McpServerLockEntry } from "../lockfile/index.js";
-import type {
-  ExtensionManager,
-  ExtensionTarget,
-  McpServerExtensionTarget,
-} from "../workspace/service-interface.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget, McpServerExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   canReuseInstalledPackage,

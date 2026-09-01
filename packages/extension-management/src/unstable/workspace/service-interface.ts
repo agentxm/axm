@@ -10,14 +10,15 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
 import type { AppError } from "../app-error/index.js";
 import type { WorkspaceRestorationIncomplete } from "./transaction.js";
-import type { TransitionContention, TransitionLockHolder } from "./transition-lock.js";
 import type { InstallableExtensionType } from "./installable-types.js";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -62,11 +63,9 @@ import type { ScopedReleaseAgeExcludePattern } from "@agentxm/registry-protocol/
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "./scope.js";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
-import type { LockfileState } from "./augment-plan.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { ProjectionPlan } from "../projection/planning.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { WorkspaceLayout } from "./layout.js";
 import type { ExtensionPathSource } from "./extension-paths.js";
@@ -154,19 +153,8 @@ export type ExtensionTargetFor<TRef extends ExtensionRef> = Extract<
   { readonly type: TRef["type"] }
 >;
 
-/**
- * Machine-local effects observed during the most recent materialization.
- *
- * This data is intentionally ephemeral. It supports operation output without
- * making agent-specific paths part of the shared lockfile contract.
- */
-export interface MaterializationObservation {
-  readonly agents: ReadonlyArray<string>;
-  readonly targets: ReadonlyArray<{
-    readonly path: string;
-    readonly agentIds?: ReadonlyArray<string>;
-  }>;
-}
+/** Lockfile health state used for reconciliation decisions. */
+export type LockfileState = "ok" | "missing" | "invalid";
 
 export interface WorkspaceLifecycleTransactionArgs<A, E = AppError, R = never> {
   readonly targets?: ReadonlyArray<string>;
@@ -189,6 +177,19 @@ export type WorkspaceTransactionRunner = <A, E = AppError, R = never>(
   args: WorkspaceLifecycleTransactionArgs<A, E, R>,
 ) => Effect.Effect<A, AppError | WorkspaceRestorationIncomplete | E, R>;
 
+/** Identity an invocation records while it holds the workspace transition. */
+export interface TransitionLockHolder {
+  readonly command: string;
+  readonly pid: number;
+  readonly candidateId?: string;
+}
+
+export interface TransitionContention {
+  /** The holder recorded by the invocation that owns the lock, when readable. */
+  readonly holder: Option.Option<TransitionLockHolder>;
+  readonly waitedMillis: number;
+}
+
 /** What a post-confirmation apply records as the workspace transition holder. */
 export interface WorkspaceTransitionRequest {
   readonly command: string;
@@ -207,74 +208,33 @@ export type WorkspaceTransitionAcquirer = (
 ) => Effect.Effect<Option.Option<TransitionContention>, AppError, Scope.Scope>;
 
 // ---------------------------------------------------------------------------
-// Extension Manager Interface
+// Transaction capabilities (implemented by workspace operations)
 // ---------------------------------------------------------------------------
 
 /**
- * Per-extension-type lifecycle manager contract.
- *
- * All methods have `R = never` — dependencies are captured during construction.
+ * The two operations-side capabilities the workspace mutation facade
+ * receives by injection: the transaction runner and the transition acquirer.
  */
-export interface ExtensionManager<TRef extends ExtensionRef> {
-  readonly type: TRef["type"];
+export interface WorkspaceTransactionCapabilities {
   readonly runTransaction: WorkspaceTransactionRunner;
-  readonly isInstalled: (args: {
-    readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, AppError, never>;
-  readonly materializeInstall: (args: {
-    readonly ref: TRef;
-    /** When true, re-materialize unconditionally instead of reusing an existing canonical tree. */
-    readonly force?: boolean;
-  }) => Effect.Effect<void, AppError, never>;
-  /**
-   * Capture cleanup for the currently accepted canonical package before a
-   * replacement writes its new lock entry. The returned effect runs only
-   * after the replacement resolution has been committed inside the same
-   * workspace transaction.
-   */
-  readonly prepareSourceTransition?: (args: {
-    readonly ref: TRef;
-  }) => Effect.Effect<Effect.Effect<void, AppError, never>, AppError, never>;
-  readonly getLastMaterialization?: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<MaterializationObservation, never, never>;
-  /** Build opaque projection plans after desired state and canonical content commit. */
-  readonly projectionPlans?: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError, never>;
-  readonly getLastUnmaterialization?: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<MaterializationObservation, never, never>;
-  readonly getConfiguredSource?: (args: {
-    readonly target: ExtensionTarget;
-  }) => Effect.Effect<Option.Option<string>, AppError, never>;
-  /**
-   * Observe whether desired state declares the target independently of whether
-   * that declaration points at a package source.
-   */
-  readonly isConfigured?: (args: {
-    readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, AppError, never>;
-  readonly listMaterializable: () => Effect.Effect<ReadonlyArray<TRef>, AppError, never>;
-  readonly materializeUninstall: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, AppError, never>;
-  /** Remove active projections while retaining canonical managed content. */
-  readonly materializeDeactivate: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, AppError, never>;
-  readonly upsertSettingsEntry: (args: {
-    readonly ref: TRef;
-    readonly versionRange: Option.Option<string>;
-  }) => Effect.Effect<void, AppError, never>;
-  readonly removeSettingsEntry: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, AppError, never>;
-  readonly upsertLockfileEntry: (args: {
-    readonly ref: TRef;
-  }) => Effect.Effect<void, AppError, never>;
-  readonly removeLockfileEntry: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-  }) => Effect.Effect<void, AppError, never>;
+  readonly acquireTransition: WorkspaceTransitionAcquirer;
 }
+
+/** Workspace paths the capability closures are anchored to. */
+export interface WorkspaceTransactionCapabilityArgs {
+  readonly workspaceDir: string;
+  readonly settingsPath: string;
+  readonly lockPath: string;
+}
+
+/**
+ * Builds the injected capabilities for one workspace-service instance. The
+ * facade calls this once with its resolved paths; the implementation owns
+ * transaction admission and eliminates FileSystem/Path from the members.
+ */
+export type MakeWorkspaceTransactionCapabilities = (
+  args: WorkspaceTransactionCapabilityArgs,
+) => Effect.Effect<WorkspaceTransactionCapabilities, never, FileSystem.FileSystem | Path.Path>;
 
 export interface WorkspaceReadModelRecords {
   /** Deterministic inventory across every installable extension type or one selected type. */

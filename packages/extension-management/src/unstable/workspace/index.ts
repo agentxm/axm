@@ -264,7 +264,7 @@ export {
 export { deriveSourceMetaFromLockType, type SourceMeta } from "./source-metadata.js";
 
 // Scan plan readiness
-export { scanPlanReadiness, type PlanReadinessReport } from "./scan-plan-readiness.js";
+export { scanPlanReadiness, type PlanReadinessReport } from "./operations/scan-plan-readiness.js";
 
 // Workspace read model
 export {
@@ -309,8 +309,7 @@ export {
   augmentPlanWithReconciliation,
   type AugmentedPlanResult,
   type DegradedLockfileState,
-  type LockfileState,
-} from "./augment-plan.js";
+} from "./operations/augment-plan.js";
 
 // Workspace mutation facade
 export {
@@ -327,8 +326,11 @@ export {
   type PackDirPath,
   type ExtensionTarget,
   type ExtensionTargetFor,
-  type ExtensionManager,
+  type LockfileState,
+  type TransitionContention,
+  type TransitionLockHolder,
   type WorkspaceTransactionRunner,
+  type WorkspaceTransactionCapabilities,
   type WorkspaceTransitionAcquirer,
   type WorkspaceTransitionRequest,
   type WorkspaceLifecycleTransactionArgs,
@@ -341,21 +343,30 @@ export {
   type KnowledgeExtensionTarget,
 } from "./service-interface.js";
 
+// Per-extension-type lifecycle manager contract
+export type {
+  ExtensionManager,
+  MaterializationObservation,
+} from "../extension-workspace/extension-manager.js";
+
 // Workspace mutation service implementation (layer)
-export { layer, loadWorkspace, type WorkspaceLayerOptions } from "./service.js";
+export { type WorkspaceLayerOptions } from "./service.js";
+export { layer, loadWorkspace } from "./operations/load-workspace.js";
 export {
   protectCreatedAncestors,
   protectWorkspacePath,
   readPendingClosureRestorationFailures,
   restorationIncompleteToAppError,
+  surfaceRestorationIncomplete,
+  WorkspaceRestorationIncomplete,
+} from "./transaction.js";
+export {
   rollbackWorkspaceClosure,
   runWorkspaceTransaction,
   settleWorkspaceClosure,
-  surfaceRestorationIncomplete,
   withWorkspaceClosure,
-  WorkspaceRestorationIncomplete,
   type WorkspaceTransactionArgs,
-} from "./transaction.js";
+} from "./operations/transaction.js";
 
 // Initialization
 export {
@@ -406,9 +417,7 @@ export {
   transitionLockPath,
   WorkspaceTransitionCompromised,
   type HeldWorkspaceTransition,
-  type TransitionContention,
-  type TransitionLockHolder,
-} from "./transition-lock.js";
+} from "./operations/transition-lock.js";
 
 // Version currency
 export {

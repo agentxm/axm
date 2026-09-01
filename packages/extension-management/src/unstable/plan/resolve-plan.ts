@@ -24,8 +24,9 @@ import {
   makeExecutionCandidate,
   type ExecutionCandidate,
 } from "./execution-candidate.js";
-import { augmentPlanWithReconciliation, type LockfileState } from "../workspace/augment-plan.js";
-import { scanPlanReadiness } from "../workspace/scan-plan-readiness.js";
+import { augmentPlanWithReconciliation } from "../workspace/operations/augment-plan.js";
+import { scanPlanReadiness } from "../workspace/operations/scan-plan-readiness.js";
+import type { LockfileState } from "../workspace/service-interface.js";
 import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
 import {
   declaredAtomicity,
@@ -49,11 +50,13 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   readPendingClosureRestorationFailures,
   restorationIncompleteToAppError,
+  WorkspaceRestorationIncomplete,
+} from "../workspace/transaction.js";
+import {
   rollbackWorkspaceClosure,
   settleWorkspaceClosure,
   withWorkspaceClosure,
-  WorkspaceRestorationIncomplete,
-} from "../workspace/transaction.js";
+} from "../workspace/operations/transaction.js";
 import { readFootprint } from "../workspace/footprint-recorder.js";
 import type { OperationFootprintEntry } from "./operation-resolution.js";
 import { InterruptionSignalSource } from "./interruption-signal.js";

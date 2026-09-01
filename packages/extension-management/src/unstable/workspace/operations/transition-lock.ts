@@ -41,7 +41,8 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
+import type { TransitionContention, TransitionLockHolder } from "../service-interface.js";
 
 export const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
 // Staleness must tolerate a saturated event loop: a heavy apply starves the
@@ -55,12 +56,6 @@ const LOCK_UPDATE_MILLIS = 5_000;
 const WAIT_INTERVAL = Duration.millis(250);
 /** How long a contending invocation serializes behind the holder. */
 export const TRANSITION_WAIT_BOUND_MILLIS = 60_000;
-
-export interface TransitionLockHolder {
-  readonly command: string;
-  readonly pid: number;
-  readonly candidateId?: string;
-}
 
 /**
  * What acquisition durably records: the caller's holder description plus the
@@ -211,12 +206,6 @@ const writeHolder = (
       }),
     ),
   );
-
-export interface TransitionContention {
-  /** The holder recorded by the invocation that owns the lock, when readable. */
-  readonly holder: Option.Option<TransitionLockHolder>;
-  readonly waitedMillis: number;
-}
 
 /**
  * Acquire the workspace transition lock, waiting up to the bound while

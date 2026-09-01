@@ -10,15 +10,13 @@
  */
 
 import * as Effect from "effect/Effect";
-import { type AppError } from "../app-error/index.js";
-import type { Plan } from "../plan/plan.js";
+import { type AppError } from "../../app-error/index.js";
+import type { Plan } from "../../plan/plan.js";
+import type { LockfileState } from "../service-interface.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
-
-/** Lockfile health state used for reconciliation decisions. */
-export type LockfileState = "ok" | "missing" | "invalid";
 
 export type DegradedLockfileState = Exclude<LockfileState, "ok">;
 

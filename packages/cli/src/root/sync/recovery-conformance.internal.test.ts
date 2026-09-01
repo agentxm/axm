@@ -368,7 +368,7 @@ const adversarialContracts = [
   ],
   [
     "authored-and-unowned-content-preserved",
-    "packages/extension-management/src/unstable/workspace/transaction.internal.test.ts",
+    "packages/extension-management/src/unstable/workspace/operations/transaction.internal.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",

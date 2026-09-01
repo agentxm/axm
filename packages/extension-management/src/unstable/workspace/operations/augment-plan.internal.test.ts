@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { augmentPlanWithReconciliation, type AugmentedPlanResult } from "./augment-plan.js";
-import type { Plan } from "../plan/plan.js";
+import type { Plan } from "../../plan/plan.js";
 
 const basePlan: Plan = {
   _tag: "Plan",

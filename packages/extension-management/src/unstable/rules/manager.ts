@@ -64,9 +64,9 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   ExtensionManager,
-  ExtensionTarget,
   MaterializationObservation,
-} from "../workspace/service-interface.js";
+} from "../extension-workspace/extension-manager.js";
+import type { ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   makeConfiguredReleaseAgeEvaluation,

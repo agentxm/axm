@@ -31,16 +31,19 @@ describe("accepted-resolution authority boundary", () => {
   });
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
-    const transactionSource = fs.readFileSync(
-      path.join(repoRoot, "packages/extension-management/src/unstable/workspace/transaction.ts"),
-      "utf8",
-    );
+    const lockingSources = [
+      "packages/extension-management/src/unstable/workspace/transaction.ts",
+      "packages/extension-management/src/unstable/workspace/operations/transaction.ts",
+      "packages/extension-management/src/unstable/workspace/operations/transition-lock.ts",
+    ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
     const corePackage = fs.readFileSync(
       path.join(repoRoot, "packages/extension-management/package.json"),
       "utf8",
     );
 
-    expect(transactionSource).not.toContain("fs-native-extensions");
+    for (const source of lockingSources) {
+      expect(source).not.toContain("fs-native-extensions");
+    }
     expect(corePackage).not.toContain("fs-native-extensions");
   });
 

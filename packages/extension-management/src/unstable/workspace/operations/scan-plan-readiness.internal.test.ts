@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { scanPlanReadiness } from "./scan-plan-readiness.js";
-import type { Plan, PlannedJobStep } from "../plan/plan.js";
+import type { Plan, PlannedJobStep } from "../../plan/plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

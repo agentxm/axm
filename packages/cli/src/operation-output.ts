@@ -477,11 +477,11 @@ const unitForJson = (unit: ResolvedUnit<unknown>, options: PlanResolutionResultO
     ...(unit.warnings === undefined || unit.warnings.length === 0
       ? {}
       : { warnings: unit.warnings.map((warning) => redactSensitiveText(warning)) }),
-    ...(unit.error === undefined ? {} : { code: unit.error.code }),
+    ...(unit.error === undefined ? {} : { code: unit.error.category }),
     ...(unit.error !== undefined && includeErrorDetails
       ? {
           error: {
-            code: unit.error.code,
+            code: unit.error.category,
             message: redactSensitiveText(unit.error.detail),
             ...(causes.length > 0 ? { causes } : {}),
           },
@@ -536,7 +536,7 @@ export const toPlanResolutionResult = (
       ? {}
       : {
           failure: {
-            code: resolution.failure.code,
+            code: resolution.failure.category,
             message: redactSensitiveText(resolution.failure.detail),
             ...(options.verbose === true || options.debug === true
               ? {

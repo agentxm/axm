@@ -185,7 +185,7 @@ describe("packs activation", () => {
       fs.rmSync(path.join(packDir, "pack.json"));
       const failure = yield* provide(stepOption.value.run).pipe(Effect.flip);
 
-      expect(failure.code).toBe("conflict");
+      expect(failure.category).toBe("conflict");
       expect(failure.detail).toContain("cannot be enumerated completely");
     }),
   );

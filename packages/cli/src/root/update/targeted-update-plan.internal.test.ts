@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { StepFailure } from "@agentxm/extension-management/unstable/plan";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { JobStepResult, Plan } from "@agentxm/extension-management/unstable/plan";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
@@ -36,7 +38,7 @@ describe("targeted update transaction", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const planWithStep = (run: Effect.Effect<JobStepResult, AppError>) =>
+  const planWithStep = (run: Effect.Effect<JobStepResult, StepFailure>) =>
     ({
       _tag: "Plan",
       name: "Update reviewer",
@@ -83,7 +85,7 @@ describe("targeted update transaction", () => {
           if (result.result === "error") {
             expect(result.blocking?.class).toBe("stale-candidate");
             expect(result.message).toBe(TARGETED_UPDATE_STALE_DETAIL);
-            expect(result.error.code).toBe("conflict");
+            expect(result.error.category).toBe("conflict");
           }
           expect(childRan).toBe(false);
         }),
@@ -105,6 +107,7 @@ describe("targeted update transaction", () => {
         const wrapped = yield* wrapTargetedUpdatePlan({
           plan: planWithStep(
             workspace.removeSkillFromSettings(target.name).pipe(
+              Effect.mapError(appErrorToStepFailure),
               Effect.map(() => ({
                 result: "success" as const,
                 message: "removed direct intent",
@@ -119,7 +122,7 @@ describe("targeted update transaction", () => {
         }
 
         const error = yield* step.run.pipe(Effect.flip);
-        expect(error.code).toBe("internal");
+        expect(error.category).toBe("internal");
         expect(error.detail).toContain("changed desired ownership");
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBefore);
       }),

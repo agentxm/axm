@@ -20,6 +20,7 @@ import { previewOrApplyLocalPlan } from "../shared/local-plan.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { mutationFlags, scopeConfig } from "./flags.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
@@ -96,6 +97,7 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
           })
           .pipe(surfaceRestorationIncomplete)
           .pipe(
+            Effect.mapError(appErrorToStepFailure),
             Effect.as({
               result: "success",
               message: `Disabled knowledge bundle ${name}`,

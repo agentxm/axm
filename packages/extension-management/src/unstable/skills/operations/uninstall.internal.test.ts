@@ -708,7 +708,7 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(error.code).toBe("validation");
+        expect(error.category).toBe("validation");
         expect(fs.existsSync(canonicalPath)).toBe(true);
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);
       }),

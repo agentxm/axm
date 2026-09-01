@@ -11,6 +11,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -227,4 +228,4 @@ export const removeFromPack: OperationHandler<
         fileCount: 1,
       }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

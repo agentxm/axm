@@ -15,6 +15,7 @@ import * as Layer from "effect/Layer";
 import { DefaultCodingAgentRepository } from "../../agents/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -168,4 +169,4 @@ export const enableSkill: OperationHandler<
       message: `Enabled ${op.args.skillName}`,
       artifact,
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

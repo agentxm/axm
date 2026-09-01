@@ -56,6 +56,10 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -214,6 +218,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       enabled: true,
     }),
     scaffold: newSkill(op).pipe(
+      Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -310,7 +315,11 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
           result: "success" as const,
           message: `Scoped skill ${fqn}`,
         };
-      }),
+      }).pipe(
+        Effect.mapError((error) =>
+          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+        ),
+      ),
     });
   }
 

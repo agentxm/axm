@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
 import { DefaultCodingAgentRepository } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -158,4 +159,4 @@ export const disableSkill: OperationHandler<
       message: `Disabled ${op.args.skillName}`,
       artifact,
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

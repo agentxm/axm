@@ -531,7 +531,7 @@ describe("installMcpServer", () => {
 
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
-          expect(result.failure.code).toBe("usage");
+          expect(result.failure.category).toBe("usage");
           expect(result.failure.detail).toContain("REGION");
           expect(result.failure.suggestions?.[0]?.cmd).toBe("--env REGION=<value>");
         }
@@ -674,7 +674,7 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("error");
         expect(setMcpServerFn).not.toHaveBeenCalled();
         if (result.result === "error") {
-          expect(result.error.code).toBe("validation");
+          expect(result.error.category).toBe("validation");
           expect(result.error.detail).toContain("exact semver");
         }
       }),
@@ -720,7 +720,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );
@@ -824,7 +824,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("not_found");
+          expect(result.error.category).toBe("not_found");
         }
       }),
     );
@@ -881,7 +881,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );
@@ -1004,7 +1004,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );
@@ -1054,7 +1054,7 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );

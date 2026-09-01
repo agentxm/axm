@@ -9,7 +9,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { type AppError } from "../app-error/index.js";
+import { appErrorToStepFailure } from "../app-error/conversions.js";
 import {
   applyPlanExecution,
   promptablePlanExecution,
@@ -29,6 +30,7 @@ import {
 import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { Plan } from "./plan.js";
+import { StepFailure } from "./errors.js";
 import { isExecutionCandidateFresh, makeExecutionCandidate } from "./execution-candidate.js";
 import { deriveOperationOutcome, operationExitCode } from "./operation-resolution.js";
 import { previewOrApplyPlan } from "./resolve-plan.js";
@@ -257,7 +259,7 @@ describe("previewOrApplyPlan", () => {
       // is a truthful partial outcome, and the next sync converges it.
       expect(deriveOperationOutcome(result)).toBe("partial");
       expect(operationExitCode(result)).toBe(1);
-      expect(result.failure?.code).toBe("conflict");
+      expect(result.failure?.category).toBe("conflict");
       expect(result.failure?.detail).toContain("did not converge for claude-code");
       expect(result.units.map((unit) => unit.state)).toEqual(["committed"]);
     }).pipe(Effect.provide(context.layer));
@@ -630,13 +632,16 @@ describe("previewOrApplyPlan", () => {
       const result = yield* previewOrApplyPlan(plan, {
         execution: preapprovedPlanExecution,
         beforeApply: () =>
-          fs
-            .writeFileString(material, "changed-after-authorization")
-            .pipe(
-              Effect.mapError((cause) =>
-                makeAppError({ code: "internal", detail: "Failed to mutate test material", cause }),
-              ),
+          fs.writeFileString(material, "changed-after-authorization").pipe(
+            Effect.mapError(
+              (cause) =>
+                new StepFailure({
+                  category: "internal",
+                  detail: "Failed to mutate test material",
+                  cause,
+                }),
             ),
+          ),
       }).pipe(Effect.provide(context.layer));
 
       expect(deriveOperationOutcome(result)).toBe("blocked");
@@ -685,14 +690,18 @@ describe("previewOrApplyPlan", () => {
                   readiness: "ready",
                   label: "first",
                   run: protectWorkspacePath(target).pipe(
+                    Effect.mapError(appErrorToStepFailure),
                     Effect.andThen(
-                      fs
-                        .writeFileString(target, "changed")
-                        .pipe(
-                          Effect.mapError((cause) =>
-                            makeAppError({ code: "internal", detail: "write failed", cause }),
-                          ),
+                      fs.writeFileString(target, "changed").pipe(
+                        Effect.mapError(
+                          (cause) =>
+                            new StepFailure({
+                              category: "internal",
+                              detail: "write failed",
+                              cause,
+                            }),
                         ),
+                      ),
                     ),
                     Effect.as({ result: "success" as const, message: "changed" }),
                   ),
@@ -703,8 +712,8 @@ describe("previewOrApplyPlan", () => {
                   run: Effect.succeed({
                     result: "error" as const,
                     message: "second step failed",
-                    error: makeAppError({
-                      code: "internal",
+                    error: new StepFailure({
+                      category: "internal",
                       detail: "second step failed",
                       suggestions: [{ description: "Repair the failed step." }],
                     }),
@@ -781,12 +790,14 @@ describe("previewOrApplyPlan", () => {
       const context = makeTestContext(undefined, undefined, workspace);
       const write = (target: string, content: string) =>
         protectWorkspacePath(target).pipe(
+          Effect.mapError(appErrorToStepFailure),
           Effect.andThen(
             fs
               .writeFileString(target, content)
               .pipe(
-                Effect.mapError((cause) =>
-                  makeAppError({ code: "internal", detail: "write failed", cause }),
+                Effect.mapError(
+                  (cause) =>
+                    new StepFailure({ category: "internal", detail: "write failed", cause }),
                 ),
               ),
           ),
@@ -816,7 +827,10 @@ describe("previewOrApplyPlan", () => {
                   Effect.as({
                     result: "error" as const,
                     message: "b failed after writing",
-                    error: makeAppError({ code: "internal", detail: "b failed after writing" }),
+                    error: new StepFailure({
+                      category: "internal",
+                      detail: "b failed after writing",
+                    }),
                   }),
                 ),
               },
@@ -892,14 +906,18 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:a",
                 label: "a",
                 run: protectWorkspacePath(fileA).pipe(
+                  Effect.mapError(appErrorToStepFailure),
                   Effect.andThen(
-                    fs
-                      .writeFileString(fileA, "a-changed")
-                      .pipe(
-                        Effect.mapError((cause) =>
-                          makeAppError({ code: "internal", detail: "write failed", cause }),
-                        ),
+                    fs.writeFileString(fileA, "a-changed").pipe(
+                      Effect.mapError(
+                        (cause) =>
+                          new StepFailure({
+                            category: "internal",
+                            detail: "write failed",
+                            cause,
+                          }),
                       ),
+                    ),
                   ),
                   Effect.as({ result: "success" as const, message: "updated" }),
                 ),
@@ -909,14 +927,18 @@ describe("previewOrApplyPlan", () => {
                 key: "skill:b",
                 label: "b",
                 run: protectWorkspacePath(fileB).pipe(
+                  Effect.mapError(appErrorToStepFailure),
                   Effect.andThen(
-                    fs
-                      .writeFileString(fileB, "b-changed")
-                      .pipe(
-                        Effect.mapError((cause) =>
-                          makeAppError({ code: "internal", detail: "write failed", cause }),
-                        ),
+                    fs.writeFileString(fileB, "b-changed").pipe(
+                      Effect.mapError(
+                        (cause) =>
+                          new StepFailure({
+                            category: "internal",
+                            detail: "write failed",
+                            cause,
+                          }),
                       ),
+                    ),
                   ),
                   Effect.andThen(Deferred.succeed(inFlight, void 0)),
                   Effect.andThen(Effect.never),
@@ -994,6 +1016,7 @@ describe("previewOrApplyPlan", () => {
                 // own restoration impossible: the parent directory is
                 // replaced by a plain file before the step reports failure.
                 run: protectWorkspacePath(target).pipe(
+                  Effect.mapError(appErrorToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   Effect.andThen(fs.rename(managedDir, movedDir).pipe(Effect.orDie)),
                   Effect.andThen(
@@ -1002,7 +1025,7 @@ describe("previewOrApplyPlan", () => {
                   Effect.as({
                     result: "error" as const,
                     message: "second step failed",
-                    error: makeAppError({ code: "internal", detail: "second step failed" }),
+                    error: new StepFailure({ category: "internal", detail: "second step failed" }),
                   }),
                 ),
               },
@@ -1084,6 +1107,7 @@ describe("previewOrApplyPlan", () => {
                 readiness: "ready",
                 label: "first",
                 run: protectWorkspacePath(target).pipe(
+                  Effect.mapError(appErrorToStepFailure),
                   Effect.andThen(fs.writeFileString(target, "changed").pipe(Effect.orDie)),
                   // Restoration cannot recreate the target afterwards: its
                   // parent directory is replaced by a plain file.
@@ -1100,7 +1124,7 @@ describe("previewOrApplyPlan", () => {
                 run: Effect.succeed({
                   result: "error" as const,
                   message: "second step failed",
-                  error: makeAppError({ code: "internal", detail: "second step failed" }),
+                  error: new StepFailure({ category: "internal", detail: "second step failed" }),
                 }),
               },
             ],

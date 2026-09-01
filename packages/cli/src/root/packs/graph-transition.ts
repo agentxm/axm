@@ -14,6 +14,7 @@ import {
   type DesiredExtensionNode,
 } from "@agentxm/extension-management/unstable/workspace";
 import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const normalizedIdentity = (identity: string): string =>
   identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
@@ -139,6 +140,9 @@ export const buildAtomicPackGraphStep = (args: {
       })
       .pipe(surfaceRestorationIncomplete)
       .pipe(
+        Effect.mapError((error) =>
+          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+        ),
         Effect.map((results) => {
           const warnings = results.flatMap(({ result }) => result.warnings ?? []);
           const allChildrenUnchanged =

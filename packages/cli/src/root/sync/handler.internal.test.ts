@@ -1,3 +1,4 @@
+import { StepFailure } from "@agentxm/extension-management/unstable/plan";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -1281,7 +1282,9 @@ describe("root sync handler", () => {
           { preview: false },
           {
             afterMaterialization: () =>
-              Effect.fail(makeAppError({ code: "internal", detail: "Injected repair failure" })),
+              Effect.fail(
+                new StepFailure({ category: "internal", detail: "Injected repair failure" }),
+              ),
           },
         ),
       );
@@ -1637,7 +1640,10 @@ describe("root sync handler", () => {
           {
             beforeMaterialization: () =>
               Effect.fail(
-                makeAppError({ code: "internal", detail: "Injected materialization failure" }),
+                new StepFailure({
+                  category: "internal",
+                  detail: "Injected materialization failure",
+                }),
               ),
           },
         ),

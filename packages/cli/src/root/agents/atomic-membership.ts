@@ -1,5 +1,10 @@
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  StepFailure,
+  type JobStepResult,
+  type PlannedJobStep,
+} from "@agentxm/extension-management/unstable/plan";
 import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
 import { surfaceRestorationIncomplete } from "@agentxm/extension-management/unstable/workspace";
 import * as Effect from "effect/Effect";
@@ -19,7 +24,7 @@ interface AtomicAttempt<Output> {
 }
 
 const failedResult = <Output>(
-  error: AppError,
+  error: StepFailure,
   message: string = error.detail,
 ): JobStepResult<Output> => ({
   result: "error",
@@ -29,8 +34,8 @@ const failedResult = <Output>(
 
 const blockedResult = <Output>(message: string): JobStepResult<Output> =>
   failedResult(
-    makeAppError({
-      code: "conflict",
+    new StepFailure({
+      category: "conflict",
       detail: message,
     }),
     message,
@@ -41,7 +46,7 @@ const rollbackResults = <Requirements, Output>(
     Exclude<PlannedJobStep<Requirements, Output>, { readonly readiness: "error" }>
   >,
   attempt: AtomicAttempt<Output>,
-  transactionError: AppError,
+  transactionError: StepFailure,
 ): ReadonlyArray<JobStepResult<Output>> => {
   const actualFailureIndex = attempt.failedIndex ?? Math.max(0, attempt.results.length - 1);
   const failedLabel = executable[actualFailureIndex]?.label ?? "atomic agent membership validation";
@@ -96,13 +101,21 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
         }
         return results;
       }),
-      validate: args.validate,
+      validate: (results) => args.validate(results).pipe(Effect.mapError(appErrorToStepFailure)),
     })
     .pipe(surfaceRestorationIncomplete)
     .pipe(
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(
-          Effect.map((attempt) => rollbackResults(executable, attempt, transactionError)),
+          Effect.map((attempt) =>
+            rollbackResults(
+              executable,
+              attempt,
+              transactionError._tag === "AppError"
+                ? appErrorToStepFailure(transactionError)
+                : transactionError,
+            ),
+          ),
         ),
       ),
     );
@@ -119,8 +132,8 @@ export const makeAtomicMembershipSteps = Effect.fn("Agents.makeAtomicMembershipS
         Effect.flatMap((results) => {
           const result = results[index];
           return result === undefined
-            ? makeAppError({
-                code: "internal",
+            ? new StepFailure({
+                category: "internal",
                 detail: `Atomic agent membership transition omitted step ${index + 1}`,
               })
             : Effect.succeed(result);

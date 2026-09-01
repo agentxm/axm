@@ -13,7 +13,10 @@ import {
   getCommandSemanticProperties,
   isEffectCliExit,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { renderConfirmationRecoveryCommand } from "@agentxm/extension-management/unstable/plan";
+import {
+  StepFailure,
+  renderConfirmationRecoveryCommand,
+} from "@agentxm/extension-management/unstable/plan";
 import {
   extensionTypes,
   extensionTypeToPlural,
@@ -2770,7 +2773,7 @@ describe("root publish dependency planning", () => {
         label: `Publish ${candidate.fqn}`,
         run:
           candidate.type === "skill"
-            ? Effect.fail(makeAppError({ code: "conflict", detail: "Dependency failed" }))
+            ? Effect.fail(new StepFailure({ category: "conflict", detail: "Dependency failed" }))
             : Effect.succeed(success),
       }));
 
@@ -2806,7 +2809,7 @@ describe("root publish dependency planning", () => {
         label: `Publish ${candidate.fqn}`,
         run:
           candidate.fqn === dependency.fqn
-            ? Effect.fail(makeAppError({ code: "conflict", detail: "Dependency failed" }))
+            ? Effect.fail(new StepFailure({ category: "conflict", detail: "Dependency failed" }))
             : Effect.succeed(success),
       }));
 

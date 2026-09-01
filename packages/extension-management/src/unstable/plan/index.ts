@@ -111,8 +111,18 @@ export {
   type OperationLifecycleService,
 } from "./operation-events.js";
 
+// Serialized error vocabulary and the plan-family tagged errors.
+export {
+  OPERATION_ERROR_CATEGORIES,
+  OperationErrorCategorySchema,
+  STALE_CANDIDATE_DETAIL,
+  StaleExecutionCandidate,
+  StepFailure,
+  type OperationErrorCategory,
+} from "./errors.js";
+
 // Workspace-interactive preview/apply backbone used by install/uninstall/pack.
-export { STALE_CANDIDATE_DETAIL, previewOrApplyPlan } from "./resolve-plan.js";
+export { previewOrApplyPlan } from "./resolve-plan.js";
 // Interaction port for preview/apply presentation, progress, and confirmation.
 // The CLI runtime provides the Live implementation.
 export {

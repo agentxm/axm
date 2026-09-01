@@ -8,6 +8,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { appErrorToStepFailure } from "../app-error/conversions.js";
+import type { StepFailure } from "../plan/errors.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
@@ -231,7 +233,7 @@ const isConfigured = <TRef extends ExtensionRef>(
 const runInstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   args: InstallOperationArgs<TRef>,
-): Effect.Effect<JobStepResult, AppError, never> =>
+): Effect.Effect<JobStepResult, StepFailure, never> =>
   Effect.gen(function* () {
     const target = targetFromRef(args.ref);
     const configuredSource =
@@ -329,7 +331,7 @@ const runInstallOperation = <TRef extends ExtensionRef>(
       message: args.message ?? "Applied install operation",
       ...(artifactWithLifecycle === undefined ? {} : { artifact: artifactWithLifecycle }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));
 
 /**
  * Build a PlannedJobStep for an install operation.
@@ -460,6 +462,7 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
           } satisfies JobStepResult;
         }),
       ),
+      Effect.mapError(appErrorToStepFailure),
     ),
   } satisfies PlannedJobStep;
 };
@@ -508,7 +511,7 @@ export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
 const runMaterializeOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   args: MaterializeOperationArgs<TRef>,
-): Effect.Effect<JobStepResult, AppError, never> =>
+): Effect.Effect<JobStepResult, StepFailure, never> =>
   Effect.gen(function* () {
     const target = targetFromRef(args.ref);
     yield* manager
@@ -539,7 +542,7 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
       message: args.message ?? "Synced agent artifacts",
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));
 
 export const buildMaterializeOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -612,7 +615,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   retentionPolicy: UninstallRetentionPolicy,
   args: UninstallOperationArgs<TRef>,
-): Effect.Effect<JobStepResult, AppError, never> =>
+): Effect.Effect<JobStepResult, StepFailure, never> =>
   Effect.gen(function* () {
     const configuredSource =
       manager.getConfiguredSource === undefined
@@ -711,7 +714,7 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
       message: uninstallSettlementMessage(args.target, result.settlement),
       ...(result.settlement.declaration === "absent" ? { disposition: "unchanged" as const } : {}),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));
 
 /**
  * Build a PlannedJobStep for an uninstall operation.

@@ -103,6 +103,7 @@ import {
 import {
   deriveOperationOutcome,
   previewOrApplyPlan,
+  StepFailure,
   type Job,
   type JobStepArtifact,
   type JobStepResult,
@@ -115,6 +116,7 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { buildConfiguredPackInstallPlan } from "../install/workspace-install.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const SYNC_RECOVERY_IDS = {
   packManifestDivergence: "pack:manifest-divergence",
@@ -142,8 +144,8 @@ export interface HandleSyncArgs {
 }
 
 export interface SyncTestHooks {
-  readonly beforeMaterialization?: () => Effect.Effect<void, AppError>;
-  readonly afterMaterialization?: (index: number) => Effect.Effect<void, AppError>;
+  readonly beforeMaterialization?: () => Effect.Effect<void, StepFailure>;
+  readonly afterMaterialization?: (index: number) => Effect.Effect<void, StepFailure>;
 }
 
 type SyncPlanRequirements =
@@ -488,8 +490,8 @@ const buildInlineMcpServerSyncOperation = ({
       return {
         result: "error",
         message: `Inline MCP server ${name} collides with unowned native config; move, remove, or adopt the unowned entry before rerunning axm sync`,
-        error: makeAppError({
-          code: "conflict",
+        error: new StepFailure({
+          category: "conflict",
           detail: `Inline MCP server ${name} collides with unowned native config`,
         }),
       } satisfies JobStepResult;
@@ -518,8 +520,8 @@ const buildInlineMcpServerSyncOperation = ({
           ? `Synced inline MCP server ${name}`
           : `Synced inline MCP server ${name} with ${count(warnings.length, "warning")}`,
       ...(warnings.length > 0 ? { warnings } : {}),
-    };
-  }),
+    } satisfies JobStepResult;
+  }).pipe(Effect.mapError(appErrorToStepFailure)),
 });
 
 const buildMcpServerPruneOperation = ({
@@ -552,8 +554,9 @@ const buildMcpServerPruneOperation = ({
           warnings.length === 0
             ? "Pruned stale managed MCP server entries"
             : `Pruned stale managed MCP server entries with ${count(warnings.length, "warning")}`,
-      };
+      } satisfies JobStepResult;
     }),
+    Effect.mapError(appErrorToStepFailure),
   ),
 });
 
@@ -1215,6 +1218,7 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
     artifact,
     ...(message.length === 0 ? {} : { message }),
     run: manager.sync({ dryRun: false }).pipe(
+      Effect.mapError(appErrorToStepFailure),
       Effect.map((result): JobStepResult => {
         const mechanism = result.artifacts.find(
           (artifact) => artifact.mechanism !== undefined,
@@ -1272,6 +1276,7 @@ const collectCleanupStep = Effect.fn("Sync.collectCleanupStep")(function* (
       }),
       cleanupStaleManagedSubagentFiles({ expectedSubagentNames }),
     ]).pipe(
+      Effect.mapError(appErrorToStepFailure),
       Effect.map((results): JobStepResult => {
         const removedPaths = results.flatMap((result) => result.removedPaths);
         return {
@@ -1406,7 +1411,7 @@ const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (
         message: "Reconciled managed hook entries and the fallback region",
         artifact: { ...artifact, agentOutcomes: currentOutcomes },
       } satisfies JobStepResult;
-    }),
+    }).pipe(Effect.mapError(appErrorToStepFailure)),
   });
 });
 
@@ -1452,6 +1457,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
       label: projectionDivergenceLabel("managed Rules region", projectionFacts),
       artifact,
       run: applyPlannedProjections(manager).pipe(
+        Effect.mapError(appErrorToStepFailure),
         Effect.as({
           result: "success",
           message: "Reconciled the managed Rules region",
@@ -1512,6 +1518,7 @@ const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
     run: applyPlannedProjections(manager).pipe(
+      Effect.mapError(appErrorToStepFailure),
       Effect.map((): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",

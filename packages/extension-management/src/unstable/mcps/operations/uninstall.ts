@@ -16,7 +16,9 @@ import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agent.js";
 import { CodingAgentRepository } from "../../agents/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
@@ -212,7 +214,7 @@ export const uninstallMcpServer: (
   op: UninstallMcpServerOperation,
 ) => Effect.Effect<
   JobStepResult,
-  AppError,
+  StepFailure,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > = (op) =>
   Effect.gen(function* () {
@@ -300,4 +302,4 @@ export const uninstallMcpServer: (
         ],
       }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

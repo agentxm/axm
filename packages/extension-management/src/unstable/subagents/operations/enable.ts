@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { CodingAgentRepository } from "../../agents/index.js";
 import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
 import type { JobStepResult } from "../../plan/plan.js";
@@ -226,4 +227,4 @@ export const enableSubagent: OperationHandler<
         renderedChange: "updated",
       }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

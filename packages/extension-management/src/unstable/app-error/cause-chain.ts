@@ -1,4 +1,5 @@
 import type { AppError, AppErrorCode } from "./app-error.js";
+import { StepFailure } from "../plan/errors.js";
 import { redactSensitiveText, redactSensitiveValue } from "./secret-redaction.js";
 
 export interface SerializedErrorCause {
@@ -82,6 +83,14 @@ const serializeCause = (
     return {
       _tag: "AppError",
       code: cause.code,
+      message: redactSensitiveText(cause.detail, { secrets: options.secrets }),
+    };
+  }
+
+  if (cause instanceof StepFailure) {
+    return {
+      _tag: "StepFailure",
+      code: cause.category,
       message: redactSensitiveText(cause.detail, { secrets: options.secrets }),
     };
   }

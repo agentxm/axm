@@ -19,7 +19,10 @@ import {
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  appErrorToStepFailure,
+  fqnInvalidErrorToAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
@@ -225,7 +228,11 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
       const result = yield* run;
       yield* fs.remove(authoredDir, { recursive: true }).pipe(Effect.catch(() => Effect.void));
       return result;
-    }),
+    }).pipe(
+      Effect.mapError((error) =>
+        error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+      ),
+    ),
   } satisfies PlannedJobStep;
 });
 

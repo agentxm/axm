@@ -19,7 +19,9 @@ import type { CodingAgent, McpServerSyncOutcome } from "../../agents/coding-agen
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "../../utils/index.js";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import type { StepFailure } from "../../plan/errors.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   acceptedRegistryVersionForRef,
@@ -635,7 +637,7 @@ export const installMcpServer: (
   op: InstallMcpServerOperation,
 ) => Effect.Effect<
   JobStepResult,
-  AppError,
+  StepFailure,
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | Path.Path
@@ -840,4 +842,4 @@ export const installMcpServer: (
         ],
       }),
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

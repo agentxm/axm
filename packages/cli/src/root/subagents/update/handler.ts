@@ -34,6 +34,7 @@ import {
 import {
   operationPresentation,
   previewOrApplyPlan,
+  StepFailure,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
@@ -384,8 +385,8 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
     });
     if (step.readiness === "error") {
       return Effect.fail(
-        makeAppError({
-          code: "conflict",
+        new StepFailure({
+          category: "conflict",
           detail: step.errorMessage,
         }),
       );

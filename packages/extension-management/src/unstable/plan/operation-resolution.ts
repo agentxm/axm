@@ -16,7 +16,8 @@
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { ExitCode, exitCodeFor, type AppError, type AppErrorCode } from "../app-error/index.js";
+import { ExitCode, exitCodeFor } from "../app-error/index.js";
+import type { OperationErrorCategory, StepFailure } from "./errors.js";
 import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type {
@@ -138,7 +139,7 @@ export interface OperationBlock {
    * Cause class carried for blocking classes whose exit is not pinned by the
    * class alone (`precondition-unmet`, `external-blocked`).
    */
-  readonly causeCode?: AppErrorCode;
+  readonly causeCode?: OperationErrorCategory;
   /** Machine-readable reference to what blocked the subject. */
   readonly reference?: string;
   readonly escape?: SuggestedAction;
@@ -160,7 +161,7 @@ export interface ResolvedUnit<Output = never> {
   readonly message?: string;
   /** Annotations on the state, never a state of their own. */
   readonly warnings?: ReadonlyArray<string>;
-  readonly error?: AppError;
+  readonly error?: StepFailure;
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
@@ -230,7 +231,7 @@ export interface OperationResolution<Output = never> {
   /** Operation-level typed blocking; nothing was attempted. */
   readonly blocking?: OperationBlock;
   /** Operation-level failure cause, carrying the cause class for the exit. */
-  readonly failure?: AppError;
+  readonly failure?: StepFailure;
   readonly interruption?: OperationInterruption;
   /** A flag-requested divergence check found divergence on a preview. */
   readonly divergence?: boolean;
@@ -387,7 +388,7 @@ export const operationExitCode = (
     case "partial":
       return ExitCode.Issues;
     case "failed":
-      return exitCodeFor(resolution.failure?.code ?? "issues");
+      return exitCodeFor(resolution.failure?.category ?? "issues");
     case "blocked": {
       const blocking = resolution.blocking;
       if (blocking === undefined) return ExitCode.Issues;
@@ -395,7 +396,7 @@ export const operationExitCode = (
         return ExitCode.Usage;
       }
       if (BLOCKED_CONFLICT_CLASSES.has(blocking.class)) return ExitCode.Conflict;
-      return exitCodeFor(blocking.causeCode ?? resolution.failure?.code ?? "issues");
+      return exitCodeFor(blocking.causeCode ?? resolution.failure?.category ?? "issues");
     }
     case "interrupted":
       return resolution.interruption?.signal === "SIGTERM" ? 143 : 130;
@@ -553,7 +554,7 @@ export interface MakeOperationResolutionArgs<Output> {
   readonly candidateId?: string | undefined;
   readonly declined?: boolean | undefined;
   readonly blocking?: OperationBlock | undefined;
-  readonly failure?: AppError | undefined;
+  readonly failure?: StepFailure | undefined;
   readonly interruption?: OperationInterruption | undefined;
   readonly divergence?: boolean | undefined;
   readonly footprint?: ReadonlyArray<OperationFootprintEntry> | undefined;

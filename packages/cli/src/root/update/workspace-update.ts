@@ -56,6 +56,7 @@ import {
   configuredPackConstraintBlockPlan,
   prospectivePackConstraintProblems,
 } from "../packs/constraint-gate.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -186,7 +187,7 @@ const workspacePlanningErrorPlan = (
           key: `${type}:${name}:planning-error`,
           readiness: "ready",
           label: name,
-          run: Effect.fail(error),
+          run: Effect.fail(appErrorToStepFailure(error)),
         },
       ],
     },

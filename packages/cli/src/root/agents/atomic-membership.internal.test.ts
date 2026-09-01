@@ -3,7 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
@@ -22,6 +21,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { StepFailure } from "@agentxm/extension-management/unstable/plan";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 
@@ -64,6 +65,7 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Add cursor",
           readiness: "ready",
           run: ws.addConfiguredAgent("cursor").pipe(
+            Effect.mapError(appErrorToStepFailure),
             Effect.as({
               result: "success",
               message: "Configured cursor",
@@ -77,16 +79,16 @@ describe("makeAtomicMembershipSteps", () => {
             yield* protectWorkspacePath(target);
             yield* effectFs.makeDirectory(target, { recursive: true });
             yield* effectFs.writeFileString(path.join(target, "SKILL.md"), "managed\n");
-            return yield* makeAppError({
-              code: "internal",
+            return yield* new StepFailure({
+              category: "internal",
               detail: "Injected materialization failure",
             });
           }).pipe(
             Effect.mapError((cause) =>
-              cause._tag === "AppError"
+              cause instanceof StepFailure
                 ? cause
-                : makeAppError({
-                    code: "internal",
+                : new StepFailure({
+                    category: "internal",
                     detail: "Injected materialization write failed",
                     cause,
                   }),
@@ -140,8 +142,8 @@ describe("makeAtomicMembershipSteps", () => {
         {
           label: "Add cursor",
           readiness: "ready",
-          run: makeAppError({
-            code: "internal",
+          run: new StepFailure({
+            category: "internal",
             detail: "Injected membership failure",
           }),
         },
@@ -206,10 +208,10 @@ describe("makeAtomicMembershipSteps", () => {
           run: protectWorkspacePath(target).pipe(
             Effect.andThen(effectFs.remove(target)),
             Effect.mapError((cause) =>
-              cause._tag === "AppError"
+              cause instanceof StepFailure
                 ? cause
-                : makeAppError({
-                    code: "internal",
+                : new StepFailure({
+                    category: "internal",
                     detail: "Injected cleanup write failed",
                     cause,
                   }),
@@ -221,9 +223,10 @@ describe("makeAtomicMembershipSteps", () => {
           label: "Remove cursor",
           readiness: "ready",
           run: ws.removeConfiguredAgent("cursor").pipe(
+            Effect.mapError(appErrorToStepFailure),
             Effect.andThen(
-              makeAppError({
-                code: "internal",
+              new StepFailure({
+                category: "internal",
                 detail: "Injected settings commit failure",
               }),
             ),

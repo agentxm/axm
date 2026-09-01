@@ -37,6 +37,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallKnowledgeCommandIntent } from "./intent.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface InstallKnowledgeHandlerArgs {
   readonly source: string;
@@ -158,6 +159,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
             key: toStepKey(target),
             label: toLabelWithCompanions(target, packages),
             run: manager.install({ ref, versionRange, deferProjection: deferProjections }).pipe(
+              Effect.mapError(appErrorToStepFailure),
               Effect.as({
                 result: "success" as const,
                 message: `Installed ${ref.knowledge.name}`,
@@ -188,6 +190,7 @@ export const InstallKnowledgeCommandWorkflowActions = Effect.gen(function* () {
                 label: "knowledge projection",
                 readiness: "ready",
                 run: applyPlannedProjections(manager).pipe(
+                  Effect.mapError(appErrorToStepFailure),
                   Effect.as({
                     result: "success",
                     message:

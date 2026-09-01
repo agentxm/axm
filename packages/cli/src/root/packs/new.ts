@@ -36,6 +36,7 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -132,6 +133,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
+      Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

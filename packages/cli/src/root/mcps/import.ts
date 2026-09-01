@@ -40,7 +40,10 @@ import {
   recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import type { McpServerEntry } from "@agentxm/extension-management/unstable/settings";
 import type {
   JobStepArtifact,
@@ -69,6 +72,7 @@ import {
   type McpImportSource,
   preflightMcpImports,
 } from "./import-preflight.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
@@ -460,6 +464,7 @@ const makePlan = (
             message: `Candidates: ${preflight.candidates.map((candidate) => candidate.name).join(", ")}`,
             artifact: importArtifact(preflight, ws, path),
             run: applyImport(preflight.candidates, ws, fs, hooks).pipe(
+              Effect.mapError(appErrorToStepFailure),
               Effect.as({
                 result: "success",
                 message: `Imported ${count(preflight.candidates.length, "MCP server")}`,
@@ -686,6 +691,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         },
       }).pipe(
         Effect.asVoid,
+        Effect.mapError(toAppError),
         Effect.provideService(FileSystem.FileSystem, args.fs),
         Effect.provideService(Path.Path, args.path),
         Effect.provideService(WorkspaceMutations, args.ws),

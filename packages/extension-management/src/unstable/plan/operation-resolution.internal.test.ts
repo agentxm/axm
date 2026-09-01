@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { makeAppError } from "../app-error/index.js";
 import { applyPlan } from "./apply-plan.js";
+import { StepFailure } from "./errors.js";
 import {
   countUnitStates,
   deriveOperationOutcome,
@@ -89,7 +89,7 @@ describe("deriveOperationOutcome", () => {
   it("C-12: no surviving commits derives failed", () => {
     const value = resolution({
       units: [unit("a", "failed")],
-      failure: makeAppError({ code: "conflict", detail: "integrity mismatch" }),
+      failure: new StepFailure({ category: "conflict", detail: "integrity mismatch" }),
     });
     expect(deriveOperationOutcome(value)).toBe("failed");
   });
@@ -100,7 +100,7 @@ describe("deriveOperationOutcome", () => {
         unit("a", "rolled-back", { disposition: "restored" }),
         unit("b", "failed", { disposition: "untouched" }),
       ],
-      failure: makeAppError({ code: "validation", detail: "write failed" }),
+      failure: new StepFailure({ category: "validation", detail: "write failed" }),
     });
     expect(deriveOperationOutcome(value)).toBe("failed");
   });
@@ -136,7 +136,7 @@ describe("deriveOperationOutcome", () => {
   it("C-07: recovery content never decides the outcome — a retained failure stays failed", () => {
     const value = resolution({
       units: [unit("a", "failed", { disposition: "retained" })],
-      failure: makeAppError({ code: "internal", detail: "restoration failed" }),
+      failure: new StepFailure({ category: "internal", detail: "restoration failed" }),
       recovery: {
         retained: ["agent_extensions/@test/skills/a"],
         snapshotDir: "/tmp/axm-rollback-abc123",
@@ -180,7 +180,7 @@ describe("deriveOperationOutcome", () => {
   it("an operation-level failure with no terminal units derives failed, not no-op", () => {
     const value = resolution({
       units: [unit("a", "ready")],
-      failure: makeAppError({ code: "internal", detail: "restoration failed" }),
+      failure: new StepFailure({ category: "internal", detail: "restoration failed" }),
     });
     expect(deriveOperationOutcome(value)).toBe("failed");
   });
@@ -230,7 +230,7 @@ describe("operationExitCode", () => {
       operationExitCode(
         resolution({
           units: [unit("a", "failed")],
-          failure: makeAppError({ code: "validation", detail: "d" }),
+          failure: new StepFailure({ category: "validation", detail: "d" }),
         }),
       ),
     ).toBe(9);
@@ -365,7 +365,7 @@ describe("executedUnits", () => {
                   run: Effect.succeed({
                     result: "error",
                     message: "integrity mismatch",
-                    error: makeAppError({ code: "conflict", detail: "integrity mismatch" }),
+                    error: new StepFailure({ category: "conflict", detail: "integrity mismatch" }),
                   }),
                 },
                 {
@@ -404,7 +404,10 @@ describe("executedUnits", () => {
                 run: Effect.succeed({
                   result: "error",
                   message: "integrity mismatch for a",
-                  error: makeAppError({ code: "conflict", detail: "integrity mismatch for a" }),
+                  error: new StepFailure({
+                    category: "conflict",
+                    detail: "integrity mismatch for a",
+                  }),
                 }),
               },
               {
@@ -481,7 +484,7 @@ describe("executedUnits", () => {
                 result: {
                   result: "error",
                   message: "write failed",
-                  error: makeAppError({ code: "validation", detail: "write failed" }),
+                  error: new StepFailure({ category: "validation", detail: "write failed" }),
                 },
               },
             ],

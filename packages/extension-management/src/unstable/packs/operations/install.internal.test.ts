@@ -146,7 +146,8 @@ describe("installPack", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error._tag).toBe("StepFailure");
+          expect(result.error.category).toBe("internal");
           expect(result.error.detail).toContain("declares dependencies");
         }
       }).pipe(Effect.provide(withServices(projectDir, packSourceDir)));

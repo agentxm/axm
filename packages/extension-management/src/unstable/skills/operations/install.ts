@@ -49,6 +49,8 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { createSymlink } from "../../workspace/create-symlink.js";
 import { validatePathSafety } from "../../extensions/index.js";
 import { errInstallFailed, makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { StepFailure } from "../../plan/errors.js";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -693,8 +695,8 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeAppError({
-          code: "not_found",
+        error: new StepFailure({
+          category: "not_found",
           detail: message,
         }),
       } satisfies JobStepResult;
@@ -723,8 +725,8 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeAppError({
-          code: "validation",
+        error: new StepFailure({
+          category: "validation",
           detail: message,
         }),
       } satisfies JobStepResult;
@@ -861,8 +863,8 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message,
-        error: makeAppError({
-          code: "internal",
+        error: new StepFailure({
+          category: "internal",
           detail: message,
         }),
       } satisfies JobStepResult;
@@ -894,11 +896,15 @@ export const installSkill: OperationHandler<
       return {
         result: "error",
         message: detail,
-        error: makeAppError({
-          code: writeFailure.failure.code,
+        error: new StepFailure({
+          category: writeFailure.failure.code,
           detail,
-          recover: "Retry the install after repairing workspace write access.",
-          cmd: `axm skills install ${baseLockEntry === undefined ? printSourceParams(ref.source) : printSkillLockSourceLocator(ref.skill.name, baseLockEntry)}`,
+          suggestions: [
+            {
+              description: "Retry the install after repairing workspace write access.",
+              cmd: `axm skills install ${baseLockEntry === undefined ? printSourceParams(ref.source) : printSkillLockSourceLocator(ref.skill.name, baseLockEntry)}`,
+            },
+          ],
           cause: writeFailure.failure,
         }),
       } satisfies JobStepResult;
@@ -926,4 +932,4 @@ export const installSkill: OperationHandler<
         ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
       },
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

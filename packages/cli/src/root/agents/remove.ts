@@ -7,7 +7,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/extension-management/unstable/agents";
-import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   acceptWarningsFlag,
   previewFlag,
@@ -37,6 +37,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { validateAgentIds } from "./shared.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface AgentsRemoveArgs {
   readonly ids: ReadonlyArray<string>;
@@ -52,10 +53,10 @@ interface CleanupServices {
   readonly agentRepo: CodingAgentRepositoryService;
 }
 
-const provideCleanupServices = <A>(
+const provideCleanupServices = <A, E>(
   effect: Effect.Effect<
     A,
-    AppError,
+    E,
     WorkspaceMutations | FileSystem.FileSystem | Path.Path | CodingAgentRepository
   >,
   services: CleanupServices,
@@ -93,6 +94,7 @@ const cleanupStep = (
   },
   run: provideCleanupServices(
     cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
+      Effect.mapError(appErrorToStepFailure),
       Effect.map(
         (result) =>
           ({
@@ -139,6 +141,7 @@ const removeAgentStep = (ws: WorkspaceMutationsService, agentId: string): Planne
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
   run: ws.removeConfiguredAgent(agentId).pipe(
+    Effect.mapError(appErrorToStepFailure),
     Effect.as({
       result: "success",
       message: `Removed ${agentId}`,

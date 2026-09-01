@@ -19,7 +19,7 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { AppErrorCodeSchema, type AppError } from "../app-error/index.js";
+import { OperationErrorCategorySchema, type StepFailure } from "./errors.js";
 import {
   EXTENSION_TYPE_TABLE,
   type ExtensionType,
@@ -81,7 +81,7 @@ export const PlanRiskConditionSchema = Schema.Union([
     level: Schema.Literal("blocked"),
     id: Schema.String,
     detail: Schema.String,
-    errorCode: AppErrorCodeSchema,
+    errorCode: OperationErrorCategorySchema,
   }),
 ]);
 export type PlanRiskCondition = typeof PlanRiskConditionSchema.Type;
@@ -161,7 +161,7 @@ export type JobStepResult<Output = never> =
   | {
       readonly result: "error";
       readonly message: string;
-      readonly error: AppError;
+      readonly error: StepFailure;
       /** Present when the unit was prevented rather than failing on its own. */
       readonly blocking?: UnitBlocking;
     };
@@ -179,7 +179,7 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
+  readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
 export interface WarnJobStep<Requirements = never, Output = never> {
@@ -191,7 +191,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly artifact?: JobStepArtifact;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
-  readonly run: Effect.Effect<JobStepResult<Output>, AppError, Requirements>;
+  readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
 export interface ErrorJobStep {

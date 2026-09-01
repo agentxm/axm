@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
+  StepFailure,
   makeOperationResolution,
   type JobStepArtifact,
   type OperationResolution,
@@ -125,7 +125,7 @@ describe("toPlanResolutionResult", () => {
         unit("a", "committed"),
         unit("b", "failed", {
           message: "write failed",
-          error: makeAppError({ code: "internal", detail: "write failed" }),
+          error: new StepFailure({ category: "internal", detail: "write failed" }),
         }),
       ],
     });
@@ -184,7 +184,7 @@ describe("toPlanResolutionResult", () => {
     const value = resolution({
       atomicity: { declared: "closure-atomic", applied: "non-rollbackable" },
       units: [unit("a", "committed"), unit("b", "failed", { disposition: "retained" })],
-      failure: makeAppError({ code: "internal", detail: "restoration failed" }),
+      failure: new StepFailure({ category: "internal", detail: "restoration failed" }),
     });
 
     const result = toPlanResolutionResult(value);
@@ -205,7 +205,7 @@ describe("toPlanResolutionResult", () => {
         unit("a", "rolled-back", { disposition: "restored" }),
         unit("b", "failed", { disposition: "untouched" }),
       ],
-      failure: makeAppError({ code: "validation", detail: "write failed" }),
+      failure: new StepFailure({ category: "validation", detail: "write failed" }),
     });
 
     const result = toPlanResolutionResult(value);
@@ -232,8 +232,8 @@ describe("toPlanResolutionResult", () => {
   it("failure carries code and message, with causes only under verbose", () => {
     const value = resolution({
       units: [unit("a", "failed")],
-      failure: makeAppError({
-        code: "conflict",
+      failure: new StepFailure({
+        category: "conflict",
         detail: "integrity mismatch",
         cause: new Error("lock drift"),
       }),
@@ -448,8 +448,8 @@ describe("toPlanResolutionResult", () => {
       units: [
         unit("quality", "failed", {
           message: "copy failed",
-          error: makeAppError({
-            code: "internal",
+          error: new StepFailure({
+            category: "internal",
             detail: "copy failed",
             cause: new Error("source missing"),
           }),
@@ -473,8 +473,8 @@ describe("toPlanResolutionResult", () => {
       units: [
         unit("quality", "failed", {
           message: "copy failed",
-          error: makeAppError({
-            code: "internal",
+          error: new StepFailure({
+            category: "internal",
             detail: "copy failed",
             cause: new Error("source missing"),
           }),
@@ -505,7 +505,7 @@ describe("toPlanResolutionResult", () => {
       units: [
         unit("quality", "failed", {
           message: "copy failed",
-          error: makeAppError({ code: "internal", detail: "copy failed", cause }),
+          error: new StepFailure({ category: "internal", detail: "copy failed", cause }),
         }),
       ],
     });
@@ -703,7 +703,10 @@ describe("toPlanResolutionResult", () => {
     });
     const failed = resolution({
       units: [unit("a", "failed")],
-      failure: makeAppError({ code: "internal", detail: "upload failed with api_key=abc12345" }),
+      failure: new StepFailure({
+        category: "internal",
+        detail: "upload failed with api_key=abc12345",
+      }),
     });
 
     expect(toPlanResolutionResult(blocked).blocking?.detail).toBe(
@@ -757,7 +760,7 @@ describe("operationResolutionSummary", () => {
       resolution({
         units: [
           unit("a", "failed", {
-            error: makeAppError({ code: "internal", detail: "failed" }),
+            error: new StepFailure({ category: "internal", detail: "failed" }),
           }),
           unit("b", "blocked", {
             blocking: {

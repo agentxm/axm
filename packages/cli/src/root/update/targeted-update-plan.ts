@@ -120,7 +120,7 @@ export const wrapTargetedUpdatePlan = (args: {
             ...builtStep,
             run: builtStep.run.pipe(
               Effect.catch((error) =>
-                error.code === "conflict" && error.detail === TARGETED_UPDATE_STALE_DETAIL
+                error.category === "conflict" && error.detail === TARGETED_UPDATE_STALE_DETAIL
                   ? Effect.succeed({
                       result: "error",
                       message: TARGETED_UPDATE_STALE_DETAIL,

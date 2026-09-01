@@ -202,7 +202,7 @@ describe("enableMcpServer and disableMcpServer", () => {
         args: { serverName },
       }).pipe(Effect.provide(services.layer), Effect.flip);
 
-      expect(error.code).toBe("conflict");
+      expect(error.category).toBe("conflict");
       expect(error.detail).toContain("agent disabled MCP writes");
       expect(logsByTag(services.rendererState).warn).toEqual([]);
       expect(removeSpy).toHaveBeenCalledOnce();

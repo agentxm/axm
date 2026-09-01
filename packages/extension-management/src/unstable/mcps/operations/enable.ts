@@ -13,7 +13,9 @@ import {
   normalizeHandle,
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
@@ -52,7 +54,7 @@ export const enableMcpServer = (
   op: EnableMcpServerOperation,
 ): Effect.Effect<
   JobStepResult,
-  AppError,
+  StepFailure,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > =>
   Effect.gen(function* () {
@@ -116,7 +118,7 @@ export const enableMcpServer = (
           : [];
       });
       return {
-        result: "success",
+        result: "success" as const,
         message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
         artifact: enableArtifact({
           lockEntry: undefined,
@@ -265,7 +267,7 @@ export const enableMcpServer = (
         : [];
     });
     return {
-      result: "success",
+      result: "success" as const,
       message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
       artifact: enableArtifact({
         lockEntry: accepted,
@@ -273,4 +275,4 @@ export const enableMcpServer = (
         targets: agentConfigTargets(agentOutcomes),
       }),
     };
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

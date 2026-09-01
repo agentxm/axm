@@ -52,6 +52,7 @@ import {
   reconcileInstructionTransition,
   removeInstructionTargetsFor,
 } from "./instruction-reconciliation.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 interface InstructionTableItem {
   readonly agentId: string;
@@ -338,6 +339,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
         })
         .pipe(surfaceRestorationIncomplete)
         .pipe(
+          Effect.mapError(appErrorToStepFailure),
           Effect.as({
             result: "success",
             message: "Enabled and reconciled instruction-file management",
@@ -413,6 +415,7 @@ const handleInstructionsDisableBody = Effect.fn("Instructions.disable")(function
         })
         .pipe(surfaceRestorationIncomplete)
         .pipe(
+          Effect.mapError(appErrorToStepFailure),
           Effect.as({
             result: "success",
             message: "Disabled instruction-file management and removed owned aliases",

@@ -15,7 +15,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { StepFailure } from "./errors.js";
 import type {
   CompletedJobStep,
   ExecutedPlan,
@@ -35,7 +35,9 @@ import type {
  * Type for operation handler functions that take an operation and return
  * an Effect producing a JobStepResult.
  */
-export type OperationHandler<Op, R = never> = (op: Op) => Effect.Effect<JobStepResult, AppError, R>;
+export type OperationHandler<Op, R = never> = (
+  op: Op,
+) => Effect.Effect<JobStepResult, StepFailure, R>;
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -55,7 +57,7 @@ const appendReadinessWarning = <Output>(
   };
 };
 
-const errorStepMessage = (error: AppError): string => `${error.detail} (${error.code})`;
+const errorStepMessage = (error: StepFailure): string => `${error.detail} (${error.category})`;
 
 const stepEvidence = (step: PlannedJobStep<unknown, unknown>) => ({
   ...(step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle }),
@@ -74,8 +76,8 @@ const executeStep = <Requirements, Output>(
         result: {
           result: "error",
           message: step.errorMessage,
-          error: makeAppError({
-            code: "internal",
+          error: new StepFailure({
+            category: "internal",
             detail: step.errorMessage,
           }),
         },
@@ -140,8 +142,8 @@ const blockStep = <Output>(
   result: {
     result: "error",
     message,
-    error: makeAppError({
-      code: "conflict",
+    error: new StepFailure({
+      category: "conflict",
       detail: message,
     }),
     blocking,
@@ -159,7 +161,7 @@ const applyReadinessGate = <Output>(
             result: {
               result: "error",
               message: step.errorMessage,
-              error: makeAppError({ code: "conflict", detail: step.errorMessage }),
+              error: new StepFailure({ category: "conflict", detail: step.errorMessage }),
             },
           }
         : blockStep(step, "blocked by plan readiness error", { class: "precondition-unmet" }),
@@ -315,7 +317,7 @@ const executeDependencyAwareJob = <Requirements, Output>(
  * into best-effort execution for independent siblings; failures still block
  * all subsequent jobs.
  *
- * Never fails — catches AppError and converts to error results.
+ * Never fails — catches StepFailure and converts to error results.
  */
 /** Identity of a unit whose run closure is starting. */
 export interface StartedJobStep {

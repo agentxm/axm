@@ -7,7 +7,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
+  StepFailure,
   previewOrApplyPlan,
   type JobStepResult,
   type PlannedJobStep,
@@ -66,8 +68,8 @@ describe("atomic pack graph transition", () => {
                     ? ({
                         result: "error",
                         message: `injected failure at ${String(index)}`,
-                        error: makeAppError({
-                          code: "internal",
+                        error: new StepFailure({
+                          category: "internal",
                           detail: `injected failure at ${String(index)}`,
                         }),
                       } satisfies JobStepResult)
@@ -78,7 +80,7 @@ describe("atomic pack graph transition", () => {
                 }),
                 validate: () => Effect.void,
               })
-              .pipe(surfaceRestorationIncomplete),
+              .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
           }));
           const graphStep = yield* buildAtomicPackGraphStep({
             label: "@test/packs/atomic",
@@ -147,7 +149,7 @@ describe("atomic pack graph transition", () => {
                       }),
                       validate: () => Effect.void,
                     })
-                    .pipe(surfaceRestorationIncomplete),
+                    .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
                 },
               },
             ],
@@ -268,7 +270,7 @@ describe("atomic pack graph transition", () => {
         }
 
         const error = yield* Effect.flip(graphStep.run);
-        expect(error.code).toBe("conflict");
+        expect(error.category).toBe("conflict");
         expect(childRan).toBe(false);
       }),
     );
@@ -447,7 +449,7 @@ describe("atomic pack graph transition", () => {
                     }),
                     validate: () => Effect.void,
                   })
-                  .pipe(surfaceRestorationIncomplete),
+                  .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
               },
             },
           ],

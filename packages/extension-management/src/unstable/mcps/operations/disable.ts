@@ -9,7 +9,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "../../agents/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError } from "../../app-error/index.js";
+import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import type { StepFailure } from "../../plan/errors.js";
 import { appendWarningsToMessage } from "../../plan/job-step-message.js";
 import type { JobStepArtifactTarget, JobStepResult, Operation } from "../../plan/plan.js";
 import { WorkspaceMutations } from "../../workspace/service-interface.js";
@@ -29,7 +31,7 @@ export const disableMcpServer = (
   op: DisableMcpServerOperation,
 ): Effect.Effect<
   JobStepResult,
-  AppError,
+  StepFailure,
   FileSystem.FileSystem | Path.Path | WorkspaceMutations | CodingAgentRepository
 > =>
   Effect.gen(function* () {
@@ -137,7 +139,7 @@ export const disableMcpServer = (
     );
 
     return {
-      result: "success",
+      result: "success" as const,
       message: appendWarningsToMessage(`Disabled ${op.args.serverName}`, warnings),
       artifact: mcpServerArtifact({
         lockEntry: undefined,
@@ -146,4 +148,4 @@ export const disableMcpServer = (
         targets: [mcpSettingsTarget(ws.scope, "updated"), ...agentConfigTargets(syncedAgents)],
       }),
     };
-  });
+  }).pipe(Effect.mapError(appErrorToStepFailure));

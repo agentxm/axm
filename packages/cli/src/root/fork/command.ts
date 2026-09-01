@@ -45,7 +45,10 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type ExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   JobStepArtifact,
   Plan,
@@ -363,6 +366,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
             },
           }).pipe(
             Effect.asVoid,
+            Effect.mapError(toAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
             Effect.provideService(WorkspaceMutations, ws),

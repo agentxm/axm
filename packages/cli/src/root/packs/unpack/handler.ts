@@ -31,6 +31,7 @@ import {
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface UnpackHandlerArgs {
   readonly name: string;
@@ -74,6 +75,7 @@ const promoteToDirectSettings = (
     readiness: "ready",
     label: node.name,
     run: run.pipe(
+      Effect.mapError(appErrorToStepFailure),
       Effect.as({
         result: "success",
         message: `Promoted ${node.type} ${node.name}`,

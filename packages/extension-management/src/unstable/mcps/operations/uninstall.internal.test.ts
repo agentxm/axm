@@ -320,7 +320,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("not_found");
+          expect(result.error.category).toBe("not_found");
         }
       }),
     );
@@ -369,7 +369,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );
@@ -442,7 +442,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );
@@ -488,7 +488,7 @@ describe("uninstallMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error.code).toBe("internal");
+          expect(result.error.category).toBe("internal");
         }
       }),
     );

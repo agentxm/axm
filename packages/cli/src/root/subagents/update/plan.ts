@@ -10,12 +10,12 @@
 
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { SubagentExtensionRef } from "@agentxm/extension-management/unstable/workspace";
 import type {
   JobStepResult,
   Plan,
   PlannedJobStep,
+  StepFailure,
 } from "@agentxm/extension-management/unstable/plan";
 import type {
   SubagentLockEntry,
@@ -35,7 +35,9 @@ export interface UpdateOperation {
  * A function that creates a run closure for an operation.
  * The closure must have all services already provided (R = never).
  */
-export type MakeRunClosure = (op: UpdateOperation) => Effect.Effect<JobStepResult, AppError, never>;
+export type MakeRunClosure = (
+  op: UpdateOperation,
+) => Effect.Effect<JobStepResult, StepFailure, never>;
 
 // -----------------------------------------------------------------------------
 // Version comparison

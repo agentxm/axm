@@ -37,6 +37,7 @@ import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import type { InlineMcpDefinition } from "./import-preflight.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface McpsAddArgs {
   readonly name: string;
@@ -320,7 +321,7 @@ const syncStep = (
       ...(warningDetails.length > 0 ? { warnings: warningDetails } : {}),
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  }),
+  }).pipe(Effect.mapError(appErrorToStepFailure)),
 });
 
 const configArtifact = (
@@ -413,6 +414,7 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
           ...(args.agents === undefined ? {} : { agents: args.agents }),
         })
         .pipe(
+          Effect.mapError(appErrorToStepFailure),
           Effect.as({
             result: "success",
             message: `Configured ${args.name}`,

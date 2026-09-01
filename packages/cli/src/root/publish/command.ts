@@ -16,11 +16,11 @@ import * as os from "node:os";
 import * as semver from "semver";
 
 import {
+  AppError,
   errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
   redactSensitiveText,
-  type AppError,
   type AppErrorCode,
 } from "@agentxm/extension-management/unstable/app-error";
 import {
@@ -65,7 +65,10 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  stepFailureToAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   Job,
   JobStepResult,
@@ -75,6 +78,7 @@ import type {
 } from "@agentxm/extension-management/unstable/plan";
 import {
   OperationJournal,
+  StepFailure,
   getOperationJournal,
   makeOperationJournal,
   previewOrApplyPlan,
@@ -286,6 +290,22 @@ interface PublishPreparationFailure {
   readonly reason: "version_exists" | "integrity_drift" | "not_authored";
   readonly error: AppError;
 }
+
+/**
+ * Publish steps settle with the registry `AppError` as the step failure's
+ * cause; the readers below recover it so publish causes keep their
+ * request/response metadata verbatim.
+ */
+const publishStepFailure = (error: AppError): StepFailure =>
+  new StepFailure({
+    category: error.code,
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    cause: error,
+  });
+
+const publishStepAppError = (error: StepFailure): AppError =>
+  error.cause instanceof AppError ? error.cause : stepFailureToAppError(error);
 
 const preparationFailure = (
   reason: PublishPreparationFailure["reason"],
@@ -619,17 +639,18 @@ export const interruptedPublishResults = (
       };
     }
     if (step !== undefined && step.result.result === "error") {
+      const stepError = publishStepAppError(step.result.error);
       return {
         ...result,
         action: "error",
         phase: "upload_execution",
         reason:
-          step.result.error.metadata?.response?.problemCode === "publish/precondition-changed"
+          stepError.metadata?.response?.problemCode === "publish/precondition-changed"
             ? "publish_precondition_changed"
             : "upload_failed",
         status: "failed",
         ...(step.result.message.length === 0 ? {} : { message: step.result.message }),
-        cause: publicPublishCause(step.result.error),
+        cause: publicPublishCause(stepError),
       };
     }
     if (started.has(fqn) && dispatched.has(fqn)) {
@@ -2336,7 +2357,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           settlement: published.settlement,
         },
       } satisfies JobStepResult<PublishPlanOutput>;
-    });
+    }).pipe(Effect.mapError(publishStepFailure));
     return {
       readiness: "ready",
       label: `${candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
@@ -2365,6 +2386,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
                 label: "Authorize exact publication set",
                 run: PublishAuthorization.pipe(
                   Effect.flatMap((authorizationService) => authorizationService.state),
+                  Effect.mapError(publishStepFailure),
                   Effect.map(
                     (authorization) =>
                       ({
@@ -2441,7 +2463,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
       };
       return yield* previewOrApplyPlan(plan, {
         execution,
-        beforeApply: () => authorization.authorize,
+        beforeApply: () => authorization.authorize.pipe(Effect.mapError(publishStepFailure)),
       }).pipe(Effect.provideService(PublishAuthorization, authorization));
     }),
   ).pipe(Effect.provideService(OperationJournal, operationJournal));
@@ -2500,7 +2522,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const planFailed = planBlocking !== undefined || resolution.failure !== undefined;
   const staleCandidate = planBlocking?.class === "stale-candidate";
   const planFailureCode: AppErrorCode =
-    resolution.failure?.code ??
+    resolution.failure?.category ??
     (planBlocking === undefined
       ? "internal"
       : planBlocking.class === "approval-required" || planBlocking.class === "override-required"
@@ -2525,7 +2547,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   );
   const unresolvedOutputs = yield* Ref.get(unresolvedSettlements);
   const failedStepErrors = resolution.units.flatMap((unit) =>
-    unit.state === "failed" && unit.error !== undefined ? [unit.error] : [],
+    unit.state === "failed" && unit.error !== undefined ? [publishStepAppError(unit.error)] : [],
   );
   const baseResults = preflightResults;
   let results: ReadonlyArray<PublishResultItem>;
@@ -2569,6 +2591,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
               "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
           };
         }
+        const unitError = unit.error === undefined ? undefined : publishStepAppError(unit.error);
         const failedResult: PublishResultItem = {
           id: result.id,
           owner: result.owner,
@@ -2581,14 +2604,14 @@ const runPublish = Effect.fn("Publish.run")(function* (
           action: "error",
           phase: "upload_execution",
           reason:
-            unit.error?.metadata?.response?.problemCode === "publish/precondition-changed"
+            unitError?.metadata?.response?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
-              : unit.error?.code === "conflict"
+              : unitError?.code === "conflict"
                 ? "integrity_conflict"
                 : "upload_failed",
           status: "failed",
           ...(unit.message === undefined ? {} : { message: unit.message }),
-          ...(unit.error === undefined ? {} : { cause: publicPublishCause(unit.error) }),
+          ...(unitError === undefined ? {} : { cause: publicPublishCause(unitError) }),
         };
         return failedResult;
       }
@@ -2644,11 +2667,12 @@ const runPublish = Effect.fn("Publish.run")(function* (
           ...(authorizedPublicationPreview.status === "blocked" && planFailed
             ? {
                 blockedError:
-                  resolution.failure ??
-                  makeAppError({
-                    code: planFailureCode,
-                    detail: "The reviewed publication set was blocked before upload.",
-                  }),
+                  resolution.failure === undefined
+                    ? makeAppError({
+                        code: planFailureCode,
+                        detail: "The reviewed publication set was blocked before upload.",
+                      })
+                    : publishStepAppError(resolution.failure),
               }
             : {}),
         });
@@ -2684,7 +2708,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
                         : `Publish execution did not start: ${planFailureReason}.`,
                     }),
                   )
-                : publicPublishCause(resolution.failure),
+                : publicPublishCause(publishStepAppError(resolution.failure)),
           }
         : {}),
     },

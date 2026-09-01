@@ -33,6 +33,10 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleEnableRule = (args: {
   readonly name: string;
@@ -113,15 +117,15 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
               ? reconcileInstructionTransition({
                   ws,
                   config: instructionsConfig.value,
-                  transition: installStep.run,
+                  transition: installStep.run.pipe(Effect.mapError(toAppError)),
                 }).pipe(
                   Effect.provideService(FileSystem.FileSystem, fs),
                   Effect.provideService(Path.Path, path),
                 )
-              : installStep.run;
+              : installStep.run.pipe(Effect.mapError(toAppError));
             const run = ruleManager
               .runTransaction({ transition, validate: () => Effect.void })
-              .pipe(surfaceRestorationIncomplete);
+              .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure));
             return installStep.readiness === "warn"
               ? {
                   label: installStep.label,

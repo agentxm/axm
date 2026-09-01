@@ -32,6 +32,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface InstallRuleHandlerArgs {
   readonly source: string;
@@ -199,6 +200,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
               label: "rule projections",
               readiness: "ready",
               run: applyPlannedProjections(ruleManager).pipe(
+                Effect.mapError(appErrorToStepFailure),
                 Effect.as({
                   result: "success",
                   message: "Rendered installed Rules from the complete contributor set",

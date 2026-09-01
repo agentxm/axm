@@ -18,6 +18,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError, type AppError } from "../app-error/index.js";
+import { appErrorToStepFailure } from "../app-error/conversions.js";
+import { STALE_CANDIDATE_DETAIL, StaleExecutionCandidate, StepFailure } from "./errors.js";
 import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
@@ -77,13 +79,11 @@ const enterPhase = (phase: OperationPhase): Effect.Effect<void> =>
   publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
 
 interface PlanApplyFailure<Output> {
-  readonly error: AppError;
+  readonly error: StepFailure | StaleExecutionCandidate;
   readonly attemptedExecution?: ExecutedPlan<Output>;
   /** The typed restoration-failure fact; present only when rollback did not complete. */
   readonly restoration?: WorkspaceRestorationIncomplete;
 }
-
-export const STALE_CANDIDATE_DETAIL = "The execution candidate became stale before apply.";
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -162,7 +162,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     execution: PlanExecution;
     beforeApply?: (
       candidate: ExecutionCandidate<Requirements, Output>,
-    ) => Effect.Effect<void, AppError, Requirements>;
+    ) => Effect.Effect<void, StepFailure, Requirements>;
   },
 ) {
   const ws = yield* WorkspaceMutations;
@@ -326,7 +326,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const notExecuted = (over: {
     readonly blocking?: OperationBlock;
     readonly declined?: boolean;
-    readonly failure?: AppError;
+    readonly failure?: StepFailure;
     readonly units?: ReadonlyArray<ResolvedUnit<Output>>;
   }): OperationResolution<Output> =>
     makeOperationResolution<Output>({
@@ -471,18 +471,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const applyFreshCandidate = Effect.gen(function* () {
     yield* enterPhase("validation");
     if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: STALE_CANDIDATE_DETAIL,
-      });
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
     }
     if (options.beforeApply !== undefined) {
       yield* options.beforeApply(candidate);
       if (!(yield* isExecutionCandidateFresh(candidate).pipe(Effect.provide(fsLayer)))) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: STALE_CANDIDATE_DETAIL,
-        });
+        return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
       }
     }
     yield* enterPhase("apply");
@@ -543,7 +537,12 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   });
   const applyCandidate = Effect.gen(function* () {
     const result = yield* applyFreshCandidate.pipe(
-      Effect.mapError((error) => ({ error }) satisfies PlanApplyFailure<Output>),
+      Effect.mapError(
+        (error) =>
+          ({
+            error: error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+          }) satisfies PlanApplyFailure<Output>,
+      ),
     );
     const failedStep = result.jobs
       .flatMap((job) => job.steps)
@@ -560,13 +559,13 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       const stepError =
         failedStep !== undefined && failedStep.result.result === "error"
           ? failedStep.result.error
-          : makeAppError({
-              code: "internal",
+          : new StepFailure({
+              category: "internal",
               detail: "a closure rollback did not complete",
             });
       return yield* Effect.fail({
-        error: makeAppError({
-          code: stepError.code,
+        error: new StepFailure({
+          category: stepError.category,
           detail:
             failedStep?.result.result === "error" ? failedStep.result.message : stepError.detail,
           cause: stepError,
@@ -627,8 +626,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
     if (incomplete !== undefined) {
       return yield* Effect.fail({
-        error: makeAppError({
-          code: "conflict",
+        error: new StepFailure({
+          category: "conflict",
           detail: `${incomplete.extensionType} ${incomplete.name} did not converge for ${incomplete.agentId}: ${incomplete.reason}`,
         }),
         attemptedExecution: executedWithOutcomes,
@@ -646,7 +645,7 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
     typeof value.error === "object" &&
     value.error !== null &&
     "_tag" in value.error &&
-    value.error._tag === "AppError";
+    (value.error._tag === "StepFailure" || value.error._tag === "StaleExecutionCandidate");
   const guardedApply = (
     candidatePlan.executionCapabilities?.rollback === "non-rollbackable"
       ? applyCandidate
@@ -670,14 +669,16 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
         const inner = Option.getOrUndefined(transitionFailure);
         const innerApplyFailure = isPlanApplyFailureShape(inner) ? inner : undefined;
         return {
-          error: innerApplyFailure?.error ?? restorationIncompleteToAppError(failure),
+          error:
+            innerApplyFailure?.error ??
+            appErrorToStepFailure(restorationIncompleteToAppError(failure)),
           ...(innerApplyFailure?.attemptedExecution === undefined
             ? {}
             : { attemptedExecution: innerApplyFailure.attemptedExecution }),
           restoration: failure,
         };
       }
-      return "error" in failure ? failure : { error: failure };
+      return "error" in failure ? failure : { error: appErrorToStepFailure(failure) };
     }),
   );
   const applyResult = yield* Effect.scoped(
@@ -813,9 +814,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
       }
       return unit;
     });
-    const staleCandidate = failure.code === "conflict" && failure.detail === STALE_CANDIDATE_DETAIL;
     const staleUnit = units.find((unit) => unit.blocking?.class === "stale-candidate");
-    if (staleCandidate || staleUnit !== undefined) {
+    if (failure._tag === "StaleExecutionCandidate" || staleUnit !== undefined) {
       return makeOperationResolution<Output>({
         ...resolutionBase,
         atomicity: { declared: atomicity, applied: "closure-atomic" },
@@ -871,8 +871,8 @@ export const previewOrApplyPlan = Effect.fn("previewOrApplyPlan")(function* <Req
   const failure =
     firstFailed?.error === undefined
       ? undefined
-      : makeAppError({
-          code: firstFailed.error.code,
+      : new StepFailure({
+          category: firstFailed.error.category,
           detail: firstFailed.message ?? firstFailed.error.detail,
           cause: firstFailed.error,
           ...(firstFailed.error.suggestions === undefined

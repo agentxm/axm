@@ -59,6 +59,7 @@ import { isValidScaffoldName, normalizeScaffoldOwner } from "../shared/scaffold-
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
@@ -277,6 +278,9 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
       })
       .pipe(surfaceRestorationIncomplete)
       .pipe(
+        Effect.mapError((error) =>
+          error._tag === "AppError" ? appErrorToStepFailure(error) : error,
+        ),
         Effect.as({
           result: "success",
           message: `Created ${fqn}`,

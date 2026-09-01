@@ -709,7 +709,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   const toJobStepResult = (result: {
     readonly result: string;
     readonly message: string;
-    readonly error?: import("@agentxm/extension-management/unstable/app-error").AppError;
+    readonly error?: import("@agentxm/extension-management/unstable/plan").StepFailure;
   }): import("@agentxm/extension-management/unstable/plan").JobStepResult =>
     result.result === "error" && result.error != null
       ? { result: "error", message: result.message, error: result.error }

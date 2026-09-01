@@ -891,7 +891,8 @@ describe("packs install handler", () => {
           if (graphStep?.readiness !== "ready") throw new Error("Expected a ready graph step");
           const error = yield* graphStep.run.pipe(Effect.flip);
           expect(error).toMatchObject({
-            code: "conflict",
+            _tag: "StepFailure",
+            category: "conflict",
             detail: expect.stringContaining("authority changed"),
           });
           expect(fs.existsSync(path.join(tempDir, "packs"))).toBe(false);

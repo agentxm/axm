@@ -10,6 +10,7 @@
 import * as Effect from "effect/Effect";
 import type { AppError } from "../../app-error/index.js";
 import type { Plan } from "../../plan/plan.js";
+import type { StepFailure } from "../../plan/errors.js";
 import type { OperationResolution } from "../../plan/operation-resolution.js";
 import { previewOrApplyPlan } from "../../plan/resolve-plan.js";
 import type { PlanExecution } from "../../plan/plan-execution.js";
@@ -40,7 +41,7 @@ export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> 
 export interface UninstallWorkflowFlags {
   readonly execution: PlanExecution;
   /** Optional delayed gate; candidate freshness is checked again after it completes. */
-  readonly beforeApply?: () => Effect.Effect<void, AppError>;
+  readonly beforeApply?: () => Effect.Effect<void, StepFailure>;
 }
 
 // -----------------------------------------------------------------------------

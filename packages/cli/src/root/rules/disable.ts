@@ -29,6 +29,7 @@ import {
   observeInstructions,
   reconcileInstructionTransition,
 } from "../instruction-reconciliation.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export const handleDisableRule = (args: {
   readonly name: string;
@@ -119,7 +120,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
             : disableTransition,
           validate: () => Effect.void,
         })
-        .pipe(surfaceRestorationIncomplete),
+        .pipe(surfaceRestorationIncomplete, Effect.mapError(appErrorToStepFailure)),
     }),
   });
   const plan: Plan = {

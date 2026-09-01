@@ -12,9 +12,9 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
 import { at } from "../test-helpers.js";
 import { applyPlan } from "./apply-plan.js";
+import { StepFailure } from "./errors.js";
 import type { Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -44,8 +44,8 @@ const makeFailingReadyStep = (label: string): PlannedJobStep => ({
   readiness: "ready",
   label,
   run: Effect.fail(
-    makeAppError({
-      code: "internal",
+    new StepFailure({
+      category: "internal",
       detail: `Failed ${label}`,
     }),
   ),
@@ -153,7 +153,8 @@ describe("applyPlan", () => {
       const result = at(steps, 0).result;
       expect(result.result).toBe("error");
       if (result.result === "error") {
-        expect(result.error.code).toBe("internal");
+        expect(result.error._tag).toBe("StepFailure");
+        expect(result.error.category).toBe("internal");
         expect(result.message).toBe("Failed bad (internal)");
       }
     }),

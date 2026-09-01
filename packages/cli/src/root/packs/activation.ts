@@ -54,6 +54,10 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
+import {
+  appErrorToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -216,7 +220,7 @@ const runMaterializeSteps = Effect.fn("PacksActivation.runMaterializeSteps")(fun
             code: "conflict",
             detail: step.errorMessage,
           })
-        : step.run.pipe(Effect.asVoid),
+        : step.run.pipe(Effect.asVoid, Effect.mapError(toAppError)),
     { concurrency: 1 },
   );
 });
@@ -386,7 +390,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                 message: `${titleVerb}d ${packIdentity}`,
                 artifact: activationArtifact,
               } satisfies JobStepResult;
-            }).pipe(Effect.provide(runServices)),
+            }).pipe(Effect.provide(runServices), Effect.mapError(appErrorToStepFailure)),
           },
         ],
       },

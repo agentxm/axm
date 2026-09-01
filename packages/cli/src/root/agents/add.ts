@@ -34,6 +34,7 @@ import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { isRetiredAgent, lifecycleWarning } from "./lifecycle.js";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { dedupe, validateAgentIds } from "./shared.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface AgentsAddArgs {
   readonly ids: ReadonlyArray<string>;
@@ -55,6 +56,7 @@ const addAgentStep = (ws: WorkspaceMutationsService, agentId: string): PlannedJo
     targets: [{ path: workspaceSettingsPath(ws.scope), change: "updated", agentIds: [agentId] }],
   },
   run: ws.addConfiguredAgent(agentId).pipe(
+    Effect.mapError(appErrorToStepFailure),
     Effect.as({
       result: "success",
       message: `Configured ${agentId}`,

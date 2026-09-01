@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   buildNewExtensionStep,
   preflightCreateOnly,
@@ -108,7 +109,7 @@ export interface HooksNewHandlerArgs {
 const toJobStepResult = (result: {
   readonly result: string;
   readonly message: string;
-  readonly error?: import("@agentxm/extension-management/unstable/app-error").AppError;
+  readonly error?: import("@agentxm/extension-management/unstable/plan").StepFailure;
 }): JobStepResult =>
   result.result === "error" && result.error != null
     ? { result: "error", message: result.message, error: result.error }
@@ -268,6 +269,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
     }),
     scaffold: newHook(op).pipe(
       Effect.map(toJobStepResult),
+      Effect.mapError(toAppError),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.provideService(WorkspaceMutations, ws),

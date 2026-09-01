@@ -10,6 +10,7 @@ import {
   type ProjectionPlan,
 } from "@agentxm/extension-management/unstable/projection";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 /**
  * One trailing projection write per semantic closure. Member steps commit
@@ -54,6 +55,7 @@ export const buildAggregateProjectionStep = (args: {
         }
         yield* applyProjectionPlans(plans);
       }).pipe(
+        Effect.mapError(appErrorToStepFailure),
         Effect.as({
           result: "success",
           message: "Rendered shared aggregate units from the complete contributor set",

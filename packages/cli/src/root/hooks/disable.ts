@@ -28,6 +28,7 @@ import {
   workspaceCanonicalRoot,
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
+import { appErrorToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const hookPackagePath = (
   scope: JobStepArtifact["scope"],
@@ -147,7 +148,7 @@ const handleDisableHookBody = Effect.fn("DisableHook.handle")(function* (args: {
                 message: `Disabled ${args.name}`,
                 artifact: hookDisableArtifact({ lockEntry, name: args.name, scope }),
               } satisfies JobStepResult;
-            }),
+            }).pipe(Effect.mapError(appErrorToStepFailure)),
           },
         ],
       },

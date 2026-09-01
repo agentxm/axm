@@ -120,7 +120,9 @@ describe("new-hook operation", () => {
       fs.mkdirSync(hookDir(tempDir, "existing"), { recursive: true });
 
       const result = yield* newHook(makeOp("existing")).pipe(
-        Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),
+        Effect.catchTag("StepFailure", (e) =>
+          Effect.succeed({ result: "error", code: e.category }),
+        ),
       );
 
       expect(result.result).toBe("error");
@@ -137,7 +139,9 @@ describe("new-hook operation", () => {
       fs.writeFileSync(markerPath, "keep me\n");
 
       const result = yield* newHook(makeOp("existing")).pipe(
-        Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),
+        Effect.catchTag("StepFailure", (e) =>
+          Effect.succeed({ result: "error", code: e.category }),
+        ),
       );
 
       expect(result.result).toBe("error");
@@ -157,7 +161,9 @@ describe("new-hook operation", () => {
       fs.mkdirSync(stagingPath, { recursive: true });
 
       const result = yield* newHook(makeOp("existing")).pipe(
-        Effect.catchTag("AppError", (e) => Effect.succeed({ result: "error", code: e.code })),
+        Effect.catchTag("StepFailure", (e) =>
+          Effect.succeed({ result: "error", code: e.category }),
+        ),
       );
 
       expect(result.result).toBe("error");

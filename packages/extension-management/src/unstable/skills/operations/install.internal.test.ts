@@ -1133,7 +1133,7 @@ describe("installSkill", () => {
           Effect.flip,
         );
 
-        expect(error.code).toBe("conflict");
+        expect(error.category).toBe("conflict");
         expect(fs.readFileSync(marker, "utf8")).toBe("preserve me");
       }),
     );

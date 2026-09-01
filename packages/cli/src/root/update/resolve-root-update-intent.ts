@@ -15,7 +15,7 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);

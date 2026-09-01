@@ -15,7 +15,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
-import type { RefType, Source } from "../../sources/types.js";
+import type { RefType, Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";

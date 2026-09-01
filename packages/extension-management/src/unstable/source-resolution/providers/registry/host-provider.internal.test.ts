@@ -39,7 +39,8 @@ import type { RegistrySkillRef } from "../../../workspace/refs/skill.js";
 import type { RegistryMcpServerRef } from "../../../workspace/refs/mcp-server.js";
 import type { RegistryPackRef } from "../../../workspace/refs/pack.js";
 import type { RegistrySubagentRef } from "../../../workspace/refs/subagent.js";
-import type { RegistrySource, FindOptions } from "../../../sources/index.js";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { FindOptions } from "../../../workspace/source-host-provider.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "../../../skills/index.js";
 import {
   createLocalRegistrySourceHostProvider,

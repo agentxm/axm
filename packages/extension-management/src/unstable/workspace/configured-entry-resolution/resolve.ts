@@ -27,7 +27,7 @@ import { resolveSource, SourceHostProviders } from "../../source-resolution/inde
 import type { SkillExtensionRef } from "../refs/skill.js";
 import type { SubagentExtensionRef } from "../refs/subagent.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { isWorkspaceSourceLocator } from "../../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { WorkspaceMutations } from "../service-interface.js";
 import { acceptedResolutionRef } from "../accepted-canonical-ref.js";
 import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";

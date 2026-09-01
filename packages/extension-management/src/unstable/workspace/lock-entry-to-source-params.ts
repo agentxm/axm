@@ -1,5 +1,5 @@
 /**
- * Source printer for canonical shorthand strings and lock entry conversion.
+ * Lock entry to source-params conversion and lock-locator printing.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -16,12 +16,8 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/schema.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
-import { print as azurereposPrint } from "../source-resolution/providers/azurerepos/index.js";
-import { print as bitbucketPrint } from "../source-resolution/providers/bitbucket/index.js";
-import { print as githubPrint } from "../source-resolution/providers/github/index.js";
-import { print as gitlabPrint } from "../source-resolution/providers/gitlab/index.js";
-import { print as localPrint } from "../source-resolution/providers/local-parser/index.js";
-import type { SourceParams } from "./types.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import type { SourceParams } from "@agentxm/extension-model/unstable/sources/types";
 
 type SourceLockEntry =
   | SkillLockEntry
@@ -31,54 +27,6 @@ type SourceLockEntry =
   | KnowledgeLockEntry
   | SubagentLockEntry
   | PackLockEntry;
-
-/**
- * Print source params as their canonical shorthand string.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const printSourceParams = (source: SourceParams): string => {
-  switch (source.type) {
-    case "github":
-      return githubPrint(
-        source,
-        source.sourceName ?? ("name" in source ? String(source.name) : "github"),
-      );
-    case "gitlab":
-      return gitlabPrint(
-        source,
-        source.sourceName ?? ("name" in source ? String(source.name) : "gitlab"),
-      );
-    case "bitbucket":
-      return bitbucketPrint(
-        source,
-        source.sourceName ?? ("name" in source ? String(source.name) : "bitbucket"),
-      );
-    case "azurerepos":
-      return azurereposPrint(
-        source,
-        source.sourceName ?? ("name" in source ? String(source.name) : "azurerepos"),
-      );
-    case "local":
-      return localPrint(source);
-    case "git": {
-      const url = new URL(source.url.href);
-      url.hash = Option.getOrElse(source.ref, () => "");
-      return url.href;
-    }
-    case "registry": {
-      return source.sourceName ?? ("name" in source ? String(source.name) : "agentxm");
-    }
-    case "inline":
-      return "inline";
-    case "workspace":
-      return `workspace:${formatFqn({
-        owner: source.owner,
-        type: source.extensionType,
-        name: source.name,
-      })}`;
-  }
-};
 
 /**
  * Convert a skill lock entry back to a SourceParams.

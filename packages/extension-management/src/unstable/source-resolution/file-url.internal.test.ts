@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fileUrlToPath } from "./utils.js";
+import { fileUrlToPath } from "./file-url.js";
 
 describe("fileUrlToPath", () => {
   it("converts a basic file:// URL to a path", () => {

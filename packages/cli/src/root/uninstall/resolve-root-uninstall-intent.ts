@@ -10,7 +10,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-management/unstable/workspace";
 import { RegistrySourceRefSchema } from "@agentxm/extension-model/unstable/extensions";
-import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
 

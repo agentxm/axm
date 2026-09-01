@@ -17,7 +17,7 @@ import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstabl
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LintConfigSchema } from "@agentxm/registry-protocol/unstable/lint/config";
-import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)

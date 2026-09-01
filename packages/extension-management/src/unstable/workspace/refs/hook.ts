@@ -18,7 +18,7 @@ import type {
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "hook",

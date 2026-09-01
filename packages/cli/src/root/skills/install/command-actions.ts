@@ -23,8 +23,9 @@ import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/uns
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
-import type { Source, InputParseResult } from "@agentxm/extension-management/unstable/sources";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import type { InputParseResult } from "@agentxm/extension-model/unstable/sources/parser";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
 import {

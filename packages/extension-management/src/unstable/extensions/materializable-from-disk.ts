@@ -9,12 +9,10 @@ import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
 import type { PackRef } from "../workspace/refs/pack.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillExtensionRef } from "../workspace/refs/skill.js";
-import {
-  lockEntryToSourceParams,
-  printSourceParams,
-  skillLockEntryToRef,
-} from "../sources/index.js";
-import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { lockEntryToSourceParams } from "../workspace/lock-entry-to-source-params.js";
+import { skillLockEntryToRef } from "../workspace/lock-entry-to-ref.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
 import type { WorkspaceScope } from "../workspace/scope.js";

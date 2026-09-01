@@ -31,7 +31,7 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   WorkspaceMutations,

@@ -59,10 +59,6 @@
       "types": "./dist/src/unstable/settings/index.d.ts",
       "default": "./dist/src/unstable/settings/index.js"
     },
-    "./unstable/sources": {
-      "types": "./dist/src/unstable/sources/index.d.ts",
-      "default": "./dist/src/unstable/sources/index.js"
-    },
     "./unstable/cli-flags": {
       "types": "./dist/src/unstable/cli-flags/index.d.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"

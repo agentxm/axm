@@ -22,7 +22,7 @@ import {
   SourceRefSchema,
   SourceSegmentSchema,
   SourceSubPathSchema,
-} from "../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 export const LOCKFILE_VERSION = 6;
 

@@ -24,15 +24,18 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { PackRef } from "../workspace/refs/pack.js";
-import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
-import type { SkillExtensionRef } from "../workspace/refs/skill.js";
-import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
-import type { KnowledgeExtensionRef } from "../workspace/refs/knowledge.js";
-import type { RuleExtensionRef } from "../workspace/refs/rule.js";
-import type { HookExtensionRef } from "../workspace/refs/hook.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
-import type { GitBasedSource, RegistrySource } from "./types.js";
+import type { PackRef } from "./refs/pack.js";
+import type { McpServerExtensionRef } from "./refs/mcp-server.js";
+import type { SkillExtensionRef } from "./refs/skill.js";
+import type { SubagentExtensionRef } from "./refs/subagent.js";
+import type { KnowledgeExtensionRef } from "./refs/knowledge.js";
+import type { RuleExtensionRef } from "./refs/rule.js";
+import type { HookExtensionRef } from "./refs/hook.js";
+import type { WorkspaceScope } from "./scope.js";
+import type {
+  GitBasedSource,
+  RegistrySource,
+} from "@agentxm/extension-model/unstable/sources/types";
 
 type SourceLockEntry =
   | SkillLockEntry

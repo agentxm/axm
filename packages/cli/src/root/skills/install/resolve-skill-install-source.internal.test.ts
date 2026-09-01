@@ -16,7 +16,7 @@ import type { SourceHostConfig } from "@agentxm/extension-management/unstable/se
 import {
   parseInputPattern,
   type InputParseResult,
-} from "@agentxm/extension-management/unstable/sources";
+} from "@agentxm/extension-model/unstable/sources/parser";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,

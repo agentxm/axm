@@ -15,7 +15,7 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import {
   GitHostedSourceParamPartsSchema,
   type GitHostedSourceParamParts,
-} from "../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 const decodeGitHostedSourceParamParts = Schema.decodeUnknownResult(GitHostedSourceParamPartsSchema);
 

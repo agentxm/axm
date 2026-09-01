@@ -11,15 +11,11 @@
 
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type {
-  ExtensionName,
-  ExtensionType,
-  ExtensionTypePlural,
-  Handle,
-} from "@agentxm/extension-model/unstable/extensions";
-import { parseFqn } from "@agentxm/extension-model/unstable/extensions";
-import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions/registry-source";
+import type { VersionRange } from "../version-constraints/version-constraints.js";
+import type { ExtensionName, ExtensionType, ExtensionTypePlural } from "../extensions/common.js";
+import type { Handle } from "../extensions/handle.js";
+import { parseFqn } from "../extensions/fqn.js";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "../extensions/registry-source.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;

@@ -7,7 +7,11 @@
 import * as Option from "effect/Option";
 import type { ExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { GitBasedSource, LocalSource, RegistrySource } from "../sources/types.js";
+import type {
+  GitBasedSource,
+  LocalSource,
+  RegistrySource,
+} from "@agentxm/extension-model/unstable/sources/types";
 import {
   decodeAbsolutePathSync,
   type AbsolutePath,

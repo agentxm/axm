@@ -23,15 +23,17 @@ import * as bitbucket from "./providers/bitbucket/index.js";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import * as github from "./providers/github/index.js";
 import * as gitlab from "./providers/gitlab/index.js";
-import { parseInputPattern } from "../sources/index.js";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type {
   InputParseResult,
-  GitSource,
   ShorthandInput,
+} from "@agentxm/extension-model/unstable/sources/parser";
+import type {
+  GitSource,
   RegistrySource,
   Source,
   SourceParams,
-} from "../sources/index.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 import { createRegistryClient } from "../registry/index.js";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {

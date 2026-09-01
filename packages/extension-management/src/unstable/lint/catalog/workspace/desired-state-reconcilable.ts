@@ -4,7 +4,7 @@ import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
 } from "../../../projection/index.js";
-import { isWorkspaceSourceLocator } from "../../../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
 

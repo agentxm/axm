@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import type { LocalSource } from "../../sources/index.js";
+import type { LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
 
 const localSource = (pathValue: string): LocalSource => ({

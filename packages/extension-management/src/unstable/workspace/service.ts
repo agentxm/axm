@@ -71,7 +71,8 @@ import {
   DEFAULT_MINIMUM_RELEASE_AGE,
   type ScopedReleaseAgeExcludePattern,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { resolveKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 

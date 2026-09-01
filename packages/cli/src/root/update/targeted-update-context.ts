@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import type {

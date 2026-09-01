@@ -21,8 +21,8 @@ import { skillsInDir, type DiscoveredSkill } from "../workspace/read-model/disco
 import { expandGlobs, isGlobPattern } from "../utils/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import { fileUrlToPath } from "../sources/index.js";
-import type { Source } from "../sources/index.js";
+import { fileUrlToPath } from "./file-url.js";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import {
   configuredRowsByName,
   installedRowsByName,

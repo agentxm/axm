@@ -63,9 +63,11 @@ import type {
   NamedRegistryFindOptions,
   NamedRegistryResolution,
   SourceHostProvider,
+} from "../../../workspace/source-host-provider.js";
+import type {
   RegistrySource,
   RegistrySourceHost,
-} from "../../../sources/index.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 type RegistrySourceHostProvider<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly resolveNamed: (

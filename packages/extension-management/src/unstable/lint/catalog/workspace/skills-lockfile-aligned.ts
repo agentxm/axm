@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
 import { type Lockfile } from "../../../lockfile/schema.js";
-import { isWorkspaceSourceLocator } from "../../../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { versionSatisfiesRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { DesiredExtensionNode } from "../../../workspace/desired-state-graph.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";

@@ -34,7 +34,7 @@ import {
 } from "../../projection/planning.js";
 import { canReuseInstalledPackage, materializeRegistryPackage } from "../../extensions/index.js";
 import { computeExtensionPathsForLayout } from "../../workspace/extension-paths.js";
-import { printSourceParams } from "../../sources/index.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,

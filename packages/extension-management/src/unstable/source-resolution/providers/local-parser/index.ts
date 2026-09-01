@@ -6,4 +6,3 @@
  */
 
 export { parseLocalPath } from "./parser.js";
-export { print } from "./print.js";

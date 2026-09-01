@@ -16,7 +16,7 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   acceptedCanonicalObservation,
   WorkspaceMutations,

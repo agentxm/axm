@@ -17,7 +17,7 @@ import type {
   ExtensionTargetFor,
 } from "../workspace/service-interface.js";
 import { surfaceRestorationIncomplete } from "../workspace/transaction.js";
-import { isWorkspaceSourceLocator } from "../sources/workspace.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";

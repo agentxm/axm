@@ -10,12 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import type { GitHostedSkillRef } from "../workspace/refs/skill.js";
-import type {
-  GitHubSource,
-  RegistrySource,
-  SourceHostProvider,
-  FindOptions,
-} from "../sources/index.js";
+import type { GitHubSource, RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { SourceHostProvider, FindOptions } from "../workspace/source-host-provider.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";

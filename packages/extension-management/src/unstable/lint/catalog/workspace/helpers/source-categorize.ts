@@ -7,7 +7,7 @@
 
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
-import { isWorkspaceSourceLocator } from "../../../../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import * as Result from "effect/Result";
 
 const BARE_NAME_RE = /^[a-z0-9][a-z0-9-]*(?:@[^\s/:]+)?$/i;

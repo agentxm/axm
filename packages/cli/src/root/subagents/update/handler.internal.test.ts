@@ -19,7 +19,7 @@ import {
 import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/agents";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { type RegistrySubagentRef } from "@agentxm/extension-management/unstable/workspace";
-import type { RegistrySource } from "@agentxm/extension-management/unstable/sources";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import {
   expectNoOpPlanResult,

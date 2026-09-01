@@ -14,7 +14,7 @@ import {
   ruleLockEntryToRef,
   skillLockEntryToRef,
   subagentLockEntryToRef,
-} from "../sources/index.js";
+} from "./lock-entry-to-ref.js";
 import {
   observeCanonicalExtension,
   type AcceptedExtensionResolution,

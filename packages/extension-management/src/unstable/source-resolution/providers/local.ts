@@ -12,8 +12,9 @@ import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 
 import { makeAppError } from "../../app-error/index.js";
-import { fileUrlToPath } from "../../sources/index.js";
-import type { SourceHostProvider, LocalSource } from "../../sources/index.js";
+import { fileUrlToPath } from "../file-url.js";
+import type { SourceHostProvider } from "../../workspace/source-host-provider.js";
+import type { LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
 
 /**

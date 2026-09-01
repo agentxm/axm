@@ -6,10 +6,8 @@ import {
   configuredRowsByName,
   makeConfiguredReleaseAgeEvaluation,
 } from "@agentxm/extension-management/unstable/workspace";
-import {
-  isWorkspaceSourceLocator,
-  type RegistrySource,
-} from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import {
   resolveSource,
   SourceHostProviders,

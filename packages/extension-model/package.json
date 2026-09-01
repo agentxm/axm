@@ -144,6 +144,26 @@
       "types": "./dist/src/unstable/skills/manifest-schema.d.ts",
       "default": "./dist/src/unstable/skills/manifest-schema.js"
     },
+    "./unstable/sources/forge-grammar": {
+      "types": "./dist/src/unstable/sources/forge-grammar.d.ts",
+      "default": "./dist/src/unstable/sources/forge-grammar.js"
+    },
+    "./unstable/sources/parser": {
+      "types": "./dist/src/unstable/sources/parser.d.ts",
+      "default": "./dist/src/unstable/sources/parser.js"
+    },
+    "./unstable/sources/printer": {
+      "types": "./dist/src/unstable/sources/printer.d.ts",
+      "default": "./dist/src/unstable/sources/printer.js"
+    },
+    "./unstable/sources/types": {
+      "types": "./dist/src/unstable/sources/types.d.ts",
+      "default": "./dist/src/unstable/sources/types.js"
+    },
+    "./unstable/sources/workspace": {
+      "types": "./dist/src/unstable/sources/workspace.d.ts",
+      "default": "./dist/src/unstable/sources/workspace.js"
+    },
     "./unstable/subagents/manifest-schema": {
       "types": "./dist/src/unstable/subagents/manifest-schema.d.ts",
       "default": "./dist/src/unstable/subagents/manifest-schema.js"

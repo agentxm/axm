@@ -7,7 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { isWorkspaceSourceLocator, type SourceType } from "../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { SourceType } from "@agentxm/extension-model/unstable/sources/types";
 import type { AxmMcpMetadata } from "../workspace/mcp-entry-semantics.js";
 
 const sourceTypeFromSettingsSource = (source: string): Exclude<SourceType, "inline"> => {

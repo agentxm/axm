@@ -34,7 +34,7 @@ import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { KnowledgeMap } from "../settings/index.js";
-import { knowledgeLockEntryToRef } from "../sources/index.js";
+import { knowledgeLockEntryToRef } from "../workspace/lock-entry-to-ref.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { recordFootprint } from "../workspace/footprint-recorder.js";

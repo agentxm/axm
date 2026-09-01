@@ -15,15 +15,15 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError } from "../../app-error/index.js";
 import { shallowClone } from "../../git/index.js";
-import { fileUrlToPath } from "../../sources/index.js";
+import { fileUrlToPath } from "../file-url.js";
+import type { SourceHostProvider } from "../../workspace/source-host-provider.js";
 import type {
-  SourceHostProvider,
   GitHubSource,
   GitLabSource,
   BitbucketSource,
   AzureReposSource,
   GitHostingSourceHost,
-} from "../../sources/index.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
 
 // -----------------------------------------------------------------------------

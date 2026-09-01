@@ -14,8 +14,8 @@ import type * as Option from "effect/Option";
 
 import type { AppError } from "../app-error/index.js";
 import type { ExtensionType, Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
-import type { Source } from "./types.js";
+import type { ExtensionRef } from "./refs/extension-ref.js";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,

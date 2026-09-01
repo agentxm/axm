@@ -22,7 +22,7 @@ import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
 } from "../../workspace/refs/skill.js";
-import type { Source } from "../../sources/index.js";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {

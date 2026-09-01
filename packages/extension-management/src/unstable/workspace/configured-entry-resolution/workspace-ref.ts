@@ -41,7 +41,7 @@ import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import type { WorkspaceSkillRef } from "../refs/skill.js";
-import type { WorkspaceSource } from "../../sources/types.js";
+import type { WorkspaceSource } from "@agentxm/extension-model/unstable/sources/types";
 import {
   SubagentManifestSchema,
   MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,

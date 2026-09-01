@@ -37,7 +37,7 @@ import {
   ResolvePlanInteractionTest,
 } from "@agentxm/extension-management/unstable/plan";
 import { preapprovedPlanExecution } from "@agentxm/extension-management/unstable/plan";
-import type { ExtensionFiles } from "@agentxm/extension-management/unstable/sources";
+import type { ExtensionFiles } from "@agentxm/extension-management/unstable/workspace";
 import {
   SourceHostProvidersLive,
   SourceHostProviders,

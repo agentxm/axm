@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 
 import type { AppError } from "../../../app-error/index.js";
-import type { LocalSourceParams } from "../../../sources/types.js";
+import type { LocalSourceParams } from "@agentxm/extension-model/unstable/sources/types";
 
 /**
  * Parse a local filesystem path.

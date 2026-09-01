@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeAppError } from "../app-error/index.js";
-import { sourceToLockEntry } from "../sources/index.js";
+import { sourceToLockEntry } from "../workspace/source-to-lock-entry.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
 import type { SkillExtensionRef } from "../workspace/refs/skill.js";

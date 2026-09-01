@@ -39,7 +39,7 @@ import {
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { JobStepResult } from "@agentxm/extension-management/unstable/plan";
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";

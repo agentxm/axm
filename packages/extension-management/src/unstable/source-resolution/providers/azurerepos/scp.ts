@@ -6,7 +6,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import {
   AzureReposSourceParamsSchema,
   type AzureReposSourceParams,
-} from "../../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 const CANONICAL_SSH_HOSTNAME = "ssh.dev.azure.com";
 

@@ -7,11 +7,8 @@
 
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type {
-  ExtensionName,
-  ExtensionType,
-  Handle,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionName, ExtensionType } from "../extensions/common.js";
+import type { Handle } from "../extensions/handle.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema

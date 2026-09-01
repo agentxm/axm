@@ -8,7 +8,7 @@ import type { RuleExtensionRef } from "../refs/rule.js";
 import type { SkillExtensionRef } from "../refs/skill.js";
 import type { SubagentExtensionRef } from "../refs/subagent.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { NamedRegistryResolution } from "../../sources/index.js";
+import type { NamedRegistryResolution } from "../source-host-provider.js";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,

@@ -1,43 +1,20 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
-import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { TreeIntegritySchema } from "./materialized-tree.js";
+import { SourceHashSchema } from "./rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   lockEntryToSourceParams,
   printSkillLockSourceLocator,
-  printSourceParams,
-} from "./printer.js";
+} from "./lock-entry-to-source-params.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v1:${"0".repeat(64)}`,
 );
 
-describe("source printers", () => {
-  it("prints source parameters", () => {
-    expect(
-      printSourceParams({
-        type: "github",
-        sourceName: "github",
-        owner: "acme",
-        repo: "widgets",
-        ref: Option.some("main"),
-        subPath: Option.some("skills/foo"),
-      }),
-    ).toBe("github:acme/widgets//skills/foo@main");
-    expect(printSourceParams({ type: "local", path: "./skills/foo" })).toBe("./skills/foo");
-    expect(
-      printSourceParams({
-        type: "workspace",
-        owner: handle("@acme"),
-        extensionType: "skill",
-        name: extensionName("review"),
-      }),
-    ).toBe("workspace:@acme/skills/review");
-  });
-
+describe("lock entry printers", () => {
   it("maps accepted Git and local resolutions back to source parameters", () => {
     expect(
       lockEntryToSourceParams({

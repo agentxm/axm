@@ -3,7 +3,10 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { GitLabSourceParamsSchema, type GitLabSourceParams } from "../../../sources/types.js";
+import {
+  GitLabSourceParamsSchema,
+  type GitLabSourceParams,
+} from "@agentxm/extension-model/unstable/sources/types";
 import { CANONICAL_HOSTNAME } from "./url.js";
 
 /** Matches: git@{hostname}:owner/repo.git */

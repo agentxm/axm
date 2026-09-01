@@ -27,7 +27,8 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import { lockEntryToSourceParams, printSourceParams } from "../sources/index.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
 import {
   collectDesiredConstraintContributors,
   type DesiredConstraintContributor,

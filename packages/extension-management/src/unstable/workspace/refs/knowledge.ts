@@ -11,7 +11,7 @@ import type {
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 type KnowledgeExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "knowledge",

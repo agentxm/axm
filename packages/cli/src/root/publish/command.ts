@@ -129,10 +129,8 @@ import {
   type PublishExtensionArgs,
   type RegistryClient,
 } from "@agentxm/extension-management/unstable/registry";
-import {
-  isWorkspaceSourceLocator,
-  type SourceType,
-} from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import type { SourceType } from "@agentxm/extension-model/unstable/sources/types";
 import {
   computeIntegrity,
   expandGlobs,

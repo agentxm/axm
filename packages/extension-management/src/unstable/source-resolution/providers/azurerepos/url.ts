@@ -7,7 +7,7 @@ import { makeAppError } from "../../../app-error/index.js";
 import {
   AzureReposSourceParamsSchema,
   type AzureReposSourceParams,
-} from "../../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 import { refFromUrlHash } from "../../url-fragment.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";

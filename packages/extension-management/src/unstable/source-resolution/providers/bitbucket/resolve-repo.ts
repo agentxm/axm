@@ -4,7 +4,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
 import { makeAppError, type AppError } from "../../../app-error/index.js";
-import type { BitbucketSourceParams } from "../../../sources/types.js";
+import type { BitbucketSourceParams } from "@agentxm/extension-model/unstable/sources/types";
 
 const headRequest = (url: string, _input: string) =>
   Effect.gen(function* () {

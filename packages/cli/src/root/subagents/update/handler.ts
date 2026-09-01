@@ -23,7 +23,7 @@ import {
 import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveSource } from "@agentxm/extension-management/unstable/source-resolution";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   normalizeReleaseAgeRecords,

@@ -14,7 +14,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
-import type { RegistrySource } from "../sources/index.js";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackRef } from "../workspace/refs/pack.js";
 import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions";

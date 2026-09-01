@@ -4,7 +4,10 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import { makeAppError } from "../../../app-error/index.js";
-import { GitHubSourceParamsSchema, type GitHubSourceParams } from "../../../sources/types.js";
+import {
+  GitHubSourceParamsSchema,
+  type GitHubSourceParams,
+} from "@agentxm/extension-model/unstable/sources/types";
 import { refFromUrlHash } from "../../url-fragment.js";
 
 export const CANONICAL_HOSTNAME = "github.com";

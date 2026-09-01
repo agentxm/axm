@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 
 import { parseProviderShorthand } from "../parse-provider-shorthand.js";
-import type { GitHubSourceParams } from "../../../sources/types.js";
+import type { GitHubSourceParams } from "@agentxm/extension-model/unstable/sources/types";
 
 export const parseShorthand = (input: string) =>
   Effect.gen(function* () {

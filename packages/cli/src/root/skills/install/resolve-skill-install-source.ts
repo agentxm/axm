@@ -2,7 +2,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   InputParseResult,
   InputPattern,
-} from "@agentxm/extension-management/unstable/sources";
+} from "@agentxm/extension-model/unstable/sources/parser";
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,

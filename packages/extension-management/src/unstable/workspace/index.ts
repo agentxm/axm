@@ -9,6 +9,15 @@
 // `OperationHandler`) moved to `@agentxm/extension-management/unstable/plan`. Consumers
 // import them from there directly.
 
+// Source host provider seam
+export type {
+  ExtensionFiles,
+  FindOptions,
+  NamedRegistryFindOptions,
+  NamedRegistryResolution,
+  SourceHostProvider,
+} from "./source-host-provider.js";
+
 // Extension ref vocabulary
 export type { ExtensionRef } from "./refs/extension-ref.js";
 export type {

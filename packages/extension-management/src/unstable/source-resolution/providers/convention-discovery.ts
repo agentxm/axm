@@ -38,8 +38,9 @@ import {
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
 import { type SkillExtensionRef } from "../../workspace/refs/skill.js";
-import { fileUrlToPath } from "../../sources/index.js";
-import type { FindOptions, GitBasedSource, LocalSource } from "../../sources/index.js";
+import { fileUrlToPath } from "../file-url.js";
+import type { FindOptions } from "../../workspace/source-host-provider.js";
+import type { GitBasedSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 
 type ExternalSource = GitBasedSource | LocalSource;
 

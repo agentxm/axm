@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { SourceTypeSchema } from "@agentxm/extension-management/unstable/sources";
+import { SourceTypeSchema } from "@agentxm/extension-model/unstable/sources/types";
 
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";

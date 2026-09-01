@@ -26,7 +26,7 @@ import type { WorkspaceMutationsService } from "../workspace/index.js";
 import { WorkspaceMutations } from "../workspace/index.js";
 import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-import type { FindOptions } from "../sources/index.js";
+import type { FindOptions } from "../workspace/source-host-provider.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 

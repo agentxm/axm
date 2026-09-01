@@ -14,11 +14,9 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  printSourceParams,
-  printSkillLockSourceLocator,
-  sourceToLockEntry,
-} from "../../sources/index.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { printSkillLockSourceLocator } from "../../workspace/lock-entry-to-source-params.js";
+import { sourceToLockEntry } from "../../workspace/source-to-lock-entry.js";
 import {
   canReuseInstalledPackage,
   materializeExternalPackage,

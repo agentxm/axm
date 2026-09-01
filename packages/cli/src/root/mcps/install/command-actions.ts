@@ -19,7 +19,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { RegistrySource } from "@agentxm/extension-management/unstable/sources";
+import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import {
   resolveSource,
   SourceHostProviders,

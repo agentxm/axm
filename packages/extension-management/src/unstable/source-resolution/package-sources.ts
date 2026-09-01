@@ -6,7 +6,7 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { shallowClone } from "../git/index.js";
-import type { Source } from "../sources/index.js";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 import { SourceHostProviders } from "./service.js";
 import {

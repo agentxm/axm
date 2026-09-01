@@ -10,7 +10,7 @@ import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { GitBasedSource } from "../sources/types.js";
+import type { GitBasedSource } from "@agentxm/extension-model/unstable/sources/types";
 
 export const optionalField = <K extends string, V>(
   key: K,

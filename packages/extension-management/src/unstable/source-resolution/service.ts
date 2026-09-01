@@ -26,11 +26,14 @@ import type {
   FindOptions,
   NamedRegistryFindOptions,
   NamedRegistryResolution,
+} from "../workspace/source-host-provider.js";
+import type {
   GitHostingSource,
   RegistrySource,
   Source,
-} from "../sources/index.js";
-import { fileUrlToPath, printSourceParams } from "../sources/index.js";
+} from "@agentxm/extension-model/unstable/sources/types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { fileUrlToPath } from "./file-url.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";

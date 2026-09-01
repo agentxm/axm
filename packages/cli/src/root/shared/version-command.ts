@@ -14,7 +14,7 @@ import {
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WorkspaceMutations,

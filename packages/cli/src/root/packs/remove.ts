@@ -30,7 +30,7 @@ import {
   recoveryPositional,
 } from "@agentxm/extension-management/unstable/plan";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-management/unstable/workspace";
-import { isWorkspaceSourceLocator } from "@agentxm/extension-management/unstable/sources";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";

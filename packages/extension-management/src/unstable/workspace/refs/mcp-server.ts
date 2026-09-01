@@ -17,7 +17,7 @@ import type {
   RegistrySource,
   LocalSource,
   WorkspaceSource,
-} from "../../sources/types.js";
+} from "@agentxm/extension-model/unstable/sources/types";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete MCP Server Extension Refs

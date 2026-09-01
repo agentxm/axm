@@ -19,7 +19,7 @@ import {
 import type { PackRef } from "./refs/pack.js";
 import { computePackPathsForLayout } from "./pack-paths.js";
 import type { Settings } from "../settings/index.js";
-import { isWorkspaceSourceLocator } from "../sources/index.js";
+import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import { configuredAuthoredDirectory, type WorkspaceLayout } from "./layout.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";

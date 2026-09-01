@@ -14,7 +14,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   RegistrySourceRefSchema,
 } from "@agentxm/extension-model/unstable/extensions";
-import { parseInputPattern } from "@agentxm/extension-management/unstable/sources";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 import { perTypeInstallPluralSegments } from "../shared/per-type-install.js";
 

@@ -18,7 +18,14 @@ import {
   type McpConfigTarget,
   type McpTransport,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpOwnershipMarkerInvalid,
+  McpSharedTargetConflict,
+  type McpManagerError,
+} from "./errors.js";
 import type { McpServerEntry } from "../settings/index.js";
 import { parseTomlValue, stringifyTomlKey } from "../toml/index.js";
 import { managedYamlNames as readManagedYamlNames, readYamlEntry } from "../yaml/index.js";
@@ -108,19 +115,16 @@ const isCapabilityAgentId = (agentId: string): agentId is ConfigurableAgentId =>
 
 const readOptional = (
   configPath: string,
-): Effect.Effect<Option.Option<string>, AppError, FileSystem.FileSystem> =>
+): Effect.Effect<Option.Option<string>, McpManagerError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const exists = yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) return Option.none();
     return yield* fs.readFileString(configPath).pipe(
       Effect.map(Option.some),
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read MCP config: ${configPath}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
       ),
     );
   });
@@ -128,7 +132,7 @@ const readOptional = (
 const parseJsonObject = (
   configPath: string,
   raw: string,
-): Effect.Effect<Readonly<Record<string, unknown>>, AppError> =>
+): Effect.Effect<Readonly<Record<string, unknown>>, McpManagerError> =>
   Effect.try({
     try: () => {
       const errors: Array<ParseError> = [];
@@ -138,8 +142,7 @@ const parseJsonObject = (
       return parsed;
     },
     catch: (error) =>
-      makeAppError({
-        code: "validation",
+      new McpConfigInvalid({
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
@@ -150,7 +153,7 @@ const readJsonEntry = (
   raw: string,
   serversKey: string,
   serverName: string,
-): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, AppError> =>
+): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, McpManagerError> =>
   Effect.gen(function* () {
     const parsed = yield* parseJsonObject(configPath, raw);
     const servers = parsed[serversKey];
@@ -159,9 +162,8 @@ const readJsonEntry = (
     return isRecord(entry) ? Option.some(entry) : Option.none();
   });
 
-const mapYamlError = (configPath: string, error: unknown): AppError =>
-  makeAppError({
-    code: "validation",
+const mapYamlError = (configPath: string, error: unknown): McpConfigInvalid =>
+  new McpConfigInvalid({
     detail: `Invalid MCP config YAML: ${configPath}`,
     cause: error,
   });
@@ -171,7 +173,7 @@ const readYamlConfigEntry = (
   raw: string,
   serversKey: string,
   serverName: string,
-): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, AppError> =>
+): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, McpManagerError> =>
   Effect.try({
     try: () => readYamlEntry(raw, serversKey, serverName),
     catch: (error) => mapYamlError(configPath, error),
@@ -249,7 +251,7 @@ const inspectActual = (args: {
     readonly fields: ReadonlyArray<string>;
     readonly actual?: Readonly<Record<string, unknown>>;
   },
-  AppError,
+  McpManagerError,
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
@@ -262,12 +264,10 @@ const inspectActual = (args: {
         actualBlock.state.state === "malformed" ||
         actualBlock.state.state === "unsupported-version"
       ) {
-        return yield* makeAppError({
-          code: "conflict",
-          detail:
-            actualBlock.state.state === "unsupported-version"
-              ? `MCP server ${args.serverName} uses a newer AXM ownership marker; upgrade AXM before inspecting it`
-              : `MCP server ${args.serverName} has malformed AXM ownership markers`,
+        return yield* new McpOwnershipMarkerInvalid({
+          serverName: args.serverName,
+          state: actualBlock.state.state,
+          operation: "inspect",
         });
       }
       if (actualBlock.body === undefined) {
@@ -314,7 +314,7 @@ const inspectActual = (args: {
 
 const inspectAgentMcpServerInternal = (
   args: InternalInspectAgentMcpServerArgs,
-): Effect.Effect<AgentMcpServerInspection, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<AgentMcpServerInspection, McpManagerError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (!isCapabilityAgentId(args.agentId)) {
       return {
@@ -423,30 +423,26 @@ const inspectAgentMcpServerInternal = (
 
 export const inspectAgentMcpServer = (
   args: InspectAgentMcpServerArgs,
-): Effect.Effect<AgentMcpServerInspection, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<AgentMcpServerInspection, McpManagerError, FileSystem.FileSystem | Path.Path> =>
   inspectAgentMcpServerInternal(args);
 
 const inspectionTransportForEntry = (
   entry: McpServerEntry,
-): Effect.Effect<SharedMcpTransport, AppError> => {
+): Effect.Effect<SharedMcpTransport, McpManagerError> => {
   if (entry.command !== undefined) return Effect.succeed("stdio");
   if (entry.url !== undefined) {
     const inference = inferInlineRemoteTransport(entry.url);
     return inference._tag === "supported"
       ? Effect.succeed(inference.transport)
       : Effect.fail(
-          makeAppError({
-            code: "validation",
+          new McpDefinitionInvalid({
             detail: "Invalid inline MCP server URL",
             cause: inference.reason,
           }),
         );
   }
   return Effect.fail(
-    makeAppError({
-      code: "validation",
-      detail: "Inline MCP server has no command or URL",
-    }),
+    new McpDefinitionInvalid({ detail: "Inline MCP server has no command or URL" }),
   );
 };
 
@@ -458,7 +454,7 @@ export const inspectMcpServerAcrossAgents = (args: {
   readonly entry: McpServerEntry;
 }): Effect.Effect<
   ReadonlyArray<AgentMcpServerInspection>,
-  AppError,
+  McpManagerError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -488,10 +484,7 @@ export const inspectMcpServerAcrossAgents = (args: {
       const members = group.members;
       const resolution = resolveSharedMcpTarget({ members, transport });
       if (resolution._tag === "conflict") {
-        return yield* makeAppError({
-          code: "conflict",
-          detail: resolution.reason,
-        });
+        return yield* new McpSharedTargetConflict({ reason: resolution.reason });
       }
       const inspections = yield* Effect.forEach(
         members,
@@ -536,7 +529,7 @@ const managedJsonNames = (
   configPath: string,
   raw: string,
   serversKey: string,
-): Effect.Effect<ReadonlyArray<string>, AppError> =>
+): Effect.Effect<ReadonlyArray<string>, McpManagerError> =>
   Effect.gen(function* () {
     const parsed = yield* parseJsonObject(configPath, raw);
     const servers = parsed[serversKey];
@@ -550,7 +543,7 @@ const managedYamlNames = (
   configPath: string,
   raw: string,
   serversKey: string,
-): Effect.Effect<ReadonlyArray<string>, AppError> =>
+): Effect.Effect<ReadonlyArray<string>, McpManagerError> =>
   Effect.try({
     try: () => readManagedYamlNames(raw, serversKey, isAxmManagedMcpEntry),
     catch: (error) => mapYamlError(configPath, error),
@@ -562,7 +555,7 @@ export const collectManagedAgentMcpServers = (
   args: CollectManagedAgentMcpServersArgs,
 ): Effect.Effect<
   ReadonlyArray<ManagedAgentMcpServer>,
-  AppError,
+  McpManagerError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

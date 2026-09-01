@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
+import { PackDefinitionInvalid } from "./errors.js";
 import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "../workspace/rendered-files.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
@@ -41,12 +41,12 @@ export const validateExactPackDependencyVersions = (
     Object.entries(resolved),
     ([fqn, value]) =>
       Schema.decodeUnknownEffect(VersionSchema)(value.version).pipe(
-        Effect.mapError((cause) =>
-          makeAppError({
-            code: "validation",
-            detail: `Pack dependency ${field}.${fqn}.version must be an exact semver value`,
-            cause,
-          }),
+        Effect.mapError(
+          (cause) =>
+            new PackDefinitionInvalid({
+              detail: `Pack dependency ${field}.${fqn}.version must be an exact semver value`,
+              cause,
+            }),
         ),
       ),
     { concurrency: "unbounded", discard: true },

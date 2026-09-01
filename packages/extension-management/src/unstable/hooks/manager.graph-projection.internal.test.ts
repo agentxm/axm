@@ -1,3 +1,4 @@
+import { toAppError } from "../app-error/conversions.js";
 /**
  * Regression tests for graph-derived hook unit rendering.
  *
@@ -282,7 +283,7 @@ describe("HookManager graph-derived unit projection", () => {
     return Effect.gen(function* () {
       const manager = yield* HookManager;
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error.code).toBe("conflict");
+      expect(toAppError(error).code).toBe("conflict");
       expect(nodeFs.existsSync(settingsPath)).toBe(false);
     }).pipe(Effect.provide(layer));
   });

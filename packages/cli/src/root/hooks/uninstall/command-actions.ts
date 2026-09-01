@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import {
   type HookExtensionRef,
@@ -132,7 +133,7 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
         return { targets: [] };
       }
       return { targets: [target] };
-    });
+    }).pipe(Effect.mapError(toAppError));
 
   const buildUninstallPlan = (intent: UninstallHookCommandIntent): Effect.Effect<Plan, AppError> =>
     Effect.succeed({

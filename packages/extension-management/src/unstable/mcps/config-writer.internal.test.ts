@@ -11,6 +11,7 @@ import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { parseYaml, readYamlEntry } from "../yaml/index.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
+import { toAppError } from "../app-error/conversions.js";
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -537,7 +538,7 @@ describe("agent MCP config writer", () => {
             entry: { command: "npx" },
           }).pipe(Effect.flip);
 
-          expect(error.code).toBe("validation");
+          expect(toAppError(error).code).toBe("validation");
           expect(readFileSync(configPath, "utf8")).toBe(invalidConfig);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -592,8 +593,10 @@ describe("agent MCP config writer", () => {
 
         expect(Result.isFailure(result)).toBe(true);
         if (Result.isFailure(result)) {
-          expect(result.failure.detail).toContain(`Failed to write MCP config: ${configPath}`);
-          const backupMatch = result.failure.detail.match(
+          expect(toAppError(result.failure).detail).toContain(
+            `Failed to write MCP config: ${configPath}`,
+          );
+          const backupMatch = toAppError(result.failure).detail.match(
             /Original file backup retained at: (.+)$/,
           );
           const backupPath = backupMatch?.[1];

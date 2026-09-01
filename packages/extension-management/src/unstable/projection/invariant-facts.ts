@@ -19,6 +19,7 @@ import { KNOWLEDGE_REGION_OWNER } from "../knowledge/discovery.js";
 import { KnowledgeManager } from "../knowledge/manager.js";
 import { RULES_REGION_OWNER, RuleManager } from "../rules/manager.js";
 import type { AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { acceptedResolutionRef } from "../workspace/accepted-canonical-ref.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
@@ -287,7 +288,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               scope: workspace.scope,
               expectedContributors: contributors,
               owner: RULES_REGION_OWNER,
-              error: ruleResult.failure,
+              error: toAppError(ruleResult.failure),
             }),
           );
         }
@@ -299,7 +300,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               path: "managed hook projections",
               scope: workspace.scope,
               expectedContributors: contributors,
-              error: hookResult.failure,
+              error: toAppError(hookResult.failure),
             }),
           );
           facts.push(
@@ -309,7 +310,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               scope: workspace.scope,
               expectedContributors: contributors,
               owner: HOOK_FALLBACKS_REGION_OWNER,
-              error: hookResult.failure,
+              error: toAppError(hookResult.failure),
             }),
           );
         }
@@ -322,7 +323,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               scope: workspace.scope,
               expectedContributors: contributors,
               owner: KNOWLEDGE_REGION_OWNER,
-              error: knowledgeResult.failure,
+              error: toAppError(knowledgeResult.failure),
             }),
           );
         }

@@ -90,3 +90,14 @@ export {
   type KnowledgeDiscoveryBundle,
   type KnowledgeDiscoveryResult,
 } from "./discovery.js";
+
+export {
+  KnowledgeDefinitionInvalid,
+  KnowledgeDesiredStateUnreconcilable,
+  KnowledgeInstallStateMissing,
+  KnowledgeIoFailed,
+  KnowledgeObservableContractViolated,
+  KnowledgeResolutionMissing,
+  KnowledgeUnavailable,
+  type KnowledgeManagerError,
+} from "./errors.js";

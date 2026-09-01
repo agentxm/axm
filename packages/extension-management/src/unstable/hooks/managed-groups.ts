@@ -10,12 +10,15 @@
 
 import * as Effect from "effect/Effect";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { HookConfigInvalid } from "./errors.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
+const parseJsonConfig = (
+  configPath: string,
+  raw: string,
+): Effect.Effect<unknown, HookConfigInvalid> =>
   Effect.try({
     try: () => {
       const errors: Array<ParseError> = [];
@@ -26,8 +29,7 @@ const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown
       return parsed;
     },
     catch: (error) =>
-      makeAppError({
-        code: "validation",
+      new HookConfigInvalid({
         detail: `Invalid Claude Code hooks config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
@@ -37,20 +39,16 @@ const validateHooksShape = (
   configPath: string,
   settingsKey: string,
   parsed: unknown,
-): Effect.Effect<void, AppError> => {
+): Effect.Effect<void, HookConfigInvalid> => {
   if (!isRecord(parsed)) {
     return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid hooks config format: ${configPath}`,
-      }),
+      new HookConfigInvalid({ detail: `Invalid hooks config format: ${configPath}` }),
     );
   }
   const hooks = parsed[settingsKey];
   if (hooks !== undefined && !isRecord(hooks)) {
     return Effect.fail(
-      makeAppError({
-        code: "validation",
+      new HookConfigInvalid({
         detail: `Invalid hooks config format: ${configPath} (${settingsKey} must be an object)`,
       }),
     );
@@ -130,7 +128,7 @@ export const readManagedHookCommands = (
   configPath: string,
   settingsKey: string,
   raw: string,
-): Effect.Effect<ReadonlyArray<string>, AppError> =>
+): Effect.Effect<ReadonlyArray<string>, HookConfigInvalid> =>
   Effect.gen(function* () {
     const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
@@ -141,7 +139,7 @@ export const readAmbiguousHookCommands = (
   configPath: string,
   settingsKey: string,
   raw: string,
-): Effect.Effect<ReadonlyArray<string>, AppError> =>
+): Effect.Effect<ReadonlyArray<string>, HookConfigInvalid> =>
   Effect.gen(function* () {
     const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
@@ -209,7 +207,7 @@ export const updateHooksJson = (
   settingsKey: string,
   raw: string,
   renderedHooks: Record<string, unknown>,
-): Effect.Effect<string, AppError> =>
+): Effect.Effect<string, HookConfigInvalid> =>
   Effect.gen(function* () {
     const initial = raw.trim().length === 0 ? "{}\n" : raw;
     const parsed = yield* parseJsonConfig(configPath, initial);
@@ -251,4 +249,4 @@ export const stripManagedHooksFromJson = (
   configPath: string,
   settingsKey: string,
   raw: string,
-): Effect.Effect<string, AppError> => updateHooksJson(configPath, settingsKey, raw, {});
+): Effect.Effect<string, HookConfigInvalid> => updateHooksJson(configPath, settingsKey, raw, {});

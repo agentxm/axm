@@ -1,10 +1,10 @@
 import * as crypto from "node:crypto";
+import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { makeAppError, type AppError } from "../app-error/index.js";
 
 const TREE_INTEGRITY_PREFIX = "sha256-tree-v1:";
 
@@ -27,12 +27,19 @@ export type TreeIntegrity = Schema.Schema.Type<typeof TreeIntegritySchema>;
 
 const decodeTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema);
 
-const treeError = (root: string, detail: string, cause?: unknown): AppError =>
-  makeAppError({
-    code: "validation",
-    detail: `Invalid materialized package tree at ${root}: ${detail}`,
-    ...(cause === undefined ? {} : { cause }),
-  });
+/**
+ * A materialized package tree failed strict integrity walking: unreadable,
+ * unsafe, colliding, or unsupported entries. `reason` carries the walk's fact
+ * sentence.
+ */
+export class MaterializedTreeInvalid extends Data.TaggedError("MaterializedTreeInvalid")<{
+  readonly root: string;
+  readonly reason: string;
+  readonly cause?: unknown;
+}> {}
+
+const treeError = (root: string, reason: string, cause?: unknown): MaterializedTreeInvalid =>
+  new MaterializedTreeInvalid({ root, reason, ...(cause === undefined ? {} : { cause }) });
 
 const frame = (hash: crypto.Hash, bytes: Uint8Array): void => {
   const length = Buffer.alloc(8);
@@ -48,14 +55,17 @@ interface MaterializedFile {
 
 export const computeMaterializedTreeIntegrity = (
   root: string,
-): Effect.Effect<TreeIntegrity, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<TreeIntegrity, MaterializedTreeInvalid, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const files: MaterializedFile[] = [];
     const caseFoldedPaths = new Map<string, string>();
 
-    const walk = (directory: string, relativeDirectory: string): Effect.Effect<void, AppError> =>
+    const walk = (
+      directory: string,
+      relativeDirectory: string,
+    ): Effect.Effect<void, MaterializedTreeInvalid> =>
       Effect.gen(function* () {
         const entries = yield* fs
           .readDirectory(directory)

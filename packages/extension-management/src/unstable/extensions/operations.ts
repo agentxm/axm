@@ -7,13 +7,18 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../app-error/index.js";
 import { failureToStepFailure } from "../app-error/conversions.js";
+import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+  SourceAuthorityBlocked,
+} from "./errors.js";
 import type { StepFailure } from "../plan/errors.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionTarget, ExtensionTargetFor } from "../workspace/service-interface.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "./source-authority.js";
@@ -127,12 +132,12 @@ export const toLabelWithCompanions = (
 export interface UninstallRetentionPolicy {
   readonly isRequiredByInstalledPack: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, AppError, never>;
+  }) => Effect.Effect<boolean, ExtensionManagerFailure, never>;
 }
 
 const applyManagerProjectionPlans = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, ExtensionManagerFailure> =>
   manager.projectionPlans === undefined
     ? Effect.void
     : manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
@@ -161,11 +166,11 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
    */
   readonly deferObservableValidation?: boolean;
   /** Optional pre-install state probe for artifact change labels. */
-  readonly installedBefore?: Effect.Effect<boolean, AppError, never>;
+  readonly installedBefore?: Effect.Effect<boolean, ExtensionManagerFailure, never>;
   /** Optional presenter metadata computed after materialization/settings writes. */
   readonly buildArtifact?: (args: {
     readonly installedBefore: boolean;
-  }) => Effect.Effect<JobStepArtifact, AppError, never>;
+  }) => Effect.Effect<JobStepArtifact, ExtensionManagerFailure, never>;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
@@ -180,9 +185,9 @@ export interface NewExtensionOperationArgs<TRef extends ExtensionRef> extends Om
   /** Read-only artifact forecast rendered by preview before any mutation occurs. */
   readonly plannedArtifact?: JobStepArtifact;
   /** Collision checks repeated under the workspace transaction lock before the first write. */
-  readonly preflight?: Effect.Effect<void, AppError, never>;
-  readonly scaffold: Effect.Effect<unknown, AppError, never>;
-  readonly markAuthored: Effect.Effect<void, AppError, never>;
+  readonly preflight?: Effect.Effect<void, ExtensionManagerFailure, never>;
+  readonly scaffold: Effect.Effect<unknown, ExtensionManagerFailure, never>;
+  readonly markAuthored: Effect.Effect<void, ExtensionManagerFailure, never>;
   readonly message: string;
   readonly label?: string;
 }
@@ -198,9 +203,9 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
   /** Whether the new authored extension should remain materialized after creation. */
   readonly enabled?: boolean;
   /** Commit the caller's final desired-state shape after canonical resolution. */
-  readonly finalizeAuthored?: Effect.Effect<void, AppError, never>;
+  readonly finalizeAuthored?: Effect.Effect<void, ExtensionManagerFailure, never>;
   /** Type-specific projection path for authored packages with specialized installers. */
-  readonly materializeInstall?: (ref: TRef) => Effect.Effect<void, AppError, never>;
+  readonly materializeInstall?: (ref: TRef) => Effect.Effect<void, ExtensionManagerFailure, never>;
   /**
    * Project and then deactivate a disabled target when adopting a native
    * configuration requires the projection writer to perform the transition.
@@ -216,7 +221,7 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
 const isConfigured = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
   target: ExtensionTarget,
-): Effect.Effect<boolean, AppError, never> => {
+): Effect.Effect<boolean, ExtensionManagerFailure, never> => {
   if (manager.isConfigured !== undefined) return manager.isConfigured({ target });
   if (manager.getConfiguredSource === undefined) return Effect.succeed(false);
   return manager.getConfiguredSource({ target }).pipe(Effect.map(Option.isSome));
@@ -259,10 +264,9 @@ const runInstallOperation = <TRef extends ExtensionRef>(
         : { allowWorkspaceReplacement: args.allowWorkspaceReplacement }),
     });
     if (authority.kind === "blocked") {
-      return yield* makeAppError({
-        code: "conflict",
+      return yield* new SourceAuthorityBlocked({
         detail: authority.fact.detail,
-        suggestions: authority.fact.recovery,
+        recovery: authority.fact.recovery,
       });
     }
     const installedBefore =
@@ -295,9 +299,10 @@ const runInstallOperation = <TRef extends ExtensionRef>(
           if (args.deferObservableValidation !== true) {
             const installed = yield* manager.isInstalled({ target });
             if (!installed) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Installed ${target.type} "${target.name}" did not satisfy its observable contract`,
+              return yield* new LifecyclePostconditionViolated({
+                postcondition: "install-observable",
+                targetType: target.type,
+                targetName: target.name,
               });
             }
           }
@@ -307,9 +312,10 @@ const runInstallOperation = <TRef extends ExtensionRef>(
           ) {
             const configured = yield* isConfigured(manager, target);
             if (!configured) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Installed ${target.type} "${target.name}" has no desired-state declaration`,
+              return yield* new LifecyclePostconditionViolated({
+                postcondition: "install-declared",
+                targetType: target.type,
+                targetName: target.name,
               });
             }
           }
@@ -394,9 +400,9 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
               (candidate) => toStepKey(targetFromRef(candidate)) === toStepKey(target),
             );
             if (ref === undefined) {
-              return yield* makeAppError({
-                code: "not_found",
-                detail: `Newly scaffolded ${target.type} "${target.name}" could not be resolved from its workspace source`,
+              return yield* new ScaffoldedExtensionUnresolved({
+                targetType: target.type,
+                targetName: target.name,
               });
             }
             const installedBefore =
@@ -425,17 +431,19 @@ export const buildAuthoredExtensionStep = <TRef extends ExtensionRef>(
             Effect.gen(function* () {
               const installed = yield* manager.isInstalled({ target });
               if (args.enabled !== false && !installed) {
-                return yield* makeAppError({
-                  code: "internal",
-                  detail: `New ${target.type} "${target.name}" did not satisfy its observable contract`,
+                return yield* new LifecyclePostconditionViolated({
+                  postcondition: "new-observable",
+                  targetType: target.type,
+                  targetName: target.name,
                 });
               }
               if (manager.getConfiguredSource !== undefined) {
                 const configured = yield* manager.getConfiguredSource({ target });
                 if (Option.isNone(configured)) {
-                  return yield* makeAppError({
-                    code: "internal",
-                    detail: `New ${target.type} "${target.name}" has no desired-state declaration`,
+                  return yield* new LifecyclePostconditionViolated({
+                    postcondition: "new-declared",
+                    targetType: target.type,
+                    targetName: target.name,
                   });
                 }
               }
@@ -497,7 +505,7 @@ export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly allowWorkspaceSourceTransition?: boolean;
   /** Reacquire canonical content before projecting it. */
   readonly force?: boolean;
-  readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, AppError, never>;
+  readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, ExtensionManagerFailure, never>;
   readonly message?: string;
 }
 
@@ -520,9 +528,10 @@ const runMaterializeOperation = <TRef extends ExtensionRef>(
           Effect.flatMap((installed) =>
             installed
               ? Effect.void
-              : makeAppError({
-                  code: "internal",
-                  detail: `Reconciled ${target.type} "${target.name}" did not satisfy its observable contract`,
+              : new LifecyclePostconditionViolated({
+                  postcondition: "materialize-observable",
+                  targetType: target.type,
+                  targetName: target.name,
                 }),
           ),
         ),
@@ -680,17 +689,19 @@ const runUninstallOperation = <TRef extends ExtensionRef>(
           if (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined) {
             const remainsConfigured = yield* isConfigured(manager, args.target);
             if (remainsConfigured) {
-              return yield* makeAppError({
-                code: "internal",
-                detail: `Uninstalled ${args.target.type} "${args.target.name}" remains declared`,
+              return yield* new LifecyclePostconditionViolated({
+                postcondition: "uninstall-remains-declared",
+                targetType: args.target.type,
+                targetName: args.target.name,
               });
             }
           }
           const installed = yield* manager.isInstalled({ target: args.target });
           if (outcome.expectedInstalled !== undefined && installed !== outcome.expectedInstalled) {
-            return yield* makeAppError({
-              code: "internal",
-              detail: `Uninstalled ${args.target.type} "${args.target.name}" has an invalid observed postcondition`,
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "uninstall-observed-state",
+              targetType: args.target.type,
+              targetName: args.target.name,
             });
           }
         }),

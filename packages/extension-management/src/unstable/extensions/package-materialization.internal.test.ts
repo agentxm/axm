@@ -1,4 +1,5 @@
 import * as nodeFs from "node:fs";
+import { toAppError } from "../app-error/conversions.js";
 import { spawnSync } from "node:child_process";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -203,7 +204,7 @@ describe("package materialization helpers", () => {
             }),
         }).pipe(Effect.flip);
 
-        expect(failure.detail).toBe("injected staging failure");
+        expect(toAppError(failure).detail).toBe("injected staging failure");
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
           "prior",
         );
@@ -253,7 +254,7 @@ describe("package materialization helpers", () => {
             }),
         }).pipe(Effect.flip);
 
-        expect(failure.detail).toBe("injected validation failure");
+        expect(toAppError(failure).detail).toBe("injected validation failure");
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "review.md"), "utf8")).toBe(
           "prior",
         );
@@ -451,7 +452,7 @@ describe("package materialization helpers", () => {
           populate: () => Effect.void,
         }).pipe(Effect.flip);
 
-        expect(failure.code).toBe("conflict");
+        expect(toAppError(failure).code).toBe("conflict");
         expect(nodeFs.readFileSync(nodePath.join(canonicalPath, "skill.json"), "utf8")).toBe(
           "prior\n",
         );
@@ -483,7 +484,7 @@ describe("package materialization helpers", () => {
             Effect.sync(() => nodeFs.writeFileSync(nodePath.join(stagingPath, "hook.json"), "{}")),
         }).pipe(Effect.flip);
 
-        expect(failure.code).toBe("validation");
+        expect(toAppError(failure).code).toBe("validation");
         expect(nodeFs.existsSync(canonicalPath)).toBe(false);
         expect(nodeFs.existsSync(paths.stagingPath)).toBe(false);
 

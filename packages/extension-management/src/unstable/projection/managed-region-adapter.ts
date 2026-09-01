@@ -4,8 +4,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
-import { protectWorkspacePath } from "../workspace/transaction.js";
+import {
+  ManagedRegionViolation,
+  ProjectionIoFailed,
+  ProjectionTargetUnsupported,
+} from "./errors.js";
+import { protectWorkspacePath, type WorkspaceSnapshotError } from "../workspace/transaction.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import {
   MARKER_KIND_END,
@@ -235,15 +239,12 @@ export const renderManagedRegion = (args: {
   ].join(eol);
 };
 
-const regionStateError = (displayPath: string, state: ManagedRegionState): AppError =>
-  makeAppError({
-    code: "conflict",
-    detail:
-      state.state === "unsupported-version"
-        ? `${state.message}: ${displayPath}`
-        : state.state === "malformed"
-          ? `${state.message}: ${displayPath}`
-          : `Cannot reconcile managed region: ${displayPath}`,
+const regionStateError = (displayPath: string, state: ManagedRegionState): ManagedRegionViolation =>
+  new ManagedRegionViolation({
+    displayPath,
+    ...(state.state === "unsupported-version" || state.state === "malformed"
+      ? { reason: state.message }
+      : {}),
   });
 
 /** Reconcile one AXM-owned region while preserving all surrounding bytes. */
@@ -258,38 +259,40 @@ export const reconcileManagedRegionFile = (args: {
   readonly preserveEmptyFile?: boolean;
   readonly writeWhenMissing?: boolean;
   readonly unsupportedTargetDetail?: string;
-}): Effect.Effect<ManagedRegionReconciliation, AppError, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<
+  ManagedRegionReconciliation,
+  | ManagedRegionViolation
+  | ProjectionTargetUnsupported
+  | ProjectionIoFailed
+  | WorkspaceSnapshotError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const style = commentStyleForTarget(args.displayPath);
     if (Option.isNone(style)) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new ProjectionTargetUnsupported({
         detail:
           args.unsupportedTargetDetail ??
           `Managed-region target does not support comments: ${args.displayPath}`,
       });
     }
-    const existed = yield* fs.exists(args.targetPath).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to inspect managed-region target: ${args.targetPath}`,
-          cause,
-        }),
-      ),
-    );
+    const existed = yield* fs
+      .exists(args.targetPath)
+      .pipe(
+        Effect.mapError(
+          (cause) => new ProjectionIoFailed({ path: args.targetPath, step: "inspect", cause }),
+        ),
+      );
     const existing = existed
-      ? yield* fs.readFileString(args.targetPath).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to read managed-region target: ${args.targetPath}`,
-              cause,
-            }),
-          ),
-        )
+      ? yield* fs
+          .readFileString(args.targetPath)
+          .pipe(
+            Effect.mapError(
+              (cause) => new ProjectionIoFailed({ path: args.targetPath, step: "read", cause }),
+            ),
+          )
       : "";
     const state = inspectManagedRegion(existing, args.region, style.value);
     if (state.state === "malformed" || state.state === "unsupported-version") {
@@ -325,25 +328,27 @@ export const reconcileManagedRegionFile = (args: {
       args.preserveEmptyFile !== true &&
       updated.trim().length === 0
     ) {
-      yield* fs.remove(args.targetPath, { force: true });
+      yield* fs
+        .remove(args.targetPath, { force: true })
+        .pipe(
+          Effect.mapError(
+            (cause) => new ProjectionIoFailed({ path: args.targetPath, step: "reconcile", cause }),
+          ),
+        );
       if (existed) yield* recordFootprint({ path: args.targetPath, change: "removed" });
     } else {
-      yield* fs.makeDirectory(path.dirname(args.targetPath), { recursive: true });
-      yield* fs.writeFileString(args.targetPath, updated);
+      yield* Effect.gen(function* () {
+        yield* fs.makeDirectory(path.dirname(args.targetPath), { recursive: true });
+        yield* fs.writeFileString(args.targetPath, updated);
+      }).pipe(
+        Effect.mapError(
+          (cause) => new ProjectionIoFailed({ path: args.targetPath, step: "reconcile", cause }),
+        ),
+      );
       yield* recordFootprint({
         path: args.targetPath,
         change: existed ? "modified" : "created",
       });
     }
     return result;
-  }).pipe(
-    Effect.mapError((cause) =>
-      cause._tag === "AppError"
-        ? cause
-        : makeAppError({
-            code: "internal",
-            detail: `Failed to reconcile managed-region target: ${args.targetPath}`,
-            cause,
-          }),
-    ),
-  );
+  });

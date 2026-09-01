@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as FastCheck from "effect/testing/FastCheck";
+import { toAppError } from "../app-error/conversions.js";
 
 import {
   commentStyleForTarget,
@@ -225,7 +226,7 @@ describe("projection managed-region markers", () => {
           owner: "@acme/rules/instructions",
           rendered: "body",
         }).pipe(Effect.flip, Effect.provide(NodeServices.layer));
-        expect(error.code).toBe("validation");
+        expect(toAppError(error).code).toBe("validation");
         expect(fs.readFileSync(target, "utf8")).toBe(before);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });

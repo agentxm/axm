@@ -781,7 +781,7 @@ export const syncInlineMcpServerToAgents = (
       }
     }
 
-    return agentIds.map((agentId) => {
+    return agentIds.map((agentId): McpServerSyncOutcome => {
       const terminal = terminalOutcomes.get(agentId);
       if (terminal !== undefined) return terminal;
       const accumulator = accumulators.get(agentId);
@@ -797,7 +797,7 @@ export const syncInlineMcpServerToAgents = (
         ...(accumulator.warnings.length > 0 ? { warnings: accumulator.warnings } : {}),
       };
     });
-  });
+  }).pipe(Effect.mapError(toAppError));
 
 export const syncInlineMcpServerToAgent = (
   agentId: string,
@@ -891,7 +891,7 @@ export const pruneManagedMcpServersForAgent = (
       _tag: "success",
       ...(prunedTargets.length > 0 ? { targets: prunedTargets } : {}),
     } satisfies McpServerSyncOutcome;
-  });
+  }).pipe(Effect.mapError(toAppError));
 
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
   id in CONFIGURABLE_AGENTS_BY_ID;
@@ -1231,7 +1231,7 @@ export const addMcpServerFromManifest = (
       } as const;
     }
     return { _tag: "success", targets: syncTargets } as const;
-  });
+  }).pipe(Effect.mapError(toAppError));
 
 export const removeMcpServerFromManifest = (
   agentId: string,
@@ -1271,4 +1271,4 @@ export const removeMcpServerFromManifest = (
     );
     const syncTargets = writeResults.flatMap((result) => result.targets);
     return { _tag: "success", targets: syncTargets } as const;
-  });
+  }).pipe(Effect.mapError(toAppError));

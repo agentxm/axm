@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
@@ -149,7 +150,7 @@ describe("mcps-new.handler", () => {
           preview: false,
         }).pipe(Effect.flip);
 
-        expect(error).toMatchObject({
+        expect(toAppError(error)).toMatchObject({
           code: "conflict",
           suggestions: [
             {

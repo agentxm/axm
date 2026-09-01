@@ -664,7 +664,8 @@ const isObservedMaterializationCurrent = (
           }),
         );
       }),
-    );
+    )
+    .pipe(Effect.mapError(toAppError));
 
 export const collectMaterializeSteps = Effect.fn("Sync.collectMaterializeSteps")(function* (args?: {
   readonly selection: SyncSelection;
@@ -1191,7 +1192,7 @@ const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(function* (a
       key: "knowledge:discovery",
       label: "Knowledge discovery",
       readiness: "error",
-      errorMessage: previewResult.failure.detail,
+      errorMessage: toAppError(previewResult.failure).detail,
       artifact: {
         path: instructionFile,
         scope: ws.scope,

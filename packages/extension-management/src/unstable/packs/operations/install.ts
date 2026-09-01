@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { makeAppError } from "../../app-error/index.js";
-import { appErrorToStepFailure } from "../../app-error/conversions.js";
+import { appErrorToStepFailure, toAppError } from "../../app-error/conversions.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { recoverCanonicalDirectory, replaceCanonicalDirectory } from "../../extensions/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -275,11 +275,12 @@ export const installPack: OperationHandler<
           : `Installed pack ${op.args.packName}; ${metadataWarning}`,
     } satisfies JobStepResult;
   }).pipe(
-    Effect.catch((error) =>
-      Effect.succeed({
+    Effect.catch((error) => {
+      const appError = toAppError(error);
+      return Effect.succeed({
         result: "error",
-        message: `Failed to install pack: ${error.message}`,
-        error: appErrorToStepFailure(error),
-      } satisfies JobStepResult),
-    ),
+        message: `Failed to install pack: ${appError.message}`,
+        error: appErrorToStepFailure(appError),
+      } satisfies JobStepResult);
+    }),
   );

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { toAppError } from "../app-error/conversions.js";
 
 import { preflightCreateOnly } from "./create-preflight.js";
 
@@ -29,8 +30,8 @@ describe("preflightCreateOnly", () => {
       Effect.flip,
       Effect.tap((error) =>
         Effect.sync(() => {
-          expect(error.code).toBe("conflict");
-          expect(error.detail).toContain("settings");
+          expect(toAppError(error).code).toBe("conflict");
+          expect(toAppError(error).detail).toContain("settings");
           expect(fs.existsSync(destination)).toBe(false);
         }),
       ),
@@ -54,7 +55,7 @@ describe("preflightCreateOnly", () => {
       Effect.flip,
       Effect.tap((error) =>
         Effect.sync(() => {
-          expect(error.code).toBe("conflict");
+          expect(toAppError(error).code).toBe("conflict");
           expect(fs.readFileSync(marker)).toEqual(before);
           expect(fs.readdirSync(destination)).toEqual(["keep.txt"]);
         }),

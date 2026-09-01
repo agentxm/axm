@@ -1,3 +1,4 @@
+import { toAppError } from "../app-error/conversions.js";
 /**
  * Unit tests for SubagentManager service.
  *
@@ -198,7 +199,7 @@ describe("SubagentManager", () => {
             versionRange: Option.none(),
           })
           .pipe(Effect.flip);
-        expect(error.detail).toContain("no materialized content identity");
+        expect(toAppError(error).detail).toContain("no materialized content identity");
         expect(setSubagentSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
@@ -243,7 +244,7 @@ describe("SubagentManager", () => {
             ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
           })
           .pipe(Effect.flip);
-        expect(error.detail).toContain("no materialized content identity");
+        expect(toAppError(error).detail).toContain("no materialized content identity");
         expect(setLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
@@ -496,7 +497,7 @@ describe("SubagentManager", () => {
         const error = yield* manager
           .materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir, "none") })
           .pipe(Effect.flip);
-        expect(error.detail).toContain("fallback is none");
+        expect(toAppError(error).detail).toContain("fallback is none");
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [fallbackAgent] })));
     });
 

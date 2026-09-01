@@ -14,7 +14,13 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  AuthoredContributorUnsupported,
+  ContributorIdentityInvalid,
+  ContributorTreeMismatch,
+  ContributorUnresolved,
+  DesiredStateIncomplete,
+} from "./errors.js";
 import {
   parseExtensionFqnParts,
   type ExtensionType,
@@ -27,6 +33,7 @@ import {
 } from "../workspace/extension-paths.js";
 import {
   computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -66,13 +73,10 @@ export const INCOMPLETE_DESIRED_STATE_BLOCKER_ID =
  */
 export const requireCompleteGraph = (
   graph: DesiredStateGraph,
-): Effect.Effect<DesiredStateGraph, AppError> =>
+): Effect.Effect<DesiredStateGraph, DesiredStateIncomplete> =>
   graph.complete
     ? Effect.succeed(graph)
-    : makeAppError({
-        code: "conflict",
-        detail: `Desired state cannot be enumerated completely; fix pack and declaration problems first: ${desiredStateProblemsText(graph.problems)}`,
-      });
+    : new DesiredStateIncomplete({ problems: desiredStateProblemsText(graph.problems) });
 
 /** Enabled desired nodes of one extension type. */
 export const activeNodesOfType = (
@@ -93,21 +97,26 @@ export const contributorForNode = (args: {
   /** Type-specific segment under the extensions trees, e.g. `rules`. */
   readonly extensionDir: ExtensionTypePlural;
   readonly locked: SourceLockEntryLike | undefined;
-}): Effect.Effect<AggregateContributor, AppError, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<
+  AggregateContributor,
+  | AuthoredContributorUnsupported
+  | ContributorIdentityInvalid
+  | ContributorUnresolved
+  | ContributorTreeMismatch
+  | MaterializedTreeInvalid,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const { extensionDir, layout, locked, node, path } = args;
     if (node.identity.startsWith("workspace:")) {
       if (layout.scope === "user") {
-        return yield* makeAppError({
-          code: "validation",
-          detail: `User workspaces do not support workspace-authored ${node.type} packages`,
-        });
+        return yield* new AuthoredContributorUnsupported({ type: node.type });
       }
       const identity = parseExtensionFqnParts(node.identity.slice("workspace:".length));
       if (identity === undefined || identity.type !== node.type) {
-        return yield* makeAppError({
-          code: "validation",
-          detail: `Invalid workspace ${node.type} identity: ${node.identity}`,
+        return yield* new ContributorIdentityInvalid({
+          type: node.type,
+          identity: node.identity,
         });
       }
       return {
@@ -117,10 +126,7 @@ export const contributorForNode = (args: {
       };
     }
     if (locked === undefined) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Active ${node.type} has no accepted resolution: ${node.name}`,
-      });
+      return yield* new ContributorUnresolved({ type: node.type, name: node.name });
     }
     const packageRoot = computeExtensionPathsForLayout(
       path.join,
@@ -131,16 +137,7 @@ export const contributorForNode = (args: {
     ).canonicalPath;
     const observedTree = yield* computeMaterializedTreeIntegrity(packageRoot);
     if (observedTree !== locked.treeIntegrity) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `Materialized package tree does not match the accepted lock entry: ${packageRoot}`,
-        suggestions: [
-          {
-            description:
-              "Restore the accepted package with install or update, or fork it into the authored workspace tree before editing.",
-          },
-        ],
-      });
+      return yield* new ContributorTreeMismatch({ packageRoot });
     }
     return {
       node,
@@ -166,7 +163,12 @@ export const activeContributors = (args: {
   readonly locked: Readonly<Record<string, SourceLockEntryLike>>;
 }): Effect.Effect<
   ReadonlyArray<AggregateContributor>,
-  AppError,
+  | DesiredStateIncomplete
+  | AuthoredContributorUnsupported
+  | ContributorIdentityInvalid
+  | ContributorUnresolved
+  | ContributorTreeMismatch
+  | MaterializedTreeInvalid,
   FileSystem.FileSystem | Path.Path
 > =>
   requireCompleteGraph(args.graph).pipe(

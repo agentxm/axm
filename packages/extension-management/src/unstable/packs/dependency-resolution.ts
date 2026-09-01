@@ -15,7 +15,19 @@ import {
 import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import type { AppError } from "../app-error/index.js";
+import { SourceAuthorityBlocked } from "../extensions/errors.js";
+import {
+  PackConstraintShadowed,
+  PackDependencyConflict,
+  PackDependencyInvalid,
+  PackDependencyMissing,
+  PackDependencyUnsatisfied,
+  type PackManagerError,
+} from "./errors.js";
+
+/** Interim union while registry resolution still fails with `AppError`. */
+type PackDependencyResolutionError = AppError | PackManagerError | SourceAuthorityBlocked;
 import type { PackRef } from "../workspace/refs/pack.js";
 import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions";
 import type * as Duration from "effect/Duration";
@@ -69,21 +81,19 @@ const validateSelectedDependency = (
   parsed: { readonly owner: Handle; readonly name: ExtensionName },
   fqn: string,
   constraint: VersionRange,
-): Effect.Effect<ResolvedDependency, AppError> => {
+): Effect.Effect<ResolvedDependency, PackDependencyResolutionError> => {
   if (
     candidate.type !== expectedType ||
     (candidate.refType !== "registry" && candidate.refType !== "workspace") ||
     candidate.owner !== parsed.owner ||
     candidate.name !== parsed.name
   ) {
-    return makeAppError({
-      code: "conflict",
+    return new PackDependencyConflict({
       detail: `Authorized dependency resolution does not match pack dependency ${fqn}`,
     });
   }
   if (!semver.satisfies(candidate.version, constraint)) {
-    return makeAppError({
-      code: "conflict",
+    return new PackDependencyConflict({
       detail: `Authorized dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
     });
   }
@@ -122,12 +132,11 @@ const registrySourceForDependency = (
   pack: PackRef,
   owner: Handle,
   sourceOverride?: RegistrySource,
-): Effect.Effect<RegistrySource, AppError> => {
+): Effect.Effect<RegistrySource, PackDependencyResolutionError> => {
   const source = sourceOverride ?? (pack.source.type === "registry" ? pack.source : undefined);
   if (source === undefined) {
     return Effect.fail(
-      makeAppError({
-        code: "usage",
+      new PackDependencyInvalid({
         detail: `Cannot resolve pack dependencies from non-registry source`,
       }),
     );
@@ -144,35 +153,14 @@ const workspaceConstraintConflict = (
   memberFqn: string,
   workspaceVersion: string,
   constraint: VersionRange,
-): AppError => {
-  const packFqn = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
-  if (pack.source.type === "workspace") {
-    return makeAppError({
-      code: "conflict",
-      detail: `Workspace-authored pack ${packFqn} requires ${memberFqn}@${constraint}, but workspace authority provides ${memberFqn}@${workspaceVersion}.`,
-      suggestions: [
-        {
-          description: "Replace the authored pack constraint with the current workspace version",
-          cmd: `axm packs add ${packFqn} ${memberFqn}`,
-        },
-      ],
-    });
-  }
-  return makeAppError({
-    code: "conflict",
-    detail: `Registry pack ${packFqn} requires ${memberFqn}@${constraint}, but workspace authority shadows that member with ${memberFqn}@${workspaceVersion}.`,
-    suggestions: [
-      {
-        description:
-          "Update the pack if its owner has published a constraint that includes the workspace version",
-        cmd: `axm update ${packFqn}`,
-      },
-      {
-        description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
-      },
-    ],
+): PackConstraintShadowed =>
+  new PackConstraintShadowed({
+    packSource: pack.source.type === "workspace" ? "workspace" : "registry",
+    packFqn: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
+    memberFqn,
+    constraint,
+    workspaceVersion,
   });
-};
 
 const resolveDependencyRef = (
   pack: PackRef,
@@ -184,12 +172,11 @@ const resolveDependencyRef = (
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
   dependencyResolver?: PackDependencyRefResolver,
-): Effect.Effect<ResolvedDependency, AppError> =>
+): Effect.Effect<ResolvedDependency, PackDependencyResolutionError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type !== expectedType) {
-      return yield* makeAppError({
-        code: "usage",
+      return yield* new PackDependencyInvalid({
         detail: `Pack dependency type mismatch for expected ${expectedType}`,
       });
     }
@@ -203,10 +190,9 @@ const resolveDependencyRef = (
         root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
       });
       if (workspace.kind === "blocked") {
-        return yield* makeAppError({
-          code: "conflict",
+        return yield* new SourceAuthorityBlocked({
           detail: workspace.fact.detail,
-          suggestions: workspace.fact.recovery,
+          recovery: workspace.fact.recovery,
         });
       }
       if (workspace.kind === "selected") {
@@ -217,8 +203,7 @@ const resolveDependencyRef = (
           candidate.owner !== parsed.owner ||
           candidate.name !== parsed.name
         ) {
-          return yield* makeAppError({
-            code: "conflict",
+          return yield* new PackDependencyConflict({
             detail: `Configured workspace authority does not match pack dependency ${fqn}`,
           });
         }
@@ -265,8 +250,7 @@ const resolveDependencyRef = (
     );
 
     if (matchingRef === undefined) {
-      return yield* makeAppError({
-        code: "usage",
+      return yield* new PackDependencyInvalid({
         detail: `Unable to resolve pack dependency ${fqn}@${constraint}`,
       });
     }
@@ -316,12 +300,11 @@ const resolveDependencyRefWithReleaseAge = (
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
   dependencyResolver?: PackDependencyRefResolver,
-): Effect.Effect<ReleaseAgeAwareDependencyResolution, AppError> =>
+): Effect.Effect<ReleaseAgeAwareDependencyResolution, PackDependencyResolutionError> =>
   Effect.gen(function* () {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type !== expectedType) {
-      return yield* makeAppError({
-        code: "usage",
+      return yield* new PackDependencyInvalid({
         detail: `Pack dependency type mismatch for expected ${expectedType}`,
       });
     }
@@ -334,10 +317,9 @@ const resolveDependencyRefWithReleaseAge = (
         root: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
       });
       if (workspace.kind === "blocked") {
-        return yield* makeAppError({
-          code: "conflict",
+        return yield* new SourceAuthorityBlocked({
           detail: workspace.fact.detail,
-          suggestions: workspace.fact.recovery,
+          recovery: workspace.fact.recovery,
         });
       }
       if (workspace.kind === "selected") {
@@ -348,8 +330,7 @@ const resolveDependencyRefWithReleaseAge = (
           candidate.owner !== parsed.owner ||
           candidate.name !== parsed.name
         ) {
-          return yield* makeAppError({
-            code: "conflict",
+          return yield* new PackDependencyConflict({
             detail: `Configured workspace authority does not match pack dependency ${fqn}`,
           });
         }
@@ -405,17 +386,10 @@ const resolveDependencyRefWithReleaseAge = (
     const packTarget = formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name });
     const dependencyTarget = formatFqn(parsed);
     if (resolution.kind === "not_found") {
-      return yield* makeAppError({
-        code: "not_found",
-        detail: `Pack dependency ${dependencyTarget} was not found`,
-      });
+      return yield* new PackDependencyMissing({ dependencyTarget });
     }
     if (resolution.kind === "version_unsatisfied") {
-      return yield* makeAppError({
-        code: "conflict",
-        title: "No compatible version",
-        detail: `Pack dependency ${dependencyTarget} has no visible version satisfying ${constraint}`,
-      });
+      return yield* new PackDependencyUnsatisfied({ dependencyTarget, constraint });
     }
     if (resolution.kind === "policy_held") {
       return {
@@ -501,7 +475,7 @@ const resolveDependencyGroup = (
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
   dependencyResolver?: PackDependencyRefResolver,
-): Effect.Effect<ReadonlyArray<ResolvedDependency>, AppError> =>
+): Effect.Effect<ReadonlyArray<ResolvedDependency>, PackDependencyResolutionError> =>
   Effect.forEach(
     dependencies,
     ([fqn, constraint]) =>
@@ -555,12 +529,11 @@ export const resolvePackDependencies = (
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
   dependencyResolver?: PackDependencyRefResolver,
-): Effect.Effect<ResolvedPackDependencies, AppError> =>
+): Effect.Effect<ResolvedPackDependencies, PackDependencyResolutionError> =>
   Effect.gen(function* () {
     const dependencies = partitionDependencies(pack.pack.dependencies);
     if (dependencies.unsupported.length > 0) {
-      return yield* makeAppError({
-        code: "usage",
+      return yield* new PackDependencyInvalid({
         detail: `Pack declares ${dependencies.unsupported.length} unsupported dependency type${dependencies.unsupported.length === 1 ? "" : "s"}: ${dependencies.unsupported.join(", ")}`,
       });
     }
@@ -609,7 +582,7 @@ export const resolvePackDependenciesWithReleaseAge = (
   sourceOverride?: RegistrySource,
   workspaceResolver?: WorkspacePackDependencyResolver,
   dependencyResolver?: PackDependencyRefResolver,
-): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, AppError> =>
+): Effect.Effect<ReleaseAgeAwarePackDependencyResolution, PackDependencyResolutionError> =>
   Effect.gen(function* () {
     const packExemption =
       pack.refType === "registry"
@@ -625,8 +598,7 @@ export const resolvePackDependenciesWithReleaseAge = (
         : evaluation;
     const dependencies = partitionDependencies(pack.pack.dependencies);
     if (dependencies.unsupported.length > 0) {
-      return yield* makeAppError({
-        code: "usage",
+      return yield* new PackDependencyInvalid({
         detail: `Pack declares ${dependencies.unsupported.length} unsupported dependency type${dependencies.unsupported.length === 1 ? "" : "s"}: ${dependencies.unsupported.join(", ")}`,
       });
     }

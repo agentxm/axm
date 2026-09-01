@@ -2,7 +2,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import type { AppError } from "../app-error/index.js";
+import { CanonicalPackageProbeFailed } from "./errors.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { ConfiguredRecordRow } from "../workspace/read-model-record-rows.js";
 import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
@@ -75,7 +76,7 @@ export const configuredSkillsToDiskRefs = (
   env: DiskRefEnv,
   configured: Readonly<Record<string, ConfiguredRecordRow>>,
   accepted?: SkillDiskAcceptedResolutionContext,
-): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError> =>
+): Effect.Effect<ReadonlyArray<SkillExtensionRef>, AppError | CanonicalPackageProbeFailed> =>
   Effect.forEach(
     enabledConfiguredEntries(configured),
     ([settingsName, entry]) => {
@@ -142,12 +143,12 @@ export const configuredSkillsToDiskRefs = (
             "SKILL.md",
           );
           return env.fs.exists(skillFile).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to inspect canonical skill content for "${settingsName}"`,
-                cause,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new CanonicalPackageProbeFailed({
+                  detail: `Failed to inspect canonical skill content for "${settingsName}"`,
+                  cause,
+                }),
             ),
             Effect.map((exists) => (exists ? Option.some(ref) : Option.none<SkillExtensionRef>())),
           );

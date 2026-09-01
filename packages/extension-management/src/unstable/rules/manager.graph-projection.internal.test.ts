@@ -1,3 +1,4 @@
+import { toAppError } from "../app-error/conversions.js";
 /**
  * Regression tests for graph-derived Rules region rendering.
  *
@@ -325,8 +326,8 @@ describe("RuleManager graph-derived region projection", () => {
       const acceptedProjection = readInstructions();
       writeRulePackage("drifted-rule", { body: "Unaccepted edit." });
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error.code).toBe("conflict");
-      expect(error.detail).toContain("does not match the accepted lock entry");
+      expect(toAppError(error).code).toBe("conflict");
+      expect(toAppError(error).detail).toContain("does not match the accepted lock entry");
       expect(readInstructions()).toBe(acceptedProjection);
     }).pipe(Effect.provide(layer));
   });
@@ -372,7 +373,7 @@ describe("RuleManager graph-derived region projection", () => {
     return Effect.gen(function* () {
       const manager = yield* RuleManager;
       const error = yield* applyPlannedProjections(manager).pipe(Effect.flip);
-      expect(error.code).toBe("conflict");
+      expect(toAppError(error).code).toBe("conflict");
       expect(readInstructions()).toBe("# Project\n");
     }).pipe(Effect.provide(layer));
   });

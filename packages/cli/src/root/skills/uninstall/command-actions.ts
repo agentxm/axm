@@ -230,7 +230,7 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
             });
 
             return { ...step, artifact, run } satisfies PlannedJobStep;
-          }),
+          }).pipe(Effect.mapError(toAppError)),
         { concurrency: "unbounded" },
       );
 

@@ -8,6 +8,7 @@ import type { McpServerEntry } from "../settings/index.js";
 import { readYamlEntry } from "../yaml/index.js";
 import { writeAgentMcpConfig } from "./config-writer.js";
 import { collectManagedAgentMcpServers, inspectAgentMcpServer } from "./inspection.js";
+import { toAppError } from "../app-error/conversions.js";
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(NodeServices.layer));
@@ -80,7 +81,7 @@ describe("agent MCP config inspection", () => {
             }),
           ).pipe(Effect.flip);
 
-          expect(error.code).toBe("validation");
+          expect(toAppError(error).code).toBe("validation");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -106,7 +107,7 @@ describe("agent MCP config inspection", () => {
             }),
           ).pipe(Effect.flip);
 
-          expect(error.code).toBe("validation");
+          expect(toAppError(error).code).toBe("validation");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

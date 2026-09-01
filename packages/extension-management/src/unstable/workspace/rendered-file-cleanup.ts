@@ -322,7 +322,9 @@ const cleanupAgentHooks: RemovedAgentCleanup = (context) =>
       if (!exists) continue;
 
       const raw = yield* safeReadFileString(context.fs, configPath);
-      const next = yield* stripManagedHooksFromJson(configPath, writer.settingsKey, raw);
+      const next = yield* stripManagedHooksFromJson(configPath, writer.settingsKey, raw).pipe(
+        Effect.mapError(toAppError),
+      );
       if (next === raw) continue;
 
       if (!context.dryRun) {
@@ -476,7 +478,9 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
         if (!(yield* fs.exists(configPath).pipe(Effect.catch(() => Effect.succeed(false)))))
           continue;
         const raw = yield* safeReadFileString(fs, configPath);
-        const commands = yield* readAmbiguousHookCommands(configPath, writer.settingsKey, raw);
+        const commands = yield* readAmbiguousHookCommands(configPath, writer.settingsKey, raw).pipe(
+          Effect.mapError(toAppError),
+        );
         issues.push(
           ...commands.map((command) => ({
             kind: "hook-ownership-ambiguous" as const,

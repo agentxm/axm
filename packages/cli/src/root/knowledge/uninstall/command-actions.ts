@@ -198,7 +198,7 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
           return { targets: [] };
         }
         return { targets: [target] };
-      }),
+      }).pipe(Effect.mapError(toAppError)),
     buildUninstallPlan: (intent) =>
       Effect.gen(function* () {
         const ownership = yield* Effect.forEach(intent.targets, inspectOwnership);

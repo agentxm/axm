@@ -10,8 +10,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
-import { AppError, makeAppError } from "../app-error/index.js";
-import { toAppError } from "../app-error/conversions.js";
+import {
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpEntryUnmanaged,
+  McpOwnershipMarkerInvalid,
+} from "./errors.js";
+import {
+  WriteBackupRetained,
+  type ExtensionManagerFailure,
+} from "../extension-workspace/errors.js";
 import { getHome } from "../agents/constants.js";
 import { isPathSafe } from "../utils/index.js";
 import { runWithTransientFileBackup } from "../utils/transient-backup.js";
@@ -56,7 +64,10 @@ export interface AgentMcpConfigWriteResult {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown, AppError> =>
+const parseJsonConfig = (
+  configPath: string,
+  raw: string,
+): Effect.Effect<unknown, McpConfigInvalid> =>
   Effect.try({
     try: () => {
       const errors: Array<ParseError> = [];
@@ -67,8 +78,7 @@ const parseJsonConfig = (configPath: string, raw: string): Effect.Effect<unknown
       return parsed;
     },
     catch: (error) =>
-      makeAppError({
-        code: "validation",
+      new McpConfigInvalid({
         detail: `Invalid MCP config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
@@ -80,20 +90,16 @@ const validateServersShape = (
   configPath: string,
   parsed: unknown,
   serversKey: string,
-): Effect.Effect<void, AppError> => {
+): Effect.Effect<void, McpConfigInvalid> => {
   if (!isRecord(parsed)) {
     return Effect.fail(
-      makeAppError({
-        code: "validation",
-        detail: `Invalid MCP config format: ${configPath}`,
-      }),
+      new McpConfigInvalid({ detail: `Invalid MCP config format: ${configPath}` }),
     );
   }
   const servers = parsed[serversKey];
   if (servers !== undefined && !isRecord(servers)) {
     return Effect.fail(
-      makeAppError({
-        code: "validation",
+      new McpConfigInvalid({
         detail: `Invalid MCP config format: ${configPath} (${formatPath([serversKey])} must be an object)`,
       }),
     );
@@ -101,28 +107,28 @@ const validateServersShape = (
   return Effect.void;
 };
 
-const readExisting = (configPath: string): Effect.Effect<string, AppError, FileSystem.FileSystem> =>
+const readExisting = (
+  configPath: string,
+): Effect.Effect<string, McpConfigIoFailed, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(configPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to inspect MCP config: ${configPath}`,
-          cause: error,
-        }),
-      ),
-    );
+    const exists = yield* fs
+      .exists(configPath)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new McpConfigIoFailed({ detail: `Failed to inspect MCP config: ${configPath}`, cause }),
+        ),
+      );
     if (!exists) return "";
-    return yield* fs.readFileString(configPath).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to read MCP config: ${configPath}`,
-          cause: error,
-        }),
-      ),
-    );
+    return yield* fs
+      .readFileString(configPath)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
+        ),
+      );
   });
 
 const writeIfChanged = (
@@ -130,19 +136,23 @@ const writeIfChanged = (
   targetPath: string,
   oldRaw: string,
   newRaw: string,
-): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  AgentMcpConfigWriteResult,
+  ExtensionManagerFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     if (oldRaw === newRaw) return { targets: [] };
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    yield* protectWorkspacePath(configPath).pipe(Effect.mapError(toAppError));
+    yield* protectWorkspacePath(configPath);
     yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(
-      Effect.mapError((error) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to create config directory: ${path.dirname(configPath)}`,
-          cause: error,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new McpConfigIoFailed({
+            detail: `Failed to create config directory: ${path.dirname(configPath)}`,
+            cause,
+          }),
       ),
     );
     yield* runWithTransientFileBackup({
@@ -151,14 +161,16 @@ const writeIfChanged = (
       newRaw,
       tempPrefix: "axm-mcp-config-backup-",
       operation: fs.writeFileString(configPath, newRaw).pipe(
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "internal",
-            detail: `Failed to write MCP config: ${configPath}`,
-            cause: error,
-          }),
+        Effect.mapError(
+          (cause) =>
+            new McpConfigIoFailed({
+              detail: `Failed to write MCP config: ${configPath}`,
+              cause,
+            }),
         ),
       ),
+      onBackupRetained: (error, backupPath) =>
+        new WriteBackupRetained({ backupPath, failure: error }),
     });
     return {
       targets: [
@@ -173,7 +185,7 @@ const writeIfChanged = (
 export const resolveAgentMcpConfigTargetPath = (
   workspaceRoot: string,
   target: McpConfigTarget,
-): Effect.Effect<string, AppError, Path.Path> =>
+): Effect.Effect<string, McpConfigInvalid, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const home = yield* getHome;
@@ -185,8 +197,7 @@ export const resolveAgentMcpConfigTargetPath = (
         : path.resolve(workspaceRoot, target.path);
 
     if (target.scope === "project" && !isPathSafe(path, workspaceRoot, base)) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new McpConfigInvalid({
         detail: `MCP config target escapes workspace root: ${target.path}`,
       });
     }
@@ -199,7 +210,7 @@ const upsertJsonLike = (args: {
   readonly serversKey: string;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): Effect.Effect<string, AppError> =>
+}): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
     const initial = args.raw.trim().length === 0 ? "{}\n" : args.raw;
     const parsed = yield* parseJsonConfig(args.configPath, initial);
@@ -217,7 +228,7 @@ const removeJsonLike = (args: {
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
-}): Effect.Effect<string, AppError> =>
+}): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
     const parsed = yield* parseJsonConfig(args.configPath, args.raw);
@@ -227,9 +238,9 @@ const removeJsonLike = (args: {
     const existing = isRecord(servers) ? servers[args.serverName] : undefined;
     if (existing === undefined) return args.raw;
     if (!isRecord(existing) || !isAxmManagedMcpEntry(existing)) {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `MCP server ${args.serverName} is unmanaged in ${args.configPath}; AXM will not remove it`,
+      return yield* new McpEntryUnmanaged({
+        serverName: args.serverName,
+        configPath: args.configPath,
       });
     }
     const activation = args.activationField.required;
@@ -249,9 +260,8 @@ const removeJsonLike = (args: {
     );
   });
 
-const mapYamlError = (configPath: string, error: unknown): AppError =>
-  makeAppError({
-    code: "validation",
+const mapYamlError = (configPath: string, error: unknown): McpConfigInvalid =>
+  new McpConfigInvalid({
     detail: `Invalid MCP config YAML: ${configPath}`,
     cause: error,
   });
@@ -262,7 +272,7 @@ const upsertYaml = (args: {
   readonly serversKey: string;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): Effect.Effect<string, AppError> =>
+}): Effect.Effect<string, McpConfigInvalid> =>
   Effect.try({
     try: () => setYamlEntry(args.raw, args.serversKey, args.serverName, args.entry),
     catch: (error) => mapYamlError(args.configPath, error),
@@ -275,16 +285,16 @@ const removeYaml = (args: {
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
-}): Effect.Effect<string, AppError> =>
+}): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
   Effect.try({
     try: () => {
       if (args.raw.trim().length === 0) return args.raw;
       const existing = readYamlEntry(args.raw, args.serversKey, args.serverName);
       if (existing === undefined) return args.raw;
       if (!isAxmManagedMcpEntry(existing)) {
-        throw makeAppError({
-          code: "conflict",
-          detail: `MCP server ${args.serverName} is unmanaged in ${args.configPath}; AXM will not remove it`,
+        throw new McpEntryUnmanaged({
+          serverName: args.serverName,
+          configPath: args.configPath,
         });
       }
       const activation = args.activationField.required;
@@ -297,7 +307,8 @@ const removeYaml = (args: {
       }
       return deleteYamlEntry(args.raw, args.serversKey, args.serverName);
     },
-    catch: (error) => (error instanceof AppError ? error : mapYamlError(args.configPath, error)),
+    catch: (error) =>
+      error instanceof McpEntryUnmanaged ? error : mapYamlError(args.configPath, error),
   });
 
 const tomlRegion = (serverName: string) => `mcp-server:${serverName}` as const;
@@ -310,20 +321,14 @@ const tomlOwner = (serverName: string, entry?: Readonly<Record<string, unknown>>
 };
 
 const invalidTomlRegion = (serverName: string, state: "malformed" | "unsupported-version") =>
-  makeAppError({
-    code: "conflict",
-    detail:
-      state === "unsupported-version"
-        ? `MCP server ${serverName} uses a newer AXM ownership marker; upgrade AXM before modifying it`
-        : `MCP server ${serverName} has malformed AXM ownership markers`,
-  });
+  new McpOwnershipMarkerInvalid({ serverName, state, operation: "modify" });
 
 const upsertToml = (args: {
   readonly raw: string;
   readonly serversKey: string;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): Effect.Effect<string, AppError> => {
+}): Effect.Effect<string, McpOwnershipMarkerInvalid> => {
   const parentHeader = `[${stringifyTomlKey(args.serversKey)}]`;
   const block = stringifyToml({
     [args.serversKey]: { [args.serverName]: args.entry },
@@ -349,7 +354,7 @@ const removeToml = (args: {
   readonly serverName: string;
   readonly disableOnly: boolean;
   readonly activationField: McpActivationField;
-}): Effect.Effect<string, AppError> => {
+}): Effect.Effect<string, McpOwnershipMarkerInvalid> => {
   const inspected = reconcileKeyedBlock({
     content: args.raw,
     region: tomlRegion(args.serverName),
@@ -399,7 +404,11 @@ const configWriteLockFor = (configPath: string): Semaphore.Semaphore => {
 
 export const writeAgentMcpConfig = (
   args: WriteAgentMcpConfigArgs,
-): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  AgentMcpConfigWriteResult,
+  ExtensionManagerFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
@@ -443,7 +452,11 @@ export const writeAgentMcpConfig = (
 
 export const removeAgentMcpConfig = (
   args: RemoveAgentMcpConfigArgs,
-): Effect.Effect<AgentMcpConfigWriteResult, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  AgentMcpConfigWriteResult,
+  ExtensionManagerFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const target = Option.getOrElse(pickProjectTarget([args.target]), () => args.target);
     const configPath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);

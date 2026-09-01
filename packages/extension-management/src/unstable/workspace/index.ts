@@ -103,6 +103,7 @@ export {
 export { computePackageContentHash } from "./package-hash.js";
 export {
   computeMaterializedTreeIntegrity,
+  MaterializedTreeInvalid,
   TreeIntegritySchema,
   type TreeIntegrity,
 } from "./materialized-tree.js";

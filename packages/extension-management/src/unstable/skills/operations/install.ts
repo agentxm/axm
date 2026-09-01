@@ -373,7 +373,10 @@ const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: 
           subject: "skill files",
           sourceExists,
         }),
-    }).pipe(Effect.mapError((error) => errInstallFailed({ message: error.detail, cause: error })));
+    }).pipe(
+      Effect.mapError(toAppError),
+      Effect.mapError((error) => errInstallFailed({ message: error.detail, cause: error })),
+    );
   });
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);

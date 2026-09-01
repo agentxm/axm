@@ -1316,7 +1316,7 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         jobs: [{ concurrency: 1, steps: [graphStep] }],
         ...(releaseAge === undefined ? {} : { releaseAge }),
       } satisfies Plan;
-    });
+    }).pipe(Effect.mapError(toAppError));
 
   return {
     parseArgs,

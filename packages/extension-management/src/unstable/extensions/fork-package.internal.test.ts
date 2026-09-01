@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { toAppError } from "../app-error/conversions.js";
 
 import { extensionName, handle } from "../test-helpers.js";
 import { forkExtensionPackage } from "./fork-package.js";
@@ -272,7 +273,7 @@ describe("forkExtensionPackage", () => {
         }).pipe(Effect.provide(NodeServices.layer)),
       );
 
-      expect(error.code).toBe("validation");
+      expect(toAppError(error).code).toBe("validation");
       expect(fs.existsSync(targetDir)).toBe(false);
     }),
   );

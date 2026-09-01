@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { toAppError } from "../app-error/conversions.js";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
@@ -448,7 +449,7 @@ describe("KnowledgeManager", () => {
           yield* manager.materializeInstall({ ref: localRef("invalid-handbook", sourceRoot) });
         }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
 
-        expect(error.detail).toContain("requires a non-empty frontmatter type");
+        expect(toAppError(error).detail).toContain("requires a non-empty frontmatter type");
         expect(
           existsSync(nodePath.join(workspaceRoot, "agent_extensions", "local", "source")),
         ).toBe(false);
@@ -474,7 +475,7 @@ describe("KnowledgeManager", () => {
           yield* manager.materializeInstall({ ref: localRef("malformed-handbook", sourceRoot) });
         }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
 
-        expect(error.detail).toContain(
+        expect(toAppError(error).detail).toContain(
           "concept.md: Invalid YAML frontmatter: Nested mappings are not allowed in compact mappings",
         );
       } finally {
@@ -512,7 +513,7 @@ describe("KnowledgeManager", () => {
           const manager = yield* KnowledgeManager;
           yield* manager.materializeInstall({ ref: localRef("escaping-handbook", escapingRoot) });
         }).pipe(Effect.provide(managerLayer(workspaceRoot)), Effect.flip);
-        expect(error.detail).toContain("escapes");
+        expect(toAppError(error).detail).toContain("escapes");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -636,7 +637,7 @@ describe("KnowledgeManager", () => {
             return { before, failure };
           }).pipe(Effect.provide(layer));
 
-          expect(result.failure.detail).toContain("unavailable");
+          expect(toAppError(result.failure).detail).toContain("unavailable");
           expect(readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8")).toBe(
             result.before,
           );

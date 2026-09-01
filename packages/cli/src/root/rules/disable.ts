@@ -100,7 +100,7 @@ const handleDisableRuleBody = Effect.fn("DisableRule.handle")(function* (args: {
         change: "updated",
       } satisfies JobStepArtifact,
     } satisfies JobStepResult;
-  });
+  }).pipe(Effect.mapError(toAppError));
   const activationStep: PlannedJobStep = Option.match(readiness, {
     onSome: (error) => ({
       label: args.name,

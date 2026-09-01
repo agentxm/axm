@@ -8,6 +8,7 @@ export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-pack
 export {
   importNativeExtensionPackage,
   type ImportNativeExtensionPackageArgs,
+  type NativeImportError,
 } from "./import-native-package.js";
 
 // FQN parsing
@@ -113,3 +114,26 @@ export {
   type SourceAuthorityTarget,
   type WorkspaceAuthorityStatus,
 } from "./source-authority.js";
+
+export {
+  ArchiveIntegrityMismatch,
+  CanonicalPackageProbeFailed,
+  CreateDestinationExists,
+  CreateDestinationInspectionFailed,
+  CreateNameConfigured,
+  ForkPackageConflict,
+  ForkPackageFailed,
+  ForkPackageInvalid,
+  LifecyclePostconditionViolated,
+  NativeImportConflict,
+  NativeImportFailed,
+  NativeImportInvalid,
+  NativeImportUnsupported,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  PathTraversalDetected,
+  ScaffoldedExtensionUnresolved,
+  SourceAuthorityBlocked,
+  StagedPackageInvalid,
+  type ExtensionsError,
+} from "./errors.js";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FastCheck from "effect/testing/FastCheck";
+import { toAppError } from "../app-error/conversions.js";
 
 import { updateHooksJson } from "./managed-groups.js";
 
@@ -11,7 +12,7 @@ describe("updateHooksJson", () => {
         Effect.flip,
       );
 
-      expect(error.code).toBe("validation");
+      expect(toAppError(error).code).toBe("validation");
     }),
   );
 

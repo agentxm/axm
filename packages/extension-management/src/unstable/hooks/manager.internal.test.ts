@@ -1,3 +1,4 @@
+import { toAppError } from "../app-error/conversions.js";
 /**
  * Unit tests for HookManager service.
  *
@@ -323,7 +324,7 @@ describe("HookManager", () => {
           Effect.flip,
         );
 
-        expect(error.detail).toContain("forbids advisory fallback");
+        expect(toAppError(error).detail).toContain("forbids advisory fallback");
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -353,7 +354,7 @@ describe("HookManager", () => {
             Effect.flip,
           );
 
-          expect(error.detail).toContain("cannot satisfy block decisions");
+          expect(toAppError(error).detail).toContain("cannot satisfy block decisions");
           expect(existsSync(settingsPath)).toBe(false);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

@@ -330,6 +330,7 @@ const handleInstructionsEnableBody = Effect.fn("Instructions.enable")(function* 
               yield* ws.setInstructionsConfig(config).pipe(Effect.mapError(toAppError));
               yield* applyPlannedProjections(ruleManager);
             }).pipe(
+              Effect.mapError(toAppError),
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             ),

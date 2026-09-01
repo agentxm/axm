@@ -74,3 +74,12 @@ export type { DisableSkillOperation } from "./operations/disable.js";
 export { disableSkill } from "./operations/disable.js";
 export type { NewSkillOperationArgs, NewSkillOperation } from "./operations/new-skill.js";
 export { newSkill } from "./operations/new-skill.js";
+
+export {
+  AxmSkillCompatibilityUnavailable,
+  AxmSkillIncompatible,
+  SkillDefinitionInvalid,
+  SkillInstallStateMissing,
+  SkillMaterializationFailed,
+  type SkillManagerError,
+} from "./errors.js";

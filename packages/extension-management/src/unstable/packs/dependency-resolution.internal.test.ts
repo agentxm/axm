@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "@effect/vitest";
+import { toAppError } from "../app-error/conversions.js";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -165,9 +166,9 @@ describe("resolvePackDependencies", () => {
           () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
         ).pipe(Effect.flip);
 
-        expect(error.detail).toContain("@acme/skills/review@1.4.0");
-        expect(error.detail).toContain("^2.0.0");
-        expect(error.suggestions).toEqual([
+        expect(toAppError(error).detail).toContain("@acme/skills/review@1.4.0");
+        expect(toAppError(error).detail).toContain("^2.0.0");
+        expect(toAppError(error).suggestions).toEqual([
           {
             description:
               "Update the pack if its owner has published a constraint that includes the workspace version",
@@ -191,10 +192,10 @@ describe("resolvePackDependencies", () => {
         () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
       ).pipe(Effect.flip);
 
-      expect(error.detail).toContain(
+      expect(toAppError(error).detail).toContain(
         "Workspace-authored pack @acme/packs/toolkit requires @acme/skills/review@^2.0.0",
       );
-      expect(error.suggestions).toEqual([
+      expect(toAppError(error).suggestions).toEqual([
         {
           description: "Replace the authored pack constraint with the current workspace version",
           cmd: "axm packs add @acme/packs/toolkit @acme/skills/review",
@@ -237,8 +238,8 @@ describe("resolvePackDependencies", () => {
         },
       ).pipe(Effect.flip);
 
-      expect(error.detail).toContain("locally-modified");
-      expect(error.suggestions).toEqual([
+      expect(toAppError(error).detail).toContain("locally-modified");
+      expect(toAppError(error).suggestions).toEqual([
         {
           description:
             "Repair or explicitly remove the locally-modified workspace dependency before installing the pack.",
@@ -287,9 +288,9 @@ describe("resolvePackDependencies", () => {
         () => Effect.succeed(registrySkill()),
       ).pipe(Effect.flip);
 
-      expect(error.code).toBe("conflict");
-      expect(error.detail).toContain("@acme/skills/release@2.1.0");
-      expect(error.detail).toContain("^3.0.0");
+      expect(toAppError(error).code).toBe("conflict");
+      expect(toAppError(error).detail).toContain("@acme/skills/release@2.1.0");
+      expect(toAppError(error).detail).toContain("^3.0.0");
     }),
   );
 });
@@ -355,7 +356,7 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
         () => Effect.succeed({ kind: "selected", ref: workspaceSkill("1.4.0") }),
       ).pipe(Effect.flip);
 
-      expect(error.suggestions).toEqual([
+      expect(toAppError(error).suggestions).toEqual([
         {
           description: "Replace the authored pack constraint with the current workspace version",
           cmd: "axm packs add @acme/packs/toolkit @acme/skills/review",

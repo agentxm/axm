@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import {
   MARKER_KIND_POINT,
@@ -117,7 +117,11 @@ export const reconcileKnowledgeDiscovery = (args: {
   readonly preserveInstructionsSource?: boolean;
   readonly dryRun?: boolean;
   readonly symlinkSupported?: boolean;
-}): Effect.Effect<KnowledgeDiscoveryResult, AppError, FileSystem.FileSystem | Path.Path> =>
+}): Effect.Effect<
+  KnowledgeDiscoveryResult,
+  ExtensionManagerFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const manageInstructions = args.instructionManagementEnabled === true;
@@ -158,14 +162,4 @@ export const reconcileKnowledgeDiscovery = (args: {
     }
     const changed = artifacts.length > 0;
     return { changed, artifacts, observedRegion: reconciliation.observedRegion };
-  }).pipe(
-    Effect.mapError((cause) =>
-      cause._tag === "AppError"
-        ? cause
-        : makeAppError({
-            code: "internal",
-            detail: "Failed to reconcile Knowledge discovery",
-            cause,
-          }),
-    ),
-  );
+  });

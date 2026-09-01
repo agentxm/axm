@@ -16,12 +16,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
-import { makeAppError } from "../app-error/index.js";
 import type { SubagentExtensionRef, RegistrySubagentRef } from "../workspace/refs/subagent.js";
 import type {
   ExtensionManager,
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import type { ExtensionTarget, SubagentExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
@@ -46,10 +46,11 @@ import {
 import type { SubagentPathSource } from "./paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import {
-  isKnownFailure,
-  subagentContentErrorToAppError,
-  toAppError,
-} from "../app-error/conversions.js";
+  SubagentContentUnreadable,
+  SubagentDefinitionInvalid,
+  SubagentInstallStateMissing,
+  SubagentIoFailed,
+} from "./errors.js";
 import { warnOnOrphanOverrides } from "./rendering/overrides.js";
 import { buildRooModeEntry } from "./rendering/index.js";
 import { configuredSubagentsToDiskRefs } from "../extensions/materializable-from-disk.js";
@@ -129,7 +130,7 @@ export interface SubagentManagerService extends ExtensionManager<SubagentExtensi
     ref: SubagentExtensionRef,
   ) => Effect.Effect<
     { readonly present: boolean; readonly current: boolean },
-    ReturnType<typeof makeAppError>
+    ExtensionManagerFailure
   >;
 }
 
@@ -212,7 +213,7 @@ export const SubagentManagerLive = Layer.effect(
       readonly description: string;
       readonly targetDir: string;
       readonly managedFile: ManagedFileProvenance;
-    }): Effect.Effect<SubagentSyncOutcome, ReturnType<typeof makeAppError>> =>
+    }): Effect.Effect<SubagentSyncOutcome, ExtensionManagerFailure> =>
       Effect.gen(function* () {
         const polyfillHash = computeSourceHash(
           JSON.stringify({ agent: args.agentId, name: args.name, body: args.body }),
@@ -252,10 +253,9 @@ export const SubagentManagerLive = Layer.effect(
         } satisfies SubagentSyncOutcome;
       }).pipe(
         Effect.mapError((cause) =>
-          isKnownFailure(cause)
-            ? toAppError(cause)
-            : makeAppError({
-                code: "internal",
+          cause._tag === "WorkspaceSnapshotError"
+            ? cause
+            : new SubagentIoFailed({
                 detail: `Failed to materialize subagent fallback for ${args.agentId}`,
                 cause,
               }),
@@ -285,22 +285,17 @@ export const SubagentManagerLive = Layer.effect(
         const expectedFilename = subagentContentFilename(name);
         const contentPath = subagentContentPath(path.join, subagentSrcPath, name);
         const rawContent = yield* fs.readFileString(contentPath).pipe(
-          Effect.mapError((error) =>
-            makeAppError({
-              code: "internal",
-              detail: `Failed to read ${expectedFilename} from ${subagentSrcPath}`,
-              suggestions: [
-                {
-                  description: `Ensure the subagent content file exists at ${contentPath}.`,
-                },
-              ],
-              cause: error,
-            }),
+          Effect.mapError(
+            (cause) =>
+              new SubagentContentUnreadable({
+                expectedFilename,
+                subagentSrcPath,
+                contentPath,
+                cause,
+              }),
           ),
         );
-        const parsed = yield* parseSubagentMd(rawContent, name).pipe(
-          Effect.mapError(subagentContentErrorToAppError),
-        );
+        const parsed = yield* parseSubagentMd(rawContent, name);
         return { rawContent, parsed };
       });
 
@@ -323,9 +318,7 @@ export const SubagentManagerLive = Layer.effect(
       force: boolean,
     ) =>
       Effect.gen(function* () {
-        const lockedEntry = yield* ws
-          .getLockedSubagent(ref.subagent.name)
-          .pipe(Effect.mapError(toAppError));
+        const lockedEntry = yield* ws.getLockedSubagent(ref.subagent.name);
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const useExisting = yield* provide(
           canReuseInstalledPackage({
@@ -404,23 +397,21 @@ export const SubagentManagerLive = Layer.effect(
               ref.scope !== ws.scope ||
               path.resolve(ref.location) !== path.resolve(canonicalPath)
             ) {
-              return yield* makeAppError({
-                code: "validation",
+              return yield* new SubagentDefinitionInvalid({
                 detail: `Invalid workspace subagent source location: ${ref.location}`,
               });
             }
             const exists = yield* fs.exists(subagentSrcPath).pipe(
-              Effect.mapError((error) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to inspect workspace subagent source: ${subagentSrcPath}`,
-                  cause: error,
-                }),
+              Effect.mapError(
+                (cause) =>
+                  new SubagentIoFailed({
+                    detail: `Failed to inspect workspace subagent source: ${subagentSrcPath}`,
+                    cause,
+                  }),
               ),
             );
             if (!exists) {
-              return yield* makeAppError({
-                code: "validation",
+              return yield* new SubagentDefinitionInvalid({
                 detail: `Workspace subagent source is missing: ${subagentSrcPath}`,
               });
             }
@@ -450,8 +441,7 @@ export const SubagentManagerLive = Layer.effect(
           : yield* Effect.try({
               try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
               catch: (cause) =>
-                makeAppError({
-                  code: "validation",
+                new SubagentDefinitionInvalid({
                   detail: `Failed to parse ${MANIFEST_FILENAME}`,
                   cause,
                 }),
@@ -461,8 +451,7 @@ export const SubagentManagerLive = Layer.effect(
         const contentPath = subagentContentPath(path.join, subagentSrcPath, ref.subagent.name);
         const sourcePath = makeWorkspaceRelativeSourcePath(path, baseDir, contentPath);
         if (Option.isNone(sourcePath)) {
-          return yield* makeAppError({
-            code: "internal",
+          return yield* new SubagentIoFailed({
             detail: `Subagent source path escapes workspace root: ${contentPath}`,
           });
         }
@@ -525,46 +514,47 @@ export const SubagentManagerLive = Layer.effect(
                     })
                     .pipe(
                       Effect.provide(fsPathLayer),
-                      Effect.flatMap((outcome) => {
-                        if (outcome._tag !== "unsupported") {
-                          return Effect.succeed<SubagentSyncOutcome>(outcome);
-                        }
-                        if ((ref.fallback ?? manifestFallback) === "none") {
-                          return makeAppError({
-                            code: "validation",
-                            detail: `Subagent ${ref.subagent.name} requires native subagent support for ${agent.id} because fallback is none`,
-                          });
-                        }
-                        return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
-                          Effect.provide(fsPathLayer),
-                          Effect.flatMap((skillsOutcome) => {
-                            if (skillsOutcome._tag !== "supported") {
-                              return Effect.succeed<SubagentSyncOutcome>(outcome);
-                            }
-                            const description = Option.getOrElse(
-                              ref.subagent.description,
-                              () => `Adopt the ${ref.subagent.name} role`,
-                            );
-                            return materializeRoleSkillFallback({
-                              agentId: agent.id,
-                              name: ref.subagent.name,
-                              sanitized,
-                              body: parsed.body,
-                              description,
-                              targetDir: skillsOutcome.dir,
-                              managedFile,
-                            }).pipe(
-                              Effect.mapError((cause) =>
-                                makeAppError({
-                                  code: "internal",
-                                  detail: `Failed to materialize subagent fallback for ${agent.id}`,
-                                  cause,
-                                }),
-                              ),
-                            );
-                          }),
-                        );
-                      }),
+                      Effect.flatMap(
+                        (outcome): Effect.Effect<SubagentSyncOutcome, ExtensionManagerFailure> => {
+                          if (outcome._tag !== "unsupported") {
+                            return Effect.succeed<SubagentSyncOutcome>(outcome);
+                          }
+                          if ((ref.fallback ?? manifestFallback) === "none") {
+                            return new SubagentDefinitionInvalid({
+                              detail: `Subagent ${ref.subagent.name} requires native subagent support for ${agent.id} because fallback is none`,
+                            });
+                          }
+                          return agent.resolveEffectiveSkillsDir({ workspaceRoot: baseDir }).pipe(
+                            Effect.provide(fsPathLayer),
+                            Effect.flatMap((skillsOutcome) => {
+                              if (skillsOutcome._tag !== "supported") {
+                                return Effect.succeed<SubagentSyncOutcome>(outcome);
+                              }
+                              const description = Option.getOrElse(
+                                ref.subagent.description,
+                                () => `Adopt the ${ref.subagent.name} role`,
+                              );
+                              return materializeRoleSkillFallback({
+                                agentId: agent.id,
+                                name: ref.subagent.name,
+                                sanitized,
+                                body: parsed.body,
+                                description,
+                                targetDir: skillsOutcome.dir,
+                                managedFile,
+                              }).pipe(
+                                Effect.mapError(
+                                  (cause) =>
+                                    new SubagentIoFailed({
+                                      detail: `Failed to materialize subagent fallback for ${agent.id}`,
+                                      cause,
+                                    }),
+                                ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
                       Effect.map((outcome) => ({ agentId: agent.id, outcome })),
                     ),
               },
@@ -663,14 +653,14 @@ export const SubagentManagerLive = Layer.effect(
                         Option.isSome(fallbackContent) &&
                         hasAxmManagedMarker(fallbackContent.value)
                       ) {
-                        yield* protectWorkspacePath(fallbackPath).pipe(Effect.mapError(toAppError));
+                        yield* protectWorkspacePath(fallbackPath);
                         yield* fs.remove(fallbackPath, { recursive: true, force: true }).pipe(
-                          Effect.mapError((error) =>
-                            makeAppError({
-                              code: "internal",
-                              detail: `Failed to remove subagent fallback artifact: ${fallbackPath}`,
-                              cause: error,
-                            }),
+                          Effect.mapError(
+                            (cause) =>
+                              new SubagentIoFailed({
+                                detail: `Failed to remove subagent fallback artifact: ${fallbackPath}`,
+                                cause,
+                              }),
                           ),
                         );
                         removedPaths.push(fallbackPath);
@@ -711,8 +701,7 @@ export const SubagentManagerLive = Layer.effect(
             acceptedCanonicalObservation({ workspace: ws, type: "subagent", name: target.name }),
           );
           const packageRoot = removableAcceptedCanonicalPath(canonical);
-          if (Option.isSome(packageRoot))
-            yield* removeIfExists(fs, packageRoot.value).pipe(Effect.mapError(toAppError));
+          if (Option.isSome(packageRoot)) yield* removeIfExists(fs, packageRoot.value);
         }
       });
     const materializeUninstall = makeMaterializeRemoval(false);
@@ -730,8 +719,7 @@ export const SubagentManagerLive = Layer.effect(
         : yield* Effect.try({
             try: () => decodeSubagentManifest(JSON.parse(manifestRaw.value)).fallback,
             catch: (cause) =>
-              makeAppError({
-                code: "validation",
+              new SubagentDefinitionInvalid({
                 detail: `Failed to parse ${MANIFEST_FILENAME}`,
                 cause,
               }),
@@ -865,9 +853,7 @@ export const SubagentManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "subagent", target.name).pipe(
-          Effect.mapError(toAppError),
-        );
+        return yield* isObservedInstalled(ws, "subagent", target.name);
       }),
 
       materializeInstall,
@@ -885,15 +871,13 @@ export const SubagentManagerLive = Layer.effect(
           lastInstallState.get(target.name)?.materialization ?? { agents: [], targets: [] },
         ),
       getConfiguredSource: Effect.fn("SubagentManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws
-          .getConfiguredSubagentEntries()
-          .pipe(Effect.mapError(toAppError));
+        const configured = yield* ws.getConfiguredSubagentEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("SubagentManager.listMaterializable")(function* () {
         const configured = yield* ws.records
           .rows("subagent")
-          .pipe(Effect.mapError(toAppError))
+
           .pipe(Effect.map(configuredRowsByName));
         return yield* configuredSubagentsToDiskRefs(
           { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
@@ -921,24 +905,21 @@ export const SubagentManagerLive = Layer.effect(
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new SubagentDefinitionInvalid({
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
         const state = lastInstallState.get(ref.subagent.name);
         if (ref.refType === "workspace") {
-          return yield* ws
-            .setSubagentEntry(ref.subagent.name, {
-              source: "workspace",
-              enabled: true,
-            })
-            .pipe(Effect.mapError(toAppError));
+          return yield* ws.setSubagentEntry(ref.subagent.name, {
+            source: "workspace",
+            enabled: true,
+          });
         }
         if (state === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Subagent ${ref.subagent.name} has no materialized content identity`,
+          return yield* new SubagentInstallStateMissing({
+            name: ref.subagent.name,
+            kind: "content-identity",
           });
         }
         const lockEntry = buildSubagentLockEntry(
@@ -948,9 +929,9 @@ export const SubagentManagerLive = Layer.effect(
           workspaceRelativeLocalSourcePath,
         );
         if (lockEntry === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Subagent ${ref.subagent.name} did not produce an external resolution`,
+          return yield* new SubagentInstallStateMissing({
+            name: ref.subagent.name,
+            kind: "external-resolution",
           });
         }
         if (lockEntry.type === "registry") {
@@ -959,19 +940,17 @@ export const SubagentManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws
-          .setSubagent({
-            name: ref.subagent.name,
-            lockEntry,
-            versionRange,
-          })
-          .pipe(Effect.mapError(toAppError));
+        return yield* ws.setSubagent({
+          name: ref.subagent.name,
+          lockEntry,
+          versionRange,
+        });
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws
           .removeSubagentSettings(target.name)
-          .pipe(Effect.mapError(toAppError))
+
           .pipe(Effect.withSpan("SubagentManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("SubagentManager.upsertLockfileEntry")(function* ({
@@ -988,20 +967,19 @@ export const SubagentManagerLive = Layer.effect(
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new SubagentDefinitionInvalid({
             detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
         if (ref.refType === "workspace") {
-          yield* ws.removeSubagentLock(ref.subagent.name).pipe(Effect.mapError(toAppError));
+          yield* ws.removeSubagentLock(ref.subagent.name);
           return;
         }
         const state = lastInstallState.get(ref.subagent.name);
         if (state === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Subagent ${ref.subagent.name} has no materialized content identity`,
+          return yield* new SubagentInstallStateMissing({
+            name: ref.subagent.name,
+            kind: "content-identity",
           });
         }
         const lockEntry = buildSubagentLockEntry(
@@ -1011,9 +989,9 @@ export const SubagentManagerLive = Layer.effect(
           workspaceRelativeLocalSourcePath,
         );
         if (lockEntry === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Subagent ${ref.subagent.name} did not produce an external resolution`,
+          return yield* new SubagentInstallStateMissing({
+            name: ref.subagent.name,
+            kind: "external-resolution",
           });
         }
         if (lockEntry.type === "registry") {
@@ -1022,19 +1000,17 @@ export const SubagentManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws
-          .setSubagentLock({
-            name: ref.subagent.name,
-            lockEntry,
-            versionRange: Option.none(),
-          })
-          .pipe(Effect.mapError(toAppError));
+        return yield* ws.setSubagentLock({
+          name: ref.subagent.name,
+          lockEntry,
+          versionRange: Option.none(),
+        });
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
         ws
           .removeSubagentLock(target.name)
-          .pipe(Effect.mapError(toAppError))
+
           .pipe(Effect.withSpan("SubagentManager.removeLockfileEntry")),
     } satisfies SubagentManagerService;
   }),

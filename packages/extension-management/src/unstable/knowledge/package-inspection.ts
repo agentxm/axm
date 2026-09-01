@@ -4,7 +4,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { makeAppError } from "../app-error/index.js";
+import { KnowledgeDefinitionInvalid } from "./errors.js";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
@@ -34,8 +34,7 @@ export const readKnowledgePackageManifest = Effect.fn("Knowledge.readPackageMani
   const manifestUnknown = yield* Effect.try({
     try: (): unknown => JSON.parse(manifestRaw),
     catch: (cause) =>
-      makeAppError({
-        code: "validation",
+      new KnowledgeDefinitionInvalid({
         detail: `Failed to parse ${manifestPath}`,
         cause,
       }),

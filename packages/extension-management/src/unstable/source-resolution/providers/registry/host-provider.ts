@@ -19,6 +19,7 @@ import type * as Scope from "effect/Scope";
 import * as semver from "semver";
 
 import { type AppError, makeAppError } from "../../../app-error/index.js";
+import { toAppError } from "../../../app-error/conversions.js";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
   RegistryClient,
@@ -257,7 +258,7 @@ const probeAxmSkillCompatibility = (
       ref: ref.value,
       packageRoot: tmpDir,
       skillSourcePath: path.join(tmpDir, "src"),
-    });
+    }).pipe(Effect.mapError(toAppError));
     if (result === null) {
       return yield* makeAppError({
         code: "internal",

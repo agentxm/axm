@@ -54,3 +54,15 @@ export {
   sharedMcpTargetPolicyConflict,
   type McpTargetGroup,
 } from "./targeting.js";
+
+export {
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpEntryUnmanaged,
+  McpInstallStateMissing,
+  McpOwnershipMarkerInvalid,
+  McpRegistryOnlyInstall,
+  McpSharedTargetConflict,
+  type McpManagerError,
+} from "./errors.js";

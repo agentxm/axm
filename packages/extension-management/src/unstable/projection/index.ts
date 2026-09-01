@@ -84,3 +84,15 @@ export {
   type RegionMarker,
   type RegionName,
 } from "./marker-grammar.js";
+
+export {
+  AuthoredContributorUnsupported,
+  ContributorIdentityInvalid,
+  ContributorTreeMismatch,
+  ContributorUnresolved,
+  DesiredStateIncomplete,
+  ManagedRegionViolation,
+  ProjectionIoFailed,
+  ProjectionTargetUnsupported,
+  type ProjectionError,
+} from "./errors.js";

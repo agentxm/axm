@@ -3,7 +3,9 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { type AppError } from "../app-error/index.js";
+import { SkillMaterializationFailed } from "./errors.js";
+import { toAppError } from "../app-error/conversions.js";
 import {
   canReuseExternalPackage,
   canReuseInstalledPackage,
@@ -235,7 +237,7 @@ const materializeWorkspace = (
   provide: ProvideFs,
 ): Effect.Effect<MaterializedSkillCanonical, AppError> =>
   Effect.gen(function* () {
-    yield* validatePathSafety(pathService, baseDir, ref.location);
+    yield* validatePathSafety(pathService, baseDir, ref.location).pipe(Effect.mapError(toAppError));
     const skillSourcePath = pathService.join(ref.location, "src");
     yield* provide(
       validateAxmSkillCandidate({
@@ -243,7 +245,7 @@ const materializeWorkspace = (
         packageRoot: ref.location,
         skillSourcePath,
       }),
-    );
+    ).pipe(Effect.mapError(toAppError));
     return { skillSrcPath: skillSourcePath };
   });
 
@@ -282,7 +284,7 @@ export const materializeSkillCanonical = (args: {
         args.layout,
         args.provide,
         args.reuse ?? { force: false, lockedVersion: undefined, lockedTreeIntegrity: undefined },
-      );
+      ).pipe(Effect.mapError(toAppError));
     case "local":
       return materializeLocal(
         args.ref,
@@ -293,7 +295,7 @@ export const materializeSkillCanonical = (args: {
         args.layout,
         args.provide,
         args.reuse ?? { force: false, lockedVersion: undefined, lockedTreeIntegrity: undefined },
-      );
+      ).pipe(Effect.mapError(toAppError));
     case "registry":
       return materializeRegistry(
         args.ref,
@@ -305,7 +307,7 @@ export const materializeSkillCanonical = (args: {
         args.provide,
         args.provideRegistry,
         args.reuse ?? { force: false, lockedVersion: undefined, lockedTreeIntegrity: undefined },
-      );
+      ).pipe(Effect.mapError(toAppError));
     case "workspace":
       return materializeWorkspace(args.ref, args.pathService, args.baseDir, args.provide);
   }
@@ -334,12 +336,12 @@ export const ensureSkillAgentArtifact = (args: {
           copyExtensionDirectory(args.canonicalSkillSrcPath, agentSkillPath).pipe(
             // If the copy fallback also fails, surface it — otherwise sync
             // reports success with no materialized skill artifact.
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to materialize skill artifact at ${agentSkillPath}`,
-                cause: error,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new SkillMaterializationFailed({
+                  detail: `Failed to materialize skill artifact at ${agentSkillPath}`,
+                  cause,
+                }),
             ),
           ),
         ),
@@ -356,12 +358,12 @@ export const removeSkillAgentArtifact = (args: {
   const target = args.pathService.join(args.targetDir, args.sanitizedName);
   return protectWorkspacePath(target).pipe(
     Effect.andThen(args.fs.remove(target, { recursive: true, force: true })),
-    Effect.mapError((error) =>
-      makeAppError({
-        code: "internal",
-        detail: `Failed to remove skill artifact at ${target}`,
-        cause: error,
-      }),
+    Effect.mapError(
+      (cause) =>
+        new SkillMaterializationFailed({
+          detail: `Failed to remove skill artifact at ${target}`,
+          cause,
+        }),
     ),
   );
 };

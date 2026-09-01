@@ -13,7 +13,16 @@ import * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Result from "effect/Result";
 import { resolveInstructionsConfig } from "../agents/instructions.js";
-import { AppError, makeAppError } from "../app-error/index.js";
+import { AppError } from "../app-error/index.js";
+import {
+  KnowledgeDefinitionInvalid,
+  KnowledgeDesiredStateUnreconcilable,
+  KnowledgeInstallStateMissing,
+  KnowledgeIoFailed,
+  KnowledgeObservableContractViolated,
+  KnowledgeResolutionMissing,
+  KnowledgeUnavailable,
+} from "./errors.js";
 import {
   canReuseInstalledPackage,
   materializeExternalPackage,
@@ -47,6 +56,7 @@ import {
 } from "../workspace/configured-entry-resolution/index.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import type { ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
@@ -91,19 +101,22 @@ import type {
   LocalKnowledgeRef,
   RegistryKnowledgeRef,
 } from "../workspace/refs/knowledge.js";
-import { toAppError } from "../app-error/conversions.js";
+import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
-  readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
-  readonly refreshCatalog: () => Effect.Effect<void, ReturnType<typeof makeAppError>>;
+  readonly projectionPlans: () => Effect.Effect<
+    ReadonlyArray<ProjectionPlan>,
+    ExtensionManagerFailure
+  >;
+  readonly refreshCatalog: () => Effect.Effect<void, ExtensionManagerFailure>;
   readonly sync: (options: {
     readonly dryRun: boolean;
-  }) => Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>>;
+  }) => Effect.Effect<KnowledgeSyncResult, ExtensionManagerFailure>;
   readonly install: (args: {
     readonly ref: KnowledgeExtensionRef;
     readonly versionRange: Option.Option<VersionRange>;
     readonly deferProjection?: boolean;
-  }) => Effect.Effect<void, ReturnType<typeof makeAppError>>;
+  }) => Effect.Effect<void, ExtensionManagerFailure>;
 }
 
 export interface KnowledgeSyncResult {
@@ -120,8 +133,8 @@ interface PreparedKnowledgePackage {
   readonly root: string;
   readonly sourceHash: SourceHash;
   readonly treeIntegrity?: TreeIntegrity;
-  readonly commit: Effect.Effect<void, ReturnType<typeof makeAppError>>;
-  readonly rollback: Effect.Effect<void, ReturnType<typeof makeAppError>>;
+  readonly commit: Effect.Effect<void, ExtensionManagerFailure>;
+  readonly rollback: Effect.Effect<void, ExtensionManagerFailure>;
 }
 
 export class KnowledgeManager extends ServiceMap.Service<
@@ -262,8 +275,7 @@ export const KnowledgeManagerLive = Layer.effect(
             path.resolve(ref.location) !== path.resolve(canonicalPath)
           ) {
             return Effect.fail(
-              makeAppError({
-                code: "validation",
+              new KnowledgeDefinitionInvalid({
                 detail: `Invalid workspace knowledge source location: ${ref.location}`,
               }),
             );
@@ -277,47 +289,45 @@ export const KnowledgeManagerLive = Layer.effect(
         const raw = yield* fs
           .readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME))
           .pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "validation",
-                detail: `Failed to read ${KNOWLEDGE_MANIFEST_FILENAME}`,
-                cause,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new KnowledgeDefinitionInvalid({
+                  detail: `Failed to read ${KNOWLEDGE_MANIFEST_FILENAME}`,
+                  cause,
+                }),
             ),
           );
         const manifest = yield* Effect.try({
           try: (): unknown => JSON.parse(raw),
           catch: (cause) =>
-            makeAppError({
-              code: "validation",
+            new KnowledgeDefinitionInvalid({
               detail: `Failed to parse ${KNOWLEDGE_MANIFEST_FILENAME}`,
               cause,
             }),
         }).pipe(
           Effect.flatMap(decodeManifest),
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "validation",
-              detail: `Invalid ${KNOWLEDGE_MANIFEST_FILENAME}`,
-              cause,
-            }),
+          Effect.mapError(
+            (cause) =>
+              new KnowledgeDefinitionInvalid({
+                detail: `Invalid ${KNOWLEDGE_MANIFEST_FILENAME}`,
+                cause,
+              }),
           ),
         );
         const inspection = yield* provide(
           inspectKnowledgeBundle(path.join(packageRoot, KNOWLEDGE_SOURCE_DIR)),
         ).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "validation",
-              detail: "Failed to inspect Open Knowledge Format bundle",
-              cause,
-            }),
+          Effect.mapError(
+            (cause) =>
+              new KnowledgeDefinitionInvalid({
+                detail: "Failed to inspect Open Knowledge Format bundle",
+                cause,
+              }),
           ),
         );
         const errors = inspection.diagnostics.filter((item) => item.severity === "error");
         if (errors.length > 0) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new KnowledgeDefinitionInvalid({
             detail: errors
               .map((item) =>
                 item.details?.kind === "frontmatter-parse"
@@ -333,7 +343,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const preparePackage = (
       ref: KnowledgeExtensionRef,
       force = false,
-    ): Effect.Effect<PreparedKnowledgePackage, ReturnType<typeof makeAppError>, Scope.Scope> =>
+    ): Effect.Effect<PreparedKnowledgePackage, ExtensionManagerFailure, Scope.Scope> =>
       Effect.gen(function* () {
         const canonicalPath = canonicalPathForRef(ref);
         if (ref.refType === "workspace") {
@@ -350,9 +360,7 @@ export const KnowledgeManagerLive = Layer.effect(
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
         if (ref.refType === "registry") {
-          const lockedEntry = yield* ws
-            .getLockedKnowledgeEntry(ref.knowledge.name)
-            .pipe(Effect.mapError(toAppError));
+          const lockedEntry = yield* ws.getLockedKnowledgeEntry(ref.knowledge.name);
           const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
           const reuse = yield* provide(
             canReuseInstalledPackage({
@@ -393,22 +401,22 @@ export const KnowledgeManagerLive = Layer.effect(
           Effect.flatMap((state) => {
             if (state.phase !== "staged") return Effect.void;
             return fs.remove(canonicalPath, { recursive: true, force: true }).pipe(
-              Effect.mapError((cause) =>
-                makeAppError({
-                  code: "internal",
-                  detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
-                  cause,
-                }),
+              Effect.mapError(
+                (cause) =>
+                  new KnowledgeIoFailed({
+                    detail: `Failed to remove staged Knowledge package during rollback: ${canonicalPath}`,
+                    cause,
+                  }),
               ),
               Effect.andThen(
                 state.hadCanonical
                   ? fs.rename(backupPath, canonicalPath).pipe(
-                      Effect.mapError((cause) =>
-                        makeAppError({
-                          code: "internal",
-                          detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
-                          cause,
-                        }),
+                      Effect.mapError(
+                        (cause) =>
+                          new KnowledgeIoFailed({
+                            detail: `Failed to restore Knowledge package during rollback: ${canonicalPath}`,
+                            cause,
+                          }),
                       ),
                     )
                   : Effect.void,
@@ -444,12 +452,12 @@ export const KnowledgeManagerLive = Layer.effect(
               Effect.tapError(() =>
                 hadCanonical
                   ? fs.rename(backupPath, canonicalPath).pipe(
-                      Effect.mapError((cause) =>
-                        makeAppError({
-                          code: "internal",
-                          detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
-                          cause,
-                        }),
+                      Effect.mapError(
+                        (cause) =>
+                          new KnowledgeIoFailed({
+                            detail: `Failed to restore Knowledge package after staging failed: ${canonicalPath}`,
+                            cause,
+                          }),
                       ),
                     )
                   : Effect.void,
@@ -471,10 +479,9 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       }).pipe(
         Effect.mapError((cause) =>
-          cause instanceof AppError
+          cause instanceof AppError || isKnownFailure(cause)
             ? cause
-            : makeAppError({
-                code: "internal",
+            : new KnowledgeIoFailed({
                 detail: `Failed to stage Knowledge bundle ${ref.knowledge.name}`,
                 cause,
               }),
@@ -483,13 +490,12 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const getInstructionsTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
+        const config = yield* ws.getInstructionsConfig();
         const enabled = Option.isSome(config) && config.value !== false;
         const resolved = resolveInstructionsConfig(enabled ? config.value : undefined);
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
         if (Option.isNone(relative)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new KnowledgeDefinitionInvalid({
             detail: `Knowledge discovery instruction target escapes workspace: ${resolved.fileName}`,
           });
         }
@@ -517,19 +523,13 @@ export const KnowledgeManagerLive = Layer.effect(
         return ws.layout.scope === "project"
           ? Effect.succeed(path.join(ws.layout.authoredRoot("knowledge"), node.name))
           : Effect.fail(
-              makeAppError({
-                code: "validation",
+              new KnowledgeDefinitionInvalid({
                 detail: "User workspaces do not support workspace-authored Knowledge bundles",
               }),
             );
       }
       return locked === undefined
-        ? Effect.fail(
-            makeAppError({
-              code: "conflict",
-              detail: `Active external Knowledge bundle has no accepted resolution: ${node.name}`,
-            }),
-          )
+        ? Effect.fail(new KnowledgeResolutionMissing({ name: node.name }))
         : Effect.succeed(canonicalRoot(node.name, locked));
     };
 
@@ -551,7 +551,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const activeKnowledgeNodes = () =>
       ws
         .getDesiredStateGraph()
-        .pipe(Effect.mapError(toAppError))
+
         .pipe(
           Effect.flatMap((graph) =>
             graph.complete
@@ -560,11 +560,7 @@ export const KnowledgeManagerLive = Layer.effect(
                     .filter(isSourcedDesiredExtension)
                     .filter((node) => node.type === "knowledge" && node.enabled),
                 )
-              : makeAppError({
-                  code: "conflict",
-                  detail:
-                    "Knowledge desired state cannot be reconciled until pack and declaration problems are fixed",
-                }),
+              : new KnowledgeDesiredStateUnreconcilable(),
           ),
         );
 
@@ -597,12 +593,10 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const resolveKnowledgeProjection = () =>
       Effect.gen(function* () {
-        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
-        const locked = yield* getKnowledgeLockEntries(ws).pipe(Effect.mapError(toAppError));
-        const configured = yield* ws
-          .getConfiguredKnowledgeEntries()
-          .pipe(Effect.mapError(toAppError));
-        const config = yield* ws.getKnowledgeDiscoveryConfig().pipe(Effect.mapError(toAppError));
+        const graph = yield* ws.getDesiredStateGraph();
+        const locked = yield* getKnowledgeLockEntries(ws);
+        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const config = yield* ws.getKnowledgeDiscoveryConfig();
         const instructionsTarget = yield* getInstructionsTarget();
         return { graph, locked, configured, config, instructionsTarget };
       });
@@ -629,7 +623,10 @@ export const KnowledgeManagerLive = Layer.effect(
         }),
       );
 
-    const makeKnowledgeProjectionPlan = (): Effect.Effect<ProjectionPlan, AppError> =>
+    const makeKnowledgeProjectionPlan = (): Effect.Effect<
+      ProjectionPlan,
+      ExtensionManagerFailure
+    > =>
       Effect.gen(function* () {
         const { graph, locked, configured, config, instructionsTarget } =
           yield* resolveKnowledgeProjection();
@@ -709,29 +706,29 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const buildLockEntry = (
       ref: KnowledgeExtensionRef,
-    ): Effect.Effect<Option.Option<KnowledgeLockEntry>, AppError> =>
+    ): Effect.Effect<Option.Option<KnowledgeLockEntry>, KnowledgeInstallStateMissing> =>
       Effect.gen(function* () {
         const state = lastInstallState.get(ref.knowledge.name);
         switch (ref.refType) {
           case "registry":
             return state?.treeIntegrity === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Knowledge ${ref.knowledge.name} has no materialized tree integrity`,
+              ? yield* new KnowledgeInstallStateMissing({
+                  name: ref.knowledge.name,
+                  kind: "tree-integrity",
                 })
               : Option.some(registryLockEntry(ref, state.treeIntegrity));
           case "git-hosted":
             return state?.treeIntegrity === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Knowledge ${ref.knowledge.name} has no materialized content identity`,
+              ? yield* new KnowledgeInstallStateMissing({
+                  name: ref.knowledge.name,
+                  kind: "content-identity",
                 })
               : Option.some(gitLockEntry(ref, state.sourceHash, state.treeIntegrity));
           case "local":
             return state?.treeIntegrity === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Knowledge ${ref.knowledge.name} has no materialized content identity`,
+              ? yield* new KnowledgeInstallStateMissing({
+                  name: ref.knowledge.name,
+                  kind: "content-identity",
                 })
               : Option.some(
                   localLockEntry(
@@ -748,19 +745,15 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const setKnowledgeSourceEntry = (name: string, source: string) =>
       Effect.gen(function* () {
-        const configured = yield* ws
-          .getConfiguredKnowledgeEntries()
-          .pipe(Effect.mapError(toAppError));
+        const configured = yield* ws.getConfiguredKnowledgeEntries();
         const current = configured[name];
-        yield* ws
-          .setKnowledgeEntry(name, {
-            source,
-            enabled: true,
-            ...(current?.instructionEntry === undefined
-              ? {}
-              : { instructionEntry: current.instructionEntry }),
-          })
-          .pipe(Effect.mapError(toAppError));
+        yield* ws.setKnowledgeEntry(name, {
+          source,
+          enabled: true,
+          ...(current?.instructionEntry === undefined
+            ? {}
+            : { instructionEntry: current.instructionEntry }),
+        });
       });
 
     const restoreLockedPackage = (name: string, entry: KnowledgeLockEntry) =>
@@ -773,8 +766,7 @@ export const KnowledgeManagerLive = Layer.effect(
             ws.getConfiguredSourceByName(sourceName).pipe(Effect.mapError(toAppError)),
         });
         if (ref.refType === "registry" && Option.isNone(ref.integrity)) {
-          return yield* makeAppError({
-            code: "unavailable",
+          return yield* new KnowledgeUnavailable({
             detail: `Locked registry Knowledge bundle has no integrity and cannot be restored: ${name}`,
           });
         }
@@ -796,8 +788,7 @@ export const KnowledgeManagerLive = Layer.effect(
           candidate.gitTreeSha !== ref.gitTreeSha ||
           candidate.gitCommitSha !== ref.gitCommitSha
         ) {
-          return yield* makeAppError({
-            code: "unavailable",
+          return yield* new KnowledgeUnavailable({
             detail: `Git Knowledge source no longer resolves to locked commit/tree ${ref.gitCommitSha}/${ref.gitTreeSha}: ${name}`,
           });
         }
@@ -806,10 +797,10 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const syncLocked = (
       dryRun: boolean,
-    ): Effect.Effect<KnowledgeSyncResult, ReturnType<typeof makeAppError>, Scope.Scope> =>
+    ): Effect.Effect<KnowledgeSyncResult, ExtensionManagerFailure, Scope.Scope> =>
       Effect.gen(function* () {
         const desired = yield* activeKnowledgeNodes();
-        const locked = yield* getKnowledgeLockEntries(ws).pipe(Effect.mapError(toAppError));
+        const locked = yield* getKnowledgeLockEntries(ws);
         const prepared: Array<PreparedKnowledgePackage> = [];
         for (const node of desired) {
           const { name } = node;
@@ -818,27 +809,23 @@ export const KnowledgeManagerLive = Layer.effect(
           const inspection = yield* Effect.result(inspectPackage(root));
           if (Result.isSuccess(inspection)) continue;
           if (node.identity.startsWith("workspace:")) {
-            return yield* makeAppError({
-              code: "validation",
+            return yield* new KnowledgeDefinitionInvalid({
               detail: `Active workspace-authored Knowledge bundle is missing or invalid: ${name}`,
               cause: inspection.failure,
             });
           }
           if (entry === undefined) {
-            return yield* makeAppError({
-              code: "conflict",
-              detail: `Active external Knowledge bundle has no accepted resolution: ${name}`,
-            });
+            return yield* new KnowledgeResolutionMissing({ name });
           }
           const restored = yield* Effect.result(restoreLockedPackage(name, entry));
           if (Result.isFailure(restored)) {
             yield* Effect.forEach([...prepared].reverse(), (item) => item.rollback, {
               discard: true,
             });
-            return yield* makeAppError({
-              code: "unavailable",
-              detail: `Active Knowledge bundle could not be restored: ${name}. ${restored.failure.detail}`,
-              cause: restored.failure,
+            const restoreFailure = toAppError(restored.failure);
+            return yield* new KnowledgeUnavailable({
+              detail: `Active Knowledge bundle could not be restored: ${name}. ${restoreFailure.detail}`,
+              cause: restoreFailure,
             });
           } else prepared.push(restored.success);
         }
@@ -881,8 +868,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   )
                 : Option.none<string>();
             if (args.ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-              return yield* makeAppError({
-                code: "validation",
+              return yield* new KnowledgeDefinitionInvalid({
                 detail: `Local knowledge source must stay within the workspace: ${args.ref.source.path}`,
               });
             }
@@ -904,20 +890,18 @@ export const KnowledgeManagerLive = Layer.effect(
                   : { treeIntegrity: prepared.treeIntegrity }),
               });
               if (args.ref.refType !== "workspace" && prepared.treeIntegrity === undefined) {
-                return yield* makeAppError({
-                  code: "internal",
-                  detail: `Knowledge ${name} has no staged tree integrity`,
+                return yield* new KnowledgeInstallStateMissing({
+                  name,
+                  kind: "staged-tree-integrity",
                 });
               }
               const lockEntry = yield* buildLockEntry(args.ref);
               if (Option.isSome(lockEntry)) {
-                yield* ws
-                  .setKnowledge({
-                    name,
-                    lockEntry: lockEntry.value,
-                    versionRange: args.versionRange,
-                  })
-                  .pipe(Effect.mapError(toAppError));
+                yield* ws.setKnowledge({
+                  name,
+                  lockEntry: lockEntry.value,
+                  versionRange: args.versionRange,
+                });
               } else {
                 yield* setKnowledgeSourceEntry(name, "workspace");
               }
@@ -933,18 +917,12 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
           validate: ({ name }) =>
             isObservedInstalled(ws, "knowledge", name).pipe(
-              Effect.mapError(toAppError),
               Effect.flatMap((installed) =>
-                installed
-                  ? Effect.void
-                  : makeAppError({
-                      code: "internal",
-                      detail: `Installed Knowledge bundle "${name}" did not satisfy its observable contract`,
-                    }),
+                installed ? Effect.void : new KnowledgeObservableContractViolated({ name }),
               ),
             ),
         })
-        .pipe(Effect.mapError(toAppError))
+
         .pipe(
           Effect.scoped,
           Effect.tapError(() =>
@@ -968,21 +946,19 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
         );
         const root = removableAcceptedCanonicalPath(canonical);
-        const locked = yield* ws
-          .getLockedKnowledgeEntry(target.name)
-          .pipe(Effect.mapError(toAppError));
+        const locked = yield* ws.getLockedKnowledgeEntry(target.name);
         const ownedRoot = Option.orElse(root, () =>
           Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
         );
         if (Option.isSome(ownedRoot)) {
-          yield* protectWorkspacePath(ownedRoot.value).pipe(Effect.mapError(toAppError));
+          yield* protectWorkspacePath(ownedRoot.value);
           yield* fs.remove(ownedRoot.value, { recursive: true, force: true }).pipe(
-            Effect.mapError((error) =>
-              makeAppError({
-                code: "internal",
-                detail: `Failed to remove Knowledge package source: ${ownedRoot.value}`,
-                cause: error,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new KnowledgeIoFailed({
+                  detail: `Failed to remove Knowledge package source: ${ownedRoot.value}`,
+                  cause,
+                }),
             ),
           );
         }
@@ -997,26 +973,22 @@ export const KnowledgeManagerLive = Layer.effect(
       projectionPlans,
       runTransaction: ws.runTransaction,
       refreshCatalog: () =>
-        ws
-          .runTransaction({
-            transition: applyKnowledgeProjection,
-            validate: () => Effect.void,
-          })
-          .pipe(Effect.mapError(toAppError)),
+        ws.runTransaction({
+          transition: applyKnowledgeProjection,
+          validate: () => Effect.void,
+        }),
       sync: ({ dryRun }) =>
         dryRun
           ? Effect.scoped(syncLocked(true))
           : Effect.scoped(
-              ws
-                .runTransaction({
-                  transition: syncLocked(false),
-                  validate: () => Effect.void,
-                })
-                .pipe(Effect.mapError(toAppError)),
+              ws.runTransaction({
+                transition: syncLocked(false),
+                validate: () => Effect.void,
+              }),
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(ws, "knowledge", target.name).pipe(Effect.mapError(toAppError)),
+        isObservedInstalled(ws, "knowledge", target.name),
       materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(
         function* ({ ref, force }) {
           const relativeLocalSource =
@@ -1028,8 +1000,7 @@ export const KnowledgeManagerLive = Layer.effect(
                 )
               : Option.none<string>();
           if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-            return yield* makeAppError({
-              code: "validation",
+            return yield* new KnowledgeDefinitionInvalid({
               detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
             });
           }
@@ -1058,7 +1029,7 @@ export const KnowledgeManagerLive = Layer.effect(
       getConfiguredSource: ({ target }) =>
         ws
           .getConfiguredKnowledgeEntries()
-          .pipe(Effect.mapError(toAppError))
+
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       listMaterializable: () =>
         Effect.gen(function* () {
@@ -1083,23 +1054,19 @@ export const KnowledgeManagerLive = Layer.effect(
         buildLockEntry(ref).pipe(
           Effect.flatMap((lockEntry) =>
             Option.isSome(lockEntry)
-              ? ws
-                  .setKnowledge({
-                    name: ref.knowledge.name,
-                    lockEntry: lockEntry.value,
-                    versionRange,
-                  })
-                  .pipe(Effect.mapError(toAppError))
+              ? ws.setKnowledge({
+                  name: ref.knowledge.name,
+                  lockEntry: lockEntry.value,
+                  versionRange,
+                })
               : setKnowledgeSourceEntry(ref.knowledge.name, "workspace"),
           ),
         ),
-      removeSettingsEntry: ({ target }) =>
-        ws.removeKnowledgeSettings(target.name).pipe(Effect.mapError(toAppError)),
+      removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
       upsertLockfileEntry: ({ ref }) =>
         buildLockEntry(ref).pipe(
           Effect.flatMap((lockEntry) => {
-            if (Option.isNone(lockEntry))
-              return ws.removeKnowledgeLock(ref.knowledge.name).pipe(Effect.mapError(toAppError));
+            if (Option.isNone(lockEntry)) return ws.removeKnowledgeLock(ref.knowledge.name);
             const validate =
               lockEntry.value.type === "registry"
                 ? validateExactResolvedVersion(
@@ -1109,19 +1076,16 @@ export const KnowledgeManagerLive = Layer.effect(
                 : Effect.void;
             return validate.pipe(
               Effect.flatMap(() =>
-                ws
-                  .setKnowledgeLock({
-                    name: ref.knowledge.name,
-                    lockEntry: lockEntry.value,
-                    versionRange: Option.none(),
-                  })
-                  .pipe(Effect.mapError(toAppError)),
+                ws.setKnowledgeLock({
+                  name: ref.knowledge.name,
+                  lockEntry: lockEntry.value,
+                  versionRange: Option.none(),
+                }),
               ),
             );
           }),
         ),
-      removeLockfileEntry: ({ target }) =>
-        ws.removeKnowledgeLock(target.name).pipe(Effect.mapError(toAppError)),
+      removeLockfileEntry: ({ target }) => ws.removeKnowledgeLock(target.name),
     } satisfies KnowledgeManagerService;
   }),
 );

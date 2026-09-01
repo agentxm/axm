@@ -2,12 +2,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { AxmSkillCompatibilityUnavailable, AxmSkillIncompatible } from "./errors.js";
 import {
   AXM_SKILL_FQN,
   AxmSkillCompatibilityPolicy,
   evaluateAxmSkillCompatibility,
-  formatAxmSkillCompatibilityTarget,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
 } from "./axm-skill-compatibility.js";
@@ -61,7 +60,11 @@ export interface ValidateAxmSkillCandidateArgs {
 /** Inspect candidate bytes and evaluate official AXM skill compatibility. */
 export const evaluateAxmSkillCandidate = (
   args: ValidateAxmSkillCandidateArgs,
-): Effect.Effect<AxmSkillCompatibility | null, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  AxmSkillCompatibility | null,
+  AxmSkillCompatibilityUnavailable,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -87,10 +90,7 @@ export const evaluateAxmSkillCandidate = (
       onSome: (service) => service.evaluate({ fqn: AXM_SKILL_FQN, candidate }),
     });
     if (result === null) {
-      return yield* makeAppError({
-        code: "internal",
-        detail: "AXM compatibility policy did not evaluate the official AXM skill",
-      });
+      return yield* new AxmSkillCompatibilityUnavailable();
     }
     return result;
   });
@@ -98,17 +98,16 @@ export const evaluateAxmSkillCandidate = (
 /** Validate official AXM skill bytes before any workspace state is changed. */
 export const validateAxmSkillCandidate = (
   args: ValidateAxmSkillCandidateArgs,
-): Effect.Effect<AxmSkillCompatibility | null, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  AxmSkillCompatibility | null,
+  AxmSkillCompatibilityUnavailable | AxmSkillIncompatible,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const result = yield* evaluateAxmSkillCandidate(args);
     if (result === null) return null;
     if (result.status === "incompatible") {
-      return yield* makeAppError({
-        code: "conflict",
-        detail: result.detail ?? "The official AXM skill is incompatible with this AXM CLI.",
-        recover: `Converge to ${formatAxmSkillCompatibilityTarget(result.recovery)} with the ${result.recovery.action} recovery plan`,
-        ...(result.recovery.nextAction === null ? {} : { cmd: result.recovery.nextAction }),
-      });
+      return yield* new AxmSkillIncompatible({ compatibility: result });
     }
     return result;
   });

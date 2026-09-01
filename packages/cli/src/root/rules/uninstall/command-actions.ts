@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { Plan } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
@@ -48,7 +49,7 @@ export const UninstallRuleCommandWorkflowActions = Effect.gen(function* () {
         return { targets: [] };
       }
       return { targets: [target] };
-    });
+    }).pipe(Effect.mapError(toAppError));
 
   const buildUninstallPlan = (intent: UninstallRuleCommandIntent): Effect.Effect<Plan, AppError> =>
     Effect.succeed({

@@ -20,7 +20,7 @@ import {
   resolveInstructionsConfig,
   type ResolvedInstructionsConfig,
 } from "../agents/instructions.js";
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { RuleDefinitionInvalid, RuleInstallStateMissing } from "./errors.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   enabledConfiguredEntries,
@@ -37,7 +37,6 @@ import {
   type ProjectionPlan,
   type ProjectionRenderInput,
 } from "../projection/planning.js";
-import { frontmatterParseFailureToAppError, toAppError } from "../app-error/conversions.js";
 import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { computePackageContentHash } from "../workspace/package-hash.js";
 import {
@@ -66,6 +65,7 @@ import type {
   ExtensionManager,
   MaterializationObservation,
 } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import type { ExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
@@ -93,7 +93,10 @@ import {
 } from "../workspace/refs/rule.js";
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
-  readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
+  readonly projectionPlans: () => Effect.Effect<
+    ReadonlyArray<ProjectionPlan>,
+    ExtensionManagerFailure
+  >;
 }
 
 export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerService>()(
@@ -239,9 +242,7 @@ export const RuleManagerLive = Layer.effect(
           RULE_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const lockedEntry = yield* ws
-          .getLockedRuleEntry(ref.rule.name)
-          .pipe(Effect.mapError(toAppError));
+        const lockedEntry = yield* ws.getLockedRuleEntry(ref.rule.name);
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
@@ -324,8 +325,7 @@ export const RuleManagerLive = Layer.effect(
               ref.scope !== ws.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
             ) {
-              return yield* makeAppError({
-                code: "validation",
+              return yield* new RuleDefinitionInvalid({
                 detail: `Invalid workspace rule source location: ${ref.location}`,
               });
             }
@@ -343,33 +343,31 @@ export const RuleManagerLive = Layer.effect(
           Effect.try({
             try: (): unknown => JSON.parse(content),
             catch: (error) =>
-              makeAppError({
-                code: "validation",
+              new RuleDefinitionInvalid({
                 detail: `Failed to parse ${RULE_MANIFEST_FILENAME}`,
                 cause: error,
               }),
           }),
         ),
         Effect.flatMap((content) => decodeRuleManifest(content)),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to read ${RULE_MANIFEST_FILENAME}`,
-            cause: error,
-          }),
+        Effect.mapError(
+          (error) =>
+            new RuleDefinitionInvalid({
+              detail: `Failed to read ${RULE_MANIFEST_FILENAME}`,
+              cause: error,
+            }),
         ),
       );
 
     const sourceFileTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
+        const config = yield* ws.getInstructionsConfig();
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
         );
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
         if (Option.isNone(relative)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new RuleDefinitionInvalid({
             detail: `Rule instruction source escapes workspace: ${resolved.fileName}`,
           });
         }
@@ -381,7 +379,7 @@ export const RuleManagerLive = Layer.effect(
 
     const activeInstructions = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig().pipe(Effect.mapError(toAppError));
+        const config = yield* ws.getInstructionsConfig();
         if (Option.isNone(config) || config.value === false) {
           return Option.none<{
             readonly config: ResolvedInstructionsConfig;
@@ -390,22 +388,20 @@ export const RuleManagerLive = Layer.effect(
         }
         return Option.some({
           config: resolveInstructionsConfig(config.value),
-          agents: yield* ws.getConfiguredAgents().pipe(Effect.mapError(toAppError)),
+          agents: yield* ws.getConfiguredAgents(),
         });
       });
 
     const readRuleBody = (packageRoot: string) =>
       fs.readFileString(path.join(packageRoot, "src", RULE_BODY_FILENAME)).pipe(
-        Effect.flatMap((content) =>
-          parseFrontmatterEffect(content).pipe(Effect.mapError(frontmatterParseFailureToAppError)),
-        ),
+        Effect.flatMap((content) => parseFrontmatterEffect(content)),
         Effect.map((parsed) => normalizeMarkdown(parsed.body)),
-        Effect.mapError((error) =>
-          makeAppError({
-            code: "validation",
-            detail: `Failed to read src/${RULE_BODY_FILENAME}`,
-            cause: error,
-          }),
+        Effect.mapError(
+          (error) =>
+            new RuleDefinitionInvalid({
+              detail: `Failed to read src/${RULE_BODY_FILENAME}`,
+              cause: error,
+            }),
         ),
       );
 
@@ -584,8 +580,8 @@ export const RuleManagerLive = Layer.effect(
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
         const instructions = yield* activeInstructions();
-        const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(toAppError));
-        const locked = yield* ws.getLockedRules().pipe(Effect.mapError(toAppError));
+        const graph = yield* ws.getDesiredStateGraph();
+        const locked = yield* ws.getLockedRules();
         return yield* planAggregateProjection({
           unitId: "rule:instructions-region",
           targetFile: target.absolute,
@@ -622,8 +618,7 @@ export const RuleManagerLive = Layer.effect(
             )
           : Option.none<string>();
       if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* makeAppError({
-          code: "validation",
+        return yield* new RuleDefinitionInvalid({
           detail: `Local rule source path must stay within the workspace root: ${ref.source.path}`,
         });
       }
@@ -639,29 +634,26 @@ export const RuleManagerLive = Layer.effect(
 
     const buildLockEntry = (
       ref: RuleExtensionRef,
-    ): Effect.Effect<Option.Option<RuleLockEntry>, AppError> =>
+    ): Effect.Effect<Option.Option<RuleLockEntry>, RuleInstallStateMissing> =>
       Effect.gen(function* () {
         const state = lastInstallState.get(ref.rule.name);
         switch (ref.refType) {
           case "registry":
             return state === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Rule ${ref.rule.name} has no materialized tree integrity`,
-                })
+              ? yield* new RuleInstallStateMissing({ name: ref.rule.name, kind: "tree-integrity" })
               : Option.some(registryRuleLockEntry(ref, state.treeIntegrity));
           case "git-hosted":
             return state === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Rule ${ref.rule.name} has no materialized content identity`,
+              ? yield* new RuleInstallStateMissing({
+                  name: ref.rule.name,
+                  kind: "content-identity",
                 })
               : Option.some(gitRuleLockEntry(ref, state.sourceHash, state.treeIntegrity));
           case "local":
             return state === undefined
-              ? yield* makeAppError({
-                  code: "internal",
-                  detail: `Rule ${ref.rule.name} has no materialized content identity`,
+              ? yield* new RuleInstallStateMissing({
+                  name: ref.rule.name,
+                  kind: "content-identity",
                 })
               : Option.some(
                   localRuleLockEntry(
@@ -689,7 +681,7 @@ export const RuleManagerLive = Layer.effect(
         );
         const packageRoot = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(packageRoot)) {
-          yield* removeIfExists(fs, packageRoot.value).pipe(Effect.mapError(toAppError));
+          yield* removeIfExists(fs, packageRoot.value);
         }
       }, Effect.asVoid);
     // Deactivation retains canonical content; the caller updates settings
@@ -703,7 +695,6 @@ export const RuleManagerLive = Layer.effect(
       runTransaction: ws.runTransaction,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "rule", target.name).pipe(
-          Effect.mapError(toAppError),
           Effect.withSpan("RuleManager.isInstalled"),
         ),
 
@@ -719,12 +710,12 @@ export const RuleManagerLive = Layer.effect(
         ),
       getLastMaterialization: () => Effect.succeed(lastProjection ?? { agents: [], targets: [] }),
       getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
+        const configured = yield* ws.getConfiguredRuleEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
       listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
-        const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(toAppError));
+        const configured = yield* ws.getConfiguredRuleEntries();
         const releaseAgeEvaluation = yield* provide(makeConfiguredReleaseAgeEvaluation("enforce"));
         const refs = yield* Effect.scoped(
           Effect.forEach(
@@ -748,12 +739,10 @@ export const RuleManagerLive = Layer.effect(
       }) {
         const lockEntry = yield* buildLockEntry(ref);
         if (Option.isNone(lockEntry)) {
-          yield* ws
-            .setRuleEntry(ref.rule.name, {
-              source: "workspace",
-              enabled: true,
-            })
-            .pipe(Effect.mapError(toAppError));
+          yield* ws.setRuleEntry(ref.rule.name, {
+            source: "workspace",
+            enabled: true,
+          });
           return;
         }
         if (lockEntry.value.type === "registry") {
@@ -762,23 +751,21 @@ export const RuleManagerLive = Layer.effect(
             lockEntry.value.resolvedVersion,
           );
         }
-        yield* ws
-          .setRule({
-            name: ref.rule.name,
-            lockEntry: lockEntry.value,
-            versionRange,
-          })
-          .pipe(Effect.mapError(toAppError));
+        yield* ws.setRule({
+          name: ref.rule.name,
+          lockEntry: lockEntry.value,
+          versionRange,
+        });
       }),
 
       removeSettingsEntry: Effect.fn("RuleManager.removeSettingsEntry")(function* ({ target }) {
-        yield* ws.removeRuleSettings(target.name).pipe(Effect.mapError(toAppError));
+        yield* ws.removeRuleSettings(target.name);
       }),
 
       upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({ ref }) {
         const lockEntry = yield* buildLockEntry(ref);
         if (Option.isNone(lockEntry)) {
-          yield* ws.removeRuleLock(ref.rule.name).pipe(Effect.mapError(toAppError));
+          yield* ws.removeRuleLock(ref.rule.name);
           return;
         }
         if (lockEntry.value.type === "registry") {
@@ -787,17 +774,15 @@ export const RuleManagerLive = Layer.effect(
             lockEntry.value.resolvedVersion,
           );
         }
-        yield* ws
-          .setRuleLock({
-            name: ref.rule.name,
-            lockEntry: lockEntry.value,
-            versionRange: Option.none(),
-          })
-          .pipe(Effect.mapError(toAppError));
+        yield* ws.setRuleLock({
+          name: ref.rule.name,
+          lockEntry: lockEntry.value,
+          versionRange: Option.none(),
+        });
       }),
 
       removeLockfileEntry: Effect.fn("RuleManager.removeLockfileEntry")(function* ({ target }) {
-        yield* ws.removeRuleLock(target.name).pipe(Effect.mapError(toAppError));
+        yield* ws.removeRuleLock(target.name);
       }),
     };
   }),

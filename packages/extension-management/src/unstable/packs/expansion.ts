@@ -9,6 +9,11 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
+import type { SourceAuthorityBlocked } from "../extensions/errors.js";
+import type { PackManagerError } from "./errors.js";
+
+/** Interim union while registry resolution still fails with `AppError`. */
+type PackExpansionError = AppError | PackManagerError | SourceAuthorityBlocked;
 import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
 import type { PackRef } from "../workspace/refs/pack.js";
@@ -44,7 +49,7 @@ export const expandPackInstallRefs = (args: {
   readonly minimumReleaseAge?: Option.Option<Duration.Duration>;
   readonly workspaceResolver?: WorkspacePackDependencyResolver;
   readonly dependencyResolver?: PackDependencyRefResolver;
-}): Effect.Effect<ReadonlyArray<ExtensionRef>, AppError> =>
+}): Effect.Effect<ReadonlyArray<ExtensionRef>, PackExpansionError> =>
   Effect.gen(function* () {
     const {
       pack,
@@ -93,7 +98,7 @@ export const expandPackInstallRefsWithReleaseAge = (args: {
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   readonly workspaceResolver?: WorkspacePackDependencyResolver;
   readonly dependencyResolver?: PackDependencyRefResolver;
-}): Effect.Effect<ReleaseAgeAwarePackExpansion, AppError> =>
+}): Effect.Effect<ReleaseAgeAwarePackExpansion, PackExpansionError> =>
   Effect.gen(function* () {
     const resolved = yield* resolvePackDependenciesWithReleaseAge(
       args.pack,

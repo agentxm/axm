@@ -52,6 +52,160 @@ import {
   type LockfileReadError,
   type SettingsReadError,
 } from "../workspace/read-model/errors.js";
+import {
+  ArchiveIntegrityMismatch,
+  CanonicalPackageProbeFailed,
+  CreateDestinationExists,
+  CreateDestinationInspectionFailed,
+  CreateNameConfigured,
+  ForkPackageConflict,
+  ForkPackageFailed,
+  ForkPackageInvalid,
+  LifecyclePostconditionViolated,
+  NativeImportConflict,
+  NativeImportFailed,
+  NativeImportInvalid,
+  NativeImportUnsupported,
+  PackageCopyFailed,
+  PackageMaterializationFailed,
+  PathTraversalDetected,
+  ScaffoldedExtensionUnresolved,
+  SourceAuthorityBlocked,
+  StagedPackageInvalid,
+} from "../extensions/errors.js";
+import { MaterializedTreeInvalid } from "../workspace/materialized-tree.js";
+import { RuleDefinitionInvalid, RuleInstallStateMissing } from "../rules/errors.js";
+import {
+  HookConfigInvalid,
+  HookDefinitionInvalid,
+  HookInstallStateMissing,
+  HookIoFailed,
+} from "../hooks/errors.js";
+import { TransientBackupFailed } from "../utils/transient-backup.js";
+import {
+  KnowledgeDefinitionInvalid,
+  KnowledgeDesiredStateUnreconcilable,
+  KnowledgeInstallStateMissing,
+  KnowledgeIoFailed,
+  KnowledgeObservableContractViolated,
+  KnowledgeResolutionMissing,
+  KnowledgeUnavailable,
+} from "../knowledge/errors.js";
+import {
+  PackArchiveFetchFailed,
+  PackConstraintShadowed,
+  PackDefinitionInvalid,
+  PackDependencyConflict,
+  PackDependencyInvalid,
+  PackDependencyMissing,
+  PackDependencyUnsatisfied,
+  PackInstallStateMissing,
+  PackStagingFailed,
+} from "../packs/errors.js";
+import {
+  AxmSkillCompatibilityUnavailable,
+  AxmSkillIncompatible,
+  SkillDefinitionInvalid,
+  SkillInstallStateMissing,
+  SkillMaterializationFailed,
+} from "../skills/errors.js";
+import {
+  McpConfigInvalid,
+  McpConfigIoFailed,
+  McpDefinitionInvalid,
+  McpEntryUnmanaged,
+  McpInstallStateMissing,
+  McpOwnershipMarkerInvalid,
+  McpRegistryOnlyInstall,
+  McpSharedTargetConflict,
+} from "../mcps/errors.js";
+import {
+  SubagentContentUnreadable,
+  SubagentDefinitionInvalid,
+  SubagentInstallStateMissing,
+  SubagentIoFailed,
+} from "../subagents/errors.js";
+import { WriteBackupRetained } from "../extension-workspace/errors.js";
+import {
+  AuthoredContributorUnsupported,
+  ContributorIdentityInvalid,
+  ContributorTreeMismatch,
+  ContributorUnresolved,
+  DesiredStateIncomplete,
+  ManagedRegionViolation,
+  ProjectionIoFailed,
+  ProjectionTargetUnsupported,
+} from "../projection/errors.js";
+import {
+  archiveIntegrityMismatchToAppError,
+  canonicalPackageProbeFailedToAppError,
+  createDestinationExistsToAppError,
+  createDestinationInspectionFailedToAppError,
+  createNameConfiguredToAppError,
+  forkPackageConflictToAppError,
+  forkPackageFailedToAppError,
+  forkPackageInvalidToAppError,
+  lifecyclePostconditionViolatedToAppError,
+  materializedTreeInvalidToAppError,
+  nativeImportConflictToAppError,
+  nativeImportFailedToAppError,
+  nativeImportInvalidToAppError,
+  nativeImportUnsupportedToAppError,
+  authoredContributorUnsupportedToAppError,
+  hookConfigInvalidToAppError,
+  hookDefinitionInvalidToAppError,
+  hookInstallStateMissingToAppError,
+  hookIoFailedToAppError,
+  ruleDefinitionInvalidToAppError,
+  ruleInstallStateMissingToAppError,
+  axmSkillCompatibilityUnavailableToAppError,
+  axmSkillIncompatibleToAppError,
+  knowledgeDefinitionInvalidToAppError,
+  knowledgeDesiredStateUnreconcilableToAppError,
+  knowledgeInstallStateMissingToAppError,
+  knowledgeIoFailedToAppError,
+  knowledgeObservableContractViolatedToAppError,
+  knowledgeResolutionMissingToAppError,
+  knowledgeUnavailableToAppError,
+  mcpConfigInvalidToAppError,
+  packArchiveFetchFailedToAppError,
+  packConstraintShadowedToAppError,
+  packDefinitionInvalidToAppError,
+  packDependencyConflictToAppError,
+  packDependencyInvalidToAppError,
+  packDependencyMissingToAppError,
+  packDependencyUnsatisfiedToAppError,
+  packInstallStateMissingToAppError,
+  packStagingFailedToAppError,
+  mcpConfigIoFailedToAppError,
+  mcpDefinitionInvalidToAppError,
+  mcpEntryUnmanagedToAppError,
+  mcpInstallStateMissingToAppError,
+  mcpOwnershipMarkerInvalidToAppError,
+  mcpRegistryOnlyInstallToAppError,
+  mcpSharedTargetConflictToAppError,
+  skillDefinitionInvalidToAppError,
+  skillInstallStateMissingToAppError,
+  skillMaterializationFailedToAppError,
+  subagentContentUnreadableToAppError,
+  subagentDefinitionInvalidToAppError,
+  subagentInstallStateMissingToAppError,
+  subagentIoFailedToAppError,
+  transientBackupFailedToAppError,
+  contributorIdentityInvalidToAppError,
+  contributorTreeMismatchToAppError,
+  contributorUnresolvedToAppError,
+  desiredStateIncompleteToAppError,
+  managedRegionViolationToAppError,
+  packageCopyFailedToAppError,
+  packageMaterializationFailedToAppError,
+  projectionIoFailedToAppError,
+  projectionTargetUnsupportedToAppError,
+  pathTraversalDetectedToAppError,
+  scaffoldedExtensionUnresolvedToAppError,
+  sourceAuthorityBlockedToAppError,
+  stagedPackageInvalidToAppError,
+} from "./conversions/extension-workspace.js";
 import { AppError, makeAppError } from "./index.js";
 
 // The kernel's serialized category vocabulary and the CLI's AppErrorCode must
@@ -526,7 +680,76 @@ export type KnownFailure =
   | TransitionLockError
   | TransitionLockUnavailable
   | WorkspaceTransitionCompromised
-  | WorkspaceRestorationError;
+  | WorkspaceRestorationError
+  | PackageMaterializationFailed
+  | StagedPackageInvalid
+  | CanonicalPackageProbeFailed
+  | PackageCopyFailed
+  | ArchiveIntegrityMismatch
+  | CreateDestinationExists
+  | CreateNameConfigured
+  | CreateDestinationInspectionFailed
+  | PathTraversalDetected
+  | ForkPackageInvalid
+  | ForkPackageConflict
+  | ForkPackageFailed
+  | NativeImportUnsupported
+  | NativeImportInvalid
+  | NativeImportConflict
+  | NativeImportFailed
+  | SourceAuthorityBlocked
+  | LifecyclePostconditionViolated
+  | ScaffoldedExtensionUnresolved
+  | MaterializedTreeInvalid
+  | DesiredStateIncomplete
+  | AuthoredContributorUnsupported
+  | ContributorIdentityInvalid
+  | ContributorUnresolved
+  | ContributorTreeMismatch
+  | ProjectionTargetUnsupported
+  | ManagedRegionViolation
+  | ProjectionIoFailed
+  | RuleDefinitionInvalid
+  | RuleInstallStateMissing
+  | HookDefinitionInvalid
+  | HookConfigInvalid
+  | HookIoFailed
+  | HookInstallStateMissing
+  | TransientBackupFailed
+  | WriteBackupRetained
+  | SubagentDefinitionInvalid
+  | SubagentContentUnreadable
+  | SubagentIoFailed
+  | SubagentInstallStateMissing
+  | McpConfigInvalid
+  | McpConfigIoFailed
+  | McpEntryUnmanaged
+  | McpOwnershipMarkerInvalid
+  | McpDefinitionInvalid
+  | McpRegistryOnlyInstall
+  | McpInstallStateMissing
+  | McpSharedTargetConflict
+  | SkillDefinitionInvalid
+  | SkillMaterializationFailed
+  | SkillInstallStateMissing
+  | AxmSkillCompatibilityUnavailable
+  | AxmSkillIncompatible
+  | PackDefinitionInvalid
+  | PackInstallStateMissing
+  | PackArchiveFetchFailed
+  | PackStagingFailed
+  | PackDependencyInvalid
+  | PackDependencyConflict
+  | PackConstraintShadowed
+  | PackDependencyMissing
+  | PackDependencyUnsatisfied
+  | KnowledgeDefinitionInvalid
+  | KnowledgeIoFailed
+  | KnowledgeInstallStateMissing
+  | KnowledgeResolutionMissing
+  | KnowledgeDesiredStateUnreconcilable
+  | KnowledgeUnavailable
+  | KnowledgeObservableContractViolated;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof FqnInvalidError ||
@@ -558,7 +781,76 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof TransitionLockError ||
   error instanceof TransitionLockUnavailable ||
   error instanceof WorkspaceTransitionCompromised ||
-  error instanceof WorkspaceRestorationError;
+  error instanceof WorkspaceRestorationError ||
+  error instanceof PackageMaterializationFailed ||
+  error instanceof StagedPackageInvalid ||
+  error instanceof CanonicalPackageProbeFailed ||
+  error instanceof PackageCopyFailed ||
+  error instanceof ArchiveIntegrityMismatch ||
+  error instanceof CreateDestinationExists ||
+  error instanceof CreateNameConfigured ||
+  error instanceof CreateDestinationInspectionFailed ||
+  error instanceof PathTraversalDetected ||
+  error instanceof ForkPackageInvalid ||
+  error instanceof ForkPackageConflict ||
+  error instanceof ForkPackageFailed ||
+  error instanceof NativeImportUnsupported ||
+  error instanceof NativeImportInvalid ||
+  error instanceof NativeImportConflict ||
+  error instanceof NativeImportFailed ||
+  error instanceof SourceAuthorityBlocked ||
+  error instanceof LifecyclePostconditionViolated ||
+  error instanceof ScaffoldedExtensionUnresolved ||
+  error instanceof MaterializedTreeInvalid ||
+  error instanceof DesiredStateIncomplete ||
+  error instanceof AuthoredContributorUnsupported ||
+  error instanceof ContributorIdentityInvalid ||
+  error instanceof ContributorUnresolved ||
+  error instanceof ContributorTreeMismatch ||
+  error instanceof ProjectionTargetUnsupported ||
+  error instanceof ManagedRegionViolation ||
+  error instanceof ProjectionIoFailed ||
+  error instanceof RuleDefinitionInvalid ||
+  error instanceof RuleInstallStateMissing ||
+  error instanceof HookDefinitionInvalid ||
+  error instanceof HookConfigInvalid ||
+  error instanceof HookIoFailed ||
+  error instanceof HookInstallStateMissing ||
+  error instanceof TransientBackupFailed ||
+  error instanceof WriteBackupRetained ||
+  error instanceof SubagentDefinitionInvalid ||
+  error instanceof SubagentContentUnreadable ||
+  error instanceof SubagentIoFailed ||
+  error instanceof SubagentInstallStateMissing ||
+  error instanceof McpConfigInvalid ||
+  error instanceof McpConfigIoFailed ||
+  error instanceof McpEntryUnmanaged ||
+  error instanceof McpOwnershipMarkerInvalid ||
+  error instanceof McpDefinitionInvalid ||
+  error instanceof McpRegistryOnlyInstall ||
+  error instanceof McpInstallStateMissing ||
+  error instanceof McpSharedTargetConflict ||
+  error instanceof SkillDefinitionInvalid ||
+  error instanceof SkillMaterializationFailed ||
+  error instanceof SkillInstallStateMissing ||
+  error instanceof AxmSkillCompatibilityUnavailable ||
+  error instanceof AxmSkillIncompatible ||
+  error instanceof PackDefinitionInvalid ||
+  error instanceof PackInstallStateMissing ||
+  error instanceof PackArchiveFetchFailed ||
+  error instanceof PackStagingFailed ||
+  error instanceof PackDependencyInvalid ||
+  error instanceof PackDependencyConflict ||
+  error instanceof PackConstraintShadowed ||
+  error instanceof PackDependencyMissing ||
+  error instanceof PackDependencyUnsatisfied ||
+  error instanceof KnowledgeDefinitionInvalid ||
+  error instanceof KnowledgeIoFailed ||
+  error instanceof KnowledgeInstallStateMissing ||
+  error instanceof KnowledgeResolutionMissing ||
+  error instanceof KnowledgeDesiredStateUnreconcilable ||
+  error instanceof KnowledgeUnavailable ||
+  error instanceof KnowledgeObservableContractViolated;
 
 /**
  * Convert a known typed failure into the CLI-facing `AppError` envelope. An
@@ -626,5 +918,152 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return workspaceTransitionCompromisedToAppError(error);
     case "WorkspaceRestorationError":
       return workspaceRestorationErrorToAppError(error);
+    case "PackageMaterializationFailed":
+      return packageMaterializationFailedToAppError(error);
+    case "StagedPackageInvalid":
+      return stagedPackageInvalidToAppError(error);
+    case "CanonicalPackageProbeFailed":
+      return canonicalPackageProbeFailedToAppError(error);
+    case "PackageCopyFailed":
+      return packageCopyFailedToAppError(error);
+    case "ArchiveIntegrityMismatch":
+      return archiveIntegrityMismatchToAppError(error);
+    case "CreateDestinationExists":
+      return createDestinationExistsToAppError(error);
+    case "CreateNameConfigured":
+      return createNameConfiguredToAppError(error);
+    case "CreateDestinationInspectionFailed":
+      return createDestinationInspectionFailedToAppError(error);
+    case "PathTraversalDetected":
+      return pathTraversalDetectedToAppError(error);
+    case "ForkPackageInvalid":
+      return forkPackageInvalidToAppError(error);
+    case "ForkPackageConflict":
+      return forkPackageConflictToAppError(error);
+    case "ForkPackageFailed":
+      return forkPackageFailedToAppError(error);
+    case "NativeImportUnsupported":
+      return nativeImportUnsupportedToAppError(error);
+    case "NativeImportInvalid":
+      return nativeImportInvalidToAppError(error);
+    case "NativeImportConflict":
+      return nativeImportConflictToAppError(error);
+    case "NativeImportFailed":
+      return nativeImportFailedToAppError(error);
+    case "SourceAuthorityBlocked":
+      return sourceAuthorityBlockedToAppError(error);
+    case "LifecyclePostconditionViolated":
+      return lifecyclePostconditionViolatedToAppError(error);
+    case "ScaffoldedExtensionUnresolved":
+      return scaffoldedExtensionUnresolvedToAppError(error);
+    case "MaterializedTreeInvalid":
+      return materializedTreeInvalidToAppError(error);
+    case "DesiredStateIncomplete":
+      return desiredStateIncompleteToAppError(error);
+    case "AuthoredContributorUnsupported":
+      return authoredContributorUnsupportedToAppError(error);
+    case "ContributorIdentityInvalid":
+      return contributorIdentityInvalidToAppError(error);
+    case "ContributorUnresolved":
+      return contributorUnresolvedToAppError(error);
+    case "ContributorTreeMismatch":
+      return contributorTreeMismatchToAppError(error);
+    case "ProjectionTargetUnsupported":
+      return projectionTargetUnsupportedToAppError(error);
+    case "ManagedRegionViolation":
+      return managedRegionViolationToAppError(error);
+    case "ProjectionIoFailed":
+      return projectionIoFailedToAppError(error);
+    case "RuleDefinitionInvalid":
+      return ruleDefinitionInvalidToAppError(error);
+    case "RuleInstallStateMissing":
+      return ruleInstallStateMissingToAppError(error);
+    case "HookDefinitionInvalid":
+      return hookDefinitionInvalidToAppError(error);
+    case "HookConfigInvalid":
+      return hookConfigInvalidToAppError(error);
+    case "HookIoFailed":
+      return hookIoFailedToAppError(error);
+    case "HookInstallStateMissing":
+      return hookInstallStateMissingToAppError(error);
+    case "TransientBackupFailed":
+      return transientBackupFailedToAppError(error);
+    case "SubagentDefinitionInvalid":
+      return subagentDefinitionInvalidToAppError(error);
+    case "SubagentContentUnreadable":
+      return subagentContentUnreadableToAppError(error);
+    case "SubagentIoFailed":
+      return subagentIoFailedToAppError(error);
+    case "SubagentInstallStateMissing":
+      return subagentInstallStateMissingToAppError(error);
+    case "McpConfigInvalid":
+      return mcpConfigInvalidToAppError(error);
+    case "McpConfigIoFailed":
+      return mcpConfigIoFailedToAppError(error);
+    case "McpEntryUnmanaged":
+      return mcpEntryUnmanagedToAppError(error);
+    case "McpOwnershipMarkerInvalid":
+      return mcpOwnershipMarkerInvalidToAppError(error);
+    case "McpDefinitionInvalid":
+      return mcpDefinitionInvalidToAppError(error);
+    case "McpRegistryOnlyInstall":
+      return mcpRegistryOnlyInstallToAppError(error);
+    case "McpInstallStateMissing":
+      return mcpInstallStateMissingToAppError(error);
+    case "McpSharedTargetConflict":
+      return mcpSharedTargetConflictToAppError(error);
+    case "SkillDefinitionInvalid":
+      return skillDefinitionInvalidToAppError(error);
+    case "SkillMaterializationFailed":
+      return skillMaterializationFailedToAppError(error);
+    case "SkillInstallStateMissing":
+      return skillInstallStateMissingToAppError(error);
+    case "AxmSkillCompatibilityUnavailable":
+      return axmSkillCompatibilityUnavailableToAppError(error);
+    case "AxmSkillIncompatible":
+      return axmSkillIncompatibleToAppError(error);
+    case "PackDefinitionInvalid":
+      return packDefinitionInvalidToAppError(error);
+    case "PackInstallStateMissing":
+      return packInstallStateMissingToAppError(error);
+    case "PackArchiveFetchFailed":
+      return packArchiveFetchFailedToAppError(error);
+    case "PackStagingFailed":
+      return packStagingFailedToAppError(error);
+    case "PackDependencyInvalid":
+      return packDependencyInvalidToAppError(error);
+    case "PackDependencyConflict":
+      return packDependencyConflictToAppError(error);
+    case "PackConstraintShadowed":
+      return packConstraintShadowedToAppError(error);
+    case "PackDependencyMissing":
+      return packDependencyMissingToAppError(error);
+    case "PackDependencyUnsatisfied":
+      return packDependencyUnsatisfiedToAppError(error);
+    case "KnowledgeDefinitionInvalid":
+      return knowledgeDefinitionInvalidToAppError(error);
+    case "KnowledgeIoFailed":
+      return knowledgeIoFailedToAppError(error);
+    case "KnowledgeInstallStateMissing":
+      return knowledgeInstallStateMissingToAppError(error);
+    case "KnowledgeResolutionMissing":
+      return knowledgeResolutionMissingToAppError(error);
+    case "KnowledgeDesiredStateUnreconcilable":
+      return knowledgeDesiredStateUnreconcilableToAppError(error);
+    case "KnowledgeUnavailable":
+      return knowledgeUnavailableToAppError(error);
+    case "KnowledgeObservableContractViolated":
+      return knowledgeObservableContractViolatedToAppError(error);
+    case "WriteBackupRetained": {
+      const inner = toAppError(error.failure);
+      return makeAppError({
+        code: inner.code,
+        title: inner.title,
+        detail: `${inner.detail}\nOriginal file backup retained at: ${error.backupPath}`,
+        ...(inner.metadata === undefined ? {} : { metadata: inner.metadata }),
+        ...(inner.suggestions === undefined ? {} : { suggestions: inner.suggestions }),
+        cause: inner.cause,
+      });
+    }
   }
 };

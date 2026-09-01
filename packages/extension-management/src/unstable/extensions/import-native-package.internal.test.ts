@@ -5,6 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import { toAppError } from "../app-error/conversions.js";
 
 import { extensionName, handle } from "../test-helpers.js";
 import { importNativeExtensionPackage } from "./import-native-package.js";
@@ -62,7 +63,7 @@ describe("importNativeExtensionPackage", () => {
       ).pipe(Effect.provide(NodeServices.layer));
 
       expect(Result.isFailure(result)).toBe(true);
-      if (Result.isFailure(result)) expect(result.failure.detail).toContain("use fork");
+      if (Result.isFailure(result)) expect(toAppError(result.failure).detail).toContain("use fork");
     }),
   );
 
@@ -78,7 +79,7 @@ describe("importNativeExtensionPackage", () => {
 
       expect(Result.isFailure(result)).toBe(true);
       if (Result.isFailure(result))
-        expect(result.failure.detail).toContain("not supported for rule");
+        expect(toAppError(result.failure).detail).toContain("not supported for rule");
       expect(fs.existsSync(path.join(root, "rule-package"))).toBe(false);
     }),
   );

@@ -16,7 +16,7 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
+
 import { sourceToLockEntry } from "../workspace/source-to-lock-entry.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
@@ -55,6 +55,7 @@ import {
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 import { toAppError } from "../app-error/conversions.js";
+import { SkillDefinitionInvalid, SkillInstallStateMissing } from "./errors.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -167,8 +168,7 @@ export const SkillManagerLive = Layer.effect(
         ({ outcome }) => outcome._tag === "misconfigured",
       );
       if (misconfigured.length > 0) {
-        return yield* makeAppError({
-          code: "validation",
+        return yield* new SkillDefinitionInvalid({
           detail: "One or more configured agents have invalid skills directory settings",
         });
       }
@@ -231,9 +231,9 @@ export const SkillManagerLive = Layer.effect(
       lastSourceHashes.set(ref.skill.name, sourceHash);
       if (ref.refType !== "workspace") {
         if (materialized.treeIntegrity === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Skill ${ref.skill.name} has no materialized tree integrity`,
+          return yield* new SkillInstallStateMissing({
+            name: ref.skill.name,
+            kind: "tree-integrity",
           });
         }
         lastTreeIntegrities.set(ref.skill.name, materialized.treeIntegrity);
@@ -416,8 +416,7 @@ export const SkillManagerLive = Layer.effect(
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new SkillDefinitionInvalid({
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
@@ -432,9 +431,9 @@ export const SkillManagerLive = Layer.effect(
             .pipe(Effect.mapError(toAppError));
         }
         if (sourceHash === undefined || treeIntegrity === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Skill ${ref.skill.name} has no materialized content identity`,
+          return yield* new SkillInstallStateMissing({
+            name: ref.skill.name,
+            kind: "content-identity",
           });
         }
         const lockEntry = buildSkillLockEntry(
@@ -444,9 +443,9 @@ export const SkillManagerLive = Layer.effect(
           treeIntegrity,
         );
         if (lockEntry === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Skill ${ref.skill.name} did not produce an external resolution`,
+          return yield* new SkillInstallStateMissing({
+            name: ref.skill.name,
+            kind: "external-resolution",
           });
         }
         if (lockEntry.type === "registry") {
@@ -484,8 +483,7 @@ export const SkillManagerLive = Layer.effect(
               )
             : Option.none();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new SkillDefinitionInvalid({
             detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
           });
         }
@@ -496,9 +494,9 @@ export const SkillManagerLive = Layer.effect(
         const sourceHash = lastSourceHashes.get(ref.skill.name);
         const treeIntegrity = lastTreeIntegrities.get(ref.skill.name);
         if (sourceHash === undefined || treeIntegrity === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Skill ${ref.skill.name} has no materialized content identity`,
+          return yield* new SkillInstallStateMissing({
+            name: ref.skill.name,
+            kind: "content-identity",
           });
         }
         const lockEntry = buildSkillLockEntry(
@@ -508,9 +506,9 @@ export const SkillManagerLive = Layer.effect(
           treeIntegrity,
         );
         if (lockEntry === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Skill ${ref.skill.name} did not produce an external resolution`,
+          return yield* new SkillInstallStateMissing({
+            name: ref.skill.name,
+            kind: "external-resolution",
           });
         }
         if (lockEntry.type === "registry") {

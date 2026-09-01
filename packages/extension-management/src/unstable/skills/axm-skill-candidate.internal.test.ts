@@ -11,6 +11,7 @@ import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "./axm-skill-compatibility.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 import type { WorkspaceSkillRef } from "../workspace/refs/skill.js";
+import { toAppError } from "../app-error/conversions.js";
 
 const VERSION = "1.2.3";
 
@@ -82,8 +83,8 @@ describe("validateAxmSkillCandidate", () => {
     writeCandidate(">=2.0.0 <3.0.0");
     return Effect.gen(function* () {
       const error = yield* Effect.flip(run(ref()));
-      expect(error.code).toBe("conflict");
-      expect(error.detail).toContain("outside its declared CLI range");
+      expect(toAppError(error).code).toBe("conflict");
+      expect(toAppError(error).detail).toContain("outside its declared CLI range");
     });
   });
 

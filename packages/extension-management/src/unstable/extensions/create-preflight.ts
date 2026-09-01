@@ -1,7 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import {
+  CreateDestinationExists,
+  CreateDestinationInspectionFailed,
+  CreateNameConfigured,
+} from "./errors.js";
 
 export interface CreateOnlyPreflightArgs {
   readonly subject: string;
@@ -15,32 +19,20 @@ export const preflightCreateOnly = Effect.fn("Extensions.preflightCreateOnly")(f
   args: CreateOnlyPreflightArgs,
 ) {
   if (args.configured) {
-    const recover = `Choose a different name or remove the existing ${args.subject.toLowerCase()} first`;
-    return yield* makeAppError({
-      code: "conflict",
-      detail: `${args.subject} '${args.name}' already exists in settings`,
-      recover,
-    });
+    return yield* new CreateNameConfigured({ subject: args.subject, name: args.name });
   }
 
   const fs = yield* FileSystem.FileSystem;
   for (const destination of args.destinations) {
-    const exists = yield* fs.exists(destination).pipe(
-      Effect.mapError((cause): AppError =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to inspect create destination: ${destination}`,
-          cause,
-        }),
-      ),
-    );
+    const exists = yield* fs
+      .exists(destination)
+      .pipe(
+        Effect.mapError(
+          (cause) => new CreateDestinationInspectionFailed({ path: destination, cause }),
+        ),
+      );
     if (exists) {
-      const recover = "Choose a different name or remove the existing directory first";
-      return yield* makeAppError({
-        code: "conflict",
-        detail: `${args.subject} destination already exists: ${destination}`,
-        recover,
-      });
+      return yield* new CreateDestinationExists({ subject: args.subject, path: destination });
     }
   }
 });

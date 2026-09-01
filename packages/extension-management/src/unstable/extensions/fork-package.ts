@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { makeAppError, type AppError } from "../app-error/index.js";
+import { ForkPackageConflict, ForkPackageFailed, ForkPackageInvalid } from "./errors.js";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,
@@ -13,8 +13,10 @@ import {
   type ManifestIdentity,
 } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
 import { copyExtensionDirectory } from "./utils.js";
-import { frontmatterParseFailureToAppError } from "../app-error/conversions.js";
-import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
+import {
+  parseFrontmatterEffect,
+  type FrontmatterParseFailure,
+} from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import type {
   ExtensionFqnParts,
   ExtensionName,
@@ -39,25 +41,23 @@ export interface ForkExtensionPackageArgs {
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const readJson = (filePath: string): Effect.Effect<unknown, AppError, FileSystem.FileSystem> =>
+const readJson = (
+  filePath: string,
+): Effect.Effect<unknown, ForkPackageInvalid, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const text = yield* fs.readFileString(filePath).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Manifest could not be read: ${filePath}`,
-          cause,
-        }),
-      ),
-    );
+    const text = yield* fs
+      .readFileString(filePath)
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new ForkPackageInvalid({ detail: `Manifest could not be read: ${filePath}`, cause }),
+        ),
+      );
     return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Manifest contains invalid JSON: ${filePath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({ detail: `Manifest contains invalid JSON: ${filePath}`, cause }),
       ),
     );
   });
@@ -65,39 +65,38 @@ const readJson = (filePath: string): Effect.Effect<unknown, AppError, FileSystem
 const validateSourceIdentity = (
   actual: ManifestIdentity,
   expected: ForkExtensionPackageArgs["sourceIdentity"],
-): Effect.Effect<void, AppError> =>
+): Effect.Effect<void, ForkPackageConflict> =>
   actual.owner === expected.owner &&
   actual.type === expected.type &&
   actual.name === expected.name &&
   actual.version === expected.version
     ? Effect.void
-    : makeAppError({
-        code: "conflict",
+    : new ForkPackageConflict({
         detail: `Fork source changed after it was resolved; expected ${expected.owner}/${expected.type}/${expected.name}@${expected.version}`,
       });
 
 const validateContainedSymlinks = (
   sourceRoot: string,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<void, ForkPackageInvalid, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const realRoot = yield* fs.realPath(sourceRoot).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Fork source could not be resolved: ${sourceRoot}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({
+            detail: `Fork source could not be resolved: ${sourceRoot}`,
+            cause,
+          }),
       ),
     );
     const entries = yield* fs.readDirectory(sourceRoot, { recursive: true }).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Fork source could not be inspected: ${sourceRoot}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({
+            detail: `Fork source could not be inspected: ${sourceRoot}`,
+            cause,
+          }),
       ),
     );
     yield* Effect.forEach(
@@ -108,19 +107,18 @@ const validateContainedSymlinks = (
           const link = yield* fs.readLink(entry).pipe(Effect.option);
           if (Option.isNone(link)) return;
           const realTarget = yield* fs.realPath(entry).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "validation",
-                detail: `Fork source contains an unresolved symlink: ${entry}`,
-                cause,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new ForkPackageInvalid({
+                  detail: `Fork source contains an unresolved symlink: ${entry}`,
+                  cause,
+                }),
             ),
           );
           const contained =
             realTarget === realRoot || realTarget.startsWith(`${realRoot}${path.sep}`);
           if (!contained) {
-            return yield* makeAppError({
-              code: "validation",
+            return yield* new ForkPackageInvalid({
               detail: `Fork source symlink escapes the package root: ${entry}`,
             });
           }
@@ -132,24 +130,25 @@ const validateContainedSymlinks = (
 const rewriteFrontmatterName = (
   filePath: string,
   targetName: ExtensionName,
-): Effect.Effect<void, AppError, FileSystem.FileSystem> =>
+): Effect.Effect<
+  void,
+  ForkPackageInvalid | ForkPackageFailed | FrontmatterParseFailure,
+  FileSystem.FileSystem
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const content = yield* fs.readFileString(filePath).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Extension content could not be read: ${filePath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({
+            detail: `Extension content could not be read: ${filePath}`,
+            cause,
+          }),
       ),
     );
-    const parsed = yield* parseFrontmatterEffect(content).pipe(
-      Effect.mapError(frontmatterParseFailureToAppError),
-    );
+    const parsed = yield* parseFrontmatterEffect(content);
     if (!isRecord(parsed.frontmatter)) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new ForkPackageInvalid({
         detail: `Extension content must have YAML frontmatter: ${filePath}`,
       });
     }
@@ -157,12 +156,12 @@ const rewriteFrontmatterName = (
     const yaml = YAML.stringify(frontmatter, { lineWidth: 0 }).trim();
     const body = parsed.body.startsWith("\n") ? parsed.body : `\n${parsed.body}`;
     yield* fs.writeFileString(filePath, `---\n${yaml}\n---${body}`).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Extension frontmatter could not be rewritten: ${filePath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageFailed({
+            detail: `Extension frontmatter could not be rewritten: ${filePath}`,
+            cause,
+          }),
       ),
     );
   });
@@ -171,7 +170,11 @@ const rewriteTypeSpecificIdentity = (
   targetDir: string,
   source: ForkExtensionPackageArgs["sourceIdentity"],
   target: ExtensionFqnParts,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  void,
+  ForkPackageInvalid | ForkPackageFailed | FrontmatterParseFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -189,12 +192,12 @@ const rewriteTypeSpecificIdentity = (
         );
         if (sourcePath !== targetPath) {
           yield* fs.rename(sourcePath, targetPath).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: `Subagent content could not be renamed to ${target.name}.md`,
-                cause,
-              }),
+            Effect.mapError(
+              (cause) =>
+                new ForkPackageFailed({
+                  detail: `Subagent content could not be renamed to ${target.name}.md`,
+                  cause,
+                }),
             ),
           );
         }
@@ -211,28 +214,30 @@ const rewriteTypeSpecificIdentity = (
 
 export const forkExtensionPackage = (
   args: ForkExtensionPackageArgs,
-): Effect.Effect<void, AppError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  void,
+  ForkPackageInvalid | ForkPackageConflict | ForkPackageFailed | FrontmatterParseFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     if (args.sourceIdentity.type !== args.target.type) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new ForkPackageInvalid({
         detail: `Cannot fork ${args.sourceIdentity.type} as ${args.target.type}; source and target types must match`,
       });
     }
     const targetExists = yield* fs.exists(args.targetDir).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Fork target could not be inspected: ${args.targetDir}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageFailed({
+            detail: `Fork target could not be inspected: ${args.targetDir}`,
+            cause,
+          }),
       ),
     );
     if (targetExists) {
-      return yield* makeAppError({
-        code: "conflict",
+      return yield* new ForkPackageConflict({
         detail: `Fork target already exists: ${args.targetDir}`,
       });
     }
@@ -244,18 +249,17 @@ export const forkExtensionPackage = (
       Effect.provideService(FileSystem.FileSystem, fs),
     );
     const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(raw).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Fork source manifest identity is invalid: ${sourceManifestPath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({
+            detail: `Fork source manifest identity is invalid: ${sourceManifestPath}`,
+            cause,
+          }),
       ),
     );
     yield* validateSourceIdentity(identity, args.sourceIdentity);
     if (!isRecord(raw)) {
-      return yield* makeAppError({
-        code: "validation",
+      return yield* new ForkPackageInvalid({
         detail: `Fork source manifest must contain a JSON object: ${sourceManifestPath}`,
       });
     }
@@ -264,12 +268,12 @@ export const forkExtensionPackage = (
       Effect.provideService(Path.Path, path),
     );
     yield* copyExtensionDirectory(args.sourceDir, args.targetDir).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Failed to copy AXM package from ${args.sourceDir} to ${args.targetDir}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageFailed({
+            detail: `Failed to copy AXM package from ${args.sourceDir} to ${args.targetDir}`,
+            cause,
+          }),
       ),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
@@ -283,12 +287,12 @@ export const forkExtensionPackage = (
       version: INITIAL_FORK_VERSION,
     };
     yield* fs.writeFileString(targetManifestPath, `${JSON.stringify(rewritten, null, 2)}\n`).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: `Fork target manifest could not be written: ${targetManifestPath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageFailed({
+            detail: `Fork target manifest could not be written: ${targetManifestPath}`,
+            cause,
+          }),
       ),
     );
     yield* rewriteTypeSpecificIdentity(args.targetDir, args.sourceIdentity, args.target).pipe(
@@ -296,12 +300,12 @@ export const forkExtensionPackage = (
       Effect.provideService(Path.Path, path),
     );
     yield* Schema.decodeUnknownEffect(manifestSchemaForType(args.target.type))(rewritten).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "validation",
-          detail: `Fork target manifest is invalid: ${targetManifestPath}`,
-          cause,
-        }),
+      Effect.mapError(
+        (cause) =>
+          new ForkPackageInvalid({
+            detail: `Fork target manifest is invalid: ${targetManifestPath}`,
+            cause,
+          }),
       ),
     );
   });

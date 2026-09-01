@@ -11,7 +11,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { AppError } from "../app-error/index.js";
+import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import type { DesiredStateGraph } from "../workspace/desired-state-graph.js";
 import { requireCompleteGraph } from "./contributors.js";
 import type { ProjectionUnitObservation } from "./invariant-facts.js";
@@ -57,10 +57,10 @@ export interface ProjectionRenderInput<Contributor> {
 export interface ProjectionAdapter<Contributor, ApplyResult = void> {
   readonly observe: (
     input: ProjectionRenderInput<Contributor>,
-  ) => Effect.Effect<ProjectionUnitObservation, AppError>;
+  ) => Effect.Effect<ProjectionUnitObservation, ExtensionManagerFailure>;
   readonly apply: (
     input: ProjectionRenderInput<Contributor>,
-  ) => Effect.Effect<ApplyResult, AppError>;
+  ) => Effect.Effect<ApplyResult, ExtensionManagerFailure>;
 }
 
 /** Opaque executable plan for one ownership unit and one target file. */
@@ -68,8 +68,8 @@ export interface ProjectionPlan<ApplyResult = void> {
   readonly unitId: OwnershipUnitId;
   readonly targetFile: string;
   readonly [ProjectionPlanTypeId]: {
-    readonly observe: Effect.Effect<ProjectionUnitObservation, AppError>;
-    readonly apply: Effect.Effect<ApplyResult, AppError>;
+    readonly observe: Effect.Effect<ProjectionUnitObservation, ExtensionManagerFailure>;
+    readonly apply: Effect.Effect<ApplyResult, ExtensionManagerFailure>;
   };
 }
 
@@ -104,9 +104,9 @@ export const planAggregateProjection = <Contributor, ApplyResult>(args: {
   readonly graph: DesiredStateGraph;
   readonly select: (
     graph: DesiredStateGraph,
-  ) => Effect.Effect<ReadonlyArray<Contributor>, AppError>;
+  ) => Effect.Effect<ReadonlyArray<Contributor>, ExtensionManagerFailure>;
   readonly adapter: ProjectionAdapter<Contributor, ApplyResult>;
-}): Effect.Effect<ProjectionPlan<ApplyResult>, AppError> =>
+}): Effect.Effect<ProjectionPlan<ApplyResult>, ExtensionManagerFailure> =>
   requireCompleteGraph(args.graph).pipe(
     Effect.flatMap(args.select),
     Effect.map((contributors) => makePlan({ ...args, contributors })),
@@ -123,7 +123,7 @@ export const planSingletonProjection = <Contributor, ApplyResult>(args: {
 /** Observe planned units without applying their writes. */
 export const observeProjectionPlans = (
   plans: ReadonlyArray<ProjectionPlan>,
-): Effect.Effect<ReadonlyArray<ProjectionUnitObservation>, AppError> =>
+): Effect.Effect<ReadonlyArray<ProjectionUnitObservation>, ExtensionManagerFailure> =>
   Effect.forEach(plans, (plan) => plan[ProjectionPlanTypeId].observe, {
     concurrency: "unbounded",
   });
@@ -134,12 +134,13 @@ export const observeProjectionPlans = (
  */
 export const applyProjectionPlans = (
   plans: ReadonlyArray<ProjectionPlan>,
-): Effect.Effect<void, AppError> => applyProjectionPlansWithResults(plans).pipe(Effect.asVoid);
+): Effect.Effect<void, ExtensionManagerFailure> =>
+  applyProjectionPlansWithResults(plans).pipe(Effect.asVoid);
 
 /** Apply same-result plans with target serialization and preserve input order. */
 export const applyProjectionPlansWithResults = <ApplyResult>(
   plans: ReadonlyArray<ProjectionPlan<ApplyResult>>,
-): Effect.Effect<ReadonlyArray<ApplyResult>, AppError> => {
+): Effect.Effect<ReadonlyArray<ApplyResult>, ExtensionManagerFailure> => {
   const byTarget = new Map<
     string,
     Array<{ readonly index: number; readonly plan: ProjectionPlan<ApplyResult> }>
@@ -174,6 +175,9 @@ export const applyProjectionPlansWithResults = <ApplyResult>(
 
 /** Build and apply the plans exposed by a projection-planning participant. */
 export const applyPlannedProjections = (participant: {
-  readonly projectionPlans: () => Effect.Effect<ReadonlyArray<ProjectionPlan>, AppError>;
-}): Effect.Effect<void, AppError> =>
+  readonly projectionPlans: () => Effect.Effect<
+    ReadonlyArray<ProjectionPlan>,
+    ExtensionManagerFailure
+  >;
+}): Effect.Effect<void, ExtensionManagerFailure> =>
   participant.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));

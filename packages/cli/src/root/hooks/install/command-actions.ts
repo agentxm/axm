@@ -39,7 +39,10 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
-import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  toAppError,
+  failureToStepFailure,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface InstallHookHandlerArgs {
   readonly source: string;
@@ -320,7 +323,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
               } satisfies PlannedJobStep;
             }
             return { ...operation, artifact: previewArtifact } satisfies PlannedJobStep;
-          }),
+          }).pipe(Effect.mapError(toAppError)),
         { concurrency: 1 },
       );
       const projectionSteps: ReadonlyArray<PlannedJobStep> =

@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { makeAppError, type AppError } from "../../app-error/index.js";
+import { toAppError } from "../../app-error/conversions.js";
 import {
   decodeExtensionNameSync,
   type ExtensionName,
@@ -161,7 +162,7 @@ export const resolveWorkspaceExtensionRef = (args: {
     const packageDir = args.staticPackage?.root ?? path.join(canonicalRoot, source.name);
     const containmentRoot =
       args.layout.scope === "project" ? args.layout.projectRoot : args.layout.workspaceRoot;
-    yield* validatePathSafety(path, containmentRoot, packageDir);
+    yield* validatePathSafety(path, containmentRoot, packageDir).pipe(Effect.mapError(toAppError));
     const packageExists = yield* fs
       .exists(packageDir)
       .pipe(

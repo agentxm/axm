@@ -47,6 +47,14 @@
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"
     },
+    "./unstable/extension-workspace": {
+      "types": "./dist/src/unstable/extension-workspace/index.d.ts",
+      "default": "./dist/src/unstable/extension-workspace/index.js"
+    },
+    "./unstable/extension-workspace/errors": {
+      "types": "./dist/src/unstable/extension-workspace/errors.d.ts",
+      "default": "./dist/src/unstable/extension-workspace/errors.js"
+    },
     "./unstable/lockfile": {
       "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"

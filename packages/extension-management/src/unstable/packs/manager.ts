@@ -13,7 +13,12 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeAppError } from "../app-error/index.js";
+import {
+  PackArchiveFetchFailed,
+  PackDefinitionInvalid,
+  PackInstallStateMissing,
+  PackStagingFailed,
+} from "./errors.js";
 import {
   canReuseInstalledPackage,
   replaceCanonicalDirectoryWithInspection,
@@ -39,9 +44,9 @@ import {
 import { computePackManifestContentIdentity } from "../workspace/pack-manifest-content-identity.js";
 import {
   computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
-import { toAppError } from "../app-error/conversions.js";
 
 // -----------------------------------------------------------------------------
 // Service Tag
@@ -120,20 +125,18 @@ export const PackManagerLive = Layer.effect(
       const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
       if (ref.refType === "workspace") {
         if (ref.scope !== ws.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new PackDefinitionInvalid({
             detail: `Invalid workspace pack source location: ${ref.location}`,
           });
         }
         if (!canonicalExists) {
-          return yield* makeAppError({
-            code: "validation",
+          return yield* new PackDefinitionInvalid({
             detail: `Workspace pack package is missing: ${packDir}`,
           });
         }
         return;
       }
-      const lockedEntry = yield* ws.getLockedPack(ref.pack.name).pipe(Effect.mapError(toAppError));
+      const lockedEntry = yield* ws.getLockedPack(ref.pack.name);
       const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
       if (
         yield* provide(
@@ -159,28 +162,24 @@ export const PackManagerLive = Layer.effect(
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          const fetched = yield* sources.fetch(ref).pipe(
-            Effect.mapError((e: Error) =>
-              makeAppError({
-                code: "network",
-                detail: `Failed to fetch pack archive: ${e.message}`,
-                cause: e,
-              }),
-            ),
-          );
+          const fetched = yield* sources
+            .fetch(ref)
+            .pipe(
+              Effect.mapError(
+                (e: Error) => new PackArchiveFetchFailed({ message: e.message, cause: e }),
+              ),
+            );
           const materialized = yield* provide(
-            replaceCanonicalDirectoryWithInspection({
+            replaceCanonicalDirectoryWithInspection<
+              TreeIntegrity,
+              PackStagingFailed | MaterializedTreeInvalid,
+              FileSystem.FileSystem | Path.Path
+            >({
               baseDir,
               canonicalPath: packDir,
               populate: (stagingPath) =>
                 copyExtensionDirectory(fetched.directory, stagingPath).pipe(
-                  Effect.mapError((cause) =>
-                    makeAppError({
-                      code: "internal",
-                      detail: `Failed to stage pack at ${packDir}`,
-                      cause,
-                    }),
-                  ),
+                  Effect.mapError((cause) => new PackStagingFailed({ packDir, cause })),
                 ),
               inspect: computeMaterializedTreeIntegrity,
             }),
@@ -196,8 +195,7 @@ export const PackManagerLive = Layer.effect(
         acceptedCanonicalObservation({ workspace: ws, type: "pack", name: target.name }),
       );
       const packDir = removableAcceptedCanonicalPath(canonical);
-      if (Option.isSome(packDir))
-        yield* removeIfExists(fs, packDir.value).pipe(Effect.mapError(toAppError));
+      if (Option.isSome(packDir)) yield* removeIfExists(fs, packDir.value);
     });
     const materializeDeactivate: ExtensionManager<PackRef>["materializeDeactivate"] = () =>
       Effect.void;
@@ -205,15 +203,12 @@ export const PackManagerLive = Layer.effect(
     const buildCurrentPackArgs = (
       ref: PackRef,
       versionRange: Option.Option<string>,
-    ): Effect.Effect<Option.Option<SetPackArgs>, ReturnType<typeof makeAppError>> =>
+    ): Effect.Effect<Option.Option<SetPackArgs>, PackInstallStateMissing> =>
       Effect.gen(function* () {
         if (ref.refType !== "registry") return Option.none();
         const treeIntegrity = lastTreeIntegrities.get(ref.pack.name);
         if (treeIntegrity === undefined) {
-          return yield* makeAppError({
-            code: "internal",
-            detail: `Pack ${ref.pack.name} has no materialized tree integrity`,
-          });
+          return yield* new PackInstallStateMissing({ name: ref.pack.name });
         }
         return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity));
       });
@@ -226,9 +221,7 @@ export const PackManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "pack", target.name).pipe(
-          Effect.mapError(toAppError),
-        );
+        return yield* isObservedInstalled(ws, "pack", target.name);
       }),
       materializeInstall,
       prepareSourceTransition: ({ ref }) =>
@@ -241,14 +234,11 @@ export const PackManagerLive = Layer.effect(
           }),
         ),
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredPackEntries().pipe(Effect.mapError(toAppError));
+        const configured = yield* ws.getConfiguredPackEntries();
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
-        const configured = yield* ws.records
-          .rows("pack")
-          .pipe(Effect.mapError(toAppError))
-          .pipe(Effect.map(configuredRowsByName));
+        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
         return yield* configuredPacksToDiskRefs(
           { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
           configured,
@@ -266,37 +256,29 @@ export const PackManagerLive = Layer.effect(
       }) {
         const args = yield* buildCurrentPackArgs(ref, versionRange);
         if (Option.isSome(args)) {
-          yield* ws.setPack(args.value).pipe(Effect.mapError(toAppError));
+          yield* ws.setPack(args.value);
         } else {
-          yield* ws
-            .setPackEntry(ref.pack.name, {
-              source: "workspace",
-              enabled: true,
-            })
-            .pipe(Effect.mapError(toAppError));
+          yield* ws.setPackEntry(ref.pack.name, {
+            source: "workspace",
+            enabled: true,
+          });
         }
       }),
 
       removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws
-          .removePackSettings(target.name)
-          .pipe(Effect.mapError(toAppError))
-          .pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
+        ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
 
       upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({ ref }) {
         const args = yield* buildCurrentPackArgs(ref, Option.none());
         if (Option.isSome(args)) {
-          yield* ws.setPackLock(args.value).pipe(Effect.mapError(toAppError));
+          yield* ws.setPackLock(args.value);
         } else {
-          yield* ws.removePackLock(ref.pack.name).pipe(Effect.mapError(toAppError));
+          yield* ws.removePackLock(ref.pack.name);
         }
       }),
 
       removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws
-          .removePackLock(target.name)
-          .pipe(Effect.mapError(toAppError))
-          .pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
+        ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
     } satisfies ExtensionManager<PackRef>;
   }),
 );

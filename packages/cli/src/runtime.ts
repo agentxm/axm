@@ -49,10 +49,8 @@ import {
   directoryFlag,
   verbosityToLogLevel,
 } from "@agentxm/extension-management/unstable/cli-flags";
-import {
-  makeAxmSkillCompatibilityPolicyLayer,
-  SkillManagerLive,
-} from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import {
   HookConfiguredAgentOutcomesProviderLive,
@@ -67,7 +65,7 @@ import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
@@ -429,9 +427,12 @@ export const withRuntime =
         ),
         foundationLayer,
       );
+      // The coding-agent repository is context-free and serves commands that
+      // run before a workspace exists (setup); workspace-bound commands get
+      // the same layer again through withWorkspace, harmlessly.
       const appLayer = Layer.provideMerge(
         makeRuntimeLoggerLayer(format),
-        Layer.mergeAll(foundationLayer, interactionLayer),
+        Layer.mergeAll(foundationLayer, interactionLayer, CodingAgentRepositoryLive),
       );
 
       return yield* withCliErrorHandling(

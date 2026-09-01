@@ -3,7 +3,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { disableMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import {

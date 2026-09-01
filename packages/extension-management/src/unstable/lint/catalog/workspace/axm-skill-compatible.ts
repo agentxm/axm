@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import { formatAxmSkillCompatibilityTarget } from "../../../skills/axm-skill-compatibility.js";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";
 import { canonicalDisplayRoot } from "./display-paths.js";

@@ -38,7 +38,7 @@ import type { Evaluated } from "@agentxm/registry-protocol/unstable/lint/evaluat
 import { evaluateContexts } from "@agentxm/registry-protocol/unstable/lint/evaluate";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
 import type { LintFinding, Severity } from "@agentxm/registry-protocol/unstable/lint/rule";
-import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
+import type { AxmSkillCompatibility } from "@agentxm/extension-workspace";
 import {
   CATALOG_GROUP_ORDER,
   lintCatalogsForView,

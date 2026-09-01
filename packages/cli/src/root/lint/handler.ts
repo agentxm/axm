@@ -31,8 +31,8 @@ import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { effectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
 import { WorkspaceInvariantFacts } from "@agentxm/extension-management/unstable/projection";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-management/unstable/skills";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { inspectWorkspaceOwnership } from "@agentxm/extension-management/unstable/workspace-sync";
 import {
   reconcileInstructionTargets,

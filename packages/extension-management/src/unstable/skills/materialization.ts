@@ -4,7 +4,10 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError } from "../app-error/index.js";
-import { SkillMaterializationFailed } from "./errors.js";
+import {
+  SkillMaterializationFailed,
+  validateAxmSkillCandidate,
+} from "@agentxm/extension-workspace";
 import { toAppError } from "../app-error/conversions.js";
 import {
   canReuseExternalPackage,
@@ -26,7 +29,6 @@ import { stripFileProtocol } from "../utils/index.js";
 import { isPathSafe } from "@agentxm/workspace-state";
 import { createSymlink } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
-import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 
 export type ProvideFs = <A, E, R>(
   effect: Effect.Effect<A, E, R>,

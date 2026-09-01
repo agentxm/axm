@@ -5,6 +5,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { coupleRemainingAppError } from "../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
@@ -20,7 +21,20 @@ import {
   resolveInstructionsConfig,
   type ResolvedInstructionsConfig,
 } from "../workspace-configuration/instructions.js";
-import { RuleDefinitionInvalid, RuleInstallStateMissing } from "./errors.js";
+import {
+  RuleDefinitionInvalid,
+  RuleInstallStateMissing,
+  activeContributors,
+  applyProjectionPlans,
+  planAggregateProjection,
+  type ProjectionPlan,
+  type ProjectionRenderInput,
+  reconcileManagedRegionFile,
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  parseMarker,
+  serializeMarker,
+} from "@agentxm/extension-workspace";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   enabledConfiguredEntries,
@@ -29,14 +43,7 @@ import {
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
-import { activeContributors } from "../projection/contributors.js";
-import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
-import {
-  applyProjectionPlans,
-  planAggregateProjection,
-  type ProjectionPlan,
-  type ProjectionRenderInput,
-} from "../projection/planning.js";
+import type { ProjectionUnitObservation } from "@agentxm/extension-workspace";
 import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
@@ -48,13 +55,6 @@ import {
 } from "@agentxm/workspace-state";
 import { MaterializedFileTargetSchema } from "@agentxm/workspace-state";
 import { gitSourceLockFields } from "@agentxm/workspace-state";
-import { reconcileManagedRegionFile } from "../projection/adapters.js";
-import {
-  MARKER_KIND_POINT,
-  MARKER_VERSION,
-  parseMarker,
-  serializeMarker,
-} from "../projection/marker-grammar.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -64,8 +64,8 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type {
   ExtensionManager,
   MaterializationObservation,
-} from "../extension-workspace/extension-manager.js";
-import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+  ExtensionManagerFailure,
+} from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -593,9 +593,13 @@ export const RuleManagerLive = Layer.effect(
             observe: (input) =>
               reconcileRulesRegion({ input, target, instructions, dryRun: true }).pipe(
                 Effect.map(({ projectionUnitObservation }) => projectionUnitObservation),
+                Effect.mapError(coupleRemainingAppError),
               ),
             apply: (input) =>
-              reconcileRulesRegion({ input, target, instructions }).pipe(Effect.asVoid),
+              reconcileRulesRegion({ input, target, instructions }).pipe(
+                Effect.asVoid,
+                Effect.mapError(coupleRemainingAppError),
+              ),
           },
         });
       });
@@ -606,33 +610,37 @@ export const RuleManagerLive = Layer.effect(
 
     const materializeInstall: ExtensionManager<RuleExtensionRef>["materializeInstall"] = Effect.fn(
       "RuleManager.materializeInstall",
-    )(function* ({ ref, force }) {
-      const materialized = yield* materializePackage(ref, force === true);
-      const packageRoot = materialized.packageRoot;
-      yield* readManifest(packageRoot);
+    )(
+      function* ({ ref, force }) {
+        const materialized = yield* materializePackage(ref, force === true);
+        const packageRoot = materialized.packageRoot;
+        yield* readManifest(packageRoot);
 
-      const workspaceRelativeLocalSourcePath =
-        ref.refType === "local"
-          ? makeWorkspaceRelativeSourcePath(
-              path,
-              baseDir,
-              ref.sourcePath ?? stripFileProtocol(ref.location),
-            )
-          : Option.none<string>();
-      if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* new RuleDefinitionInvalid({
-          detail: `Local rule source path must stay within the workspace root: ${ref.source.path}`,
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
+            : Option.none<string>();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* new RuleDefinitionInvalid({
+            detail: `Local rule source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+
+        const sourceHash = yield* provide(computePackageContentHash(packageRoot));
+        lastInstallState.set(ref.rule.name, {
+          ref,
+          workspaceRelativeLocalSourcePath,
+          sourceHash,
+          treeIntegrity: materialized.treeIntegrity,
         });
-      }
-
-      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
-      lastInstallState.set(ref.rule.name, {
-        ref,
-        workspaceRelativeLocalSourcePath,
-        sourceHash,
-        treeIntegrity: materialized.treeIntegrity,
-      });
-    }, Effect.asVoid);
+      },
+      Effect.asVoid,
+      Effect.mapError(coupleRemainingAppError),
+    );
 
     const buildLockEntry = (
       ref: RuleExtensionRef,
@@ -730,7 +738,7 @@ export const RuleManagerLive = Layer.effect(
           ),
         );
         return refs;
-      }),
+      }, Effect.mapError(coupleRemainingAppError)),
 
       materializeUninstall,
       materializeDeactivate,

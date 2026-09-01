@@ -28,7 +28,7 @@ import {
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,

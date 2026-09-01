@@ -6,7 +6,7 @@ import * as Path from "effect/Path";
 import {
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
-} from "@agentxm/extension-management/unstable/extension-workspace";
+} from "@agentxm/extension-workspace";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";

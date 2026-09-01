@@ -6,12 +6,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import {
-  codingAgentForId,
-  CodingAgentRepository,
-} from "@agentxm/extension-management/unstable/extension-workspace";
-import type { CodingAgentRepositoryService } from "@agentxm/extension-management/unstable/extension-workspace";
+import { codingAgentForId, CodingAgentRepository } from "@agentxm/extension-workspace";
+import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { coupleAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   TestMachineRenderer,
@@ -99,10 +97,12 @@ describe("agents remove.handler", () => {
               skillsResolutionCount += 1;
               return skillsResolutionCount === 1
                 ? opencode.resolveEffectiveSkillsDir(args)
-                : makeAppError({
-                    code: "internal",
-                    detail: "Injected managed artifact cleanup failure",
-                  });
+                : coupleAppError(
+                    makeAppError({
+                      code: "internal",
+                      detail: "Injected managed artifact cleanup failure",
+                    }),
+                  );
             },
           }
         : opencode;

@@ -14,7 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { TestRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";

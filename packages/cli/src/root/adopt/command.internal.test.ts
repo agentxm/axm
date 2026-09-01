@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "@agentxm/workspace-state";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 

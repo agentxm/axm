@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -376,11 +376,12 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
       if (ws.scope === "user") {
         const agents = yield* agentRepo
           .getConfiguredAgents()
-          .pipe(Effect.provideService(WorkspaceMutations, ws));
+          .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws));
         const placements = yield* Effect.forEach(
           agents,
           (agent) =>
             agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
+              Effect.mapError(toAppError),
               Effect.provideService(FileSystem.FileSystem, fsSvc),
               Effect.provideService(Path.Path, pathSvc),
               Effect.map((outcome) => ({ agentId: agent.id, outcome })),

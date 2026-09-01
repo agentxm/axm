@@ -20,7 +20,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   TestMachineRenderer,
   TestRenderer,
@@ -33,10 +33,8 @@ import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcp
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
-import {
-  AxmSkillCompatibilityPolicy,
-  SkillManagerLive,
-} from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";

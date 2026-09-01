@@ -18,7 +18,7 @@ import {
   PackDefinitionInvalid,
   PackInstallStateMissing,
   PackStagingFailed,
-} from "./errors.js";
+} from "@agentxm/extension-workspace";
 import {
   canReuseInstalledPackage,
   replaceCanonicalDirectoryWithInspection,
@@ -29,7 +29,7 @@ import type {
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../source-resolution/index.js";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/utils.js";

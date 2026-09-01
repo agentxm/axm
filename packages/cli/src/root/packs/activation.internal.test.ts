@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";

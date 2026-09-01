@@ -15,7 +15,7 @@ import { makeAppError } from "../app-error/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
-import { applyPlannedProjections } from "../projection/planning.js";
+import { applyPlannedProjections } from "@agentxm/extension-workspace";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -25,7 +25,7 @@ import {
   TEST_CONTENT_IDENTITY,
 } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
-import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   computeMaterializedTreeIntegritySync,
   exactVersion,

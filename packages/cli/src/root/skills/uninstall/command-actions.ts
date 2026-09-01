@@ -25,7 +25,7 @@ import {
   WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
   SkillManager,
   skillArtifactFromTargets,
@@ -160,11 +160,12 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
       const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
       const configuredAgents = yield* agentRepo
         .getMaterializationAgents()
-        .pipe(Effect.provideService(WorkspaceMutations, ws));
+        .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws));
       const resolvedAgents = yield* Effect.forEach(
         configuredAgents,
         (agent) =>
           agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+            Effect.mapError(toAppError),
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
             Effect.map((outcome) => ({ agentId: agent.id, outcome })),

@@ -8,13 +8,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { failureToStepFailure } from "../app-error/conversions.js";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+import type { ExtensionManager, ExtensionManagerFailure } from "@agentxm/extension-workspace";
+import type { AppError } from "../app-error/index.js";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
-} from "./errors.js";
+  applyProjectionPlans,
+} from "@agentxm/extension-workspace";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -24,7 +25,6 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import { applyProjectionPlans } from "../projection/planning.js";
 
 // -----------------------------------------------------------------------------
 // Target Helpers
@@ -132,8 +132,16 @@ export const toLabelWithCompanions = (
 export interface UninstallRetentionPolicy {
   readonly isRequiredByInstalledPack: (args: {
     readonly target: ExtensionTarget;
-  }) => Effect.Effect<boolean, ExtensionManagerFailure, never>;
+  }) => Effect.Effect<boolean, CallerStepFailure, never>;
 }
+
+/**
+ * Failure channel for caller-supplied step callbacks. Command handlers in the
+ * application layer still construct `AppError` directly; the step runner
+ * serializes every failure into the step vocabulary, so both shapes are
+ * accepted until the handler decoupling wave retires the envelope here.
+ */
+type CallerStepFailure = ExtensionManagerFailure | AppError;
 
 const applyManagerProjectionPlans = <TRef extends ExtensionRef>(
   manager: ExtensionManager<TRef>,
@@ -166,11 +174,11 @@ export interface InstallOperationArgs<TRef extends ExtensionRef> {
    */
   readonly deferObservableValidation?: boolean;
   /** Optional pre-install state probe for artifact change labels. */
-  readonly installedBefore?: Effect.Effect<boolean, ExtensionManagerFailure, never>;
+  readonly installedBefore?: Effect.Effect<boolean, CallerStepFailure, never>;
   /** Optional presenter metadata computed after materialization/settings writes. */
   readonly buildArtifact?: (args: {
     readonly installedBefore: boolean;
-  }) => Effect.Effect<JobStepArtifact, ExtensionManagerFailure, never>;
+  }) => Effect.Effect<JobStepArtifact, CallerStepFailure, never>;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
@@ -185,9 +193,9 @@ export interface NewExtensionOperationArgs<TRef extends ExtensionRef> extends Om
   /** Read-only artifact forecast rendered by preview before any mutation occurs. */
   readonly plannedArtifact?: JobStepArtifact;
   /** Collision checks repeated under the workspace transaction lock before the first write. */
-  readonly preflight?: Effect.Effect<void, ExtensionManagerFailure, never>;
-  readonly scaffold: Effect.Effect<unknown, ExtensionManagerFailure, never>;
-  readonly markAuthored: Effect.Effect<void, ExtensionManagerFailure, never>;
+  readonly preflight?: Effect.Effect<void, CallerStepFailure, never>;
+  readonly scaffold: Effect.Effect<unknown, CallerStepFailure, never>;
+  readonly markAuthored: Effect.Effect<void, CallerStepFailure, never>;
   readonly message: string;
   readonly label?: string;
 }
@@ -203,9 +211,9 @@ export interface AuthoredExtensionOperationArgs<TRef extends ExtensionRef> exten
   /** Whether the new authored extension should remain materialized after creation. */
   readonly enabled?: boolean;
   /** Commit the caller's final desired-state shape after canonical resolution. */
-  readonly finalizeAuthored?: Effect.Effect<void, ExtensionManagerFailure, never>;
+  readonly finalizeAuthored?: Effect.Effect<void, CallerStepFailure, never>;
   /** Type-specific projection path for authored packages with specialized installers. */
-  readonly materializeInstall?: (ref: TRef) => Effect.Effect<void, ExtensionManagerFailure, never>;
+  readonly materializeInstall?: (ref: TRef) => Effect.Effect<void, CallerStepFailure, never>;
   /**
    * Project and then deactivate a disabled target when adopting a native
    * configuration requires the projection writer to perform the transition.
@@ -505,7 +513,7 @@ export interface MaterializeOperationArgs<TRef extends ExtensionRef> {
   readonly allowWorkspaceSourceTransition?: boolean;
   /** Reacquire canonical content before projecting it. */
   readonly force?: boolean;
-  readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, ExtensionManagerFailure, never>;
+  readonly buildArtifact?: () => Effect.Effect<JobStepArtifact, CallerStepFailure, never>;
   readonly message?: string;
 }
 

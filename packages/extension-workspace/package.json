@@ -1,0 +1,60 @@
+{
+  "name": "@agentxm/extension-workspace",
+  "version": "0.28.3",
+  "description": "AXM extension-workspace kernel: coding-agent contracts, managed-file projection, per-type semantic vocabulary, and extension-type parity for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/extension-workspace"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./live": {
+      "types": "./dist/src/live.d.ts",
+      "default": "./dist/src/live.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:",
+    "semver": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "smol-toml": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

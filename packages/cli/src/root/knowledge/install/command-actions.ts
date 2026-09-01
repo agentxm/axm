@@ -21,7 +21,7 @@ import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowled
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
+import { applyPlannedProjections } from "@agentxm/extension-workspace";
 import {
   resolveSource,
   SourceHostProviders,

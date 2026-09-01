@@ -38,7 +38,7 @@ import {
   property,
 } from "../../../test-helpers.js";
 import { handleUnpack, type UnpackHandlerArgs } from "./handler.js";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   computeMaterializedTreeIntegritySync,
   exactVersion,

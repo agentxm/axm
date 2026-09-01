@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { inferInlineRemoteTransport } from "../../../mcps/projection.js";
-import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
-import { groupConfiguredMcpTargets } from "../../../mcps/targeting.js";
+import {
+  inferInlineRemoteTransport,
+  resolveSharedMcpTarget,
+  groupConfiguredMcpTargets,
+} from "@agentxm/extension-workspace";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";

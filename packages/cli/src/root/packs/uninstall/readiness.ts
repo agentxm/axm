@@ -1,4 +1,4 @@
-import { planDesiredStateGraph } from "@agentxm/extension-management/unstable/projection";
+import { planDesiredStateGraph } from "@agentxm/extension-workspace";
 import type { DesiredStateGraph, DesiredStateProblem } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {

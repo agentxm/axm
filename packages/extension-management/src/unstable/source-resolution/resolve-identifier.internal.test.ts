@@ -25,7 +25,7 @@ import {
   rowsFor,
 } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
-import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { resolveIdentifier, resolveInstalledIdentifier } from "./resolve-identifier.js";
 

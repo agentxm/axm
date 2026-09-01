@@ -43,7 +43,7 @@ import {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   evaluateAxmSkillCandidate,
   formatAxmSkillCompatibilityTarget,
-} from "../../../skills/index.js";
+} from "@agentxm/extension-workspace";
 import { computeIntegrity } from "../../../utils/index.js";
 import {
   decodeExtensionNameSync,

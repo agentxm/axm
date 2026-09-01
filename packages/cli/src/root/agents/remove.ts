@@ -6,7 +6,7 @@ import * as Path from "effect/Path";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/extension-workspace";
+} from "@agentxm/extension-workspace";
 import {
   cleanupManagedArtifactsForRemovedAgents,
   type RemovedAgentArtifactCleanupResult,

@@ -96,5 +96,10 @@ export {
   computePackManifestContentIdentity,
   writeSettingsAtPath,
 } from "@agentxm/workspace-state";
+// Extension-workspace surface the install and lint harnesses compose; specs
+// may not import the kernel root or its /live module directly, so the harness
+// re-exports it (the Live through the sanctioned test-support module).
+export { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
+export { CodingAgentRepositoryLive } from "./test-helpers.js";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 export { loadVersion } from "./version.js";

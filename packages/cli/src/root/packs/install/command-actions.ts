@@ -24,7 +24,7 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   evaluateSourceAuthority,

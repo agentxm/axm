@@ -8,28 +8,7 @@
   "targets": {
     "generate": {
       "executor": "nx:noop",
-      "dependsOn": [
-        "generate:registry-client",
-        "generate:telemetry-client",
-        "generate:e2e-extension-matrix"
-      ]
-    },
-    "generate:e2e-extension-matrix": {
-      "cache": true,
-      "inputs": [
-        "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
-        "{workspaceRoot}/packages/extension-model/src/unstable/extensions/common.ts",
-        "{workspaceRoot}/packages/workspace-state/src/workspace/configured-agent-outcomes.ts",
-        "{projectRoot}/src/unstable/extension-types/parity/**/*.ts",
-        "{workspaceRoot}/.prettierrc.json"
-      ],
-      "outputs": ["{workspaceRoot}/packages/cli-e2e/src/__generated__/extension-type-matrix.ts"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": ["bun", "scripts/generate-e2e-extension-matrix.ts"],
-        "cwd": "packages/extension-management"
-      },
-      "dependsOn": ["^build"]
+      "dependsOn": ["generate:registry-client", "generate:telemetry-client"]
     },
     "generate:registry-client": {
       "cache": true,

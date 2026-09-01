@@ -13,9 +13,9 @@ import {
   diffAgentEntry,
   inferInlineRemoteTransport,
   projectExpectedEntry,
-} from "../../../mcps/projection.js";
-import { resolveSharedMcpTarget } from "../../../mcps/shared-target.js";
-import { planMcpTargetGroups } from "../../../mcps/targeting.js";
+  resolveSharedMcpTarget,
+  planMcpTargetGroups,
+} from "@agentxm/extension-workspace";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import type { ActualMcpServer, InstalledMcpServer } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";

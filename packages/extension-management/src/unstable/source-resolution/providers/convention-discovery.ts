@@ -12,20 +12,20 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { discoverManifestPackagesInDir } from "../../extensions/manifest-package-discovery.js";
+import { discoverManifestPackagesInDir } from "@agentxm/extension-workspace";
 import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
 import { getCommitSha, getTreeSha } from "../../git/index.js";
-import { hookPackagesInDir } from "../../hooks/index.js";
+import { hookPackagesInDir } from "@agentxm/extension-workspace";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
   KnowledgeManifestSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { rulePackagesInDir } from "../../rules/index.js";
+import { rulePackagesInDir } from "@agentxm/extension-workspace";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import {
   MANIFEST_FILENAME,

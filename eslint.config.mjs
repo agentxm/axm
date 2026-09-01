@@ -96,6 +96,7 @@ export default [
               notDependOnLibsWithTags: [
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-workspace",
                 "scope:registry-protocol",
                 "scope:workspace-operations",
                 "scope:workspace-state",
@@ -111,6 +112,7 @@ export default [
               notDependOnLibsWithTags: [
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-workspace",
                 "scope:registry-protocol",
                 "scope:workspace-operations",
                 "scope:workspace-state",
@@ -240,6 +242,7 @@ export default [
     files: [
       "packages/extension-management/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
+      "packages/extension-workspace/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
       "packages/workspace-operations/src/**/*.ts",
       "packages/workspace-state/src/**/*.ts",

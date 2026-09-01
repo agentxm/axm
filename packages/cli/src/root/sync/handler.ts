@@ -19,7 +19,7 @@ import {
   pruneManagedMcpServersForAgent,
   syncInlineMcpServerToAgents,
   type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/extension-workspace";
+} from "@agentxm/extension-workspace";
 import {
   cleanupStaleManagedSkillDirectories,
   cleanupStaleManagedSubagentFiles,
@@ -88,25 +88,27 @@ import {
   SkillManager,
   skillArtifactFromTargets,
 } from "@agentxm/extension-management/unstable/skills";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import {
   collectManagedAgentMcpServers,
   inspectMcpServerAcrossAgents,
-  installMcpServer,
-} from "@agentxm/extension-management/unstable/mcps";
+} from "@agentxm/extension-workspace";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import {
-  applyPlannedProjections,
-  extensionConstraintFactText,
-  makeExtensionConstraintInvariantFact,
-  planExtensionConstraintFact,
   WorkspaceInvariantFacts,
   projectionFactRequiresReconciliation,
   type ProjectionInvariantFact,
 } from "@agentxm/extension-management/unstable/projection";
+import {
+  applyPlannedProjections,
+  extensionConstraintFactText,
+  makeExtensionConstraintInvariantFact,
+  planExtensionConstraintFact,
+} from "@agentxm/extension-workspace";
 import {
   deriveOperationOutcome,
   StepFailure,
@@ -377,7 +379,7 @@ const skillSyncArtifact = (args: {
       args.materializationAgentIds === undefined
         ? yield* args.agentRepo
             .getMaterializationAgents()
-            .pipe(Effect.provideService(WorkspaceMutations, args.ws))
+            .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, args.ws))
         : yield* args.agentRepo.all.pipe(
             Effect.map((agents) =>
               agents.filter((agent) => args.materializationAgentIds?.includes(agent.id) === true),
@@ -387,6 +389,7 @@ const skillSyncArtifact = (args: {
       materializationAgents,
       (agent) =>
         agent.resolveEffectiveSkillsDir({ workspaceRoot: args.ws.baseDir }).pipe(
+          Effect.mapError(toAppError),
           Effect.provideService(FileSystem.FileSystem, args.fs),
           Effect.provideService(Path.Path, args.path),
           Effect.map((outcome) => ({ agent, outcome })),
@@ -601,9 +604,10 @@ const isObservedMaterializationCurrent = (
         if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
         if (node.type === "subagent") {
           return resolvedRef.type === "subagent"
-            ? subagentManager
-                .projectionObservation(resolvedRef)
-                .pipe(Effect.map(({ current }) => current))
+            ? subagentManager.projectionObservation(resolvedRef).pipe(
+                Effect.mapError(toAppError),
+                Effect.map(({ current }) => current),
+              )
             : Effect.succeed(false);
         }
         const hasProjectionOrigin = (() => {
@@ -627,6 +631,7 @@ const isObservedMaterializationCurrent = (
               scope: ws.scope,
               agentIds: configuredAgents,
             }).pipe(
+              Effect.mapError(toAppError),
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
               Effect.map((managed) =>
@@ -653,6 +658,7 @@ const isObservedMaterializationCurrent = (
               configured,
               (agent) =>
                 agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                  Effect.mapError(toAppError),
                   Effect.provideService(FileSystem.FileSystem, fs),
                   Effect.provideService(Path.Path, path),
                   Effect.map((outcome) => {

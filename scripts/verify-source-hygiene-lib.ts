@@ -163,7 +163,10 @@ export const findMachineOutputBoundaryViolations = (
     path.join(repoRoot, "packages", "cli", "src"),
     path.join(repoRoot, "packages", "extension-management", "src", "unstable"),
     path.join(repoRoot, "packages", "extension-model", "src", "unstable"),
+    path.join(repoRoot, "packages", "extension-workspace", "src"),
     path.join(repoRoot, "packages", "registry-protocol", "src", "unstable"),
+    path.join(repoRoot, "packages", "workspace-operations", "src"),
+    path.join(repoRoot, "packages", "workspace-state", "src"),
   ];
   const sourceFiles: string[] = [];
   for (const root of roots) {
@@ -216,7 +219,10 @@ export const findPromptBoundaryViolations = (
     path.join(repoRoot, "packages", "cli", "src"),
     path.join(repoRoot, "packages", "extension-management", "src"),
     path.join(repoRoot, "packages", "extension-model", "src"),
+    path.join(repoRoot, "packages", "extension-workspace", "src"),
     path.join(repoRoot, "packages", "registry-protocol", "src"),
+    path.join(repoRoot, "packages", "workspace-operations", "src"),
+    path.join(repoRoot, "packages", "workspace-state", "src"),
   ]) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
@@ -283,7 +289,10 @@ export const findAxmEnvironmentContractViolations = (
     path.join(repoRoot, "packages", "cli", "src"),
     path.join(repoRoot, "packages", "extension-management", "src"),
     path.join(repoRoot, "packages", "extension-model", "src"),
+    path.join(repoRoot, "packages", "extension-workspace", "src"),
     path.join(repoRoot, "packages", "registry-protocol", "src"),
+    path.join(repoRoot, "packages", "workspace-operations", "src"),
+    path.join(repoRoot, "packages", "workspace-state", "src"),
   ]) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }

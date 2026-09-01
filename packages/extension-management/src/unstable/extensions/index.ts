@@ -57,18 +57,6 @@ export {
 } from "./materializable-from-disk.js";
 
 export {
-  insertManagedFileBanner,
-  hasManagedFileBanner,
-  managedFileFormatForPath,
-  managedFileMarker,
-  stripManagedFileBanner,
-  type ManagedFileBannerOptions,
-  type ManagedFileFormat,
-  type ManagedFileProvenance,
-  type ManagedFileSource,
-} from "./managed-file-banner.js";
-
-export {
   createCanonicalDirectory,
   canReuseExternalPackage,
   canReuseInstalledPackage,
@@ -98,13 +86,6 @@ export { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
 export { markerFqnForRef, type MarkerFqnRef } from "./marker-fqn.js";
 
 export {
-  applyOverrides,
-  warnOnOrphanOverrides,
-  type AgentOverrides,
-  type AllAgentOverrides,
-} from "./agent-overrides.js";
-
-export {
   evaluateSourceAuthority,
   type SourceAuthorityBlockedCause,
   type SourceAuthorityBlockedFact,
@@ -114,25 +95,3 @@ export {
   type SourceAuthorityTarget,
   type WorkspaceAuthorityStatus,
 } from "./source-authority.js";
-
-export {
-  ArchiveIntegrityMismatch,
-  CanonicalPackageProbeFailed,
-  CreateDestinationExists,
-  CreateDestinationInspectionFailed,
-  CreateNameConfigured,
-  ForkPackageConflict,
-  ForkPackageFailed,
-  ForkPackageInvalid,
-  LifecyclePostconditionViolated,
-  NativeImportConflict,
-  NativeImportFailed,
-  NativeImportInvalid,
-  NativeImportUnsupported,
-  PackageCopyFailed,
-  PackageMaterializationFailed,
-  ScaffoldedExtensionUnresolved,
-  SourceAuthorityBlocked,
-  StagedPackageInvalid,
-  type ExtensionsError,
-} from "./errors.js";

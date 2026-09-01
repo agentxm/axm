@@ -9,8 +9,7 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { AppError } from "../app-error/index.js";
-import type { SourceAuthorityBlocked } from "../extensions/errors.js";
-import type { PackManagerError } from "./errors.js";
+import type { SourceAuthorityBlocked, PackManagerError } from "@agentxm/extension-workspace";
 
 /** Interim union while registry resolution still fails with `AppError`. */
 type PackExpansionError = AppError | PackManagerError | SourceAuthorityBlocked;

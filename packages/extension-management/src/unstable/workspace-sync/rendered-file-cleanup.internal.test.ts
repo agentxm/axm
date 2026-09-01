@@ -5,9 +5,12 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { codingAgentForId, CodingAgentRepository } from "../extension-workspace/index.js";
-import type { CodingAgentRepositoryService } from "../extension-workspace/index.js";
-import { hasAxmManagedMarker } from "../extension-workspace/managed-file-discovery.js";
+import {
+  codingAgentForId,
+  CodingAgentRepository,
+  hasAxmManagedMarker,
+} from "@agentxm/extension-workspace";
+import type { CodingAgentRepositoryService } from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import {

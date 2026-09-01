@@ -8,7 +8,7 @@ import {
 import {
   inspectMcpServerAcrossAgents,
   type AgentMcpServerInspection,
-} from "@agentxm/extension-management/unstable/mcps";
+} from "@agentxm/extension-workspace";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
   type ConfiguredAgentOutcome,

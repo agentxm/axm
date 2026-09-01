@@ -3,7 +3,7 @@ import * as Result from "effect/Result";
 import {
   extensionConstraintFactText,
   makeExtensionConstraintInvariantFact,
-} from "../../../projection/index.js";
+} from "@agentxm/extension-workspace";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/registry-protocol/unstable/lint/rule";

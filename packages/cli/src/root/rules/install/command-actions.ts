@@ -17,7 +17,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
+import { applyPlannedProjections } from "@agentxm/extension-workspace";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

@@ -43,7 +43,7 @@ import type {
   WorkspaceSkillRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "../../source-resolution/index.js";
-import { CodingAgentRepository } from "../../extension-workspace/index.js";
+import { CodingAgentRepository, validateAxmSkillCandidate } from "@agentxm/extension-workspace";
 import { stripFileProtocol } from "../../utils/index.js";
 import { isPathSafe } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -73,7 +73,6 @@ import {
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
 import { computeSkillSourceHash } from "./source-hash.js";
-import { validateAxmSkillCandidate } from "../axm-skill-candidate.js";
 
 // -----------------------------------------------------------------------------
 // Operation types

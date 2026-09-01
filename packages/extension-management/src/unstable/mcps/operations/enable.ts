@@ -11,7 +11,12 @@ import * as Option from "effect/Option";
 import {
   CodingAgentRepository,
   syncInlineMcpServerToAgents,
-} from "../../extension-workspace/index.js";
+  McpSharedTargetConflict,
+  applyProjectionPlansWithResults,
+  planSingletonProjection,
+  inspectAgentMcpServer,
+  sharedMcpTargetPolicyConflict,
+} from "@agentxm/extension-workspace";
 import {
   normalizeHandle,
   parseExtensionFqnParts,
@@ -30,12 +35,6 @@ import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
-import {
-  applyProjectionPlansWithResults,
-  planSingletonProjection,
-} from "../../projection/planning.js";
-import { inspectAgentMcpServer } from "../inspection.js";
-import { sharedMcpTargetPolicyConflict } from "../targeting.js";
 import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 
 export type EnableMcpServerOperation = Operation<
@@ -200,9 +199,8 @@ export const enableMcpServer = (
                         entry,
                       });
                       if (inspection.status === "unmanaged") {
-                        return yield* makeAppError({
-                          code: "conflict",
-                          detail: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
+                        return yield* new McpSharedTargetConflict({
+                          reason: `${agent.id} has an unmanaged MCP server named ${op.args.serverName}; AXM will not remove it while applying the target policy`,
                         });
                       }
                       return inspection.status === "drift"

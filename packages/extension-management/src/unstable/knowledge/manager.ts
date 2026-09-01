@@ -22,7 +22,15 @@ import {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-} from "./errors.js";
+  applyProjectionPlans,
+  planAggregateProjection,
+  type ProjectionPlan,
+  requireCompleteGraph,
+  KNOWLEDGE_REGION_OWNER,
+  reconcileKnowledgeDiscovery,
+  observedKnowledgeContributors,
+  type KnowledgeDiscoveryBundle,
+} from "@agentxm/extension-workspace";
 import {
   canReuseInstalledPackage,
   materializeExternalPackage,
@@ -55,8 +63,7 @@ import {
   resolveConfiguredKnowledge,
 } from "../extension-lifecycle/configured-entry-resolution.js";
 import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
-import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+import type { ExtensionManager, ExtensionManagerFailure } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
@@ -69,12 +76,6 @@ import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { isSourcedDesiredExtension, type DesiredStateGraph } from "@agentxm/workspace-state";
 import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
 import {
-  applyProjectionPlans,
-  planAggregateProjection,
-  type ProjectionPlan,
-} from "../projection/planning.js";
-import { requireCompleteGraph } from "../projection/contributors.js";
-import {
   KNOWLEDGE_EXTENSION_DIR,
   KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
@@ -85,12 +86,6 @@ import {
   inspectKnowledgeBundle,
   type KnowledgeInspection,
 } from "@agentxm/registry-protocol/unstable/knowledge/okf";
-import {
-  KNOWLEDGE_REGION_OWNER,
-  reconcileKnowledgeDiscovery,
-  observedKnowledgeContributors,
-  type KnowledgeDiscoveryBundle,
-} from "./discovery.js";
 import { resolveKnowledgeInstructionEntry } from "./instruction-entry.js";
 import type {
   GitHostedKnowledgeRef,
@@ -98,7 +93,12 @@ import type {
   LocalKnowledgeRef,
   RegistryKnowledgeRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { isKnownFailure, toAppError } from "../app-error/conversions.js";
+import {
+  coupleAppError,
+  coupleRemainingAppError,
+  isKnownFailure,
+  toAppError,
+} from "../app-error/conversions.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<
@@ -478,12 +478,14 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       }).pipe(
         Effect.mapError((cause) =>
-          cause instanceof AppError || isKnownFailure(cause)
-            ? cause
-            : new KnowledgeIoFailed({
-                detail: `Failed to stage Knowledge bundle ${ref.knowledge.name}`,
-                cause,
-              }),
+          cause instanceof AppError
+            ? coupleAppError(cause)
+            : isKnownFailure(cause)
+              ? cause
+              : new KnowledgeIoFailed({
+                  detail: `Failed to stage Knowledge bundle ${ref.knowledge.name}`,
+                  cause,
+                }),
         ),
       );
 
@@ -1046,7 +1048,7 @@ export const KnowledgeManagerLive = Layer.effect(
               { concurrency: "unbounded" },
             ),
           );
-        }),
+        }).pipe(Effect.mapError(coupleRemainingAppError)),
       materializeUninstall,
       materializeDeactivate,
       upsertSettingsEntry: ({ ref, versionRange }) =>

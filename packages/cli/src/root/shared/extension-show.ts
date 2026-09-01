@@ -21,7 +21,7 @@ import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { inspectMcpServerAcrossAgents } from "@agentxm/extension-management/unstable/mcps";
+import { inspectMcpServerAcrossAgents } from "@agentxm/extension-workspace";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,

@@ -7,7 +7,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { installMcpServer, McpServerManager } from "@agentxm/extension-management/unstable/mcps";

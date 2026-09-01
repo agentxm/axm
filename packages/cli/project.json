@@ -55,7 +55,7 @@
         "{projectRoot}/scripts/generate-type-enumerations.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
         "{workspaceRoot}/packages/extension-model/src/unstable/extensions/common.ts",
-        "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/catalog.ts",
+        "{workspaceRoot}/packages/extension-workspace/src/extension-types/catalog.ts",
         "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/schema.ts",
         "{workspaceRoot}/packages/extension-model/src/unstable/extension-types/standards.ts",
         "{workspaceRoot}/.prettierrc.json",
@@ -100,7 +100,7 @@
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
-        "{workspaceRoot}/packages/extension-management/src/unstable/skills/axm-skill-compatibility.ts",
+        "{workspaceRoot}/packages/extension-workspace/src/skills/axm-skill-compatibility.ts",
         "{workspaceRoot}/packages/registry-protocol/src/unstable/content/skill-content.ts",
         "{workspaceRoot}/skills/axm/skill.json",
         "{workspaceRoot}/skills/axm/src/**/*"

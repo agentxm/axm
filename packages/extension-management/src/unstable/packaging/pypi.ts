@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { extractTomlQuotedStrings } from "../toml/index.js";
+import { extractTomlQuotedStrings } from "@agentxm/extension-workspace";
 import { readEnv } from "../utils/index.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";

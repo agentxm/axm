@@ -8,10 +8,7 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import {
-  CodingAgentRepository,
-  findManagedSubagentFiles,
-} from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -35,10 +32,7 @@ import {
   type Plan,
 } from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import {
-  applyProjectionPlans,
-  type ProjectionPlan,
-} from "@agentxm/extension-management/unstable/projection";
+import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
 import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import {
   SourceHostProviders,

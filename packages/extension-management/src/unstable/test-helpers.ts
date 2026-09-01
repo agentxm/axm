@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import { AppError } from "./app-error/index.js";
 import { isKnownFailure, toAppError } from "./app-error/conversions.js";
-import type { CodingAgent } from "./extension-workspace/coding-agent.js";
+import type { CodingAgent } from "@agentxm/extension-workspace";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   decodeExtensionNameSync,

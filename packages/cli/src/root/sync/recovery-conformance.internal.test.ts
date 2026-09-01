@@ -14,7 +14,7 @@ import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
-} from "@agentxm/extension-management/unstable/projection";
+} from "@agentxm/extension-workspace";
 import { syncRecoveryIdentifiers } from "./handler.js";
 import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
 
@@ -106,9 +106,7 @@ const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("knowledge/")) {
     return ["packages/extension-management/src/unstable/lint/catalog/knowledge.internal.test.ts"];
   }
-  return [
-    "packages/extension-management/src/unstable/extension-types/parity/parity.internal.test.ts",
-  ];
+  return ["packages/extension-workspace/src/extension-types/parity/parity.internal.test.ts"];
 };
 
 const packageLintErrorIds = [
@@ -309,7 +307,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "sync",
     field: "lockAuthority",
     evidence: [
-      "packages/extension-management/src/unstable/projection/constraint-invariant-fact.internal.test.ts",
+      "packages/extension-workspace/src/projection/constraint-invariant-fact.internal.test.ts",
       "packages/cli/src/root/sync/handler.internal.test.ts",
     ],
   }),
@@ -317,7 +315,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/extension-management/src/unstable/projection/planning.internal.test.ts",
+      "packages/extension-workspace/src/projection/planning.internal.test.ts",
       "packages/cli/src/root/sync/handler.internal.test.ts",
     ],
   }),
@@ -381,7 +379,7 @@ const adversarialContracts = [
   ["lint-fix-does-no-lifecycle-work", "packages/cli/src/root/lint/handler.internal.test.ts"],
   [
     "stale-and-concurrent-plans-do-not-interleave",
-    "packages/extension-management/src/unstable/projection/planning.internal.test.ts",
+    "packages/extension-workspace/src/projection/planning.internal.test.ts",
   ],
   [
     "publication-interruption-converges",

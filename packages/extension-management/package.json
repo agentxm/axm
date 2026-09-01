@@ -39,21 +39,9 @@
       "types": "./dist/src/unstable/agents/index.d.ts",
       "default": "./dist/src/unstable/agents/index.js"
     },
-    "./unstable/extension-types": {
-      "types": "./dist/src/unstable/extension-types/index.d.ts",
-      "default": "./dist/src/unstable/extension-types/index.js"
-    },
     "./unstable/extensions": {
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"
-    },
-    "./unstable/extension-workspace": {
-      "types": "./dist/src/unstable/extension-workspace/index.d.ts",
-      "default": "./dist/src/unstable/extension-workspace/index.js"
-    },
-    "./unstable/extension-workspace/errors": {
-      "types": "./dist/src/unstable/extension-workspace/errors.d.ts",
-      "default": "./dist/src/unstable/extension-workspace/errors.js"
     },
     "./unstable/extension-lifecycle": {
       "types": "./dist/src/unstable/extension-lifecycle/index.d.ts",
@@ -159,14 +147,6 @@
       "types": "./dist/src/unstable/packaging/index.d.ts",
       "default": "./dist/src/unstable/packaging/index.js"
     },
-    "./unstable/toml": {
-      "types": "./dist/src/unstable/toml/index.d.ts",
-      "default": "./dist/src/unstable/toml/index.js"
-    },
-    "./unstable/yaml": {
-      "types": "./dist/src/unstable/yaml/index.d.ts",
-      "default": "./dist/src/unstable/yaml/index.js"
-    },
     "./unstable/discover": {
       "types": "./dist/src/unstable/discover/index.d.ts",
       "default": "./dist/src/unstable/discover/index.js"
@@ -203,13 +183,13 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",
     "effect": "catalog:",
     "fflate": "catalog:",
-    "jsonc-parser": "catalog:",
     "marked": "^18.0.9",
     "packageurl-js": "catalog:",
     "proper-lockfile": "^4.1.2",
@@ -225,7 +205,6 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
-    "smol-toml": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

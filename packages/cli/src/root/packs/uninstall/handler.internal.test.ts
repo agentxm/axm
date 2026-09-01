@@ -38,7 +38,7 @@ import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/kno
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   expectNoOpPlanResult,

@@ -29,7 +29,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/extension-management/unstable/projection";
+import { applyPlannedProjections } from "@agentxm/extension-workspace";
 import {
   resolveSource,
   SourceHostProviders,

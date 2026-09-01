@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 
-import { evaluateAxmSkillCompatibility } from "@agentxm/extension-management/unstable/skills";
+import { evaluateAxmSkillCompatibility } from "@agentxm/extension-workspace";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
 
 export interface BundledAxmSkillContract {

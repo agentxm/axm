@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type { AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
-import { CodingAgentRepository } from "../extension-workspace/coding-agent.js";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { fileUrlToPath } from "../source-resolution/file-url.js";
 import { WorkspaceCatalog, type SkillCandidates } from "../source-resolution/workspace-catalog.js";
 import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace-state";
@@ -55,13 +55,14 @@ export const WorkspaceCatalogLive = Layer.effect(
         .pipe(Effect.map(configuredRowsByName));
       const configuredAgents = yield* agentRepo
         .getMaterializationAgents()
-        .pipe(Effect.provideService(WorkspaceMutations, ws));
+        .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws));
       const resolvedAgents = yield* Effect.forEach(
         configuredAgents,
         (agent) =>
-          agent
-            .resolveEffectiveSkillsDir({ workspaceRoot: base })
-            .pipe(Effect.map((outcome) => ({ agent, outcome }))),
+          agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
+            Effect.mapError(toAppError),
+            Effect.map((outcome) => ({ agent, outcome })),
+          ),
         { concurrency: "unbounded" },
       );
 

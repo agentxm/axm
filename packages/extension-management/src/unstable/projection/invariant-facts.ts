@@ -15,7 +15,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
 import { HOOK_FALLBACKS_REGION_OWNER, HookManager } from "../hooks/manager.js";
-import { KNOWLEDGE_REGION_OWNER } from "../knowledge/discovery.js";
+import { KNOWLEDGE_REGION_OWNER, observeProjectionPlans } from "@agentxm/extension-workspace";
 import { KnowledgeManager } from "../knowledge/manager.js";
 import { RULES_REGION_OWNER, RuleManager } from "../rules/manager.js";
 import type { AppError } from "../app-error/index.js";
@@ -25,8 +25,7 @@ import { acceptedResolutionRef } from "@agentxm/workspace-state";
 import { resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
 import { SubagentManager } from "../subagents/manager.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { OwnershipUnitId } from "./units.js";
-import { observeProjectionPlans } from "./planning.js";
+import type { OwnershipUnitId, ProjectionUnitObservation } from "@agentxm/extension-workspace";
 
 export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
@@ -34,20 +33,6 @@ export type ProjectionObservationStatus =
   "current" | "missing" | "incomplete" | "stale" | "obsolete" | "unavailable";
 
 /** Adapter readback from one independently owned output unit. */
-export interface ProjectionUnitObservation {
-  readonly unitId: OwnershipUnitId;
-  readonly path: string;
-  /** Marker provenance owner for comment-bearing managed-region units. */
-  readonly owner?: string;
-  /** Whether the AXM-owned unit itself is present, not merely its surrounding file. */
-  readonly present: boolean;
-  /** Whether the complete expected rendering byte-for-byte matches the output. */
-  readonly current: boolean;
-  readonly expectedContributors: ReadonlyArray<string>;
-  /** Contributor identities recovered from the output unit itself. */
-  readonly observedContributors: ReadonlyArray<string>;
-}
-
 export interface ProjectionInvariantFact {
   readonly predicate: typeof PROJECTION_INVARIANT_PREDICATE;
   readonly subject: {

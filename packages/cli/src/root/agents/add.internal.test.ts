@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
@@ -26,7 +26,10 @@ import {
 } from "../../test-helpers.js";
 import { managerLifecycleStubs, writeWorkspaceFiles } from "../../test-stubs.js";
 import { handleAgentsAdd } from "./add.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  coupleAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",
@@ -371,10 +374,12 @@ describe("agents add.handler", () => {
     const failingSkillManager = {
       ...emptySkillManager,
       materializeInstall: () =>
-        makeAppError({
-          code: "not_found",
-          detail: "Injected review skill materialization failure",
-        }),
+        coupleAppError(
+          makeAppError({
+            code: "not_found",
+            detail: "Injected review skill materialization failure",
+          }),
+        ),
     } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
     const { provide, rendererState } = makeLayers({ skillManager: failingSkillManager });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
@@ -425,10 +430,12 @@ describe("agents add.handler", () => {
     const failingSkillManager = {
       ...emptySkillManager,
       materializeInstall: () =>
-        makeAppError({
-          code: "not_found",
-          detail: "Injected review skill materialization failure",
-        }),
+        coupleAppError(
+          makeAppError({
+            code: "not_found",
+            detail: "Injected review skill materialization failure",
+          }),
+        ),
     } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
     const { provide, rendererState } = makeLayers({
       machine: true,

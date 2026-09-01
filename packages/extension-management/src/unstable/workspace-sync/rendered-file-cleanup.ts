@@ -12,22 +12,24 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { CodingAgentRepository, type CodingAgent } from "../extension-workspace/coding-agent.js";
-import { pruneManagedMcpServersForAgent } from "../extension-workspace/mcp-sync.js";
 import {
+  CodingAgentRepository,
+  type CodingAgent,
+  pruneManagedMcpServersForAgent,
   extensionNameFromFilename,
   hasAxmManagedMarker,
   safeReadDirectory,
   safeReadFileString,
   type WorkspaceOwnershipIssue,
-} from "../extension-workspace/managed-file-discovery.js";
+  readAmbiguousHookCommands,
+  stripManagedHooksFromJson,
+} from "@agentxm/extension-workspace";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   PER_AGENT_EXTENSION_TYPES,
   type PerAgentType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR } from "@agentxm/workspace-state";
-import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
@@ -158,7 +160,9 @@ export const cleanupStaleManagedSkillDirectories = (args: {
 
     for (const agent of agents) {
       if (!configuredAgentIds.has(agent.id)) continue;
-      const resolved = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
+      const resolved = yield* agent
+        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .pipe(Effect.mapError(toAppError));
       if (resolved._tag !== "supported") continue;
       const result = yield* cleanupSkillArtifactsInDir({
         fs,
@@ -220,9 +224,9 @@ const NO_PATHS: RemovedAgentCleanupPaths = { removedPaths: [], preservedPaths: [
 
 const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
   Effect.gen(function* () {
-    const skillsDir = yield* context.agent.resolveEffectiveSkillsDir({
-      workspaceRoot: context.workspaceRoot,
-    });
+    const skillsDir = yield* context.agent
+      .resolveEffectiveSkillsDir({ workspaceRoot: context.workspaceRoot })
+      .pipe(Effect.mapError(toAppError));
     if (skillsDir._tag !== "supported") return NO_PATHS;
     return yield* cleanupSkillArtifactsInDir({
       fs: context.fs,
@@ -236,10 +240,9 @@ const cleanupAgentSkills: RemovedAgentCleanup = (context) =>
 
 const cleanupAgentSubagents: RemovedAgentCleanup = (context) =>
   Effect.gen(function* () {
-    const subagentsDir = yield* context.agent.resolveEffectiveSubagentsDir({
-      workspaceRoot: context.workspaceRoot,
-      scope: context.scope,
-    });
+    const subagentsDir = yield* context.agent
+      .resolveEffectiveSubagentsDir({ workspaceRoot: context.workspaceRoot, scope: context.scope })
+      .pipe(Effect.mapError(toAppError));
     if (subagentsDir._tag !== "supported") return NO_PATHS;
     return yield* cleanupSubagentArtifactsInDir({
       fs: context.fs,
@@ -261,7 +264,7 @@ const cleanupAgentMcpServers: RemovedAgentCleanup = (context) =>
       declaredServerNames: new Set<string>(),
       scope: context.scope,
       dryRun: context.dryRun,
-    });
+    }).pipe(Effect.mapError(toAppError));
     if (outcome._tag !== "success") return NO_PATHS;
     return {
       removedPaths: (outcome.targets ?? []).map((target) => target.path),
@@ -400,7 +403,9 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
     const issues: Array<WorkspaceOwnershipIssue> = [];
     for (const agent of agents) {
       if (!configured.has(agent.id)) continue;
-      const skillsDir = yield* agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir });
+      const skillsDir = yield* agent
+        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .pipe(Effect.mapError(toAppError));
       if (skillsDir._tag === "supported") {
         const result = yield* cleanupSkillArtifactsInDir({
           fs,
@@ -421,10 +426,9 @@ export const inspectWorkspaceOwnership = (): Effect.Effect<
           })),
         );
       }
-      const subagentsDir = yield* agent.resolveEffectiveSubagentsDir({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-      });
+      const subagentsDir = yield* agent
+        .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
+        .pipe(Effect.mapError(toAppError));
       if (subagentsDir._tag === "supported") {
         const result = yield* cleanupSubagentArtifactsInDir({
           fs,
@@ -493,10 +497,9 @@ export const cleanupStaleManagedSubagentFiles = (args: {
     const removedPaths: Array<string> = [];
 
     for (const agent of agents) {
-      const resolved = yield* agent.resolveEffectiveSubagentsDir({
-        workspaceRoot: ws.baseDir,
-        scope: ws.scope,
-      });
+      const resolved = yield* agent
+        .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
+        .pipe(Effect.mapError(toAppError));
       if (resolved._tag !== "supported") continue;
 
       const exists = yield* fs.exists(resolved.dir).pipe(Effect.catch(() => Effect.succeed(false)));

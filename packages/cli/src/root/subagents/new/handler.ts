@@ -22,10 +22,8 @@ import {
   MANIFEST_SCHEMA_URL,
   type SubagentManifest,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import {
-  subagentContentPath,
-  SubagentManager,
-} from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
+import { subagentContentPath } from "@agentxm/extension-workspace";
 import type { JobStepArtifact, Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";

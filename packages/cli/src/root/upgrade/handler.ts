@@ -25,7 +25,7 @@ import {
   AXM_SKILL_BUNDLED_APPLY_COMMAND,
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   formatAxmSkillCompatibilityTarget,
-} from "@agentxm/extension-management/unstable/skills";
+} from "@agentxm/extension-workspace";
 import {
   InstallMethod,
   Npm,

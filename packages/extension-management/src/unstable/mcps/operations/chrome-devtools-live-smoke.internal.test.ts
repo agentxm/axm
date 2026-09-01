@@ -11,7 +11,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "../../extension-workspace/index.js";
+} from "@agentxm/extension-workspace";
 import { TestRenderer } from "../../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../../test-helpers.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

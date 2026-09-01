@@ -11,7 +11,13 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { CodingAgentRepository } from "../../extension-workspace/index.js";
+import {
+  CodingAgentRepository,
+  subagentContentFilename,
+  subagentContentPath,
+  warnOnOrphanOverrides,
+  managedSubagentFile,
+} from "@agentxm/extension-workspace";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
@@ -20,13 +26,10 @@ import type { JobStepResult } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { RenderedFilesMapSchema } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import { subagentContentFilename, subagentContentPath } from "../paths.js";
 import { parseSubagentMd } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import { subagentContentErrorToAppError } from "../../app-error/conversions.js";
-import { warnOnOrphanOverrides } from "../rendering/overrides.js";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
-import { managedSubagentFile } from "../managed-file.js";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does

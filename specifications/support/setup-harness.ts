@@ -26,7 +26,11 @@ import {
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
-import { ExecutionDirectory, makeEffectProvide } from "axm.sh/specification-harness";
+import {
+  CodingAgentRepositoryLive,
+  ExecutionDirectory,
+  makeEffectProvide,
+} from "axm.sh/specification-harness";
 
 export interface SetupSpecContextOptions {
   /** Render through the machine (JSON) renderer instead of the human one. */
@@ -57,6 +61,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
   const layer = Layer.mergeAll(
     NodeServices.layer,
     FetchHttpClient.layer,
+    CodingAgentRepositoryLive,
     renderer.layer,
     interaction.layer,
     TestFlagsLayer({

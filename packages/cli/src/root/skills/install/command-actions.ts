@@ -47,7 +47,7 @@ import {
 } from "@agentxm/extension-management/unstable/skills";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import {
@@ -641,11 +641,12 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
               }) ?? (yield* computeExistingSourceHash(ref));
             const configuredAgents = yield* agentRepo
               .getMaterializationAgents()
-              .pipe(Effect.provideService(WorkspaceMutations, ws));
+              .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws));
             const resolvedAgents = yield* Effect.forEach(
               configuredAgents,
               (agent) =>
                 agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                  Effect.mapError(toAppError),
                   Effect.provideService(FileSystem.FileSystem, fsSvc),
                   Effect.provideService(Path.Path, pathSvc),
                   Effect.map((outcome) => ({ agentId: agent.id, outcome })),

@@ -26,9 +26,6 @@ import type {
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
-} from "../../extensions/errors.js";
-import { PathTraversalDetected } from "@agentxm/workspace-state";
-import type {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
   ContributorTreeMismatch,
@@ -37,14 +34,10 @@ import type {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "../../projection/errors.js";
-import type {
   HookConfigInvalid,
   HookDefinitionInvalid,
   HookInstallStateMissing,
   HookIoFailed,
-} from "../../hooks/errors.js";
-import type {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
@@ -53,8 +46,6 @@ import type {
   McpOwnershipMarkerInvalid,
   McpRegistryOnlyInstall,
   McpSharedTargetConflict,
-} from "../../mcps/errors.js";
-import type {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeInstallStateMissing,
@@ -62,8 +53,6 @@ import type {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-} from "../../knowledge/errors.js";
-import type {
   PackArchiveFetchFailed,
   PackConstraintShadowed,
   PackDefinitionInvalid,
@@ -73,23 +62,21 @@ import type {
   PackDependencyUnsatisfied,
   PackInstallStateMissing,
   PackStagingFailed,
-} from "../../packs/errors.js";
-import type { RuleDefinitionInvalid, RuleInstallStateMissing } from "../../rules/errors.js";
-import type {
+  RuleDefinitionInvalid,
+  RuleInstallStateMissing,
   AxmSkillCompatibilityUnavailable,
   AxmSkillIncompatible,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,
-} from "../../skills/errors.js";
-import { formatAxmSkillCompatibilityTarget } from "../../skills/axm-skill-compatibility.js";
-import type {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
   SubagentIoFailed,
-} from "../../subagents/errors.js";
-import type { TransientBackupFailed } from "../../utils/transient-backup.js";
+  TransientBackupFailed,
+} from "@agentxm/extension-workspace";
+import { PathTraversalDetected } from "@agentxm/workspace-state";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-workspace";
 import type { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import { AppError, makeAppError } from "../app-error.js";
 

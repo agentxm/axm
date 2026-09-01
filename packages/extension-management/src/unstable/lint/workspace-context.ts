@@ -15,14 +15,16 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { InstructionProjectionSnapshot } from "../workspace-configuration/instructions.js";
 import type { AppError } from "../app-error/index.js";
-import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
+import type {
+  PackDependencyReachability,
+  AxmSkillCompatibility,
+  WorkspaceOwnershipIssue,
+} from "@agentxm/extension-workspace";
 import type { ProjectionInvariantFact } from "../projection/index.js";
-import type { AxmSkillCompatibility } from "../skills/axm-skill-compatibility.js";
 import type { CanonicalObservation } from "@agentxm/workspace-state";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
 import type { WorkspaceReadModel } from "@agentxm/workspace-state";
-import type { WorkspaceOwnershipIssue } from "../extension-workspace/managed-file-discovery.js";
 
 /**
  * Context passed to `workspace/*` rules.

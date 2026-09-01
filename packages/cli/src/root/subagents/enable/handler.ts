@@ -7,7 +7,7 @@ import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-manage
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import type { EnableSubagentOperation } from "@agentxm/extension-management/unstable/subagents";
 import { enableSubagent } from "@agentxm/extension-management/unstable/subagents";
 import { emitOperationResolution } from "../../../operation-output.js";

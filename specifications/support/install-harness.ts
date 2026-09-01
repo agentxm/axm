@@ -15,7 +15,6 @@ import * as path from "node:path";
 
 import * as Layer from "effect/Layer";
 
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
 import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
 import {
   KnowledgeIndexLive,
@@ -25,10 +24,7 @@ import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcp
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import {
-  SkillManagerLive,
-  makeAxmSkillCompatibilityPolicyLayer,
-} from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import * as Effect from "effect/Effect";
@@ -37,6 +33,8 @@ import {
   makeWorkspaceHandlerTestContext,
   writeWorkspaceFiles,
   type TestPromptConfig,
+  CodingAgentRepositoryLive,
+  makeAxmSkillCompatibilityPolicyLayer,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {

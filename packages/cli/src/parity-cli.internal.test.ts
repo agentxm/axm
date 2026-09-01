@@ -22,7 +22,7 @@ import {
   exemptedObligations,
   obligationsVerifiedBy,
   type ObligationId,
-} from "@agentxm/extension-management/unstable/extension-types";
+} from "@agentxm/extension-workspace";
 import {
   extensionTypes,
   toExtensionTypePlural,

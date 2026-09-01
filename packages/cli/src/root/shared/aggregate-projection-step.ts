@@ -5,10 +5,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
-import {
-  applyProjectionPlans,
-  type ProjectionPlan,
-} from "@agentxm/extension-management/unstable/projection";
+import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 

@@ -1,14 +1,3 @@
-export {
-  buildPackDependencyReachability,
-  classifyPackDependencyReachability,
-  packDependencyReachabilityByMember,
-  type PackDependencyAuthority,
-  type PackDependencyDeclaration,
-  type PackDependencyMemberObservation,
-  type PackDependencyReachability,
-  type PackDependencyReachabilityClassification,
-} from "./dependency-reachability.js";
-
 // Manager
 export { PackManager, PackManagerLive } from "./manager.js";
 
@@ -52,16 +41,3 @@ export type {
   RemoveFromPackOperation,
 } from "./operations/remove-from-pack.js";
 export { removeFromPack } from "./operations/remove-from-pack.js";
-
-export {
-  PackArchiveFetchFailed,
-  PackConstraintShadowed,
-  PackDefinitionInvalid,
-  PackDependencyConflict,
-  PackDependencyInvalid,
-  PackDependencyMissing,
-  PackDependencyUnsatisfied,
-  PackInstallStateMissing,
-  PackStagingFailed,
-  type PackManagerError,
-} from "./errors.js";

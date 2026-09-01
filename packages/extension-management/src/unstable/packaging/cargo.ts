@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
-import { parseTomlValue } from "../toml/index.js";
+import { parseTomlValue } from "@agentxm/extension-workspace";
 import { envWithDefault } from "../utils/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";

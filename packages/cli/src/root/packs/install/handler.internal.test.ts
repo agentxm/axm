@@ -54,7 +54,7 @@ import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcp
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";

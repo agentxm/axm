@@ -91,17 +91,13 @@ import {
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
-} from "../extensions/errors.js";
-import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
-import { RuleDefinitionInvalid, RuleInstallStateMissing } from "../rules/errors.js";
-import {
+  RuleDefinitionInvalid,
+  RuleInstallStateMissing,
   HookConfigInvalid,
   HookDefinitionInvalid,
   HookInstallStateMissing,
   HookIoFailed,
-} from "../hooks/errors.js";
-import { TransientBackupFailed } from "../utils/transient-backup.js";
-import {
+  TransientBackupFailed,
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeInstallStateMissing,
@@ -109,8 +105,6 @@ import {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-} from "../knowledge/errors.js";
-import {
   PackArchiveFetchFailed,
   PackConstraintShadowed,
   PackDefinitionInvalid,
@@ -120,15 +114,11 @@ import {
   PackDependencyUnsatisfied,
   PackInstallStateMissing,
   PackStagingFailed,
-} from "../packs/errors.js";
-import {
   AxmSkillCompatibilityUnavailable,
   AxmSkillIncompatible,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,
-} from "../skills/errors.js";
-import {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
@@ -137,15 +127,12 @@ import {
   McpOwnershipMarkerInvalid,
   McpRegistryOnlyInstall,
   McpSharedTargetConflict,
-} from "../mcps/errors.js";
-import {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
   SubagentIoFailed,
-} from "../subagents/errors.js";
-import { WriteBackupRetained } from "../extension-workspace/errors.js";
-import {
+  CoupledDependencyFailure,
+  WriteBackupRetained,
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
   ContributorTreeMismatch,
@@ -154,7 +141,8 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "../projection/errors.js";
+} from "@agentxm/extension-workspace";
+import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
 import {
   archiveIntegrityMismatchToAppError,
   canonicalPackageProbeFailedToAppError,
@@ -418,6 +406,32 @@ export const staleExecutionCandidateToAppError = (_error: StaleExecutionCandidat
     code: "conflict",
     detail: STALE_CANDIDATE_DETAIL,
   });
+
+/**
+ * Interim bridge for producers whose dependencies still fail with `AppError`:
+ * the envelope travels opaquely through kernel-typed manager channels and
+ * `toAppError` restores it unchanged. Call sites dissolve as the integration
+ * decoupling waves give those dependencies typed failures.
+ */
+export const coupleAppError = (error: AppError): CoupledDependencyFailure =>
+  new CoupledDependencyFailure({ failure: error });
+
+/**
+ * Selective form of {@link coupleAppError} for channels that mix typed
+ * failures with envelopes from still-coupled dependencies: envelopes are
+ * carried, typed failures pass through untouched.
+ */
+export const coupleRemainingAppError = <E>(error: E | AppError): E | CoupledDependencyFailure =>
+  error instanceof AppError ? coupleAppError(error) : error;
+
+/**
+ * Restore a coupled dependency's carried `AppError` verbatim; a non-envelope
+ * payload (never constructed today) degrades to an internal error.
+ */
+export const coupledDependencyFailureToAppError = (error: CoupledDependencyFailure): AppError =>
+  error.failure instanceof AppError
+    ? error.failure
+    : makeAppError({ code: "internal", detail: String(error.failure), cause: error.failure });
 
 /**
  * Interim bridge for producers whose dependencies still fail with `AppError`:
@@ -910,6 +924,7 @@ export type KnownFailure =
   | HookInstallStateMissing
   | TransientBackupFailed
   | WriteBackupRetained
+  | CoupledDependencyFailure
   | SubagentDefinitionInvalid
   | SubagentContentUnreadable
   | SubagentIoFailed
@@ -1028,6 +1043,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof HookInstallStateMissing ||
   error instanceof TransientBackupFailed ||
   error instanceof WriteBackupRetained ||
+  error instanceof CoupledDependencyFailure ||
   error instanceof SubagentDefinitionInvalid ||
   error instanceof SubagentContentUnreadable ||
   error instanceof SubagentIoFailed ||
@@ -1298,6 +1314,8 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return knowledgeUnavailableToAppError(error);
     case "KnowledgeObservableContractViolated":
       return knowledgeObservableContractViolatedToAppError(error);
+    case "CoupledDependencyFailure":
+      return coupledDependencyFailureToAppError(error);
     case "WriteBackupRetained": {
       const inner = toAppError(error.failure);
       return makeAppError({

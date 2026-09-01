@@ -15,8 +15,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { CodingAgent, McpServerSyncOutcome } from "../../extension-workspace/coding-agent.js";
-import { CodingAgentRepository } from "../../extension-workspace/index.js";
+import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/extension-workspace";
+import {
+  CodingAgentRepository,
+  McpSharedTargetConflict,
+  applyProjectionPlansWithResults,
+  planSingletonProjection,
+  inspectAgentMcpServer,
+  sharedMcpTargetPolicyConflict,
+} from "@agentxm/extension-workspace";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isPathSafe } from "@agentxm/workspace-state";
 import { makeAppError } from "../../app-error/index.js";
@@ -30,10 +37,6 @@ import {
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  applyProjectionPlansWithResults,
-  planSingletonProjection,
-} from "../../projection/planning.js";
 import { canReuseInstalledPackage, materializeRegistryPackage } from "../../extensions/index.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
@@ -53,8 +56,6 @@ import {
   McpServerManifestSchema,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpServerEntry } from "@agentxm/workspace-state";
-import { inspectAgentMcpServer } from "../inspection.js";
-import { sharedMcpTargetPolicyConflict } from "../targeting.js";
 import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 import {
   agentConfigTargets,
@@ -536,9 +537,8 @@ const syncConfiguredAgentsOnInstall = (args: {
                       entry: args.entry,
                     });
                     if (inspection.status === "unmanaged") {
-                      return yield* makeAppError({
-                        code: "conflict",
-                        detail: `${agent.id} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
+                      return yield* new McpSharedTargetConflict({
+                        reason: `${agent.id} has an unmanaged MCP server named ${args.serverName}; AXM will not remove it while applying the target policy`,
                       });
                     }
                     const outcome =

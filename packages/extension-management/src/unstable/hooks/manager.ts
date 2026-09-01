@@ -5,6 +5,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { coupleRemainingAppError } from "../app-error/conversions.js";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Layer from "effect/Layer";
@@ -18,7 +19,20 @@ import {
   HookDefinitionInvalid,
   HookInstallStateMissing,
   HookIoFailed,
-} from "./errors.js";
+  activeContributors,
+  applyProjectionPlans,
+  planAggregateProjection,
+  type ProjectionPlan,
+  type ProjectionRenderInput,
+  runWithTransientFileBackup,
+  reconcileManagedRegionFile,
+  managedHookCommands,
+  readManagedHookCommands,
+  updateHooksJson,
+  evaluateHookAgentOutcome,
+  WriteBackupRetained,
+  type ExtensionManagerFailure,
+} from "@agentxm/extension-workspace";
 import { resolveInstructionsConfig } from "../workspace-configuration/instructions.js";
 import {
   AGENTS as CAPABILITY_AGENTS,
@@ -41,14 +55,7 @@ import {
 } from "../extensions/index.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
-import { activeContributors } from "../projection/contributors.js";
-import type { ProjectionUnitObservation } from "../projection/invariant-facts.js";
-import {
-  applyProjectionPlans,
-  planAggregateProjection,
-  type ProjectionPlan,
-  type ProjectionRenderInput,
-} from "../projection/planning.js";
+import type { ProjectionUnitObservation } from "@agentxm/extension-workspace";
 import { validatePathSafety } from "@agentxm/workspace-state";
 import {
   acceptedRegistryVersionForRef,
@@ -60,8 +67,6 @@ import { gitSourceLockFields } from "@agentxm/workspace-state";
 import { SourceHostProviders, WorkspaceCatalog } from "../source-resolution/index.js";
 import { stripFileProtocol } from "../utils/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { runWithTransientFileBackup } from "../utils/transient-backup.js";
-import { reconcileManagedRegionFile } from "../projection/adapters.js";
 import {
   decodeRelativePathSync,
   makeWorkspaceRelativePath,
@@ -71,10 +76,7 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
 } from "../extension-lifecycle/configured-entry-resolution.js";
-import type {
-  ExtensionManager,
-  MaterializationObservation,
-} from "../extension-workspace/extension-manager.js";
+import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
@@ -97,12 +99,6 @@ import {
   type LocalHookRef,
   type RegistryHookRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
-import { evaluateHookAgentOutcome } from "./outcomes.js";
-import {
-  WriteBackupRetained,
-  type ExtensionManagerFailure,
-} from "../extension-workspace/errors.js";
 
 export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<
@@ -1020,40 +1016,44 @@ export const HookManagerLive = Layer.effect(
           ],
           state,
         });
-      });
+      }).pipe(Effect.mapError(coupleRemainingAppError));
 
     const projectionPlans = () => makeHookProjectionPlans();
     const applyHookProjections = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
     const materializeInstall: ExtensionManager<HookExtensionRef>["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
-    )(function* ({ ref }) {
-      const materialized = yield* materializePackage(ref);
-      const packageRoot = materialized.packageRoot;
-      yield* readManifest(packageRoot);
+    )(
+      function* ({ ref }) {
+        const materialized = yield* materializePackage(ref);
+        const packageRoot = materialized.packageRoot;
+        yield* readManifest(packageRoot);
 
-      const workspaceRelativeLocalSourcePath =
-        ref.refType === "local"
-          ? makeWorkspaceRelativeSourcePath(
-              path,
-              baseDir,
-              ref.sourcePath ?? stripFileProtocol(ref.location),
-            )
-          : Option.none<string>();
-      if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* new HookDefinitionInvalid({
-          detail: `Local hook source path must stay within the workspace root: ${ref.source.path}`,
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
+            : Option.none<string>();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* new HookDefinitionInvalid({
+            detail: `Local hook source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+
+        const sourceHash = yield* provide(computePackageContentHash(packageRoot));
+        lastInstallState.set(ref.hook.name, {
+          ref,
+          workspaceRelativeLocalSourcePath,
+          sourceHash,
+          treeIntegrity: materialized.treeIntegrity,
         });
-      }
-
-      const sourceHash = yield* provide(computePackageContentHash(packageRoot));
-      lastInstallState.set(ref.hook.name, {
-        ref,
-        workspaceRelativeLocalSourcePath,
-        sourceHash,
-        treeIntegrity: materialized.treeIntegrity,
-      });
-    }, Effect.asVoid);
+      },
+      Effect.asVoid,
+      Effect.mapError(coupleRemainingAppError),
+    );
 
     const buildLockEntry = (
       ref: HookExtensionRef,
@@ -1162,7 +1162,7 @@ export const HookManagerLive = Layer.effect(
           ),
         );
         return refs;
-      }),
+      }, Effect.mapError(coupleRemainingAppError)),
 
       materializeUninstall,
       materializeDeactivate,

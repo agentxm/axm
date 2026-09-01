@@ -16,15 +16,15 @@ import type { ResolvedPackDependencyMap } from "./resolved-dependency.js";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { AppError } from "../app-error/index.js";
-import { SourceAuthorityBlocked } from "../extensions/errors.js";
 import {
+  SourceAuthorityBlocked,
   PackConstraintShadowed,
   PackDependencyConflict,
   PackDependencyInvalid,
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   type PackManagerError,
-} from "./errors.js";
+} from "@agentxm/extension-workspace";
 
 /** Interim union while registry resolution still fails with `AppError`. */
 type PackDependencyResolutionError = AppError | PackManagerError | SourceAuthorityBlocked;

@@ -18,6 +18,7 @@ import {
   toStepKey,
 } from "./operations.js";
 import { makeAppError } from "../app-error/index.js";
+import { coupleAppError } from "../app-error/conversions.js";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import {
   exactVersion,
@@ -26,7 +27,7 @@ import {
   handle,
   packageUrl,
 } from "../test-helpers.js";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
+import type { ExtensionManager } from "@agentxm/extension-workspace";
 import type { WorkspaceTransactionRunner } from "@agentxm/workspace-state";
 import type {
   RegistrySkillRef,
@@ -339,7 +340,7 @@ describe("buildNewExtensionStep", () => {
         isInstalled: () => Effect.succeed(false),
         materializeInstall: () => Effect.void,
         listMaterializable: () =>
-          Effect.fail(makeAppError({ code: "conflict", detail: "invalid pack" })),
+          Effect.fail(coupleAppError(makeAppError({ code: "conflict", detail: "invalid pack" }))),
         materializeUninstall: () => Effect.void,
         materializeDeactivate: () => Effect.void,
         upsertSettingsEntry: () => Effect.void,
@@ -384,7 +385,8 @@ describe("buildNewExtensionStep", () => {
           );
         };
         let listCalls = 0;
-        const fail = () => Effect.fail(makeAppError({ code: "internal", detail: failureAt }));
+        const fail = () =>
+          Effect.fail(coupleAppError(makeAppError({ code: "internal", detail: failureAt })));
         const manager = {
           type: "skill",
           runTransaction: transactionalRun,
@@ -501,7 +503,9 @@ describe("buildAuthoredExtensionStep", () => {
           listCalls += 1;
           return listCalls === 1
             ? Effect.succeed([ref])
-            : Effect.fail(makeAppError({ code: "conflict", detail: "unexpected preflight" }));
+            : Effect.fail(
+                coupleAppError(makeAppError({ code: "conflict", detail: "unexpected preflight" })),
+              );
         },
         materializeInstall: () => Effect.void,
         materializeUninstall: () => Effect.void,
@@ -669,7 +673,8 @@ describe("buildUninstallOperation", () => {
             ),
           );
         };
-        const fail = () => Effect.fail(makeAppError({ code: "internal", detail: failureAt }));
+        const fail = () =>
+          Effect.fail(coupleAppError(makeAppError({ code: "internal", detail: failureAt })));
         const manager = {
           type: "skill",
           runTransaction: transactionalRun,

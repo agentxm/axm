@@ -46,7 +46,8 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
   type CodingAgent,
-} from "../../extension-workspace/index.js";
+  makeAxmSkillCompatibilityPolicyLayer,
+} from "@agentxm/extension-workspace";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SkillPathSource } from "@agentxm/workspace-state";
@@ -54,7 +55,6 @@ import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "../axm-skill-compatibility.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (

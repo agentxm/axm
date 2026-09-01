@@ -5,7 +5,11 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { ForkPackageConflict, ForkPackageFailed, ForkPackageInvalid } from "./errors.js";
+import {
+  ForkPackageConflict,
+  ForkPackageFailed,
+  ForkPackageInvalid,
+} from "@agentxm/extension-workspace";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,

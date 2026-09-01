@@ -28,10 +28,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import {
-  applyPlannedProjections,
-  observeProjectionPlans,
-} from "@agentxm/extension-management/unstable/projection";
+import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";

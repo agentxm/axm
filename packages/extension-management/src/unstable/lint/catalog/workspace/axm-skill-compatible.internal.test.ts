@@ -7,7 +7,7 @@ import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "../../../skills/axm-skill-compatibility.js";
+} from "@agentxm/extension-workspace";
 import { axmSkillCompatibleRule } from "./axm-skill-compatible.js";
 
 const testWorkspace = WorkspaceReadModelTest({

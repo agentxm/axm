@@ -1,7 +1,4 @@
-import {
-  CodingAgentRepository,
-  CodingAgentRepositoryLive,
-} from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
   bootstrapWorkspace,
   resolveInstructionTarget,
@@ -46,12 +43,12 @@ import { runWorkspaceTransaction } from "@agentxm/workspace-operations";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import { replaceCanonicalDirectory } from "@agentxm/extension-management/unstable/extensions";
+import { ensureSkillAgentArtifact } from "@agentxm/extension-management/unstable/skills";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  ensureSkillAgentArtifact,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-management/unstable/skills";
+} from "@agentxm/extension-workspace";
 import { isGitManaged } from "@agentxm/extension-management/unstable/git";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -967,7 +964,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (
         Effect.map((change) => ({ path: displayTargetPath(filePath), change })),
       ),
   );
-  const agentRepo = yield* CodingAgentRepository.pipe(Effect.provide(CodingAgentRepositoryLive));
+  const agentRepo = yield* CodingAgentRepository;
   const skillTargets: ReadonlyArray<SetupArtifactTarget> = (yield* Effect.forEach(
     agentIds.flatMap((agentId) => (isKnownAgentId(agentId) ? [agentId] : [])),
     (agentId) =>

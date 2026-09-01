@@ -84,6 +84,7 @@
   "devDependencies": {
     "@agentxm/extension-management": "workspace:*",
     "@agentxm/extension-model": "workspace:*",
+    "@agentxm/extension-workspace": "workspace:*",
     "@agentxm/registry-protocol": "workspace:*",
     "@effect/eslint-plugin": "catalog:",
     "@effect/language-service": "catalog:",

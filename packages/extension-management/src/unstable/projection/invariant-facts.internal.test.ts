@@ -3,8 +3,8 @@ import {
   makeProjectionInvariantFact,
   projectionFactIsViolation,
   type ProjectionInvariantFact,
-  type ProjectionUnitObservation,
 } from "./invariant-facts.js";
+import type { ProjectionUnitObservation } from "@agentxm/extension-workspace";
 
 const observation = (
   overrides: Partial<ProjectionUnitObservation> = {},

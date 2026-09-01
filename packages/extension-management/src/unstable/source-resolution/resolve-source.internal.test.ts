@@ -23,7 +23,7 @@ import type { SkillsLockMap } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
-import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 
 // -----------------------------------------------------------------------------
 // Test helpers

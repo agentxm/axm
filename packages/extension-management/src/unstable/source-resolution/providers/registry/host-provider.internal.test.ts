@@ -41,7 +41,7 @@ import type { RegistryPackRef } from "@agentxm/extension-model/unstable/extensio
 import type { RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
-import { makeAxmSkillCompatibilityPolicyLayer } from "../../../skills/index.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
 import {
   createLocalRegistrySourceHostProvider,
   createRemoteRegistrySourceHostProvider,

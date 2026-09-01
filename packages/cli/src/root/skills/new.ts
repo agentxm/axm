@@ -29,7 +29,7 @@ import {
   uninstallSkill,
 } from "@agentxm/extension-management/unstable/skills";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { CodingAgentRepository } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type {
@@ -291,7 +291,9 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       run: Effect.gen(function* () {
         const materializationAgentIds = (yield* agentRepo
           .getMaterializationAgents()
-          .pipe(Effect.provideService(WorkspaceMutations, ws))).map((agent) => agent.id);
+          .pipe(Effect.mapError(toAppError), Effect.provideService(WorkspaceMutations, ws))).map(
+          (agent) => agent.id,
+        );
         const agentsToRemove = materializationAgentIds.filter(
           (agent) => !requestedAgentSet.has(agent),
         );

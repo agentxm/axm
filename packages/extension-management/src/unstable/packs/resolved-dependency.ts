@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { PackDefinitionInvalid } from "./errors.js";
+import { PackDefinitionInvalid } from "@agentxm/extension-workspace";
 import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";

@@ -20,7 +20,7 @@ import {
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "../../../test-stubs.js";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 

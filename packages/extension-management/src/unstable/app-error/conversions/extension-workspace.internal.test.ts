@@ -22,10 +22,6 @@ import {
   ScaffoldedExtensionUnresolved,
   SourceAuthorityBlocked,
   StagedPackageInvalid,
-} from "../../extensions/errors.js";
-import { PathTraversalDetected } from "@agentxm/workspace-state";
-import { MaterializedTreeInvalid } from "@agentxm/workspace-state";
-import {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
   ContributorTreeMismatch,
@@ -34,21 +30,16 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "../../projection/errors.js";
-import { RuleDefinitionInvalid, RuleInstallStateMissing } from "../../rules/errors.js";
-import {
+  RuleDefinitionInvalid,
+  RuleInstallStateMissing,
   HookConfigInvalid,
   HookDefinitionInvalid,
   HookInstallStateMissing,
   HookIoFailed,
-} from "../../hooks/errors.js";
-import {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
   SubagentIoFailed,
-} from "../../subagents/errors.js";
-import {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
@@ -57,16 +48,11 @@ import {
   McpOwnershipMarkerInvalid,
   McpRegistryOnlyInstall,
   McpSharedTargetConflict,
-} from "../../mcps/errors.js";
-import {
   AxmSkillCompatibilityUnavailable,
   AxmSkillIncompatible,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,
-} from "../../skills/errors.js";
-import type { AxmSkillCompatibility } from "../../skills/axm-skill-compatibility.js";
-import {
   PackArchiveFetchFailed,
   PackConstraintShadowed,
   PackDefinitionInvalid,
@@ -76,8 +62,6 @@ import {
   PackDependencyUnsatisfied,
   PackInstallStateMissing,
   PackStagingFailed,
-} from "../../packs/errors.js";
-import {
   KnowledgeDefinitionInvalid,
   KnowledgeDesiredStateUnreconcilable,
   KnowledgeInstallStateMissing,
@@ -85,9 +69,12 @@ import {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-} from "../../knowledge/errors.js";
-import { TransientBackupFailed } from "../../utils/transient-backup.js";
-import { WriteBackupRetained } from "../../extension-workspace/errors.js";
+  TransientBackupFailed,
+  WriteBackupRetained,
+} from "@agentxm/extension-workspace";
+import { PathTraversalDetected } from "@agentxm/workspace-state";
+import { MaterializedTreeInvalid } from "@agentxm/workspace-state";
+import type { AxmSkillCompatibility } from "@agentxm/extension-workspace";
 
 const ioCause = new Error("EACCES");
 

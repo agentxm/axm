@@ -82,22 +82,22 @@ import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extens
 import type { SkillLockEntry } from "@agentxm/workspace-state";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
-import { inspectKnowledgePackage } from "../../../knowledge/package-inspection.js";
+import {
+  inspectKnowledgePackage,
+  buildPackDependencyReachability,
+  type PackDependencyAuthority,
+  type PackDependencyMemberObservation,
+  type PackDependencyReachability,
+  readAxmSkillWorkspaceCompatibility,
+} from "@agentxm/extension-workspace";
 import type { KnowledgeInspection } from "@agentxm/registry-protocol/unstable/knowledge/okf";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { canonicalDisplayRoot } from "../workspace/display-paths.js";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import {
-  buildPackDependencyReachability,
-  type PackDependencyAuthority,
-  type PackDependencyMemberObservation,
-  type PackDependencyReachability,
-} from "../../../packs/dependency-reachability.js";
 import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { readAxmSkillWorkspaceCompatibility } from "../../../skills/axm-skill-workspace-compatibility.js";
-import type { AxmSkillCompatibilityPolicyService } from "../../../skills/axm-skill-compatibility.js";
+import type { AxmSkillCompatibilityPolicyService } from "@agentxm/extension-workspace";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { readManifestJson } from "./manifest-json.js";

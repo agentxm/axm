@@ -10,8 +10,8 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "../../extension-workspace/index.js";
-import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
+} from "@agentxm/extension-workspace";
+import type { CodingAgent } from "@agentxm/extension-workspace";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import type { McpServerEntry } from "@agentxm/workspace-state";

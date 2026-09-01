@@ -81,6 +81,7 @@
   "dependencies": {
     "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",

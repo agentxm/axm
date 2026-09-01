@@ -34,7 +34,7 @@ import {
   PackageCopyFailed,
   PackageMaterializationFailed,
   StagedPackageInvalid,
-} from "./errors.js";
+} from "@agentxm/extension-workspace";
 import { PathTraversalDetected } from "@agentxm/workspace-state";
 import {
   computeMaterializedTreeIntegrity,

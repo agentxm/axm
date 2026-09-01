@@ -8,21 +8,28 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
+import { coupleRemainingAppError } from "../app-error/conversions.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { McpConfigIoFailed, McpInstallStateMissing, McpRegistryOnlyInstall } from "./errors.js";
-import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
+import {
+  McpConfigIoFailed,
+  McpInstallStateMissing,
+  McpRegistryOnlyInstall,
+  removeMcpServerFromManifest,
+  applyProjectionPlans,
+  planSingletonProjection,
+} from "@agentxm/extension-workspace";
+import type { ExtensionManagerFailure, ExtensionManager } from "@agentxm/extension-workspace";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
-import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -35,7 +42,6 @@ import {
   validateExactResolvedVersion,
 } from "@agentxm/workspace-state";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { removeMcpServerFromManifest } from "../extension-workspace/mcp-sync.js";
 import { configuredRowsByName } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
@@ -44,7 +50,6 @@ import {
   removableAcceptedCanonicalPath,
 } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
-import { applyProjectionPlans, planSingletonProjection } from "../projection/planning.js";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------
@@ -101,60 +106,65 @@ export const McpServerManagerLive = Layer.effect(
     const lastTreeIntegrities = new Map<string, TreeIntegrity>();
 
     const materializeInstall: ExtensionManager<McpServerExtensionRef>["materializeInstall"] =
-      Effect.fn("McpServerManager.materializeInstall")(function* ({ ref, force }) {
-        if (ref.refType !== "registry") {
-          return yield* new McpRegistryOnlyInstall({
-            serverName: ref.server.name,
-            refType: ref.refType,
-          });
-        }
-
-        const registryRef = ref;
-        const canonicalPath = computeExtensionPathsForLayout(
-          path.join,
-          ws.layout,
-          registryRef,
-          "mcps",
-          registryRef.name,
-        ).canonicalPath;
-
-        const lockedEntry = yield* ws.getLockedMcpServer(registryRef.server.name);
-        const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, registryRef);
-        const useExisting = yield* provide(
-          canReuseInstalledPackage({
-            installedPath: canonicalPath,
-            force: force === true,
-            refVersion: registryRef.version,
-            hasIntegrity: Option.isSome(registryRef.integrity),
-            ...(lockedVersion === undefined ? {} : { lockedVersion }),
-            existsFailureDetail: (target) => `Failed to check if canonical path exists: ${target}`,
-          }),
-        );
-
-        if (useExisting && Option.isSome(lockedEntry)) {
-          const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
-          if (observedTree === lockedEntry.value.treeIntegrity) {
-            lastTreeIntegrities.set(registryRef.server.name, lockedEntry.value.treeIntegrity);
-            return;
+      Effect.fn("McpServerManager.materializeInstall")(
+        function* ({ ref, force }) {
+          if (ref.refType !== "registry") {
+            return yield* new McpRegistryOnlyInstall({
+              serverName: ref.server.name,
+              refType: ref.refType,
+            });
           }
-        }
-        const materialized = yield* provide(
-          materializeRegistryPackageWithTreeIntegrity({
-            baseDir,
-            destinationPath: canonicalPath,
-            sourceLocation: registryRef.source.location,
-            owner: registryRef.owner,
-            type: "mcp-server",
-            name: registryRef.name,
-            version: registryRef.version,
-            integrity: registryRef.integrity,
-            messages: {
-              integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
-            },
-          }),
-        );
-        lastTreeIntegrities.set(registryRef.server.name, materialized.treeIntegrity);
-      }, Effect.asVoid);
+
+          const registryRef = ref;
+          const canonicalPath = computeExtensionPathsForLayout(
+            path.join,
+            ws.layout,
+            registryRef,
+            "mcps",
+            registryRef.name,
+          ).canonicalPath;
+
+          const lockedEntry = yield* ws.getLockedMcpServer(registryRef.server.name);
+          const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, registryRef);
+          const useExisting = yield* provide(
+            canReuseInstalledPackage({
+              installedPath: canonicalPath,
+              force: force === true,
+              refVersion: registryRef.version,
+              hasIntegrity: Option.isSome(registryRef.integrity),
+              ...(lockedVersion === undefined ? {} : { lockedVersion }),
+              existsFailureDetail: (target) =>
+                `Failed to check if canonical path exists: ${target}`,
+            }),
+          );
+
+          if (useExisting && Option.isSome(lockedEntry)) {
+            const observedTree = yield* provide(computeMaterializedTreeIntegrity(canonicalPath));
+            if (observedTree === lockedEntry.value.treeIntegrity) {
+              lastTreeIntegrities.set(registryRef.server.name, lockedEntry.value.treeIntegrity);
+              return;
+            }
+          }
+          const materialized = yield* provide(
+            materializeRegistryPackageWithTreeIntegrity({
+              baseDir,
+              destinationPath: canonicalPath,
+              sourceLocation: registryRef.source.location,
+              owner: registryRef.owner,
+              type: "mcp-server",
+              name: registryRef.name,
+              version: registryRef.version,
+              integrity: registryRef.integrity,
+              messages: {
+                integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
+              },
+            }),
+          );
+          lastTreeIntegrities.set(registryRef.server.name, materialized.treeIntegrity);
+        },
+        Effect.asVoid,
+        Effect.mapError(coupleRemainingAppError),
+      );
 
     const makeMaterializeRemoval = (
       retainCanonical: boolean,

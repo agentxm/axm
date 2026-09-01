@@ -13,7 +13,7 @@ import {
   CodingAgentRepository,
   type CodingAgent,
   type CodingAgentRepositoryService,
-} from "../../extension-workspace/index.js";
+} from "@agentxm/extension-workspace";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 

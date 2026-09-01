@@ -10,7 +10,7 @@
  */
 
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
-import { getStandardForExtensionType } from "@agentxm/extension-management/unstable/extension-types";
+import { getStandardForExtensionType } from "@agentxm/extension-workspace";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import { describe, expect, it } from "vitest";
 

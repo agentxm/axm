@@ -5,7 +5,7 @@ import {
   CreateDestinationExists,
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
-} from "./errors.js";
+} from "@agentxm/extension-workspace";
 
 export interface CreateOnlyPreflightArgs {
   readonly subject: string;

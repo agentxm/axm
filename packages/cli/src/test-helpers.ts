@@ -36,7 +36,8 @@ import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
+export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { ExecutionDirectory } from "./execution-directory.js";
 

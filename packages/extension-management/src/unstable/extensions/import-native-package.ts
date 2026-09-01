@@ -19,7 +19,7 @@ import {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
-} from "./errors.js";
+} from "@agentxm/extension-workspace";
 
 const NATIVE_IMPORT_VERSION = "0.1.0";
 const MANIFEST_FILENAMES = new Set([

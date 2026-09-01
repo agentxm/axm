@@ -7,7 +7,11 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { CodingAgentRepository } from "../../extension-workspace/index.js";
+import {
+  CodingAgentRepository,
+  inspectAgentMcpServer,
+  sharedMcpTargetPolicyConflict,
+} from "@agentxm/extension-workspace";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
@@ -21,8 +25,6 @@ import type {
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { agentConfigTargets, mcpServerArtifact, mcpSettingsTarget } from "./artifact.js";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
-import { inspectAgentMcpServer } from "../inspection.js";
-import { sharedMcpTargetPolicyConflict } from "../targeting.js";
 import { isMcpServerApplicableToAgent } from "@agentxm/workspace-state";
 
 export type DisableMcpServerOperation = Operation<

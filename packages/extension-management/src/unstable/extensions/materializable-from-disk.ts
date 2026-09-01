@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { CanonicalPackageProbeFailed } from "./errors.js";
+import { CanonicalPackageProbeFailed } from "@agentxm/extension-workspace";
 import type { PathTraversalDetected } from "@agentxm/workspace-state";
 import type { PackageContentHashFailed, WorkspaceSourceInvalid } from "@agentxm/workspace-state";
 import type { LockEntryToRefError } from "@agentxm/workspace-state";

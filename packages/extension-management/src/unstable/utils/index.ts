@@ -28,11 +28,3 @@ export {
 } from "./environment.js";
 export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
 export { isLoopbackAddress } from "./network.js";
-
-export {
-  createTransientFileBackup,
-  removeTransientFileBackup,
-  runWithTransientFileBackup,
-  TransientBackupFailed,
-  type TransientFileBackup,
-} from "./transient-backup.js";

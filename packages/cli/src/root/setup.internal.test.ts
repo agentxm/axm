@@ -1,5 +1,6 @@
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { Settings } from "@agentxm/workspace-state";
@@ -103,6 +104,7 @@ const makeSetupTestContext = (opts?: {
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     FetchHttpClient.layer,
+    CodingAgentRepositoryLive,
     renderer.layer,
     workspaceInitInteraction.layer,
     TestFlagsLayer(opts?.flags),

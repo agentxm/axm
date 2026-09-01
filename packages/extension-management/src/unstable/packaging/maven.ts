@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { parseTomlStringEntries, readTomlSection } from "../toml/index.js";
+import { parseTomlStringEntries, readTomlSection } from "@agentxm/extension-workspace";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";

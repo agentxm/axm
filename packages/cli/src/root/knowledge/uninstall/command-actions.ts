@@ -26,7 +26,10 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  coupleAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 export interface UninstallKnowledgeHandlerArgs {
   readonly name: string;
@@ -161,7 +164,11 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
       };
     }
     return buildUninstallOperation<KnowledgeExtensionRef>(
-      { ...manager, isInstalled: () => isAcceptedTargetPresent(ownership.target) },
+      {
+        ...manager,
+        isInstalled: () =>
+          isAcceptedTargetPresent(ownership.target).pipe(Effect.mapError(coupleAppError)),
+      },
       makeWorkspaceRetentionPolicy(ws),
       { target: ownership.target },
     );

@@ -11,12 +11,11 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "../../extension-workspace/index.js";
-import type { CodingAgent } from "../../extension-workspace/coding-agent.js";
+} from "@agentxm/extension-workspace";
+import type { CodingAgent } from "@agentxm/extension-workspace";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
-import { type AppError } from "../../app-error/index.js";
-import { SettingsWriteError } from "@agentxm/workspace-state";
+import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
 import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
@@ -294,10 +293,10 @@ describe("uninstallMcpServer", () => {
       });
 
     const getConfiguredAgentsMock = vi.fn<
-      () => Effect.Effect<ReadonlyArray<CodingAgent>, AppError>
+      () => Effect.Effect<ReadonlyArray<CodingAgent>, WorkspaceSettingsReadFailure>
     >(() => Effect.succeed([]));
     const getUnknownConfiguredAgentIdsMock = vi.fn<
-      () => Effect.Effect<ReadonlyArray<string>, AppError>
+      () => Effect.Effect<ReadonlyArray<string>, WorkspaceSettingsReadFailure>
     >(() => Effect.succeed([]));
 
     const mockAgentRepo: CodingAgentRepositoryService = {

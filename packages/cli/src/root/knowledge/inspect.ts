@@ -19,12 +19,14 @@ import {
 import {
   KnowledgeIndex,
   captureKnowledgeIndexBundles,
+} from "@agentxm/extension-management/unstable/knowledge";
+import {
   inspectKnowledgePackage,
   readKnowledgePackageManifest,
-} from "@agentxm/extension-management/unstable/knowledge";
+} from "@agentxm/extension-workspace";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 
-export { inspectKnowledgePackage } from "@agentxm/extension-management/unstable/knowledge";
+export { inspectKnowledgePackage } from "@agentxm/extension-workspace";
 
 export const bundleRoot = (
   layout: WorkspaceLayout,

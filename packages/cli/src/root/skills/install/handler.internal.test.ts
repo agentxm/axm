@@ -23,7 +23,7 @@ import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-o
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-management/unstable/source-resolution";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { CodingAgentRepositoryLive } from "@agentxm/extension-management/unstable/extension-workspace";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
 import {

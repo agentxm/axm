@@ -7,7 +7,7 @@ import {
   insertManagedFileBanner,
   managedFileFormatForPath,
   managedFileMarker,
-} from "../extensions/index.js";
+} from "@agentxm/extension-workspace";
 import { isGitManaged } from "../git/detect.js";
 import { type InstructionsConfig } from "@agentxm/workspace-state";
 import { createSymlink } from "@agentxm/workspace-state";
@@ -16,7 +16,7 @@ import { AXM_DIR_NAME } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { recordFootprint } from "@agentxm/workspace-state";
-import { reconcilePatternList } from "../projection/adapters.js";
+import { reconcilePatternList } from "@agentxm/extension-workspace";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,

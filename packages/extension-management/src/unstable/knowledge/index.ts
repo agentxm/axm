@@ -72,28 +72,9 @@ export {
   KnowledgeCapturedSourceMissingError,
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
-export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";
 export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
 export {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryReason,
   type KnowledgeInstructionEntryResolution,
 } from "./instruction-entry.js";
-export {
-  reconcileKnowledgeDiscovery,
-  observedKnowledgeContributors,
-  type KnowledgeDiscoveryArtifact,
-  type KnowledgeDiscoveryBundle,
-  type KnowledgeDiscoveryResult,
-} from "./discovery.js";
-
-export {
-  KnowledgeDefinitionInvalid,
-  KnowledgeDesiredStateUnreconcilable,
-  KnowledgeInstallStateMissing,
-  KnowledgeIoFailed,
-  KnowledgeObservableContractViolated,
-  KnowledgeResolutionMissing,
-  KnowledgeUnavailable,
-  type KnowledgeManagerError,
-} from "./errors.js";

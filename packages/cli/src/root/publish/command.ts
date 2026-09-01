@@ -89,7 +89,7 @@ import {
   extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,
   type ExtensionConstraintInvariantFact,
-} from "@agentxm/extension-management/unstable/projection";
+} from "@agentxm/extension-workspace";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
@@ -111,7 +111,7 @@ import {
   runPublishLintGate,
 } from "@agentxm/extension-management/unstable/publish";
 import { buildLintWorkspace } from "@agentxm/extension-management/unstable/lint";
-import type { PackDependencyReachability } from "@agentxm/extension-management/unstable/packs";
+import type { PackDependencyReachability } from "@agentxm/extension-workspace";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,

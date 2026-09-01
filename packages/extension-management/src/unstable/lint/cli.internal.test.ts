@@ -3,7 +3,7 @@ import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "../skills/axm-skill-compatibility.js";
+} from "@agentxm/extension-workspace";
 import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
 
 describe("lint fact rendering", () => {

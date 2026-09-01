@@ -31,7 +31,7 @@ const makeInput = (name: string): Terminal.UserInput => ({
 
 const makeHarness = Effect.gen(function* () {
   const output: Array<string> = [];
-  const queue = yield* Queue.make<Terminal.UserInput, never>();
+  const queue = yield* Queue.make<Terminal.UserInput, Cause.Done>();
   const terminal = Terminal.make({
     columns: Effect.succeed(80),
     rows: Effect.succeed(24),

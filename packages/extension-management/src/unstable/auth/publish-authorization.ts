@@ -2,10 +2,10 @@ import * as Effect from "effect/Effect";
 
 import type { AppError } from "../app-error/index.js";
 import { makeAppError } from "../app-error/index.js";
-import { CliRenderer } from "../cli-renderer/index.js";
 import type { PreviewPublicationSetRequest } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { AuthClient, type PublishAuthorizationExchangeResponse } from "./auth-client.js";
 import { DeviceLoginInteraction } from "./device-login.js";
+import { AuthLoginPresenter } from "./login-presenter.js";
 import {
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
@@ -60,7 +60,7 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
   return yield* Effect.scoped(
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
-      const renderer = yield* CliRenderer;
+      const presenter = yield* AuthLoginPresenter;
       const interaction = yield* DeviceLoginInteraction;
       const verifier = makePkceVerifier();
       const challenge = makePkceChallenge(verifier);
@@ -78,11 +78,11 @@ export const runPublishAuthorization = Effect.fn("Auth.runPublishAuthorization")
       });
 
       const openedBrowser = yield* interaction.openBrowser(request.authorizationUrl);
-      yield* renderer.step(
-        openedBrowser
-          ? `Opening browser to review ${input.publicationSet.candidates.length} publish candidate${input.publicationSet.candidates.length === 1 ? "" : "s"}...`
-          : `Open this URL to review the exact publish: ${request.authorizationUrl}`,
-      );
+      yield* presenter.notePublishReview({
+        browserOpened: openedBrowser,
+        candidateCount: input.publicationSet.candidates.length,
+        authorizationUrl: request.authorizationUrl,
+      });
 
       const callback = yield* server
         .awaitCallback(PUBLISH_AUTHORIZATION_TIMEOUT_MS)

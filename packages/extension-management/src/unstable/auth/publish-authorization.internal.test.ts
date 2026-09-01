@@ -5,7 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { makeAppError } from "../app-error/index.js";
-import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   PUBLICATION_SET_CONTRACT,
@@ -20,6 +19,7 @@ import type {
 } from "./auth-client.js";
 import { AuthClientTest } from "./auth-client.js";
 import { DeviceLoginInteractionTest } from "./device-login.js";
+import { AuthLoginPresenterTest } from "./login-presenter.js";
 import { runPublishAuthorization } from "./publish-authorization.js";
 
 const archive = new TextEncoder().encode("exact archive bytes");
@@ -80,7 +80,7 @@ const scheduleCallback = (url: string) => {
 describe("runPublishAuthorization", () => {
   it.effect("binds the exact archive and returns the in-memory capability", () => {
     let created: CreatePublishAuthorizationRequestParams | undefined;
-    const renderer = TestRenderer.make();
+    const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
@@ -132,7 +132,7 @@ describe("runPublishAuthorization", () => {
           ),
         ),
     });
-    const layer = Layer.mergeAll(renderer.layer, interaction.layer, authClient);
+    const layer = Layer.mergeAll(presenter.layer, interaction.layer, authClient);
 
     return runPublishAuthorization(input).pipe(
       Effect.provide(layer),
@@ -151,14 +151,20 @@ describe("runPublishAuthorization", () => {
           registryUrl: input.registryUrl,
           publicationSet: input.publicationSet,
         });
-        expect(logsByTag(renderer.state).step[0]).toContain("Opening browser to review");
+        expect(presenter.state.publishReviews).toEqual([
+          {
+            browserOpened: true,
+            candidateCount: 1,
+            authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_test",
+          },
+        ]);
       }),
     );
   });
 
   it.effect("reports browser denial as an expected authorization failure", () => {
     let created: CreatePublishAuthorizationRequestParams | undefined;
-    const renderer = TestRenderer.make();
+    const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
@@ -184,7 +190,7 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(renderer.layer, interaction.layer, authClient)),
+        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
       ),
     ).pipe(
       Effect.map((error) => {
@@ -196,7 +202,7 @@ describe("runPublishAuthorization", () => {
 
   it.effect("rejects a callback from an unexpected issuer", () => {
     let created: CreatePublishAuthorizationRequestParams | undefined;
-    const renderer = TestRenderer.make();
+    const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
@@ -222,7 +228,7 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(renderer.layer, interaction.layer, authClient)),
+        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
       ),
     ).pipe(
       Effect.map((error) => {
@@ -234,7 +240,7 @@ describe("runPublishAuthorization", () => {
 
   it.effect("preserves an expected authorization exchange failure", () => {
     let created: CreatePublishAuthorizationRequestParams | undefined;
-    const renderer = TestRenderer.make();
+    const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () =>
         Effect.sync(() => {
@@ -267,7 +273,7 @@ describe("runPublishAuthorization", () => {
 
     return Effect.flip(
       runPublishAuthorization(input).pipe(
-        Effect.provide(Layer.mergeAll(renderer.layer, interaction.layer, authClient)),
+        Effect.provide(Layer.mergeAll(presenter.layer, interaction.layer, authClient)),
       ),
     ).pipe(
       Effect.map((error) => {

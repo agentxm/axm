@@ -24,6 +24,7 @@ import {
   type CliTelemetryConfig,
   type ExpectedCliError,
   type OutputFormat,
+  AuthLoginPresenterLive,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
   makeFoundationLayer,
@@ -406,6 +407,7 @@ export const withRuntime =
         Layer.mergeAll(
           ResolvePlanInteractionLive,
           WorkspaceInitializationInteractionLive,
+          AuthLoginPresenterLive,
           InterruptionSignalSourceLive,
         ),
         foundationLayer,

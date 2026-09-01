@@ -24,6 +24,7 @@ import {
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
+import { AuthLoginPresenterLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-helpers.js";
@@ -116,6 +117,9 @@ const makeLayers = (opts?: {
   const FullLayer = Layer.mergeAll(
     NodeServices.layer,
     rendererLayer,
+    // The real renderer-backed presenter keeps the output assertions
+    // observing the CLI wording and machine documents.
+    Layer.provide(AuthLoginPresenterLive, rendererLayer),
     interactionLayer,
     flagsLayer,
     credStoreLayer,
@@ -654,6 +658,7 @@ describe("auth login handler", () => {
     const layer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer2,
+      Layer.provide(AuthLoginPresenterLive, rendererLayer2),
       interactionLayer2,
       TestFlagsLayer({ nonInteractive: false }),
       CredentialStoreTest(),

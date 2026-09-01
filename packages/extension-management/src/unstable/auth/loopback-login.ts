@@ -10,20 +10,21 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { CliRenderer } from "../cli-renderer/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 
 import { AuthClient } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { DeviceLoginInteraction } from "./device-login.js";
 import { emitLoginSuccess } from "./login-output.js";
+import { AuthLoginPresenter } from "./login-presenter.js";
 import { LoopbackCallbackRejected, startLoopbackServer } from "./loopback-server.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 // Human approval window for the browser/login round trip. The issued
 // authorization code remains shorter-lived on the registry side.
-const LOOPBACK_TIMEOUT = Duration.minutes(5);
+const LOOPBACK_TIMEOUT_MINUTES = 5;
+const LOOPBACK_TIMEOUT = Duration.minutes(LOOPBACK_TIMEOUT_MINUTES);
 
 export interface RunLoopbackLoginOptions {
   readonly scopes?: ReadonlyArray<string>;
@@ -63,7 +64,7 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
       const credStore = yield* CredentialStore;
-      const renderer = yield* CliRenderer;
+      const presenter = yield* AuthLoginPresenter;
       const interaction = yield* DeviceLoginInteraction;
       const registryHost = new URL(registryUrl).host;
 
@@ -83,23 +84,20 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
         ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
       });
 
-      yield* renderer.instruction(`Starting local sign-in server on ${server.redirectUri}.`);
-      yield* renderer.instruction(
-        `If the browser does not open, visit:\n\n${authorizeUrl}\n\nOn a remote or headless machine, run \`axm login --device-code\`.`,
-      );
+      yield* presenter.presentLoopbackStart({
+        redirectUri: server.redirectUri,
+        authorizeUrl,
+      });
       const openedBrowser = yield* interaction.openBrowser(authorizeUrl);
-      if (openedBrowser) {
-        yield* renderer.info("Opening your browser to authorize AXM.");
-      } else {
-        yield* renderer.instruction(
-          "Could not open the system browser. Use the authorization URL above to continue.",
-        );
-      }
+      yield* presenter.noteLoopbackBrowserOutcome(openedBrowser);
 
-      const callback = yield* renderer.withSpinner(
-        "Waiting for authorization… (expires in 5 minutes)",
+      const callback = yield* presenter.withProgress(
+        {
+          _tag: "WaitingForLoopbackAuthorization",
+          registryHost,
+          timeoutMinutes: LOOPBACK_TIMEOUT_MINUTES,
+        },
         () => server.awaitCallback(Duration.toMillis(LOOPBACK_TIMEOUT)),
-        { successMessage: `Received browser authorization on ${registryHost}` },
       );
       const expectedIssuer = authClient.getAuthorizationIssuer();
       if (callback.iss !== expectedIssuer) {
@@ -109,18 +107,15 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
         });
       }
 
-      const handle = yield* renderer.withSpinner(
-        `Completing sign-in to ${registryHost}`,
-        () =>
-          Effect.gen(function* () {
-            const token = yield* authClient.exchangePkceCode({
-              code: callback.code,
-              verifier,
-              redirectUri: server.redirectUri,
-            });
-            return yield* persistLoginCredentials(registryUrl, token);
-          }),
-        { successMessage: `Completed sign-in to ${registryHost}` },
+      const handle = yield* presenter.withProgress({ _tag: "CompletingSignIn", registryHost }, () =>
+        Effect.gen(function* () {
+          const token = yield* authClient.exchangePkceCode({
+            code: callback.code,
+            verifier,
+            redirectUri: server.redirectUri,
+          });
+          return yield* persistLoginCredentials(registryUrl, token);
+        }),
       );
       yield* emitLoginSuccess(registryUrl, handle);
     }),

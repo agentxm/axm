@@ -25,6 +25,7 @@ import {
 } from "@agentxm/extension-management/unstable/app-error";
 import {
   AuthClient,
+  AuthLoginPresenter,
   DeviceLoginInteraction,
   resolveRequestToken,
   runPublishAuthorization,
@@ -1949,6 +1950,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const workspaceMutations = yield* WorkspaceMutations;
   const authClient = yield* AuthClient;
   const deviceLoginInteraction = yield* DeviceLoginInteraction;
+  const authLoginPresenter = yield* AuthLoginPresenter;
   const registryUrl = yield* RegistryUrl;
   const renderer = yield* CliRenderer;
   const prepared = yield* renderer.withSpinner(
@@ -2217,7 +2219,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
   const acquirePublishAuthorization: Effect.Effect<
     PublishAuthorizationState,
     AppError,
-    CliRenderer | AuthClient | DeviceLoginInteraction
+    AuthLoginPresenter | AuthClient | DeviceLoginInteraction
   > =
     isRemoteRegistry && Option.isNone(storedToken)
       ? Effect.gen(function* () {
@@ -2429,7 +2431,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
         acquirePublishAuthorization.pipe(
           Effect.provideService(AuthClient, authClient),
           Effect.provideService(DeviceLoginInteraction, deviceLoginInteraction),
-          Effect.provideService(CliRenderer, renderer),
+          Effect.provideService(AuthLoginPresenter, authLoginPresenter),
           Effect.tap((authorization) => Ref.set(acquiredAuthorization, Option.some(authorization))),
           Effect.tap((authorization) => Deferred.succeed(authorizationDeferred, authorization)),
           Effect.asVoid,

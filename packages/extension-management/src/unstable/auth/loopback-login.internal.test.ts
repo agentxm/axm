@@ -6,11 +6,11 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 
-import { TestRenderer, logsByTag } from "../cli-renderer/index.js";
 import { handle } from "../test-helpers.js";
 import { AuthClientTest } from "./auth-client.js";
 import { CredentialStore, CredentialStoreTest } from "./credential-store.js";
 import { DeviceLoginInteractionTest } from "./device-login.js";
+import { AuthLoginPresenterTest } from "./login-presenter.js";
 import { runLoopbackLogin } from "./loopback-login.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
@@ -65,7 +65,7 @@ const makeAuthClientLayer = () =>
 
 describe("runLoopbackLogin", () => {
   it.effect("keeps the listener usable when browser launch fails", () => {
-    const renderer = TestRenderer.make();
+    const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: (authorizeUrl) =>
         Effect.sync(() => {
@@ -77,7 +77,7 @@ describe("runLoopbackLogin", () => {
         }),
     });
     const layer = Layer.mergeAll(
-      renderer.layer,
+      presenter.layer,
       interaction.layer,
       CredentialStoreTest(),
       makeAuthClientLayer(),
@@ -86,14 +86,13 @@ describe("runLoopbackLogin", () => {
     return Effect.gen(function* () {
       yield* runLoopbackLogin(REGISTRY_URL);
 
-      const logs = logsByTag(renderer.state);
-      expect(logs.info.some((message) => message.startsWith("Starting local sign-in server"))).toBe(
-        true,
-      );
-      expect(logs.info.some((message) => message.includes("oauth/authorize"))).toBe(true);
-      expect(logs.info).toContain(
-        "Could not open the system browser. Use the authorization URL above to continue.",
-      );
+      expect(presenter.state.loopbackStarts).toHaveLength(1);
+      expect(presenter.state.loopbackStarts[0]?.redirectUri).toContain("127.0.0.1");
+      expect(presenter.state.loopbackStarts[0]?.authorizeUrl).toContain("oauth/authorize");
+      expect(presenter.state.loopbackBrowserOutcomes).toEqual([false]);
+      expect(presenter.state.loginSuccesses).toEqual([
+        { status: "logged-in", registryHost: "registry.agentxm.ai", handle: "@alice" },
+      ]);
       expect(interaction.state.openBrowserCalls).toHaveLength(1);
 
       const store = yield* CredentialStore;
@@ -105,7 +104,7 @@ describe("runLoopbackLogin", () => {
   it.effect("closes the listener and preserves credentials on interruption", () =>
     Effect.gen(function* () {
       const listenerReady = yield* Deferred.make<string>();
-      const renderer = TestRenderer.make();
+      const presenter = AuthLoginPresenterTest();
       const interaction = DeviceLoginInteractionTest({
         openBrowser: (authorizeUrl) =>
           Deferred.succeed(listenerReady, callbackFromAuthorizeUrl(authorizeUrl).origin).pipe(
@@ -114,7 +113,7 @@ describe("runLoopbackLogin", () => {
       });
       const credentialLayer = CredentialStoreTest();
       const layer = Layer.mergeAll(
-        renderer.layer,
+        presenter.layer,
         interaction.layer,
         credentialLayer,
         makeAuthClientLayer(),

@@ -122,9 +122,19 @@ export {
 export {
   LoginDocumentSchema,
   LoginResultSchema,
+  makeLoginResult,
   type LoginDocument,
   type LoginResult,
 } from "./login-output.js";
+
+// Login presentation seam (the CLI runtime provides the renderer-backed Live)
+export type {
+  AuthLoginPresenterService,
+  AuthLoginPresenterTestState,
+  AuthLoginProgress,
+  DeviceFlowPresentation,
+} from "./login-presenter.js";
+export { AuthLoginPresenter, AuthLoginPresenterTest } from "./login-presenter.js";
 export {
   runPublishAuthorization,
   type PublishAuthorizationInput,

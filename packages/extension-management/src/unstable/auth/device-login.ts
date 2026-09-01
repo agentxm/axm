@@ -13,12 +13,12 @@ import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
 import { makeAppError } from "../app-error/index.js";
-import { CliRenderer } from "../cli-renderer/index.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 
 import { AuthClient, normalizeRequestedLoginScopes } from "./auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
 import { emitLoginSuccess } from "./login-output.js";
+import { AuthLoginPresenter } from "./login-presenter.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 import { PendingDeviceLoginStore, type PendingDeviceLogin } from "./pending-device-login-store.js";
 
@@ -136,7 +136,7 @@ export const DeviceLoginPendingResultSchema = Schema.Struct({
 
 export type DeviceLoginPendingResult = typeof DeviceLoginPendingResultSchema.Type;
 
-const DeviceLoginPendingDocumentSchema = Schema.Struct({
+export const DeviceLoginPendingDocumentSchema = Schema.Struct({
   result: DeviceLoginPendingResultSchema,
 });
 
@@ -148,42 +148,23 @@ const presentDeviceFlow = (
   options: RunDeviceLoginOptions,
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const presenter = yield* AuthLoginPresenter;
     const interaction = yield* DeviceLoginInteraction;
 
     const shouldOpenBrowser = options.openBrowser ?? true;
     const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
-    if (shouldOpenBrowser) {
-      const openedBrowser = yield* interaction.openBrowser(verificationUriComplete);
-      if (openedBrowser) {
-        yield* renderer.info("Opening your browser to complete device authorization.");
-      }
-    }
+    const browserOpened = shouldOpenBrowser
+      ? yield* interaction.openBrowser(verificationUriComplete)
+      : false;
 
-    const expiry =
-      expiresInSeconds % 60 === 0
-        ? `${expiresInSeconds / 60} ${expiresInSeconds === 60 ? "minute" : "minutes"}`
-        : `${expiresInSeconds} seconds`;
-    yield* renderer.instruction("Sign in to AgentXM.ai with a one-time code");
-    yield* renderer.suggestions([
-      {
-        description: "Open the AXM device authorization page",
-        url: verificationUriComplete,
-      },
-      {
-        description: "Open the clean fallback page and enter the code",
-        url: verificationUri,
-      },
-    ]);
-    if (copiedToClipboard) {
-      yield* renderer.info("The one-time code was copied to your clipboard.");
-    }
-    yield* renderer.instruction(`One-time code:\n\n   ${userCode}`);
-    yield* renderer.instruction(`This code expires in ${expiry}.`);
-    yield* renderer.instruction("Only continue if you started this sign-in with AXM.");
-    yield* renderer.instruction(
-      "Never enter a code that another person or website gave you. If that happened, cancel.",
-    );
+    yield* presenter.presentDeviceFlow({
+      verificationUri,
+      verificationUriComplete,
+      userCode,
+      expiresInSeconds,
+      browserOpened,
+      copiedToClipboard,
+    });
   });
 
 const makePendingResult = (
@@ -223,27 +204,11 @@ const emitPendingDeviceLogin = (
   flow: DeviceLoginPendingResult["flow"] = "started",
 ) =>
   Effect.gen(function* () {
-    const renderer = yield* CliRenderer;
+    const presenter = yield* AuthLoginPresenter;
     const result = makePendingResult(pending, flow);
-    const suggestions = [
-      {
-        description: "Open the AXM device authorization page",
-        url: pending.verificationUriComplete,
-      },
-      {
-        description: "Open the clean fallback page and enter the code",
-        url: pending.verificationUri,
-      },
-      {
-        description: "Resume after approval",
-        cmd: "axm login --wait --json",
-      },
-    ];
-    if (
-      yield* renderer.result({ result }, DeviceLoginPendingDocumentSchema, {
-        suggestions,
-      })
-    ) {
+    // Machine mode consumes the pending document; browser/clipboard side
+    // effects and human presentation must not run afterwards.
+    if (yield* presenter.tryEmitPendingDeviceLogin(result)) {
       return result;
     }
     yield* presentDeviceFlow(
@@ -260,7 +225,7 @@ const emitPendingDeviceLogin = (
       ),
       options,
     );
-    yield* renderer.success("Device sign-in is waiting for approval.", { suggestions });
+    yield* presenter.notePendingApproval(result);
     return result;
   });
 
@@ -269,7 +234,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
-    const renderer = yield* CliRenderer;
+    const presenter = yield* AuthLoginPresenter;
     const registryHost = new URL(registryUrl).host;
     const requestedScopes = normalizeRequestedLoginScopes(options.scopes);
 
@@ -309,10 +274,9 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
       }
     }
 
-    const deviceFlow = yield* renderer.withSpinner(
-      `Starting device authorization for ${registryHost}`,
+    const deviceFlow = yield* presenter.withProgress(
+      { _tag: "StartingDeviceAuthorization", registryHost },
       () => authClient.initiateDeviceFlow({ scopes: requestedScopes }),
-      { successMessage: `Started device authorization for ${registryHost}` },
     );
 
     const pending: PendingDeviceLogin = {
@@ -357,7 +321,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
-    const renderer = yield* CliRenderer;
+    const presenter = yield* AuthLoginPresenter;
     const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
@@ -421,10 +385,8 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
             }),
           );
 
-    const token = yield* renderer
-      .withSpinner("Waiting for authorization…", () => boundedPolling, {
-        successMessage: `Authorized device on ${registryHost}`,
-      })
+    const token = yield* presenter
+      .withProgress({ _tag: "WaitingForDeviceAuthorization", registryHost }, () => boundedPolling)
       .pipe(
         Effect.catchTag("AppError", (error) => {
           if (error.detail === "Login code expired") {
@@ -470,10 +432,8 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
       );
 
     yield* pendingStore.clear();
-    const handle = yield* renderer.withSpinner(
-      `Saving credentials for ${registryHost}`,
-      () => persistLoginCredentials(registryUrl, token),
-      { successMessage: `Saved credentials for ${registryHost}` },
+    const handle = yield* presenter.withProgress({ _tag: "SavingCredentials", registryHost }, () =>
+      persistLoginCredentials(registryUrl, token),
     );
 
     yield* emitLoginSuccess(registryUrl, handle);

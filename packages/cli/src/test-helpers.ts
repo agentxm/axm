@@ -15,7 +15,10 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
-import { CredentialStoreTest } from "@agentxm/extension-management/unstable/auth";
+import {
+  AuthLoginPresenterTest,
+  CredentialStoreTest,
+} from "@agentxm/extension-management/unstable/auth";
 import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
@@ -431,11 +434,13 @@ export const makeCliTestContext = (opts?: {
         return response;
       }),
   });
+  const authLoginPresenterTest = AuthLoginPresenterTest();
   const baseLayer = Layer.mergeAll(
     NodeServices.layer,
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     rendererLayer,
     resolvePlanTest.layer,
+    authLoginPresenterTest.layer,
     workspaceInitializationTest.layer,
     flagsLayer,
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
@@ -444,6 +449,7 @@ export const makeCliTestContext = (opts?: {
   );
 
   return {
+    authLoginPresenterState: authLoginPresenterTest.state,
     baseLayer,
     logs: logsByTag(rendererState),
     promptState,

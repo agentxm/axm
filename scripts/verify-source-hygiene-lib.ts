@@ -150,6 +150,23 @@ const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
 
 /**
+ * Production package source roots, derived from the workspace tree so package
+ * extractions never leave a scanner behind. E2e and test-support packages are
+ * excluded: they observe published artifacts and own no production literals.
+ */
+const productionPackageSourceRoots = (repoRoot: string): ReadonlyArray<string> => {
+  const packagesDir = path.join(repoRoot, "packages");
+  if (!fs.existsSync(packagesDir)) return [];
+  const excluded = new Set(["cli-e2e", "e2e-utils"]);
+  return fs
+    .readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !excluded.has(entry.name))
+    .map((entry) => path.join(packagesDir, entry.name, "src"))
+    .filter((root) => fs.existsSync(root))
+    .sort();
+};
+
+/**
  * Guard the production machine-output boundary.
  *
  * Command handlers must render through CliRenderer, and ordinary `--json`
@@ -159,15 +176,7 @@ const lineAtOffset = (source: string, offset: number): number =>
 export const findMachineOutputBoundaryViolations = (
   repoRoot: string,
 ): ReadonlyArray<MachineOutputBoundaryViolation> => {
-  const roots = [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "extension-management", "src", "unstable"),
-    path.join(repoRoot, "packages", "extension-model", "src", "unstable"),
-    path.join(repoRoot, "packages", "extension-workspace", "src"),
-    path.join(repoRoot, "packages", "registry-protocol", "src", "unstable"),
-    path.join(repoRoot, "packages", "workspace-operations", "src"),
-    path.join(repoRoot, "packages", "workspace-state", "src"),
-  ];
+  const roots = productionPackageSourceRoots(repoRoot);
   const sourceFiles: string[] = [];
   for (const root of roots) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
@@ -215,15 +224,7 @@ export const findPromptBoundaryViolations = (
   repoRoot: string,
 ): ReadonlyArray<PromptBoundaryViolation> => {
   const sourceFiles: string[] = [];
-  for (const root of [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "extension-management", "src"),
-    path.join(repoRoot, "packages", "extension-model", "src"),
-    path.join(repoRoot, "packages", "extension-workspace", "src"),
-    path.join(repoRoot, "packages", "registry-protocol", "src"),
-    path.join(repoRoot, "packages", "workspace-operations", "src"),
-    path.join(repoRoot, "packages", "workspace-state", "src"),
-  ]) {
+  for (const root of productionPackageSourceRoots(repoRoot)) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
 
@@ -285,15 +286,7 @@ export const findAxmEnvironmentContractViolations = (
   repoRoot: string,
 ): ReadonlyArray<AxmEnvironmentContractViolation> => {
   const sourceFiles: string[] = [];
-  for (const root of [
-    path.join(repoRoot, "packages", "cli", "src"),
-    path.join(repoRoot, "packages", "extension-management", "src"),
-    path.join(repoRoot, "packages", "extension-model", "src"),
-    path.join(repoRoot, "packages", "extension-workspace", "src"),
-    path.join(repoRoot, "packages", "registry-protocol", "src"),
-    path.join(repoRoot, "packages", "workspace-operations", "src"),
-    path.join(repoRoot, "packages", "workspace-state", "src"),
-  ]) {
+  for (const root of productionPackageSourceRoots(repoRoot)) {
     if (fs.existsSync(root)) walkTypeScriptSources(root, sourceFiles);
   }
 

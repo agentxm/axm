@@ -11,7 +11,7 @@ import {
 import {
   runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,
-} from "@agentxm/extension-management/unstable/workflows";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

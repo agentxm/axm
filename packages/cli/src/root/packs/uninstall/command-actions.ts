@@ -48,7 +48,7 @@ import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { workspaceCanonicalNodePath } from "../../shared/workspace-display-paths.js";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {
   operationPresentation,
   type Plan,

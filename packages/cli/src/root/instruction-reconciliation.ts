@@ -14,7 +14,7 @@ import {
   syncInstructions,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import type { WorkspaceMutationsService } from "@agentxm/extension-management/unstable/workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 

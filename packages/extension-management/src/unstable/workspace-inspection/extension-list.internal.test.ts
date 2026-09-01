@@ -6,16 +6,16 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "./rendered-files.js";
-import { TreeIntegritySchema } from "./materialized-tree.js";
-import { type ExtensionRef } from "./refs/extension-ref.js";
+import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
+import { type ExtensionRef } from "../workspace/refs/extension-ref.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "../source-resolution/index.js";
 import { assessExtensionListItems, type ExtensionListItem } from "./extension-list.js";
-import { WorkspaceMutations } from "./service-interface.js";
-import { makeBaseWorkspaceMock } from "./test-stubs.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { handle } from "../test-helpers.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");

@@ -13,7 +13,7 @@ import type { AppError } from "../app-error/index.js";
 import { AppErrorCodes, ExitCode, exitCodeFor, redactSensitiveText } from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { PromptCancelled } from "../cli-prompt/prompt-cancelled.js";
-import type { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
+import type { WorkspaceInitializationCancelled } from "../workspace-configuration/initialization-interaction.js";
 import { renderAppErrorChannels } from "./handle-error.js";
 import { effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
 import { resolveFormat } from "./resolve-format.js";

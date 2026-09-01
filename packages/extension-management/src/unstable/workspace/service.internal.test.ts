@@ -43,7 +43,10 @@ import {
   type SetPackArgs,
   type WorkspaceMutationsOptions,
 } from "./service-interface.js";
-import { bootstrapWorkspace, WorkspaceInitializationInteractionTest } from "./index.js";
+import {
+  bootstrapWorkspace,
+  WorkspaceInitializationInteractionTest,
+} from "../workspace-configuration/index.js";
 import { installableExtensionTypes } from "./installable-types.js";
 import {
   configuredRowsByName,

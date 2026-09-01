@@ -10,22 +10,22 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { TestRenderer } from "../../cli-renderer/index.js";
-import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { TestRenderer } from "../../../cli-renderer/index.js";
+import { TestFlagsLayer } from "../../../cli-flags/index.js";
 import {
   promptablePlanExecution,
   preapprovedPlanExecution,
   type ConfirmationRecovery,
-} from "../../plan/plan-execution.js";
-import { makeAppError } from "../../app-error/index.js";
-import type { Plan } from "../../plan/index.js";
-import { ResolvePlanInteractionTest } from "../../plan/resolve-plan-interaction.js";
-import { WorkspaceMutations } from "../../workspace/index.js";
-import { makeBaseWorkspaceMock } from "../../workspace/test-stubs.js";
+} from "../../../plan/plan-execution.js";
+import { makeAppError } from "../../../app-error/index.js";
+import type { Plan } from "../../../plan/index.js";
+import { ResolvePlanInteractionTest } from "../../../plan/resolve-plan-interaction.js";
+import { WorkspaceMutations } from "../../../workspace/index.js";
+import { makeBaseWorkspaceMock } from "../../../workspace/test-stubs.js";
 import {
   type InstallExtensionCommandWorkflowActions,
   runInstallCommandWorkflow,
-} from "../index.js";
+} from "../../index.js";
 
 // -----------------------------------------------------------------------------
 // Test types

@@ -17,7 +17,7 @@ import {
   type JobStepResult,
   type Plan,
 } from "@agentxm/extension-management/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { emitOperationResolution } from "../../../operation-output.js";

@@ -36,7 +36,7 @@ import {
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import type { Plan } from "@agentxm/extension-management/unstable/plan";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";

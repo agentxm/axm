@@ -6,10 +6,12 @@ import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-run
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
   WorkspaceMutations,
 } from "@agentxm/extension-management/unstable/workspace";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import {

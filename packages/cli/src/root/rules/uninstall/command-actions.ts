@@ -11,7 +11,7 @@ import {
   type RuleExtensionTarget,
   WorkspaceMutations,
 } from "@agentxm/extension-management/unstable/workspace";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { UninstallRuleCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 

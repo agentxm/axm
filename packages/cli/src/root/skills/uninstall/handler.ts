@@ -3,7 +3,7 @@ import {
   deriveOperationOutcome,
   operationPresentation,
 } from "@agentxm/extension-management/unstable/plan";
-import { runUninstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import { runUninstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

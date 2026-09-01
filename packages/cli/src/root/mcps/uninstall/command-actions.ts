@@ -27,7 +27,7 @@ import type {
   PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {

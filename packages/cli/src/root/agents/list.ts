@@ -2,11 +2,11 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { detectAgentsForScope } from "@agentxm/extension-management/unstable/agents";
 import {
-  detectAgentsForScope,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import {

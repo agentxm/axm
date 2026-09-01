@@ -25,7 +25,7 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteractionTest,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { expectDefined, expectRecord, property } from "../test-helpers.js";

@@ -12,7 +12,7 @@ import {
 } from "@agentxm/extension-management/unstable/plan";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { operationPresentation, type Plan } from "@agentxm/extension-management/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";

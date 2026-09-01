@@ -19,7 +19,7 @@ import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
   type ResolvedInstructionsConfig,
-} from "../agents/instructions.js";
+} from "../workspace-configuration/instructions.js";
 import { RuleDefinitionInvalid, RuleInstallStateMissing } from "./errors.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -71,7 +71,7 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,
-} from "../workspace/configured-entry-resolution/index.js";
+} from "../extension-lifecycle/configured-entry-resolution.js";
 import { isObservedInstalled } from "../workspace/observed-installed.js";
 import {
   acceptedCanonicalObservation,

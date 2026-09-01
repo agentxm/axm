@@ -5,15 +5,15 @@ import type * as Scope from "effect/Scope";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 import {
   parseRegistrySourceRef,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { HookExtensionRef } from "../refs/hook.js";
-import type { KnowledgeExtensionRef } from "../refs/knowledge.js";
-import type { McpServerExtensionRef } from "../refs/mcp-server.js";
-import type { PackRef } from "../refs/pack.js";
+import type { HookExtensionRef } from "../workspace/refs/hook.js";
+import type { KnowledgeExtensionRef } from "../workspace/refs/knowledge.js";
+import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
+import type { PackRef } from "../workspace/refs/pack.js";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeEvaluation,
@@ -22,17 +22,20 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { RuleExtensionRef } from "../refs/rule.js";
-import { resolveSource, SourceHostProviders } from "../../source-resolution/index.js";
-import type { SkillExtensionRef } from "../refs/skill.js";
-import type { SubagentExtensionRef } from "../refs/subagent.js";
+import type { RuleExtensionRef } from "../workspace/refs/rule.js";
+import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
+import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { WorkspaceMutations } from "../service-interface.js";
-import { acceptedResolutionRef } from "../accepted-canonical-ref.js";
-import { resolveWorkspaceExtensionRef } from "./workspace-ref.js";
-import type { ConfiguredRegistryResolution, ResolvedConfiguredEntry } from "./types.js";
-import { toAppError } from "../../app-error/conversions.js";
+import { WorkspaceMutations } from "../workspace/service-interface.js";
+import { acceptedResolutionRef } from "../workspace/accepted-canonical-ref.js";
+import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
+import type {
+  ConfiguredRegistryResolution,
+  ResolvedConfiguredEntry,
+} from "../workspace/configured-entry-resolution/types.js";
+import { toAppError } from "../app-error/conversions.js";
 
 export const makeConfiguredReleaseAgeEvaluation = (mode: "enforce" | "ignore") =>
   Effect.gen(function* () {

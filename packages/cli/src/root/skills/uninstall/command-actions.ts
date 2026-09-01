@@ -30,7 +30,7 @@ import {
 } from "@agentxm/extension-management/unstable/skills";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { SkillLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {
   workspaceAuthoredPath,
   workspaceCanonicalPath,

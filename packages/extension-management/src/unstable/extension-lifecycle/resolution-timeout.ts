@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { makeAppError, type AppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../app-error/index.js";
 
 export const CONFIGURED_ENTRY_RESOLUTION_TIMEOUT = "2 seconds";
 

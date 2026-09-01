@@ -55,6 +55,18 @@
       "types": "./dist/src/unstable/extension-workspace/errors.d.ts",
       "default": "./dist/src/unstable/extension-workspace/errors.js"
     },
+    "./unstable/extension-lifecycle": {
+      "types": "./dist/src/unstable/extension-lifecycle/index.d.ts",
+      "default": "./dist/src/unstable/extension-lifecycle/index.js"
+    },
+    "./unstable/workspace-configuration": {
+      "types": "./dist/src/unstable/workspace-configuration/index.d.ts",
+      "default": "./dist/src/unstable/workspace-configuration/index.js"
+    },
+    "./unstable/workspace-inspection": {
+      "types": "./dist/src/unstable/workspace-inspection/index.d.ts",
+      "default": "./dist/src/unstable/workspace-inspection/index.js"
+    },
     "./unstable/lockfile": {
       "types": "./dist/src/unstable/lockfile/index.d.ts",
       "default": "./dist/src/unstable/lockfile/index.js"
@@ -138,10 +150,6 @@
     "./unstable/mcps": {
       "types": "./dist/src/unstable/mcps/index.d.ts",
       "default": "./dist/src/unstable/mcps/index.js"
-    },
-    "./unstable/workflows": {
-      "types": "./dist/src/unstable/workflows/index.d.ts",
-      "default": "./dist/src/unstable/workflows/index.js"
     },
     "./unstable/publish": {
       "types": "./dist/src/unstable/publish/index.d.ts",

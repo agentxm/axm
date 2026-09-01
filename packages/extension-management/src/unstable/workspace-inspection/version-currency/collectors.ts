@@ -19,7 +19,7 @@ import type * as Scope from "effect/Scope";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import type { ExtensionName, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "../refs/extension-ref.js";
+import type { ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionTypePlural,
@@ -41,12 +41,12 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../../lockfile/index.js";
-import { WorkspaceMutations } from "../service-interface.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceMutationsService,
-} from "../service-interface.js";
-import { isSourcedDesiredExtension } from "../desired-state-graph.js";
+} from "../../workspace/service-interface.js";
+import { isSourcedDesiredExtension } from "../../workspace/desired-state-graph.js";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { toAppError } from "../../app-error/conversions.js";
 

@@ -6,7 +6,7 @@ import { operationPresentation } from "@agentxm/extension-management/unstable/pl
 import {
   runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,
-} from "@agentxm/extension-management/unstable/workflows";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";

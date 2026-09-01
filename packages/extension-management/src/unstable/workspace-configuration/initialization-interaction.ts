@@ -4,8 +4,8 @@ import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { AppError } from "../app-error/index.js";
-import type { WorkspaceScope } from "./scope.js";
-import type { SetupScopeSupportCategory } from "./setup-scope-support.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
+import type { SetupScopeSupportCategory } from "../workspace/setup-scope-support.js";
 
 /**
  * Typed cancellation of workspace initialization. The CLI implementation maps
@@ -70,7 +70,7 @@ export class WorkspaceInitializationInteraction extends ServiceMap.Service<
   WorkspaceInitializationInteraction,
   WorkspaceInitializationInteractionService
 >()(
-  "@agentxm/extension-management/unstable/workspace/initialization-interaction/WorkspaceInitializationInteraction",
+  "@agentxm/extension-management/unstable/workspace-configuration/initialization-interaction/WorkspaceInitializationInteraction",
 ) {}
 
 export interface WorkspaceInitializationInteractionTestState {

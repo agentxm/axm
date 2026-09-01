@@ -16,16 +16,18 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as semver from "semver";
 import {
   CodingAgentRepository,
+  pruneManagedMcpServersForAgent,
+  syncInlineMcpServerToAgents,
+  type CodingAgentRepositoryService,
+} from "@agentxm/extension-management/unstable/agents";
+import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
   observeInstructionProjection,
-  pruneManagedMcpServersForAgent,
   resolveInstructionsConfig,
-  syncInlineMcpServerToAgents,
-  type CodingAgentRepositoryService,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
@@ -57,22 +59,24 @@ import {
   acceptedCanonicalObservation,
   cleanupStaleManagedSubagentFiles,
   cleanupStaleManagedSkillDirectories,
-  makeConfiguredReleaseAgeEvaluation,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
   WorkspaceMutations,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
   usableAcceptedCanonical,
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ResolvedConfiguredEntry,
 } from "@agentxm/extension-management/unstable/workspace";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  resolveConfiguredHook,
+  resolveConfiguredKnowledge,
+  resolveConfiguredMcpServer,
+  resolveConfiguredRule,
+  resolveConfiguredSkill,
+  resolveConfiguredSubagent,
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {
   parseExtensionFqnParts,
   type ExtensionType,

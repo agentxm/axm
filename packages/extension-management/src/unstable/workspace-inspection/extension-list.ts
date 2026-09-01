@@ -9,13 +9,16 @@ import {
   parseExtensionFqnParts,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import { installableExtensionTypes, type InstallableExtensionType } from "./installable-types.js";
-import { type ExtensionRef } from "./refs/extension-ref.js";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "../workspace/installable-types.js";
+import { type ExtensionRef } from "../workspace/refs/extension-ref.js";
 import { createRegistryClient } from "../registry/index.js";
 import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
+import { lockEntryToSourceParams } from "../workspace/lock-entry-to-source-params.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type {
   HookLockEntry,
@@ -27,12 +30,12 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ReadModelRecordRow } from "./read-model-record-types.js";
+import type { ReadModelRecordRow } from "../workspace/read-model-record-types.js";
 import {
   WorkspaceMutations,
   type WorkspaceLockfileReadFailure,
   type WorkspaceMutationsService,
-} from "./service-interface.js";
+} from "../workspace/service-interface.js";
 import { checkCurrency } from "./version-currency/index.js";
 import { toAppError } from "../app-error/conversions.js";
 

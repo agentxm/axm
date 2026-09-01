@@ -21,6 +21,13 @@ import {
 import {
   WorkspaceMutations,
   configuredRowsByName,
+  installableExtensionTypes,
+  type InstallableExtensionType,
+  type ExtensionRef,
+  toInstallableExtensionTypePlural,
+  type WorkspaceScope,
+} from "@agentxm/extension-management/unstable/workspace";
+import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -30,12 +37,7 @@ import {
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
   resolveConfiguredRegistryEntry,
-  installableExtensionTypes,
-  type InstallableExtensionType,
-  type ExtensionRef,
-  toInstallableExtensionTypePlural,
-  type WorkspaceScope,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";

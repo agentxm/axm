@@ -13,7 +13,7 @@ import { Verbosity } from "../cli-flags/index.js";
 import { verboseFlag, debugFlag, quietFlag, jsonFlag } from "../cli-flags/index.js";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
-import { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
+import { WorkspaceInitializationCancelled } from "../workspace-configuration/initialization-interaction.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import {
   exitCodeForSemanticProperties,

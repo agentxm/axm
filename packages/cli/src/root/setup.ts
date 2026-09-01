@@ -1,8 +1,12 @@
 import {
   CodingAgentRepository,
   CodingAgentRepositoryLive,
-  resolveInstructionTarget,
 } from "@agentxm/extension-management/unstable/agents";
+import {
+  bootstrapWorkspace,
+  resolveInstructionTarget,
+  type SetupAgentCandidate,
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -27,13 +31,11 @@ import {
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   AXM_DIR_NAME,
-  bootstrapWorkspace,
   resolveUserWorkspaceRoot,
   runWorkspaceTransaction,
   scanAllSubagentFiles,
   setupScopeSupport,
   type AgentSubagentSummary,
-  type SetupAgentCandidate,
   type SetupScopeSupportCategory,
   type WorkspaceMutationsOptions,
   type WorkspaceScope,

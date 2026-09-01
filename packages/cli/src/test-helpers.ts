@@ -34,10 +34,8 @@ import {
 import { ResolvePlanInteractionTest } from "@agentxm/extension-management/unstable/plan";
 import type { WorkspaceMutationsOptions } from "@agentxm/extension-management/unstable/workspace";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import {
-  layer as coreWorkspaceLayer,
-  WorkspaceInitializationInteractionTest,
-} from "@agentxm/extension-management/unstable/workspace";
+import { layer as coreWorkspaceLayer } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { ExecutionDirectory } from "./execution-directory.js";
 
 const testHttpClient = HttpClient.make((request) =>

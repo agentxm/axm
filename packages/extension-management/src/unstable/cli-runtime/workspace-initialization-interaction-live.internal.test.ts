@@ -11,8 +11,8 @@ import * as Terminal from "effect/Terminal";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { nonInteractiveFlag } from "../cli-flags/index.js";
 import { TestRenderer } from "../cli-renderer/index.js";
-import { WorkspaceInitializationCancelled } from "../workspace/initialization-interaction.js";
-import { WorkspaceInitializationInteraction } from "../workspace/initialization-interaction.js";
+import { WorkspaceInitializationCancelled } from "../workspace-configuration/initialization-interaction.js";
+import { WorkspaceInitializationInteraction } from "../workspace-configuration/initialization-interaction.js";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 
 const ansiPattern = new RegExp(String.raw`\u001B\[[0-9;]*[A-Za-z]`, "g");

@@ -169,15 +169,6 @@ export {
 export type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 
 export {
-  assessExtensionListItems,
-  collectExtensionListItems,
-  type ExtensionAssessment,
-  type ExtensionAssessmentState,
-  type ExtensionListFilter,
-  type ExtensionListItem,
-} from "./extension-list.js";
-
-export {
   getKnowledgeLockEntries,
   getLockedEntries,
   lockEntryVersion,
@@ -225,18 +216,9 @@ export {
 } from "./accepted-canonical-ref.js";
 export { isObservedInstalled } from "./observed-installed.js";
 
-// Configured entry resolution
+// Configured entry vocabulary (resolution policy lives in extension-lifecycle)
+export { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/workspace-ref.js";
 export {
-  makeConfiguredReleaseAgeEvaluation,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredMcpServer,
-  resolveConfiguredPack,
-  resolveConfiguredRule,
-  resolveConfiguredSkill,
-  resolveConfiguredSubagent,
-  resolveConfiguredRegistryEntry,
-  resolveWorkspaceExtensionRef,
   type ConfiguredEntryFailureReason,
   type ConfiguredRegistryResolution,
   type ResolvedConfiguredEntry,
@@ -247,7 +229,7 @@ export {
   type ResolvedConfiguredRule,
   type ResolvedConfiguredSkill,
   type ResolvedConfiguredSubagent,
-} from "./configured-entry-resolution/index.js";
+} from "./configured-entry-resolution/types.js";
 
 export {
   cleanupManagedArtifactsForRemovedAgents,
@@ -406,14 +388,6 @@ export {
   type WorkspaceTransactionArgs,
 } from "./operations/transaction.js";
 
-// Initialization
-export {
-  bootstrapWorkspace,
-  initializeProjectWorkspace,
-  ensureUserWorkspaceInitialized,
-  ensureProjectWorkspaceInitialized,
-} from "./initialization.js";
-export type { SetupAgentCandidate } from "./initialization.js";
 export {
   setupScopeSupport,
   setupScopeSupportOutcomes,
@@ -427,19 +401,6 @@ export {
   EXTENSION_CONFIGURED_AGENT_POLICY,
   type ConfiguredAgentLifecycleState,
 } from "./configured-agent-outcomes.js";
-export type {
-  InstructionSourceChoice,
-  SetupAgentScan,
-  SetupPlanRow,
-  WorkspaceInitializationInteractionService,
-  WorkspaceInitializationInteractionTestState,
-} from "./initialization-interaction.js";
-export {
-  WorkspaceInitializationCancelled,
-  WorkspaceInitializationInteraction,
-  WorkspaceInitializationInteractionTest,
-} from "./initialization-interaction.js";
-
 export {
   FootprintRecorder,
   makeFootprintRecorder,
@@ -456,31 +417,6 @@ export {
   type HeldWorkspaceTransition,
 } from "./operations/transition-lock.js";
 
-// Version currency
-export {
-  checkCurrency,
-  collectAllCurrencyEntries,
-  collectAllUpdateEntries,
-  collectHookCurrency,
-  collectKnowledgeCurrency,
-  collectMcpServerCurrency,
-  collectPackCurrency,
-  collectRuleCurrency,
-  collectSkillCurrency,
-  collectSkillSourceFreshness,
-  collectMcpServerSourceFreshness,
-  collectSubagentSourceFreshness,
-  collectRuleSourceFreshness,
-  collectHookSourceFreshness,
-  collectKnowledgeSourceFreshness,
-  sourceFreshnessCollectors,
-  collectSubagentCurrency,
-  type CurrencyResult,
-  type CurrencyStatus,
-  type ExtensionCurrencyEntry,
-  type ExtensionSourceFreshnessEntry,
-  type ExtensionUpdateEntry,
-} from "./version-currency/index.js";
 export {
   AgentPresenceProbe,
   AgentPresenceUnavailable,

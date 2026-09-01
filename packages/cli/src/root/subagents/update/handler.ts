@@ -2,9 +2,9 @@ import {
   type SubagentExtensionRef,
   WorkspaceMutations,
   configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
   type WorkspaceMutationsService,
 } from "@agentxm/extension-management/unstable/workspace";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import * as Array from "effect/Array";

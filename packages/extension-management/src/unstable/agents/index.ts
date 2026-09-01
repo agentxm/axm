@@ -23,34 +23,6 @@ export {
   type AgentExecutableResolverService,
 } from "./detection.js";
 
-export {
-  assertInstructionTargetsSafe,
-  assertInstructionsGitignoreSafe,
-  instructionProjectionIsCurrent,
-  instructionProjectionEffects,
-  instructionProjectionRemovalEffects,
-  observeInstructionProjection,
-  probeSymlinkSupport,
-  reconcileInstructionTargets,
-  resolveInstructionTarget,
-  resolveInstructionMechanism,
-  resolveInstructionsConfig,
-  removeManagedInstructionTargets,
-  removeInstructionsGitignore,
-  syncInstructions,
-  type InstructionProjectionSnapshot,
-  type InstructionProjectionEffect,
-  type InstructionsGitignoreStatus,
-  type InstructionHealth,
-  type InstructionMechanism,
-  type InstructionsStatus,
-  type InstructionsSyncResult,
-  type InstructionStatusItem,
-  type InstructionTargetOwnership,
-  type ObservedInstructionForm,
-  type ResolvedInstructionsConfig,
-} from "./instructions.js";
-
 // Coding agent service contracts (used by extension managers)
 export type {
   AddMcpServerArgs,

@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { InstructionStatusItem } from "../../../agents/instructions.js";
+import type { InstructionStatusItem } from "../../../workspace-configuration/instructions.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule, LintFinding } from "@agentxm/registry-protocol/unstable/lint/rule";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";

@@ -13,7 +13,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { InstructionProjectionSnapshot } from "../agents/instructions.js";
+import type { InstructionProjectionSnapshot } from "../workspace-configuration/instructions.js";
 import type { AppError } from "../app-error/index.js";
 import type { PackDependencyReachability } from "../packs/dependency-reachability.js";
 import type { ProjectionInvariantFact } from "../projection/index.js";

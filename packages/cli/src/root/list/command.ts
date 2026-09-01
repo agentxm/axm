@@ -14,11 +14,13 @@ import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
+} from "@agentxm/extension-management/unstable/workspace";
+import {
   assessExtensionListItems,
   collectExtensionListItems,
   type ExtensionListFilter,
   type ExtensionListItem,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/workspace-inspection";
 import { DeprecationViewSchema } from "@agentxm/registry-protocol/unstable/registry";
 
 import { scopeFlag } from "../../cli-flags.js";

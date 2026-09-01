@@ -36,7 +36,7 @@ import { CodingAgentRepository } from "@agentxm/extension-management/unstable/ag
 import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import {
   buildLintWorkspace,
   evaluateAllCatalogs,

@@ -10,7 +10,7 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { handle } from "../../test-helpers.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { type ExtensionRef } from "../refs/extension-ref.js";
+import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   configuredRow,
@@ -21,8 +21,8 @@ import {
   makeRegistryPackLockEntry,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
-} from "../test-stubs.js";
-import { WorkspaceMutations } from "../service-interface.js";
+} from "../../workspace/test-stubs.js";
+import { WorkspaceMutations } from "../../workspace/service-interface.js";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,

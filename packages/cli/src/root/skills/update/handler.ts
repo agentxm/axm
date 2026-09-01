@@ -4,8 +4,8 @@ import {
   type SkillExtensionRef,
   WorkspaceMutations,
   configuredRowsByName,
-  makeConfiguredReleaseAgeEvaluation,
 } from "@agentxm/extension-management/unstable/workspace";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import {

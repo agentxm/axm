@@ -17,7 +17,10 @@ import {
   operationPresentation,
   previewOrApplyPlan,
 } from "@agentxm/extension-management/unstable/plan";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/workflows";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  runInstallCommandWorkflow,
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
@@ -33,7 +36,6 @@ import {
 import {
   WorkspaceMutations,
   acceptedResolutionRef,
-  makeConfiguredReleaseAgeEvaluation,
   usableAcceptedCanonical,
 } from "@agentxm/extension-management/unstable/workspace";
 import {

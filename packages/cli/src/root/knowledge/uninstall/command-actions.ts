@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { resolveInstructionsConfig } from "@agentxm/extension-management/unstable/agents";
+import { resolveInstructionsConfig } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeExtensionPathsForLayout,
@@ -23,7 +23,7 @@ import {
 import type { KnowledgeLockEntry } from "@agentxm/extension-management/unstable/lockfile";
 import type { Plan, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";

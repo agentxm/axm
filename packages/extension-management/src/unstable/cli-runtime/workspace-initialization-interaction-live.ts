@@ -19,7 +19,7 @@ import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
   type WorkspaceInitializationInteractionService,
-} from "../workspace/initialization-interaction.js";
+} from "../workspace-configuration/initialization-interaction.js";
 
 const selectAgentsMessage = "Select agents to configure";
 const confirmInstructionSyncMessage =

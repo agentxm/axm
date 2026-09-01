@@ -19,7 +19,7 @@ import {
   HookInstallStateMissing,
   HookIoFailed,
 } from "./errors.js";
-import { resolveInstructionsConfig } from "../agents/instructions.js";
+import { resolveInstructionsConfig } from "../workspace-configuration/instructions.js";
 import {
   AGENTS as CAPABILITY_AGENTS,
   type Agent as CapabilityAgent,
@@ -70,7 +70,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
-} from "../workspace/configured-entry-resolution/index.js";
+} from "../extension-lifecycle/configured-entry-resolution.js";
 import type {
   ExtensionManager,
   MaterializationObservation,

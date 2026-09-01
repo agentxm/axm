@@ -14,11 +14,11 @@ import {
   type PlannedJobStep,
 } from "@agentxm/extension-management/unstable/plan";
 import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

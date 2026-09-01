@@ -26,6 +26,14 @@ import {
   acceptedResolutionRef,
   acceptedLockedResolutionRef,
   WorkspaceMutations,
+  type WorkspaceMutationsService,
+  installableExtensionTypes,
+  type InstallableExtensionType,
+  toInstallableExtensionTypePlural,
+  computePackManifestContentIdentity,
+  type PackRef,
+} from "@agentxm/extension-management/unstable/workspace";
+import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
@@ -34,13 +42,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-  type WorkspaceMutationsService,
-  installableExtensionTypes,
-  type InstallableExtensionType,
-  toInstallableExtensionTypePlural,
-  computePackManifestContentIdentity,
-  type PackRef,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { SourceHostProviders } from "@agentxm/extension-management/unstable/source-resolution";
 import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
 import {

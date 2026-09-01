@@ -31,7 +31,7 @@ import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "../../../agents/instructions.js";
+} from "../../../workspace-configuration/instructions.js";
 import { AgentRootResolverLive } from "../../../workspace/read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,

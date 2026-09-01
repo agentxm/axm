@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Result from "effect/Result";
-import { resolveInstructionsConfig } from "../agents/instructions.js";
+import { resolveInstructionsConfig } from "../workspace-configuration/instructions.js";
 import { AppError } from "../app-error/index.js";
 import {
   KnowledgeDefinitionInvalid,
@@ -53,7 +53,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
-} from "../workspace/configured-entry-resolution/index.js";
+} from "../extension-lifecycle/configured-entry-resolution.js";
 import { getKnowledgeLockEntries } from "../workspace/locked-entries.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";

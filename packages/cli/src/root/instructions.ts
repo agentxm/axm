@@ -15,7 +15,7 @@ import {
   resolveInstructionsConfig,
   type InstructionProjectionEffect,
   type InstructionStatusItem,
-} from "@agentxm/extension-management/unstable/agents";
+} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { previewFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {

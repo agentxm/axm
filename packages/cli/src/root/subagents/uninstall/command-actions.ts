@@ -21,7 +21,7 @@ import { SubagentManager } from "@agentxm/extension-management/unstable/subagent
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/extension-management/unstable/lockfile";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   JobStepArtifact,

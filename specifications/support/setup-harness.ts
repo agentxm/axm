@@ -25,7 +25,7 @@ import {
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { ExecutionDirectory, makeEffectProvide } from "axm.sh/specification-harness";
 
 export interface SetupSpecContextOptions {

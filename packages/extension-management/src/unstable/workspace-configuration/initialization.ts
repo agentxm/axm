@@ -21,7 +21,7 @@ import {
   resolveInstructionTarget,
   syncInstructions,
   type InstructionMechanism,
-} from "../agents/instructions.js";
+} from "./instructions.js";
 import {
   isConfigurableAgentId,
   type AgentDescriptor,
@@ -34,18 +34,21 @@ import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
 import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceMutationsOptions } from "./service-interface.js";
-import type { WorkspaceScope } from "./scope.js";
-import { AgentRootResolverLive } from "./read-model/agent-root-resolver.js";
-import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "./read-model/service.js";
+import type { WorkspaceMutationsOptions } from "../workspace/service-interface.js";
+import type { WorkspaceScope } from "../workspace/scope.js";
+import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
+import {
+  makeWorkspaceReadModel,
+  WorkspaceReadModelConfig,
+} from "../workspace/read-model/service.js";
 import {
   WorkspaceInitializationInteraction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "./paths.js";
-import { setupScopeSupport } from "./setup-scope-support.js";
-import { protectWorkspacePath } from "./transaction.js";
-import { LOCK_FILENAME } from "./layout.js";
+import { type WorkspaceLocation, locateWorkspace, resolveUserHome } from "../workspace/paths.js";
+import { setupScopeSupport } from "../workspace/setup-scope-support.js";
+import { protectWorkspacePath } from "../workspace/transaction.js";
+import { LOCK_FILENAME } from "../workspace/layout.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({

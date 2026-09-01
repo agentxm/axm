@@ -32,7 +32,7 @@ import {
 } from "@agentxm/extension-management/unstable/workspace";
 import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {
   operationPresentation,
   type JobStepArtifact,

@@ -7,11 +7,11 @@ import { buildInstallOperation } from "@agentxm/extension-management/unstable/ex
 import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/extension-management/unstable/plan";
 import { operationPresentation } from "@agentxm/extension-management/unstable/plan";
+import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
-  WorkspaceMutations,
-} from "@agentxm/extension-management/unstable/workspace";
+} from "@agentxm/extension-management/unstable/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";

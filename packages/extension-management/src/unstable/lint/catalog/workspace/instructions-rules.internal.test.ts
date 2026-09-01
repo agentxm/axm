@@ -9,7 +9,7 @@ import type {
   InstructionsGitignoreStatus,
   InstructionsStatus,
   InstructionStatusItem,
-} from "../../../agents/index.js";
+} from "../../../workspace-configuration/instructions.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { instructionsAgentSupportedRule } from "./instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./instructions-gitignore-current.js";

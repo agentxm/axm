@@ -49,7 +49,7 @@ import {
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepository } from "@agentxm/extension-management/unstable/agents";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type {
   JobStepArtifact,
   JobStepArtifactTarget,

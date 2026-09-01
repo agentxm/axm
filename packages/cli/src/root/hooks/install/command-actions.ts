@@ -36,7 +36,7 @@ import {
 } from "@agentxm/extension-management/unstable/source-resolution";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/workflows";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
 import {

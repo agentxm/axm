@@ -11,7 +11,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeAppError } from "../../app-error/index.js";
-import { count } from "../../cli-renderer/index.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";
@@ -222,7 +221,7 @@ export const addToPack: OperationHandler<
 
     return {
       result: "success",
-      message: `Added ${count(Object.keys(additions).length, "extension")} to pack`,
+      message: `Added ${Object.keys(additions).length} extension${Object.keys(additions).length === 1 ? "" : "s"} to pack`,
       artifact: packManifestArtifact({
         owner: packOwner,
         name: packName,

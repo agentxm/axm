@@ -31,7 +31,7 @@ read-only for this work.
 | 0ed62c73f | Interaction-split S1: PlanExecution/ConfirmationRecovery vocabulary moves into plan/plan-execution.ts                                                                                                     |
 | 50d1e1c39 | Interaction-split S3: isCI → utils/environment, count() inlined, MCP install takes explicit nonInteractive                                                                                                |
 | b67707066 | Interaction-split S2: resolve-plan behind the CLI-free ResolvePlanInteraction port; displayPlan → cli-renderer; InterruptionSignalSource                                                                  |
-| f9f979142 | Interaction-split S5: auth flows behind the AuthLoginPresenter port; renderer-backed Live in cli-runtime with machine-mode emission before side effects                                                   |
+| 03144a7ee | Interaction-split S5: auth flows behind the AuthLoginPresenter port; renderer-backed Live in cli-runtime with machine-mode emission before side effects                                                   |
 | 9daa7d366 | Interaction-split S4: workspace initialization decoupling — WorkspaceInitializationCancelled, presenter methods on the interaction service, WorkspaceMutationsOptions.nonInteractive, Live in cli-runtime |
 
 ## In flight

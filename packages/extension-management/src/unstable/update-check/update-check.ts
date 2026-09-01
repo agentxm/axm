@@ -20,7 +20,7 @@ import * as ServiceMap from "effect/Context";
 import * as semver from "semver";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { resolveAxmCacheRoot } from "../registry/cache-root.js";
+import { resolveAxmCacheRoot } from "@agentxm/registry-client";
 
 // -----------------------------------------------------------------------------
 // Constants

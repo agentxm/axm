@@ -4,15 +4,6 @@ export { detectPackages } from "./detect.js";
 
 export { readLocalRecommendations } from "./read.js";
 
-export { purlIdentityMatch, purlMatch } from "./purl-match.js";
-
-export {
-  AxmPackageMetaSchema,
-  PackageExtensionDeclarationSchema,
-  type AxmPackageMeta,
-  type PackageExtensionDeclaration,
-} from "./axm-package-meta.js";
-
 // Tier 1
 import { npmDetector, npmReader } from "./npm.js";
 import { golangDetector, golangReader } from "./golang.js";

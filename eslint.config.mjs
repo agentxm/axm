@@ -94,9 +94,11 @@ export default [
               sourceTag: "type:e2e",
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: [
+                "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
                 "scope:extension-workspace",
+                "scope:registry-client",
                 "scope:registry-protocol",
                 "scope:workspace-operations",
                 "scope:workspace-state",
@@ -110,9 +112,11 @@ export default [
               sourceTag: "scope:test",
               onlyDependOnLibsWithTags: ["type:lib"],
               notDependOnLibsWithTags: [
+                "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
                 "scope:extension-workspace",
+                "scope:registry-client",
                 "scope:registry-protocol",
                 "scope:workspace-operations",
                 "scope:workspace-state",
@@ -240,9 +244,11 @@ export default [
     // DateTime.now / Clock and holds DateTime.Utc; ambient Date construction
     // belongs only at sanctioned edges (listed in ignores) and tests.
     files: [
+      "packages/agent-integration/src/**/*.ts",
       "packages/extension-management/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
       "packages/extension-workspace/src/**/*.ts",
+      "packages/registry-client/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
       "packages/workspace-operations/src/**/*.ts",
       "packages/workspace-state/src/**/*.ts",
@@ -442,7 +448,7 @@ export default [
     // These variable-cardinality I/O surfaces were remediated in the 2026-08
     // concurrency census. Keep literal unbounded traversal from returning.
     files: [
-      "packages/extension-management/src/unstable/registry/remote-client.ts",
+      "packages/registry-client/src/remote-client.ts",
       "packages/extension-management/src/unstable/source-resolution/providers/convention-discovery.ts",
       "packages/extension-management/src/unstable/workspace-inspection/version-currency/collectors.ts",
     ],

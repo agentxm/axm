@@ -33,7 +33,7 @@ import type { PackageType } from "@agentxm/extension-model/unstable/packaging";
 import {
   PackageExtensionDeclarationSchema,
   type PackageExtensionDeclaration,
-} from "./packaging/axm-package-meta.js";
+} from "@agentxm/registry-client";
 
 export const expectDefined = <T>(
   value: T | null | undefined,

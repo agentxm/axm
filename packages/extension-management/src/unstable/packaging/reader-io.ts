@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { AxmPackageMetaSchema } from "./axm-package-meta.js";
+import { AxmPackageMetaSchema } from "@agentxm/registry-client";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 
 export const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);

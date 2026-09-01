@@ -6,12 +6,12 @@ import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
 import { describe, expect, it } from "@effect/vitest";
 
-import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
 import {
+  RegistryRequestFailed,
   type PublishExtensionArgs,
   type RegistryClient,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-client";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
@@ -49,8 +49,8 @@ const response = {
   warnings: [],
 } as const;
 
-const timeout = makeAppError({
-  code: "timeout",
+const timeout = new RegistryRequestFailed({
+  category: "timeout",
   detail: "timed out",
   metadata: {
     requestPolicy: {

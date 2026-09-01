@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
-import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
+import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { HookManager } from "@agentxm/extension-management/unstable/hooks";

@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
-import { detectAgentScopeResults, type AgentScopeDetection } from "../agents/index.js";
+import { detectAgentScopeResults, type AgentScopeDetection } from "@agentxm/agent-integration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   resolveInstructionTarget,

@@ -11,7 +11,7 @@ import {
   TestMachineRenderer,
   TestRenderer,
 } from "@agentxm/extension-management/unstable/cli-renderer";
-import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
+import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";

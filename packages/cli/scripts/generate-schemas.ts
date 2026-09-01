@@ -24,7 +24,7 @@ import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/mani
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
 import { LockfileSchema } from "../../workspace-state/src/lockfile/index.js";
-import { AxmPackageMetaSchema } from "../../extension-management/src/unstable/packaging/index.js";
+import { AxmPackageMetaSchema } from "../../registry-client/src/axm-package-meta.js";
 import { SettingsSchema } from "../../workspace-state/src/settings/index.js";
 
 const CLI_ROOT = path.join(import.meta.dirname, "..");

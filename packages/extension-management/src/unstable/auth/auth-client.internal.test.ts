@@ -34,7 +34,7 @@ import {
   pollOnce,
   readStepUpRequest,
 } from "./auth-client.js";
-import { RegistryUrl } from "../registry/registry-url.js";
+import { RegistryUrl } from "@agentxm/registry-client";
 
 // -----------------------------------------------------------------------------
 // Helpers

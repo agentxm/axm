@@ -20,7 +20,7 @@ import {
   type ResumeDeviceLoginOptions,
   type RunLoopbackLoginOptions,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { requireInteractive } from "@agentxm/extension-management/unstable/cli/prompt";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {

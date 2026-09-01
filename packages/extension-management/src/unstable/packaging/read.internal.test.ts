@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { PackageExtensionDeclarationSchema } from "./axm-package-meta.js";
+import { PackageExtensionDeclarationSchema } from "@agentxm/registry-client";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   PackageUrlPartsSchema,

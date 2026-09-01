@@ -21,7 +21,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
-import { type AppError, makeAppError } from "../app-error/index.js";
+import { type AppError, makeAppError, withAppErrorSemantics } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -35,19 +36,16 @@ import {
   type Sha256Hex,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
-import { RegistryUrl } from "../registry/registry-url.js";
-import * as GeneratedRegistryClient from "../registry/__generated__/registry-client.js";
 import {
+  GeneratedRegistryClient,
+  RegistryUrl,
+  captureRegistryErrorResponseBodies,
+  getString,
   isHttpClientError,
   isRegistryClientError,
-  getString,
   isTransientHttpClientError,
-} from "../registry/error-mapping.js";
-import {
-  captureRegistryErrorResponseBodies,
   mapRegistryFailure,
-  withAppErrorSemantics,
-} from "../registry/failure-mapping.js";
+} from "@agentxm/registry-client";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -386,13 +384,17 @@ const isRetryableDevicePollError = (
 ): error is RetryableDevicePollError => error._tag === "RetryableDevicePollError";
 
 const registryAuthFailure = (registryUrl: string, operation: string, error: unknown): AppError =>
-  mapRegistryFailure(error, {
-    baseUrl: registryUrl,
-    networkDetail: `${operation}: the Registry could not be reached.`,
-    incompatibleDetail: `${operation}: the Registry response does not match the expected contract.`,
-    requestConstructionDetail: `${operation}: the Registry request could not be constructed.`,
-    fallbackDetail: operation,
-  });
+  isAppError(error)
+    ? error
+    : toAppError(
+        mapRegistryFailure(error, {
+          baseUrl: registryUrl,
+          networkDetail: `${operation}: the Registry could not be reached.`,
+          incompatibleDetail: `${operation}: the Registry response does not match the expected contract.`,
+          requestConstructionDetail: `${operation}: the Registry request could not be constructed.`,
+          fallbackDetail: operation,
+        }),
+      );
 
 const isAppError = (error: unknown): error is AppError => getString(error, "_tag") === "AppError";
 

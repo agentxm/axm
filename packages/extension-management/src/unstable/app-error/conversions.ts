@@ -143,6 +143,18 @@ import {
   ProjectionTargetUnsupported,
 } from "@agentxm/extension-workspace";
 import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
+import { AgentDetectionFailed } from "@agentxm/agent-integration";
+import {
+  RegistryOperationFailed,
+  RegistryProblem,
+  RegistryRequestFailed,
+} from "@agentxm/registry-client";
+import { agentDetectionFailedToAppError } from "./conversions/agent-integration.js";
+import {
+  registryOperationFailedToAppError,
+  registryProblemToAppError,
+  registryRequestFailedToAppError,
+} from "./conversions/registry-client.js";
 import {
   archiveIntegrityMismatchToAppError,
   canonicalPackageProbeFailedToAppError,
@@ -957,7 +969,11 @@ export type KnownFailure =
   | KnowledgeResolutionMissing
   | KnowledgeDesiredStateUnreconcilable
   | KnowledgeUnavailable
-  | KnowledgeObservableContractViolated;
+  | KnowledgeObservableContractViolated
+  | AgentDetectionFailed
+  | RegistryProblem
+  | RegistryRequestFailed
+  | RegistryOperationFailed;
 
 export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof FqnInvalidError ||
@@ -1076,7 +1092,11 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof KnowledgeResolutionMissing ||
   error instanceof KnowledgeDesiredStateUnreconcilable ||
   error instanceof KnowledgeUnavailable ||
-  error instanceof KnowledgeObservableContractViolated;
+  error instanceof KnowledgeObservableContractViolated ||
+  error instanceof AgentDetectionFailed ||
+  error instanceof RegistryProblem ||
+  error instanceof RegistryRequestFailed ||
+  error instanceof RegistryOperationFailed;
 
 /**
  * Convert a known typed failure into the CLI-facing `AppError` envelope. An
@@ -1314,6 +1334,14 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return knowledgeUnavailableToAppError(error);
     case "KnowledgeObservableContractViolated":
       return knowledgeObservableContractViolatedToAppError(error);
+    case "AgentDetectionFailed":
+      return agentDetectionFailedToAppError(error);
+    case "RegistryProblem":
+      return registryProblemToAppError(error);
+    case "RegistryRequestFailed":
+      return registryRequestFailedToAppError(error);
+    case "RegistryOperationFailed":
+      return registryOperationFailedToAppError(error);
     case "CoupledDependencyFailure":
       return coupledDependencyFailureToAppError(error);
     case "WriteBackupRetained": {

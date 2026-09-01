@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { Command } from "effect/unstable/cli";
 
 import { AuthClient, CredentialStore } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

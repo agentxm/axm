@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
-import type { RegistryClient } from "../../registry/client.js";
+import type { RegistryClient } from "@agentxm/registry-client";
 
 const v = decodeVersionSync;
 

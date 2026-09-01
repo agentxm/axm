@@ -11,7 +11,7 @@ import {
   AuthLoginInteractionTest,
   CredentialStoreTest,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
 import {
   TestMachineRenderer,

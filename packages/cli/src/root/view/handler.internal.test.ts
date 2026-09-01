@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import {
   expectNoPlanEnvelope,
   getAppError,

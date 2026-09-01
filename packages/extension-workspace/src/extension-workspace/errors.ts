@@ -3,10 +3,10 @@
  * per-module typed families plus the failures the extension-type managers
  * surface from the workspace-state kernel underneath them.
  *
- * Until the registry and source-resolution decoupling waves land, those
- * integrations still fail with the application-owned envelope; producers wrap
- * it in `CoupledDependencyFailure` so the manager contract stays typed, and
- * the application boundary unwraps it verbatim.
+ * Until the source-resolution decoupling wave lands, that integration still
+ * fails with the application-owned envelope; producers wrap it in
+ * `CoupledDependencyFailure` so the manager contract stays typed, and the
+ * application boundary unwraps it verbatim.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -103,7 +103,7 @@ export type ExtensionWorkspaceError =
 /**
  * Every failure an extension-type manager method may surface: the
  * extension-workspace families, the workspace-state families underneath them,
- * and — until the registry and source-resolution decoupling waves — the
+ * and — until the source-resolution decoupling wave — the
  * opaque `CoupledDependencyFailure` carrying what their still-coupled
  * dependencies construct.
  */

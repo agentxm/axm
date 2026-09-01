@@ -11,7 +11,7 @@ import {
   CredentialStore,
   type CredentialStoreService,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 
 import { makeRegistryLoginSuggestionResolver } from "./registry-login-suggestion.js";
 

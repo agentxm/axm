@@ -13,7 +13,10 @@ import {
   parseFqn,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  fqnInvalidErrorToAppError,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   deprecateExtension,
   getExtensionDeprecation,
@@ -24,7 +27,7 @@ import {
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
   type YankCategory,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-client";
 import {
   DeprecationTransitionSchema,
   type DeprecationReplacementIntent,
@@ -152,7 +155,7 @@ export const handleYank = (input: {
               ...(notice === undefined ? {} : { notice }),
             },
             stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-          ),
+          ).pipe(Effect.mapError(toAppError)),
         {
           initial: `Updating ${input.ref}`,
           success: `Updated ${input.ref}`,
@@ -182,7 +185,7 @@ export const handleYank = (input: {
             ...(notice === undefined ? {} : { notice }),
           },
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
+        ).pipe(Effect.mapError(toAppError)),
       {
         initial: `Updating ${input.ref}`,
         success: `Updated ${input.ref}`,
@@ -209,7 +212,7 @@ export const handleUnyank = (input: string) =>
         unyankExtensionVersion(
           ref,
           stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
+        ).pipe(Effect.mapError(toAppError)),
       {
         initial: `Updating ${input}`,
         success: `Updated ${input}`,
@@ -282,7 +285,7 @@ export const handleDeprecate = (input: {
     const renderer = yield* CliRenderer;
     const current = yield* renderer.withSpinner(
       `Reading deprecation for ${input.ref}`,
-      () => getExtensionDeprecation(ref),
+      () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
       { successMessage: `Read deprecation for ${input.ref}` },
     );
     const suppliedMessage = Option.getOrUndefined(input.message)?.trim();
@@ -315,7 +318,10 @@ export const handleDeprecate = (input: {
     }
     const transition = yield* renderer.withSpinner(
       `Deprecating ${input.ref}`,
-      () => deprecateExtension(ref, { revision: current.revision, message, replacement }),
+      () =>
+        deprecateExtension(ref, { revision: current.revision, message, replacement }).pipe(
+          Effect.mapError(toAppError),
+        ),
       { successMessage: `Deprecated ${input.ref}` },
     );
     yield* emitDeprecationTransition(transition);
@@ -327,12 +333,12 @@ export const handleUndeprecate = (input: string) =>
     const renderer = yield* CliRenderer;
     const current = yield* renderer.withSpinner(
       `Reading deprecation for ${input}`,
-      () => getExtensionDeprecation(ref),
+      () => getExtensionDeprecation(ref).pipe(Effect.mapError(toAppError)),
       { successMessage: `Read deprecation for ${input}` },
     );
     const transition = yield* renderer.withSpinner(
       `Removing deprecation from ${input}`,
-      () => undeprecateExtension(ref, current.revision),
+      () => undeprecateExtension(ref, current.revision).pipe(Effect.mapError(toAppError)),
       { successMessage: `Removed deprecation from ${input}` },
     );
     yield* emitDeprecationTransition(transition);

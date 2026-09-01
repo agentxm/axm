@@ -103,3 +103,7 @@ export { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspa
 export { CodingAgentRepositoryLive } from "./test-helpers.js";
 export { HelpTopicResultSchema, handleHelpPath } from "./root/help/command.js";
 export { loadVersion } from "./version.js";
+// Integration ports the setup harness composes; specs may not import the
+// integration roots directly, so the harness re-exports the needed surface.
+export { AgentExecutableResolver } from "@agentxm/agent-integration";
+export { RegistryUrl } from "@agentxm/registry-client";

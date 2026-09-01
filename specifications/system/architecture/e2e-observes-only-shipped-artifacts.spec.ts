@@ -21,7 +21,9 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 
 const E2E_PROJECT_ROOTS = ["packages/cli-e2e", "packages/e2e-utils"] as const;
 const FORBIDDEN_PACKAGE_NAMES = [
+  "@agentxm/agent-integration",
   "@agentxm/extension-model",
+  "@agentxm/registry-client",
   "@agentxm/registry-protocol",
   "@agentxm/extension-management",
   "@agentxm/extension-workspace",
@@ -30,7 +32,9 @@ const FORBIDDEN_PACKAGE_NAMES = [
   "axm.sh",
 ] as const;
 const FORBIDDEN_PROJECT_ROOTS = [
+  "packages/agent-integration",
   "packages/extension-model",
+  "packages/registry-client",
   "packages/registry-protocol",
   "packages/extension-management",
   "packages/extension-workspace",

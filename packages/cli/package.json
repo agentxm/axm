@@ -79,9 +79,11 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",

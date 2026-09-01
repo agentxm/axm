@@ -30,7 +30,7 @@ import {
   SourceHostProviders,
   WorkspaceCatalog,
 } from "@agentxm/extension-management/unstable/source-resolution";
-import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   isVersionEntryMature,
   parseMinimumReleaseAge,

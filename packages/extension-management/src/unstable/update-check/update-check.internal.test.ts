@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { resolveAxmCacheRootPure } from "../registry/cache-root.js";
+import { resolveAxmCacheRootPure } from "@agentxm/registry-client";
 import {
   type SkipCheckContext,
   UpdateCheck,

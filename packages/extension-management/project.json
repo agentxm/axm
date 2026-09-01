@@ -8,20 +8,7 @@
   "targets": {
     "generate": {
       "executor": "nx:noop",
-      "dependsOn": ["generate:registry-client", "generate:telemetry-client"]
-    },
-    "generate:registry-client": {
-      "cache": true,
-      "inputs": [
-        "{workspaceRoot}/scripts/generate-registry-client.ts",
-        "{projectRoot}/specs/registry-openapi.json",
-        "{workspaceRoot}/.prettierrc.json"
-      ],
-      "outputs": ["{projectRoot}/src/unstable/registry/__generated__/registry-client.ts"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun scripts/generate-registry-client.ts"
-      }
+      "dependsOn": ["generate:telemetry-client"]
     },
     "generate:telemetry-client": {
       "cache": true,
@@ -34,15 +21,6 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "bun scripts/generate-telemetry-client.ts"
-      }
-    },
-    "sync:registry-spec": {
-      "cache": false,
-      "inputs": ["{workspaceRoot}/scripts/sync-registry-spec.ts"],
-      "outputs": ["{projectRoot}/specs/registry-openapi.json"],
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun scripts/sync-registry-spec.ts"
       }
     },
     "sync:telemetry-spec": {

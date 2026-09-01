@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
 import { AuthClient, resolveRequiredToken } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { errAuthRequired } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

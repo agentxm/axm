@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "../registry/registry-url.js";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { CredentialStoreTest } from "./index.js";
 import { withAuthGuard } from "./guard.js";
 import { makeAppError } from "../app-error/index.js";

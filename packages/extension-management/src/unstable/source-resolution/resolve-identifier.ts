@@ -22,7 +22,7 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { createRegistryClient } from "../registry/index.js";
+import { createRegistryClient } from "@agentxm/registry-client";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 
 /**

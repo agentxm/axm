@@ -8,8 +8,8 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { purlMatch } from "../packaging/purl-match.js";
-import type { DiscoverPackagesArgs, RegistryClient } from "../registry/client.js";
+import { purlMatch } from "@agentxm/registry-client";
+import type { DiscoverPackagesArgs, RegistryClient } from "@agentxm/registry-client";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { packageType } from "../test-helpers.js";
 import { discover } from "./discover.js";

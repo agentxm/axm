@@ -13,7 +13,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { detectAgentsForScope } from "../agents/detection.js";
+import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { AgentPresenceProbe, AgentPresenceUnavailable } from "@agentxm/workspace-state";
 
 export const AgentPresenceProbeLive = Layer.effect(

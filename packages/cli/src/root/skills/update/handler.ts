@@ -33,7 +33,7 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,

@@ -10,8 +10,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { AppError } from "../app-error/index.js";
+import { toAppError } from "../app-error/conversions.js";
 import type { Version, VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { createRegistryClient, extractZip } from "../registry/index.js";
+import { createRegistryClient, extractZip } from "@agentxm/registry-client";
 import { computeIntegrity, stripFileProtocol } from "../utils/index.js";
 import {
   protectCreatedAncestors,
@@ -420,12 +421,14 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
       canonicalPath: args.destinationPath,
     });
     const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
-    const { archive } = yield* client.getExtensionPackage({
-      owner: args.owner,
-      type: args.type,
-      name: args.name,
-      version: Option.some(args.version),
-    });
+    const { archive } = yield* client
+      .getExtensionPackage({
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        version: Option.some(args.version),
+      })
+      .pipe(Effect.mapError(toAppError));
 
     if (Option.isSome(args.integrity)) {
       const actualIntegrity = yield* computeIntegrity(archive);
@@ -443,7 +446,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     >({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
-      populate: (stagingPath) => extractZip(archive, stagingPath),
+      populate: (stagingPath) => extractZip(archive, stagingPath).pipe(Effect.mapError(toAppError)),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
       inspect: computeMaterializedTreeIntegrity,
     });

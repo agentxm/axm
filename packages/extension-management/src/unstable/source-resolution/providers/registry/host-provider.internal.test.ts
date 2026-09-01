@@ -21,13 +21,13 @@ import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 import { strToU8, zipSync } from "fflate";
 
-import { makeAppError } from "../../../app-error/index.js";
-import type {
-  RegistryClient,
-  RegistryExtensionManifest,
-  GetExtensionsByOwnerArgs,
-  GetExtensionsByOwnerResponse,
-} from "../../../registry/index.js";
+import {
+  RegistryOperationFailed,
+  type RegistryClient,
+  type RegistryExtensionManifest,
+  type GetExtensionsByOwnerArgs,
+  type GetExtensionsByOwnerResponse,
+} from "@agentxm/registry-client";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -171,8 +171,8 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   getExactExtensionVersion: () => Effect.succeed(Option.none()),
   getExtensionPackage: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "not implemented",
       }),
     ),
@@ -199,9 +199,19 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
       packs: [],
     }),
   getExtensionVisibility: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "not implemented",
+      }),
+    ),
   updateExtensionVisibility: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "not implemented",
+      }),
+    ),
   extensionExists: () => Effect.succeed({ exists: false }),
   discoverPackages: () => Effect.succeed({ results: [] }),
   ...overrides,
@@ -210,58 +220,78 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
 const createFailingClient = (): RegistryClient => ({
   getExtensionsByScope: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   ownerExists: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   getExtensionIndex: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   getExactExtensionVersion: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "remote registry not yet supported" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "remote registry not yet supported",
+      }),
+    ),
   getExtensionPackage: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   publishExtension: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   previewExtensionPublishes: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "not implemented",
+      }),
+    ),
   getExtensionVisibility: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "not implemented",
+      }),
+    ),
   updateExtensionVisibility: () =>
-    Effect.fail(makeAppError({ code: "internal", detail: "not implemented" })),
+    Effect.fail(
+      new RegistryOperationFailed({
+        category: "internal",
+        detail: "not implemented",
+      }),
+    ),
   extensionExists: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
   discoverPackages: () =>
     Effect.fail(
-      makeAppError({
-        code: "internal",
+      new RegistryOperationFailed({
+        category: "internal",
         detail: "remote registry not yet supported",
       }),
     ),
@@ -703,7 +733,10 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
             probes.push(`${version}:${args.usagePurpose ?? "install"}`);
             return version === "0.5.0"
               ? Effect.fail(
-                  makeAppError({ code: "not_found", detail: "Historical archive is unavailable" }),
+                  new RegistryOperationFailed({
+                    category: "not_found",
+                    detail: "Historical archive is unavailable",
+                  }),
                 )
               : Effect.succeed({ archive: version === "2.0.0" ? held : mature });
           },

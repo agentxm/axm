@@ -8,7 +8,7 @@ import {
   readStepUpRequest,
   resolveRequiredToken,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { errAuthRequired, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { isNonInteractive, jsonFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";

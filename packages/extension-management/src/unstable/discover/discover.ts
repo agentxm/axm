@@ -16,7 +16,7 @@ import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { RegistryClient } from "../registry/client.js";
+import type { RegistryClient } from "@agentxm/registry-client";
 import type { DiscoveryExtensionResult } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { detectPackages } from "../packaging/detect.js";
@@ -24,7 +24,7 @@ import { packageDetectors, packageReaders } from "../packaging/index.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { readLocalRecommendations } from "../packaging/read.js";
-import type { PackageExtensionDeclaration } from "../packaging/axm-package-meta.js";
+import type { PackageExtensionDeclaration } from "@agentxm/registry-client";
 
 export interface DiscoverResultEntry {
   readonly ref: string;

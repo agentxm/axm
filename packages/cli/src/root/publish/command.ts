@@ -31,7 +31,7 @@ import {
   runPublishAuthorization,
   type PublishCapabilityResponse,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import {
@@ -69,6 +69,7 @@ import {
 import {
   fqnInvalidErrorToAppError,
   stepFailureToAppError,
+  toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   Job,
@@ -132,7 +133,7 @@ import {
   type ExtensionVisibility,
   type PublishExtensionArgs,
   type RegistryClient,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-client";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SourceType } from "@agentxm/extension-model/unstable/sources/types";
 import {
@@ -743,6 +744,7 @@ export const validatePublishOwners = (
     [...new Set(owners)],
     (owner) =>
       client.ownerExists(owner).pipe(
+        Effect.mapError(toAppError),
         Effect.flatMap(({ exists }) =>
           exists
             ? Effect.void
@@ -1418,11 +1420,13 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ),
   );
   const client = yield* createRegistryClient(registry.url);
-  const index = yield* client.getExtensionIndex({
-    owner: selected.owner,
-    type: selected.type,
-    name: manifest.name,
-  });
+  const index = yield* client
+    .getExtensionIndex({
+      owner: selected.owner,
+      type: selected.type,
+      name: manifest.name,
+    })
+    .pipe(Effect.mapError(toAppError));
   const existing = Option.isSome(index)
     ? index.value.versions.find((entry) => entry.version === manifest.version)
     : undefined;
@@ -1621,7 +1625,9 @@ const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(function
     visibility,
     workspaceDefaultVisibility,
   );
-  const preview = yield* client.previewExtensionPublishes(publicationSet);
+  const preview = yield* client
+    .previewExtensionPublishes(publicationSet)
+    .pipe(Effect.mapError(toAppError));
   if (preview.status === "blocked") {
     const packErrors = preview.packs.flatMap((pack) =>
       pack.findings.filter((finding) => finding.severity === "error"),

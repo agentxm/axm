@@ -34,7 +34,7 @@ import type {
   Source,
   SourceParams,
 } from "@agentxm/extension-model/unstable/sources/types";
-import { createRegistryClient } from "../registry/index.js";
+import { createRegistryClient } from "@agentxm/registry-client";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
   ExtensionName,

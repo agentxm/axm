@@ -22,10 +22,12 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 
 const WORKSPACE_MANIFESTS = [
   "package.json",
+  "packages/agent-integration/package.json",
   "packages/cli/package.json",
   "packages/extension-management/package.json",
   "packages/extension-model/package.json",
   "packages/extension-workspace/package.json",
+  "packages/registry-client/package.json",
   "packages/workspace-operations/package.json",
   "packages/workspace-state/package.json",
   "packages/registry-protocol/package.json",
@@ -75,10 +77,8 @@ describe("Public and private boundary", () => {
   it.effect("registry and telemetry integration is generated from published contracts", () =>
     Effect.sync(() => {
       expect(
-        fs.existsSync(
-          path.join(repoRoot, "packages/extension-management/src/unstable/registry/__generated__"),
-        ) ||
-          fs.existsSync(path.join(repoRoot, "packages/extension-management/src/unstable/registry")),
+        fs.existsSync(path.join(repoRoot, "packages/registry-client/src/__generated__")) ||
+          fs.existsSync(path.join(repoRoot, "packages/registry-client/src")),
       ).toBe(true);
       // The generated clients and their source specs are tracked inside this
       // repository, so the public system builds without private context.

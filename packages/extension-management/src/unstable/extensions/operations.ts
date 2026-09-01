@@ -23,7 +23,7 @@ import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packagin
 import type { ExtensionTarget, ExtensionTargetFor } from "@agentxm/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { evaluateSourceAuthority } from "./source-authority.js";
-import { formatDeprecationWarning } from "../registry/deprecation-warning.js";
+import { formatDeprecationWarning } from "@agentxm/registry-client";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------

@@ -4,8 +4,9 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { CliRenderer, type TableView } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
   ExtensionFqnSchema,
@@ -18,10 +19,7 @@ import {
   resolveVisibilityIntent,
   type VisibilityIntent,
 } from "@agentxm/registry-protocol/unstable/publish";
-import {
-  createRegistryClient,
-  type ExtensionVisibility,
-} from "@agentxm/extension-management/unstable/registry";
+import { createRegistryClient, type ExtensionVisibility } from "@agentxm/registry-client";
 import { manifestFilenameForType } from "@agentxm/registry-protocol/unstable/publish";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
@@ -141,7 +139,9 @@ const getEvaluation = (target: string, intent: VisibilityIntent | null) =>
     const parsed = yield* parseTarget(target);
     const registryUrl = yield* RegistryUrl;
     const client = yield* createRegistryClient(registryUrl);
-    const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent });
+    const evaluation = yield* client
+      .getExtensionVisibility({ ...parsed.parts, intent })
+      .pipe(Effect.mapError(toAppError));
     return { client, evaluation, parsed };
   });
 
@@ -170,7 +170,11 @@ export const handleVisibilityStatus = (target: string) =>
     const intent = yield* repositoryIntent(parsed.parts);
     const registryUrl = yield* RegistryUrl;
     const client = yield* createRegistryClient(registryUrl);
-    yield* emitEvaluation(yield* client.getExtensionVisibility({ ...parsed.parts, intent }));
+    yield* emitEvaluation(
+      yield* client
+        .getExtensionVisibility({ ...parsed.parts, intent })
+        .pipe(Effect.mapError(toAppError)),
+    );
   });
 
 const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
@@ -196,13 +200,15 @@ export const handleVisibilitySet = (target: string, visibility: ExtensionVisibil
     const actual = evaluation.actual;
     const mutation = yield* runWithStepUp(
       (verification) =>
-        client.updateExtensionVisibility({
-          target: parsed.target,
-          visibility,
-          revision: actual.revision,
-          authority: { kind: "operator" },
-          ...(verification === undefined ? {} : { verification }),
-        }),
+        client
+          .updateExtensionVisibility({
+            target: parsed.target,
+            visibility,
+            revision: actual.revision,
+            authority: { kind: "operator" },
+            ...(verification === undefined ? {} : { verification }),
+          })
+          .pipe(Effect.mapError(toAppError)),
       {
         initial: `Updating ${target}`,
         success: `Updated ${target}`,
@@ -227,7 +233,9 @@ export const handleVisibilityReconcile = (target: string) =>
     }
     const registryUrl = yield* RegistryUrl;
     const client = yield* createRegistryClient(registryUrl);
-    const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent });
+    const evaluation = yield* client
+      .getExtensionVisibility({ ...parsed.parts, intent })
+      .pipe(Effect.mapError(toAppError));
     if (evaluation.actual === null) {
       return yield* makeAppError({
         code: "not_found",
@@ -237,17 +245,19 @@ export const handleVisibilityReconcile = (target: string) =>
     const actual = evaluation.actual;
     const mutation = yield* runWithStepUp(
       (verification) =>
-        client.updateExtensionVisibility({
-          target: parsed.target,
-          visibility: intent.value,
-          revision: actual.revision,
-          authority: {
-            kind: "repository",
-            source: intent.source,
-            fingerprint: intent.fingerprint,
-          },
-          ...(verification === undefined ? {} : { verification }),
-        }),
+        client
+          .updateExtensionVisibility({
+            target: parsed.target,
+            visibility: intent.value,
+            revision: actual.revision,
+            authority: {
+              kind: "repository",
+              source: intent.source,
+              fingerprint: intent.fingerprint,
+            },
+            ...(verification === undefined ? {} : { verification }),
+          })
+          .pipe(Effect.mapError(toAppError)),
       {
         initial: `Reconciling ${target}`,
         success: `Reconciled ${target}`,

@@ -21,19 +21,17 @@ import * as semver from "semver";
 import { type AppError, makeAppError } from "../../../app-error/index.js";
 import { toAppError } from "../../../app-error/conversions.js";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type {
-  RegistryClient,
-  RegistryExtensionManifest,
-  GetExtensionsByOwnerArgs,
-} from "../../../registry/index.js";
-import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
 import {
   createRegistryClient,
   extractZip,
   resolveVersionEntryWithReleaseAge,
   resolveVersionEntryForReleaseAge,
   extensionLifecycleWarnings,
-} from "../../../registry/index.js";
+  type RegistryClient,
+  type RegistryExtensionManifest,
+  type GetExtensionsByOwnerArgs,
+} from "@agentxm/registry-client";
+import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
 import {
   isVersionEntryEligibleAt,
   releaseAgeEvidence,
@@ -224,13 +222,15 @@ const probeAxmSkillCompatibility = (
         detail: "Registry returned an invalid official AXM skill candidate",
       });
     }
-    const { archive } = yield* client.getExtensionPackage({
-      owner: index.owner,
-      type: index.type,
-      name: index.name,
-      version: Option.some(version.version),
-      usagePurpose: "verification",
-    });
+    const { archive } = yield* client
+      .getExtensionPackage({
+        owner: index.owner,
+        type: index.type,
+        name: index.name,
+        version: Option.some(version.version),
+        usagePurpose: "verification",
+      })
+      .pipe(Effect.mapError(toAppError));
     const actualIntegrity = yield* computeIntegrity(archive);
     if (actualIntegrity !== version.integrity) {
       return yield* makeAppError({
@@ -253,7 +253,7 @@ const probeAxmSkillCompatibility = (
       ),
       (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
     );
-    yield* extractZip(archive, tmpDir);
+    yield* extractZip(archive, tmpDir).pipe(Effect.mapError(toAppError));
     const result = yield* evaluateAxmSkillCandidate({
       ref: ref.value,
       packageRoot: tmpDir,
@@ -278,11 +278,13 @@ const resolveNamedFromClient = (
   FileSystem.FileSystem | Path.Path | Scope.Scope
 > =>
   Effect.gen(function* () {
-    const indexOption = yield* client.getExtensionIndex({
-      owner: options.owner,
-      type: options.type,
-      name: decodeExtensionNameSync(options.name),
-    });
+    const indexOption = yield* client
+      .getExtensionIndex({
+        owner: options.owner,
+        type: options.type,
+        name: decodeExtensionNameSync(options.name),
+      })
+      .pipe(Effect.mapError(toAppError));
     const target = namedTarget(options);
     if (Option.isNone(indexOption)) {
       return { kind: "not_found", target } as const;
@@ -490,9 +492,9 @@ const findWithVersionRange = (
         const requestedNames = options.names.length > 0 ? options.names : [];
 
         if (requestedNames.length === 0) {
-          const result = yield* client.getExtensionsByScope(
-            toRegistrySearchOptions(owner, options),
-          );
+          const result = yield* client
+            .getExtensionsByScope(toRegistrySearchOptions(owner, options))
+            .pipe(Effect.mapError(toAppError));
           const resolved = yield* Effect.forEach(
             result.extensions,
             (entry) =>
@@ -503,6 +505,7 @@ const findWithVersionRange = (
                   name: entry.name,
                 })
                 .pipe(
+                  Effect.mapError(toAppError),
                   Effect.flatMap((indexOption) =>
                     Option.match(indexOption, {
                       onNone: () => Effect.succeed(Option.none<RegistryExtensionManifest>()),
@@ -534,6 +537,7 @@ const findWithVersionRange = (
                     decodedName === undefined
                       ? Effect.succeed(Option.none<RegistryExtensionManifest>())
                       : client.getExtensionIndex({ owner, type, name: decodedName }).pipe(
+                          Effect.mapError(toAppError),
                           Effect.flatMap((indexOption) =>
                             Option.match(indexOption, {
                               onNone: () =>
@@ -698,12 +702,14 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const type = refRegistryType(ref);
     const name = refName(ref);
 
-    const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage({
-      owner,
-      type,
-      name,
-      version: Option.some(version),
-    });
+    const { archive: archiveBytes, warnings } = yield* client
+      .getExtensionPackage({
+        owner,
+        type,
+        name,
+        version: Option.some(version),
+      })
+      .pipe(Effect.mapError(toAppError));
     if (warnings !== undefined) {
       yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
         discard: true,
@@ -734,7 +740,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
     );
 
-    yield* extractZip(archiveBytes, tmpDir);
+    yield* extractZip(archiveBytes, tmpDir).pipe(Effect.mapError(toAppError));
 
     return { directory: tmpDir } satisfies ExtensionFiles;
   });
@@ -785,9 +791,9 @@ export const createLocalRegistrySourceHostProvider = (
         namespaces,
         (owner) =>
           Effect.gen(function* () {
-            const result = yield* client.getExtensionsByScope(
-              toRegistrySearchOptions(owner, options),
-            );
+            const result = yield* client
+              .getExtensionsByScope(toRegistrySearchOptions(owner, options))
+              .pipe(Effect.mapError(toAppError));
             return getSupportedExtensionRefs(result.extensions, source);
           }),
         { concurrency: "unbounded" },
@@ -830,7 +836,9 @@ export const createRemoteRegistrySourceHostProvider = (
       }
       const searchOptions =
         owner === "*" ? toSearchOptions("*", options) : toRegistrySearchOptions(owner, options);
-      const result = yield* client.getExtensionsByScope(searchOptions);
+      const result = yield* client
+        .getExtensionsByScope(searchOptions)
+        .pipe(Effect.mapError(toAppError));
       return getSupportedExtensionRefs(result.extensions, source);
     }),
 

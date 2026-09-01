@@ -14,7 +14,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { createRegistryClient } from "../registry/index.js";
+import { createRegistryClient } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
@@ -258,11 +258,13 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
     } satisfies ExtensionAssessment;
   }
   const client = yield* createRegistryClient(source.value.location.href);
-  const index = yield* client.getExtensionIndex({
-    owner: identity.owner,
-    type: identity.type,
-    name: identity.name,
-  });
+  const index = yield* client
+    .getExtensionIndex({
+      owner: identity.owner,
+      type: identity.type,
+      name: identity.name,
+    })
+    .pipe(Effect.mapError(toAppError));
   if (Option.isNone(index)) {
     return {
       state: "unknown",

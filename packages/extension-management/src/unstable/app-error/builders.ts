@@ -1,4 +1,4 @@
-import { makeAppError } from "./app-error.js";
+import { makeAppError, type AppError, type AppErrorCode } from "./app-error.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const BC = {
@@ -73,4 +73,33 @@ export const errRegistryPublishRejected = (args: {
     detail: args.message,
     suggestions: args.suggestions ?? [BC.do("Check the extension package and try again.")],
     cause: args.cause,
+  });
+
+/**
+ * Change endpoint semantics on a mapped envelope while preserving failure
+ * evidence and recovery. Owned here with the envelope vocabulary; the
+ * registry integration's typed analogue is `withRegistrySemantics`.
+ */
+export const withAppErrorSemantics = (
+  error: AppError,
+  semantics: {
+    readonly code?: AppErrorCode;
+    readonly title?: string;
+    readonly detail?: string;
+    readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  },
+): AppError =>
+  makeAppError({
+    code: semantics.code ?? error.code,
+    title: semantics.title ?? error.title,
+    detail: semantics.detail ?? error.detail,
+    ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
+    ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
+    ...(error.action === undefined ? {} : { action: error.action }),
+    ...(semantics.suggestions === undefined
+      ? error.suggestions === undefined
+        ? {}
+        : { suggestions: error.suggestions }
+      : { suggestions: semantics.suggestions }),
+    cause: error.cause,
   });

@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import {
   CliRenderer,
   registerEntity,
@@ -15,7 +15,7 @@ import {
   type DiscoverResult,
 } from "@agentxm/extension-management/unstable/discover";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging";
-import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import { createRegistryClient } from "@agentxm/registry-client";
 import {
   ExecutionDirectory,
   resolveExecutionPath,

@@ -18,7 +18,7 @@ import {
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/extension-management/unstable/auth";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import {
   TestMachineRenderer,
   TestRenderer,

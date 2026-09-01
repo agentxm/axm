@@ -10,7 +10,7 @@ import {
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
 } from "@agentxm/workspace-state/testing";
-import { detectAgentsForScope } from "../../../agents/detection.js";
+import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { agentsDetectedDeclaredRule } from "./agents-detected-declared.js";
 
 // The fixture layer detects no agents by default; these scenarios assert

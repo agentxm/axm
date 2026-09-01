@@ -24,7 +24,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { RegistryClient } from "../../registry/client.js";
+import type { RegistryClient } from "@agentxm/registry-client";
 import {
   resolveSource,
   SourceHostProviders,
@@ -211,11 +211,13 @@ const collectCurrency = (
             ),
           );
           const constraint = parseConstraintFromSource(node.source);
-          const indexOption = yield* client.getExtensionIndex({
-            owner: resolution.owner,
-            type: extensionType,
-            name: resolution.name,
-          });
+          const indexOption = yield* client
+            .getExtensionIndex({
+              owner: resolution.owner,
+              type: extensionType,
+              name: resolution.name,
+            })
+            .pipe(Effect.mapError(toAppError));
           if (Option.isNone(indexOption)) return Option.none();
           const currency = checkCurrency(installedVersion, constraint, indexOption.value);
           return Option.some({

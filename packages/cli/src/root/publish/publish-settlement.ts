@@ -2,11 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import type {
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryClient,
-} from "@agentxm/extension-management/unstable/registry";
+} from "@agentxm/registry-client";
 
 export type PublishSettlement = "response" | "readback" | "replay" | "unresolved";
 
@@ -44,6 +45,7 @@ const readback = (
       ...(args.accessToken === undefined ? {} : { accessToken: args.accessToken }),
     })
     .pipe(
+      Effect.mapError(toAppError),
       Effect.matchEffect({
         onFailure: (error) =>
           remaining <= 1
@@ -93,6 +95,7 @@ export const settlePublish = (
   args: PublishExtensionArgs,
 ): Effect.Effect<SettledPublish, AppError> =>
   client.publishExtension(args).pipe(
+    Effect.mapError(toAppError),
     Effect.map((response): SettledPublish => ({
       status: "published",
       settlement: "response",
@@ -107,6 +110,7 @@ export const settlePublish = (
             return Effect.succeed(settled);
           }
           return client.publishExtension(args).pipe(
+            Effect.mapError(toAppError),
             Effect.map((response): SettledPublish => ({
               status: "published",
               settlement: "replay",

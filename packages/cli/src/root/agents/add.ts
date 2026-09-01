@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { detectAgentsForScope } from "@agentxm/extension-management/unstable/agents";
+import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   acceptWarningsFlag,

@@ -50,11 +50,12 @@ pure mapping owned by
 ## Registry failures
 
 Translate generated Registry client failures with
-`registryClientErrorToAppError` or `registryErrorToAppError` from
-`packages/extension-management/src/unstable/registry/translate.ts`. Do not add operation-local
-HTTP status switches. Keep RFC 9457 response bodies opaque in
-`metadata.response`; decode a focused schema next to a use case that needs a
-specific field. Configure transport, transient retry, and client provision at
+`registryClientErrorToProblem` or `registryErrorToProblem` from
+`packages/registry-client/src/translate.ts`; the application boundary converts
+the typed registry failures to `AppError` through the registered
+`app-error/conversions` dispatcher. Do not add operation-local HTTP status
+switches. Keep RFC 9457 response bodies opaque in `metadata.response`; decode a
+focused schema next to a use case that needs a specific field. Configure transport, transient retry, and client provision at
 the shared boundary described by the Effect v4
 [HTTP client](../../agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/http-client.md)
 guide.

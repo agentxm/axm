@@ -4,7 +4,7 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import { createRegistryClient } from "@agentxm/registry-client";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveIdentifier } from "@agentxm/extension-management/unstable/source-resolution";
 import { WorkspaceMutations } from "@agentxm/workspace-state";

@@ -1,0 +1,52 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "registry-client",
+  "projectType": "library",
+  "root": "packages/registry-client",
+  "sourceRoot": "packages/registry-client/src",
+  "tags": ["type:lib", "layer:integration", "scope:registry-client", "release:cli"],
+  "targets": {
+    "generate": {
+      "executor": "nx:noop",
+      "dependsOn": ["generate:registry-client"]
+    },
+    "generate:registry-client": {
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/generate-registry-client.ts",
+        "{projectRoot}/specs/registry-openapi.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/src/__generated__/registry-client.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/generate-registry-client.ts"],
+        "cwd": "packages/registry-client"
+      }
+    },
+    "sync:registry-spec": {
+      "cache": false,
+      "inputs": ["{projectRoot}/scripts/sync-registry-spec.ts"],
+      "outputs": ["{projectRoot}/specs/registry-openapi.json"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ["bun", "scripts/sync-registry-spec.ts"],
+        "cwd": "packages/registry-client"
+      }
+    },
+    "build": {
+      "dependsOn": ["...", "generate"],
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/registry-client/src/index.ts",
+        "outputPath": "packages/registry-client/dist",
+        "tsConfig": "packages/registry-client/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

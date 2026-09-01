@@ -13,10 +13,10 @@ import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
-import { RegistryUrl } from "@agentxm/extension-management/unstable/registry";
+import { RegistryUrl } from "@agentxm/registry-client";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { BRANDING } from "@agentxm/extension-management/unstable/branding";
-import { AgentExecutableResolver } from "@agentxm/extension-management/unstable/agents";
+import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import {
   TestMachineRenderer,
   TestRenderer,

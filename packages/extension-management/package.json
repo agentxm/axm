@@ -35,10 +35,6 @@
       "types": "./dist/src/unstable/utils/index.d.ts",
       "default": "./dist/src/unstable/utils/index.js"
     },
-    "./unstable/agents": {
-      "types": "./dist/src/unstable/agents/index.d.ts",
-      "default": "./dist/src/unstable/agents/index.js"
-    },
     "./unstable/extensions": {
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"
@@ -78,10 +74,6 @@
     "./unstable/git": {
       "types": "./dist/src/unstable/git/index.d.ts",
       "default": "./dist/src/unstable/git/index.js"
-    },
-    "./unstable/registry": {
-      "types": "./dist/src/unstable/registry/index.d.ts",
-      "default": "./dist/src/unstable/registry/index.js"
     },
     "./unstable/auth": {
       "types": "./dist/src/unstable/auth/index.d.ts",
@@ -182,8 +174,10 @@
     "includedScripts": []
   },
   "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",

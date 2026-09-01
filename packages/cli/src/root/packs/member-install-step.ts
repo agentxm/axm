@@ -5,7 +5,14 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import {
+  CodingAgentRepository,
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 import {
   buildInstallOperation,
   extensionRefLifecycleWarnings,
@@ -28,13 +35,8 @@ import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 
 export type PackMemberRef =

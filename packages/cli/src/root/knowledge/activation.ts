@@ -4,7 +4,6 @@ import { Argument } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -23,6 +22,7 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { KnowledgeManager } from "@agentxm/extension-workspace";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),

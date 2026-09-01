@@ -9,8 +9,6 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { ConfiguredAgentOperation } from "@agentxm/workspace-operations";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
@@ -51,7 +49,6 @@ import {
   extensionTypePluralSentenceLabels,
   parseRegistrySourceRef,
 } from "@agentxm/extension-model/unstable/extensions";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { type PackDependencyRefResolver } from "@agentxm/extension-management/unstable/packs";
 import {
   PACK_MANIFEST_FILENAME,
@@ -74,6 +71,7 @@ import { buildAggregateProjectionStep } from "../shared/aggregate-projection-ste
 import { inlineMcpNotApplicablePlan } from "../shared/inline-mcp-operation.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-workspace";
 
 export type WorkspaceInstallableType = InstallableExtensionType;
 

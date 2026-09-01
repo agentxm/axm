@@ -7,7 +7,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   acquiredExtensionDisplayPath,
@@ -29,7 +28,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/extension-workspace";
+import { applyPlannedProjections, HookManager } from "@agentxm/extension-workspace";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";

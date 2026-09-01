@@ -21,7 +21,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { HooksLockMapSchema, type HooksLockMap } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegritySync } from "../test-helpers.js";
-import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/extension-workspace";
+import {
+  applyPlannedProjections,
+  observeProjectionPlans,
+  HookManager,
+} from "@agentxm/extension-workspace";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
@@ -29,7 +33,7 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { HookManager, HookManagerLive } from "./manager.js";
+import { HookManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
 

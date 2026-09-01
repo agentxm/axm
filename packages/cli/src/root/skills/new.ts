@@ -25,11 +25,10 @@ import {
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
   newSkill,
-  SkillManager,
   uninstallSkill,
 } from "@agentxm/extension-management/unstable/skills";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type {

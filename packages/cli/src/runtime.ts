@@ -63,7 +63,8 @@ import {
 } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -312,7 +313,10 @@ const makeWorkspaceProgramLayer = (
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
-  const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
+  const invariantFactsLayer = Layer.provide(
+    makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
+    fullLayer,
+  );
   const configuredAgentOutcomesLayer = Layer.provide(
     HookConfiguredAgentOutcomesProviderLive,
     fullLayer,

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
-import { findingsForProjectionFacts } from "@agentxm/extension-management/unstable/lint";
-import { makeProjectionInvariantFact } from "@agentxm/extension-management/unstable/projection";
+import { findingsForProjectionFacts } from "@agentxm/workspace-lint";
+import { makeProjectionInvariantFact } from "@agentxm/extension-workspace";
 import { type ProjectionUnitObservation } from "@agentxm/extension-workspace";
-import { projectionDivergenceLabel, projectionFactsNeedReconciliation } from "./handler.js";
+import {
+  projectionDivergenceLabel,
+  projectionFactsNeedReconciliation,
+} from "@agentxm/workspace-sync";
 
 const base: ProjectionUnitObservation = {
   unitId: "rule:instructions-region",

@@ -32,7 +32,8 @@ import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/kno
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
@@ -46,7 +47,8 @@ import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live"
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
-import { handleLint, remapLintSummaryPaths, resolveLintRoot } from "./handler.js";
+import { handleLint } from "./handler.js";
+import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
 
 describe("axm lint handler", () => {
   let tempDir: string;
@@ -156,7 +158,10 @@ describe("axm lint handler", () => {
     );
     const extensionsLayer = Layer.provideMerge(packsLayer, coreExtensions);
     const extensionWorkspaceLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
-    const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, extensionWorkspaceLayer);
+    const invariantFactsLayer = Layer.provide(
+      makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
+      extensionWorkspaceLayer,
+    );
     const fullLayer = Layer.merge(extensionWorkspaceLayer, invariantFactsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper

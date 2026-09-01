@@ -9,13 +9,6 @@ import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { PackManager } from "@agentxm/extension-management/unstable/packs";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
@@ -30,6 +23,15 @@ import {
   coupleAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `~/.cursor/permissions.json`",

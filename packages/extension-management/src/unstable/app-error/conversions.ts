@@ -132,6 +132,7 @@ import {
   SubagentInstallStateMissing,
   SubagentIoFailed,
   CoupledDependencyFailure,
+  InstructionMaintenanceFailed,
   WriteBackupRetained,
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
@@ -851,6 +852,20 @@ export const approvalRecoveryMissingToAppError = (_error: ApprovalRecoveryMissin
   });
 
 /**
+ * Translate an instruction-maintenance failure: the implementation chose the
+ * category and wording at construction, so the envelope carries them over 1:1.
+ */
+export const instructionMaintenanceFailedToAppError = (
+  error: InstructionMaintenanceFailed,
+): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/**
  * Translate a configured-agent-outcomes provider failure: the implementation
  * chose the category and wording at construction, so the envelope carries
  * them over 1:1.
@@ -946,6 +961,7 @@ export type KnownFailure =
   | ProjectionTargetUnsupported
   | ManagedRegionViolation
   | ProjectionIoFailed
+  | InstructionMaintenanceFailed
   | RuleDefinitionInvalid
   | RuleInstallStateMissing
   | HookDefinitionInvalid
@@ -1076,6 +1092,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof ProjectionTargetUnsupported ||
   error instanceof ManagedRegionViolation ||
   error instanceof ProjectionIoFailed ||
+  error instanceof InstructionMaintenanceFailed ||
   error instanceof RuleDefinitionInvalid ||
   error instanceof RuleInstallStateMissing ||
   error instanceof HookDefinitionInvalid ||
@@ -1286,6 +1303,8 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return managedRegionViolationToAppError(error);
     case "ProjectionIoFailed":
       return projectionIoFailedToAppError(error);
+    case "InstructionMaintenanceFailed":
+      return instructionMaintenanceFailedToAppError(error);
     case "RuleDefinitionInvalid":
       return ruleDefinitionInvalidToAppError(error);
     case "RuleInstallStateMissing":

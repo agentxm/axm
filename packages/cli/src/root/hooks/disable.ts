@@ -7,7 +7,6 @@ import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import {
   previewOrApplyPlan,
@@ -31,6 +30,7 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { HookManager } from "@agentxm/extension-workspace";
 
 const hookPackagePath = (
   scope: JobStepArtifact["scope"],

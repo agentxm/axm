@@ -17,7 +17,6 @@ import {
   type SubagentExtensionTarget,
 } from "@agentxm/workspace-state";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
@@ -39,6 +38,7 @@ import {
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { SubagentManager } from "@agentxm/extension-workspace";
 
 // -----------------------------------------------------------------------------
 // Types

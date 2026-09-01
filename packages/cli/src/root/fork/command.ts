@@ -6,15 +6,18 @@ import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import {
+  CodingAgentRepository,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { installMcpServer, McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { PackManager } from "@agentxm/extension-management/unstable/packs";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";

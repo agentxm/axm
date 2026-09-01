@@ -7,7 +7,6 @@ import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
 } from "@agentxm/extension-management/unstable/extensions";
-import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -35,6 +34,7 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { PackManager } from "@agentxm/extension-workspace";
 
 export interface UnpackHandlerArgs {
   readonly name: string;

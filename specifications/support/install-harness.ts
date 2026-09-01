@@ -22,7 +22,6 @@ import {
 } from "@agentxm/extension-management/unstable/knowledge";
 import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
 import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
@@ -35,6 +34,7 @@ import {
   CodingAgentRepositoryLive,
   makeAxmSkillCompatibilityPolicyLayer,
   SourceHostProvidersLive,
+  workspaceInvariantFactsLive,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
@@ -81,7 +81,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
   const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
-  const invariantFactsLayer = Layer.provide(WorkspaceInvariantFactsLive, fullLayer);
+  const invariantFactsLayer = Layer.provide(workspaceInvariantFactsLive, fullLayer);
   const layer = Layer.merge(fullLayer, invariantFactsLayer);
 
   return {

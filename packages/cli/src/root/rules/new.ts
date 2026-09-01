@@ -24,7 +24,6 @@ import {
   RULE_MANIFEST_SCHEMA_URL,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { emitOperationResolution } from "../../operation-output.js";
@@ -41,6 +40,7 @@ import {
 } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { RuleManager } from "@agentxm/extension-workspace";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";

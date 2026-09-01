@@ -13,7 +13,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import * as ServiceMap from "effect/Context";
 import {
   HookConfigInvalid,
   HookDefinitionInvalid,
@@ -22,7 +21,6 @@ import {
   activeContributors,
   applyProjectionPlans,
   planAggregateProjection,
-  type ProjectionPlan,
   type ProjectionRenderInput,
   runWithTransientFileBackup,
   reconcileManagedRegionFile,
@@ -32,8 +30,8 @@ import {
   evaluateHookAgentOutcome,
   WriteBackupRetained,
   type ExtensionManagerFailure,
+  resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
-import { resolveInstructionsConfig } from "../workspace-configuration/instructions.js";
 import {
   AGENTS as CAPABILITY_AGENTS,
   type Agent as CapabilityAgent,
@@ -77,6 +75,7 @@ import {
   resolveConfiguredHook,
 } from "../extension-lifecycle/configured-entry-resolution.js";
 import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
+import { HOOK_FALLBACKS_REGION_OWNER, HookManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
@@ -100,26 +99,7 @@ import {
   type RegistryHookRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 
-export interface HookManagerService extends ExtensionManager<HookExtensionRef> {
-  readonly projectionPlans: () => Effect.Effect<
-    ReadonlyArray<ProjectionPlan>,
-    ExtensionManagerFailure
-  >;
-  readonly configuredAgentOutcomes?: (
-    state: "projected" | "current",
-  ) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, ExtensionManagerFailure>;
-  readonly configuredAgentOutcomesForRef?: (
-    ref: HookExtensionRef,
-    state: "projected" | "current",
-  ) => Effect.Effect<ReadonlyArray<ConfiguredAgentOutcome>, ExtensionManagerFailure>;
-}
-
-export class HookManager extends ServiceMap.Service<HookManager, HookManagerService>()(
-  "@agentxm/extension-management/unstable/hooks/manager/HookManager",
-) {}
-
 const HOOK_FALLBACKS_REGION = "hook-fallbacks";
-export const HOOK_FALLBACKS_REGION_OWNER = "@agentxm/hooks/fallbacks";
 
 // Per-package in-process mutex so concurrent re-materialization of the same hook
 // package (remove+copy) is serialized rather than racing.

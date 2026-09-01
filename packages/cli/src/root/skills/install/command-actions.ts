@@ -40,11 +40,10 @@ import {
   gitHostedSkillArtifactSource,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-  SkillManager,
 } from "@agentxm/extension-management/unstable/skills";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import {

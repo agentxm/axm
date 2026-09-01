@@ -4,11 +4,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-// Importing the lint surface loads the rule catalogs, exactly as the product
-// does, so settings documents referencing registered lint rule identities
-// decode the way they do inside the CLI.
-import { allCatalogRuleIds } from "@agentxm/extension-management/unstable/lint";
+// Importing the harness's lint surface loads the rule catalogs, exactly as
+// the product does, so settings documents referencing registered lint rule
+// identities decode the way they do inside the CLI.
 import {
+  allCatalogRuleIds,
   LOCKFILE_VERSION,
   LockfileSchema,
   SETTINGS_KEY_ORDER,

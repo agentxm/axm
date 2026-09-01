@@ -41,6 +41,24 @@ export type {
   MaterializationObservation,
 } from "./extension-workspace/extension-manager.js";
 
+// Extension manager service tags (implementations live with lifecycle code)
+export {
+  HOOK_FALLBACKS_REGION_OWNER,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+  RULES_REGION_OWNER,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+  type HookManagerService,
+  type KnowledgeManagerService,
+  type KnowledgeSyncResult,
+  type RuleManagerService,
+  type SubagentManagerService,
+} from "./extension-workspace/managers.js";
+
 // Failure vocabulary
 export {
   CoupledDependencyFailure,
@@ -511,3 +529,65 @@ export {
   TransientBackupFailed,
   type TransientFileBackup,
 } from "./utils/transient-backup.js";
+
+// Instruction-projection semantics (descended from extension-management so
+// sync, lint, and configuration features share one inward implementation)
+export {
+  InstructionMaintenanceFailed,
+  type InstructionMaintenanceFailure,
+} from "./instructions/errors.js";
+export {
+  assertInstructionTargetsSafe,
+  assertInstructionsGitignoreSafe,
+  buildInstructionProjectionPlan,
+  instructionProjectionEffects,
+  instructionProjectionIsCurrent,
+  instructionProjectionRemovalEffects,
+  observeInstructionProjection,
+  probeSymlinkSupport,
+  reconcileInstructionTargets,
+  removeInstructionsGitignore,
+  removeManagedInstructionTargets,
+  resolveInstructionMechanism,
+  resolveInstructionTarget,
+  resolveInstructionTargetShape,
+  resolveInstructionsConfig,
+  syncInstructions,
+  type InstructionHealth,
+  type InstructionMechanism,
+  type InstructionProjectionEffect,
+  type InstructionProjectionPlan,
+  type InstructionProjectionSnapshot,
+  type InstructionSkipReason,
+  type InstructionStatusItem,
+  type InstructionTargetOwnership,
+  type InstructionTargetResolution,
+  type InstructionTargetShape,
+  type InstructionsGitignoreStatus,
+  type InstructionsStatus,
+  type InstructionsSyncResult,
+  type ObserveInstructionProjectionArgs,
+  type ObservedInstructionForm,
+  type PlannedInstructionItem,
+  type ResolvedInstructionsConfig,
+  type SyncInstructionsArgs,
+} from "./instructions/instructions.js";
+export {
+  makeProjectionInvariantFact,
+  makeWorkspaceInvariantFactsLive,
+  PROJECTION_INVARIANT_PREDICATE,
+  projectionFactIsViolation,
+  projectionFactRequiresReconciliation,
+  WorkspaceInvariantFacts,
+  type ProjectionInvariantFact,
+  type ProjectionObservationStatus,
+  type WorkspaceInvariantFactsService,
+} from "./projection/invariant-facts.js";
+export {
+  makePlatformPackFileAccessor,
+  type PackAccessorPlatform,
+} from "./lint-accessors/pack-accessor-platform.js";
+export {
+  makePlatformSkillFileAccessor,
+  type SkillAccessorPlatform,
+} from "./lint-accessors/skill-accessor-platform.js";

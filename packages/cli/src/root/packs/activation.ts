@@ -8,7 +8,16 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/extension-workspace";
+import {
+  CodingAgentRepository,
+  findManagedSubagentFiles,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -20,9 +29,6 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -31,11 +37,8 @@ import {
   type JobStepResult,
   type Plan,
 } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

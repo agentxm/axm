@@ -2,11 +2,14 @@ import type * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
-import { applyProjectionPlans, type ProjectionPlan } from "@agentxm/extension-workspace";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
+import {
+  applyProjectionPlans,
+  type ProjectionPlan,
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+} from "@agentxm/extension-workspace";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 
 /**

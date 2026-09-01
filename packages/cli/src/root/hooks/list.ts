@@ -12,7 +12,6 @@ import {
   type ConfiguredAgentOutcome,
 } from "@agentxm/workspace-state";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -24,6 +23,7 @@ import {
   renderEmptyInventory,
   renderInventoryTable,
 } from "../extension-inventory.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 interface HookListItem {
   readonly name: string;

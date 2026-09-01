@@ -101,8 +101,10 @@ export default [
                 "scope:extension-workspace",
                 "scope:registry-client",
                 "scope:registry-protocol",
+                "scope:workspace-lint",
                 "scope:workspace-operations",
                 "scope:workspace-state",
+                "scope:workspace-sync",
               ],
             },
             {
@@ -120,8 +122,10 @@ export default [
                 "scope:extension-workspace",
                 "scope:registry-client",
                 "scope:registry-protocol",
+                "scope:workspace-lint",
                 "scope:workspace-operations",
                 "scope:workspace-state",
+                "scope:workspace-sync",
               ],
             },
             // Layer direction: dependencies point inward and never back
@@ -253,8 +257,10 @@ export default [
       "packages/extension-workspace/src/**/*.ts",
       "packages/registry-client/src/**/*.ts",
       "packages/registry-protocol/src/**/*.ts",
+      "packages/workspace-lint/src/**/*.ts",
       "packages/workspace-operations/src/**/*.ts",
       "packages/workspace-state/src/**/*.ts",
+      "packages/workspace-sync/src/**/*.ts",
       "packages/cli/src/**/*.ts",
     ],
     ignores: [

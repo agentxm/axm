@@ -18,7 +18,7 @@ import {
   ConfiguredAgentOutcomesUnavailable,
 } from "@agentxm/workspace-state";
 import { failureToStepFailure } from "../app-error/conversions.js";
-import { HookManager } from "./manager.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 export const HookConfiguredAgentOutcomesProviderLive = Layer.effect(
   ConfiguredAgentOutcomesProvider,

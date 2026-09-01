@@ -20,7 +20,8 @@ import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { WorkspaceInvariantFactsLive } from "@agentxm/extension-management/unstable/projection";
+import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import {
   SourceHostProviders,
@@ -636,7 +637,7 @@ describe("root sync handler", () => {
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     const invariantFactsLayer = Layer.provide(
-      WorkspaceInvariantFactsLive,
+      makeWorkspaceInvariantFactsLive({ describeFailure: (failure) => toAppError(failure).detail }),
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     return {

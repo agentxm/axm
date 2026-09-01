@@ -22,7 +22,6 @@ import {
   KNOWLEDGE_SOURCE_DIR,
   type KnowledgeManifest,
 } from "@agentxm/extension-model/unstable/knowledge";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import type { Plan } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -37,6 +36,7 @@ import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { KnowledgeManager } from "@agentxm/extension-workspace";
 
 export const handleKnowledgeNew = (args: {
   readonly name: string;

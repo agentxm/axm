@@ -11,7 +11,6 @@ import * as FileSystem from "effect/FileSystem";
 import { coupleRemainingAppError } from "../app-error/conversions.js";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -24,6 +23,7 @@ import {
   planSingletonProjection,
 } from "@agentxm/extension-workspace";
 import type { ExtensionManagerFailure, ExtensionManager } from "@agentxm/extension-workspace";
+import { McpServerManager } from "@agentxm/extension-workspace";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type {
   McpServerExtensionRef,
@@ -51,15 +51,6 @@ import {
 } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
-
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
-
-export class McpServerManager extends ServiceMap.Service<
-  McpServerManager,
-  ExtensionManager<McpServerExtensionRef>
->()("@agentxm/extension-management/unstable/mcps/manager/McpServerManager") {}
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (

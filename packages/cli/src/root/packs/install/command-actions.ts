@@ -24,7 +24,16 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import {
+  CodingAgentRepository,
+  SkillManager,
+  PackManager,
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+  McpServerManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   evaluateSourceAuthority,
@@ -71,18 +80,11 @@ import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/t
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import {
-  PackManager,
   expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
   type WorkspacePackDependencyResolver,
 } from "@agentxm/extension-management/unstable/packs";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   buildUninstallOperation,
   buildInstallOperation,

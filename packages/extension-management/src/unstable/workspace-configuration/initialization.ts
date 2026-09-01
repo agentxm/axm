@@ -18,11 +18,6 @@ import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/age
 import { detectAgentScopeResults, type AgentScopeDetection } from "@agentxm/agent-integration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
-  resolveInstructionTarget,
-  syncInstructions,
-  type InstructionMechanism,
-} from "./instructions.js";
-import {
   isConfigurableAgentId,
   type AgentDescriptor,
   type AgentId,
@@ -51,6 +46,8 @@ import { setupScopeSupport } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-state";
 import { LOCK_FILENAME } from "@agentxm/workspace-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
+import { resolveInstructionTarget, syncInstructions } from "@agentxm/extension-workspace";
+import type { InstructionMechanism } from "@agentxm/extension-workspace";
 
 const SELECT_AGENTS_PROMPT_MISSING = makeAppError({
   code: "usage",

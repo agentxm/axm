@@ -111,7 +111,7 @@ import {
   publishArchiveOptions,
   runPublishLintGate,
 } from "@agentxm/extension-management/unstable/publish";
-import { buildLintWorkspace } from "@agentxm/extension-management/unstable/lint";
+import { buildLintWorkspace } from "@agentxm/workspace-lint";
 import type { PackDependencyReachability } from "@agentxm/extension-workspace";
 import {
   PUBLICATION_SET_CONTRACT,

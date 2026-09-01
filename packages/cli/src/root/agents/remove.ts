@@ -10,8 +10,9 @@ import {
 import {
   cleanupManagedArtifactsForRemovedAgents,
   type RemovedAgentArtifactCleanupResult,
-} from "@agentxm/extension-management/unstable/workspace-sync";
+} from "@agentxm/workspace-sync";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
+import { syncFailureToAppError, syncStepFailureAdapter } from "../../feature-errors.js";
 import {
   acceptWarningsFlag,
   previewFlag,
@@ -96,7 +97,7 @@ const cleanupStep = (
   },
   run: provideCleanupServices(
     cleanupManagedArtifactsForRemovedAgents({ removedAgentIds }).pipe(
-      Effect.mapError(failureToStepFailure),
+      Effect.mapError(syncStepFailureAdapter.toStepFailure),
       Effect.map(
         (result) =>
           ({
@@ -218,7 +219,9 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
   const removedAgentIds = new Set(agentIds);
   const cleanupServices = { ws, fs, path, agentRepo };
   const cleanupPreview = yield* provideCleanupServices(
-    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds, dryRun: true }),
+    cleanupManagedArtifactsForRemovedAgents({ removedAgentIds, dryRun: true }).pipe(
+      Effect.mapError(syncFailureToAppError),
+    ),
     cleanupServices,
   );
   const steps = [

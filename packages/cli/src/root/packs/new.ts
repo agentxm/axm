@@ -23,7 +23,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { NewPackOperation } from "@agentxm/extension-management/unstable/packs";
-import { newPack, PackManager } from "@agentxm/extension-management/unstable/packs";
+import { newPack } from "@agentxm/extension-management/unstable/packs";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
@@ -37,6 +37,7 @@ import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { PackManager } from "@agentxm/extension-workspace";
 
 export interface PacksNewHandlerArgs {
   readonly name: ExtensionName;

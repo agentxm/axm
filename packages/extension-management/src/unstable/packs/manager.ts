@@ -9,7 +9,6 @@
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -30,6 +29,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { ExtensionManager } from "@agentxm/extension-workspace";
+import { PackManager } from "@agentxm/extension-workspace";
 import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/utils.js";
@@ -53,14 +53,6 @@ import {
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "@agentxm/workspace-state";
-
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
-
-export class PackManager extends ServiceMap.Service<PackManager, ExtensionManager<PackRef>>()(
-  "@agentxm/extension-management/unstable/packs/manager/PackManager",
-) {}
 
 // Build pack SetPackArgs from a registry ref
 const buildSetPackArgs = (

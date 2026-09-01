@@ -17,6 +17,7 @@ import type { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstabl
 import type { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import type { ExtensionsError } from "../extensions/errors.js";
 import type { ProjectionError } from "../projection/errors.js";
+import type { InstructionMaintenanceFailed } from "../instructions/errors.js";
 import type { MaterializedTreeInvalid } from "@agentxm/workspace-state";
 import type {
   WorkspaceTransactionFailure,
@@ -89,6 +90,7 @@ export type SubagentSyncFailure = SubagentIoFailed | WorkspaceSnapshotError;
 export type ExtensionWorkspaceError =
   | ExtensionsError
   | ProjectionError
+  | InstructionMaintenanceFailed
   | RuleManagerError
   | HookManagerError
   | SubagentManagerError

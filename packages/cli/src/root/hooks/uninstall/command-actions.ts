@@ -3,7 +3,6 @@ import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
@@ -27,6 +26,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 export interface UninstallHookHandlerArgs {
   readonly name: string;

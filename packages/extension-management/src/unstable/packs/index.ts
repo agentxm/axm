@@ -1,5 +1,5 @@
 // Manager
-export { PackManager, PackManagerLive } from "./manager.js";
+export { PackManagerLive } from "./manager.js";
 
 // Paths
 

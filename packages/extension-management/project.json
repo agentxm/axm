@@ -46,17 +46,6 @@
     "lint": {
       "dependsOn": ["generate"]
     },
-    "test-windows": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["default", "^production"],
-      "outputs": ["{workspaceRoot}/test-results/extension-management-windows"],
-      "options": {
-        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
-        "cwd": "packages/extension-management"
-      }
-    },
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"
     }

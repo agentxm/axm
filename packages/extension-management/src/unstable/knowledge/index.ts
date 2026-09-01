@@ -72,7 +72,7 @@ export {
   KnowledgeCapturedSourceMissingError,
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
-export { KnowledgeManager, KnowledgeManagerLive, type KnowledgeManagerService } from "./manager.js";
+export { KnowledgeManagerLive } from "./manager.js";
 export {
   resolveKnowledgeInstructionEntry,
   type KnowledgeInstructionEntryReason,

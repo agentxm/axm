@@ -1,4 +1,4 @@
-export { McpServerManager, McpServerManagerLive } from "./manager.js";
+export { McpServerManagerLive } from "./manager.js";
 
 export type {
   InstallMcpServerOperationArgs,

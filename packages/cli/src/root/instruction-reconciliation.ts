@@ -3,6 +3,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
+import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
@@ -12,11 +14,11 @@ import {
   removeInstructionsGitignore,
   resolveInstructionsConfig,
   syncInstructions,
-  type InstructionProjectionSnapshot,
-  type ResolvedInstructionsConfig,
-} from "@agentxm/extension-management/unstable/workspace-configuration";
-import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+} from "@agentxm/extension-workspace";
+import type {
+  InstructionProjectionSnapshot,
+  ResolvedInstructionsConfig,
+} from "@agentxm/extension-workspace";
 
 const configuredAgents = (ws: WorkspaceMutationsService) =>
   ws.getConfiguredAgents().pipe(Effect.mapError(toAppError));
@@ -32,7 +34,7 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
     scope: args.ws.scope,
     configuredAgents: agents,
     config: args.config,
-  });
+  }).pipe(Effect.mapError(toAppError));
 });
 
 export const activeInstructionsConfig = Effect.fn("Instructions.activeConfig")(function* (
@@ -63,7 +65,9 @@ export const instructionReconciliationReadiness = Effect.fn("Instructions.reconc
       ),
     ).pipe(
       Effect.map((result) =>
-        result._tag === "Success" ? Option.none<AppError>() : Option.some(result.failure),
+        result._tag === "Success"
+          ? Option.none<AppError>()
+          : Option.some(toAppError(result.failure)),
       ),
     );
   },
@@ -82,7 +86,9 @@ export const removeInstructionTargetsFor = (args: {
 }) =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructions(args);
-    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false }).pipe(
+      Effect.mapError(toAppError),
+    );
   });
 
 /**
@@ -102,8 +108,8 @@ export const reconcileInstructionTransition = <A>(args: {
       ws: args.ws,
       config: args.preflightConfig ?? args.config,
     });
-    yield* assertInstructionTargetsSafe(preflight.status);
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
+    yield* assertInstructionTargetsSafe(preflight.status).pipe(Effect.mapError(toAppError));
+    yield* assertInstructionsGitignoreSafe(args.ws.baseDir).pipe(Effect.mapError(toAppError));
     const transitionResult = yield* args.transition;
     const syncResult = yield* syncInstructions({
       workspaceRoot: args.ws.baseDir,
@@ -111,7 +117,7 @@ export const reconcileInstructionTransition = <A>(args: {
       configuredAgents: agents,
       config: args.config,
       dryRun: false,
-    });
+    }).pipe(Effect.mapError(toAppError));
     if (!instructionProjectionIsCurrent(syncResult.snapshot)) {
       return yield* makeAppError({
         code: "internal",
@@ -126,12 +132,12 @@ export const disableInstructionManagement = Effect.fn("Instructions.disableManag
     readonly ws: WorkspaceMutationsService;
     readonly config: ResolvedInstructionsConfig;
   }) {
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
+    yield* assertInstructionsGitignoreSafe(args.ws.baseDir).pipe(Effect.mapError(toAppError));
     const removed = yield* removeInstructionTargetsFor(args);
     const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: args.ws.baseDir,
       dryRun: false,
-    });
+    }).pipe(Effect.mapError(toAppError));
     yield* args.ws.setInstructionsConfig(false).pipe(Effect.mapError(toAppError));
     return {
       removed,

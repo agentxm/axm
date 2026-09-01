@@ -1,5 +1,5 @@
 // Manager
-export { SkillManager, SkillManagerLive } from "./manager.js";
+export { SkillManagerLive } from "./manager.js";
 export { ensureSkillAgentArtifact } from "./materialization.js";
 
 // Utilities

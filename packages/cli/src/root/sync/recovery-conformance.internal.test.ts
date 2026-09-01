@@ -9,13 +9,13 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { allCatalogErrorRuleIds } from "@agentxm/extension-management/unstable/lint";
+import { allCatalogErrorRuleIds } from "@agentxm/workspace-lint";
 import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
 } from "@agentxm/extension-workspace";
-import { syncRecoveryIdentifiers } from "./handler.js";
+import { syncRecoveryIdentifiers } from "@agentxm/workspace-sync";
 import { packUninstallRecoveryIdentifiers } from "../packs/uninstall/readiness.js";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
@@ -94,17 +94,13 @@ const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConforman
 
 const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("skill/")) {
-    return [
-      "packages/extension-management/src/unstable/lint/catalog/skill.fixtures.internal.test.ts",
-    ];
+    return ["packages/workspace-lint/src/catalog/skill.fixtures.internal.test.ts"];
   }
   if (id.startsWith("pack/")) {
-    return [
-      "packages/extension-management/src/unstable/lint/catalog/pack.fixtures.internal.test.ts",
-    ];
+    return ["packages/workspace-lint/src/catalog/pack.fixtures.internal.test.ts"];
   }
   if (id.startsWith("knowledge/")) {
-    return ["packages/extension-management/src/unstable/lint/catalog/knowledge.internal.test.ts"];
+    return ["packages/workspace-lint/src/catalog/knowledge.internal.test.ts"];
   }
   return ["packages/extension-workspace/src/extension-types/parity/parity.internal.test.ts"];
 };
@@ -170,7 +166,7 @@ const packageLintEntries = packageLintErrorIds.map((id) =>
 );
 
 const workspaceEvidence = [
-  "packages/extension-management/src/unstable/lint/catalog/workspace.internal.test.ts",
+  "packages/workspace-lint/src/catalog/workspace.internal.test.ts",
   "packages/cli/src/root/lint/handler.internal.test.ts",
 ] as const;
 
@@ -238,7 +234,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "ownedProjection",
     evidence: [
       "packages/cli/src/root/sync/handler.internal.test.ts",
-      "packages/extension-management/src/unstable/projection/invariant-facts.internal.test.ts",
+      "packages/extension-workspace/src/projection/invariant-facts.internal.test.ts",
     ],
     aggregateCoverage,
   }),
@@ -276,7 +272,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/extension-management/src/unstable/lint/catalog/workspace/source-endpoints-aligned.internal.test.ts",
+      "packages/workspace-lint/src/catalog/workspace/source-endpoints-aligned.internal.test.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {

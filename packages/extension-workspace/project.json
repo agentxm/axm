@@ -39,6 +39,17 @@
         "command": ["bun", "scripts/generate-e2e-extension-matrix.ts"],
         "cwd": "packages/extension-workspace"
       }
+    },
+    "test-windows": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/extension-workspace-windows"],
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/extension-workspace"
+      }
     }
   }
 }

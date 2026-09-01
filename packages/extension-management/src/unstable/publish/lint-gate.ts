@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { makePlatformPackFileAccessor } from "../lint/catalog/pack-accessor/platform.js";
-import { makePlatformSkillFileAccessor } from "../lint/catalog/skill-accessor/platform.js";
+import { makePlatformPackFileAccessor } from "@agentxm/extension-workspace";
+import { makePlatformSkillFileAccessor } from "@agentxm/extension-workspace";
 import { platformCanonicalLintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
 import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
 import type {

@@ -10,6 +10,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 export {
   makeCliTestContext,
   makeWorkspaceHandlerTestContext,
@@ -51,6 +53,15 @@ export { ExtensionListDocumentSchema, handleList } from "./root/list/command.js"
 export { handleView } from "./root/view/handler.js";
 export { SetupDocumentSchema, handleSetup } from "./root/setup.js";
 export { LintResultDocumentSchema, handleLint } from "./root/lint/handler.js";
+// The lint rule-id catalog, exposed so settings-contract specifications can
+// verify configured rule identities without importing a feature root.
+export { allCatalogRuleIds } from "@agentxm/workspace-lint";
+// The application's workspace-facts layer with its boundary failure
+// rendering, for specification workspaces that compose manager layers
+// directly rather than importing the kernel root.
+export const workspaceInvariantFactsLive = makeWorkspaceInvariantFactsLive({
+  describeFailure: (failure) => toAppError(failure).detail,
+});
 export {
   handleInstructionsDisable,
   handleInstructionsEnable,

@@ -14,8 +14,8 @@
  * 5. Emit human text / JSON output through the CLI renderer and translate
  *    the lint exit category into a process exit code.
  *
- * The lint runner primitives live in
- * `@agentxm/extension-management/unstable/lint` so the handler stays a thin surface.
+ * The lint runner primitives live in `@agentxm/workspace-lint` so the handler
+ * stays a thin surface.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,22 +24,23 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { ExitCode, makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { effectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
-import { WorkspaceInvariantFacts } from "@agentxm/extension-management/unstable/projection";
+import { WorkspaceInvariantFacts } from "@agentxm/extension-workspace";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import { inspectWorkspaceOwnership } from "@agentxm/extension-management/unstable/workspace-sync";
+import { inspectWorkspaceOwnership } from "@agentxm/workspace-sync";
+import { syncFailureToAppError } from "../../feature-errors.js";
 import {
-  reconcileInstructionTargets,
-  resolveInstructionsConfig,
-} from "@agentxm/extension-management/unstable/workspace-configuration";
-import {
+  applyDeterminedRepairs,
   buildLintWorkspace,
+  lintConfigFromSettings,
+  loadSettingsDocument,
+  remapLintSummaryPaths,
+  resolveLintRoot,
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
@@ -51,21 +52,16 @@ import {
   type LintJsonDocument,
   type LintInput,
   type LintSummary,
-} from "@agentxm/extension-management/unstable/lint";
+} from "@agentxm/workspace-lint";
 import { buildPackRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/pack-accessor/contexts";
 import { buildSkillRuleContexts } from "@agentxm/registry-protocol/unstable/lint/catalog/skill-accessor/contexts";
-import { composePath } from "@agentxm/registry-protocol/unstable/lint/compose-path";
 import type { LintConfig } from "@agentxm/registry-protocol/unstable/lint/config";
 import {
-  AXM_DIR_NAME,
-  USER_WORKSPACE_DIRECTORY,
   WorkspaceMutations,
   resolveUserHome,
   acceptedCanonicalObservation,
 } from "@agentxm/workspace-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { SettingsSchema } from "@agentxm/workspace-state";
-import type { Settings } from "@agentxm/workspace-state";
 import * as os from "node:os";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -86,84 +82,6 @@ export interface HandleLintArgs {
   readonly ruleOverrides?: LintConfig["rules"];
 }
 
-type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
-
-const remapAbsolutePath = (
-  value: string,
-  sourceRoot: string,
-  displayRoot: string,
-  path: PathRemapper,
-): string => {
-  if (!path.isAbsolute(value)) return value;
-  const relative = path.relative(sourceRoot, value);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return value;
-  return relative === "" ? displayRoot : path.join(displayRoot, relative);
-};
-
-/** Replace temporary staged-snapshot roots without changing lint semantics. */
-export const remapLintSummaryPaths = (
-  summary: LintSummary,
-  sourceRoot: string,
-  displayRoot: string,
-  path: PathRemapper,
-): LintSummary => ({
-  ...summary,
-  findings: summary.findings.map((entry) => {
-    const remappedDisplayRoot = remapAbsolutePath(entry.displayRoot, sourceRoot, displayRoot, path);
-    const location = entry.finding.location;
-    const remappedLocation =
-      location === undefined
-        ? undefined
-        : {
-            ...location,
-            file: remapAbsolutePath(location.file, sourceRoot, displayRoot, path),
-          };
-    return {
-      ...entry,
-      displayRoot: remappedDisplayRoot,
-      path: composePath(remappedDisplayRoot, remappedLocation),
-      finding:
-        remappedLocation === undefined
-          ? entry.finding
-          : { ...entry.finding, location: remappedLocation },
-    };
-  }),
-});
-
-// -----------------------------------------------------------------------------
-// Root resolution
-// -----------------------------------------------------------------------------
-
-/**
- * Resolve the workspace root for a lint run.
- *
- * - `--scope=project` (default): use the optional `<path>` argument if
- *   provided, otherwise the caller-supplied `cwd` (defaulting to
- *   the invocation execution directory when loaded via {@link resolveLintRootEffect}).
- * - `--scope=user`: use the resolved user home; the read model locates its
- *   `.axm/workspace/` workspace. Ignores `<path>`.
- *
- * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
- * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up
- * (see design doc §10 Open Items #10).
- *
- * @internal Exported for tests.
- */
-export const resolveLintRoot = (args: {
-  readonly pathArg: Option.Option<string>;
-  readonly scope: WorkspaceScope;
-  readonly cwd: string;
-  readonly userHome: string;
-}): string => {
-  if (args.scope === "user") {
-    return args.userHome;
-  }
-  return Option.match(args.pathArg, {
-    onNone: () => args.cwd,
-    onSome: (p) => p,
-  });
-};
-
 /**
  * Effectful wrapper around {@link resolveLintRoot}. The CLI handler calls this
  * once at entry.
@@ -180,93 +98,6 @@ const resolveLintRootEffect = (args: {
       scope: args.scope,
       cwd: executionDirectory.path,
       userHome,
-    });
-  });
-
-// -----------------------------------------------------------------------------
-// Settings loading
-// -----------------------------------------------------------------------------
-
-const decodeSettings = (input: unknown): Option.Option<Settings> => {
-  const result = Schema.decodeUnknownResult(SettingsSchema)(input, {
-    onExcessProperty: "ignore",
-    errors: "all",
-  });
-  return Result.isSuccess(result) ? Option.some(result.success) : Option.none();
-};
-
-/**
- * Decode the authoritative settings document. Returns `None` when the file is missing, empty,
- * or unparseable, so lint still runs — the relevant
- * `workspace/settings-schema-valid` rule produces the user-facing finding for a
- * bad settings file. Callers derive `lint.rules` and the `--fix` inputs from
- * the one decode.
- *
- * @internal
- */
-const loadSettingsDocument = (
-  workspaceRoot: string,
-  scope: WorkspaceScope,
-): Effect.Effect<Option.Option<Settings>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const settingsPath =
-      scope === "user"
-        ? path.join(workspaceRoot, AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY, "axm.json")
-        : path.join(workspaceRoot, "axm.json");
-    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return Option.none();
-    }
-    const raw = yield* fs.readFileString(settingsPath).pipe(Effect.catch(() => Effect.succeed("")));
-    if (raw.length === 0) {
-      return Option.none();
-    }
-    const parsed = Effect.try({
-      try: (): unknown => JSON.parse(raw),
-      catch: () => makeAppError({ code: "validation", detail: "" }),
-    });
-    const parsedOpt = yield* parsed.pipe(
-      Effect.map(Option.some),
-      Effect.catch(() => Effect.succeed(Option.none<unknown>())),
-    );
-    if (Option.isNone(parsedOpt)) {
-      return Option.none();
-    }
-    return decodeSettings(parsedOpt.value);
-  });
-
-const lintConfigFromSettings = (settings: Option.Option<Settings>): LintConfig =>
-  Option.match(settings, {
-    onNone: () => ({}),
-    onSome: (s) => s.lint ?? {},
-  });
-
-/**
- * Apply the repairs whose desired state is already determined by authoritative
- * local state. Instruction targets are content-derived from their canonical
- * source, so regenerating them expresses no preference.
- *
- * This delegates to the same reconciliation `axm sync` performs rather than
- * defining a second desired state. A workspace that has not enabled
- * instruction-file management has nothing determined to restore, so `--fix`
- * leaves it untouched.
- */
-const applyDeterminedRepairs = (args: {
-  readonly workspaceRoot: string;
-  readonly scope: WorkspaceScope;
-  readonly settings: Option.Option<Settings>;
-}) =>
-  Effect.gen(function* () {
-    if (Option.isNone(args.settings)) return;
-    const instructionFiles = args.settings.value.instructionFiles;
-    if (instructionFiles === undefined || instructionFiles === false) return;
-    yield* reconcileInstructionTargets({
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-      configuredAgents: args.settings.value.agents ?? [],
-      config: resolveInstructionsConfig(instructionFiles),
     });
   });
 
@@ -464,7 +295,9 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
 
   // -- Repair before observing, so the report reflects the reconciled state --
   if (args.fix) {
-    yield* applyDeterminedRepairs({ workspaceRoot, scope: args.scope, settings });
+    yield* applyDeterminedRepairs({ workspaceRoot, scope: args.scope, settings }).pipe(
+      Effect.mapError(toAppError),
+    );
   }
 
   const loadedConfig = lintConfigFromSettings(settings);
@@ -562,6 +395,7 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     );
   });
   const ownershipIssues = yield* inspectWorkspaceOwnership().pipe(
+    Effect.mapError(syncFailureToAppError),
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.provideService(Path.Path, path),
     Effect.provideService(WorkspaceMutations, ws),

@@ -1,7 +1,6 @@
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, resolveInstructionTarget } from "@agentxm/extension-workspace";
 import {
   bootstrapWorkspace,
-  resolveInstructionTarget,
   type SetupAgentCandidate,
 } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";

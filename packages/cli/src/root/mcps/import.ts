@@ -10,12 +10,12 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, McpServerManager } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { McpServerManager, installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
 import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/extension-workspace";
 import {
   AXM_MCP_METADATA_KEY,

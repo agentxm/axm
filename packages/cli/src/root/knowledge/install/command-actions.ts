@@ -18,11 +18,10 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/extension-workspace";
+import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";

@@ -5,7 +5,6 @@ import {
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
@@ -49,6 +48,7 @@ import {
   resolveUpdateTargets,
 } from "../../shared/update-targets.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
+import { SubagentManager } from "@agentxm/extension-workspace";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;

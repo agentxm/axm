@@ -12,28 +12,23 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import * as ServiceMap from "effect/Context";
-import {
-  assertInstructionTargetsSafe,
-  assertInstructionsGitignoreSafe,
-  observeInstructionProjection,
-  reconcileInstructionTargets,
-  resolveInstructionsConfig,
-  type ResolvedInstructionsConfig,
-} from "../workspace-configuration/instructions.js";
 import {
   RuleDefinitionInvalid,
   RuleInstallStateMissing,
   activeContributors,
   applyProjectionPlans,
   planAggregateProjection,
-  type ProjectionPlan,
   type ProjectionRenderInput,
   reconcileManagedRegionFile,
   MARKER_KIND_POINT,
   MARKER_VERSION,
   parseMarker,
   serializeMarker,
+  assertInstructionTargetsSafe,
+  assertInstructionsGitignoreSafe,
+  observeInstructionProjection,
+  reconcileInstructionTargets,
+  resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -43,7 +38,11 @@ import {
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
-import type { ProjectionUnitObservation } from "@agentxm/extension-workspace";
+import type {
+  ProjectionUnitObservation,
+  ResolvedInstructionsConfig,
+} from "@agentxm/extension-workspace";
+import { RULES_REGION_OWNER, RuleManager } from "@agentxm/extension-workspace";
 import { parseFrontmatterEffect } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "@agentxm/workspace-state";
@@ -61,11 +60,7 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { removeIfExists } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type {
-  ExtensionManager,
-  MaterializationObservation,
-  ExtensionManagerFailure,
-} from "@agentxm/extension-workspace";
+import type { ExtensionManager, MaterializationObservation } from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -92,19 +87,7 @@ import {
   type RuleExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
-export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
-  readonly projectionPlans: () => Effect.Effect<
-    ReadonlyArray<ProjectionPlan>,
-    ExtensionManagerFailure
-  >;
-}
-
-export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerService>()(
-  "@agentxm/extension-management/unstable/rules/manager/RuleManager",
-) {}
-
 const RULES_REGION = "rules";
-export const RULES_REGION_OWNER = "@agentxm/rules/instructions";
 
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);

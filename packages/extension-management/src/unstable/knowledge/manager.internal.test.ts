@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
-import { applyPlannedProjections } from "@agentxm/extension-workspace";
+import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-workspace";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -31,7 +31,7 @@ import {
   extensionName,
   handle,
 } from "../test-helpers.js";
-import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
+import { KnowledgeManagerLive } from "./manager.js";
 import type {
   LocalKnowledgeRef,
   WorkspaceKnowledgeRef,

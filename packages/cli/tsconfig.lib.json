@@ -11,13 +11,16 @@
   "exclude": ["src/**/*.test.ts", "src/**/*.e2e.test.ts"],
   "references": [
     {
-      "path": "../extension-sources/tsconfig.lib.json"
+      "path": "../workspace-sync/tsconfig.lib.json"
     },
     {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {
       "path": "../workspace-operations/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-lint/tsconfig.lib.json"
     },
     {
       "path": "../registry-protocol/tsconfig.lib.json"
@@ -27,6 +30,9 @@
     },
     {
       "path": "../extension-workspace/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-sources/tsconfig.lib.json"
     },
     {
       "path": "../extension-model/tsconfig.lib.json"

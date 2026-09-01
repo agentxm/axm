@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { applyPlannedProjections } from "@agentxm/extension-workspace";
+import { applyPlannedProjections, HookManager } from "@agentxm/extension-workspace";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -24,7 +24,7 @@ import { makeBaseWorkspaceMock, TEST_CONTENT_IDENTITY } from "@agentxm/workspace
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
-import { HookManager, HookManagerLive } from "./manager.js";
+import { HookManagerLive } from "./manager.js";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 
 const writeHookPackage = (

@@ -6,14 +6,14 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { LintView } from "@agentxm/extension-management/unstable/lint";
+import { materializeGitIndexWorkspace, type LintView } from "@agentxm/workspace-lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { handleLint } from "./handler.js";
-import { materializeGitIndexWorkspace } from "./staged-workspace.js";
+import { lintStagingFailedToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
   path: Argument.string("path").pipe(
@@ -83,7 +83,7 @@ const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommand
   if (args.view === "git-index") {
     const snapshot = yield* materializeGitIndexWorkspace(projectRoot, {
       selectRepositoryRoot: Option.isNone(args.path),
-    });
+    }).pipe(Effect.mapError(lintStagingFailedToAppError));
     const snapshotRoot = decodeAbsolutePathSync(snapshot.workspaceRoot);
     return yield* handleLint({
       pathArg: Option.some(snapshotRoot),

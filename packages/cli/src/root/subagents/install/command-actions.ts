@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Terminal from "effect/Terminal";
 import { nonInteractiveFlag, Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, SubagentManager } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -28,7 +28,6 @@ import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-source
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
 import {

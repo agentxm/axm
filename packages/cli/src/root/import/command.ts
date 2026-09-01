@@ -5,8 +5,6 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
@@ -45,6 +43,7 @@ import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmat
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { SkillManager, SubagentManager } from "@agentxm/extension-workspace";
 
 type NativeImportType = "skill" | "subagent";
 

@@ -12,7 +12,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
@@ -26,12 +25,6 @@ import {
   type PackExtensionTarget,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { PackManager } from "@agentxm/extension-management/unstable/packs";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import {
   buildUninstallOperation,
   decodeDesiredExtensionIdentity,
@@ -59,6 +52,15 @@ import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  SkillManager,
+  PackManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  RuleManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 
 // -----------------------------------------------------------------------------
 // Types

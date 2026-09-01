@@ -15,7 +15,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
 import type {
   SubagentExtensionRef,
@@ -67,6 +66,7 @@ import {
   materializeRegistryPackageWithTreeIntegrity,
 } from "../extensions/index.js";
 import { insertManagedFileBanner, type ManagedFileProvenance } from "@agentxm/extension-workspace";
+import { SubagentManager, type SubagentManagerService } from "@agentxm/extension-workspace";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import { computeSourceHash, RenderedFilePathSchema } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -112,23 +112,6 @@ const stripAgentOverrides = (
   const { agentOverrides: _agentOverrides, ...rest } = fm;
   return rest;
 };
-
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
-
-export interface SubagentManagerService extends ExtensionManager<SubagentExtensionRef> {
-  readonly projectionObservation: (
-    ref: SubagentExtensionRef,
-  ) => Effect.Effect<
-    { readonly present: boolean; readonly current: boolean },
-    ExtensionManagerFailure
-  >;
-}
-
-export class SubagentManager extends ServiceMap.Service<SubagentManager, SubagentManagerService>()(
-  "@agentxm/extension-management/unstable/subagents/manager/SubagentManager",
-) {}
 
 // -----------------------------------------------------------------------------
 // Live Layer

@@ -13,11 +13,7 @@ import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { WorkspaceMutations, type McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import {
-  McpServerManager,
-  mcpServerArtifact,
-  mcpSourceTarget,
-} from "@agentxm/extension-management/unstable/mcps";
+import { mcpServerArtifact, mcpSourceTarget } from "@agentxm/extension-management/unstable/mcps";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
@@ -27,6 +23,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
+import { McpServerManager } from "@agentxm/extension-workspace";
 
 // -----------------------------------------------------------------------------
 // Handler Args

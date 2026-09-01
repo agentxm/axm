@@ -10,7 +10,6 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
 import { isEffectCliExit } from "@agentxm/extension-management/unstable/cli-runtime";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
 
 import {
   managerLifecycleStubs,
@@ -27,6 +26,7 @@ import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
+import { KnowledgeManager } from "@agentxm/extension-workspace";
 
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,

@@ -51,10 +51,6 @@
       "types": "./dist/src/unstable/workspace-inspection/index.d.ts",
       "default": "./dist/src/unstable/workspace-inspection/index.js"
     },
-    "./unstable/workspace-sync": {
-      "types": "./dist/src/unstable/workspace-sync/index.d.ts",
-      "default": "./dist/src/unstable/workspace-sync/index.js"
-    },
     "./unstable/cli-flags": {
       "types": "./dist/src/unstable/cli-flags/index.d.ts",
       "default": "./dist/src/unstable/cli-flags/index.js"
@@ -74,14 +70,6 @@
     "./unstable/auth": {
       "types": "./dist/src/unstable/auth/index.d.ts",
       "default": "./dist/src/unstable/auth/index.js"
-    },
-    "./unstable/projection": {
-      "types": "./dist/src/unstable/projection/index.d.ts",
-      "default": "./dist/src/unstable/projection/index.js"
-    },
-    "./unstable/lint": {
-      "types": "./dist/src/unstable/lint/index.d.ts",
-      "default": "./dist/src/unstable/lint/index.js"
     },
     "./unstable/skills": {
       "types": "./dist/src/unstable/skills/index.d.ts",
@@ -146,10 +134,6 @@
     "./unstable/app-error/conversions": {
       "types": "./dist/src/unstable/app-error/conversions.d.ts",
       "default": "./dist/src/unstable/app-error/conversions.js"
-    },
-    "./unstable/lint/workspace-context": {
-      "types": "./dist/src/unstable/lint/workspace-context.d.ts",
-      "default": "./dist/src/unstable/lint/workspace-context.js"
     }
   },
   "files": [

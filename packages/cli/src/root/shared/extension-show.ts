@@ -21,12 +21,11 @@ import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { inspectMcpServerAcrossAgents } from "@agentxm/extension-workspace";
+import { inspectMcpServerAcrossAgents, HookManager } from "@agentxm/extension-workspace";
 import {
   ManifestIdentitySchema,
   manifestFilenameForType,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import {
   WorkspaceMutations,
   configuredRowsByName,

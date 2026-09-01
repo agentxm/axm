@@ -5,14 +5,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { InstructionsConfig, InstructionsConfigValue } from "@agentxm/workspace-state";
-import {
-  instructionProjectionEffects,
-  instructionProjectionRemovalEffects,
-  observeInstructionProjection,
-  resolveInstructionsConfig,
-  type InstructionProjectionEffect,
-  type InstructionStatusItem,
-} from "@agentxm/extension-management/unstable/workspace-configuration";
 import { previewFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
@@ -27,8 +19,15 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/extension-workspace";
+import {
+  applyPlannedProjections,
+  observeProjectionPlans,
+  RuleManager,
+  instructionProjectionEffects,
+  instructionProjectionRemovalEffects,
+  observeInstructionProjection,
+  resolveInstructionsConfig,
+} from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags.js";
@@ -49,6 +48,10 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type {
+  InstructionProjectionEffect,
+  InstructionStatusItem,
+} from "@agentxm/extension-workspace";
 
 interface InstructionTableItem {
   readonly agentId: string;

@@ -12,7 +12,6 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
 } from "@agentxm/extension-management/unstable/extension-lifecycle";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import {
   previewOrApplyPlan,
@@ -32,6 +31,7 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;

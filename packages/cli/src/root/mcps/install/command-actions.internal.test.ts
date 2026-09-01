@@ -21,9 +21,9 @@ import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceCatalogLive } from "@agentxm/extension-management/unstable/cli-runtime";
 import { makeBaseWorkspaceMock, managerLifecycleStubs } from "../../../test-stubs.js";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { InstallMcpServerCommandWorkflowActions, parseEnvFlag } from "./command-actions.js";
+import { McpServerManager } from "@agentxm/extension-workspace";
 
 const mockWorkspace = makeBaseWorkspaceMock("/tmp/axm", {
   getConfiguredOwner: () => Effect.succeed(Option.some(normalizeHandle("@test-ns"))),

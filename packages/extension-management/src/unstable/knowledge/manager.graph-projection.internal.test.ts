@@ -16,7 +16,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/extension-workspace";
+import {
+  applyPlannedProjections,
+  observeProjectionPlans,
+  KnowledgeManager,
+} from "@agentxm/extension-workspace";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
@@ -26,7 +30,7 @@ import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import type { KnowledgeMap } from "@agentxm/workspace-state";
-import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
+import { KnowledgeManagerLive } from "./manager.js";
 
 const OWNER = "@acme";
 

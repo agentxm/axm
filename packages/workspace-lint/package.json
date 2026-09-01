@@ -1,0 +1,55 @@
+{
+  "name": "@agentxm/workspace-lint",
+  "version": "0.28.3",
+  "description": "AXM workspace-lint feature: workspace facts, lint rules, findings, normalization, and bounded fix planning for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/workspace-lint"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@agentxm/agent-integration": "workspace:^",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

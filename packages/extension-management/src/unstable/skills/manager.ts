@@ -12,7 +12,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
-import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -34,6 +33,7 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { removeIfExists } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
+  SkillManager,
   applyProjectionPlans,
   planSingletonProjection,
   SkillDefinitionInvalid,
@@ -60,15 +60,6 @@ import {
 } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import { coupleRemainingAppError } from "../app-error/conversions.js";
-
-// -----------------------------------------------------------------------------
-// Service Tag
-// -----------------------------------------------------------------------------
-
-export class SkillManager extends ServiceMap.Service<
-  SkillManager,
-  ExtensionManager<SkillExtensionRef>
->()("@agentxm/extension-management/unstable/skills/manager/SkillManager") {}
 
 // -----------------------------------------------------------------------------
 // Helpers

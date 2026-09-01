@@ -5,7 +5,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { resolveInstructionsConfig } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeExtensionPathsForLayout,
@@ -16,10 +15,7 @@ import {
   type WorkspaceLayout,
 } from "@agentxm/workspace-state";
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import {
-  KnowledgeManager,
-  KnowledgeManagerLive,
-} from "@agentxm/extension-management/unstable/knowledge";
+import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
@@ -30,6 +26,7 @@ import {
   coupleAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { KnowledgeManager, resolveInstructionsConfig } from "@agentxm/extension-workspace";
 
 export interface UninstallKnowledgeHandlerArgs {
   readonly name: string;

@@ -18,14 +18,14 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { AddSubagentArgs, CodingAgent } from "@agentxm/extension-workspace";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, SubagentManager } from "@agentxm/extension-workspace";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "@agentxm/workspace-state/testing";
-import { SubagentManager, SubagentManagerLive } from "./manager.js";
+import { SubagentManagerLive } from "./manager.js";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";

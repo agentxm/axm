@@ -1,1 +1,1 @@
-export { RuleManager, RuleManagerLive, type RuleManagerService } from "./manager.js";
+export { RuleManagerLive } from "./manager.js";

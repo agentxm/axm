@@ -25,16 +25,9 @@ import {
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { HookManager } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManager } from "@agentxm/extension-management/unstable/mcps";
-import { PackManager } from "@agentxm/extension-management/unstable/packs";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
-import { SkillManager } from "@agentxm/extension-management/unstable/skills";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { SubagentManager } from "@agentxm/extension-management/unstable/subagents";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
@@ -51,6 +44,15 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import {
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+  RuleManager,
+  SkillManager,
+  SubagentManager,
+} from "@agentxm/extension-workspace";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;

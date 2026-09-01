@@ -13,7 +13,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -32,6 +31,7 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { RuleManager } from "@agentxm/extension-workspace";
 
 export const handleDisableRule = (args: {
   readonly name: string;

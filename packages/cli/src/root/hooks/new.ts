@@ -22,7 +22,7 @@ import type {
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { NewHookOperation } from "@agentxm/extension-management/unstable/hooks";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { HookManager, newHook } from "@agentxm/extension-management/unstable/hooks";
+import { newHook } from "@agentxm/extension-management/unstable/hooks";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type { HookLockEntry } from "@agentxm/workspace-state";
@@ -48,6 +48,7 @@ import {
 } from "../shared/scaffold-name.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { HookManager } from "@agentxm/extension-workspace";
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 const HOOK_EVENTS = [

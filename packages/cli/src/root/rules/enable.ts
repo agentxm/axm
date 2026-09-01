@@ -13,7 +13,6 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { RuleManager } from "@agentxm/extension-management/unstable/rules";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
@@ -36,6 +35,7 @@ import {
   toAppError,
   failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { RuleManager } from "@agentxm/extension-workspace";
 
 export const handleEnableRule = (args: {
   readonly name: string;

@@ -25,9 +25,8 @@ import {
   WorkspaceCatalog,
 } from "@agentxm/extension-sources";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import { CodingAgentRepository } from "@agentxm/extension-workspace";
+import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import {
-  SkillManager,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "@agentxm/extension-management/unstable/skills";

@@ -10,9 +10,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import * as ServiceMap from "effect/Context";
 import * as Result from "effect/Result";
-import { resolveInstructionsConfig } from "../workspace-configuration/instructions.js";
 import { AppError } from "../app-error/index.js";
 import {
   KnowledgeDefinitionInvalid,
@@ -30,6 +28,7 @@ import {
   reconcileKnowledgeDiscovery,
   observedKnowledgeContributors,
   type KnowledgeDiscoveryBundle,
+  resolveInstructionsConfig,
 } from "@agentxm/extension-workspace";
 import {
   canReuseInstalledPackage,
@@ -64,6 +63,11 @@ import {
 } from "../extension-lifecycle/configured-entry-resolution.js";
 import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
 import type { ExtensionManager, ExtensionManagerFailure } from "@agentxm/extension-workspace";
+import {
+  KnowledgeManager,
+  type KnowledgeManagerService,
+  type KnowledgeSyncResult,
+} from "@agentxm/extension-workspace";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
@@ -100,32 +104,6 @@ import {
   toAppError,
 } from "../app-error/conversions.js";
 
-export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {
-  readonly projectionPlans: () => Effect.Effect<
-    ReadonlyArray<ProjectionPlan>,
-    ExtensionManagerFailure
-  >;
-  readonly refreshCatalog: () => Effect.Effect<void, ExtensionManagerFailure>;
-  readonly sync: (options: {
-    readonly dryRun: boolean;
-  }) => Effect.Effect<KnowledgeSyncResult, ExtensionManagerFailure>;
-  readonly install: (args: {
-    readonly ref: KnowledgeExtensionRef;
-    readonly versionRange: Option.Option<VersionRange>;
-    readonly deferProjection?: boolean;
-  }) => Effect.Effect<void, ExtensionManagerFailure>;
-}
-
-export interface KnowledgeSyncResult {
-  readonly changed: boolean;
-  readonly warnings: ReadonlyArray<string>;
-  readonly artifacts: ReadonlyArray<{
-    readonly path: string;
-    readonly change: "created" | "updated" | "removed" | "unchanged";
-    readonly mechanism?: "symlink" | "copy";
-  }>;
-}
-
 interface PreparedKnowledgePackage {
   readonly root: string;
   readonly sourceHash: SourceHash;
@@ -133,11 +111,6 @@ interface PreparedKnowledgePackage {
   readonly commit: Effect.Effect<void, ExtensionManagerFailure>;
   readonly rollback: Effect.Effect<void, ExtensionManagerFailure>;
 }
-
-export class KnowledgeManager extends ServiceMap.Service<
-  KnowledgeManager,
-  KnowledgeManagerService
->()("@agentxm/extension-management/unstable/knowledge/manager/KnowledgeManager") {}
 
 const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
 const registryLockEntry = (

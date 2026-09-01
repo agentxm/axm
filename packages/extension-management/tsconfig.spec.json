@@ -10,12 +10,10 @@
   "include": [
     "src/**/*.internal.test.ts",
     "src/**/__tests__/**/*.ts",
-    "src/**/*.windows.test.ts",
     "src/**/*.type-test.ts",
     "src/**/test-helpers.ts",
     "scripts/**/*.ts",
-    "vitest.config.ts",
-    "vitest.windows.config.ts"
+    "vitest.config.ts"
   ],
   "references": [
     {

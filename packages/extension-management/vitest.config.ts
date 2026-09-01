@@ -15,6 +15,6 @@ export default defineConfig({
     // file that registers no tests. Spread Vitest's defaults so the standard
     // ignore set (node_modules, dist, .{idea,git,cache}, build, etc.) is
     // preserved.
-    exclude: [...configDefaults.exclude, "src/**/*.type-test.ts", "src/**/*.windows.test.ts"],
+    exclude: [...configDefaults.exclude, "src/**/*.type-test.ts"],
   },
 });

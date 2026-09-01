@@ -7,7 +7,7 @@
 // Lock entry builder
 
 // Manager service
-export { SubagentManager, SubagentManagerLive, type SubagentManagerService } from "./manager.js";
+export { SubagentManagerLive } from "./manager.js";
 
 // Operations
 export {

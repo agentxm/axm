@@ -518,7 +518,7 @@ jobs:
         uses: ./.github/actions/setup-workspace
 
       - name: Verify Windows instruction fallback
-        run: pnpm nx run extension-management:test-windows --outputStyle=static
+        run: pnpm nx run extension-workspace:test-windows --outputStyle=static
 
       - name: Verify Windows workspace mutations
         run: pnpm nx run cli-e2e:e2e-windows --outputStyle=static
@@ -533,7 +533,7 @@ jobs:
         with:
           name: test-results-windows-workspace-${{ github.sha }}
           path: |
-            test-results/extension-management-windows/
+            test-results/extension-workspace-windows/
             test-results/cli-e2e-windows/
           if-no-files-found: ignore
           retention-days: 14

@@ -25,11 +25,14 @@ const FORBIDDEN_PACKAGE_NAMES = [
   "@agentxm/extension-model",
   "@agentxm/registry-client",
   "@agentxm/registry-protocol",
+  "@agentxm/extension-lifecycle",
   "@agentxm/extension-management",
   "@agentxm/extension-sources",
   "@agentxm/extension-workspace",
+  "@agentxm/workspace-lint",
   "@agentxm/workspace-operations",
   "@agentxm/workspace-state",
+  "@agentxm/workspace-sync",
   "axm.sh",
 ] as const;
 const FORBIDDEN_PROJECT_ROOTS = [
@@ -37,11 +40,14 @@ const FORBIDDEN_PROJECT_ROOTS = [
   "packages/extension-model",
   "packages/registry-client",
   "packages/registry-protocol",
+  "packages/extension-lifecycle",
   "packages/extension-management",
   "packages/extension-sources",
   "packages/extension-workspace",
+  "packages/workspace-lint",
   "packages/workspace-operations",
   "packages/workspace-state",
+  "packages/workspace-sync",
   "packages/cli",
 ] as const;
 const DEPENDENCY_FIELDS = [

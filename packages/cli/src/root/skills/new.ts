@@ -4,10 +4,8 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  buildNewExtensionStep,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -16,17 +14,15 @@ import {
   normalizeHandle,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
-import type {
-  InstallableSkillTarget,
-  NewSkillOperation,
-} from "@agentxm/extension-management/unstable/skills";
+import type { InstallableSkillTarget } from "@agentxm/extension-workspace";
+import type { NewSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
-  newSkill,
-  uninstallSkill,
-} from "@agentxm/extension-management/unstable/skills";
+} from "@agentxm/extension-workspace";
+import { uninstallSkill } from "@agentxm/extension-lifecycle";
+import { newSkill } from "@agentxm/extension-management/unstable/skills";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -54,8 +50,10 @@ import { SKILL_NAME_RULES } from "../suggested-actions.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   appErrorToStepFailure,
+  failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -195,6 +193,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
   };
 
   const step = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "skill", name: args.name },
     versionRange: Option.none(),
@@ -307,6 +306,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
           name: "uninstall-skill",
           args: { skillName: args.name, agents: agentsToRemove },
         }).pipe(
+          provideLifecycleFailureAdapter,
           Effect.provideService(WorkspaceMutations, ws),
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),

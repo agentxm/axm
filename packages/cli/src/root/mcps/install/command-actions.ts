@@ -23,7 +23,7 @@ import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/t
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -31,12 +31,14 @@ import {
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import type { Plan } from "@agentxm/workspace-operations";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import type { InstallMcpServerCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
 
 // -----------------------------------------------------------------------------
 // Handler Args
@@ -78,7 +80,9 @@ type InstallMcpServerActions = InstallExtensionCommandWorkflowActions<
   ParsedMcpServerInstallArgs,
   McpServerInstallSourceRequest,
   McpServerExtensionRef,
-  InstallMcpServerCommandIntent
+  InstallMcpServerCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 /**
@@ -135,6 +139,7 @@ export const InstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
     Layer.succeed(Path.Path, path),
     Layer.succeed(CliRenderer, renderer),
     Layer.succeed(CodingAgentRepository, agentRepo),
+    LifecycleFailureAdapterLive,
   );
 
   const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, envLayer);

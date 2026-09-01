@@ -4,7 +4,7 @@ import {
   operationPresentation,
   type Plan,
 } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makeInstallPlanExecution } from "../../shared/confirmation-recovery.js";

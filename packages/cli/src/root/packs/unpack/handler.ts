@@ -4,9 +4,9 @@ import * as Path from "effect/Path";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import {
-  buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/extension-management/unstable/extensions";
+  buildUninstallOperation,
+} from "@agentxm/extension-workspace";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -222,6 +222,7 @@ const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackH
   });
 
   const uninstallPackStep = buildUninstallOperation(packManager, neverRetain, {
+    toStepFailure: failureToStepFailure,
     target: {
       type: "pack",
       owner: packRef.owner,

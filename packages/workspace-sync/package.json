@@ -40,12 +40,14 @@
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "semver": "catalog:"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
+    "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

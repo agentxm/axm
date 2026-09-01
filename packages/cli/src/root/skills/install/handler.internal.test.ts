@@ -22,7 +22,7 @@ import { afterEach, beforeEach } from "vitest";
 import { previewOrApplyPlan, deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { InstallSkillCommandWorkflowActions } from "./command-actions.js";
 import { handleInstall, handleInstallWithActions, type InstallHandlerArgs } from "./handler.js";
@@ -35,6 +35,8 @@ import {
   property,
 } from "../../../test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 const unsupportedRegistryHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -221,6 +223,7 @@ describe("skills install handler — error propagation", () => {
         handlerTestContext.wsLayer,
         SPLayer,
         CodingAgentRepositoryLive,
+        LifecycleFailureAdapterLive,
       ),
     );
     const FullLayer = Layer.mergeAll(
@@ -228,6 +231,8 @@ describe("skills install handler — error propagation", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
       SMLayer,
     );
     const provide = makeEffectProvide(FullLayer);
@@ -266,7 +271,12 @@ describe("skills install handler — error propagation", () => {
           jobs: [{ concurrency: 1 as const, steps: [] }],
         }),
     } satisfies Effect.Success<typeof InstallSkillCommandWorkflowActions>;
-    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
+    );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
       args: InstallHandlerArgs,

@@ -16,7 +16,7 @@ import type {
   PlannedJobStep,
   StepFailure,
 } from "@agentxm/workspace-operations";
-import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
 import type { SkillLockEntry, SkillsLockMap } from "@agentxm/workspace-state";
 
 // -----------------------------------------------------------------------------

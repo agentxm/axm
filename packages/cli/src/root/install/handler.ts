@@ -12,7 +12,10 @@ import {
 } from "@agentxm/workspace-operations";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import {
+  type LifecycleResolutionProgress,
+  runInstallCommandWorkflow,
+} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -226,18 +229,26 @@ export const handleInstallWithActions = (
   actions: InstallCommandActions,
 ) => handleInstallWithActionEffect(args, Effect.succeed(actions));
 
+// Widen a branch's requirements so both root-install branches share one
+// requirements shape for union inference.
+const withWorkflowRequirements = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R | LifecycleResolutionProgress> => effect;
+
 const handleInstallBody = (args: RootInstallHandlerArgs, actions: InstallCommandActions) =>
   Option.match(args.source, {
     onNone: () =>
-      handleWorkspaceInstallWithActions(
-        {
-          command: "install",
-          type: Option.none(),
-          planName: "Install configured extensions",
-          planDescription: Option.some("Install configured workspace extensions"),
-          flags: args,
-        },
-        actions,
+      withWorkflowRequirements(
+        handleWorkspaceInstallWithActions(
+          {
+            command: "install",
+            type: Option.none(),
+            planName: "Install configured extensions",
+            planDescription: Option.some("Install configured workspace extensions"),
+            flags: args,
+          },
+          actions,
+        ),
       ),
     onSome: (source) =>
       Effect.gen(function* () {

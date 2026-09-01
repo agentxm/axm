@@ -2,14 +2,17 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type HookExtensionTarget,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import type {
   JobStepArtifact,
@@ -18,7 +21,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallHookCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {
@@ -39,7 +42,8 @@ export interface ParsedHookUninstallArgs {
 type UninstallHookActions = UninstallExtensionCommandWorkflowActions<
   UninstallHookHandlerArgs,
   ParsedHookUninstallArgs,
-  UninstallHookCommandIntent
+  UninstallHookCommandIntent,
+  AppError
 >;
 
 const hookUninstallArtifactTargets = (
@@ -145,10 +149,10 @@ export const UninstallHookCommandWorkflowActions = Effect.gen(function* () {
           concurrency: 1,
           steps: intent.targets.map((target) =>
             withHookUninstallArtifact({
-              step: buildUninstallOperation<HookExtensionRef>(
+              step: buildUninstallOperation<HookExtensionRef, AppError>(
                 hookManager,
                 makeWorkspaceRetentionPolicy(ws),
-                { target },
+                { target, toStepFailure: failureToStepFailure },
               ),
               scope: ws.scope,
               targetName: target.name,

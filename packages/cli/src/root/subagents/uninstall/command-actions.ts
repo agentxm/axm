@@ -17,10 +17,10 @@ import {
   type SubagentExtensionTarget,
 } from "@agentxm/workspace-state";
 import { expandGlob } from "@agentxm/extension-management/unstable/utils";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type {
   JobStepArtifact,
@@ -37,7 +37,10 @@ import {
   workspaceLockfilePath,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { SubagentManager } from "@agentxm/extension-workspace";
 
 // -----------------------------------------------------------------------------
@@ -62,7 +65,8 @@ export interface ParsedSubagentUninstallArgs {
 type UninstallSubagentActions = UninstallExtensionCommandWorkflowActions<
   UninstallSubagentHandlerArgs,
   ParsedSubagentUninstallArgs,
-  UninstallSubagentCommandIntent
+  UninstallSubagentCommandIntent,
+  AppError
 >;
 
 const resolvedVersion = (entry: unknown): string | undefined => {
@@ -184,7 +188,10 @@ export const UninstallSubagentCommandWorkflowActions = Effect.gen(function* () {
             type: "subagent" as const,
             name: entry.subagentName,
           };
-          const step = buildUninstallOperation(subagentMgr, retentionPolicy, { target });
+          const step = buildUninstallOperation(subagentMgr, retentionPolicy, {
+            target,
+            toStepFailure: failureToStepFailure,
+          });
           if (step.readiness !== "ready") return step;
 
           const run = Effect.gen(function* () {

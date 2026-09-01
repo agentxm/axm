@@ -16,7 +16,7 @@ import {
   manifestSchemaForType,
   type ManifestIdentity,
 } from "@agentxm/registry-protocol/unstable/publish/manifest-policy";
-import { copyExtensionDirectory } from "./utils.js";
+import { copyExtensionDirectory } from "@agentxm/extension-workspace";
 import {
   parseFrontmatterEffect,
   type FrontmatterParseFailure,

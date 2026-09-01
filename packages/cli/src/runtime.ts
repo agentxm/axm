@@ -50,22 +50,22 @@ import {
   directoryFlag,
   verbosityToLogLevel,
 } from "@agentxm/extension-management/unstable/cli-flags";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-workspace";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
 import {
   HookConfiguredAgentOutcomesProviderLive,
   HookManagerLive,
-} from "@agentxm/extension-management/unstable/hooks";
-import {
-  KnowledgeIndexLive,
   KnowledgeManagerLive,
-} from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/extension-lifecycle/live";
+import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { LifecycleFailureAdapterLive } from "./feature-errors.js";
+import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
@@ -299,6 +299,7 @@ const makeWorkspaceProgramLayer = (
     workspaceCatalogLayer,
     sourceProvidersLayer,
     CodingAgentRepositoryLive,
+    LifecycleFailureAdapterLive,
   );
 
   // Leaf managers are independent. Packs depend on the other managers.
@@ -432,6 +433,7 @@ export const withRuntime =
           WorkspaceInitializationInteractionLive,
           AuthLoginPresenterLive,
           InterruptionSignalSourceLive,
+          LifecycleResolutionProgressLive,
         ),
         foundationLayer,
       );

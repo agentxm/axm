@@ -20,13 +20,13 @@ import {
 } from "@agentxm/workspace-state";
 import { type RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
+import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -46,6 +46,8 @@ import {
   handle,
   writeWorkspaceFiles,
 } from "../../../test-stubs.js";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -249,6 +251,8 @@ describe("packs unpack.handler", () => {
       handlerTestContext.wsLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const ManagersLayer = Layer.provide(
       Layer.mergeAll(

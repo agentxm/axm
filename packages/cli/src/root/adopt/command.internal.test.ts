@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "@agentxm/workspace-state";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 
 import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../test-helpers.js";

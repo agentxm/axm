@@ -17,7 +17,7 @@ import { makeOperationResolution, operationPresentation } from "@agentxm/workspa
 import {
   makeConfiguredReleaseAgeEvaluation,
   runInstallCommandWorkflow,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-lifecycle";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
@@ -61,6 +61,7 @@ import {
   makeInstallCommandActions,
   type InstallCommandActions,
 } from "../shared/install-command-actions.js";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export interface RootUpdateFlags {
   readonly yes: boolean;
@@ -528,7 +529,7 @@ const resolveTargetedUpdate = (
 
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation(
       ignoreReleaseAge ? "ignore" : "enforce",
-    );
+    ).pipe(Effect.mapError(lifecycleFailureToAppError));
     const source = yield* resolveSource(intent.source);
     if (source.type !== "registry") {
       return yield* makeAppError({ code: "usage", detail: "Root update requires a Registry FQN" });

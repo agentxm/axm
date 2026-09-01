@@ -6,9 +6,9 @@ import {
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
 import {
-  runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+  runUninstallCommandWorkflow,
+} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
@@ -46,6 +46,7 @@ import {
   resolveRootUninstallIntent,
   type RootUninstallableType,
 } from "./resolve-root-uninstall-intent.js";
+import { type AppError } from "@agentxm/extension-management/unstable/app-error";
 
 export interface RootUninstallFlags {
   readonly yes: boolean;
@@ -84,8 +85,8 @@ const rootUninstallPresentation = operationPresentation({
 });
 
 const withRootPresentation = <Args, Parsed, Intent>(
-  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
-): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> => ({
+  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError>,
+): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError> => ({
   ...actions,
   buildUninstallPlan: (intent, flags) =>
     actions

@@ -15,16 +15,7 @@ import * as path from "node:path";
 
 import * as Layer from "effect/Layer";
 
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import {
-  KnowledgeIndexLive,
-  KnowledgeManagerLive,
-} from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { KnowledgeIndexLive } from "@agentxm/extension-management/unstable/knowledge";
 import * as Effect from "effect/Effect";
 
 import {
@@ -35,6 +26,14 @@ import {
   makeAxmSkillCompatibilityPolicyLayer,
   SourceHostProvidersLive,
   workspaceInvariantFactsLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  LifecycleFailureAdapterLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
 } from "axm.sh/specification-harness";
 
 export interface SpecWorkspaceOptions {
@@ -66,6 +65,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     Layer.mergeAll(
       SourceHostProvidersLive,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
       makeAxmSkillCompatibilityPolicyLayer("0.0.0-spec"),
     ),
     context.fullLayer,

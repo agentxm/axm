@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";

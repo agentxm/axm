@@ -35,3 +35,13 @@ export {
   syncRecoveryIdentifiers,
   type SyncStepRequirements,
 } from "./plan.js";
+export {
+  collectMaterializeSteps,
+  normalizedIdentity,
+  recoverableExternalPackName,
+  scopedProblems,
+  type ConfiguredPackRecovery,
+  type ResolvedDesiredRef,
+  type RunMcpServerInstall,
+  type SyncSelection,
+} from "./materialize.js";

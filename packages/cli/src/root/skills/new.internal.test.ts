@@ -16,7 +16,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-stubs.js";
 import {

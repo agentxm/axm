@@ -8,7 +8,7 @@ import { TreeIntegritySchema } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SkillLockEntry, SkillsLockMap } from "@agentxm/workspace-state";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
-import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { exactVersion, extensionName } from "../../../test-stubs.js";
 import { buildUpdatePlan, type MakeRunClosure } from "./plan.js";

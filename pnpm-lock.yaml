@@ -267,6 +267,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../agent-integration
+      '@agentxm/extension-lifecycle':
+        specifier: workspace:^
+        version: link:../extension-lifecycle
       '@agentxm/extension-management':
         specifier: workspace:^
         version: link:../extension-management
@@ -359,6 +362,61 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/extension-lifecycle:
+    dependencies:
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../extension-model
+      '@agentxm/extension-sources':
+        specifier: workspace:^
+        version: link:../extension-sources
+      '@agentxm/extension-workspace':
+        specifier: workspace:^
+        version: link:../extension-workspace
+      '@agentxm/registry-client':
+        specifier: workspace:^
+        version: link:../registry-client
+      '@agentxm/registry-protocol':
+        specifier: workspace:^
+        version: link:../registry-protocol
+      '@agentxm/workspace-operations':
+        specifier: workspace:^
+        version: link:../workspace-operations
+      '@agentxm/workspace-state':
+        specifier: workspace:^
+        version: link:../workspace-state
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
 
   packages/extension-management:
     dependencies:
@@ -524,6 +582,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
+      '@agentxm/workspace-operations':
+        specifier: workspace:^
+        version: link:../workspace-operations
       '@agentxm/workspace-state':
         specifier: workspace:^
         version: link:../workspace-state
@@ -791,6 +852,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -801,6 +865,9 @@ importers:
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2

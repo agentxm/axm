@@ -41,8 +41,8 @@ import {
 import { runWorkspaceTransaction } from "@agentxm/workspace-operations";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import { replaceCanonicalDirectory } from "@agentxm/extension-management/unstable/extensions";
-import { ensureSkillAgentArtifact } from "@agentxm/extension-management/unstable/skills";
+import { replaceCanonicalDirectory } from "@agentxm/extension-workspace";
+import { ensureSkillAgentArtifact } from "@agentxm/extension-lifecycle";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,

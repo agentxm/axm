@@ -39,10 +39,6 @@
       "types": "./dist/src/unstable/extensions/index.d.ts",
       "default": "./dist/src/unstable/extensions/index.js"
     },
-    "./unstable/extension-lifecycle": {
-      "types": "./dist/src/unstable/extension-lifecycle/index.d.ts",
-      "default": "./dist/src/unstable/extension-lifecycle/index.js"
-    },
     "./unstable/workspace-configuration": {
       "types": "./dist/src/unstable/workspace-configuration/index.d.ts",
       "default": "./dist/src/unstable/workspace-configuration/index.js"
@@ -79,10 +75,6 @@
       "types": "./dist/src/unstable/packs/index.d.ts",
       "default": "./dist/src/unstable/packs/index.js"
     },
-    "./unstable/rules": {
-      "types": "./dist/src/unstable/rules/index.d.ts",
-      "default": "./dist/src/unstable/rules/index.js"
-    },
     "./unstable/hooks": {
       "types": "./dist/src/unstable/hooks/index.d.ts",
       "default": "./dist/src/unstable/hooks/index.js"
@@ -90,10 +82,6 @@
     "./unstable/knowledge": {
       "types": "./dist/src/unstable/knowledge/index.d.ts",
       "default": "./dist/src/unstable/knowledge/index.js"
-    },
-    "./unstable/mcps": {
-      "types": "./dist/src/unstable/mcps/index.d.ts",
-      "default": "./dist/src/unstable/mcps/index.js"
     },
     "./unstable/publish": {
       "types": "./dist/src/unstable/publish/index.d.ts",
@@ -122,10 +110,6 @@
     "./unstable/discover": {
       "types": "./dist/src/unstable/discover/index.d.ts",
       "default": "./dist/src/unstable/discover/index.js"
-    },
-    "./unstable/subagents": {
-      "types": "./dist/src/unstable/subagents/index.d.ts",
-      "default": "./dist/src/unstable/subagents/index.js"
     },
     "./unstable/cli/prompt": {
       "types": "./dist/src/unstable/cli/prompt/index.d.ts",

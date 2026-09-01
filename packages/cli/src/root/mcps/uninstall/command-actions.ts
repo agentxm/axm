@@ -9,14 +9,15 @@
  */
 
 import * as Effect from "effect/Effect";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import * as Option from "effect/Option";
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import { WorkspaceMutations, type McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { mcpServerArtifact, mcpSourceTarget } from "@agentxm/extension-management/unstable/mcps";
+import { mcpServerArtifact, mcpSourceTarget } from "@agentxm/extension-lifecycle";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import {
@@ -44,7 +45,8 @@ export interface ParsedMcpServerUninstallArgs {
 type UninstallMcpServerActions = UninstallExtensionCommandWorkflowActions<
   UninstallMcpServerHandlerArgs,
   ParsedMcpServerUninstallArgs,
-  UninstallMcpServerCommandIntent
+  UninstallMcpServerCommandIntent,
+  AppError
 >;
 
 export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () {
@@ -74,9 +76,14 @@ export const UninstallMcpServerCommandWorkflowActions = Effect.gen(function* () 
     const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
 
     const steps = intent.targets.map((target): PlannedJobStep => {
-      const step = buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
-        target,
-      });
+      const step = buildUninstallOperation<McpServerExtensionRef, AppError>(
+        mcpServerMgr,
+        retentionPolicy,
+        {
+          toStepFailure: failureToStepFailure,
+          target,
+        },
+      );
       if (step.readiness !== "ready") {
         return step;
       }

@@ -97,6 +97,7 @@ export default [
                 "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-lifecycle",
                 "scope:extension-sources",
                 "scope:extension-workspace",
                 "scope:registry-client",
@@ -118,6 +119,7 @@ export default [
                 "scope:agent-integration",
                 "scope:core",
                 "scope:extension-model",
+                "scope:extension-lifecycle",
                 "scope:extension-sources",
                 "scope:extension-workspace",
                 "scope:registry-client",
@@ -252,6 +254,7 @@ export default [
     files: [
       "packages/agent-integration/src/**/*.ts",
       "packages/extension-management/src/**/*.ts",
+      "packages/extension-lifecycle/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
       "packages/extension-sources/src/**/*.ts",
       "packages/extension-workspace/src/**/*.ts",

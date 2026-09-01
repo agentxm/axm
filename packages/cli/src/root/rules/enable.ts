@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -17,7 +17,7 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredRule,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-lifecycle";
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -36,6 +36,7 @@ import {
   failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { RuleManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export const handleEnableRule = (args: {
   readonly name: string;
@@ -78,13 +79,16 @@ const handleEnableRuleBody = Effect.fn("EnableRule.handle")(function* (args: {
     return;
   }
 
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
   const { ref, versionRange } = yield* resolveConfiguredRule(
     args.name,
     entry.source,
     releaseAgeEvaluation,
-  );
+  ).pipe(Effect.mapError(lifecycleFailureToAppError));
   const installStep = buildInstallOperation(ruleManager, {
+    toStepFailure: failureToStepFailure,
     ref,
     versionRange,
     message: `Enabled ${args.name}`,

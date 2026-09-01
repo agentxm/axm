@@ -12,24 +12,24 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
+import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
 import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
 } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -53,6 +53,8 @@ import {
 } from "../../test-stubs.js";
 import { handleListMcpServers } from "../mcps/list.js";
 import { handleSync } from "./handler.js";
+import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../lifecycle-interaction.js";
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -620,6 +622,7 @@ describe("root sync handler", () => {
       ctx.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -647,6 +650,8 @@ describe("root sync handler", () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
+          LifecycleFailureAdapterLive,
+          Layer.provide(LifecycleResolutionProgressLive, ctx.baseLayer),
           managersLayer,
           packManagerLayer,
           invariantFactsLayer,

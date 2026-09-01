@@ -124,3 +124,15 @@ export { RegistryUrl } from "@agentxm/registry-client";
 // sanctioned test-support module).
 export { resolveSource } from "@agentxm/extension-sources";
 export { SourceHostProvidersLive } from "./test-helpers.js";
+export {
+  HookConfiguredAgentOutcomesProviderLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  LifecycleFailureAdapterLive,
+  LifecycleResolutionProgressLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "./test-helpers.js";

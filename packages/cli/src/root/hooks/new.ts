@@ -4,11 +4,12 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
-  buildNewExtensionStep,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -209,6 +210,7 @@ const handleHooksNewBody = Effect.fn("HooksNew.handle")(function* (args: HooksNe
   };
 
   const step: PlannedJobStep = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "hook", name: args.name },
     versionRange: Option.none(),

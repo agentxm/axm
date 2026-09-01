@@ -17,7 +17,7 @@ import {
   SubagentManager,
 } from "@agentxm/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
@@ -33,9 +33,11 @@ import {
   buildAuthoredExtensionStep,
   copyExtensionDirectory,
   createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-workspace";
+import {
   forkExtensionPackage,
   preflightCreateOnly,
-  recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -47,6 +49,7 @@ import {
   type ExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
+  failureToStepFailure,
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -68,6 +71,7 @@ import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmat
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
   names: [fqn.name],
@@ -363,6 +367,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
   switch (target.type) {
     case "skill":
       step = buildAuthoredExtensionStep(yield* SkillManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "skill", name: target.name },
       });
@@ -371,6 +376,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
       const renderer = yield* CliRenderer;
       const agentRepo = yield* CodingAgentRepository;
       step = buildAuthoredExtensionStep(yield* McpServerManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "mcp-server", name: target.name },
         materializeInstall: (ref) =>
@@ -395,36 +401,42 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: {
             Effect.provideService(CliRenderer, renderer),
             Effect.provideService(CodingAgentRepository, agentRepo),
             Effect.provideService(HttpClient.HttpClient, httpClient),
+            provideLifecycleFailureAdapter,
           ),
       });
       break;
     }
     case "subagent":
       step = buildAuthoredExtensionStep(yield* SubagentManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "subagent", name: target.name },
       });
       break;
     case "rule":
       step = buildAuthoredExtensionStep(yield* RuleManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "rule", name: target.name },
       });
       break;
     case "hook":
       step = buildAuthoredExtensionStep(yield* HookManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "hook", name: target.name },
       });
       break;
     case "knowledge":
       step = buildAuthoredExtensionStep(yield* KnowledgeManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "knowledge", name: target.name },
       });
       break;
     case "pack":
       step = buildAuthoredExtensionStep(yield* PackManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "pack", owner: target.owner, name: target.name },
       });

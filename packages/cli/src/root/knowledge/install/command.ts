@@ -4,7 +4,7 @@ import { Argument, Command } from "effect/unstable/cli";
 
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { runInstallCommandWorkflow } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { runInstallCommandWorkflow } from "@agentxm/extension-lifecycle";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";

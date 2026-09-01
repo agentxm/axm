@@ -3,14 +3,14 @@ import * as Option from "effect/Option";
 import { Argument } from "effect/unstable/cli";
 
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredKnowledge,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -23,6 +23,7 @@ import {
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { KnowledgeManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 export const activationConfig = {
   name: Argument.string("name").pipe(Argument.withDescription("Configured knowledge bundle name")),
@@ -67,11 +68,14 @@ const setKnowledgeEnabledBody = Effect.fn("Knowledge.setEnabled")(function* (
 
   const step: PlannedJobStep = enabled
     ? buildInstallOperation(manager, {
+        toStepFailure: failureToStepFailure,
         ...(yield* resolveConfiguredKnowledge(
           name,
           entry.source,
-          yield* makeConfiguredReleaseAgeEvaluation("enforce"),
-        )),
+          yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+            Effect.mapError(lifecycleFailureToAppError),
+          ),
+        ).pipe(Effect.mapError(lifecycleFailureToAppError))),
         message: `Enabled knowledge bundle ${name}`,
         buildArtifact: () =>
           Effect.succeed({

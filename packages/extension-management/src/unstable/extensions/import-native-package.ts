@@ -13,7 +13,7 @@ import {
   parseFrontmatterEffect,
   type FrontmatterParseFailure,
 } from "@agentxm/registry-protocol/unstable/content/frontmatter";
-import { copyExtensionDirectory } from "./utils.js";
+import { copyExtensionDirectory } from "@agentxm/extension-workspace";
 import {
   NativeImportConflict,
   NativeImportFailed,

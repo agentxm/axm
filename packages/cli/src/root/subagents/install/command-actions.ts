@@ -28,8 +28,8 @@ import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-source
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -42,7 +42,11 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSubagentsToInstall } from "./select-subagents.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -180,7 +184,9 @@ type InstallSubagentActions = InstallExtensionCommandWorkflowActions<
   ParsedSubagentInstallArgs,
   SubagentSourceRequest,
   SubagentExtensionRef,
-  InstallSubagentCommandIntent
+  InstallSubagentCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
@@ -464,6 +470,7 @@ export const InstallSubagentCommandWorkflowActions = Effect.gen(function* () {
               });
 
             return buildInstallOperation(subagentMgr, {
+              toStepFailure: failureToStepFailure,
               ref,
               versionRange: entry.versionRange,
               installedBefore: subagentMgr

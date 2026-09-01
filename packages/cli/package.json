@@ -80,6 +80,7 @@
   },
   "dependencies": {
     "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-lifecycle": "workspace:^",
     "@agentxm/extension-management": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",

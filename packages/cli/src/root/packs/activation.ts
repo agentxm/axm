@@ -52,10 +52,9 @@ import {
 } from "../shared/workspace-display-paths.js";
 import { collectMaterializeSteps } from "../sync/handler.js";
 import { validatePackGraphPostcondition } from "./graph-transition.js";
-import {
-  toAppError,
-  failureToStepFailure,
-} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { lifecycleFailureToStepFailure } from "../../feature-errors.js";
+import { LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 
@@ -246,6 +245,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
   const runServices = yield* Effect.context<
+    | LifecycleFailureAdapter
     | Scope.Scope
     | HttpClient.HttpClient
     | CliRenderer
@@ -388,7 +388,7 @@ const handlePackActivationBody = Effect.fn("PacksActivation.handle")(function* (
                 message: `${titleVerb}d ${packIdentity}`,
                 artifact: activationArtifact,
               } satisfies JobStepResult;
-            }).pipe(Effect.provide(runServices), Effect.mapError(failureToStepFailure)),
+            }).pipe(Effect.provide(runServices), Effect.mapError(lifecycleFailureToStepFailure)),
           },
         ],
       },

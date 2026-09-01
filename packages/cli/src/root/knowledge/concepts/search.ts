@@ -8,8 +8,8 @@ import { CliRenderer, type TableView } from "@agentxm/extension-management/unsta
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   KnowledgeIndex,
-  makeKnowledgeQuery,
   type KnowledgeQueryClause,
+  makeKnowledgeQuery,
 } from "@agentxm/extension-management/unstable/knowledge";
 import { parseKnowledgeSearchQuery } from "@agentxm/registry-protocol/unstable/knowledge";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";

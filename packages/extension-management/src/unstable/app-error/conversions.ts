@@ -14,6 +14,8 @@ import { FrontmatterParseFailure } from "@agentxm/registry-protocol/unstable/con
 import { FRONTMATTER_PARSE_FALLBACK_REASON } from "@agentxm/registry-protocol/unstable/content/frontmatter";
 import { SubagentContentError } from "@agentxm/registry-protocol/unstable/content/subagent-content";
 import type { AppErrorCode } from "./app-error.js";
+import { AppErrorCodes } from "./app-error.js";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -456,13 +458,53 @@ export const coupleRemainingAppError = <E>(error: E | AppError): E | CoupledDepe
   error instanceof AppError ? coupleAppError(error) : error;
 
 /**
- * Restore a coupled dependency's carried `AppError` verbatim; a non-envelope
- * payload (never constructed today) degrades to an internal error.
+ * Restore a coupled dependency's carried failure: an `AppError` verbatim, a
+ * known typed failure through its own conversion, a feature-carried envelope
+ * fact record through the envelope constructor, and anything else degrades
+ * to an internal error.
  */
-export const coupledDependencyFailureToAppError = (error: CoupledDependencyFailure): AppError =>
-  error.failure instanceof AppError
-    ? error.failure
-    : makeAppError({ code: "internal", detail: String(error.failure), cause: error.failure });
+export const coupledDependencyFailureToAppError = (error: CoupledDependencyFailure): AppError => {
+  if (error.failure instanceof AppError) return error.failure;
+  if (isKnownFailure(error.failure)) return toAppError(error.failure);
+  if (isCarriedEnvelopeFact(error.failure)) {
+    return makeAppError({
+      code: error.failure.category,
+      ...(error.failure.title === undefined ? {} : { title: error.failure.title }),
+      ...(error.failure.detail === undefined ? {} : { detail: error.failure.detail }),
+      ...(error.failure.recover === undefined ? {} : { recover: error.failure.recover }),
+      ...(error.failure.cmd === undefined ? {} : { cmd: error.failure.cmd }),
+      ...(error.failure.suggestions === undefined
+        ? {}
+        : { suggestions: error.failure.suggestions }),
+      ...(error.failure.cause === undefined ? {} : { cause: error.failure.cause }),
+    });
+  }
+  return makeAppError({ code: "internal", detail: String(error.failure), cause: error.failure });
+};
+
+/**
+ * A feature-owned failure that carries the envelope's construction inputs
+ * 1:1 (category plus the optional wording fields), recognized structurally so
+ * this boundary needs no dependency on the feature packages that construct
+ * them.
+ */
+const isCarriedEnvelopeFact = (
+  failure: unknown,
+): failure is {
+  readonly category: AppErrorCode;
+  readonly title?: string;
+  readonly detail?: string;
+  readonly recover?: string;
+  readonly cmd?: string;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly cause?: unknown;
+} =>
+  typeof failure === "object" &&
+  failure !== null &&
+  "category" in failure &&
+  typeof failure.category === "string" &&
+  AppErrorCodes.some((code) => code === failure.category) &&
+  (!("detail" in failure) || typeof failure.detail === "string" || failure.detail === undefined);
 
 /**
  * Interim bridge for producers whose dependencies still fail with `AppError`:

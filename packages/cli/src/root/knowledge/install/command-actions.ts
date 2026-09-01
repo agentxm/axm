@@ -13,7 +13,7 @@ import {
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -25,10 +25,11 @@ import { applyPlannedProjections, KnowledgeManager } from "@agentxm/extension-wo
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallKnowledgeCommandIntent } from "./intent.js";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 export interface InstallKnowledgeHandlerArgs {
   readonly source: string;
@@ -39,7 +40,9 @@ type KnowledgeInstallActions = InstallExtensionCommandWorkflowActions<
   ParsedKnowledgeInstallArgs,
   ParsedKnowledgeInstallArgs,
   KnowledgeExtensionRef,
-  InstallKnowledgeCommandIntent
+  InstallKnowledgeCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 interface ParsedKnowledgeInstallArgs {

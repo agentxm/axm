@@ -15,7 +15,7 @@ import {
   type ConfiguredAgentOutcome,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -32,13 +32,14 @@ import { applyPlannedProjections, HookManager } from "@agentxm/extension-workspa
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallHookCommandIntent } from "./intent.js";
 import {
   toAppError,
   failureToStepFailure,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 export interface InstallHookHandlerArgs {
   readonly source: string;
@@ -58,7 +59,9 @@ type InstallHookActions = InstallExtensionCommandWorkflowActions<
   ParsedHookInstallArgs,
   HookInstallSourceRequest,
   HookExtensionRef,
-  InstallHookCommandIntent
+  InstallHookCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
@@ -255,6 +258,7 @@ export const InstallHookCommandWorkflowActions = Effect.gen(function* () {
               ),
             } satisfies JobStepArtifact;
             const operation = buildInstallOperation(hookManager, {
+              toStepFailure: failureToStepFailure,
               ref,
               versionRange,
               skipProjections: deferProjections,

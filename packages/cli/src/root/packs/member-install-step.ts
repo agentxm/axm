@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -18,7 +20,7 @@ import {
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   toLabelWithCompanions,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
@@ -35,9 +37,10 @@ import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer, LifecycleFailureAdapter } from "@agentxm/extension-lifecycle";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
+import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 export type PackMemberRef =
   | SkillExtensionRef
@@ -152,6 +155,7 @@ export const buildPackMemberInstallStep = (args: {
         | FileSystem.FileSystem
         | Path.Path
         | WorkspaceMutations
+        | LifecycleFailureAdapter
       >,
     ): Effect.Effect<A, E, never> =>
       Effect.provide(
@@ -162,12 +166,14 @@ export const buildPackMemberInstallStep = (args: {
           Layer.succeed(Path.Path, path),
           Layer.succeed(CodingAgentRepository, agentRepo),
           Layer.succeed(HttpClient.HttpClient, httpClient),
+          LifecycleFailureAdapterLive,
         ),
       );
     const ref = args.ref;
 
     if (ref.type === "skill") {
-      return buildInstallOperation<SkillExtensionRef>(skillManager, {
+      return buildInstallOperation<SkillExtensionRef, AppError>(skillManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
@@ -229,7 +235,8 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "subagent") {
-      return buildInstallOperation<SubagentExtensionRef>(subagentManager, {
+      return buildInstallOperation<SubagentExtensionRef, AppError>(subagentManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
@@ -255,7 +262,8 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "rule") {
-      return buildInstallOperation<RuleExtensionRef>(ruleManager, {
+      return buildInstallOperation<RuleExtensionRef, AppError>(ruleManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
@@ -280,7 +288,8 @@ export const buildPackMemberInstallStep = (args: {
     }
 
     if (ref.type === "hook") {
-      return buildInstallOperation<HookExtensionRef>(hookManager, {
+      return buildInstallOperation<HookExtensionRef, AppError>(hookManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange: Option.none(),
         skipSettings: true,
@@ -304,7 +313,8 @@ export const buildPackMemberInstallStep = (args: {
       });
     }
 
-    return buildInstallOperation<KnowledgeExtensionRef>(knowledgeManager, {
+    return buildInstallOperation<KnowledgeExtensionRef, AppError>(knowledgeManager, {
+      toStepFailure: failureToStepFailure,
       ref,
       versionRange: Option.none(),
       skipSettings: true,

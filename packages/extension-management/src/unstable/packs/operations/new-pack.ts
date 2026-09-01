@@ -9,11 +9,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { makeAppError } from "../../app-error/index.js";
 import { failureToStepFailure } from "../../app-error/conversions.js";
-import {
-  createCanonicalDirectory,
-  recoverCanonicalDirectory,
-  preflightCreateOnly,
-} from "../../extensions/index.js";
+import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "../../extensions/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {

@@ -60,20 +60,13 @@ describe("aggregate ownership unit conformance", () => {
   });
 
   it("routes every ownership-unit cardinality through shared plans", () => {
-    // The extension-type managers still live in the extension-management
-    // residue until the feature-slice extractions; this structural gate reads
-    // their sources across the package boundary on purpose.
-    const residueSrc = nodePath.join(
-      packageSrc,
-      "..",
-      "..",
-      "extension-management",
-      "src",
-      "unstable",
-    );
+    // The extension-type managers live in the extension-lifecycle feature;
+    // this structural gate reads their sources across the package boundary on
+    // purpose.
+    const lifecycleSrc = nodePath.join(packageSrc, "..", "..", "extension-lifecycle", "src");
     const aggregateParticipants = ["rules/manager.ts", "hooks/manager.ts", "knowledge/manager.ts"];
     for (const relativePath of aggregateParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(residueSrc, relativePath), "utf8")).toContain(
+      expect(nodeFs.readFileSync(nodePath.join(lifecycleSrc, relativePath), "utf8")).toContain(
         "planAggregateProjection",
       );
     }
@@ -86,7 +79,7 @@ describe("aggregate ownership unit conformance", () => {
       "mcps/operations/enable.ts",
     ];
     for (const relativePath of singletonParticipants) {
-      expect(nodeFs.readFileSync(nodePath.join(residueSrc, relativePath), "utf8")).toContain(
+      expect(nodeFs.readFileSync(nodePath.join(lifecycleSrc, relativePath), "utf8")).toContain(
         "planSingletonProjection",
       );
     }

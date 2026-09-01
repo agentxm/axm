@@ -29,10 +29,10 @@ import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspac
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-management/unstable/skills";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import type { SkillLockEntry } from "@agentxm/workspace-state";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
   workspaceAuthoredPath,
   workspaceCanonicalPath,
@@ -49,7 +49,10 @@ import type {
 } from "@agentxm/workspace-operations";
 import type { UninstallSkillCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -73,7 +76,8 @@ export interface ParsedSkillUninstallArgs {
 type UninstallSkillActions = UninstallExtensionCommandWorkflowActions<
   UninstallHandlerArgs,
   ParsedSkillUninstallArgs,
-  UninstallSkillCommandIntent
+  UninstallSkillCommandIntent,
+  AppError
 >;
 
 const skillSourceTarget = (
@@ -192,7 +196,10 @@ export const UninstallSkillCommandWorkflowActions = Effect.gen(function* () {
               type: "skill" as const,
               name: entry.skillName,
             };
-            const step = buildUninstallOperation(skillMgr, retentionPolicy, { target });
+            const step = buildUninstallOperation(skillMgr, retentionPolicy, {
+              target,
+              toStepFailure: failureToStepFailure,
+            });
             if (step.readiness !== "ready") return step;
 
             const sanitizedName = sanitizeName(entry.skillName);

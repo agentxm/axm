@@ -8,12 +8,13 @@ import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-stat
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { previewOrApplyPlan, operationPresentation } from "@agentxm/workspace-operations";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
-import type { EnableSubagentOperation } from "@agentxm/extension-management/unstable/subagents";
-import { enableSubagent } from "@agentxm/extension-management/unstable/subagents";
+import type { EnableSubagentOperation } from "@agentxm/extension-lifecycle";
+import { enableSubagent } from "@agentxm/extension-lifecycle";
 import { emitOperationResolution } from "../../../operation-output.js";
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
+import { provideLifecycleFailureAdapter } from "../../../feature-errors.js";
 
 export interface EnableSubagentHandlerArgs {
   readonly name: string;
@@ -84,6 +85,7 @@ const handleEnableSubagentBody = Effect.fn("EnableSubagent.handle")(function* (
     readiness: "ready",
     label: subagentName,
     run: enableSubagent(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

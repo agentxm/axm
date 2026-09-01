@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
@@ -15,15 +15,15 @@ import {
   type WorkspaceLayout,
 } from "@agentxm/workspace-state";
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
 import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import type { UninstallKnowledgeCommandIntent } from "./intent.js";
 import {
   coupleAppError,
+  failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { KnowledgeManager, resolveInstructionsConfig } from "@agentxm/extension-workspace";
@@ -39,7 +39,8 @@ interface ParsedKnowledgeUninstallArgs {
 type KnowledgeUninstallActions = UninstallExtensionCommandWorkflowActions<
   UninstallKnowledgeHandlerArgs,
   ParsedKnowledgeUninstallArgs,
-  UninstallKnowledgeCommandIntent
+  UninstallKnowledgeCommandIntent,
+  AppError
 >;
 
 interface KnowledgeUninstallOwnership {
@@ -160,14 +161,14 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
         errorMessage: ownership.blocker,
       };
     }
-    return buildUninstallOperation<KnowledgeExtensionRef>(
+    return buildUninstallOperation<KnowledgeExtensionRef, AppError>(
       {
         ...manager,
         isInstalled: () =>
           isAcceptedTargetPresent(ownership.target).pipe(Effect.mapError(coupleAppError)),
       },
       makeWorkspaceRetentionPolicy(ws),
-      { target: ownership.target },
+      { target: ownership.target, toStepFailure: failureToStepFailure },
     );
   };
 
@@ -219,7 +220,4 @@ export const UninstallKnowledgeCommandWorkflowActions = Effect.gen(function* () 
         } satisfies Plan;
       }),
   } satisfies KnowledgeUninstallActions;
-}).pipe(
-  Effect.provide(KnowledgeManagerLive),
-  Effect.map((actions): KnowledgeUninstallActions => actions),
-);
+}).pipe(Effect.map((actions): KnowledgeUninstallActions => actions));

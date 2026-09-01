@@ -2,7 +2,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { WorkspaceMutations, configuredRowsByName } from "@agentxm/workspace-state";
-import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
@@ -40,9 +40,9 @@ import {
   type ReleaseAgeRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
+import type { InstallSkillOperation } from "@agentxm/extension-lifecycle";
 import { buildUpdatePlan } from "./plan.js";
-import { installSkill } from "@agentxm/extension-management/unstable/skills";
+import { installSkill } from "@agentxm/extension-lifecycle";
 import {
   operationPresentation,
   type JobStepResult,
@@ -70,6 +70,10 @@ import {
   REVIEW_REGISTRY_SOURCES,
   SKILL_NAME_RULES,
 } from "../../suggested-actions.js";
+import {
+  lifecycleFailureToAppError,
+  provideLifecycleFailureAdapter,
+} from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -164,7 +168,9 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   const sources = yield* SourceHostProviders;
   const renderer = yield* CliRenderer;
   const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
 
   // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
@@ -711,6 +717,7 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
 
   const makeRunClosure: import("./plan.js").MakeRunClosure = (op) =>
     installSkill(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.map(toJobStepResult),
       Effect.map(appendWarningsToResult(warningsBySkill.get(op.args.ref.skill.name) ?? [])),
       Effect.provideService(WorkspaceMutations, ws),

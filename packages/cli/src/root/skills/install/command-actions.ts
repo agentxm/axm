@@ -35,16 +35,15 @@ import {
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
 import { WorkspaceMutations, type SkillPathSource, sanitizeName } from "@agentxm/workspace-state";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { computeSkillSourceHash, gitHostedSkillArtifactSource } from "@agentxm/extension-lifecycle";
 import {
-  computeSkillSourceHash,
-  gitHostedSkillArtifactSource,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-} from "@agentxm/extension-management/unstable/skills";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
 import {
   operationPresentation,
@@ -64,7 +63,11 @@ import {
   type RegistryLookupProbe,
 } from "../../shared/install-source-resolution.js";
 import { determineSkillsToInstall } from "./select-skills.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -324,7 +327,9 @@ type InstallSkillActions = InstallExtensionCommandWorkflowActions<
   ParsedSkillInstallArgs,
   SkillSourceRequest,
   SkillExtensionRef,
-  InstallSkillCommandIntent
+  InstallSkillCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
@@ -742,6 +747,7 @@ export const InstallSkillCommandWorkflowActions = Effect.gen(function* () {
 
             return withPlanWarning(
               buildInstallOperation(skillMgr, {
+                toStepFailure: failureToStepFailure,
                 ref,
                 versionRange: entry.versionRange,
                 force: intent.force === true,

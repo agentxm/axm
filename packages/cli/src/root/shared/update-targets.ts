@@ -1,6 +1,6 @@
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { enabledConfiguredEntries } from "@agentxm/extension-management/unstable/extensions";
+import { enabledConfiguredEntries } from "@agentxm/extension-workspace";
 import type { IdentifierResourceType } from "@agentxm/extension-sources";
 import type { ContainerType, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";

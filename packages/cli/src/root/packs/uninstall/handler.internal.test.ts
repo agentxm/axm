@@ -31,13 +31,13 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { handleUninstallPack } from "./handler.js";
 import { type UninstallPackHandlerArgs } from "./command-actions.js";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import {
   AxmSkillCandidateGateLive,
@@ -50,6 +50,8 @@ import {
 } from "../../../test-helpers.js";
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID } from "./readiness.js";
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -261,6 +263,8 @@ describe("packs uninstall handler", () => {
       CatalogLayer,
       SPLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, BaseLayer),
     );
     const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
     const FullLayer = Layer.merge(CoreLayer, MgrLayer);

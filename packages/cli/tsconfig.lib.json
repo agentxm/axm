@@ -41,6 +41,9 @@
       "path": "../extension-management/tsconfig.lib.json"
     },
     {
+      "path": "../extension-lifecycle/tsconfig.lib.json"
+    },
+    {
       "path": "../agent-integration/tsconfig.lib.json"
     }
   ]

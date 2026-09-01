@@ -1,10 +1,11 @@
 import { type SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import {
   WorkspaceMutations,
   configuredRowsByName,
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
-import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import { makeConfiguredReleaseAgeEvaluation } from "@agentxm/extension-lifecycle";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
@@ -24,7 +25,7 @@ import { decodeExtensionNameSync, type Handle } from "@agentxm/extension-model/u
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveSource } from "@agentxm/extension-sources";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
@@ -49,6 +50,7 @@ import {
 } from "../../shared/update-targets.js";
 import { buildUpdatePlan, type UpdateOperation, type MakeRunClosure } from "./plan.js";
 import { SubagentManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../../feature-errors.js";
 
 export interface UpdateHandlerArgs {
   readonly source: Option.Option<string>;
@@ -146,7 +148,9 @@ export const handleUpdate = (args: UpdateHandlerArgs) =>
 const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: UpdateHandlerArgs) {
   const ws = yield* WorkspaceMutations;
   const sources = yield* SourceHostProviders;
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
 
   // Step 1: Load configured subagents and filter to enabled
   const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
@@ -380,6 +384,7 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
 
   const makeRunClosure: MakeRunClosure = (op) => {
     const step = buildInstallOperation(subagentMgr, {
+      toStepFailure: failureToStepFailure,
       ref: op.ref,
       versionRange: Option.none(),
     });

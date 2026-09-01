@@ -7,8 +7,8 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
@@ -36,7 +36,10 @@ import {
   workspaceAuthoredRoot,
   workspaceSettingsPath,
 } from "../../shared/workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -144,6 +147,7 @@ const handleSubagentsNewBody = Effect.fn("SubagentsNew.handle")(function* (
   } satisfies JobStepArtifact;
 
   const step = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "subagent", name: args.name },
     versionRange: Option.none(),

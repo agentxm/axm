@@ -41,6 +41,7 @@
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "effect": "catalog:",
     "jsonc-parser": "catalog:",

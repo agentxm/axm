@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { writeWorkspaceFiles } from "../../test-stubs.js";
 import {

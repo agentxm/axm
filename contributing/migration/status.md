@@ -47,6 +47,25 @@ at 06a6b8e08.
   kernel-extraction slice must finish pointing barrel consumers at
   @agentxm/extension-model.
 
+## Landed in the working tree (B6, uncommitted)
+
+- Migration steps 5–6, extension-lifecycle slice: `@agentxm/extension-lifecycle`
+  extracted (13th release package) — configured-entry resolution,
+  install/uninstall command workflows (CliRenderer/PromptCancelled inverted
+  behind the `LifecycleResolutionProgress` port and generic error channels),
+  the seven per-type manager Lives behind `./live`, per-type lifecycle
+  operations, registry materialization; shared step-building and canonical
+  machinery (`extensions/operations`, canonical-directory staging/swap,
+  configured-entry predicates, materializable-from-disk, source-authority,
+  copy-directory, skill-artifact semantics, knowledge instruction-entry)
+  descended to `@agentxm/extension-workspace`; typed failures per the
+  error-decoupling recipe with the CLI-owned `LifecycleFailureAdapter`;
+  workspace-sync completed (`collectMaterializeSteps` and the B5 leftovers
+  moved into `@agentxm/workspace-sync` behind injected lifecycle
+  capabilities; `collectConfiguredPackRecovery` stays application wiring).
+  The workspace-install/update collectors and per-type command-action policy
+  remain CLI-side (deliberate scope control; see the B6 report).
+
 ## Remaining (in order)
 
 2. Error-decoupling wave 0 enablers: toAppError dispatcher + classifyError

@@ -3,10 +3,8 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import {
-  buildNewExtensionStep,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+import { buildNewExtensionStep } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeSourceHash,
   computePackPathsForLayout,
@@ -36,7 +34,10 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { PackManager } from "@agentxm/extension-workspace";
 
 export interface PacksNewHandlerArgs {
@@ -116,6 +117,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
   };
 
   const step = buildNewExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     ref,
     target: { type: "pack", owner, name: args.name },
     versionRange: Option.none(),

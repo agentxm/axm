@@ -27,21 +27,21 @@ import {
   logsByTag,
 } from "@agentxm/extension-management/unstable/cli-renderer";
 import { TestFlagsLayer } from "@agentxm/extension-management/unstable/cli-flags";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { PackManagerLive } from "@agentxm/extension-management/unstable/packs";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
+import { PackManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-workspace";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import {
   AxmSkillCandidateGateLive,
   WorkspaceCatalogLive,
 } from "@agentxm/extension-management/unstable/cli-runtime";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-operations/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -49,6 +49,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
 import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
+import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
 
 describe("axm lint handler", () => {
   let tempDir: string;
@@ -141,6 +142,7 @@ describe("axm lint handler", () => {
       workspaceCatalogLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
     );
     const mcpServersLayer = McpServerManagerLive;
     const hooksLayer = HookManagerLive;

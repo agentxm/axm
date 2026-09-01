@@ -72,9 +72,3 @@ export {
   KnowledgeCapturedSourceMissingError,
   type KnowledgeBundleCaptureDescriptor,
 } from "./knowledge-capture.js";
-export { KnowledgeManagerLive } from "./manager.js";
-export {
-  resolveKnowledgeInstructionEntry,
-  type KnowledgeInstructionEntryReason,
-  type KnowledgeInstructionEntryResolution,
-} from "./instruction-entry.js";

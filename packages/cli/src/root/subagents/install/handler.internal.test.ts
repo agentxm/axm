@@ -17,7 +17,7 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 import { InstallSubagentCommandWorkflowActions } from "./command-actions.js";
 import {
@@ -31,6 +31,8 @@ import {
   makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../../test-helpers.js";
+import { LifecycleFailureAdapterLive } from "../../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../../lifecycle-interaction.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -107,6 +109,7 @@ describe("subagents install handler — error propagation", () => {
         handlerTestContext.wsLayer,
         SPLayer,
         CodingAgentRepositoryLive,
+        LifecycleFailureAdapterLive,
       ),
     );
     const FullLayer = Layer.mergeAll(
@@ -115,6 +118,8 @@ describe("subagents install handler — error propagation", () => {
       SPLayer,
       SMLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
     );
     const provide = makeEffectProvide(FullLayer);
 
@@ -150,7 +155,12 @@ describe("subagents install handler — error propagation", () => {
           jobs: [{ concurrency: 1 as const, steps: [] }],
         }),
     } satisfies Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
-    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
+    );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
       args: InstallSubagentHandlerArgs,
@@ -218,7 +228,12 @@ describe("subagents install handler — error propagation", () => {
           ],
         }),
     } satisfies Effect.Success<typeof InstallSubagentCommandWorkflowActions>;
-    const fullLayer = Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer);
+    const fullLayer = Layer.mergeAll(
+      handlerTestContext.baseLayer,
+      handlerTestContext.wsLayer,
+      LifecycleFailureAdapterLive,
+      Layer.provide(LifecycleResolutionProgressLive, handlerTestContext.baseLayer),
+    );
     const provide = makeEffectProvide(fullLayer);
     const handleTestInstall = (
       args: InstallSubagentHandlerArgs,

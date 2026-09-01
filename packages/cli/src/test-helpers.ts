@@ -42,6 +42,20 @@ import {
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+export {
+  HookConfiguredAgentOutcomesProviderLive,
+  HookManagerLive,
+  KnowledgeManagerLive,
+  McpServerManagerLive,
+  PackManagerLive,
+  RuleManagerLive,
+  SkillManagerLive,
+  SubagentManagerLive,
+} from "@agentxm/extension-lifecycle/live";
+import { LifecycleFailureAdapterLive } from "./feature-errors.js";
+export { LifecycleFailureAdapterLive };
+import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
+export { LifecycleResolutionProgressLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/extension-management/unstable/workspace-configuration";
 import { ExecutionDirectory } from "./execution-directory.js";
 
@@ -542,7 +556,13 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ),
     AxmSkillCandidateGateLive,
   );
-  const fullLayer = Layer.mergeAll(cliTestContext.baseLayer, wsLayer, KnowledgeIndexLive);
+  const fullLayer = Layer.mergeAll(
+    cliTestContext.baseLayer,
+    wsLayer,
+    KnowledgeIndexLive,
+    LifecycleFailureAdapterLive,
+    Layer.provide(LifecycleResolutionProgressLive, cliTestContext.baseLayer),
+  );
 
   return {
     ...cliTestContext,

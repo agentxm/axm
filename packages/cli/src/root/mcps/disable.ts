@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { CodingAgentRepository } from "@agentxm/extension-workspace";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
-import { disableMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { disableMcpServer } from "@agentxm/extension-lifecycle";
 import {
   previewOrApplyPlan,
   operationPresentation,
@@ -21,6 +21,7 @@ import { emitOperationResolution } from "../../operation-output.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export const handleDisableMcpServer = (args: {
   readonly name: string;
@@ -67,6 +68,7 @@ const handleDisableMcpServerBody = Effect.fn("DisableMcpServer.handle")(function
     readiness: "ready",
     label: args.name,
     run: disableMcpServer({ name: "disable-mcp-server", args: { serverName: args.name } }).pipe(
+      provideLifecycleFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

@@ -36,10 +36,10 @@ import {
 } from "@agentxm/extension-workspace";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
-  evaluateSourceAuthority,
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
-} from "@agentxm/extension-management/unstable/extensions";
+  evaluateSourceAuthority,
+} from "@agentxm/extension-workspace";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
@@ -81,17 +81,17 @@ import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/e
 import { Verbosity } from "@agentxm/extension-management/unstable/cli-flags";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
+  type WorkspacePackDependencyResolver,
   expandPackInstallRefs,
   expandPackInstallRefsWithReleaseAge,
-  type WorkspacePackDependencyResolver,
-} from "@agentxm/extension-management/unstable/packs";
+} from "@agentxm/extension-lifecycle";
 import {
-  buildUninstallOperation,
   buildInstallOperation,
+  buildUninstallOperation,
   targetFromRef,
   toLabel,
-} from "@agentxm/extension-management/unstable/extensions";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-workspace";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -111,7 +111,11 @@ import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-p
 import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { buildAggregateProjectionStep } from "../../shared/aggregate-projection-step.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -152,7 +156,9 @@ type InstallPackActions = InstallExtensionCommandWorkflowActions<
   ParsedPackInstallArgs,
   PackSourceRequest,
   PackDiscoveryResult,
-  InstallPackCommandIntent
+  InstallPackCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 interface PackDiscoveryResult {
@@ -1100,7 +1106,8 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
         (ref): Effect.Effect<PlannedJobStep, never> =>
           ref.type === "pack"
             ? Effect.succeed(
-                buildInstallOperation<PackRef>(packMgr, {
+                buildInstallOperation<PackRef, AppError>(packMgr, {
+                  toStepFailure: failureToStepFailure,
                   ref,
                   versionRange: intent.versionRange,
                   ...(intent.forceCanonical === true ? { force: true } : {}),
@@ -1149,42 +1156,60 @@ export const InstallPackCommandWorkflowActions = Effect.gen(function* () {
       );
       const uninstallSteps = droppedTargets.map(({ target }): PlannedJobStep => {
         if (target.type === "skill") {
-          return buildUninstallOperation<SkillExtensionRef>(skillMgr, retentionPolicy, {
+          return buildUninstallOperation<SkillExtensionRef, AppError>(skillMgr, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
             target,
           });
         }
 
         if (target.type === "mcp-server") {
-          return buildUninstallOperation<McpServerExtensionRef>(mcpServerMgr, retentionPolicy, {
-            target,
-          });
+          return buildUninstallOperation<McpServerExtensionRef, AppError>(
+            mcpServerMgr,
+            retentionPolicy,
+            {
+              toStepFailure: failureToStepFailure,
+              target,
+            },
+          );
         }
 
         if (target.type === "subagent") {
-          return buildUninstallOperation<SubagentExtensionRef>(subagentMgr, retentionPolicy, {
-            target,
-          });
+          return buildUninstallOperation<SubagentExtensionRef, AppError>(
+            subagentMgr,
+            retentionPolicy,
+            {
+              toStepFailure: failureToStepFailure,
+              target,
+            },
+          );
         }
 
         if (target.type === "rule") {
-          return buildUninstallOperation<RuleExtensionRef>(ruleManager, retentionPolicy, {
+          return buildUninstallOperation<RuleExtensionRef, AppError>(ruleManager, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
             target,
             skipProjections: true,
           });
         }
 
         if (target.type === "hook") {
-          return buildUninstallOperation<HookExtensionRef>(hookManager, retentionPolicy, {
+          return buildUninstallOperation<HookExtensionRef, AppError>(hookManager, retentionPolicy, {
+            toStepFailure: failureToStepFailure,
             target,
             skipProjections: true,
           });
         }
 
         if (target.type === "knowledge") {
-          return buildUninstallOperation<KnowledgeExtensionRef>(knowledgeManager, retentionPolicy, {
-            target,
-            skipProjections: true,
-          });
+          return buildUninstallOperation<KnowledgeExtensionRef, AppError>(
+            knowledgeManager,
+            retentionPolicy,
+            {
+              toStepFailure: failureToStepFailure,
+              target,
+              skipProjections: true,
+            },
+          );
         }
 
         return {

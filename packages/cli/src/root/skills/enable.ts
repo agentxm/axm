@@ -6,8 +6,8 @@ import * as Effect from "effect/Effect";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { WorkspaceMutations, installedRowsByName } from "@agentxm/workspace-state";
-import type { EnableSkillOperation } from "@agentxm/extension-management/unstable/skills";
-import { enableSkill } from "@agentxm/extension-management/unstable/skills";
+import type { EnableSkillOperation } from "@agentxm/extension-lifecycle";
+import { enableSkill } from "@agentxm/extension-lifecycle";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
@@ -19,6 +19,7 @@ import { withOperationLifecycle } from "../shared/operation-lifecycle.js";
 import { makePublicPositionalPlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { INSTALL_SKILL_FROM_REGISTRY, LIST_INSTALLED_SKILLS } from "../suggested-actions.js";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface EnableHandlerArgs {
   readonly name: string;
@@ -80,6 +81,7 @@ const handleEnableBody = Effect.fn("Enable.handle")(function* (args: EnableHandl
     readiness: "ready",
     label: skillName,
     run: enableSkill(op).pipe(
+      provideLifecycleFailureAdapter,
       Effect.map((result): JobStepResult => result),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

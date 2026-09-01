@@ -7,7 +7,8 @@
  */
 
 import type * as Option from "effect/Option";
-import type { PackDependencyRefResolver } from "@agentxm/extension-management/unstable/packs";
+import type { PackDependencyRefResolver } from "@agentxm/extension-lifecycle";
+import type { AppError } from "@agentxm/extension-management/unstable/app-error";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
@@ -19,7 +20,7 @@ export interface InstallPackCommandIntent {
   readonly releaseAgeEvaluation?: ReleaseAgeEvaluation;
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
   /** Immutable dependency authority supplied by deterministic recovery workflows. */
-  readonly dependencyResolver?: PackDependencyRefResolver;
+  readonly dependencyResolver?: PackDependencyRefResolver<AppError>;
   /** Render shared aggregate projections after a larger enclosing transition. */
   readonly deferProjections?: boolean;
   /**

@@ -14,7 +14,7 @@ import {
   publicRecoveryValue,
   recoveryPositional,
 } from "@agentxm/workspace-operations";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   type ExtensionType,
   formatFqn,
@@ -22,6 +22,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   appErrorToStepFailure,
+  failureToStepFailure,
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -38,7 +39,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-lifecycle";
 
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -53,6 +54,7 @@ import {
   SkillManager,
   SubagentManager,
 } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -143,11 +145,18 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
   }
 
   const operation = yield* Effect.gen(function* () {
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+      Effect.mapError(lifecycleFailureToAppError),
+    );
     switch (parsed.type) {
       case "skill": {
-        const resolved = yield* resolveConfiguredSkill(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredSkill(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* SkillManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -157,8 +166,9 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* McpServerManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -168,22 +178,33 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* SubagentManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "rule": {
-        const resolved = yield* resolveConfiguredRule(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredRule(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* RuleManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "hook": {
-        const resolved = yield* resolveConfiguredHook(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredHook(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* HookManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
@@ -193,15 +214,21 @@ const demotionStep = Effect.fn("Demote.step")(function* (fqnInput: string, sourc
           parsed.name,
           source,
           releaseAgeEvaluation,
-        );
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* KnowledgeManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });
       }
       case "pack": {
-        const resolved = yield* resolveConfiguredPack(parsed.name, source, releaseAgeEvaluation);
+        const resolved = yield* resolveConfiguredPack(
+          parsed.name,
+          source,
+          releaseAgeEvaluation,
+        ).pipe(Effect.mapError(lifecycleFailureToAppError));
         return buildInstallOperation(yield* PackManager, {
+          toStepFailure: failureToStepFailure,
           ...resolved,
           allowWorkspaceReplacement: true,
         });

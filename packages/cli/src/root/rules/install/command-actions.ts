@@ -7,7 +7,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -24,10 +24,11 @@ import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { InstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";
 import type { InstallRuleCommandIntent } from "./intent.js";
 import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
+import type { PromptCancelled } from "@agentxm/extension-management/unstable/prompt-cancelled";
 
 export interface InstallRuleHandlerArgs {
   readonly source: string;
@@ -47,7 +48,9 @@ type InstallRuleActions = InstallExtensionCommandWorkflowActions<
   ParsedRuleInstallArgs,
   RuleInstallSourceRequest,
   RuleExtensionRef,
-  InstallRuleCommandIntent
+  InstallRuleCommandIntent,
+  AppError,
+  AppError | PromptCancelled
 >;
 
 export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
@@ -159,6 +162,7 @@ export const InstallRuleCommandWorkflowActions = Effect.gen(function* () {
     const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
     const memberSteps = intent.refs.map(({ ref, versionRange }) =>
       buildInstallOperation(ruleManager, {
+        toStepFailure: failureToStepFailure,
         ref,
         versionRange,
         skipProjections: deferProjections,

@@ -33,11 +33,11 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
 
 import { handleUpdateWithActions, type RootUpdateFlags } from "./handler.js";
 import type { InstallCommandActions } from "../shared/install-command-actions.js";

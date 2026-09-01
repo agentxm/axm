@@ -591,3 +591,91 @@ export {
   makePlatformSkillFileAccessor,
   type SkillAccessorPlatform,
 } from "./lint-accessors/skill-accessor-platform.js";
+
+// Shared extension machinery: copy, canonical-directory staging/swap, reuse,
+// configured-entry predicates, on-disk materializability, source authority,
+// and the install/uninstall/materialize step builders
+export {
+  copyExtensionDirectory,
+  formatCopyExtensionDirectoryFailure,
+  type CopyExtensionDirectoryFailureDetails,
+  type CopyExtensionDirectoryOptions,
+} from "./extensions/copy-directory.js";
+export { shouldReuseCanonicalInstall } from "./extensions/canonical-reuse.js";
+export {
+  enabledConfiguredEntries,
+  isConfiguredEntryEnabled,
+  type ConfiguredEntryEnabledState,
+} from "./extensions/configured-entry.js";
+export {
+  configuredMcpServersToDiskRefs,
+  configuredPacksToDiskRefs,
+  configuredSkillsToDiskRefs,
+  configuredSubagentsToDiskRefs,
+} from "./extensions/materializable-from-disk.js";
+export {
+  evaluateSourceAuthority,
+  type SourceAuthorityBlockedCause,
+  type SourceAuthorityBlockedFact,
+  type SourceAuthorityDecision,
+  type SourceAuthorityInput,
+  type SourceAuthorityRelationship,
+  type SourceAuthorityTarget,
+  type WorkspaceAuthorityStatus,
+} from "./extensions/source-authority.js";
+export {
+  canReuseExternalPackage,
+  canReuseInstalledPackage,
+  canonicalMaterializationPaths,
+  createCanonicalDirectory,
+  materializeExternalPackage,
+  materializeExternalPackageWithTreeIntegrity,
+  recoverCanonicalDirectory,
+  replaceCanonicalDirectory,
+  replaceCanonicalDirectoryWithInspection,
+  type CanReuseExternalPackageArgs,
+  type CanReuseInstalledPackageArgs,
+  type CanonicalDirectoryInspection,
+  type CanonicalDirectoryReplacementError,
+  type CreateCanonicalDirectoryArgs,
+  type MaterializeExternalPackageArgs,
+  type MaterializedPackage,
+  type RecoverCanonicalDirectoryArgs,
+  type ReplaceCanonicalDirectoryArgs,
+  type ReplaceCanonicalDirectoryWithInspectionArgs,
+} from "./extensions/canonical-directory.js";
+export {
+  buildAuthoredExtensionStep,
+  buildInstallOperation,
+  buildMaterializeOperation,
+  buildNewExtensionStep,
+  buildUninstallOperation,
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
+  formatPackageUrlParts,
+  targetFromRef,
+  toLabel,
+  toLabelWithCompanions,
+  toStepKey,
+  type AuthoredExtensionOperationArgs,
+  type CallerStepFailure,
+  type InstallOperationArgs,
+  type MaterializeOperationArgs,
+  type NewExtensionOperationArgs,
+  type StepFailureAdapter,
+  type UninstallOperationArgs,
+  type UninstallRetentionPolicy,
+} from "./extensions/operations.js";
+export {
+  resolveKnowledgeInstructionEntry,
+  type KnowledgeInstructionEntryReason,
+  type KnowledgeInstructionEntryResolution,
+} from "./knowledge/instruction-entry.js";
+export {
+  artifactAgentIdsFromTargets,
+  artifactTargetAgentIds,
+  groupInstallTargetsByDirectory,
+  skillArtifactFromTargets,
+  type InstallableSkillTarget,
+  type InstallableSkillTargetLocation,
+} from "./skills/skill-artifact.js";

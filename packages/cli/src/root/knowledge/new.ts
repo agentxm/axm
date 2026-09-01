@@ -11,8 +11,8 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -35,7 +35,10 @@ import { resolveOwnerForNewContent } from "../shared/resolve-owner.js";
 import { requireAuthoredOwner } from "../shared/authored-owner.js";
 import { normalizeScaffoldOwner } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { KnowledgeManager } from "@agentxm/extension-workspace";
 
 export const handleKnowledgeNew = (args: {
@@ -160,6 +163,7 @@ const handleKnowledgeNewBody = Effect.fn("KnowledgeNew.handle")(function* (args:
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            toStepFailure: failureToStepFailure,
             target: { type: "knowledge", name },
             ref: {
               type: "knowledge",

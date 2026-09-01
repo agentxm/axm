@@ -2,12 +2,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { AppError } from "@agentxm/extension-management/unstable/app-error";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { buildUninstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { buildUninstallOperation } from "@agentxm/extension-workspace";
 import type { Plan } from "@agentxm/workspace-operations";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import { type RuleExtensionTarget, WorkspaceMutations } from "@agentxm/workspace-state";
-import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-management/unstable/extension-lifecycle";
+import type { UninstallExtensionCommandWorkflowActions } from "@agentxm/extension-lifecycle";
 import type { UninstallRuleCommandIntent } from "./intent.js";
 import { makeWorkspaceRetentionPolicy } from "../../shared/workspace-retention-policy.js";
 import { RuleManager } from "@agentxm/extension-workspace";
@@ -23,7 +26,8 @@ export interface ParsedRuleUninstallArgs {
 type UninstallRuleActions = UninstallExtensionCommandWorkflowActions<
   UninstallRuleHandlerArgs,
   ParsedRuleUninstallArgs,
-  UninstallRuleCommandIntent
+  UninstallRuleCommandIntent,
+  AppError
 >;
 
 export const UninstallRuleCommandWorkflowActions = Effect.gen(function* () {
@@ -57,10 +61,10 @@ export const UninstallRuleCommandWorkflowActions = Effect.gen(function* () {
         {
           concurrency: 1,
           steps: intent.targets.map((target) =>
-            buildUninstallOperation<RuleExtensionRef>(
+            buildUninstallOperation<RuleExtensionRef, AppError>(
               ruleManager,
               makeWorkspaceRetentionPolicy(ws),
-              { target },
+              { target, toStepFailure: failureToStepFailure },
             ),
           ),
         },

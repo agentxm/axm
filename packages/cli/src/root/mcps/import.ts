@@ -15,7 +15,7 @@ import { makeAppError, type AppError } from "@agentxm/extension-management/unsta
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { CliRenderer, count } from "@agentxm/extension-management/unstable/cli-renderer";
-import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/extension-workspace";
 import {
   AXM_MCP_METADATA_KEY,
@@ -32,9 +32,9 @@ import {
 import {
   buildAuthoredExtensionStep,
   createCanonicalDirectory,
-  preflightCreateOnly,
   recoverCanonicalDirectory,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   fqnInvalidErrorToAppError,
@@ -67,6 +67,7 @@ import {
   preflightMcpImports,
 } from "./import-preflight.js";
 import {} from "@agentxm/extension-management/unstable/app-error/conversions";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export interface McpsImportArgs {
   readonly yes: boolean;
@@ -602,6 +603,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
     ],
   };
   const step = buildAuthoredExtensionStep(manager, {
+    toStepFailure: failureToStepFailure,
     target: { type: "mcp-server", name: target.name },
     location: targetDir,
     transactionTargets: adoptionPaths,
@@ -699,6 +701,7 @@ const makePackageImportPlan = Effect.fn("Mcps.importPackagePlan")(function* (arg
         Effect.provideService(CliRenderer, renderer),
         Effect.provideService(CodingAgentRepository, agentRepo),
         Effect.provideService(HttpClient.HttpClient, httpClient),
+        provideLifecycleFailureAdapter,
       ),
   });
   return {

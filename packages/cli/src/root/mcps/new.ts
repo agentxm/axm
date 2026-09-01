@@ -5,11 +5,8 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import {
-  createCanonicalDirectory,
-  preflightCreateOnly,
-  recoverCanonicalDirectory,
-} from "@agentxm/extension-management/unstable/extensions";
+import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import {
   decodeExtensionNameSync,
   formatFqn,
@@ -43,7 +40,7 @@ import {
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { installMcpServer } from "@agentxm/extension-management/unstable/mcps";
+import { installMcpServer } from "@agentxm/extension-lifecycle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { isNonInteractiveOptional } from "@agentxm/extension-management/unstable/cli-flags";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -59,6 +56,7 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
+import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
 
 export const handleMcpServersNew = (args: {
   readonly name: ExtensionName;
@@ -258,6 +256,7 @@ const handleMcpServersNewBody = Effect.fn("McpServersNew.handle")(function* (arg
               Effect.provideService(CliRenderer, renderer),
               Effect.provideService(CodingAgentRepository, agentRepo),
               Effect.provideService(HttpClient.HttpClient, httpClient),
+              provideLifecycleFailureAdapter,
             ),
           );
         }),

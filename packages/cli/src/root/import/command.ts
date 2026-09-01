@@ -19,9 +19,11 @@ import {
   buildAuthoredExtensionStep,
   copyExtensionDirectory,
   createCanonicalDirectory,
+  recoverCanonicalDirectory,
+} from "@agentxm/extension-workspace";
+import {
   importNativeExtensionPackage,
   preflightCreateOnly,
-  recoverCanonicalDirectory,
 } from "@agentxm/extension-management/unstable/extensions";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
@@ -30,6 +32,7 @@ import {
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
+  failureToStepFailure,
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -216,12 +219,14 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
   switch (target.type) {
     case "skill":
       step = buildAuthoredExtensionStep(yield* SkillManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "skill", name: target.name },
       });
       break;
     case "subagent":
       step = buildAuthoredExtensionStep(yield* SubagentManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "subagent", name: target.name },
       });

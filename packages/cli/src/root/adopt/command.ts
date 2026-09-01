@@ -8,13 +8,14 @@ import { Argument, Command } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { buildAuthoredExtensionStep } from "@agentxm/extension-management/unstable/extensions";
+import { buildAuthoredExtensionStep } from "@agentxm/extension-workspace";
 import {
   extensionTypeToPlural,
   formatFqn,
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
+  failureToStepFailure,
   fqnInvalidErrorToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
@@ -151,36 +152,43 @@ const adoptStep = Effect.fn("Adopt.step")(function* (fqnInput: string) {
   switch (parsed.type) {
     case "skill":
       return buildAuthoredExtensionStep(yield* SkillManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "skill", name: parsed.name },
       });
     case "mcp-server":
       return buildAuthoredExtensionStep(yield* McpServerManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "mcp-server", name: parsed.name },
       });
     case "subagent":
       return buildAuthoredExtensionStep(yield* SubagentManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "subagent", name: parsed.name },
       });
     case "rule":
       return buildAuthoredExtensionStep(yield* RuleManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "rule", name: parsed.name },
       });
     case "hook":
       return buildAuthoredExtensionStep(yield* HookManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "hook", name: parsed.name },
       });
     case "knowledge":
       return buildAuthoredExtensionStep(yield* KnowledgeManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "knowledge", name: parsed.name },
       });
     case "pack":
       return buildAuthoredExtensionStep(yield* PackManager, {
+        toStepFailure: failureToStepFailure,
         ...common,
         target: { type: "pack", name: parsed.name, owner: parsed.owner },
       });

@@ -1,9 +1,10 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { failureToStepFailure } from "@agentxm/extension-management/unstable/app-error/conversions";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
-import { buildInstallOperation } from "@agentxm/extension-management/unstable/extensions";
+import { buildInstallOperation } from "@agentxm/extension-workspace";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   WorkspaceMutations,
@@ -11,7 +12,7 @@ import {
 import {
   makeConfiguredReleaseAgeEvaluation,
   resolveConfiguredHook,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+} from "@agentxm/extension-lifecycle";
 import type { HookLockEntry } from "@agentxm/workspace-state";
 import {
   previewOrApplyPlan,
@@ -32,6 +33,7 @@ import {
   workspaceSettingsPath,
 } from "../shared/workspace-display-paths.js";
 import { HookManager } from "@agentxm/extension-workspace";
+import { lifecycleFailureToAppError } from "../../feature-errors.js";
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
   entry.type === "registry" ? entry.resolvedVersion : undefined;
@@ -114,14 +116,19 @@ const handleEnableHookBody = Effect.fn("EnableHook.handle")(function* (args: {
     return;
   }
 
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce");
-  const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation);
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation("enforce").pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
+  const resolved = yield* resolveConfiguredHook(args.name, entry.source, releaseAgeEvaluation).pipe(
+    Effect.mapError(lifecycleFailureToAppError),
+  );
   const { ref, versionRange } = resolved;
   const agentOutcomes =
     hookManager.configuredAgentOutcomesForRef === undefined
       ? []
       : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
   const installStep = buildInstallOperation(hookManager, {
+    toStepFailure: failureToStepFailure,
     ref,
     versionRange,
     message: `Enabled ${args.name}`,

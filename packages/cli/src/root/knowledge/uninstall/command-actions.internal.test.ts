@@ -19,6 +19,8 @@ import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../../../tes
 import { writeWorkspaceFiles } from "../../../test-stubs.js";
 import { toPlanResolutionResult } from "../../../operation-output.js";
 import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
 
 const sourceProvidersLayer = Layer.succeed(SourceHostProviders, {
   resolveNamedRegistry: () => Effect.die("not used"),
@@ -84,7 +86,16 @@ describe("Knowledge uninstall ownership", () => {
     const context = makeWorkspaceHandlerTestContext({ wsOptions: { projectRoot: tempDir } });
     return {
       context,
-      provide: makeEffectProvide(Layer.mergeAll(context.fullLayer, sourceProvidersLayer)),
+      provide: makeEffectProvide(
+        Layer.mergeAll(
+          context.fullLayer,
+          sourceProvidersLayer,
+          Layer.provide(
+            KnowledgeManagerLive,
+            Layer.mergeAll(context.fullLayer, sourceProvidersLayer, CodingAgentRepositoryLive),
+          ),
+        ),
+      ),
     };
   };
 

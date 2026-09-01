@@ -15,7 +15,7 @@ import { afterEach, beforeEach } from "vitest";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 import { type RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";

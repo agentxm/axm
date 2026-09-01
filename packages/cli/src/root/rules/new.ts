@@ -11,8 +11,8 @@ import {
   buildNewExtensionStep,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-workspace";
+import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -39,7 +39,10 @@ import {
   scaffoldNameValidationSuggestion,
 } from "../shared/scaffold-name.js";
 import { workspaceAuthoredRoot, workspaceSettingsPath } from "../shared/workspace-display-paths.js";
-import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
+import {
+  failureToStepFailure,
+  toAppError,
+} from "@agentxm/extension-management/unstable/app-error/conversions";
 import { RuleManager } from "@agentxm/extension-workspace";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
@@ -170,6 +173,7 @@ const handleRulesNewBody = Effect.fn("RulesNew.handle")(function* (args: {
         concurrency: 1,
         steps: [
           buildNewExtensionStep(manager, {
+            toStepFailure: failureToStepFailure,
             target: { type: "rule", name },
             ref: {
               type: "rule",

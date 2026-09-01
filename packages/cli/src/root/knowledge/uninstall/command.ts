@@ -4,9 +4,9 @@ import { Argument, Command } from "effect/unstable/cli";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { operationPresentation } from "@agentxm/workspace-operations";
 import {
-  runUninstallCommandWorkflow,
   type UninstallExtensionCommandWorkflowActions,
-} from "@agentxm/extension-management/unstable/extension-lifecycle";
+  runUninstallCommandWorkflow,
+} from "@agentxm/extension-lifecycle";
 
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 import { emitOperationResolution } from "../../../operation-output.js";
@@ -14,6 +14,7 @@ import { makeUninstallPlanExecution } from "../../shared/confirmation-recovery.j
 import { withOperationLifecycle } from "../../shared/operation-lifecycle.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
 import { UninstallKnowledgeCommandWorkflowActions } from "./command-actions.js";
+import { type AppError } from "@agentxm/extension-management/unstable/app-error";
 
 const uninstallPresentation = operationPresentation(
   { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
@@ -21,8 +22,8 @@ const uninstallPresentation = operationPresentation(
 );
 
 const withUninstallPresentation = <Args, Parsed, Intent>(
-  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
-): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> => ({
+  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError>,
+): UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent, AppError> => ({
   ...actions,
   buildUninstallPlan: (intent, workflowFlags) =>
     actions

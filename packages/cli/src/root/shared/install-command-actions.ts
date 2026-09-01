@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type { LifecycleResolutionProgress } from "@agentxm/extension-lifecycle";
 
 import { InstallHookCommandWorkflowActions } from "../hooks/install/command-actions.js";
 import { InstallKnowledgeCommandWorkflowActions } from "../knowledge/install/command-actions.js";
@@ -18,7 +19,10 @@ export interface InstallCommandActions {
   readonly pack: Effect.Success<typeof InstallPackCommandWorkflowActions>;
 }
 
+// The lifecycle workflows' resolution-progress port joins the context so the
+// root handler and the per-type workflow branches keep one requirements shape.
 type InstallCommandActionContext =
+  | LifecycleResolutionProgress
   | Effect.Services<typeof InstallSkillCommandWorkflowActions>
   | Effect.Services<typeof InstallRuleCommandWorkflowActions>
   | Effect.Services<typeof InstallHookCommandWorkflowActions>

@@ -43,6 +43,7 @@ export type {
   PlanRiskCondition,
   PlannedJobStep,
   ReadyJobStep,
+  RegistryLifecycleEvidence,
   UnitBlocking,
   WarnJobStep,
 } from "./plan/plan.js";

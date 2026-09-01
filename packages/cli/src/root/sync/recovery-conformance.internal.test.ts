@@ -172,16 +172,16 @@ const workspaceEvidence = [
 
 const aggregateCoverage = {
   "rule:instructions-region": [
-    "packages/extension-management/src/unstable/rules/manager.graph-projection.internal.test.ts",
+    "packages/extension-lifecycle/src/rules/manager.graph-projection.internal.test.ts",
   ],
   "hook:agent-hook-entries": [
-    "packages/extension-management/src/unstable/hooks/manager.graph-projection.internal.test.ts",
+    "packages/extension-lifecycle/src/hooks/manager.graph-projection.internal.test.ts",
   ],
   "hook:fallback-region": [
-    "packages/extension-management/src/unstable/hooks/manager.graph-projection.internal.test.ts",
+    "packages/extension-lifecycle/src/hooks/manager.graph-projection.internal.test.ts",
   ],
   "knowledge:discovery-region": [
-    "packages/extension-management/src/unstable/knowledge/manager.graph-projection.internal.test.ts",
+    "packages/extension-lifecycle/src/knowledge/manager.graph-projection.internal.test.ts",
   ],
 } as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
 
@@ -366,7 +366,7 @@ const adversarialContracts = [
   ],
   [
     "aggregate-contributors-survive-lifecycle",
-    "packages/extension-management/src/unstable/rules/manager.graph-projection.internal.test.ts",
+    "packages/extension-lifecycle/src/rules/manager.graph-projection.internal.test.ts",
   ],
   [
     "sync-preserves-intent-and-satisfying-lock",
@@ -379,11 +379,11 @@ const adversarialContracts = [
   ],
   [
     "publication-interruption-converges",
-    "packages/extension-management/src/unstable/extensions/package-materialization.internal.test.ts",
+    "packages/extension-workspace/src/extensions/canonical-directory.internal.test.ts",
   ],
   [
     "formatter-drift-remains-projectable",
-    "packages/extension-management/src/unstable/knowledge/manager.internal.test.ts",
+    "packages/extension-lifecycle/src/knowledge/manager.internal.test.ts",
   ],
   [
     "divergent-external-replacement-is-disclosed",

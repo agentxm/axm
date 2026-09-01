@@ -10,13 +10,13 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
-import { HookManagerLive } from "@agentxm/extension-management/unstable/hooks";
-import { KnowledgeManagerLive } from "@agentxm/extension-management/unstable/knowledge";
-import { McpServerManagerLive } from "@agentxm/extension-management/unstable/mcps";
-import { RuleManagerLive } from "@agentxm/extension-management/unstable/rules";
-import { SkillManagerLive } from "@agentxm/extension-management/unstable/skills";
+import { HookManagerLive } from "@agentxm/extension-lifecycle/live";
+import { KnowledgeManagerLive } from "@agentxm/extension-lifecycle/live";
+import { McpServerManagerLive } from "@agentxm/extension-lifecycle/live";
+import { RuleManagerLive } from "@agentxm/extension-lifecycle/live";
+import { SkillManagerLive } from "@agentxm/extension-lifecycle/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-management/unstable/subagents";
+import { SubagentManagerLive } from "@agentxm/extension-lifecycle/live";
 
 import { computeMaterializedTreeIntegritySync, writeWorkspaceFiles } from "../../test-stubs.js";
 import {
@@ -30,6 +30,8 @@ import {
 } from "../../test-helpers.js";
 import { handlePackActivation } from "./activation.js";
 import { buildAggregateProjectionStep } from "../shared/aggregate-projection-step.js";
+import { LifecycleFailureAdapterLive } from "../../feature-errors.js";
+import { LifecycleResolutionProgressLive } from "../../lifecycle-interaction.js";
 
 const initializePack = (root: string) => {
   const axmDir = path.join(root, ".axm");
@@ -142,6 +144,7 @@ describe("packs activation", () => {
       context.wsLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
+      LifecycleFailureAdapterLive,
     );
     const managersLayer = Layer.provide(
       Layer.mergeAll(
@@ -162,6 +165,8 @@ describe("packs activation", () => {
           context.wsLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
+          LifecycleFailureAdapterLive,
+          Layer.provide(LifecycleResolutionProgressLive, context.baseLayer),
           managersLayer,
         ),
       ),

@@ -6,7 +6,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { createCanonicalDirectory, recoverCanonicalDirectory } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import {
   decodeExtensionNameSync,
   formatFqn,

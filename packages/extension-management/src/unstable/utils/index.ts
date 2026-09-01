@@ -4,15 +4,6 @@ export {
   writeFileAtomic,
   type AtomicWriteFailure,
 } from "./atomic-write.js";
-export {
-  buildZipArchive,
-  planZipArchive,
-  type ArchivePlan,
-  type ArchivePlanFile,
-  type ArchivePlanPattern,
-  type BuildZipArchiveOptions,
-  type PlannedZipArchive,
-} from "./build-zip-archive.js";
 export { stripFileProtocol } from "./fs-helpers.js";
 export { computeIntegrity } from "./integrity.js";
 export {

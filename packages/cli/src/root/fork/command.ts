@@ -35,10 +35,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-workspace";
-import {
-  forkExtensionPackage,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+import { forkExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   extensionTypeFromPlural,

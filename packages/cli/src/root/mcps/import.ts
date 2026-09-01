@@ -34,7 +34,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { formatFqn, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   fqnInvalidErrorToAppError,

@@ -6,8 +6,12 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
-import type { RemoveFromPackOperation } from "@agentxm/extension-management/unstable/packs";
-import { removeFromPack } from "@agentxm/extension-management/unstable/packs";
+import {
+  AuthoringFailureAdapter,
+  removeFromPack,
+  type RemoveFromPackOperation,
+} from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
@@ -189,9 +193,14 @@ const handlePacksRemoveBody = Effect.fn("PacksRemove.handle")(function* (
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
+    effect: Effect.Effect<
+      A,
+      E,
+      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+    >,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
+      provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

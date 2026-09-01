@@ -8,10 +8,7 @@ import {
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging";
-import type {
-  DiscoverPackageResult,
-  DiscoverResult,
-} from "@agentxm/extension-management/unstable/discover";
+import type { DiscoverPackageResult, DiscoverResult } from "@agentxm/extension-discovery";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-helpers.js";

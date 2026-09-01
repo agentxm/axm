@@ -35,10 +35,6 @@
       "types": "./dist/src/unstable/utils/index.d.ts",
       "default": "./dist/src/unstable/utils/index.js"
     },
-    "./unstable/extensions": {
-      "types": "./dist/src/unstable/extensions/index.d.ts",
-      "default": "./dist/src/unstable/extensions/index.js"
-    },
     "./unstable/workspace-configuration": {
       "types": "./dist/src/unstable/workspace-configuration/index.d.ts",
       "default": "./dist/src/unstable/workspace-configuration/index.js"
@@ -63,22 +59,6 @@
       "types": "./dist/src/unstable/cli-renderer/index.d.ts",
       "default": "./dist/src/unstable/cli-renderer/index.js"
     },
-    "./unstable/skills": {
-      "types": "./dist/src/unstable/skills/index.d.ts",
-      "default": "./dist/src/unstable/skills/index.js"
-    },
-    "./unstable/packs": {
-      "types": "./dist/src/unstable/packs/index.d.ts",
-      "default": "./dist/src/unstable/packs/index.js"
-    },
-    "./unstable/hooks": {
-      "types": "./dist/src/unstable/hooks/index.d.ts",
-      "default": "./dist/src/unstable/hooks/index.js"
-    },
-    "./unstable/publish": {
-      "types": "./dist/src/unstable/publish/index.d.ts",
-      "default": "./dist/src/unstable/publish/index.js"
-    },
     "./unstable/install-method": {
       "types": "./dist/src/unstable/install-method/install-method.d.ts",
       "default": "./dist/src/unstable/install-method/install-method.js"
@@ -94,14 +74,6 @@
     "./unstable/version-resolution": {
       "types": "./dist/src/unstable/version-resolution/version-resolution.d.ts",
       "default": "./dist/src/unstable/version-resolution/version-resolution.js"
-    },
-    "./unstable/packaging": {
-      "types": "./dist/src/unstable/packaging/index.d.ts",
-      "default": "./dist/src/unstable/packaging/index.js"
-    },
-    "./unstable/discover": {
-      "types": "./dist/src/unstable/discover/index.d.ts",
-      "default": "./dist/src/unstable/discover/index.js"
     },
     "./unstable/cli/prompt": {
       "types": "./dist/src/unstable/cli/prompt/index.d.ts",
@@ -135,11 +107,8 @@
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "effect": "catalog:",
-    "fflate": "catalog:",
     "marked": "^18.0.9",
-    "packageurl-js": "catalog:",
-    "semver": "catalog:",
-    "yaml": "catalog:"
+    "semver": "catalog:"
   },
   "devDependencies": {
     "@effect/openapi-generator": "catalog:",
@@ -148,6 +117,7 @@
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "fflate": "catalog:",
     "swagger2openapi": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -7,7 +7,7 @@ import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { fqnInvalidErrorToAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type { PublishableType } from "./command.js";
+import type { PublishableType } from "@agentxm/extension-publish";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";

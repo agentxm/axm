@@ -1,0 +1,54 @@
+{
+  "name": "@agentxm/extension-discovery",
+  "version": "0.28.3",
+  "description": "AXM extension-discovery feature: project package detectors, local extension declarations, Registry recommendations, and discovery results for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/extension-discovery"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-workspace": "workspace:^",
+    "@agentxm/registry-client": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "effect": "catalog:",
+    "packageurl-js": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

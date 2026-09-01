@@ -8,7 +8,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {

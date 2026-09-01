@@ -12,7 +12,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
+import { preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";

@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.lib-base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.type-test.ts",
+    "src/**/test-helpers.ts",
+    "src/**/__tests__/**",
+    "src/**/__fixtures__/**/*.md"
+  ],
+  "references": [
+    {
+      "path": "../extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../registry-protocol/tsconfig.lib.json"
+    },
+    {
+      "path": "../registry-client/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-workspace/tsconfig.lib.json"
+    }
+  ]
+}

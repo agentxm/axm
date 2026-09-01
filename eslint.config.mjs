@@ -253,9 +253,12 @@ export default [
     // belongs only at sanctioned edges (listed in ignores) and tests.
     files: [
       "packages/agent-integration/src/**/*.ts",
+      "packages/extension-authoring/src/**/*.ts",
+      "packages/extension-discovery/src/**/*.ts",
       "packages/extension-management/src/**/*.ts",
       "packages/extension-lifecycle/src/**/*.ts",
       "packages/extension-model/src/**/*.ts",
+      "packages/extension-publish/src/**/*.ts",
       "packages/extension-sources/src/**/*.ts",
       "packages/extension-workspace/src/**/*.ts",
       "packages/knowledge-query/src/**/*.ts",
@@ -274,7 +277,7 @@ export default [
       "packages/cli/src/test-helpers.ts",
       "packages/cli/src/test-stubs.ts",
       // deterministic archive mtime constant, not a clock read
-      "packages/extension-management/src/unstable/utils/build-zip-archive.ts",
+      "packages/extension-publish/src/archive.ts",
     ],
     rules: {
       "no-restricted-syntax": [

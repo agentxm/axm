@@ -5,7 +5,6 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { makeAppError } from "@agentxm/extension-management/unstable/app-error";
 import { buildNewExtensionStep } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import { computeSourceHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import { type WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -15,14 +14,17 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableSkillTarget } from "@agentxm/extension-workspace";
-import type { NewSkillOperation } from "@agentxm/extension-management/unstable/skills";
+import {
+  newSkill,
+  preflightCreateOnly,
+  type NewSkillOperation,
+} from "@agentxm/extension-authoring";
 import {
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
   groupInstallTargetsByDirectory,
 } from "@agentxm/extension-workspace";
 import { uninstallSkill } from "@agentxm/extension-lifecycle";
-import { newSkill } from "@agentxm/extension-management/unstable/skills";
 import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { CodingAgentRepository, SkillManager } from "@agentxm/extension-workspace";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -53,7 +55,10 @@ import {
   failureToStepFailure,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import { provideLifecycleFailureAdapter } from "../../feature-errors.js";
+import {
+  provideAuthoringFailureAdapter,
+  provideLifecycleFailureAdapter,
+} from "../../feature-errors.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME_LENGTH = 64;
@@ -216,6 +221,7 @@ const handleSkillsNewBody = Effect.fn("SkillsNew.handle")(function* (args: Skill
       })
       .pipe(Effect.mapError(toAppError)),
     scaffold: newSkill(op).pipe(
+      provideAuthoringFailureAdapter,
       Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

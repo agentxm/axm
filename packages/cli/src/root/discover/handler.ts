@@ -13,7 +13,7 @@ import {
   discover,
   type DiscoverPackageResult,
   type DiscoverResult,
-} from "@agentxm/extension-management/unstable/discover";
+} from "@agentxm/extension-discovery";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {

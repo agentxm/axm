@@ -4,7 +4,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { buildNewExtensionStep } from "@agentxm/extension-workspace";
-import { preflightCreateOnly } from "@agentxm/extension-management/unstable/extensions";
 import {
   computeSourceHash,
   computePackPathsForLayout,
@@ -20,8 +19,8 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { NewPackOperation } from "@agentxm/extension-management/unstable/packs";
-import { newPack } from "@agentxm/extension-management/unstable/packs";
+import { newPack, preflightCreateOnly, type NewPackOperation } from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
 import { withArgvTracking } from "@agentxm/extension-management/unstable/cli-runtime";
@@ -138,6 +137,7 @@ const handlePacksNewBody = Effect.fn("PacksNew.handle")(function* (args: PacksNe
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     scaffold: newPack(op).pipe(
+      provideAuthoringFailureAdapter,
       Effect.mapError(toAppError),
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),

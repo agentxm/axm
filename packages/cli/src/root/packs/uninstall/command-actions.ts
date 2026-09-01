@@ -29,7 +29,7 @@ import { buildUninstallOperation, toLabel } from "@agentxm/extension-workspace";
 import {
   type DesiredPackageAuthority,
   decodeDesiredExtensionIdentity,
-} from "@agentxm/extension-management/unstable/extensions";
+} from "@agentxm/extension-authoring";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,

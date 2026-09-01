@@ -31,7 +31,7 @@ import {
   runPublishAuthorization,
   type PublishCapabilityResponse,
 } from "@agentxm/registry-auth";
-import { authFailureToAppError } from "../../feature-errors.js";
+import { authFailureToAppError, publishFailureToAppError } from "../../feature-errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { CliRenderer } from "@agentxm/extension-management/unstable/cli-renderer";
 import { previewFlag, yesFlag } from "@agentxm/extension-management/unstable/cli-flags";
@@ -72,13 +72,7 @@ import {
   stepFailureToAppError,
   toAppError,
 } from "@agentxm/extension-management/unstable/app-error/conversions";
-import type {
-  Job,
-  JobStepResult,
-  OperationPrecondition,
-  Plan,
-  PlannedJobStep,
-} from "@agentxm/workspace-operations";
+import type { Job, JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   OperationJournal,
   StepFailure,
@@ -88,7 +82,6 @@ import {
   type OperationJournalState,
 } from "@agentxm/workspace-operations";
 import {
-  extensionConstraintFactText,
   makeProspectiveExtensionConstraintFacts,
   type ExtensionConstraintInvariantFact,
 } from "@agentxm/extension-workspace";
@@ -109,11 +102,28 @@ import {
   validateArchive,
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
+  alreadyPublishedVersionConflict,
+  buildPublishJobs,
+  exactPublishUploadBinding,
+  findPackPublishDivergenceFindings,
+  isPublishableType,
+  localPackConstraintFailures,
+  nonMonotonicVersionConflict,
+  planZipArchive,
+  previewPublishUploadBinding,
   publishArchiveOptions,
+  publishAuthenticationPreconditions,
+  publishRecoverySelection,
   runPublishLintGate,
-} from "@agentxm/extension-management/unstable/publish";
+  settlePublish,
+  validatePublishOwners,
+  type ArchivePlan,
+  type PublishableType,
+  type PublishSettlement,
+  type ResolvedPublishPreview,
+  type SettledPublish,
+} from "@agentxm/extension-publish";
 import { buildLintWorkspace } from "@agentxm/workspace-lint";
-import type { PackDependencyReachability } from "@agentxm/extension-workspace";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -126,13 +136,11 @@ import {
   type PublicationCandidateResult,
   type PublicationDescriptor,
   type PublicationVisibilityInput,
-  type PublicationPackResult,
   type VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry";
 import {
   createRegistryClient,
   type ExtensionVisibility,
-  type PublishExtensionArgs,
   type RegistryClient,
 } from "@agentxm/registry-client";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -141,8 +149,6 @@ import {
   computeIntegrity,
   expandGlobs,
   isGlobPattern,
-  planZipArchive,
-  type ArchivePlan,
 } from "@agentxm/extension-management/unstable/utils";
 import {
   VersionSchema,
@@ -171,36 +177,6 @@ import {
   type OnExistingPolicy,
   type PublishSelectionMode,
 } from "../shared/publish-flags.js";
-import {
-  alreadyPublishedVersionConflict,
-  nonMonotonicVersionConflict,
-} from "../shared/publish-preflight.js";
-import {
-  settlePublish,
-  type PublishSettlement,
-  type SettledPublish,
-} from "./publish-settlement.js";
-
-/**
- * Publish policy, total over every extension type: a new type cannot be added
- * without deciding whether it publishes.
- */
-export const PUBLISHABLE_TYPES = {
-  skill: true,
-  "mcp-server": true,
-  subagent: true,
-  rule: true,
-  hook: true,
-  knowledge: true,
-  pack: true,
-} as const satisfies Record<ExtensionType, boolean>;
-
-type TruthyKeys<T> = { [K in keyof T]: T[K] extends true ? K : never }[keyof T];
-
-export type PublishableType = TruthyKeys<typeof PUBLISHABLE_TYPES>;
-
-export const isPublishableType = (type: ExtensionType): type is PublishableType =>
-  PUBLISHABLE_TYPES[type];
 
 const selectableTypes: ReadonlyArray<PublishableType> = extensionTypes.filter(isPublishableType);
 type SelectableType = PublishableType;
@@ -345,127 +321,15 @@ export const publicPublishCause = (error: AppError) => ({
       }),
 });
 
-interface LocalPackConstraintCandidate {
-  readonly fqn: string;
-  readonly type: PublishableType;
-  readonly authored: boolean;
-  readonly version: Version;
-  readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
-}
-
-export const findPackPublishDivergenceFindings = (args: {
-  readonly candidates: ReadonlyArray<LocalPackConstraintCandidate>;
-  readonly reachability: ReadonlyArray<PackDependencyReachability>;
-  readonly packs: ReadonlyArray<PublicationPackResult>;
-}): ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>> => {
-  const authoredPacks = new Set(
-    args.candidates
-      .filter((candidate) => candidate.authored && candidate.type === "pack")
-      .map((candidate) => candidate.fqn),
-  );
-  const localByPair = new Map(
-    args.reachability.map((record) => [`${record.packFqn}\u0000${record.memberFqn}`, record]),
-  );
-  const findings = new Map<string, Array<PublishAdvisoryFinding>>();
-  for (const pack of args.packs) {
-    if (pack.status !== "admitted") continue;
-    const packFqn = formatFqn(pack.target);
-    if (!authoredPacks.has(packFqn)) continue;
-    for (const resolution of pack.resolutions) {
-      const memberFqn = formatFqn(resolution.dependency);
-      const local = localByPair.get(`${packFqn}\u0000${memberFqn}`);
-      if (
-        local?.classification !== "satisfying" ||
-        local.memberVersion === undefined ||
-        local.memberVersion === resolution.effectiveVersion
-      ) {
-        continue;
-      }
-      const finding: PublishAdvisoryFinding = {
-        ruleId: "pack/publish-resolution-divergence",
-        severity: "warning",
-        message: `${packFqn} resolves ${memberFqn}@${local.memberVersion} in this workspace, while Registry consumers resolve ${memberFqn}@${resolution.effectiveVersion} within ${resolution.dependency.range}.`,
-        suggestions: [
-          local.memberAuthority === "workspace"
-            ? {
-                description: `Publish ${memberFqn} before publishing the pack if consumers should receive the workspace version`,
-                cmd: `axm publish ${memberFqn}`,
-              }
-            : {
-                description: `Update ${memberFqn} if this workspace should match Registry consumers`,
-                cmd: `axm update ${memberFqn}`,
-              },
-        ],
-      };
-      const current = findings.get(packFqn);
-      if (current === undefined) findings.set(packFqn, [finding]);
-      else current.push(finding);
-    }
-  }
-  return new Map(
-    [...findings.entries()].map(([packFqn, values]) => [
-      packFqn,
-      [...values].sort((left, right) => left.message.localeCompare(right.message)),
-    ]),
-  );
-};
-
 const localPackConstraintErrors = (
   facts: ReadonlyArray<ExtensionConstraintInvariantFact>,
-): ReadonlyMap<string, AppError> => {
-  return new Map(
-    facts.map((fact) => {
-      const memberFqn = fact.subject.identity;
-      const memberVersion = fact.observation.candidateVersion ?? "unknown";
-      const violations = fact.observation.violations ?? [];
-      return [
-        memberFqn,
-        makeAppError({
-          code: "validation",
-          detail: `${extensionConstraintFactText(fact)}; ${memberFqn}@${memberVersion} is excluded by the current workspace Pack constraints: ${violations
-            .map(
-              (constraint) =>
-                `${constraint.dependingPack ?? "unknown Pack"} declares ${constraint.range}`,
-            )
-            .join("; ")}`,
-          suggestions: violations.flatMap((constraint) =>
-            constraint.authority === "workspace"
-              ? [
-                  {
-                    description: `Replace ${constraint.dependingPack ?? "the Pack"}'s constraint with the selected version, then publish the member and pack together`,
-                    cmd: `axm packs add ${constraint.dependingPack ?? "<name>"} ${memberFqn}`,
-                  },
-                ]
-              : [
-                  {
-                    description: `Update ${constraint.dependingPack ?? "the Pack"} if its owner has published a compatible constraint`,
-                    cmd: `axm update ${constraint.dependingPack ?? "<extension[@version]>"}`,
-                  },
-                  {
-                    description: `Otherwise stop workspace authority from shadowing ${memberFqn}`,
-                  },
-                ],
-          ),
-        }),
-      ];
-    }),
+): ReadonlyMap<string, AppError> =>
+  new Map(
+    [...localPackConstraintFailures(facts)].map(([memberFqn, failure]) => [
+      memberFqn,
+      publishFailureToAppError(failure),
+    ]),
   );
-};
-
-export interface ResolvedPublishPreview {
-  readonly visibility: PublishVisibility;
-  readonly visibilityInput: PublicationVisibilityInput;
-  readonly condition?: string;
-  readonly publicationSetDigest: string;
-  readonly publicationDescriptorDigest: string;
-}
-
-interface PublishPlanCandidate {
-  readonly fqn: string;
-  readonly type: PublishableType;
-  readonly dependencies?: Readonly<Record<string, unknown>>;
-  readonly includedDependency?: true;
-}
 
 interface PublishAuthorizationState {
   readonly exactCapabilities: ReadonlyMap<string, PublishCapabilityResponse>;
@@ -500,35 +364,6 @@ type PublishPlanOutput =
 
 type PublishPlanRequirements =
   HttpClient.HttpClient | PublishAuthorization | FileSystem.FileSystem | Path.Path;
-
-/** Creates dependency edges without expanding the user's selection. */
-export const buildPublishJobs = <
-  Candidate extends PublishPlanCandidate,
-  Requirements = never,
-  Output = never,
->(
-  candidates: ReadonlyArray<Candidate>,
-  candidateStep: (candidate: Candidate) => PlannedJobStep<Requirements, Output>,
-): ReadonlyArray<Job<Requirements, Output>> => {
-  const selectedFqns = new Set(candidates.map((candidate) => candidate.fqn));
-  return [
-    {
-      concurrency: 4,
-      executionPolicy: "best-effort",
-      steps: candidates.map((candidate) => ({
-        ...candidateStep(candidate),
-        key: candidate.fqn,
-        ...(candidate.type !== "pack"
-          ? {}
-          : {
-              dependsOn: Object.keys(candidate.dependencies ?? {}).filter((fqn) =>
-                selectedFqns.has(fqn),
-              ),
-            }),
-      })),
-    },
-  ];
-};
 
 interface TargetRegistry {
   readonly name: string;
@@ -580,29 +415,6 @@ export const makeExactPublishRecovery = (
       ...candidateFqns.map((fqn) => recoveryPositional(publicRecoveryValue(fqn))),
     ],
   );
-
-export const publishRecoverySelection = (
-  results: ReadonlyArray<PublishResultItem>,
-): {
-  readonly remainingItems: ReadonlyArray<string>;
-  readonly blockedDependents: ReadonlyArray<string>;
-} => ({
-  // The continuation set covers everything not definitively published:
-  // failures, blocked dependents, indeterminate uploads (the re-run verifies
-  // byte-identical versions before retrying), and interrupted pending items.
-  remainingItems: results
-    .filter(
-      (result) =>
-        result.status === "failed" ||
-        result.status === "blocked" ||
-        result.status === "unknown" ||
-        (result.status === "pending" && result.reason === "interrupted"),
-    )
-    .map((result) => result.id),
-  blockedDependents: results
-    .filter((result) => result.status === "blocked")
-    .map((result) => result.id),
-});
 
 /**
  * Per-item evidenced states for an externally interrupted publish apply. The
@@ -674,95 +486,6 @@ export const interruptedPublishResults = (
     };
   });
 };
-
-export const publishAuthenticationPreconditions = (options: {
-  readonly preview: boolean;
-  readonly remoteRegistry: boolean;
-  readonly authenticated: boolean;
-  readonly hasPublishCandidates: boolean;
-}): ReadonlyArray<OperationPrecondition> =>
-  options.preview &&
-  options.remoteRegistry &&
-  !options.authenticated &&
-  options.hasPublishCandidates
-    ? [
-        {
-          id: "authentication",
-          label: "Registry authentication",
-          status: "unmet",
-          detail:
-            "Publishing requires human authorization before apply; authenticate before preparing a release workflow.",
-          blockedOn: "human",
-          command: "axm login --device-code --json",
-        },
-      ]
-    : [];
-
-export const exactPublishUploadBinding = (
-  capability: PublishCapabilityResponse,
-  visibilityInput: PublicationVisibilityInput,
-): Pick<
-  PublishExtensionArgs,
-  | "accessToken"
-  | "condition"
-  | "visibility"
-  | "visibilityInput"
-  | "publicationSetDigest"
-  | "publicationDescriptorDigest"
-> => ({
-  accessToken: capability.accessToken,
-  condition: capability.condition,
-  publicationSetDigest: capability.publicationSetDigest,
-  publicationDescriptorDigest: capability.publicationDescriptorDigest,
-  visibilityInput,
-  ...(capability.visibility.disposition === "establish"
-    ? { visibility: capability.visibility }
-    : {}),
-});
-
-export const previewPublishUploadBinding = (
-  preview: ResolvedPublishPreview,
-): Pick<
-  PublishExtensionArgs,
-  | "condition"
-  | "visibility"
-  | "visibilityInput"
-  | "publicationSetDigest"
-  | "publicationDescriptorDigest"
-> => ({
-  ...(preview.condition === undefined ? {} : { condition: preview.condition }),
-  publicationSetDigest: preview.publicationSetDigest,
-  publicationDescriptorDigest: preview.publicationDescriptorDigest,
-  visibilityInput: preview.visibilityInput,
-  ...(preview.visibility.disposition === "establish" ? { visibility: preview.visibility } : {}),
-});
-
-export const validatePublishOwners = (
-  owners: ReadonlyArray<Handle>,
-  client: Pick<RegistryClient, "ownerExists">,
-): Effect.Effect<void, AppError> =>
-  Effect.forEach(
-    [...new Set(owners)],
-    (owner) =>
-      client.ownerExists(owner).pipe(
-        Effect.mapError(toAppError),
-        Effect.flatMap(({ exists }) =>
-          exists
-            ? Effect.void
-            : makeAppError({
-                code: "not_found",
-                detail: `Publish owner ${owner} does not exist.`,
-                suggestions: [
-                  {
-                    description: "Create the organization in AgentXM before publishing.",
-                    url: "https://agentxm.ai/orgs/new",
-                  },
-                ],
-              }),
-        ),
-      ),
-    { concurrency: 4, discard: true },
-  );
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -1342,11 +1065,13 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     extensionDir,
     manifestJson,
     platform: { fs, path },
-  });
+  }).pipe(Effect.mapError(publishFailureToAppError));
   const plannedArchive = yield* planZipArchive(
     extensionDir,
-    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
-  );
+    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore).pipe(
+      Effect.mapError(publishFailureToAppError),
+    ),
+  ).pipe(Effect.mapError(publishFailureToAppError));
   const archive = plannedArchive.archive;
   const likelyDevelopmentRoots = ["evals/", "tests/", "fixtures/", "benchmarks/"];
   const developmentRoots = likelyDevelopmentRoots.filter((root) =>
@@ -1438,7 +1163,11 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       return yield* alreadyPublishedVersionConflict({
         fqn: selected.fqn,
         version: manifest.version,
-      }).pipe(Effect.mapError((error) => preparationFailure("version_exists", error)));
+      }).pipe(
+        Effect.mapError((error) =>
+          preparationFailure("version_exists", publishFailureToAppError(error)),
+        ),
+      );
     }
     if (policy === "verify" && existing.integrity !== integrity) {
       const error = makeAppError({
@@ -1469,7 +1198,7 @@ const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
           fqn: selected.fqn,
           version: manifest.version,
           highestPublished,
-        });
+        }).pipe(Effect.mapError(publishFailureToAppError));
       }
       backfill = true;
     }
@@ -1757,7 +1486,7 @@ const publishCandidate = (
           ),
         ),
       ),
-    );
+    ).pipe(Effect.mapError(publishFailureToAppError));
     if (settlement.status === "unknown") return settlement;
     const response = settlement.response;
     return {
@@ -1992,7 +1721,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           yield* validatePublishOwners(
             selection.entries.map((entry) => entry.owner),
             client,
-          );
+          ).pipe(Effect.mapError(publishFailureToAppError));
         }
         const decoded = yield* Effect.forEach(
           selection.entries,
@@ -2354,7 +2083,7 @@ const runPublish = Effect.fn("Publish.run")(function* (
           unresolvedSettlements,
           (settlements) => new Map([...settlements, [publishTargetKey(candidate), published]]),
         );
-        return yield* published.error;
+        return yield* publishFailureToAppError(published.error);
       }
       return {
         ...published.stepResult,

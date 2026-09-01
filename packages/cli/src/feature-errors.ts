@@ -26,6 +26,12 @@ import {
   LifecycleFailureAdapter,
   type LifecycleFailureAdapterService,
 } from "@agentxm/extension-lifecycle";
+import {
+  AuthoringFailed,
+  AuthoringFailureAdapter,
+  type AuthoringFailureAdapterService,
+} from "@agentxm/extension-authoring";
+import { PublishFailed } from "@agentxm/extension-publish";
 import type { ExpectedCliError } from "@agentxm/extension-management/unstable/cli-runtime";
 import {
   isRegistryAuthFailure,
@@ -85,6 +91,88 @@ export const syncFailureToAppError = (failure: SyncPolicyFailure | AppError): Ap
 export const syncStepFailureAdapter: SyncFailureAdapter = {
   toStepFailure: (failure) => appErrorToStepFailure(syncFailureToAppError(failure)),
 };
+
+/**
+ * Translate a publish policy failure: the implementation chose the category
+ * and wording at construction, so the envelope carries them over 1:1 through
+ * the same normalization the envelope constructor applies.
+ */
+export const publishFailedToAppError = (error: PublishFailed): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.recover === undefined ? {} : { recover: error.recover }),
+    ...(error.cmd === undefined ? {} : { cmd: error.cmd }),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/**
+ * Convert any failure a publish use case can surface — the feature's own
+ * typed failure, a known kernel or integration failure, or an envelope that
+ * travelled through a still-coupled channel — into the CLI-facing `AppError`.
+ */
+export const publishFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof PublishFailed) return publishFailedToAppError(failure);
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
+
+/**
+ * Translate an authoring policy failure: the implementation chose the
+ * category and wording at construction, so the envelope carries them over
+ * 1:1 through the same normalization the envelope constructor applies.
+ */
+export const authoringFailedToAppError = (error: AuthoringFailed): AppError =>
+  makeAppError({
+    code: error.category,
+    detail: error.detail,
+    ...(error.recover === undefined ? {} : { recover: error.recover }),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+  });
+
+/**
+ * Convert any failure an authoring operation can surface — the feature's own
+ * typed failure, a known kernel failure, or an envelope that travelled
+ * through a still-coupled channel — into the CLI-facing `AppError`.
+ */
+export const authoringFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof AuthoringFailed) return authoringFailedToAppError(failure);
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
+
+/** Serialize any authoring failure into the plan-step vocabulary. */
+export const authoringFailureToStepFailure = (failure: unknown) =>
+  appErrorToStepFailure(authoringFailureToAppError(failure));
+
+/**
+ * The authoring feature's failure adapter: step categories and details reuse
+ * the boundary's own conversions so plan data and machine output stay
+ * byte-identical with rendered errors.
+ */
+export const authoringFailureAdapter: AuthoringFailureAdapterService = {
+  toStepFailure: authoringFailureToStepFailure,
+};
+
+/** Layer wiring the boundary's failure conversions into authoring operations. */
+export const AuthoringFailureAdapterLive = Layer.succeed(
+  AuthoringFailureAdapter,
+  authoringFailureAdapter,
+);
+
+/**
+ * Supply the boundary's failure adapter to one authoring operation invoked
+ * outside the shared runtime layer (handlers that build their own local
+ * service environment).
+ */
+export const provideAuthoringFailureAdapter = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, AuthoringFailureAdapter>> =>
+  Effect.provideService(effect, AuthoringFailureAdapter, authoringFailureAdapter);
 
 /**
  * Translate a lifecycle policy failure: the implementation chose the

@@ -41,6 +41,9 @@
       "path": "../extension-sources/tsconfig.lib.json"
     },
     {
+      "path": "../extension-publish/tsconfig.lib.json"
+    },
+    {
       "path": "../extension-model/tsconfig.lib.json"
     },
     {
@@ -48,6 +51,12 @@
     },
     {
       "path": "../extension-lifecycle/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-discovery/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-authoring/tsconfig.lib.json"
     },
     {
       "path": "../agent-integration/tsconfig.lib.json"

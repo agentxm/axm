@@ -52,22 +52,24 @@ import {
   property,
 } from "../../test-helpers.js";
 import { exactVersion, extensionName, handle, versionRange } from "../../test-stubs.js";
-import { emitPublishResult } from "../../json-output.js";
+import { emitPublishResult, type PublishResultItem } from "../../json-output.js";
 import {
-  aggregatePublishFailure,
   buildPublishJobs,
   exactPublishUploadBinding,
   findPackPublishDivergenceFindings,
+  isPublishableType,
+  previewPublishUploadBinding,
+  publishAuthenticationPreconditions,
+  publishRecoverySelection,
+  validatePublishOwners,
+  PUBLISHABLE_TYPES,
+} from "@agentxm/extension-publish";
+import {
+  aggregatePublishFailure,
   handleRootPublish,
   makeExactPublishRecovery,
   publicPublishCause,
-  publishRecoverySelection,
-  previewPublishUploadBinding,
-  publishAuthenticationPreconditions,
-  validatePublishOwners,
   type RootPublishHandlerArgs,
-  PUBLISHABLE_TYPES,
-  isPublishableType,
 } from "./command.js";
 
 describe("pack publish resolution divergence", () => {
@@ -1325,7 +1327,7 @@ describe("root publish", () => {
         );
 
         expect(checked.sort()).toEqual(["@acme", "@missing"]);
-        expect(error.code).toBe("not_found");
+        expect(error.category).toBe("not_found");
         expect(error.detail).toContain("@missing");
         expect(error.suggestions).toEqual([
           {
@@ -2609,7 +2611,7 @@ describe("publish recovery", () => {
       authored: true,
       phase: "upload_execution" as const,
     };
-    const selection = publishRecoverySelection([
+    const items: ReadonlyArray<PublishResultItem> = [
       {
         ...base,
         id: "@acme/skills/published",
@@ -2637,7 +2639,8 @@ describe("publish recovery", () => {
         status: "blocked",
         blockedBy: ["@acme/skills/review"],
       },
-    ]);
+    ];
+    const selection = publishRecoverySelection(items);
 
     expect(selection).toEqual({
       remainingItems: ["@acme/skills/review", "@acme/packs/toolkit"],

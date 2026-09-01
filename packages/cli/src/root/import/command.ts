@@ -21,10 +21,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/extension-workspace";
-import {
-  importNativeExtensionPackage,
-  preflightCreateOnly,
-} from "@agentxm/extension-management/unstable/extensions";
+import { importNativeExtensionPackage, preflightCreateOnly } from "@agentxm/extension-authoring";
 import { computePackageContentHash, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   extensionTypeToPlural,

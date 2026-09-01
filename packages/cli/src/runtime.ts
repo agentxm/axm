@@ -64,7 +64,7 @@ import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { makeWorkspaceInvariantFactsLive } from "@agentxm/extension-workspace";
 import { toAppError } from "@agentxm/extension-management/unstable/app-error/conversions";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import { LifecycleFailureAdapterLive } from "./feature-errors.js";
+import { AuthoringFailureAdapterLive, LifecycleFailureAdapterLive } from "./feature-errors.js";
 import { LifecycleResolutionProgressLive } from "./lifecycle-interaction.js";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/extension-workspace/live";
@@ -299,6 +299,7 @@ const makeWorkspaceProgramLayer = (
     workspaceCatalogLayer,
     sourceProvidersLayer,
     CodingAgentRepositoryLive,
+    AuthoringFailureAdapterLive,
     LifecycleFailureAdapterLive,
   );
 

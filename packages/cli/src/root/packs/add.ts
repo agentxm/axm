@@ -21,8 +21,12 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { AddToPackOperation } from "@agentxm/extension-management/unstable/packs";
-import { addToPack } from "@agentxm/extension-management/unstable/packs";
+import {
+  addToPack,
+  AuthoringFailureAdapter,
+  type AddToPackOperation,
+} from "@agentxm/extension-authoring";
+import { provideAuthoringFailureAdapter } from "../../feature-errors.js";
 import { expandGlobs, isGlobPattern } from "@agentxm/extension-management/unstable/utils";
 import { count } from "@agentxm/extension-management/unstable/cli-renderer";
 import {
@@ -345,9 +349,14 @@ const handlePacksAddBody = Effect.fn("PacksAdd.handle")(function* (args: PacksAd
 
   // Build Plan directly with inline run closure
   const provideServices = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | WorkspaceMutations>,
+    effect: Effect.Effect<
+      A,
+      E,
+      FileSystem.FileSystem | Path.Path | WorkspaceMutations | AuthoringFailureAdapter
+    >,
   ): Effect.Effect<A, E, never> =>
     effect.pipe(
+      provideAuthoringFailureAdapter,
       Effect.provideService(WorkspaceMutations, ws),
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),

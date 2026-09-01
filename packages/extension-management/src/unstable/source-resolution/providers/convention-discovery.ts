@@ -11,35 +11,35 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { discoverManifestPackagesInDir } from "../../extensions/manifest-package-discovery.js";
 import {
   DISCOVERY_MAX_DEPTH,
   DISCOVERY_SKIPPED_DIRECTORIES,
-} from "../../workspace/discovery-walk.js";
+} from "@agentxm/extension-model/unstable/discovery-walk";
 import { getCommitSha, getTreeSha } from "../../git/index.js";
 import { hookPackagesInDir } from "../../hooks/index.js";
-import { type HookExtensionRef } from "../../workspace/refs/hook.js";
+import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
   KnowledgeManifestSchema,
 } from "@agentxm/extension-model/unstable/knowledge";
-import { type KnowledgeExtensionRef } from "../../workspace/refs/knowledge.js";
+import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { rulePackagesInDir } from "../../rules/index.js";
-import { type RuleExtensionRef } from "../../workspace/refs/rule.js";
+import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import type { SubagentExtensionRef } from "../../workspace/refs/subagent.js";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
   MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
   SkillManifestSchema,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content";
-import { type SkillExtensionRef } from "../../workspace/refs/skill.js";
+import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { fileUrlToPath } from "../file-url.js";
-import type { FindOptions } from "../../workspace/source-host-provider.js";
+import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitBasedSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 
 type ExternalSource = GitBasedSource | LocalSource;

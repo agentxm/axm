@@ -41,10 +41,10 @@ import {
   normalizeReleaseAgeRecords,
   releaseAgeEvidence,
   releaseAgeHoldbackWarning,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { InstallSkillOperation } from "@agentxm/extension-management/unstable/skills";
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "@agentxm/extension-management/unstable/skills";

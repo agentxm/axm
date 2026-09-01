@@ -104,8 +104,8 @@ import {
 import {
   parseMinimumReleaseAge,
   normalizeReleaseAgeRecords,
-  type ReleaseAgeEvaluation,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { InstallPackCommandIntent } from "./intent.js";
 import { parseRegistryInstallTarget } from "../../shared/registry-install-target.js";
 import { makeRegistryLoginSuggestionResolver } from "../../shared/registry-login-suggestion.js";

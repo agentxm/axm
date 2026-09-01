@@ -19,7 +19,7 @@ import { recoverCanonicalDirectory, replaceCanonicalDirectory } from "../../exte
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { validateExactResolvedVersion } from "../../lockfile/index.js";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-import type { PackRef } from "../../workspace/refs/pack.js";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { OperationHandler } from "../../plan/apply-plan.js";
 import type { Operation } from "../../plan/plan.js";

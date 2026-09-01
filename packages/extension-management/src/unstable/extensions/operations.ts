@@ -17,7 +17,7 @@ import {
 } from "./errors.js";
 import type { StepFailure } from "../plan/errors.js";
 import type { JobStepArtifact, JobStepResult, PlannedJobStep } from "../plan/plan.js";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { ExtensionTarget, ExtensionTargetFor } from "../workspace/service-interface.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

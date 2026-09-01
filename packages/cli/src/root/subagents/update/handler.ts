@@ -28,9 +28,9 @@ import { buildInstallOperation } from "@agentxm/extension-management/unstable/ex
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
-  type ReleaseAgeEvidence,
   type ReleaseAgeRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,
   previewOrApplyPlan,

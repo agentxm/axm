@@ -28,7 +28,7 @@ import { makeBaseWorkspaceMock } from "../workspace/test-stubs.js";
 import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-import type { FindOptions } from "../workspace/source-host-provider.js";
+import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 

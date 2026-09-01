@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-model",
   "version": "0.28.3",
-  "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "Shared AgentXM extension model: identities, manifests, version constraints, and agent capabilities. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -40,6 +40,10 @@
       "types": "./dist/src/unstable/date-time.d.ts",
       "default": "./dist/src/unstable/date-time.js"
     },
+    "./unstable/discovery-walk": {
+      "types": "./dist/src/unstable/discovery-walk.d.ts",
+      "default": "./dist/src/unstable/discovery-walk.js"
+    },
     "./unstable/extension-types": {
       "types": "./dist/src/unstable/extension-types/index.d.ts",
       "default": "./dist/src/unstable/extension-types/index.js"
@@ -60,6 +64,10 @@
       "types": "./dist/src/unstable/extensions/common.d.ts",
       "default": "./dist/src/unstable/extensions/common.js"
     },
+    "./unstable/extensions/deprecation": {
+      "types": "./dist/src/unstable/extensions/deprecation.d.ts",
+      "default": "./dist/src/unstable/extensions/deprecation.js"
+    },
     "./unstable/extensions/fqn": {
       "types": "./dist/src/unstable/extensions/fqn.d.ts",
       "default": "./dist/src/unstable/extensions/fqn.js"
@@ -72,6 +80,10 @@
       "types": "./dist/src/unstable/extensions/handle.d.ts",
       "default": "./dist/src/unstable/extensions/handle.js"
     },
+    "./unstable/extensions/installable-types": {
+      "types": "./dist/src/unstable/extensions/installable-types.d.ts",
+      "default": "./dist/src/unstable/extensions/installable-types.js"
+    },
     "./unstable/extensions/license": {
       "types": "./dist/src/unstable/extensions/license.d.ts",
       "default": "./dist/src/unstable/extensions/license.js"
@@ -80,9 +92,49 @@
       "types": "./dist/src/unstable/extensions/manifest-metadata.d.ts",
       "default": "./dist/src/unstable/extensions/manifest-metadata.js"
     },
+    "./unstable/extensions/refs/extension-ref": {
+      "types": "./dist/src/unstable/extensions/refs/extension-ref.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/extension-ref.js"
+    },
+    "./unstable/extensions/refs/hook": {
+      "types": "./dist/src/unstable/extensions/refs/hook.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/hook.js"
+    },
+    "./unstable/extensions/refs/knowledge": {
+      "types": "./dist/src/unstable/extensions/refs/knowledge.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/knowledge.js"
+    },
+    "./unstable/extensions/refs/mcp-server": {
+      "types": "./dist/src/unstable/extensions/refs/mcp-server.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/mcp-server.js"
+    },
+    "./unstable/extensions/refs/pack": {
+      "types": "./dist/src/unstable/extensions/refs/pack.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/pack.js"
+    },
+    "./unstable/extensions/refs/ref-base": {
+      "types": "./dist/src/unstable/extensions/refs/ref-base.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/ref-base.js"
+    },
+    "./unstable/extensions/refs/rule": {
+      "types": "./dist/src/unstable/extensions/refs/rule.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/rule.js"
+    },
+    "./unstable/extensions/refs/skill": {
+      "types": "./dist/src/unstable/extensions/refs/skill.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/skill.js"
+    },
+    "./unstable/extensions/refs/subagent": {
+      "types": "./dist/src/unstable/extensions/refs/subagent.d.ts",
+      "default": "./dist/src/unstable/extensions/refs/subagent.js"
+    },
     "./unstable/extensions/registry-source": {
       "types": "./dist/src/unstable/extensions/registry-source.d.ts",
       "default": "./dist/src/unstable/extensions/registry-source.js"
+    },
+    "./unstable/extensions/release-age": {
+      "types": "./dist/src/unstable/extensions/release-age.d.ts",
+      "default": "./dist/src/unstable/extensions/release-age.js"
     },
     "./unstable/extensions/universal-skills-dir": {
       "types": "./dist/src/unstable/extensions/universal-skills-dir.d.ts",
@@ -156,6 +208,14 @@
       "types": "./dist/src/unstable/sources/printer.d.ts",
       "default": "./dist/src/unstable/sources/printer.js"
     },
+    "./unstable/sources/source-hash": {
+      "types": "./dist/src/unstable/sources/source-hash.d.ts",
+      "default": "./dist/src/unstable/sources/source-hash.js"
+    },
+    "./unstable/sources/source-host-provider": {
+      "types": "./dist/src/unstable/sources/source-host-provider.d.ts",
+      "default": "./dist/src/unstable/sources/source-host-provider.js"
+    },
     "./unstable/sources/types": {
       "types": "./dist/src/unstable/sources/types.d.ts",
       "default": "./dist/src/unstable/sources/types.js"
@@ -175,6 +235,10 @@
     "./unstable/workspace-files": {
       "types": "./dist/src/unstable/workspace-files.d.ts",
       "default": "./dist/src/unstable/workspace-files.js"
+    },
+    "./unstable/workspace-scope": {
+      "types": "./dist/src/unstable/workspace-scope.d.ts",
+      "default": "./dist/src/unstable/workspace-scope.js"
     }
   },
   "files": [

@@ -21,7 +21,7 @@ import {
   type ExtensionListFilter,
   type ExtensionListItem,
 } from "@agentxm/extension-management/unstable/workspace-inspection";
-import { DeprecationViewSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 import { scopeFlag } from "../../cli-flags.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

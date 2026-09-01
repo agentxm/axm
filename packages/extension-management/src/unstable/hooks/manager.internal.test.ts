@@ -26,7 +26,7 @@ import { WorkspaceCatalogLive } from "../cli-runtime/workspace-catalog-live.js";
 import { CodingAgentRepositoryLive } from "../extension-workspace/repository.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import { HookManager, HookManagerLive } from "./manager.js";
-import type { LocalHookRef } from "../workspace/refs/hook.js";
+import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 
 const writeHookPackage = (
   packageRoot: string,

@@ -1,14 +1,14 @@
 import type * as Option from "effect/Option";
 import type { AppError } from "../../app-error/index.js";
-import type { HookExtensionRef } from "../refs/hook.js";
-import type { KnowledgeExtensionRef } from "../refs/knowledge.js";
-import type { McpServerExtensionRef } from "../refs/mcp-server.js";
-import type { PackRef } from "../refs/pack.js";
-import type { RuleExtensionRef } from "../refs/rule.js";
-import type { SkillExtensionRef } from "../refs/skill.js";
-import type { SubagentExtensionRef } from "../refs/subagent.js";
+import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type { NamedRegistryResolution } from "../source-host-provider.js";
+import type { NamedRegistryResolution } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,

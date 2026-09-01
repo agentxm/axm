@@ -7,7 +7,7 @@ import {
   extensionTypeToPlural,
   isExtensionType,
   isExtensionTypePlural,
-} from "@agentxm/extension-model/unstable/extensions/common";
+} from "./common.js";
 
 export const installableExtensionTypes = extensionTypes;
 

@@ -12,7 +12,7 @@
 
 import * as Schema from "effect/Schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";

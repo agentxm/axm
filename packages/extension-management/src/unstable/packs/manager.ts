@@ -24,7 +24,10 @@ import {
   replaceCanonicalDirectoryWithInspection,
 } from "../extensions/index.js";
 import { configuredPacksToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { PackRef, RegistryPackRef } from "../workspace/refs/pack.js";
+import type {
+  PackRef,
+  RegistryPackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionTarget, PackExtensionTarget } from "../workspace/service-interface.js";

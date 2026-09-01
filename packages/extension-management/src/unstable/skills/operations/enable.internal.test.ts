@@ -29,7 +29,7 @@ import { enableSkill } from "./enable.js";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { computePackageContentHash } from "../../workspace/package-hash.js";
-import { type SourceHash } from "../../workspace/rendered-files.js";
+import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 type SettingsSkillValue =
   | string

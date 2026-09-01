@@ -16,8 +16,8 @@ import type {
   DeprecationManagementView,
   DeprecationReplacementIntent,
   DeprecationTransition,
-  DeprecationView,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 export interface RegistryExtensionReference {
   readonly owner: string;

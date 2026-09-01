@@ -34,7 +34,7 @@ import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
-import { type SourceHash } from "../workspace/rendered-files.js";
+import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   enabledConfiguredEntries,
@@ -96,7 +96,7 @@ import {
   type HookExtensionRef,
   type LocalHookRef,
   type RegistryHookRef,
-} from "../workspace/refs/hook.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { managedHookCommands, readManagedHookCommands, updateHooksJson } from "./managed-groups.js";
 import { evaluateHookAgentOutcome } from "./outcomes.js";
 import {

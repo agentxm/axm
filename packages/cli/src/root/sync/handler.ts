@@ -35,9 +35,9 @@ import {
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeOperationEvidence,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   preapprovedPlanExecution,
   previewPlanExecution,

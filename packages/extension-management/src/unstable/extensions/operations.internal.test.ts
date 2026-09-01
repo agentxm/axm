@@ -32,7 +32,7 @@ import type {
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
-} from "../workspace/refs/skill.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 
 const runTransaction: WorkspaceTransactionRunner = (args) =>
   Effect.gen(function* () {

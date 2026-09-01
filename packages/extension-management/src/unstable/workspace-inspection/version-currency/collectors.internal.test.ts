@@ -10,7 +10,7 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import { handle } from "../../test-helpers.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   configuredRow,

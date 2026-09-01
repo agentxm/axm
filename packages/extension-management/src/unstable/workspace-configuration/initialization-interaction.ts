@@ -4,7 +4,7 @@ import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { AppError } from "../app-error/index.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SetupScopeSupportCategory } from "../workspace/setup-scope-support.js";
 
 /**

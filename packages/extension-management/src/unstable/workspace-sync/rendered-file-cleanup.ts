@@ -28,7 +28,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR } from "../workspace/constants.js";
 import { readAmbiguousHookCommands, stripManagedHooksFromJson } from "../hooks/managed-groups.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";

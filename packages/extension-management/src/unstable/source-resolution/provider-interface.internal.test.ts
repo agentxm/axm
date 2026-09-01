@@ -9,9 +9,12 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import type { GitHostedSkillRef } from "../workspace/refs/skill.js";
+import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { GitHubSource, RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import type { SourceHostProvider, FindOptions } from "../workspace/source-host-provider.js";
+import type {
+  SourceHostProvider,
+  FindOptions,
+} from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { exactVersion, extensionName, handle, versionRange } from "../test-helpers.js";

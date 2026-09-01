@@ -21,11 +21,11 @@ import { type AppError } from "../../app-error/index.js";
 import { SettingsWriteError } from "../../settings/errors.js";
 import type { WorkspaceStateMutationFailure } from "../../workspace/service-interface.js";
 import { LockfileWriteError } from "../../lockfile/errors.js";
-import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
-} from "../../workspace/refs/mcp-server.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";
 import {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { SourceHashSchema } from "../workspace/rendered-files.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { LockfileSchema, SubagentLockEntrySchema } from "./schema.js";
 

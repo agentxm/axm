@@ -12,10 +12,10 @@ import {
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
-} from "../workspace/installable-types.js";
-import { type ExtensionRef } from "../workspace/refs/extension-ref.js";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { createRegistryClient } from "../registry/index.js";
-import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "../source-resolution/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "../workspace/lock-entry-to-source-params.js";

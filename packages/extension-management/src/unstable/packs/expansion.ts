@@ -15,8 +15,8 @@ import type { PackManagerError } from "./errors.js";
 /** Interim union while registry resolution still fails with `AppError`. */
 type PackExpansionError = AppError | PackManagerError | SourceAuthorityBlocked;
 import { type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
-import type { PackRef } from "../workspace/refs/pack.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { SourceHostProvidersService } from "../source-resolution/index.js";
 import type * as Duration from "effect/Duration";
 import { resolvePackDependencies } from "./dependency-resolution.js";
@@ -26,7 +26,7 @@ import {
   type ReleaseAgeAwarePackDependencyResolution,
   type WorkspacePackDependencyResolver,
 } from "./dependency-resolution.js";
-import type { ReleaseAgeEvaluation } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 
 // -----------------------------------------------------------------------------
 // expandPackInstallRefs

@@ -10,7 +10,7 @@ import {
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
 } from "./axm-skill-compatibility.js";
-import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { parseSkillMd } from "@agentxm/registry-protocol/unstable/content/skill-content";
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>

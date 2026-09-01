@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../lockfile/schema.js";
-import type { GitHostedSkillRef } from "./refs/skill.js";
+import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
 import { makeBaseWorkspaceMock, TEST_TREE_INTEGRITY } from "./test-stubs.js";

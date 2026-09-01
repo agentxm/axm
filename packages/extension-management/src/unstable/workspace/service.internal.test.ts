@@ -47,7 +47,7 @@ import {
   bootstrapWorkspace,
   WorkspaceInitializationInteractionTest,
 } from "../workspace-configuration/index.js";
-import { installableExtensionTypes } from "./installable-types.js";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   configuredRowsByName,
   installedRowsByName,

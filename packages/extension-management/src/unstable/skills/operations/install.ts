@@ -41,7 +41,7 @@ import type {
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
-} from "../../workspace/refs/skill.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import { CodingAgentRepository } from "../../extension-workspace/index.js";
 import { isPathSafe, stripFileProtocol } from "../../utils/index.js";

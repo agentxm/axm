@@ -13,10 +13,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import { shallowClone } from "../../git/index.js";
 import { fileUrlToPath } from "../file-url.js";
-import type { SourceHostProvider } from "../../workspace/source-host-provider.js";
+import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type {
   GitHubSource,
   GitLabSource,
@@ -45,7 +45,7 @@ export const createGitHostingSourceHostProvider = <
   S extends GitHubSource | GitLabSource | BitbucketSource | AzureReposSource,
 >(
   host: Extract<GitHostingSourceHost, { type: S["type"] }>,
-): SourceHostProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
+): SourceHostProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope, AppError> => ({
   type: host.type,
 
   match: (url: URL) => Effect.succeed(url.hostname === host.url.hostname),

@@ -43,7 +43,7 @@ import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
-import { type SourceHash } from "../workspace/rendered-files.js";
+import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { RuleLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { MaterializedFileTargetSchema } from "../workspace/materialized-file-target.js";
@@ -90,7 +90,7 @@ import {
   type LocalRuleRef,
   type RegistryRuleRef,
   type RuleExtensionRef,
-} from "../workspace/refs/rule.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/rule";
 
 export interface RuleManagerService extends ExtensionManager<RuleExtensionRef> {
   readonly projectionPlans: () => Effect.Effect<

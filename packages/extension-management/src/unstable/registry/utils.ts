@@ -33,10 +33,12 @@ import {
   filterMatureVersions,
   isVersionEntryEligibleAt,
   releaseAgeEvidence,
+} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import {
   type ReleaseAgeEvaluation,
   type ReleaseAgeEvidence,
   type ReleaseAgeExemption,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "@agentxm/extension-model/unstable/extensions/release-age";
 
 // -----------------------------------------------------------------------------
 // Version Selection

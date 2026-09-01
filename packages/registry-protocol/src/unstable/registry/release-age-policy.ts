@@ -3,34 +3,14 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import {
-  matchesReleaseAgeExcludePattern,
-  type ReleaseAgeExcludePattern,
-} from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
+import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+  ReleaseAgeExemption,
+} from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { VersionEntry } from "./schema.js";
-
-export interface ScopedReleaseAgeExcludePattern {
-  readonly pattern: ReleaseAgeExcludePattern;
-  readonly scope: "project" | "user";
-}
-
-export interface ReleaseAgeEvaluation {
-  readonly minimumReleaseAge: Duration.Duration;
-  readonly evaluatedAt: DateTime.Utc;
-  readonly mode: "enforce" | "ignore";
-  readonly exclude?: ReadonlyArray<ScopedReleaseAgeExcludePattern>;
-  readonly grantedExemption?: ReleaseAgeExemption;
-}
-
-export type ReleaseAgeExemption =
-  | {
-      readonly bypassCause: "exclude";
-      readonly exemptionScope: "project" | "user";
-    }
-  | {
-      readonly bypassCause: "ignore-flag";
-    };
 
 export const releaseAgeExemptionForIdentity = (
   evaluation: ReleaseAgeEvaluation,
@@ -45,13 +25,6 @@ export const releaseAgeExemptionForIdentity = (
   }
   return evaluation.mode === "ignore" ? { bypassCause: "ignore-flag" } : undefined;
 };
-
-export interface ReleaseAgeEvidence {
-  readonly version: string;
-  readonly publishedAt: string;
-  readonly eligibleAt: string;
-  readonly minimumReleaseAgeSeconds: number;
-}
 
 export interface ReleaseAgeRecordBase {
   readonly reason: "minimum-release-age";

@@ -10,26 +10,28 @@ import {
   parseRegistrySourceRef,
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { HookExtensionRef } from "../workspace/refs/hook.js";
-import type { KnowledgeExtensionRef } from "../workspace/refs/knowledge.js";
-import type { McpServerExtensionRef } from "../workspace/refs/mcp-server.js";
-import type { PackRef } from "../workspace/refs/pack.js";
+import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type {
   ReleaseAgeBypassRecord,
-  ReleaseAgeEvaluation,
-  ReleaseAgeEvidence,
   ReleaseAgeHoldbackRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+} from "@agentxm/extension-model/unstable/extensions/release-age";
 import { parseMinimumReleaseAge } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { RuleExtensionRef } from "../workspace/refs/rule.js";
+import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import {
   resolveSource,
   SourceHostProviders,
   WorkspaceCatalog,
 } from "../source-resolution/index.js";
-import type { SkillExtensionRef } from "../workspace/refs/skill.js";
-import type { SubagentExtensionRef } from "../workspace/refs/subagent.js";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { WorkspaceMutations } from "../workspace/service-interface.js";

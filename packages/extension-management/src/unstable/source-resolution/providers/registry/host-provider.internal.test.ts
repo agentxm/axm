@@ -30,17 +30,17 @@ import type {
 } from "../../../registry/index.js";
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
-import { type ExtensionRef } from "../../../workspace/refs/extension-ref.js";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   PUBLICATION_SET_CONTRACT,
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry";
-import type { RegistrySkillRef } from "../../../workspace/refs/skill.js";
-import type { RegistryMcpServerRef } from "../../../workspace/refs/mcp-server.js";
-import type { RegistryPackRef } from "../../../workspace/refs/pack.js";
-import type { RegistrySubagentRef } from "../../../workspace/refs/subagent.js";
+import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { RegistryMcpServerRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type { RegistryPackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type { RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import type { FindOptions } from "../../../workspace/source-host-provider.js";
+import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import { makeAxmSkillCompatibilityPolicyLayer } from "../../../skills/index.js";
 import {
   createLocalRegistrySourceHostProvider,

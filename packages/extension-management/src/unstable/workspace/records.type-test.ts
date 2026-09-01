@@ -12,7 +12,7 @@
  * this file fails compile if one is reintroduced.
  */
 
-import type { InstallableExtensionType } from "./installable-types.js";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceReadModelRecords } from "./service-interface.js";
 
 // The facade SHALL expose exactly aggregate inventory, per-type inventory, and rows.

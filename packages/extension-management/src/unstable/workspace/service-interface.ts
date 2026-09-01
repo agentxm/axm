@@ -40,10 +40,10 @@ import type {
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
 } from "./errors.js";
-import type { InstallableExtensionType } from "./installable-types.js";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { ExtensionRef } from "./refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   RegistryPackLockEntry,
   HookLockEntry,
@@ -80,9 +80,9 @@ import type {
   SubagentsMap,
   SourceHostConfig,
 } from "../settings/index.js";
-import type { ScopedReleaseAgeExcludePattern } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type { ScopedReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
-import type { WorkspaceScope } from "./scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
 import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";

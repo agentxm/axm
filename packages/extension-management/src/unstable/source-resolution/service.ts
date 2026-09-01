@@ -20,13 +20,13 @@ import type * as Scope from "effect/Scope";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { parseRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   ExtensionFiles,
   FindOptions,
   NamedRegistryFindOptions,
   NamedRegistryResolution,
-} from "../workspace/source-host-provider.js";
+} from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type {
   GitHostingSource,
   RegistrySource,

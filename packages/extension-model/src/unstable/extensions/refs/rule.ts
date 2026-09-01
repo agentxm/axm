@@ -17,8 +17,8 @@ import type {
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "@agentxm/extension-model/unstable/sources/types";
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
+} from "../../sources/types.js";
+import type { ExtensionName } from "../common.js";
 
 type RuleExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "rule",

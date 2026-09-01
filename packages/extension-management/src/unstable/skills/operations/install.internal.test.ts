@@ -17,14 +17,14 @@ import { LockfileWriteError } from "../../lockfile/errors.js";
 import { LockedSkillMissing } from "../../workspace/errors.js";
 import { acquiredExtensionDisplayPath } from "../../workspace/extension-paths.js";
 import { computeSourceHash } from "../../workspace/rendered-files.js";
-import { type ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
   WorkspaceSkillRef,
-} from "../../workspace/refs/skill.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders } from "../../source-resolution/index.js";
 import type { SourceHostProvidersService } from "../../source-resolution/index.js";

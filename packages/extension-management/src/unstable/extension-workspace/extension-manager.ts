@@ -14,7 +14,7 @@ import type * as Option from "effect/Option";
 
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ProjectionPlan } from "../projection/planning.js";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   ExtensionTarget,
   ExtensionTargetFor,

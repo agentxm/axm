@@ -26,47 +26,7 @@ import {
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-
-const DeprecationMessageSchema = Schema.String.check(
-  Schema.isMinLength(1),
-  Schema.isMaxLength(500),
-).annotate({
-  identifier: "DeprecationMessage",
-  description: "Concise publisher guidance for consumers of a deprecated extension.",
-});
-
-export const DeprecationReplacementSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("available"),
-    fqn: ExtensionFqnSchema,
-  }),
-  Schema.Struct({
-    status: Schema.Literal("unavailable"),
-    fqn: Schema.optional(ExtensionFqnSchema),
-  }),
-]).annotate({
-  identifier: "DeprecationReplacement",
-  description: "Authorization-safe current availability of a recorded replacement identity.",
-});
-
-export const DeprecationViewSchema = Schema.Union([
-  Schema.Struct({
-    deprecatedAt: DateTimeUtcSchema,
-    message: DeprecationMessageSchema,
-    replacement: Schema.optional(DeprecationReplacementSchema),
-  }),
-  Schema.Struct({
-    deprecatedAt: DateTimeUtcSchema,
-    message: Schema.optional(DeprecationMessageSchema),
-    replacement: DeprecationReplacementSchema,
-  }),
-]).annotate({
-  identifier: "DeprecationView",
-  description: "Canonical authorization-safe identity deprecation guidance.",
-});
-
-export type DeprecationReplacement = typeof DeprecationReplacementSchema.Type;
-export type DeprecationView = typeof DeprecationViewSchema.Type;
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 export const DeprecationRevisionSchema = Schema.NonEmptyString.annotate({
   identifier: "DeprecationRevision",

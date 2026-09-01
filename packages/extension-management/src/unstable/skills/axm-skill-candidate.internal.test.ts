@@ -10,7 +10,7 @@ import { computeSourceHash } from "../workspace/rendered-files.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "./axm-skill-compatibility.js";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
-import type { WorkspaceSkillRef } from "../workspace/refs/skill.js";
+import type { WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { toAppError } from "../app-error/conversions.js";
 
 const VERSION = "1.2.3";

@@ -20,8 +20,8 @@ import type {
   RegistrySource,
   LocalSource,
   WorkspaceSource,
-} from "@agentxm/extension-model/unstable/sources/types";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+} from "../../sources/types.js";
+import type { Handle } from "../handle.js";
 
 type ExternalSkillRefDetails<TDetails extends GitHostedRefDetails | LocalRefDetails> = Omit<
   TDetails,

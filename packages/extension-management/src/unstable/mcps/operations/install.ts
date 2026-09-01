@@ -40,7 +40,7 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
-} from "../../workspace/refs/mcp-server.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "../../lockfile/index.js";
 import {
   computeMaterializedTreeIntegrity,

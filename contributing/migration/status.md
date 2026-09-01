@@ -40,6 +40,12 @@ at 06a6b8e08.
 ## In flight
 
 - Interaction-split S5 auth presenter (design-interaction-split §S5).
+- B0 ref-vocabulary contract descent (working tree): the extension-management
+  workspace barrel still fronts the vocabulary moved to extension-model
+  (refs, WorkspaceScope, installable-types, SourceHostProvider port types,
+  SourceHash) via re-exports — sanctioned this slice only; the
+  kernel-extraction slice must finish pointing barrel consumers at
+  @agentxm/extension-model.
 
 ## Remaining (in order)
 

@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
+import type { ExtensionName } from "../common.js";
 import type { ExtensionRefBase } from "./ref-base.js";
 import type {
   GitHostedRefDetails,
@@ -18,7 +18,7 @@ import type {
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "@agentxm/extension-model/unstable/sources/types";
+} from "../../sources/types.js";
 
 type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "hook",

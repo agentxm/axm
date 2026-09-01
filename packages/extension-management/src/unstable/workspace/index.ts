@@ -9,60 +9,65 @@
 // `OperationHandler`) moved to `@agentxm/extension-management/unstable/plan`. Consumers
 // import them from there directly.
 
-// Source host provider seam
+// Source host provider seam (moved to the extension-model contract; re-exported
+// here for this slice only — consumers migrate to @agentxm/extension-model)
 export type {
   ExtensionFiles,
   FindOptions,
   NamedRegistryFindOptions,
   NamedRegistryResolution,
   SourceHostProvider,
-} from "./source-host-provider.js";
+} from "@agentxm/extension-model/unstable/sources/source-host-provider";
 
 // Extension ref vocabulary
-export type { ExtensionRef } from "./refs/extension-ref.js";
+export type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 export type {
   GitHostedSkillRef,
   RegistrySkillRef,
   LocalSkillRef,
   WorkspaceSkillRef,
   SkillExtensionRef,
-} from "./refs/skill.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 export type {
   GitHostedMcpServerRef,
   RegistryMcpServerRef,
   LocalMcpServerRef,
   WorkspaceMcpServerRef,
   McpServerExtensionRef,
-} from "./refs/mcp-server.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 export type {
   GitHostedSubagentRef,
   RegistrySubagentRef,
   LocalSubagentRef,
   WorkspaceSubagentRef,
   SubagentExtensionRef,
-} from "./refs/subagent.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 export type {
   GitHostedRuleRef,
   RegistryRuleRef,
   LocalRuleRef,
   WorkspaceRuleRef,
   RuleExtensionRef,
-} from "./refs/rule.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/rule";
 export type {
   GitHostedHookRef,
   RegistryHookRef,
   LocalHookRef,
   WorkspaceHookRef,
   HookExtensionRef,
-} from "./refs/hook.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/hook";
 export type {
   GitHostedKnowledgeRef,
   RegistryKnowledgeRef,
   LocalKnowledgeRef,
   WorkspaceKnowledgeRef,
   KnowledgeExtensionRef,
-} from "./refs/knowledge.js";
-export type { RegistryPackRef, WorkspacePackRef, PackRef } from "./refs/pack.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+export type {
+  RegistryPackRef,
+  WorkspacePackRef,
+  PackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
 
 // Installable-type vocabulary
 export {
@@ -76,7 +81,7 @@ export {
   toInstallableExtensionTypePlural,
   type InstallableExtensionType,
   type InstallableExtensionTypePlural,
-} from "./installable-types.js";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 // Extension path and identity vocabulary
 export { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
@@ -94,12 +99,14 @@ export {
 export {
   RenderedFilePathSchema,
   RenderedFilesMapSchema,
-  SourceHashSchema,
   computeSourceHash,
   type RenderedFilePath,
   type RenderedFilesMap,
-  type SourceHash,
 } from "./rendered-files.js";
+export {
+  SourceHashSchema,
+  type SourceHash,
+} from "@agentxm/extension-model/unstable/sources/source-hash";
 export { computePackageContentHash } from "./package-hash.js";
 export {
   computeMaterializedTreeIntegrity,
@@ -129,7 +136,11 @@ export {
 } from "./mcp-entry-semantics.js";
 
 // Scope utilities
-export { WORKSPACE_SCOPES, DEFAULT_WORKSPACE_SCOPE, type WorkspaceScope } from "./scope.js";
+export {
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+} from "@agentxm/extension-model/unstable/workspace-scope";
 export {
   resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,

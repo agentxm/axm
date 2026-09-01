@@ -31,10 +31,10 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
-  DeprecationView,
   ExtensionIndex,
   VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { Bugs, Repository } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";

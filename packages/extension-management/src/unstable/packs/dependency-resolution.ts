@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SourceAuthorityBlockedFact } from "../extensions/index.js";
-import type { ExtensionRef } from "../workspace/refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   Handle,
   ExtensionName,
@@ -28,17 +28,19 @@ import {
 
 /** Interim union while registry resolution still fails with `AppError`. */
 type PackDependencyResolutionError = AppError | PackManagerError | SourceAuthorityBlocked;
-import type { PackRef } from "../workspace/refs/pack.js";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions";
 import type * as Duration from "effect/Duration";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import * as semver from "semver";
 import type {
   ReleaseAgeBypassRecord,
-  ReleaseAgeEvaluation,
-  ReleaseAgeEvidence,
   ReleaseAgeHoldbackRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import type {
+  ReleaseAgeEvaluation,
+  ReleaseAgeEvidence,
+} from "@agentxm/extension-model/unstable/extensions/release-age";
 import { releaseAgeExemptionForIdentity } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 
 /** Every extension type a pack can depend on — packs cannot nest. */

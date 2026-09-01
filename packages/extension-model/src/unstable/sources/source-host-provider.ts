@@ -12,15 +12,14 @@ import type * as Duration from "effect/Duration";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
-import type { AppError } from "../app-error/index.js";
-import type { ExtensionType, Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "./refs/extension-ref.js";
-import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import type { ExtensionType, Handle } from "../extensions/index.js";
+import type { ExtensionRef } from "../extensions/refs/extension-ref.js";
+import type { Source } from "./types.js";
 import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
   ReleaseAgeExemption,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+} from "../extensions/release-age.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -117,19 +116,20 @@ export interface ExtensionFiles {
  *
  * @typeParam S - The specific `Source` variant this provider handles.
  * @typeParam R - Effect requirements for provider operations.
+ * @typeParam E - Typed failure channel for provider operations.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SourceHostProvider<S extends Source = Source, R = never> {
+export interface SourceHostProvider<S extends Source = Source, R = never, E = never> {
   /** Source type discriminator matching `S["type"]`. */
   readonly type: S["type"];
   /** Check if a URL belongs to this provider. */
-  readonly match: (url: URL) => Effect.Effect<boolean, AppError, R>;
+  readonly match: (url: URL) => Effect.Effect<boolean, E, R>;
   /** Discover extensions at the given source matching the search criteria. */
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, AppError, R>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, E, R>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, AppError, R>;
+  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, E, R>;
 }

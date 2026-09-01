@@ -18,7 +18,7 @@ import { extensionName } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { observeCanonicalExtension } from "../workspace/canonical-observation.js";
 import { resolveProjectWorkspaceLayout } from "../workspace/layout.js";
-import type { GitHostedSkillRef } from "../workspace/refs/skill.js";
+import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   materializeSkillCanonical,
   type ProvideFs,

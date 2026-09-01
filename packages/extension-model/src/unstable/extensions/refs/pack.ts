@@ -8,10 +8,7 @@
  */
 
 import type { PackRefBase, RegistryRefDetails, WorkspaceRefDetails } from "./ref-base.js";
-import type {
-  RegistrySource,
-  WorkspaceSource,
-} from "@agentxm/extension-model/unstable/sources/types";
+import type { RegistrySource, WorkspaceSource } from "../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Pack Extension Refs

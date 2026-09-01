@@ -8,9 +8,9 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   RenderedFilesMapSchema,
   RenderedFilePathSchema,
-  SourceHashSchema,
   computeSourceHash,
 } from "./rendered-files.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 describe("computeSourceHash", () => {
   it("returns the same hash for the same content", () => {

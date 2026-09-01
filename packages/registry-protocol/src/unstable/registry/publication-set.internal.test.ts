@@ -23,7 +23,7 @@ import {
   validatePublicationSetResponse,
   type PublicationDescriptor,
 } from "./publication-set.js";
-import { DeprecationViewSchema } from "./schema.js";
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 const skill: PublicationDescriptor = {
   target: {

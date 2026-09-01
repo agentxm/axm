@@ -17,7 +17,10 @@ import * as Option from "effect/Option";
 import { McpConfigIoFailed, McpInstallStateMissing, McpRegistryOnlyInstall } from "./errors.js";
 import type { ExtensionManagerFailure } from "../extension-workspace/errors.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
-import type { McpServerExtensionRef, RegistryMcpServerRef } from "../workspace/refs/mcp-server.js";
+import type {
+  McpServerExtensionRef,
+  RegistryMcpServerRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "../lockfile/index.js";
 import type { ExtensionManager } from "../extension-workspace/extension-manager.js";
 import type { ExtensionTarget, McpServerExtensionTarget } from "../workspace/service-interface.js";

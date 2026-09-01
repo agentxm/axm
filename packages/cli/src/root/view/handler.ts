@@ -18,11 +18,11 @@ import {
   type ResolvedIdentifier,
 } from "@agentxm/extension-management/unstable/source-resolution";
 import { createRegistryClient } from "@agentxm/extension-management/unstable/registry";
+import { type ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import {
   DeprecationViewSchema,
   type DeprecationView,
-  type ExtensionIndex,
-} from "@agentxm/registry-protocol/unstable/registry";
+} from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { WorkspaceMutations } from "@agentxm/extension-management/unstable/workspace";
 
 import { installCommandFor } from "../shared/per-type-install.js";

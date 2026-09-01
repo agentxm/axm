@@ -16,7 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Schema from "effect/Schema";
-import type { SubagentExtensionRef, RegistrySubagentRef } from "../workspace/refs/subagent.js";
+import type {
+  SubagentExtensionRef,
+  RegistrySubagentRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type {
   ExtensionManager,
   MaterializationObservation,
@@ -64,11 +67,8 @@ import {
   type ManagedFileProvenance,
 } from "../extensions/index.js";
 import { computePackageContentHash } from "../workspace/package-hash.js";
-import {
-  computeSourceHash,
-  RenderedFilePathSchema,
-  type SourceHash,
-} from "../workspace/rendered-files.js";
+import { computeSourceHash, RenderedFilePathSchema } from "../workspace/rendered-files.js";
+import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   MANIFEST_FILENAME,
   SubagentManifestSchema,

@@ -13,7 +13,7 @@ import {
 } from "./constants.js";
 import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import type { WorkspaceScope } from "./scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export { AXM_DIR_NAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 

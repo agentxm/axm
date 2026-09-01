@@ -33,7 +33,10 @@ import {
   handle,
 } from "../test-helpers.js";
 import { KnowledgeManager, KnowledgeManagerLive } from "./manager.js";
-import type { LocalKnowledgeRef, WorkspaceKnowledgeRef } from "../workspace/refs/knowledge.js";
+import type {
+  LocalKnowledgeRef,
+  WorkspaceKnowledgeRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 
 const writeKnowledgePackage = (
   root: string,

@@ -9,10 +9,10 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { makeAppError, type AppError } from "@agentxm/extension-management/unstable/app-error";
 import {
   normalizeReleaseAgeRecords,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,
   type Plan,

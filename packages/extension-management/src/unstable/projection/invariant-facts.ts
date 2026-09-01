@@ -24,7 +24,7 @@ import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { acceptedResolutionRef } from "../workspace/accepted-canonical-ref.js";
 import { resolveWorkspaceExtensionRef } from "../workspace/configured-entry-resolution/workspace-ref.js";
 import { SubagentManager } from "../subagents/manager.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId } from "./units.js";
 import { observeProjectionPlans } from "./planning.js";
 

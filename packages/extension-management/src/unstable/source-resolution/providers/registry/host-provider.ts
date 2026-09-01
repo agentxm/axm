@@ -56,21 +56,21 @@ import {
 import {
   installableExtensionTypes,
   isInstallableExtensionType,
-} from "../../../workspace/installable-types.js";
-import type { ExtensionRef } from "../../../workspace/refs/extension-ref.js";
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   ExtensionFiles,
   FindOptions,
   NamedRegistryFindOptions,
   NamedRegistryResolution,
   SourceHostProvider,
-} from "../../../workspace/source-host-provider.js";
+} from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type {
   RegistrySource,
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
-type RegistrySourceHostProvider<R = never> = SourceHostProvider<RegistrySource, R> & {
+type RegistrySourceHostProvider<R = never> = SourceHostProvider<RegistrySource, R, AppError> & {
   readonly resolveNamed: (
     source: RegistrySource,
     options: NamedRegistryFindOptions,

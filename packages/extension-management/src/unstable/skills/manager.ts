@@ -20,7 +20,7 @@ import * as Option from "effect/Option";
 import { sourceToLockEntry } from "../workspace/source-to-lock-entry.js";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "../extensions/configured-entry.js";
-import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { SourceHostProviders } from "../source-resolution/index.js";
 import type {
   ExtensionManager,
@@ -29,7 +29,7 @@ import type {
 import type { ExtensionTarget, SkillExtensionTarget } from "../workspace/service-interface.js";
 import { WorkspaceMutations } from "../workspace/service-interface.js";
 import { sanitizeName } from "../workspace/extension-name.js";
-import type { SourceHash } from "../workspace/rendered-files.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computePackageContentHash } from "../workspace/package-hash.js";
 import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import { stripFileProtocol } from "../utils/index.js";

@@ -19,7 +19,7 @@ import type { ManagedFileProvenance } from "../extensions/managed-file-banner.js
 import type { RenderedFilePath } from "../workspace/rendered-files.js";
 import type { ArtifactChange } from "../workspace/artifact-change.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { WorkspaceMutations } from "../workspace/service-interface.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 

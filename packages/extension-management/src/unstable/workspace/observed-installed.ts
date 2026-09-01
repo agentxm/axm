@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import type { InstallableExtensionType } from "./installable-types.js";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceMutationsService, WorkspaceStateReadFailure } from "./service-interface.js";
 
 /**

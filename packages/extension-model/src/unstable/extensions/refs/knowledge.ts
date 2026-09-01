@@ -1,4 +1,4 @@
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
+import type { ExtensionName } from "../common.js";
 import type {
   ExtensionRefBase,
   GitHostedRefDetails,
@@ -11,7 +11,7 @@ import type {
   LocalSource,
   RegistrySource,
   WorkspaceSource,
-} from "@agentxm/extension-model/unstable/sources/types";
+} from "../../sources/types.js";
 
 type KnowledgeExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "knowledge",

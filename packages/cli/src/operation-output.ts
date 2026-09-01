@@ -58,7 +58,7 @@ import {
   serializeErrorCauseChain,
 } from "@agentxm/extension-management/unstable/app-error";
 import { formatMinimumReleaseAgeSeconds } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
-import { DeprecationViewSchema } from "@agentxm/registry-protocol/unstable/registry";
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { renderOperationOutcome, resolutionAgentCoverage } from "./operation-render.js";

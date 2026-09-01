@@ -13,7 +13,7 @@ import { type InstructionsConfig } from "../settings/index.js";
 import { createSymlink } from "../workspace/create-symlink.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { AXM_DIR_NAME } from "../workspace/paths.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "../workspace/transaction.js";
 import { recordFootprint } from "../workspace/footprint-recorder.js";
 import { reconcilePatternList } from "../projection/adapters.js";

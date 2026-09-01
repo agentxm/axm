@@ -37,7 +37,7 @@ import {
   computeMaterializedTreeIntegrity,
   type TreeIntegrity,
 } from "../workspace/materialized-tree.js";
-import type { SourceHash } from "../workspace/rendered-files.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { KnowledgeLockEntry } from "../lockfile/index.js";
 import { acceptedRegistryVersionForRef, validateExactResolvedVersion } from "../lockfile/index.js";
 import { gitSourceLockFields } from "../lockfile/entry-fields.js";
@@ -100,7 +100,7 @@ import type {
   KnowledgeExtensionRef,
   LocalKnowledgeRef,
   RegistryKnowledgeRef,
-} from "../workspace/refs/knowledge.js";
+} from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 
 export interface KnowledgeManagerService extends ExtensionManager<KnowledgeExtensionRef> {

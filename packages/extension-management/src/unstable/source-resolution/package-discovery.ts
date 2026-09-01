@@ -5,7 +5,10 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { DISCOVERY_MAX_DEPTH, DISCOVERY_SKIPPED_DIRECTORIES } from "../workspace/discovery-walk.js";
+import {
+  DISCOVERY_MAX_DEPTH,
+  DISCOVERY_SKIPPED_DIRECTORIES,
+} from "@agentxm/extension-model/unstable/discovery-walk";
 import type {
   ExtensionName,
   ExtensionType,

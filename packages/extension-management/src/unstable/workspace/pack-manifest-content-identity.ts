@@ -1,4 +1,5 @@
-import { computeSourceHash, type SourceHash } from "./rendered-files.js";
+import { computeSourceHash } from "./rendered-files.js";
+import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 interface PackManifestIdentityInput {
   readonly owner: string;

@@ -1,4 +1,4 @@
-import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 export const formatDeprecationWarning = (
   extensionRef: string,

@@ -74,10 +74,8 @@ import {
   type SourceHostConfig,
   writeSettingsAtPath,
 } from "../settings/index.js";
-import {
-  DEFAULT_MINIMUM_RELEASE_AGE,
-  type ScopedReleaseAgeExcludePattern,
-} from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { DEFAULT_MINIMUM_RELEASE_AGE } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ScopedReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";

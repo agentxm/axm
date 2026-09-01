@@ -18,7 +18,10 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type AppError, makeAppError } from "../../../app-error/index.js";
-import { DISCOVERY_MAX_DEPTH, DISCOVERY_SKIPPED_DIRECTORIES } from "../../discovery-walk.js";
+import {
+  DISCOVERY_MAX_DEPTH,
+  DISCOVERY_SKIPPED_DIRECTORIES,
+} from "@agentxm/extension-model/unstable/discovery-walk";
 import { envOption } from "../../../utils/index.js";
 
 /**

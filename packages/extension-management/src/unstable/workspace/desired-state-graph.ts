@@ -16,7 +16,7 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { PackRef } from "./refs/pack.js";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { computePackPathsForLayout } from "./pack-paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

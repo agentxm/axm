@@ -17,7 +17,7 @@ import {
   type ExtensionType,
   type ExtensionPlacement,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { WorkspaceScope } from "./scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export type SetupScopeSupportStatus = "supported" | "project-only" | "unsupported" | "refused";
 

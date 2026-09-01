@@ -9,20 +9,17 @@
  * @packageDocumentation
  */
 
-import type {
-  ExtensionName,
-  ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/common";
+import type { ExtensionName, ExtensionType } from "../common.js";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
-import type { RefType, Source } from "@agentxm/extension-model/unstable/sources/types";
-import type { ExtensionDependencyConstraintMap } from "@agentxm/extension-model/unstable/extensions/common";
-import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { WorkspaceScope } from "../scope.js";
-import type { SourceHash } from "../rendered-files.js";
-import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type { RefType, Source } from "../../sources/types.js";
+import type { ExtensionDependencyConstraintMap } from "../common.js";
+import type { Version } from "../../version-constraints/version-constraints.js";
+import type { Handle } from "../handle.js";
+import type { PackageUrlParts } from "../../packaging/package-url.js";
+import type { WorkspaceScope } from "../../workspace-scope.js";
+import type { SourceHash } from "../../sources/source-hash.js";
+import type { DeprecationView } from "../deprecation.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces

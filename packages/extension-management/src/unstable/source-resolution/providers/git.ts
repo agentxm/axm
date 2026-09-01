@@ -11,10 +11,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import { makeAppError } from "../../app-error/index.js";
+import { makeAppError, type AppError } from "../../app-error/index.js";
 import { shallowClone } from "../../git/index.js";
 import { fileUrlToPath } from "../file-url.js";
-import type { SourceHostProvider } from "../../workspace/source-host-provider.js";
+import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
 
@@ -28,7 +28,8 @@ import { discoverConventionRefs } from "./convention-discovery.js";
  */
 export const createGitSourceHostProvider = (): SourceHostProvider<
   GitSource,
-  FileSystem.FileSystem | Path.Path | Scope.Scope
+  FileSystem.FileSystem | Path.Path | Scope.Scope,
+  AppError
 > => ({
   type: "git",
 

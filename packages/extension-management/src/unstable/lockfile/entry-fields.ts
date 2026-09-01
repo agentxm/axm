@@ -5,7 +5,7 @@
  */
 
 import * as Option from "effect/Option";
-import type { SourceHash } from "../workspace/rendered-files.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";

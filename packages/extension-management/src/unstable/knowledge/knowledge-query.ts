@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { WORKSPACE_SCOPES } from "../workspace/scope.js";
+import { WORKSPACE_SCOPES } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { KnowledgeSearchableField } from "./knowledge-projection.js";
 
 export const KNOWLEDGE_QUERY_CONTRACT_VERSION = "axm-knowledge-query-v1";

@@ -26,7 +26,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { ArtifactChange } from "../workspace/artifact-change.js";
 import type { ConfiguredAgentOutcome } from "../workspace/configured-agent-outcome.js";
-import type { DeprecationView } from "@agentxm/registry-protocol/unstable/registry";
+import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ReleaseAgeOperationEvidence } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 

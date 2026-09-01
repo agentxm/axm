@@ -10,7 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { makeAppError, type AppError } from "../app-error/index.js";
 import { computeSourceHash } from "./rendered-files.js";
-import type { SourceHash } from "./rendered-files.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 /**
  * Compute an advisory SHA-256 change marker over package content recursively.

@@ -1,6 +1,6 @@
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
-import type { WorkspaceScope } from "./scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { setupScopeSupportOutcomes } from "./setup-scope-support.js";
 
 export type ConfiguredAgentLifecycleState = "projected" | "current";

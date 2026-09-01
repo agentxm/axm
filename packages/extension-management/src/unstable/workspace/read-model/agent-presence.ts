@@ -15,7 +15,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { WorkspaceScope } from "../scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 /** Presence detection failed; the read model degrades to an empty set. */
 export class AgentPresenceUnavailable extends Data.TaggedError("AgentPresenceUnavailable")<{

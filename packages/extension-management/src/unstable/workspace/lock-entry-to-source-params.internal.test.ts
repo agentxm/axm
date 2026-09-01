@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { TreeIntegritySchema } from "./materialized-tree.js";
-import { SourceHashSchema } from "./rendered-files.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   lockEntryToSourceParams,

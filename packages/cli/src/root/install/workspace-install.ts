@@ -14,9 +14,9 @@ import { KnowledgeManager } from "@agentxm/extension-management/unstable/knowled
 import {
   normalizeReleaseAgeRecords,
   type ReleaseAgeBypassRecord,
-  type ReleaseAgeEvaluation,
   type ReleaseAgeHoldbackRecord,
 } from "@agentxm/registry-protocol/unstable/registry/release-age-policy";
+import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,
   type Plan,

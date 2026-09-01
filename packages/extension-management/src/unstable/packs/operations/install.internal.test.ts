@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { TestRenderer, logsByTag } from "../../cli-renderer/index.js";
 import { SettingsWriteError } from "../../settings/errors.js";
-import type { ExtensionRef } from "../../workspace/refs/extension-ref.js";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as Schema from "effect/Schema";

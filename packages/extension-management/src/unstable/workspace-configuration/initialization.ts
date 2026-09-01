@@ -35,7 +35,7 @@ import { LOCKFILE_VERSION, writeLockfileAtPath } from "../lockfile/index.js";
 import { createDefaultSettings, type Settings, writeSettingsAtPath } from "../settings/index.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceMutationsOptions } from "../workspace/service-interface.js";
-import type { WorkspaceScope } from "../workspace/scope.js";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { AgentRootResolverLive } from "../workspace/read-model/agent-root-resolver.js";
 import {
   makeWorkspaceReadModel,

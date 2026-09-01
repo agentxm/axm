@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillExtensionRef } from "../workspace/refs/skill.js";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { stripFileProtocol } from "../utils/index.js";
 
 // -----------------------------------------------------------------------------

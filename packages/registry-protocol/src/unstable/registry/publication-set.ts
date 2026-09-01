@@ -25,7 +25,10 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { DeprecationViewSchema, type DeprecationView } from "./schema.js";
+import {
+  DeprecationViewSchema,
+  type DeprecationView,
+} from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 export const PUBLICATION_SET_CONTRACT = "publication-set-v2" as const;
 export const MAX_PUBLICATION_SET_CANDIDATES = 100;

@@ -8,7 +8,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import { installableExtensionTypes, type InstallableExtensionType } from "./installable-types.js";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceStateReadFailure } from "./service-interface.js";
 import { isAxmManagedMcpEntry, isMcpServerApplicableToAgent } from "./mcp-entry-semantics.js";
 import { createDefaultSettings } from "../settings/index.js";

@@ -75,10 +75,14 @@ const cleanWorkspaceEvidence: EvidencePointer = {
   needle: "clean workspace exits zero",
 };
 
-const evidence = (ruleId: string, path: string): WorkspaceRuleConformanceEvidence => ({
+const evidence = (
+  ruleId: string,
+  path: string,
+  needle: string = ruleId,
+): WorkspaceRuleConformanceEvidence => ({
   ruleId,
   satisfied: cleanWorkspaceEvidence,
-  violated: { path, needle: ruleId },
+  violated: { path, needle },
 });
 
 /**
@@ -91,10 +95,12 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   evidence(
     "workspace/initialized",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "initializedConformance",
   ),
   evidence(
     "workspace/settings-schema-valid",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "settingsSchemaValidConformance",
   ),
   evidence(
     "workspace/settings-keys-recognized",
@@ -103,6 +109,7 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   evidence(
     "workspace/lockfile-valid",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "lockfileValidConformance",
   ),
   evidence(
     "workspace/source-endpoints-aligned",
@@ -119,6 +126,7 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   evidence(
     "workspace/agents-recognized",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "agentsRecognizedConformance",
   ),
   evidence(
     "workspace/agents-detected-declared",
@@ -160,10 +168,12 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   evidence(
     "workspace/skills-declarations-valid",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "skillsDeclarationsValidConformance",
   ),
   evidence(
     "workspace/packs-declarations-valid",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "packsDeclarationsValidConformance",
   ),
   evidence(
     "workspace/configured-but-not-installed",
@@ -176,10 +186,12 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   evidence(
     "workspace/mcps-transport-exclusivity",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "mcpTransportExclusivityConformance",
   ),
   evidence(
     "workspace/mcps-no-secret-literal",
     "packages/workspace-lint/src/catalog/workspace/conformance/foundation/test-helpers.ts",
+    "mcpNoSecretLiteralConformance",
   ),
   evidence(
     "workspace/mcps-shared-target-compatible",

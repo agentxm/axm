@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-operations",
-  "version": "0.28.3",
-  "description": "AXM workspace operations kernel: plans, execution candidates, operation resolutions, and workspace transactions for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "version": "0.28.4",
+  "description": "AXM workspace operations kernel: plans, execution candidates, operation resolutions, and workspace transactions for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",

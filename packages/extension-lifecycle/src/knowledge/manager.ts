@@ -625,9 +625,6 @@ export const KnowledgeManagerLive = Layer.effect(
                   expectedContributors: input.contributors.map(
                     ({ owner, name }) => `${owner}/knowledge/${name}`,
                   ),
-                  observedContributors: Option.isSome(result.observedRegion)
-                    ? input.contributors.map(({ owner, name }) => `${owner}/knowledge/${name}`)
-                    : [],
                 })),
               ),
             apply: (input) =>

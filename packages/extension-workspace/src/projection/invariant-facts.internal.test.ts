@@ -19,7 +19,7 @@ const observation = (
 });
 
 describe("projection invariant facts", () => {
-  it("classifies a partial aggregate output as incomplete from output evidence", () => {
+  it("classifies partial structured output as incomplete from exact evidence", () => {
     const fact = makeProjectionInvariantFact(
       observation({
         current: false,
@@ -47,9 +47,23 @@ describe("projection invariant facts", () => {
         status: "current",
         contributors: ["@acme/rules/alpha", "@acme/rules/beta"],
       },
-      affectedContributors: ["@acme/rules/beta"],
     });
     expect(projectionFactIsViolation(fact)).toBe(true);
+  });
+
+  it("classifies opaque aggregate divergence as stale without contributor evidence", () => {
+    const fact = makeProjectionInvariantFact(
+      {
+        unitId: "rule:instructions-region",
+        path: "AGENTS.md#rules",
+        present: true,
+        current: false,
+        expectedContributors: ["@acme/rules/alpha", "@acme/rules/beta"],
+      },
+      "project",
+    );
+
+    expect(fact.observation).toEqual({ status: "stale" });
   });
 
   it("distinguishes missing, stale, obsolete, and current units", () => {
@@ -87,7 +101,6 @@ describe("projection invariant facts", () => {
         message: "Marker version 2 is unsupported; upgrade AXM.",
       },
       expectation: { status: "current", contributors: [] },
-      affectedContributors: [],
     };
     expect(projectionFactIsViolation(fact)).toBe(true);
   });

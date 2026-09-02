@@ -809,9 +809,6 @@ export const HookManagerLive = Layer.effect(
             present: Option.isSome(observedRegion),
             current: !changed,
             expectedContributors: input.contributors.map(({ marker }) => marker),
-            observedContributors: Option.isSome(observedRegion)
-              ? input.contributors.map(({ marker }) => marker)
-              : [],
           } satisfies ProjectionUnitObservation,
         };
       });

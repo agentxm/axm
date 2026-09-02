@@ -461,7 +461,6 @@ export {
 } from "./knowledge/errors.js";
 export {
   KNOWLEDGE_REGION_OWNER,
-  observedKnowledgeContributors,
   reconcileKnowledgeDiscovery,
   renderKnowledgeBaseTable,
   type KnowledgeDiscoveryArtifact,

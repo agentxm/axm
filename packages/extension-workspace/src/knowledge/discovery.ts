@@ -9,7 +9,6 @@ import { projectionGeneration, reconcileManagedRegionFile } from "../projection/
 import {
   MARKER_KIND_POINT,
   MARKER_VERSION,
-  parseMarker,
   serializeMarker,
 } from "../projection/marker-grammar.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "@agentxm/workspace-state";
@@ -97,16 +96,6 @@ export const renderKnowledgeBaseTable = (args: {
     ...sections,
   ].join("\n\n");
 };
-
-export const observedKnowledgeContributors = (content: string): ReadonlyArray<string> =>
-  content.split(/\r?\n/u).flatMap((line) => {
-    const parsed = parseMarker(line, { kind: "block", open: "<!--", close: "-->" });
-    return parsed.state === "complete" &&
-      parsed.marker.kind === MARKER_KIND_POINT &&
-      parsed.marker.pointKind === "knowledge"
-      ? [parsed.marker.ext]
-      : [];
-  });
 
 export const reconcileKnowledgeDiscovery = (args: {
   readonly scopeRoot: string;

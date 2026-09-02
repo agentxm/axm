@@ -101,6 +101,10 @@ export interface ProjectionUnitObservation {
   /** Whether the unit's authority-derived generation or decoded value is current. */
   readonly current: boolean;
   readonly expectedContributors: ReadonlyArray<string>;
-  /** Contributor identities established by the unit's current provenance or structure. */
-  readonly observedContributors: ReadonlyArray<string>;
+  /**
+   * Contributor identities established by exact structure-level evidence.
+   * Aggregate generation provenance establishes unit currency, not which
+   * contributor caused a mismatch, so opaque generated units omit this field.
+   */
+  readonly observedContributors?: ReadonlyArray<string>;
 }

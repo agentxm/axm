@@ -532,9 +532,6 @@ export const RuleManagerLive = Layer.effect(
           present: Option.isSome(observedRegion),
           current: !changed,
           expectedContributors: contributors.map(({ marker }) => marker),
-          observedContributors: Option.isSome(observedRegion)
-            ? contributors.map(({ marker }) => marker)
-            : [],
         } satisfies ProjectionUnitObservation;
         if (args.dryRun === true) {
           return {

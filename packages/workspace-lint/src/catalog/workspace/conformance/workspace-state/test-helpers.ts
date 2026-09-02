@@ -217,9 +217,6 @@ const projectionContext = (ownershipValid: boolean) =>
                   status: "current",
                   contributors: ["@acme/rules/alpha", "@acme/rules/beta"],
                 },
-                affectedContributors: ownershipValid
-                  ? []
-                  : ["@acme/rules/alpha", "@acme/rules/beta"],
               } satisfies ProjectionInvariantFact,
             ]),
           },

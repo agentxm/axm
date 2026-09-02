@@ -109,6 +109,9 @@ input generation, as
 Generated document bodies are opaque: their bytes are neither authority nor a
 currency check. Structured native entries compare decoded values. Installed
 canonical content is not evidence that the derived unit exists on disk.
+Accordingly, reconciliation output for an aggregate generated unit names the
+unit and observed status without presenting participant identities as the
+proven cause of divergence.
 
 Path, name, matching bytes, or ownership of a surrounding file never prove
 ownership of the unit. AXM does not adopt equivalent native content. Manual

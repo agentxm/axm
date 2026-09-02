@@ -236,10 +236,6 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
               "@acme/knowledge/pack-a-bundle",
               "@acme/knowledge/pack-b-bundle",
             ],
-            observedContributors: [
-              "@acme/knowledge/pack-a-bundle",
-              "@acme/knowledge/pack-b-bundle",
-            ],
           }),
         ],
       );

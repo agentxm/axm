@@ -51,7 +51,8 @@ export interface ProjectionInvariantFact {
   };
   readonly observation: {
     readonly status: ProjectionObservationStatus;
-    readonly contributors: ReadonlyArray<string>;
+    /** Exact structure-level evidence when the adapter can establish it. */
+    readonly contributors?: ReadonlyArray<string>;
     readonly reasonCode?: string;
     readonly message?: string;
   };
@@ -59,7 +60,6 @@ export interface ProjectionInvariantFact {
     readonly status: "current";
     readonly contributors: ReadonlyArray<string>;
   };
-  readonly affectedContributors: ReadonlyArray<string>;
 }
 
 const uniqueSorted = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
@@ -86,7 +86,6 @@ const makeUnavailableProjectionFact = (args: {
     authority: { source: "desired-state-graph", contributors },
     observation: {
       status: "unavailable",
-      contributors: [],
       ...(args.errorDetail === undefined
         ? {}
         : {
@@ -99,7 +98,6 @@ const makeUnavailableProjectionFact = (args: {
           }),
     },
     expectation: { status: "current", contributors },
-    affectedContributors: contributors,
   };
 };
 
@@ -107,6 +105,7 @@ const observationStatus = (observation: ProjectionUnitObservation): ProjectionOb
   if (observation.current) return "current";
   if (observation.expectedContributors.length === 0) return "obsolete";
   if (!observation.present) return "missing";
+  if (observation.observedContributors === undefined) return "stale";
   const observedExpected = observation.observedContributors.filter((contributor) =>
     observation.expectedContributors.includes(contributor),
   );
@@ -124,18 +123,13 @@ export const makeProjectionInvariantFact = (
   scope: WorkspaceScope,
 ): ProjectionInvariantFact => {
   const expectedContributors = uniqueSorted(unit.expectedContributors);
-  const observedContributors = uniqueSorted(unit.observedContributors);
+  const observedContributors =
+    unit.observedContributors === undefined ? undefined : uniqueSorted(unit.observedContributors);
   const status = observationStatus({
     ...unit,
     expectedContributors,
-    observedContributors,
+    ...(observedContributors === undefined ? {} : { observedContributors }),
   });
-  const affectedContributors =
-    status === "incomplete" || status === "missing"
-      ? expectedContributors.filter((contributor) => !observedContributors.includes(contributor))
-      : status === "current"
-        ? []
-        : uniqueSorted([...expectedContributors, ...observedContributors]);
   return {
     predicate: PROJECTION_INVARIANT_PREDICATE,
     subject: {
@@ -145,9 +139,11 @@ export const makeProjectionInvariantFact = (
       ...(unit.owner === undefined ? {} : { owner: unit.owner }),
     },
     authority: { source: "desired-state-graph", contributors: expectedContributors },
-    observation: { status, contributors: observedContributors },
+    observation: {
+      status,
+      ...(observedContributors === undefined ? {} : { contributors: observedContributors }),
+    },
     expectation: { status: "current", contributors: expectedContributors },
-    affectedContributors,
   };
 };
 

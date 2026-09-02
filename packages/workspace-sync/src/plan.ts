@@ -102,11 +102,7 @@ export const projectionDivergenceLabel = (
   const statuses = Array.from(
     new Set(violations.map(({ observation }) => observation.status)),
   ).join(", ");
-  const contributors = Array.from(
-    new Set(violations.flatMap(({ affectedContributors }) => affectedContributors)),
-  );
-  const details = contributors.length === 0 ? statuses : `${statuses}: ${contributors.join(", ")}`;
-  return details.length === 0 ? label : `${label} (${details})`;
+  return statuses.length === 0 ? label : `${label} (${statuses})`;
 };
 
 const managedRegionsForFacts = (facts: ReadonlyArray<ProjectionInvariantFact>) =>
@@ -310,7 +306,7 @@ export const collectKnowledgeStep = Effect.fn("Sync.collectKnowledgeStep")(funct
   } satisfies JobStepArtifact;
   return Option.some({
     key: "knowledge:discovery",
-    label: "Knowledge discovery",
+    label: projectionDivergenceLabel("Knowledge discovery", args.facts ?? []),
     readiness: "ready",
     artifact,
     ...(message.length === 0 ? {} : { message }),

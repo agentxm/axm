@@ -109,14 +109,17 @@ The projection fact family is cross-type and relates each owned output unit to
 the contributor set the desired state requires of it. Generated documents
 record one generation digest for the complete authoritative input set. A
 matching digest establishes currency without interpreting the generated body;
-a missing or different digest is sync work. Contributor point markers may aid
-humans and diagnostics but are not currency evidence.
+a missing or different digest is sync work. Because that digest covers the
+aggregate input set, a mismatch establishes divergence only for the ownership
+unit; it does not identify which contributor changed. Contributor point markers
+may aid humans and diagnostics but are neither currency nor causal evidence.
 
 Structured execution-bearing projections derive currency from decoded native
-values. Missing units, stale generation, differing structured values,
-obsolete owned units, collisions, and ambiguous ownership remain distinct
-planning facts. Canonical source content establishes expected generation, not
-proof that a projection exists on disk.
+values and can retain contributor-level observations when their decoded
+structure establishes them exactly. Missing units, stale generation, differing
+structured values, obsolete owned units, collisions, and ambiguous ownership
+remain distinct planning facts. Canonical source content establishes expected
+generation, not proof that a projection exists on disk.
 
 ## Evaluation and isolation
 

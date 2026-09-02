@@ -645,6 +645,18 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Methods: golden-output, contract
 - Source: [`specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts`](../specifications/cli/mcps/list/local-name-source-and-resolution-are-distinct.spec.ts)
 
+#### Sync
+
+##### Sync reports aggregate projection drift at ownership-unit precision
+
+- Requirement: `cli/sync/reports-aggregate-projection-drift-at-unit-precision`
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`, `machine-automation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, contract, example
+- Source: [`specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../specifications/cli/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+
 ### Extension identity
 
 #### Canonical Names Round Trip

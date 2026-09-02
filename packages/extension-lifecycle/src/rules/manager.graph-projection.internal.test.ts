@@ -295,7 +295,6 @@ describe("RuleManager graph-derived region projection", () => {
             current: true,
             present: true,
             expectedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
-            observedContributors: ["@acme/rules/pack-a-rule", "@acme/rules/pack-b-rule"],
           }),
         ],
       );

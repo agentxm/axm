@@ -44,7 +44,21 @@ describe("projection fact consumers", () => {
       ),
     ];
     expect(projectionDivergenceLabel("instruction files", incompleteFacts)).toBe(
-      "instruction files (incomplete: @acme/rules/beta)",
+      "instruction files (incomplete)",
     );
+    expect(
+      projectionDivergenceLabel("instruction files", [
+        makeProjectionInvariantFact(
+          {
+            unitId: "rule:instructions-region",
+            path: "AGENTS.md#rules",
+            present: true,
+            current: false,
+            expectedContributors: ["@acme/rules/alpha", "@acme/rules/beta"],
+          },
+          "project",
+        ),
+      ]),
+    ).toBe("instruction files (stale)");
   });
 });

@@ -2,9 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import type { InstalledSubagent } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode, InstalledSubagent } from "@agentxm/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
+import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
 import {
   contextFor,
   validLockfile,
@@ -69,6 +70,83 @@ export const configuredButNotInstalledConformance: WorkspaceRuleConformanceCase 
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
 };
 
+const desiredReviewer = {
+  type: "skill",
+  name: "reviewer",
+  identity: "@acme/skills/reviewer",
+  source: "@acme/skills/reviewer@^1.0.0",
+  enabled: true,
+  constraints: ["^1.0.0"],
+  origins: [
+    {
+      type: "settings",
+      source: "@acme/skills/reviewer@^1.0.0",
+      enabled: true,
+    },
+  ],
+} satisfies DesiredExtensionNode;
+
+const skillLockContext = (accepted: boolean) =>
+  contextFor({
+    settings: validSettings({
+      agents: ["claude-code"],
+      skills: { reviewer: "@acme/skills/reviewer@^1.0.0" },
+    }),
+    lockfile: {
+      _tag: "valid",
+      contents: {
+        lockfileVersion: 6,
+        skills: accepted
+          ? {
+              reviewer: {
+                type: "registry",
+                sourceType: "registry",
+                sourceName: "agentxm",
+                endpoint: "https://registry.agentxm.ai",
+                extensionType: "skill",
+                workspaceName: "reviewer",
+                packageFormat: "agentxm",
+                owner: "@acme",
+                name: "reviewer",
+                resolvedVersion: "1.2.0",
+                integrity: "sha512-stub",
+                publisherBindingId: "hbnd_test",
+                treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+              },
+            }
+          : {},
+      },
+    },
+  }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [desiredReviewer],
+              problems: [],
+            }),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
+  rule: skillsLockfileAlignedRule,
+  satisfied: () => skillLockContext(true),
+  violated: () => skillLockContext(false),
+  expectedFindings: [
+    {
+      message: "Skill 'reviewer' has desired external content but no accepted resolution.",
+      location: { file: "axm-lock.yaml" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
 export const extensionConformanceCases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   configuredButNotInstalledConformance,
+  skillsLockfileAlignedConformance,
 ];

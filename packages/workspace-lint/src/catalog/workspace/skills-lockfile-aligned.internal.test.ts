@@ -74,25 +74,6 @@ const registryResolution = (resolvedVersion: string) => ({
 });
 
 describe("workspace/skills-lockfile-aligned", () => {
-  it.effect("reports an accepted resolution that has no desired declaration", () =>
-    Effect.gen(function* () {
-      const state = emptyWorkspaceState();
-      state.settings = { agents: ["claude-code"], skills: {} };
-      state.lockfile = {
-        lockfileVersion: 6,
-        skills: { reviewer: registryResolution("1.0.0") },
-      };
-
-      const findings = yield* runCheck(state);
-
-      expect(findings).toHaveLength(1);
-      expect(findings[0]?.message).toBe(
-        "Skill 'reviewer' has an accepted resolution but is not desired.",
-      );
-      expect(findings[0]).not.toHaveProperty("suggestedAction");
-    }),
-  );
-
   it.effect("reports an orphan Git resolution without prescribing a command", () =>
     Effect.gen(function* () {
       const state = emptyWorkspaceState();
@@ -129,20 +110,6 @@ describe("workspace/skills-lockfile-aligned", () => {
         "Skill 'review' has an accepted resolution but is not desired.",
       );
       expect(findings[0]?.message).not.toContain("axm ");
-    }),
-  );
-
-  it.effect("accepts a Registry resolution satisfying the desired constraint", () =>
-    Effect.gen(function* () {
-      const source = "@acme/skills/reviewer@^0.1.0";
-      const state = emptyWorkspaceState();
-      state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
-      state.lockfile = {
-        lockfileVersion: 6,
-        skills: { reviewer: registryResolution("0.1.0") },
-      };
-
-      expect(yield* runCheck(state, [desiredSkill(source, ["^0.1.0"])])).toEqual([]);
     }),
   );
 

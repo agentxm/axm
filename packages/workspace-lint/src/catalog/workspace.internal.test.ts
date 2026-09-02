@@ -224,7 +224,8 @@ const WORKSPACE_RULE_CONFORMANCE: ReadonlyArray<WorkspaceRuleConformanceEvidence
   ),
   evidence(
     "workspace/skills-lockfile-aligned",
-    "packages/workspace-lint/src/catalog/workspace/skills-lockfile-aligned.internal.test.ts",
+    "packages/workspace-lint/src/catalog/workspace/conformance/extensions/test-helpers.ts",
+    "skillsLockfileAlignedConformance",
   ),
   evidence(
     "workspace/skills-integrity-valid",

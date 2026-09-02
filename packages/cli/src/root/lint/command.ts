@@ -47,7 +47,7 @@ const lintConfig = {
   ),
 } as const;
 
-interface RunLintCommandArgs {
+export interface RunLintCommandArgs {
   readonly path: Option.Option<string>;
   readonly scope: WorkspaceScope;
   readonly strict: boolean;
@@ -56,7 +56,7 @@ interface RunLintCommandArgs {
   readonly view: LintView;
 }
 
-const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
+export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
   const executionDirectory = yield* ExecutionDirectory;
   const path = yield* Path.Path;
   const projectRoot = Option.match(args.path, {

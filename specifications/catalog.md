@@ -196,6 +196,17 @@ product behavior, programmatic interfaces, and supporting system behavior.
 - Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`specifications/cli/lint/honors-configured-rule-severities.spec.ts`](../specifications/cli/lint/honors-configured-rule-severities.spec.ts)
 
+##### Lint observes only the selected filesystem view
+
+- Requirement: `cli/lint/observes-selected-filesystem-view`
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Additional evidence: process via [`packages/cli-e2e/src/lint.e2e.test.ts`](../packages/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
+- Source: [`specifications/cli/lint/observes-selected-filesystem-view.spec.ts`](../specifications/cli/lint/observes-selected-filesystem-view.spec.ts)
+
 ##### Lint reports invariant violations without changing any workspace state
 
 - Requirement: `cli/lint/reports-facts-without-mutation`

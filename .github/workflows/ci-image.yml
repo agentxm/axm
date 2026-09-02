@@ -52,7 +52,7 @@ jobs:
           install: "false"
 
       - name: Verify source-free image contract
-        run: pnpm run check:ci-image
+        run: pnpm --config.verify-deps-before-run=warn run check:ci-image
 
       - name: Require VERSION bump for image input changes
         if: inputs.base_sha != '' && inputs.head_sha != ''

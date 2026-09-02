@@ -64,7 +64,9 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: pnpm run classify:ci -- --base "$BASE_SHA" --head "$HEAD_SHA"
+        run: >-
+          pnpm --config.verify-deps-before-run=warn run classify:ci --
+          --base "$BASE_SHA" --head "$HEAD_SHA"
 
   format:
     name: Format

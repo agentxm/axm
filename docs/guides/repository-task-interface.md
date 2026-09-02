@@ -101,15 +101,15 @@ verdicts.
 Root scripts are limited to same-intent aliases, bounded composites, bootstrap
 launchers, and host adapters. These boundaries are intentional:
 
-| Boundary                                                              | Reason                                                                                 |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `axm`, `axm:local`, and `axm:link*`                                   | Launch the source CLI or link it into an external workspace                            |
-| `container:*`                                                         | Create the environment in which the task graph can run                                 |
-| `classify:ci` and `check:ci-image`                                    | Run before workspace dependencies exist                                                |
-| `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                |
-| `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped |
-| `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent               |
-| release workflow platform steps                                       | Hold credentials, GitHub release state, and platform matrices outside Nx               |
+| Boundary                                                              | Reason                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `axm`, `axm:local`, and `axm:link*`                                   | Launch the source CLI or link it into an external workspace                                                                     |
+| `container:*`                                                         | Create the environment in which the task graph can run                                                                          |
+| `classify:ci` and `check:ci-image`                                    | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
+| `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
+| `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
+| `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent                                                        |
+| release workflow platform steps                                       | Hold credentials, GitHub release state, and platform matrices outside Nx                                                        |
 
 Automation invokes targets directly unless it needs one of these host
 semantics. Direct Vitest, TypeScript, ESLint, Prettier, or Bun invocation is not

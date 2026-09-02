@@ -272,7 +272,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/workspace-lint/src/catalog/workspace/source-endpoints-aligned.internal.test.ts",
+      "packages/workspace-lint/src/catalog/workspace/conformance/reconciliation/test-helpers.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {
